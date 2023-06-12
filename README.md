@@ -8,4 +8,4 @@ Mobility Feed API is not released yet; any code or service hosted is considered 
 
 # Viewing the API
 
-Follow this [link](WebDisplay/index.html).
+Follow this [link](https://mobilitydata.github.io/mobility-feed-api/WebDisplay/index.html).
