@@ -6,6 +6,6 @@ The Mobility Feed API service a list of open mobility data sources from across t
 
 Mobility Feed API is not released yet; any code or service hosted is considered as **Work in Progress**. For more information regarding the current Mobility Database Catalog, go to [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs).
 
-# Viewing the API
+# Viewing the API. Had to use the absolute adress. If not the source code of index.html would be dinsplayed instead of the rendered page.
 
 Follow this [link](https://mobilitydata.github.io/mobility-feed-api/WebDisplay/index.html).
