@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  version: 1.0.0
-  title: Mobility Data Catalog API Proposed Version 1
-  description: API as required in the Product Requirement Document for the Mobility Database
+  version: 0.1.0
+  title: Mobility Data Catalog API
+  description: API as required in the _Proposed Version 1_ from the _Product Requirement Document for the Mobility Database_
   termsOfService: https://mobilitydata.org/terms-of-use
   contact:
     name: MobilityData
@@ -272,7 +272,6 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/Feed"
-
 
     Dataset:
       allOf:
