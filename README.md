@@ -9,4 +9,4 @@ Mobility Feed API is not released yet; any code or service hosted is considered 
 # Viewing the API. 
 <!--- Had to use the absolute adress. If not the source code of index.html would be displayed instead of the rendered page. --->
 
-Follow this [link](https://mobilitydata.github.io/mobility-feed-api/WebDisplay/index.html).
+Follow this [link](https://mobilitydata.github.io/mobility-feed-api/docs/SwaggerUI/index.html).
