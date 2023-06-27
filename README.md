@@ -4,4 +4,9 @@ The Mobility Feed API service a list of open mobility data sources from across t
 
 # Work in Progress Status
 
-Mobility Feed API is not released yet; any code or service hosted is considered as **Work in Progress**. For more information regarding the current Mobility Database Catalog, go to [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs). 
+Mobility Feed API is not released yet; any code or service hosted is considered as **Work in Progress**. For more information regarding the current Mobility Database Catalog, go to [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs).
+
+# Viewing the API with Swagger. 
+<!--- Had to use the absolute adress. If not the source code of index.html would be displayed instead of the rendered page. --->
+
+Follow this [link](https://mobilitydata.github.io/mobility-feed-api/docs/SwaggerUI/index.html).

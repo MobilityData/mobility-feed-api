@@ -1,0 +1,564 @@
+openapi: 3.0.0
+info:
+  version: 0.1.0
+  title: Mobility Data Catalog API
+  description: API as required in the _Proposed Version 1_ from the _Product Requirement Document for the Mobility Database_
+  termsOfService: https://mobilitydata.org/terms-of-use
+  contact:
+    name: MobilityData
+    url: https://mobilitydata.org/
+    email: it@mobilitydata.org
+  license:
+    name: MobilityData License
+    url: https://mobilitydata.org/license
+
+servers:
+  - url: http://localhost:8080/
+    description: Development server
+
+tags:
+  - name: "feeds"
+    description: "Feeds of the Mobility Database"
+  - name: "datasets"
+    description: "Datasets of the Mobility Database"
+  - name: "metadata"
+    description: "Metadata about the API"
+
+paths:
+  /feeds:
+    get:
+      description: Get some (or all) feeds from the Mobility Database.
+      tags:
+        - "feeds"
+      parameters:
+        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/sort"
+
+      security:
+        - ApiKeyAuth: [ ]
+      responses:
+        200:
+          description: Successful pull of the GTFS feeds info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicFeeds"
+
+  /feeds/{id}:
+    parameters:
+      - $ref: "#/components/parameters/feedIdPathParam"
+    get:
+      description: Get the specified feed from the Mobility Database.
+      tags:
+        - "feeds"
+
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the requested feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicFeed"
+
+  /feeds/gtfs:
+    get:
+      description: Get some (or all) GTFS feeds from the Mobility Database.
+      tags:
+        - "feeds"
+      parameters:
+        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/boundingLatitudes"
+        - $ref: "#/components/parameters/boundingLongitudes"
+        - $ref: "#/components/parameters/boundingFilterMethod"
+
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the GTFS feeds info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeeds"
+
+  /feeds/gtfs/{id}:
+    parameters:
+      - $ref: "#/components/parameters/feedIdPathParam"
+    get:
+      description: Get the specified feed from the Mobility Database.
+      tags:
+        - "feeds"
+
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the requested feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsFeed"
+
+
+  /feeds/gtfs/{id}/datasets:
+    parameters:
+      - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
+    get:
+      description: Get a list of datasets related to a feed.
+      tags:
+        - "datasets"
+      parameters:
+        - $ref: "#/components/parameters/latestQueryParam"
+        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/boundingLatitudes"
+        - $ref: "#/components/parameters/boundingLongitudes"
+        - $ref: "#/components/parameters/boundingFilterMethod"
+
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the requested datasets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Datasets"
+
+  /datasets/gtfs:
+    get:
+      description: Get some (or all) GTFS datasets from the Mobility Database.
+      tags:
+        - "datasets"
+      parameters:
+        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/sort"
+        - $ref: "#/components/parameters/boundingLatitudes"
+        - $ref: "#/components/parameters/boundingLongitudes"
+        - $ref: "#/components/parameters/boundingFilterMethod"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the datasets info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Datasets"
+
+  /datasets/gtfs/{id}:
+    get:
+      description: Get the specified dataset in the Mobility Database.
+      tags:
+        - "datasets"
+      parameters:
+        - $ref: "#/components/parameters/datasetIdPathParam"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the requested dataset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dataset"
+
+  /metadata:
+    get:
+      description: Get metadata about this API.
+      tags:
+        - "metadata"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the metadata.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Metadata"
+
+components:
+  schemas:
+
+    BasicFeed:
+      type: object
+      properties:
+        id:
+          description: Unique identifier used as a key for the feeds table.
+          type: string
+          example: feed_0
+        data_type:
+          $ref: "#/components/schemas/DataType"
+        status:
+          $ref: "#/components/schemas/FeedStatus"
+        provider:
+          description: A commonly used name for the transit provider included in the feed.
+          type: string
+          example: London Transit Commission
+        feed_name:
+          description: >
+            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+            multiple providers, or which network is represented by the feed.
+          type: string
+          example: Atlantic Station Shuttle (FREE RIDE)
+        note:
+          description: A note to clarify complex use cases for consumers.
+          type: string
+
+    GtfsFeed:
+      allOf:
+        - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          properties:
+            location:
+              $ref: "#/components/schemas/FeedLocation"
+            urls:
+              $ref: "#/components/schemas/FeedUrls"
+
+    BasicFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/BasicFeed"
+
+    GtfsFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/GtfsFeed"
+
+    FeedUrls:
+      type: object
+      properties:
+        producer_url:
+          description: >
+            URL where the producer is providing the dataset. 
+            Refer to the authentication information to know how to access this URL.
+          type: string
+          format: url
+          example: http://www.londontransit.ca/gtfsfeed/google_transit.zip
+        authentication_type:
+          description: >
+            Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
+              * 0 or (empty) - No authentication required.
+              * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
+              * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
+            When not provided, the authentication type is assumed to be 0.
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+        authentication_info_url:
+          description: >
+            Contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created. 
+            This field is required for `authentication_type=1` and `authentication_type=2`.
+          type: string
+          format: url
+        api_key_parameter_name:
+          type: string
+          description: >
+            Defines the name of the parameter to pass in the URL to provide the API key.
+            This field is required for `authentication_type=1` and `authentication_type=2`.
+        latest_dataset_id:
+          type: string
+          description: >
+            ID of the latest dataset added to the database for this feed.
+          example: dataset_2345
+        latest_hosted_url:
+          description: >
+            As a convenience, the URL of the latest uploaded dataset hosted by MobilityData. 
+            It should be the same URL as the one found in the latest_dataset_id dataset.
+            An alternative way to find this is to use the latest_dataset_id to obtain the dataset and then use its hosted_url.
+          type: string
+          format: url
+          example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+        license_url:
+          description: A URL where to find the license for the feed.
+          type: string
+          format: url
+          example: https://www.londontransit.ca/open-data/ltcs-open-data-terms-of-use/
+
+    FeedLocation:
+      type: object
+      properties:
+        country_code:
+          description: >
+            ISO 3166-1 alpha-2 code designating the country where the system is located. 
+            For a list of valid codes [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
+          type: string
+          example: USA
+        subdivision_name:
+          description: >
+            ISO 3166-2 subdivision name designating the subdivision (e.g province, state, region) where the system is located. 
+            For a list of valid names [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
+          type: string
+          example: California
+        municipality:
+          description: Primary municipality in which the transit system is located.
+          type: string
+          example: Los Angeles
+        bounding_box:
+          $ref: "#/components/schemas/BoundingBox"
+
+    FeedStatus:
+      description: > 
+        Describes status of the feed. Should be one of 
+          * `active` Feed should be used in public trip planners.
+          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+          * `development` Feed is being used for development purposes and should not be used in public trip planners.
+      type: string
+      enum:
+        - active
+        - deprecated
+        - inactive
+        - development
+      example: inactive
+
+    Dataset:
+      allOf:
+        - $ref: "#/components/schemas/DatasetId"
+        - $ref: "#/components/schemas/DatasetBuilder"
+
+    DatasetBuilder:
+      type: object
+      properties:
+        hosted_url:
+          description: The URL of the dataset data as hosted by MobilityData. No authentication required.
+          type: string
+          example: http://www.londontransit.ca/gtfsfeed/google_transit.zip
+        data_type:
+          description: Always `gtfs` for GTFS datasets.
+          type: string
+          example: gtfs
+        feed_id:
+          description: ID of the feed related to this dataset.
+          type: string
+          example: feed_0
+        download_date:
+          type: string
+          example: 2020-12-31
+          format: date
+        creation_date:
+          type: string
+          example: 2020-12-31
+          format: date
+        last_update_date:
+          type: string
+          example: 2020-12-31
+          format: date
+        hash:
+          description: A MD5 hash of the dataset.
+          type: string
+          example: a_long_sha1_hash
+        bounding_box:
+          $ref: "#/components/schemas/BoundingBox"
+        features:
+          description: An array of features for this dataset.
+          type: array
+          items:
+            type: string
+            enum:
+              - fares-v2
+              - fares-v1
+              - flex-v1
+              - flex-v2
+              - pathways
+            example: fares-v2
+
+    BoundingBox:
+      description: Bounding box of the dataset when it was first added to the catalog.
+      type: object
+      properties:
+        minimum_latitude:
+          description: The minimum latitude for the dataset bounding box.
+          type: number
+          example: 43.655373
+        maximum_latitude:
+          description: The maximum latitude for the dataset bounding box.
+          type: number
+          example: 43.71619
+        minimum_longitude:
+          description: The minimum longitude for the dataset bounding box.
+          type: number
+          example: -70.248666
+        maximum_longitude:
+          description: The maximum longitude for the dataset bounding box.
+          type: number
+          example: -70.11018
+
+    DatasetId:
+      description: Unique identifier used as a key for the datasets table.
+      type: object
+      properties:
+        id:
+          type: string
+          example: dataset_0
+      required:
+        - dataset_id
+
+
+    Datasets:
+      type: array
+      items:
+        $ref: "#/components/schemas/Dataset"
+
+    Metadata:
+      type: object
+      properties:
+        version:
+          type: string
+          example: 1.0.0
+
+    DataType:
+      type: string
+      enum:
+        - gtfs
+        - gtfs_rt
+        - gbfs
+        - gofs
+      example: gtfs
+
+  parameters:
+
+    filter:
+      name: filter
+      in: query
+      description: A filter to apply to the returned data. Exact syntax to be designed
+      required: False
+      schema:
+        type: string
+        example: status=active
+    sort:
+      name: sort
+      in: query
+      description: A specification of the sort order of the returned data. Exact syntax to be designed
+      required: False
+      schema:
+        type: string
+        example: +provider
+
+    boundingLatitudes:
+      name: boundingLatitudes
+      in: query
+      description: >
+        Specify the minimum and maximum latitudes of the bounding box to use for filtering.<br>
+        Must be specified alongside `boundingLongitudes`.
+      required: False
+      schema:
+        type: string
+        example: 41.46,42.67
+
+    boundingLongitudes:
+      name: boundingLongitudes
+      in: query
+      description: >
+        Specify the minimum and maximum longitudes of the bounding box to use for filtering.<br>
+        Must be specified alongside `boundingLatitudes`.
+      required: False
+      schema:
+        type: string
+        example: -78.58,-87-29
+
+    boundingFilterMethod:
+      name: boundingFilterMethod
+      in: query
+      required: False
+      schema:
+        type: string
+        enum:
+          - completely_enclosed
+          - partially_enclosed
+          - disjoint
+        default: completely_enclosed
+      description: >
+        Specify the filtering method to use with the boundingLatitudes and boundingLongitudes parameters.
+         * `completely_enclosed` - Get resources that are completely enclosed in the specified bounding box.
+         * `partially_enclosed` - Get resources that are partially enclosed in the specified bounding box.
+         * `disjoint` - Get resources that are completely outside the specified bounding box.
+      example: completely_enclosed
+
+
+    insideBoundingBox:
+      name: insideBoundingBox
+      in: query
+      description: Only include datasets where the specified geographical point is inside the bounding box
+      required: False
+      schema:
+        type: string
+        example: 43.71,-70.24
+
+    latestQueryParam:
+      name: latest
+      in: query
+      description: If true, only return the latest dataset.
+      required: False
+      schema:
+        type: boolean
+        default: false
+
+    limitQueryParam:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        example: 10
+    offset:
+      name: offset
+      in: query
+      description: Offset of the first item to return.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        example: 10
+
+    feedIdPathParam:
+      name: id
+      in: path
+      description: The feed id of the requested feed.
+      required: True
+      schema:
+        type: string
+        example: feed_0
+
+    feedIdOfDatasetsPathParam:
+      name: id
+      in: path
+      description: The feed id of the feed for which to obtain datasets.
+      required: True
+      schema:
+        type: string
+        example: feed_0
+
+    datasetIdPathParam:
+      name: id
+      in: path
+      description: The dataset id of the requested dataset.
+      required: True
+      schema:
+        type: string
+        example: dataset_0
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: query
+      name: key
+
+security:
+  - ApiKeyAuth: []
