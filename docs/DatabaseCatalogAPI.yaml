@@ -160,6 +160,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/BasicDatasets"
 
+  /datasets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/datasetIdPathParam"
+    get:
+      description: Get the specified dataset from the Mobility Database.
+      tags:
+        - "datasets"
+
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: >
+            Successful pull of the dataset common info for the provided ID.
+            This info has a reduced set of fields that are common to all types of dataset.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicDataset"
+
   /datasets/gtfs:
     get:
       description: Get some (or all) GTFS datasets from the Mobility Database.
@@ -484,7 +504,7 @@ components:
       required: False
       schema:
         type: string
-        example: +provider
+        example: +status
 
     boundingLatitudes:
       name: boundingLatitudes
