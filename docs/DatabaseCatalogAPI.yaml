@@ -225,37 +225,39 @@ components:
           description: Unique identifier used as a key for the feeds table.
           type: string
           example: feed_0
-        legacy_id:
-          description: An optional legacy ID that could be useful for data migration.
-          type: string
-          example: ID_101
         data_type:
           $ref: "#/components/schemas/DataType"
         status:
           $ref: "#/components/schemas/ElementStatus"
-        provider:
-          description: A commonly used name for the transit provider included in the feed.
-          type: string
-          example: London Transit Commission
-        feed_name:
-          description: >
-            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
-            multiple providers, or which network is represented by the feed.
-          type: string
-          example: Atlantic Station Shuttle (FREE RIDE)
-        note:
-          description: A note to clarify complex use cases for consumers.
-          type: string
+
 
     GtfsFeed:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
         - type: object
           properties:
+            legacy_id:
+                description: An optional legacy ID that could be useful for data migration.
+                type: string
+                example: ID_101
+            provider:
+              description: A commonly used name for the transit provider included in the feed.
+              type: string
+              example: London Transit Commission
+            feed_name:
+              description: >
+                An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+                multiple providers, or which network is represented by the feed.
+              type: string
+              example: Atlantic Station Shuttle (FREE RIDE)
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
             location:
               $ref: "#/components/schemas/FeedLocation"
             urls:
               $ref: "#/components/schemas/FeedUrls"
+
 
     BasicFeeds:
       type: array
@@ -363,10 +365,6 @@ components:
           description: Unique identifier used as a key for the datasets table.
           type: string
           example: dataset_0
-        legacy_id:
-          description: An optional legacy ID that could be useful for data migration.
-          type: string
-          example: ID_101
         feed_id:
           description: ID of the feed related to this dataset.
           type: string
@@ -375,38 +373,41 @@ components:
           $ref: "#/components/schemas/DataType"
         status:
           $ref: "#/components/schemas/ElementStatus"
-        note:
-          description: A note to clarify complex use cases for consumers.
-          type: string
-        download_date:
-          type: string
-          example: 2020-12-31
-          format: date
-        creation_date:
-          type: string
-          example: 2020-12-31
-          format: date
-        last_update_date:
-          type: string
-          example: 2020-12-31
-          format: date
-        hash:
-          description: A MD5 hash of the dataset.
-          type: string
-          example: a_long_sha1_hash
 
     GtfsDataset:
       allOf:
         - $ref: "#/components/schemas/BasicDataset"
         - type: object
           properties:
+            legacy_id:
+              description: An optional legacy ID that could be useful for data migration.
+              type: string
+              example: ID_101
             hosted_url:
               description: The URL of the dataset data as hosted by MobilityData. No authentication required.
               type: string
               example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
+            download_date:
+              type: string
+              example: 2020-12-31
+              format: date
+            creation_date:
+              type: string
+              example: 2020-12-31
+              format: date
+            last_update_date:
+              type: string
+              example: 2020-12-31
+              format: date
+            hash:
+              description: A MD5 hash of the dataset.
+              type: string
+              example: a_long_sha1_hash
             bounding_box:
               $ref: "#/components/schemas/BoundingBox"
-
             features:
               description: An array of features for this dataset.
               type: array
