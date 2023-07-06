@@ -228,7 +228,7 @@ components:
         data_type:
           $ref: "#/components/schemas/DataType"
         status:
-          $ref: "#/components/schemas/ElementStatus"
+          $ref: "#/components/schemas/FeedStatus"
 
 
     GtfsFeed:
@@ -343,20 +343,20 @@ components:
         bounding_box:
           $ref: "#/components/schemas/BoundingBox"
 
-    ElementStatus:
+    FeedStatus:
       description: > 
-        Describes status of the element (Feed or Dataset). Should be one of 
-          * `active` Element should be used in public trip planners.
-          * `deprecated` Element is explicitly deprecated and should not be used in public trip planners.
-          * `inactive` Element hasn't been recently updated and should be used at risk of providing outdated information.
-          * `development` Element is being used for development purposes and should not be used in public trip planners.
+        Describes status of the Feed. Should be one of 
+          * `active` Feed should be used in public trip planners.
+          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+          * `development` Feed is being used for development purposes and should not be used in public trip planners.
       type: string
       enum:
         - active
         - deprecated
         - inactive
         - development
-      example: inactive
+      example: active
 
     BasicDataset:
       type: object
@@ -371,8 +371,6 @@ components:
           example: feed_0
         data_type:
           $ref: "#/components/schemas/DataType"
-        status:
-          $ref: "#/components/schemas/ElementStatus"
 
     GtfsDataset:
       allOf:
