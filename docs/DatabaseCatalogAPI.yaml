@@ -40,7 +40,9 @@ paths:
         - ApiKeyAuth: [ ]
       responses:
         200:
-          description: Successful pull of the GTFS feeds info.
+          description: >
+            Successful pull of the feeds common info. 
+            This info has a reduced set of fields that are common to all types of feeds.
           content:
             application/json:
               schema:
@@ -58,7 +60,9 @@ paths:
         - ApiKeyAuth: []
       responses:
         200:
-          description: Successful pull of the requested feed.
+          description: >
+            Successful pull of the feeds common info for the provided ID.
+            This info has a reduced set of fields that are common to all types of feeds.
           content:
             application/json:
               schema:
@@ -107,7 +111,7 @@ paths:
                 $ref: "#/components/schemas/GtfsFeed"
 
 
-  /feeds/gtfs/{id}/datasets:
+  /feeds/{id}/datasets/gtfs:
     parameters:
       - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
     get:
@@ -132,7 +136,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Datasets"
+                $ref: "#/components/schemas/GtfsDatasets"
+
+  /datasets:
+    get:
+      description: Get some (or all) datasets from the Mobility Database.
+      tags:
+        - "datasets"
+      parameters:
+        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/sort"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: >
+            Successful pull of the dataset common info for the provided ID.
+            This info has a reduced set of fields that are common to all types of datasets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasicDatasets"
 
   /datasets/gtfs:
     get:
@@ -155,11 +181,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Datasets"
+                $ref: "#/components/schemas/GtfsDatasets"
 
   /datasets/gtfs/{id}:
     get:
-      description: Get the specified dataset in the Mobility Database.
+      description: Get the specified dataset from the Mobility Database.
       tags:
         - "datasets"
       parameters:
@@ -172,7 +198,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Dataset"
+                $ref: "#/components/schemas/GtfsDataset"
 
   /metadata:
     get:
@@ -199,10 +225,14 @@ components:
           description: Unique identifier used as a key for the feeds table.
           type: string
           example: feed_0
+        legacy_id:
+          description: An optional legacy ID that could be useful for data migration.
+          type: string
+          example: ID_101
         data_type:
           $ref: "#/components/schemas/DataType"
         status:
-          $ref: "#/components/schemas/FeedStatus"
+          $ref: "#/components/schemas/ElementStatus"
         provider:
           description: A commonly used name for the transit provider included in the feed.
           type: string
@@ -311,13 +341,13 @@ components:
         bounding_box:
           $ref: "#/components/schemas/BoundingBox"
 
-    FeedStatus:
+    ElementStatus:
       description: > 
-        Describes status of the feed. Should be one of 
-          * `active` Feed should be used in public trip planners.
-          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-          * `development` Feed is being used for development purposes and should not be used in public trip planners.
+        Describes status of the element (Feed or Dataset). Should be one of 
+          * `active` Element should be used in public trip planners.
+          * `deprecated` Element is explicitly deprecated and should not be used in public trip planners.
+          * `inactive` Element hasn't been recently updated and should be used at risk of providing outdated information.
+          * `development` Element is being used for development purposes and should not be used in public trip planners.
       type: string
       enum:
         - active
@@ -326,26 +356,28 @@ components:
         - development
       example: inactive
 
-    Dataset:
-      allOf:
-        - $ref: "#/components/schemas/DatasetId"
-        - $ref: "#/components/schemas/DatasetBuilder"
-
-    DatasetBuilder:
+    BasicDataset:
       type: object
       properties:
-        hosted_url:
-          description: The URL of the dataset data as hosted by MobilityData. No authentication required.
+        id:
+          description: Unique identifier used as a key for the datasets table.
           type: string
-          example: http://www.londontransit.ca/gtfsfeed/google_transit.zip
-        data_type:
-          description: Always `gtfs` for GTFS datasets.
+          example: dataset_0
+        legacy_id:
+          description: An optional legacy ID that could be useful for data migration.
           type: string
-          example: gtfs
+          example: ID_101
         feed_id:
           description: ID of the feed related to this dataset.
           type: string
           example: feed_0
+        data_type:
+          $ref: "#/components/schemas/DataType"
+        status:
+          $ref: "#/components/schemas/ElementStatus"
+        note:
+          description: A note to clarify complex use cases for consumers.
+          type: string
         download_date:
           type: string
           example: 2020-12-31
@@ -362,20 +394,31 @@ components:
           description: A MD5 hash of the dataset.
           type: string
           example: a_long_sha1_hash
-        bounding_box:
-          $ref: "#/components/schemas/BoundingBox"
-        features:
-          description: An array of features for this dataset.
-          type: array
-          items:
-            type: string
-            enum:
-              - fares-v2
-              - fares-v1
-              - flex-v1
-              - flex-v2
-              - pathways
-            example: fares-v2
+
+    GtfsDataset:
+      allOf:
+        - $ref: "#/components/schemas/BasicDataset"
+        - type: object
+          properties:
+            hosted_url:
+              description: The URL of the dataset data as hosted by MobilityData. No authentication required.
+              type: string
+              example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+            bounding_box:
+              $ref: "#/components/schemas/BoundingBox"
+
+            features:
+              description: An array of features for this dataset.
+              type: array
+              items:
+                type: string
+                enum:
+                  - fares-v2
+                  - fares-v1
+                  - flex-v1
+                  - flex-v2
+                  - pathways
+                example: fares-v2
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
@@ -398,21 +441,16 @@ components:
           type: number
           example: -70.11018
 
-    DatasetId:
-      description: Unique identifier used as a key for the datasets table.
-      type: object
-      properties:
-        id:
-          type: string
-          example: dataset_0
-      required:
-        - dataset_id
 
-
-    Datasets:
+    GtfsDatasets:
       type: array
       items:
-        $ref: "#/components/schemas/Dataset"
+        $ref: "#/components/schemas/GtfsDataset"
+
+    BasicDatasets:
+      type: array
+      items:
+        $ref: "#/components/schemas/BasicDataset"
 
     Metadata:
       type: object
@@ -530,7 +568,7 @@ components:
     feedIdPathParam:
       name: id
       in: path
-      description: The feed id of the requested feed.
+      description: The feed ID of the requested feed.
       required: True
       schema:
         type: string
@@ -539,7 +577,7 @@ components:
     feedIdOfDatasetsPathParam:
       name: id
       in: path
-      description: The feed id of the feed for which to obtain datasets.
+      description: The ID of the feed for which to obtain datasets.
       required: True
       schema:
         type: string
@@ -548,7 +586,7 @@ components:
     datasetIdPathParam:
       name: id
       in: path
-      description: The dataset id of the requested dataset.
+      description: The ID of the requested dataset.
       required: True
       schema:
         type: string
