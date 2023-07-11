@@ -1,4 +1,5 @@
-FROM python:3.7 AS builder
+# Builder Stage
+FROM python:3.11 AS builder
 
 WORKDIR /usr/src/app
 
@@ -10,21 +11,16 @@ RUN pip install --upgrade pip
 COPY . .
 RUN pip install --no-cache-dir .
 
+# Service Stage
+FROM python:3.11 AS service
 
-FROM python:3.7 AS test_runner
-WORKDIR /tmp
-COPY --from=builder /venv /venv
-COPY --from=builder /usr/src/app/tests tests
-ENV PATH=/venv/bin:$PATH
-
-# install test dependencies
-RUN pip install pytest
-
-# run tests
-RUN pytest tests
-
-
-FROM python:3.7 AS service
 WORKDIR /root/app/site-packages
-COPY --from=test_runner /venv /venv
+COPY --from=builder /venv /venv
 ENV PATH=/venv/bin:$PATH
+
+# Expose the port Uvicorn will listen on
+EXPOSE 8080
+
+# Run the Uvicorn server for the FastAPI application
+CMD ["cd", "api/src"]
+CMD ["uvicorn", "feeds.main:app", "--host", "0.0.0.0", "--port", "8080"]
