@@ -20,6 +20,7 @@ from feeds.models.extra_models import TokenModel  # noqa: F401
 from feeds.models.basic_feed import BasicFeed
 from feeds.models.gtfs_feed import GtfsFeed
 from feeds.security_api import get_token_ApiKeyAuth
+from feeds.apis.feeds_api_impl import feeds_get_impl
 
 router = APIRouter()
 
@@ -42,8 +43,7 @@ async def feeds_get(
     ),
 ) -> List[BasicFeed]:
     """Get some (or all) feeds from the Mobility Database."""
-    return [
-    ]
+    return feeds_get_impl(limit, offset, filter, sort, token_ApiKeyAuth)
 
 
 @router.get(
