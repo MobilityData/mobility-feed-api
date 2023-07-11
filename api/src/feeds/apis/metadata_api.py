@@ -37,4 +37,4 @@ async def metadata_get(
     ),
 ) -> Metadata:
     """Get metadata about this API."""
-    ...
+    return {}

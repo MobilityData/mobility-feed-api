@@ -67,7 +67,7 @@ async def feeds_gtfs_get(
     ),
 ) -> List[GtfsFeed]:
     """Get some (or all) GTFS feeds from the Mobility Database."""
-    ...
+    return []
 
 
 @router.get(
@@ -85,7 +85,7 @@ async def feeds_gtfs_id_get(
     ),
 ) -> GtfsFeed:
     """Get the specified feed from the Mobility Database."""
-    ...
+    return {}
 
 
 @router.get(
@@ -103,4 +103,4 @@ async def feeds_id_get(
     ),
 ) -> BasicFeed:
     """Get the specified feed from the Mobility Database."""
-    ...
+    return {}

@@ -44,7 +44,7 @@ async def datasets_gtfs_get(
     ),
 ) -> List[Dataset]:
     """Get some (or all) GTFS datasets from the Mobility Database."""
-    ...
+    return []
 
 
 @router.get(
@@ -62,7 +62,7 @@ async def datasets_gtfs_id_get(
     ),
 ) -> Dataset:
     """Get the specified dataset in the Mobility Database."""
-    ...
+    return {}
 
 
 @router.get(
@@ -88,4 +88,4 @@ async def feeds_gtfs_id_datasets_get(
     ),
 ) -> List[Dataset]:
     """Get a list of datasets related to a feed."""
-    ...
+    return []
