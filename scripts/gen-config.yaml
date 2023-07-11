@@ -1,0 +1,3 @@
+additionalProperties:
+  packageName: feeds
+  fastapiImplementationPackage: feeds
