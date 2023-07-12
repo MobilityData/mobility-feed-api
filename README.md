@@ -12,24 +12,60 @@ Follow this [link](https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/in
 
 # Local development
 
-Folder `api` contains source code of the API implementation.
+Folder `api` contains source code of the API implementation. This repository relies on [openapi-generator](https://openapi-generator.tech/) for spec-first development with [fastapi](https://openapi-generator.tech/docs/generators/python-fastapi) as the server stub generator. Generated files are placed in `src\feeds_gen`; this folder is ignored in git as it should not be modified. API's endpoint classes and methods are located in `src\feeds\impl`.
 
 ## Requirements.
 
-Python >= 3.7
+Python == 3.11
 
 ## Installation & Usage
 
-To run the server, please execute the following from the root directory:
-
+- As a one time step, download the `openapi-generator-cli.sh` script using:
+```bash
+scripts/setup-openapi-generator
+```
+- Install dependencies
 ```bash
 cd api
 pip3 install -r requirements.txt
-cd src
-uvicorn feeds.main:app --host 0.0.0.0 --port 8080
+```
+- Generates the stubs on first run and everytime the schema changes
+```bash
+scripts/api-gen.sh
+```
+- Run local API 
+```bash
+scripts/api-start.sh
 ```
 
+## Unit tests
+Test are located in `tests` directory.
+
+To run all tests:
+```bash
+scripts/api-start.sh
+```
+
+## Local swagger documentation
+
+To have access to the API's produced swagger documentation:
+```bash
+scripts/api-start.sh
+```
 and open your browser at `http://localhost:8080/docs/` to see the docs.
+
+## Tests
+
+To run the all tests:
+
+```bash
+scripts/api-tests.sh
+```
+
+To run a single test file:
+```bash
+scripts/api-tests.sh <my_test_filename>.py
+```
 
 ## Running with Docker
 
@@ -37,14 +73,4 @@ To run the server on a Docker container, please execute the following from the r
 
 ```bash
 docker-compose up --build
-```
-
-## Tests
-
-To run the tests:
-
-```bash
-cd api
-pip3 install -r requirements_dev.txt
-PYTHONPATH=src pytest tests
 ```
