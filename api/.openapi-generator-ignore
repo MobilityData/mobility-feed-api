@@ -22,6 +22,8 @@
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
 
+# Ignoring this files to have a predictable build locally and in the CI
+
 .gitignore
 openapi.yaml
 README.md

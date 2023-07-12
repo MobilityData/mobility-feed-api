@@ -1,6 +1,2 @@
-fastapi==0.100.0
-
 #Testing
 pytest>=3.2.3
-httpx==0.24.1
-h11==0.12.0

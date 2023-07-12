@@ -1,3 +1,4 @@
+# Documentation, https://openapi-generator.tech/docs/generators/python-fastapi/
 additionalProperties:
   packageName: feeds_gen
   fastapiImplementationPackage: feeds.impl
