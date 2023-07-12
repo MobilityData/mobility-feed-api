@@ -29,7 +29,7 @@ def test_datasets_gtfs_get(client: TestClient):
 def test_datasets_gtfs_id_get(client: TestClient):
     """Test case for datasets_gtfs_id_get
 
-
+    
     """
 
     headers = {
@@ -48,7 +48,7 @@ def test_datasets_gtfs_id_get(client: TestClient):
 def test_feeds_gtfs_id_datasets_get(client: TestClient):
     """Test case for feeds_gtfs_id_datasets_get
 
-
+    
     """
     params = [("latest", False),     ("limit", 10),     ("offset", 0),     ("filter", 'status=active'),     ("sort", '+provider'),     ("bounding_latitudes", '41.46,42.67'),     ("bounding_longitudes", '-78.58,-87-29'),     ("bounding_filter_method", 'completely_enclosed')]
     headers = {

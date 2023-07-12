@@ -28,3 +28,6 @@ replay_pid*
 
 # IDE files
 .idea
+
+# Ignore generated files
+feeds_gen
