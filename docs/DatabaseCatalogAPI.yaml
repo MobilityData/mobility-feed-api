@@ -206,14 +206,13 @@ components:
                 multiple providers, or which network is represented by the feed.
               type: string
               example: Atlantic Station Shuttle (FREE RIDE)
+            latest_dataset:
+              $ref: "#/components/schemas/LatestDataset"
             note:
               description: A note to clarify complex use cases for consumers.
               type: string
-            location:
-              $ref: "#/components/schemas/FeedLocation"
-            urls:
-              $ref: "#/components/schemas/FeedUrls"
-
+            source_info:
+              $ref: "#/components/schemas/SourceInfo"
 
     BasicFeeds:
       type: array
@@ -225,7 +224,25 @@ components:
       items:
         $ref: "#/components/schemas/GtfsFeed"
 
-    FeedUrls:
+    LatestDataset:
+      type: object
+      properties:
+        id:
+          description: Identifier of thelatest dataset for this feed.
+          type: string
+          example: dataset_0
+        hosted_url:
+          description: >
+            As a convenience, the URL of the latest uploaded dataset hosted by MobilityData. 
+            It should be the same URL as the one found in the latest dataset id dataset.
+            An alternative way to find this is to use the latest dataset id to obtain the dataset and then use its hosted_url.
+          type: string
+          format: url
+          example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+        locations:
+          $ref: "#/components/schemas/Locations"
+
+    SourceInfo:
       type: object
       properties:
         producer_url:
@@ -258,26 +275,18 @@ components:
           description: >
             Defines the name of the parameter to pass in the URL to provide the API key.
             This field is required for `authentication_type=1` and `authentication_type=2`.
-        latest_dataset_id:
-          type: string
-          description: >
-            ID of the latest dataset added to the database for this feed.
-          example: dataset_2345
-        latest_hosted_url:
-          description: >
-            As a convenience, the URL of the latest uploaded dataset hosted by MobilityData. 
-            It should be the same URL as the one found in the latest_dataset_id dataset.
-            An alternative way to find this is to use the latest_dataset_id to obtain the dataset and then use its hosted_url.
-          type: string
-          format: url
-          example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
         license_url:
           description: A URL where to find the license for the feed.
           type: string
           format: url
           example: https://www.londontransit.ca/open-data/ltcs-open-data-terms-of-use/
 
-    FeedLocation:
+    Locations:
+      type: array
+      items:
+        $ref: "#/components/schemas/Location"
+
+    Location:
       type: object
       properties:
         country_code:
@@ -296,8 +305,6 @@ components:
           description: Primary municipality in which the transit system is located.
           type: string
           example: Los Angeles
-        bounding_box:
-          $ref: "#/components/schemas/BoundingBox"
 
     FeedStatus:
       description: > 
@@ -325,18 +332,12 @@ components:
           description: ID of the feed related to this dataset.
           type: string
           example: feed_0
-        data_type:
-          $ref: "#/components/schemas/DataType"
 
     GtfsDataset:
       allOf:
         - $ref: "#/components/schemas/BasicDataset"
         - type: object
           properties:
-            legacy_id:
-              description: An optional legacy ID that could be useful for data migration.
-              type: string
-              example: ID_101
             hosted_url:
               description: The URL of the dataset data as hosted by MobilityData. No authentication required.
               type: string
@@ -360,6 +361,8 @@ components:
               description: A MD5 hash of the dataset.
               type: string
               example: a_long_sha1_hash
+            locations:
+                $ref: "#/components/schemas/Locations"
             bounding_box:
               $ref: "#/components/schemas/BoundingBox"
             features:
@@ -395,6 +398,17 @@ components:
           description: The maximum longitude for the dataset bounding box.
           type: number
           example: -70.11018
+        source:
+          description: >
+            Specifies how the bounding box was obtained.
+              * `provided` - The bounding box was provided by the user.
+              * `calculated` - The bounding box was calculated internally from the dataset.
+          type: string
+          enum:
+            - provided
+            - calculated
+          example: provided
+
 
 
     GtfsDatasets:
