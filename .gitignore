@@ -31,3 +31,6 @@ replay_pid*
 
 # Ignore generated files
 api/src/feeds_gen
+
+# Ignore openapitools binaries
+scripts/bin
