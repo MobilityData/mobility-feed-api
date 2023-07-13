@@ -1,18 +1,18 @@
-from typing import ClassVar, Dict, List, Tuple
 
+
+from datetime import date
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
-from feeds_gen.models.dataset import Dataset
+from feeds_gen.models.bounding_box import BoundingBox
+from feeds_gen.models.gtfs_dataset import GtfsDataset
 
 
 class DatasetsApiImpl(BaseDatasetsApi):
-    def datasets_gtfs_get(
-            self,
-            limit: int,
-            offset: int,
-            filter: str,
-            sort: str,
-            bounding_latitudes: str,
-            bounding_longitudes: str,
-            bounding_filter_method: str,
-    ) -> List[Dataset]:
-        return []
+    """This class implements the methods from `feeds_gen.apis.datasets_api_base.BaseDatasetsApi`"""
+    def datasets_id_gtfs_get(
+        self,
+        id: str,
+    ) -> GtfsDataset:
+        """Get the specified dataset from the Mobility Database."""
+        return GtfsDataset(id="datasetFoo", feed_id="feedFoo", hosted_url="http://www.abc.com", note="note",
+                           download_date=date.today(), creation_date=date.today(), last_update_date=date.today(),
+                           hash="123", locations=[], bounding_box=BoundingBox(), features=[])
