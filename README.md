@@ -28,6 +28,7 @@ scripts/setup-openapi-generator
 ```bash
 cd api
 pip3 install -r requirements.txt
+pip3 install -r requirements_dev.txt
 ```
 - Generates the stubs on first run and everytime the schema changes
 ```bash
@@ -72,5 +73,5 @@ scripts/api-tests.sh <my_test_filename>.py
 To run the server on a Docker container, please execute the following from the root directory:
 
 ```bash
-docker-compose up --build
+(cd api && docker-compose up --build)
 ```
