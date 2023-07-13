@@ -92,6 +92,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeeds"
 
+  /feeds/gtfs_rt:
+    get:
+      description: Get some (or all) GTFS feeds from the Mobility Database.
+      tags:
+        - "feeds"
+      parameters:
+        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/sort"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the GTFS Runtime feeds info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsRTFeeds"
+
   /feeds/{id}/gtfs:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
@@ -109,6 +129,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GtfsFeed"
+
+  /feeds/{id}/gtfs_rt:
+    parameters:
+      - $ref: "#/components/parameters/feedIdPathParam"
+    get:
+      description: Get the specified GTFS Realtime feed from the Mobility Database.
+      tags:
+        - "feeds"
+
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the requested feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsRTFeed"
 
 
   /feeds/{id}/datasets/gtfs:
@@ -214,6 +252,42 @@ components:
             source_info:
               $ref: "#/components/schemas/SourceInfo"
 
+    GtfsRTFeed:
+      allOf:
+        - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          properties:
+            legacy_id:
+              description: An optional legacy ID that could be useful for data migration.
+              type: string
+              example: ID_101
+            provider:
+              description: A commonly used name for the transit provider included in the feed.
+              type: string
+              example: London Transit Commission
+            feed_name:
+              description: >
+                An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+                multiple providers, or which network is represented by the feed.
+              type: string
+              example: Atlantic Station Shuttle (FREE RIDE)
+            locations:
+              $ref: "#/components/schemas/Locations"
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
+            urls:
+              $ref: "#/components/schemas/GtfsRtUrls"
+            entity_type:
+              $ref: "#/components/schemas/EntityTypes"
+            static_reference:
+              description:
+                A list of the static sources that the real time source is associated with, represented by their MDB source IDs.
+              type: array
+              items:
+                type: string
+                example: "feed_0"
+
     BasicFeeds:
       type: array
       items:
@@ -223,6 +297,11 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/GtfsFeed"
+
+    GtfsRTFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/GtfsRTFeed"
 
     LatestDataset:
       type: object
@@ -242,6 +321,24 @@ components:
         locations:
           $ref: "#/components/schemas/Locations"
 
+    EntityTypes:
+      type: array
+      items:
+        $ref: "#/components/schemas/EntityType"
+
+    EntityType:
+      type: string
+      enum:
+        - vp
+        - tu
+        - sa
+      example: vp
+      description: >
+        The type of realtime entry:
+          * vp - vehicle positions
+          * tu - trip updates
+          * sa - service alerts
+
     SourceInfo:
       type: object
       properties:
@@ -255,6 +352,44 @@ components:
         authentication_type:
           description: >
             Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
+              * 0 or (empty) - No authentication required.
+              * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
+              * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
+            When not provided, the authentication type is assumed to be 0.
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+        authentication_info_url:
+          description: >
+            Contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created. 
+            This field is required for `authentication_type=1` and `authentication_type=2`.
+          type: string
+          format: url
+        api_key_parameter_name:
+          type: string
+          description: >
+            Defines the name of the parameter to pass in the URL to provide the API key.
+            This field is required for `authentication_type=1` and `authentication_type=2`.
+        license_url:
+          description: A URL where to find the license for the feed.
+          type: string
+          format: url
+          example: https://www.londontransit.ca/open-data/ltcs-open-data-terms-of-use/
+
+    GtfsRtUrls:
+      type: object
+      properties:
+        direct_download_url:
+          description: >
+            URL that responds with an encoded GTFS Realtime protocol buffer message.
+          type: string
+          format: url
+          example: http://www.londontransit.ca/gtfsfeed/google_transit.zip
+        authentication_type:
+          description: >
+            Defines the type of authentication required to access the URL. Valid values for this field are:
               * 0 or (empty) - No authentication required.
               * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
               * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
