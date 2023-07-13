@@ -40,7 +40,9 @@ paths:
         - ApiKeyAuth: [ ]
       responses:
         200:
-          description: Successful pull of the GTFS feeds info.
+          description: >
+            Successful pull of the feeds common info. 
+            This info has a reduced set of fields that are common to all types of feeds.
           content:
             application/json:
               schema:
@@ -58,7 +60,9 @@ paths:
         - ApiKeyAuth: []
       responses:
         200:
-          description: Successful pull of the requested feed.
+          description: >
+            Successful pull of the feeds common info for the provided ID.
+            This info has a reduced set of fields that are common to all types of feeds.
           content:
             application/json:
               schema:
@@ -88,7 +92,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeeds"
 
-  /feeds/gtfs/{id}:
+  /feeds/{id}/gtfs:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -107,13 +111,13 @@ paths:
                 $ref: "#/components/schemas/GtfsFeed"
 
 
-  /feeds/gtfs/{id}/datasets:
+  /feeds/{id}/datasets/gtfs:
     parameters:
       - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
     get:
       description: Get a list of datasets related to a feed.
       tags:
-        - "datasets"
+        - "feeds"
       parameters:
         - $ref: "#/components/parameters/latestQueryParam"
         - $ref: "#/components/parameters/limitQueryParam"
@@ -132,34 +136,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Datasets"
+                $ref: "#/components/schemas/GtfsDatasets"
 
-  /datasets/gtfs:
-    get:
-      description: Get some (or all) GTFS datasets from the Mobility Database.
-      tags:
-        - "datasets"
-      parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
-        - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
-        - $ref: "#/components/parameters/sort"
-        - $ref: "#/components/parameters/boundingLatitudes"
-        - $ref: "#/components/parameters/boundingLongitudes"
-        - $ref: "#/components/parameters/boundingFilterMethod"
-      security:
-        - ApiKeyAuth: []
-      responses:
-        200:
-          description: Successful pull of the datasets info.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Datasets"
 
-  /datasets/gtfs/{id}:
+  /datasets/{id}/gtfs:
     get:
-      description: Get the specified dataset in the Mobility Database.
+      description: Get the specified dataset from the Mobility Database.
       tags:
         - "datasets"
       parameters:
@@ -172,7 +154,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Dataset"
+                $ref: "#/components/schemas/GtfsDataset"
 
   /metadata:
     get:
@@ -203,29 +185,35 @@ components:
           $ref: "#/components/schemas/DataType"
         status:
           $ref: "#/components/schemas/FeedStatus"
-        provider:
-          description: A commonly used name for the transit provider included in the feed.
-          type: string
-          example: London Transit Commission
-        feed_name:
-          description: >
-            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
-            multiple providers, or which network is represented by the feed.
-          type: string
-          example: Atlantic Station Shuttle (FREE RIDE)
-        note:
-          description: A note to clarify complex use cases for consumers.
-          type: string
+
 
     GtfsFeed:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
         - type: object
           properties:
+            legacy_id:
+                description: An optional legacy ID that could be useful for data migration.
+                type: string
+                example: ID_101
+            provider:
+              description: A commonly used name for the transit provider included in the feed.
+              type: string
+              example: London Transit Commission
+            feed_name:
+              description: >
+                An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+                multiple providers, or which network is represented by the feed.
+              type: string
+              example: Atlantic Station Shuttle (FREE RIDE)
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
             location:
               $ref: "#/components/schemas/FeedLocation"
             urls:
               $ref: "#/components/schemas/FeedUrls"
+
 
     BasicFeeds:
       type: array
@@ -313,7 +301,7 @@ components:
 
     FeedStatus:
       description: > 
-        Describes status of the feed. Should be one of 
+        Describes status of the Feed. Should be one of 
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -324,58 +312,68 @@ components:
         - deprecated
         - inactive
         - development
-      example: inactive
+      example: active
 
-    Dataset:
-      allOf:
-        - $ref: "#/components/schemas/DatasetId"
-        - $ref: "#/components/schemas/DatasetBuilder"
-
-    DatasetBuilder:
+    BasicDataset:
       type: object
       properties:
-        hosted_url:
-          description: The URL of the dataset data as hosted by MobilityData. No authentication required.
+        id:
+          description: Unique identifier used as a key for the datasets table.
           type: string
-          example: http://www.londontransit.ca/gtfsfeed/google_transit.zip
-        data_type:
-          description: Always `gtfs` for GTFS datasets.
-          type: string
-          example: gtfs
+          example: dataset_0
         feed_id:
           description: ID of the feed related to this dataset.
           type: string
           example: feed_0
-        download_date:
-          type: string
-          example: 2020-12-31
-          format: date
-        creation_date:
-          type: string
-          example: 2020-12-31
-          format: date
-        last_update_date:
-          type: string
-          example: 2020-12-31
-          format: date
-        hash:
-          description: A MD5 hash of the dataset.
-          type: string
-          example: a_long_sha1_hash
-        bounding_box:
-          $ref: "#/components/schemas/BoundingBox"
-        features:
-          description: An array of features for this dataset.
-          type: array
-          items:
-            type: string
-            enum:
-              - fares-v2
-              - fares-v1
-              - flex-v1
-              - flex-v2
-              - pathways
-            example: fares-v2
+        data_type:
+          $ref: "#/components/schemas/DataType"
+
+    GtfsDataset:
+      allOf:
+        - $ref: "#/components/schemas/BasicDataset"
+        - type: object
+          properties:
+            legacy_id:
+              description: An optional legacy ID that could be useful for data migration.
+              type: string
+              example: ID_101
+            hosted_url:
+              description: The URL of the dataset data as hosted by MobilityData. No authentication required.
+              type: string
+              example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
+            download_date:
+              type: string
+              example: 2020-12-31
+              format: date
+            creation_date:
+              type: string
+              example: 2020-12-31
+              format: date
+            last_update_date:
+              type: string
+              example: 2020-12-31
+              format: date
+            hash:
+              description: A MD5 hash of the dataset.
+              type: string
+              example: a_long_sha1_hash
+            bounding_box:
+              $ref: "#/components/schemas/BoundingBox"
+            features:
+              description: An array of features for this dataset.
+              type: array
+              items:
+                type: string
+                enum:
+                  - fares-v2
+                  - fares-v1
+                  - flex-v1
+                  - flex-v2
+                  - pathways
+                example: fares-v2
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
@@ -398,21 +396,11 @@ components:
           type: number
           example: -70.11018
 
-    DatasetId:
-      description: Unique identifier used as a key for the datasets table.
-      type: object
-      properties:
-        id:
-          type: string
-          example: dataset_0
-      required:
-        - dataset_id
 
-
-    Datasets:
+    GtfsDatasets:
       type: array
       items:
-        $ref: "#/components/schemas/Dataset"
+        $ref: "#/components/schemas/GtfsDataset"
 
     Metadata:
       type: object
@@ -447,7 +435,7 @@ components:
       required: False
       schema:
         type: string
-        example: +provider
+        example: +status
 
     boundingLatitudes:
       name: boundingLatitudes
@@ -530,7 +518,7 @@ components:
     feedIdPathParam:
       name: id
       in: path
-      description: The feed id of the requested feed.
+      description: The feed ID of the requested feed.
       required: True
       schema:
         type: string
@@ -539,7 +527,7 @@ components:
     feedIdOfDatasetsPathParam:
       name: id
       in: path
-      description: The feed id of the feed for which to obtain datasets.
+      description: The ID of the feed for which to obtain datasets.
       required: True
       schema:
         type: string
@@ -548,7 +536,7 @@ components:
     datasetIdPathParam:
       name: id
       in: path
-      description: The dataset id of the requested dataset.
+      description: The ID of the requested dataset.
       required: True
       schema:
         type: string
