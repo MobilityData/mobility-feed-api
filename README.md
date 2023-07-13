@@ -22,7 +22,7 @@ Python == 3.11
 
 - As a one time step, download the `openapi-generator-cli.sh` script using:
 ```bash
-scripts/setup-openapi-generator
+scripts/setup-openapi-generator.sh
 ```
 - Install dependencies
 ```bash
