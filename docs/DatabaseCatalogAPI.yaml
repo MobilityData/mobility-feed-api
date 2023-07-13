@@ -222,10 +222,8 @@ components:
           $ref: "#/components/schemas/DataType"
         status:
           $ref: "#/components/schemas/FeedStatus"
-        legacy_id:
-          description: An optional legacy ID that could be useful for data migration.
-          type: string
-          example: ID_101
+        external_ids:
+          $ref: "#/components/schemas/ExternalIds"
         provider:
           description: A commonly used name for the transit provider included in the feed.
           type: string
@@ -258,9 +256,9 @@ components:
           properties:
             entity_type:
               $ref: "#/components/schemas/EntityTypes"
-            static_reference:
+            feed_references:
               description:
-                A list of the static sources that the real time source is associated with, represented by their MDB source IDs.
+                A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
               type: array
               items:
                 type: string
@@ -316,6 +314,23 @@ components:
           * vp - vehicle positions
           * tu - trip updates
           * sa - service alerts
+
+    ExternalIds:
+      type: array
+      items:
+        $ref: "#/components/schemas/ExternalId"
+
+    ExternalId:
+      type: object
+      properties:
+        external_id:
+          description: The ID that can be use to find the feed data in an external or legacy database.
+          type: string
+          example: 411
+        source:
+          description: The source of the external ID, e.g. the name of the database where the external ID can be used.
+          type: string
+          example: MobilityDataSpreadsheetCatalog
 
     SourceInfo:
       type: object
@@ -473,18 +488,6 @@ components:
           description: The maximum longitude for the dataset bounding box.
           type: number
           example: -70.11018
-        source:
-          description: >
-            Specifies how the bounding box was obtained.
-              * `provided` - The bounding box was provided by the user.
-              * `calculated` - The bounding box was calculated internally from the dataset.
-          type: string
-          enum:
-            - provided
-            - calculated
-          example: provided
-
-
 
     GtfsDatasets:
       type: array
