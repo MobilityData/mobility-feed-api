@@ -30,4 +30,4 @@ replay_pid*
 .idea
 
 # Ignore generated files
-feeds_gen
+api/src/feeds_gen
