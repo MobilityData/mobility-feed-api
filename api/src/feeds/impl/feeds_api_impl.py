@@ -12,7 +12,11 @@ from feeds_gen.models.source_info import SourceInfo
 
 
 class FeedsApiImpl(BaseFeedsApi):
-    """This class implements the methods from :class:`feeds_gen.apis.datasets_api_base.BaseFeedsApi`"""
+    """
+    This class represents the implementation of the `/feeds` endpoints.
+    All methods from the parent class `feeds_gen.apis.feeds_api_base.BaseFeedsApi` should be implemented.
+    If a method is left blank the associated endpoint will return a 500 HTTP response.
+    """
 
     def feeds_get(
             self,
@@ -86,5 +90,5 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
         return GtfsRTFeed(id="gtfsrtFoo", data_type=None, status=None, externals_ids=[], provider="providerFoo",
-                          feed_name="feedFoo", note="Note", source_info=SourceInfo(), entity_type=[],
+                          feed_name="feedFoo", note="Note", source_info=SourceInfo(), entity_types=[],
                           feed_references=[])
