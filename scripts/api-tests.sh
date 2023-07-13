@@ -2,10 +2,10 @@
 
 #
 # This script executes all project tests.
-# By default all tests are excuted, if you need to execute a single test file, pass the test file name as a parameter.
+# By default all tests are executed, if you need to execute a single test file, pass the test file name as a parameter.
 # All test are expected to be inside the directory <project_folder>/tests.
 # Usage:
-#   api-test.sh <test_file>
+#   api-test.sh <optional_test_file>
 #
 # Parameters:
 # <test_file>: optional
