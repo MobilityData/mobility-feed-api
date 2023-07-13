@@ -92,6 +92,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeeds"
 
+  /feeds/gtfs_rt:
+    get:
+      description: Get some (or all) GTFS feeds from the Mobility Database.
+      tags:
+        - "feeds"
+      parameters:
+        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/sort"
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the GTFS Runtime feeds info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsRTFeeds"
+
   /feeds/{id}/gtfs:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
@@ -109,6 +129,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GtfsFeed"
+
+  /feeds/{id}/gtfs_rt:
+    parameters:
+      - $ref: "#/components/parameters/feedIdPathParam"
+    get:
+      description: Get the specified GTFS Realtime feed from the Mobility Database.
+      tags:
+        - "feeds"
+
+      security:
+        - ApiKeyAuth: []
+      responses:
+        200:
+          description: Successful pull of the requested feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsRTFeed"
 
 
   /feeds/{id}/datasets/gtfs:
@@ -173,7 +211,6 @@ paths:
 
 components:
   schemas:
-
     BasicFeed:
       type: object
       properties:
@@ -182,9 +219,48 @@ components:
           type: string
           example: feed_0
         data_type:
-          $ref: "#/components/schemas/DataType"
+          type: string
+          enum:
+            - gtfs
+            - gtfs_rt
+            - gbfs
+            - gofs
+          example: gtfs
+#    Have to put the enum inline because of a bug in openapi-generator
+#          $ref: "#/components/schemas/DataType"
         status:
-          $ref: "#/components/schemas/FeedStatus"
+          description: >
+            Describes status of the Feed. Should be one of 
+              * `active` Feed should be used in public trip planners.
+              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+              * `development` Feed is being used for development purposes and should not be used in public trip planners.
+          type: string
+          enum:
+            - active
+            - deprecated
+            - inactive
+            - development
+          example: active
+#           Have to put the enum inline because of a bug in openapi-generator
+#          $ref: "#/components/schemas/FeedStatus"
+        external_ids:
+          $ref: "#/components/schemas/ExternalIds"
+        provider:
+          description: A commonly used name for the transit provider included in the feed.
+          type: string
+          example: London Transit Commission
+        feed_name:
+          description: >
+            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+            multiple providers, or which network is represented by the feed.
+          type: string
+          example: Atlantic Station Shuttle (FREE RIDE)
+        note:
+         description: A note to clarify complex use cases for consumers.
+         type: string
+        source_info:
+          $ref: "#/components/schemas/SourceInfo"
 
 
     GtfsFeed:
@@ -192,28 +268,37 @@ components:
         - $ref: "#/components/schemas/BasicFeed"
         - type: object
           properties:
-            legacy_id:
-                description: An optional legacy ID that could be useful for data migration.
-                type: string
-                example: ID_101
-            provider:
-              description: A commonly used name for the transit provider included in the feed.
-              type: string
-              example: London Transit Commission
-            feed_name:
-              description: >
-                An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
-                multiple providers, or which network is represented by the feed.
-              type: string
-              example: Atlantic Station Shuttle (FREE RIDE)
-            note:
-              description: A note to clarify complex use cases for consumers.
-              type: string
-            location:
-              $ref: "#/components/schemas/FeedLocation"
-            urls:
-              $ref: "#/components/schemas/FeedUrls"
+            latest_dataset:
+              $ref: "#/components/schemas/LatestDataset"
 
+    GtfsRTFeed:
+      allOf:
+        - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          properties:
+            entity_types:
+              type: array
+              items:
+                type: string
+                enum:
+                  - vp
+                  - tu
+                  - sa
+                example: vp
+                description: >
+                  The type of realtime entry:
+                    * vp - vehicle positions
+                    * tu - trip updates
+                    * sa - service alerts
+#              Have to put the enum inline because of a bug in openapi-generator
+#              $ref: "#/components/schemas/EntityTypes"
+            feed_references:
+              description:
+                A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+              type: array
+              items:
+                type: string
+                example: "feed_0"
 
     BasicFeeds:
       type: array
@@ -225,7 +310,66 @@ components:
       items:
         $ref: "#/components/schemas/GtfsFeed"
 
-    FeedUrls:
+    GtfsRTFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/GtfsRTFeed"
+
+    LatestDataset:
+      type: object
+      properties:
+        id:
+          description: Identifier of the latest dataset for this feed.
+          type: string
+          example: dataset_0
+        hosted_url:
+          description: >
+            As a convenience, the URL of the latest uploaded dataset hosted by MobilityData. 
+            It should be the same URL as the one found in the latest dataset id dataset.
+            An alternative way to find this is to use the latest dataset id to obtain the dataset and then use its hosted_url.
+          type: string
+          format: url
+          example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+        locations:
+          $ref: "#/components/schemas/Locations"
+
+#    Have to put the enum inline because of a bug in openapi-generator
+#    EntityTypes:
+#      type: array
+#      items:
+#        $ref: "#/components/schemas/EntityType"
+
+#    EntityType:
+#      type: string
+#      enum:
+#        - vp
+#        - tu
+#        - sa
+#      example: vp
+#      description: >
+#        The type of realtime entry:
+#          * vp - vehicle positions
+#          * tu - trip updates
+#          * sa - service alerts
+
+    ExternalIds:
+      type: array
+      items:
+        $ref: "#/components/schemas/ExternalId"
+
+    ExternalId:
+      type: object
+      properties:
+        external_id:
+          description: The ID that can be use to find the feed data in an external or legacy database.
+          type: string
+          example: 411
+        source:
+          description: The source of the external ID, e.g. the name of the database where the external ID can be used.
+          type: string
+          example: MobilityDataSpreadsheetCatalog
+
+    SourceInfo:
       type: object
       properties:
         producer_url:
@@ -258,26 +402,18 @@ components:
           description: >
             Defines the name of the parameter to pass in the URL to provide the API key.
             This field is required for `authentication_type=1` and `authentication_type=2`.
-        latest_dataset_id:
-          type: string
-          description: >
-            ID of the latest dataset added to the database for this feed.
-          example: dataset_2345
-        latest_hosted_url:
-          description: >
-            As a convenience, the URL of the latest uploaded dataset hosted by MobilityData. 
-            It should be the same URL as the one found in the latest_dataset_id dataset.
-            An alternative way to find this is to use the latest_dataset_id to obtain the dataset and then use its hosted_url.
-          type: string
-          format: url
-          example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
         license_url:
           description: A URL where to find the license for the feed.
           type: string
           format: url
           example: https://www.londontransit.ca/open-data/ltcs-open-data-terms-of-use/
 
-    FeedLocation:
+    Locations:
+      type: array
+      items:
+        $ref: "#/components/schemas/Location"
+
+    Location:
       type: object
       properties:
         country_code:
@@ -296,23 +432,22 @@ components:
           description: Primary municipality in which the transit system is located.
           type: string
           example: Los Angeles
-        bounding_box:
-          $ref: "#/components/schemas/BoundingBox"
 
-    FeedStatus:
-      description: > 
-        Describes status of the Feed. Should be one of 
-          * `active` Feed should be used in public trip planners.
-          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-          * `development` Feed is being used for development purposes and should not be used in public trip planners.
-      type: string
-      enum:
-        - active
-        - deprecated
-        - inactive
-        - development
-      example: active
+#    Have to put the enum inline because of a bug in openapi-generator
+#    FeedStatus:
+#      description: >
+#        Describes status of the Feed. Should be one of
+#          * `active` Feed should be used in public trip planners.
+#          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+#          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+#          * `development` Feed is being used for development purposes and should not be used in public trip planners.
+#      type: string
+#      enum:
+#        - active
+#        - deprecated
+#        - inactive
+#        - development
+#      example: active
 
     BasicDataset:
       type: object
@@ -325,18 +460,12 @@ components:
           description: ID of the feed related to this dataset.
           type: string
           example: feed_0
-        data_type:
-          $ref: "#/components/schemas/DataType"
 
     GtfsDataset:
       allOf:
         - $ref: "#/components/schemas/BasicDataset"
         - type: object
           properties:
-            legacy_id:
-              description: An optional legacy ID that could be useful for data migration.
-              type: string
-              example: ID_101
             hosted_url:
               description: The URL of the dataset data as hosted by MobilityData. No authentication required.
               type: string
@@ -360,6 +489,8 @@ components:
               description: A MD5 hash of the dataset.
               type: string
               example: a_long_sha1_hash
+            locations:
+                $ref: "#/components/schemas/Locations"
             bounding_box:
               $ref: "#/components/schemas/BoundingBox"
             features:
@@ -396,7 +527,6 @@ components:
           type: number
           example: -70.11018
 
-
     GtfsDatasets:
       type: array
       items:
@@ -409,14 +539,15 @@ components:
           type: string
           example: 1.0.0
 
-    DataType:
-      type: string
-      enum:
-        - gtfs
-        - gtfs_rt
-        - gbfs
-        - gofs
-      example: gtfs
+#    Have to put the enum inline because of a bug in openapi-generator
+#    DataType:
+#      type: string
+#      enum:
+#        - gtfs
+#        - gtfs_rt
+#        - gbfs
+#        - gofs
+#      example: gtfs
 
   parameters:
 
