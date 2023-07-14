@@ -69,7 +69,10 @@ scripts/api-tests.sh <my_test_filename>.py
 ```
 
 ## Running with Docker
-
+Before starting the docker container make sure the OpenApi generated files are present by running:
+```bash
+scripts/api-gen.sh
+```
 To run the server on a Docker container, please execute the following from the root directory:
 
 ```bash
