@@ -55,6 +55,10 @@ scripts/api-start.sh
 ```
 and open your browser at `http://localhost:8080/docs/` to see the docs.
 
+## IDE Python modules
+
+If your Python's IDE is not able to resolve the python module; make sure the api/src folder is marked as `source` directory. 
+
 ## Tests
 
 To run the all tests:
