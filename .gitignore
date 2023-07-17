@@ -25,3 +25,9 @@ replay_pid*
 
 */.DS_Store
 .DS_Store
+
+# Ignore the local instance of the data
+database/local/data/
+.idea
+api/src/feeds_gen
+scripts/bin
