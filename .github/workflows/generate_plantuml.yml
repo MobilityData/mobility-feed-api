@@ -1,0 +1,20 @@
+name: Generate PlantUML
+on:
+  push:
+    paths:
+      - '**.iuml'
+jobs:
+  generate_plantuml:
+    runs-on: ubuntu-latest
+    name: plantuml
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: plantuml
+        id: plantuml
+        uses: grassedge/generate-plantuml-action@v1.5
+        with:
+          path: example
+          message: "Render PlantUML files"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
