@@ -2,7 +2,7 @@ name: Generate PlantUML
 on:
   push:
     paths:
-      - '**.iuml'
+      - '**.pu'
 jobs:
   generate_plantuml:
     runs-on: ubuntu-latest
