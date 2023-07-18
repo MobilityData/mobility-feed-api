@@ -26,8 +26,15 @@ replay_pid*
 */.DS_Store
 .DS_Store
 
+
 # Ignore the local instance of the data
 database/local/data/
+
+# IDE files
 .idea
+
+# Ignore generated files
 api/src/feeds_gen
+
+# Ignore openapitools binaries
 scripts/bin
