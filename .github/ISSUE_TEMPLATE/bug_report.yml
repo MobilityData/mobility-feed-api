@@ -59,27 +59,6 @@ body:
   validations:
     required: false
     
-- type: input
-  attributes:
-    label: Operating system
-    description: |
-      Which Operating System are you using?
-    placeholder: >
-      Example: MacOS, Apple M1
-  validations:
-    required: true
-    
-- type: input
-  attributes:
-    label: Java version
-    description: |
-      Which version of Java are you using? Type the following command in the terminal to know what your Java version is.
-      ```
-      java -version
-      ```
-  validations:
-    required: false
-    
 - type: textarea
   attributes:
     label: Additional notes
