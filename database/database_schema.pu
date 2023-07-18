@@ -146,4 +146,4 @@ entity =ComponentGTFSDataset <<entity>> {
  "=GTFSFeed" ||-left-o{ "=GTFSDataset"
  "=ComponentGTFSDataset" }o-left- "=GTFSDataset"
  "=ComponentGTFSDataset" }|-- "=Component"
- @enduml
+@enduml
