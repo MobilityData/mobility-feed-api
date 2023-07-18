@@ -40,7 +40,7 @@
       status: Status
       }
 
-    entity =FeedHistory <<entity>> {
+    entity =FeedLog <<entity>> {
     <color:MediumSlateBlue><&key></color><&key> id : varchar
     <color:MediumSlateBlue><&key></color> historical_record_time: Date
       data_type : DataType
@@ -130,10 +130,10 @@
     <color:MediumSlateBlue><&key></color><&key> target_id : varchar
       }
 
-     "=Feed" ||-left-o{ "=FeedHistory"
+     "=Feed" ||-left-o{ "=FeedLog"
      "=Feed" ||--o| "=GTFSRealtimeFeed"
      "=Feed" ||-right-o| "=GTFSFeed"
-     "=FeedHistory" }--o{ "=RedirectingID"
+     "=FeedLog" }--o{ "=RedirectingID"
      "=Feed" }--o{ "=RedirectingID"
      "=Feed" ||-right-o{ "=ExternalID"
      "=GTFSRealtimeFeed" --o{ "=EntityTypeFeed"

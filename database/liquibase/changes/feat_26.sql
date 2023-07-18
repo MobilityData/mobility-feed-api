@@ -16,7 +16,7 @@ CREATE TABLE Feed (
     status Status
 );
 
-CREATE TABLE FeedHistory (
+CREATE TABLE FeedLog (
     id VARCHAR(255),
     historical_record_time DATE,
     data_type DataType,
