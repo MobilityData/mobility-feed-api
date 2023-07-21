@@ -79,7 +79,7 @@ while [[ $# -gt 0 ]]; do
       shift # past value
       ;;
     -h|--help)
-      usage
+      display_usage
       ;;
     *) # unknown option
       shift # past argument
