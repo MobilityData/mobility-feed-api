@@ -25,7 +25,7 @@ tags:
     description: "Metadata about the API"
 
 paths:
-  /feeds:
+  /v1/feeds:
     get:
       description: Get some (or all) feeds from the Mobility Database.
       tags:
@@ -48,7 +48,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/BasicFeeds"
 
-  /feeds/{id}:
+  /v1/feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -68,7 +68,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/BasicFeed"
 
-  /feeds/gtfs:
+  /v1/feeds/gtfs:
     get:
       description: Get some (or all) GTFS feeds from the Mobility Database.
       tags:
@@ -92,7 +92,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeeds"
 
-  /feeds/gtfs_rt:
+  /v1/feeds/gtfs_rt:
     get:
       description: Get some (or all) GTFS feeds from the Mobility Database.
       tags:
@@ -112,7 +112,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsRTFeeds"
 
-  /feeds/{id}/gtfs:
+  /v1/feeds/{id}/gtfs:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -130,7 +130,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeed"
 
-  /feeds/{id}/gtfs_rt:
+  /v1/feeds/{id}/gtfs_rt:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -149,7 +149,7 @@ paths:
                 $ref: "#/components/schemas/GtfsRTFeed"
 
 
-  /feeds/{id}/datasets/gtfs:
+  /v1/feeds/{id}/datasets/gtfs:
     parameters:
       - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
     get:
@@ -177,7 +177,7 @@ paths:
                 $ref: "#/components/schemas/GtfsDatasets"
 
 
-  /datasets/{id}/gtfs:
+  /v1/datasets/{id}/gtfs:
     get:
       description: Get the specified dataset from the Mobility Database.
       tags:
@@ -194,7 +194,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsDataset"
 
-  /metadata:
+  /v1/metadata:
     get:
       description: Get metadata about this API.
       tags:
