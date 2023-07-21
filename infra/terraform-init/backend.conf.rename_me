@@ -14,27 +14,15 @@
 # limitations under the License.
 #
 
-variable "project_id" {
-  type        = string
-  description = "GCP project ID"
-}
+# This file represents a template for setting up a remote terraform state.
+# If you choose to use a remote state:
+#   - Create a GCP storage bucket with the target name.
+#   - Make sure the `deployer` account has the right permissions on the newly created bucket.
+#   - Rename this file to backend.conf
+#   - Replace variable values.
+#   - Execute: terraform init -backend-conf=backend.conf
+#   - Enjoy coding!
+# More info: https://developer.hashicorp.com/terraform/language/state/remote
 
-variable "gcp_region" {
-  type        = string
-  description = "GCP region"
-}
-
-variable "environment" {
-  type        = string
-  description = "API environment. Possible values: prod, staging and dev"
-}
-
-variable "feed_api_image_version" {
-  type        = string
-  description = "Docker image version"
-}
-
-variable "deployer_service_account" {
-  type        = string
-  description = "Service account used to deploy resources using impersonation"
-}
+bucket      = {{BUKET_NAME}}
+prefix      = {{OBJECT_PREFIX}}
