@@ -112,7 +112,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsRTFeeds"
 
-  /v1/feeds/{id}/gtfs:
+  /v1/feeds/gtfs/{id}:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -130,7 +130,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeed"
 
-  /v1/feeds/{id}/gtfs_rt:
+  /v1/feeds/gtfs_rt/{id}:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -149,7 +149,7 @@ paths:
                 $ref: "#/components/schemas/GtfsRTFeed"
 
 
-  /v1/feeds/{id}/datasets/gtfs:
+  /v1/feeds/gtfs/{id}/datasets:
     parameters:
       - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
     get:
@@ -177,7 +177,7 @@ paths:
                 $ref: "#/components/schemas/GtfsDatasets"
 
 
-  /v1/datasets/{id}/gtfs:
+  /v1/datasets/gtfs/{id}:
     get:
       description: Get the specified dataset from the Mobility Database.
       tags:
