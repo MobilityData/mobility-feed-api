@@ -94,7 +94,7 @@ paths:
 
   /v1/feeds/gtfs_rt:
     get:
-      description: Get some (or all) GTFS feeds from the Mobility Database.
+      description: Get some (or all) GTFS Realtime feeds from the Mobility Database.
       tags:
         - "feeds"
       parameters:
@@ -106,7 +106,7 @@ paths:
         - ApiKeyAuth: []
       responses:
         200:
-          description: Successful pull of the GTFS Runtime feeds info.
+          description: Successful pull of the GTFS Realtime feeds info.
           content:
             application/json:
               schema:
@@ -116,7 +116,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
-      description: Get the specified feed from the Mobility Database.
+      description: Get the specified GTFS feed from the Mobility Database.
       tags:
         - "feeds"
 
@@ -153,7 +153,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
     get:
-      description: Get a list of datasets related to a feed.
+      description: Get a list of datasets related to a GTFS feed.
       tags:
         - "feeds"
       parameters:
@@ -223,8 +223,6 @@ components:
           enum:
             - gtfs
             - gtfs_rt
-            - gbfs
-            - gofs
           example: gtfs
 #    Have to put the enum inline because of a bug in openapi-generator
 #          $ref: "#/components/schemas/DataType"
@@ -246,10 +244,12 @@ components:
 #          $ref: "#/components/schemas/FeedStatus"
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
-        provider:
+        providers:
           description: A commonly used name for the transit provider included in the feed.
-          type: string
-          example: London Transit Commission
+          type: array
+          items:
+            type: string
+            example: London Transit Commission
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
@@ -266,6 +266,10 @@ components:
     GtfsFeed:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          properties:
+            locations:
+              $ref: "#/components/schemas/Locations"
         - type: object
           properties:
             latest_dataset:
@@ -330,8 +334,6 @@ components:
           type: string
           format: url
           example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
-        locations:
-          $ref: "#/components/schemas/Locations"
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    EntityTypes:
@@ -489,12 +491,10 @@ components:
               description: A MD5 hash of the dataset.
               type: string
               example: a_long_sha1_hash
-            locations:
-                $ref: "#/components/schemas/Locations"
             bounding_box:
               $ref: "#/components/schemas/BoundingBox"
-            features:
-              description: An array of features for this dataset.
+            components:
+              description: An array of components for this dataset.
               type: array
               items:
                 type: string
@@ -545,8 +545,6 @@ components:
 #      enum:
 #        - gtfs
 #        - gtfs_rt
-#        - gbfs
-#        - gofs
 #      example: gtfs
 
   parameters:
