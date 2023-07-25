@@ -30,10 +30,15 @@ cd api
 pip3 install -r requirements.txt
 pip3 install -r requirements_dev.txt
 ```
-- Generates the stubs on first run and everytime the schema changes
+- Generates an instance of the database locally using docker-compose
+```bash
+docker-compose --env-file ./config/.env.local  up -d --force-recreate
+```
+- Generates the api and database stubs on first run and everytime the schema changes
 ```bash
 scripts/api-gen.sh
 ```
+
 - Run local API 
 ```bash
 scripts/api-start.sh

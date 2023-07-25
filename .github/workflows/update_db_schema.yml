@@ -1,0 +1,13 @@
+name: Update Database Schema Documentation
+on:
+  push:
+    paths:
+      - '**.sql'
+jobs:
+  generate_plantuml:
+    runs-on: ubuntu-latest
+    name: plantuml
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+#        TODO: Run the docker thing and push the the branch

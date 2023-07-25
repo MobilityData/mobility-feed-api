@@ -28,13 +28,17 @@ replay_pid*
 
 
 # Ignore the local instance of the data
-database/local/data/
+data/
 
 # IDE files
 .idea
 
 # Ignore generated files
 api/src/feeds_gen
+api/src/database_gen
 
 # Ignore openapitools binaries
 scripts/bin
+
+# Ignore schemaspy generation
+docs/schemaspy

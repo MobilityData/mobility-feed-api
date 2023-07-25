@@ -8,16 +8,16 @@ CREATE TABLE Feed (
     feed_name VARCHAR(255),
     note VARCHAR(255),
     producer_url VARCHAR(255),
-    authentication_type BOOLEAN,
+    authentication_type BOOLEAN DEFAULT false,
     authentication_info_url VARCHAR(255),
     api_key_parameter_name VARCHAR(255),
     license_url VARCHAR(255),
     stable_id VARCHAR(255),
-    status Status
+    status Status DEFAULT 'active'
 );
 
 CREATE TABLE FeedLog (
-    id VARCHAR(255),
+    id VARCHAR(255) REFERENCES Feed(id),
     historical_record_time DATE,
     data_type DataType,
     provider VARCHAR(255),
@@ -42,7 +42,7 @@ CREATE TABLE EntityType (
 );
 
 CREATE TABLE EntityTypeFeed (
-    entity_name VARCHAR(255),
+    entity_name VARCHAR(255) REFERENCES EntityType(name),
     feed_id VARCHAR(255) REFERENCES Feed(id),
     PRIMARY KEY (entity_name, feed_id)
 );
@@ -92,12 +92,6 @@ CREATE TABLE GTFSDataset (
     stable_id VARCHAR(255)
 );
 
-CREATE TABLE LocationGTFSDataset (
-    location_id VARCHAR(255) REFERENCES Location(id),
-    dataset_id VARCHAR(255) REFERENCES GTFSDataset(id),
-    PRIMARY KEY (location_id, dataset_id)
-);
-
 CREATE TABLE Component (
     name VARCHAR(255) PRIMARY KEY
 );
@@ -109,8 +103,8 @@ CREATE TABLE ComponentGTFSDataset (
 );
 
 CREATE TABLE RedirectingID (
-    source_id VARCHAR(255),
-    target_id VARCHAR(255),
+    source_id VARCHAR(255) REFERENCES Feed(id),
+    target_id VARCHAR(255) REFERENCES Feed(id),
     PRIMARY KEY (source_id, target_id)
 );
 
