@@ -139,12 +139,13 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            cd infra
+            const fs = require('fs');
+            const comment = fs.readFileSync('infra/comment.md', 'utf8').trim();            
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: $(cat comment.md)
+              body: comment
             })
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
