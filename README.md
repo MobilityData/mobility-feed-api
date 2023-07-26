@@ -37,8 +37,12 @@ docker-compose --env-file ./config/.env.local  up -d --force-recreate
 - Generates the api and database stubs on first run and everytime the schema changes
 ```bash
 scripts/api-gen.sh
+scripts/db-gen.sh
 ```
-
+In case you modify the database schema, you can run 
+`
+docker-compose --env-file ./config/.env.local  up schemaspy -d --force-recreate
+` which will update your local instance of the database and the related schema documentation located in `docs/schemapy-dev/index.html`.
 - Run local API 
 ```bash
 scripts/api-start.sh
