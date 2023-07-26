@@ -124,7 +124,7 @@ jobs:
           path: tfplan.txt
 
       - name: Create PR comment
-        if: ${{ inputs.GH_EVENT == "pull_request" }}
+        if: ${{ inputs.GH_EVENT == 'pull_request' }}
         id: pr_comment
         run: |
           cd infra
@@ -137,7 +137,7 @@ jobs:
           echo "pr_body=$COMMENT" >> $GITHUB_OUTPUT
 
       - name: Post Plan to Pull Request
-        if: ${{ inputs.GH_EVENT == "pull_request" }}
+        if: ${{ inputs.GH_EVENT == 'pull_request' }}
         uses: actions/github-script@v6
         with:
           script: |
