@@ -123,32 +123,31 @@ jobs:
           name: tfplan.txt
           path: tfplan.txt
 
+      - name: Create PR comment
+        if: ${{ inputs.GH_EVENT == "pull_request" }}
+        id: pr_comment
+        run: |
+          cd infra
+          echo "Terraform plan output:" > comment.md
+          echo "#### Terraform Plan" >> comment.md
+          echo "\n\`\`\`hcl" >> comment.md
+          cat tfplan.txt >> comment.md
+          echo "\`\`\`" >> comment.md
+          COMMENT=$(cat comment.md)
+          echo "pr_body=$COMMENT" >> $GITHUB_OUTPUT
+
       - name: Post Plan to Pull Request
+        if: ${{ inputs.GH_EVENT == "pull_request" }}
         uses: actions/github-script@v6
         with:
           script: |
-            cd infra
-            echo "Terraform plan output:" > comment.md
-            echo "#### Terraform Plan" >> comment.md
-            echo "\n\`\`\`hcl" >> comment.md
-            cat tfplan.txt >> comment.md
-            echo "\`\`\`" >> comment.md            
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '👋 Thanks for reporting!'
+              body: ${{ steps.pr_comment.pr_body }}
             })
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-#      - name: Post Plan to Pull Request
-#        run: |
-#          cd infra
-#          echo "Terraform plan output:" > comment.md
-#          echo "#### Terraform Plan" >> comment.md
-#          echo "\n\`\`\`hcl" >> comment.md
-#          cat tfplan.txt >> comment.md
-#          echo "\`\`\`" >> comment.md
-#          gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md
 
