@@ -5,7 +5,6 @@ on:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
         required: true
-        type: string
     inputs:
       ENVIRONMENT:
         description: API environment. Possible values prod, staging and dev
