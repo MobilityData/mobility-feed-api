@@ -46,9 +46,7 @@ on:
 jobs:
   terraform-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: 'read'
-      id-token: 'write'
+    permissions: write-all
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
