@@ -1,15 +1,11 @@
 import os
-from typing import Optional
+import uuid
 
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine import Result
 from sqlalchemy.orm import Session, load_only
-from sqlalchemy.sql import Select
 
 from database_gen.sqlacodegen_models import Base
 from utils.logger import Logger
-
-import uuid
 
 
 def generate_unique_id() -> str:

@@ -41,4 +41,4 @@ api/src/database_gen
 scripts/bin
 
 # Ignore schemaspy generation
-docs/schemaspy
+docs/schemaspy-dev

@@ -10,7 +10,7 @@ from geoalchemy2 import WKTElement
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import Component, Feed, Entitytype, Externalid, Gtfsdataset, Gtfsfeed, \
-    Gtfsrealtimefeed
+    Gtfsrealtimefeed, Location, Provider
 from utils.logger import Logger
 
 
@@ -44,10 +44,16 @@ class DatabasePopulateHelper:
         self.logger.info(self.df)
 
     def set_up_defaults(self):
+        """
+        Updates the dataframe to match types defined in the database
+        """
         self.df.status.fillna('active', inplace=True)
         self.df['urls.authentication_type'].fillna(0, inplace=True)
         self.df['features'].fillna('', inplace=True)
         self.df['entity_type'].fillna('', inplace=True)
+        self.df['location.country_code'].fillna('', inplace=True)
+        self.df['location.subdivision_name'].fillna('', inplace=True)
+        self.df['location.municipality'].fillna('', inplace=True)
         self.df.replace(np.nan, None, inplace=True)
         self.df.replace('gtfs-rt', 'gtfs_rt', inplace=True)
 
@@ -59,7 +65,8 @@ class DatabasePopulateHelper:
             return
         for index, row in self.df.iterrows():
             # Feed
-            feed = Feed(
+            feed_class = Gtfsfeed if row['data_type'] == 'gtfs' else Gtfsrealtimefeed
+            feed = feed_class(
                 id=generate_unique_id(),
                 data_type=row['data_type'],
                 feed_name=row['name'],
@@ -74,12 +81,31 @@ class DatabasePopulateHelper:
             )
             self.db.merge(feed)
 
-            # GTFS Dataset
-            if feed.data_type == 'gtfs':
-                # GTFS Feed
-                gtfs_feed = Gtfsfeed(id=feed.id)
-                self.db.merge(gtfs_feed)
+            # Location
+            country_code = row['location.country_code']
+            subdivision_name = row['location.subdivision_name']
+            municipality = row['location.municipality']
+            composite_id = f'{country_code}-{subdivision_name}-{municipality}'.replace(' ', '_')
+            location = Location(
+                id=composite_id,
+                country_code=country_code,
+                subdivision_name=subdivision_name,
+                municipality=municipality
+            )
+            self.db.merge(location)
+            self.db.merge_relationship(Feed, {'id': feed.id}, location, 'locations')
 
+            # Provider
+            if row['provider long name'] is not None or row['provider short name'] is not None:
+                provider = Provider(
+                    id=generate_unique_id(),
+                    short_name=row['provider short name'],
+                    long_name=row['provider long name']
+                )
+                self.db.merge(provider)
+                self.db.merge_relationship(Feed, {'id': feed.id}, provider, 'providers')
+
+            if feed.data_type == 'gtfs':
                 # GTFS Dataset
                 min_lat = row['location.bounding_box.minimum_latitude']
                 max_lat = row['location.bounding_box.maximum_latitude']
@@ -92,6 +118,7 @@ class DatabasePopulateHelper:
                     max_lon, min_lat,
                     min_lon, min_lat
                 )
+                self.logger.debug(polygon)
                 bbox = WKTElement(polygon, srid=4326)
                 gtfs_dataset = Gtfsdataset(
                     id=generate_unique_id(),
@@ -102,33 +129,40 @@ class DatabasePopulateHelper:
                     note=row['note'],
                     download_date=datetime.fromisoformat(
                         row['location.bounding_box.extracted_on'].replace("Z", "+00:00")),
-                    stable_id=f"mdb-{row['mdb_source_id']}",
+                    stable_id=f"mdb-{int(row['mdb_source_id'])}",
                 )
-                self.db.merge(gtfs_dataset)
+                gtfs_dataset_merged = self.db.merge(gtfs_dataset)
+
+                # GTFS Component
+                if gtfs_dataset_merged:
+                    for component_name in row['features'].replace('|', '-').split('-'):
+                        if len(component_name) == 0:
+                            continue
+                        component = Component(name=component_name)
+                        self.db.merge(component)
+                        self.db.merge_relationship(Component, {'name': component_name}, gtfs_dataset, 'datasets')
 
             if feed.data_type == 'gtfs_rt':
-                # GTFS RT Feed
-                gtfs_rt_feed = Gtfsrealtimefeed(id=feed.id)
-                self.db.merge(gtfs_rt_feed)
-
                 # Feed Reference
-                # TODO
-
-            # GTFS Component
-            for component_name in row['features'].split('-'):
-                if len(component_name) == 0:
-                    continue
-                component = Component(name=component_name)
-                self.db.merge(component)
-                self.db.merge_relationship(Component, {'name': component_name}, gtfs_dataset, 'datasets')
+                if row['static_reference'] is not None:
+                    referenced_feeds_list = self.db.select(
+                        Feed,
+                        [Feed.stable_id == f"mdb-{int(row['static_reference'])}"]
+                    )
+                    if len(referenced_feeds_list) == 1:
+                        self.db.merge_relationship(Gtfsfeed, {'id': referenced_feeds_list[0].id}, feed, 'gtfs_rt_feeds')
+                    else:
+                        self.logger.error(
+                            f'Couldn\'t create reference from mdb-{feed.stable_id} to mdb-{row["static_reference"]}'
+                        )
 
             # External ID
             mdb_external_id = Externalid(feed_id=feed.id, associated_id=str(row['mdb_source_id']),
-                                         source="spreadsheet")  # TODO confirm source
+                                         source='mdb')
             self.db.merge(mdb_external_id)
 
             # Entity Type and Entity Type x Feed relationship
-            for entity_type_name in row['entity_type'].split('|'):
+            for entity_type_name in row['entity_type'].replace('|', '-').split('|'):
                 if len(entity_type_name) == 0:
                     continue
                 entity_type = Entitytype(name=entity_type_name)
