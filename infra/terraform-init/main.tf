@@ -49,66 +49,83 @@ resource "google_project_service" "services" {
 data "google_project" "project" {
 }
 
+resource "google_service_account" "ci_impersonator_service_account" {
+  account_id   = "ci-impersonator"
+  project      = var.project_id
+  display_name = "Service account that impersonates the CI deployer"
+}
+
+resource "google_project_iam_member" "ci_impersonator_binding" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
+
+resource "google_project_iam_member" "ci_impersonator_binding_artifactory" {
+  project = var.project_id
+  role    = "roles/artifactregistry.createOnPushWriter"
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
+
+resource "google_project_iam_member" "ci_impersonator_binding_storage" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
+
+resource "google_project_iam_member" "service_account_act_as_binding" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
+
+
 resource "google_service_account" "ci_service_account" {
   account_id   = "ci-service-account"
   project      = var.project_id
   display_name = "Service account to use as CI deployer"
 }
 
-resource "google_project_iam_binding" "ci_binding_storage" {
+resource "google_project_iam_member" "ci_binding_storage" {
   project = var.project_id
   role    = "roles/storage.objectAdmin"
-  members = [
-    "serviceAccount:${google_service_account.ci_service_account.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
-resource "google_project_iam_binding" "ci_binding_service_usage" {
+resource "google_project_iam_member" "ci_binding_service_usage" {
   project = var.project_id
   role    = "roles/serviceusage.serviceUsageAdmin"
-  members = [
-    "serviceAccount:${google_service_account.ci_service_account.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
-resource "google_project_iam_binding" "ci_binding_kms" {
+resource "google_project_iam_member" "ci_binding_kms" {
   project = var.project_id
   role    = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  members = [
-    "serviceAccount:${google_service_account.ci_service_account.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
-resource "google_project_iam_binding" "ci_binding_artifactory" {
+resource "google_project_iam_member" "ci_binding_artifactory" {
   project = var.project_id
   role    = "roles/artifactregistry.admin"
-  members = [
-    "serviceAccount:${google_service_account.ci_service_account.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
-resource "google_project_iam_binding" "ci_binding_iam" {
+resource "google_project_iam_member" "ci_binding_iam" {
   project = var.project_id
   role    = "roles/iam.serviceAccountAdmin"
-  members = [
-    "serviceAccount:${google_service_account.ci_service_account.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
-resource "google_project_iam_binding" "ci_binding_run" {
+resource "google_project_iam_member" "ci_binding_run" {
   project = var.project_id
   role    = "roles/run.admin"
-  members = [
-    "serviceAccount:${google_service_account.ci_service_account.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
-resource "google_project_iam_binding" "ci_binding_account" {
+resource "google_project_iam_member" "ci_binding_account" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
-  members = [
-    "serviceAccount:${google_service_account.ci_service_account.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
 resource "google_storage_bucket" "tf_state_bucket" {

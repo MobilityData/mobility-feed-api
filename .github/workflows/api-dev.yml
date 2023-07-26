@@ -1,0 +1,25 @@
+# Deploys the feeds API to MobilityData DEV environment
+name: Deploy DEV Feeds API
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - feat/service-deployment-poc # remove branch before merge
+
+jobs:
+  # TODO add API tests execution here
+  call-the-workflow:
+    uses: ./.github/workflows/api-deployer.yml
+    with:
+      ENVIRONMENT: $DEV_MOBILITY_FEEDS_ENVIRONMENT
+      BUCKET_NAME: $DEV_MOBILITY_FEEDS_TF_STATE_BUCKET
+      OBJECT_PREFIX: $DEV_MOBILITY_FEEDS_TF_STATE_OBJECT_PREFIX
+      PROJECT_ID: $DEV_MOBILITY_FEEDS_PROJECT_ID
+      REGION: $DEV_MOBILITY_FEEDS_REGION
+      DEPLOYER_SERVICE_ACCOUNT: $DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT
+      FEED_API_IMAGE_VERSION: $(git rev-parse --short ${{ github.sha }})
+      TF_APPLY: ${{ github.event_name != 'pull_request' }}
+      GH_EVENT: ${{ github.event_name }}
+    secrets:
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}

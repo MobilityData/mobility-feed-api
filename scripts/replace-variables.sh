@@ -108,7 +108,7 @@ for varname in $list
 do
     # shellcheck disable=SC2001
     # shellcheck disable=SC2016
-    output=$(echo "$output" | sed  's/{{'"$varname"'}}/'"${!varname}"'/g')
+    output=$(echo "$output" | sed  's/{{'"$varname"'}}/'\""${!varname}"\"'/g')
 done
 
 echo "$output" > "$OUT_FILE"
