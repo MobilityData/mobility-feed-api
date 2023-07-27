@@ -71,6 +71,7 @@ jobs:
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION
+          cat infra/backend.conf
 
       - name: Login to Google Artifact Registry
         uses: docker/login-action@v2
@@ -78,12 +79,6 @@ jobs:
           registry: us-central1-docker.pkg.dev
           username: _json_key_base64
           password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: Setup Maven Action
-        uses: s4u/setup-maven-action@v1.8.0
-        with:
-          java-version: 11
-          maven-version: 3.9.2
 
       - uses: hashicorp/setup-terraform@v2
         with:
@@ -94,6 +89,12 @@ jobs:
         run: |
           cat infra/backend.conf
           terraform init -backend-config=infra/backend.conf
+
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.8.0
+        with:
+          java-version: 11
+          maven-version: 3.9.2
 
       - name: Generate API code
         run: |
