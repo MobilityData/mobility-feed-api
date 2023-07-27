@@ -73,6 +73,9 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
   service  = google_cloud_run_v2_service.mobility-feed-api.name
 
   policy_data = data.google_iam_policy.noauth.policy_data
+  depends_on  = [
+    google_project_service.services
+  ]
 }
 
 output "feed_api_uri" {

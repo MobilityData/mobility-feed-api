@@ -22,6 +22,7 @@
 
 locals {
   services = [
+    "cloudresourcemanager.googleapis.com",
     "artifactregistry.googleapis.com"
   ]
 }
@@ -43,23 +44,6 @@ resource "google_artifact_registry_repository" "feed_repository" {
   location      = var.gcp_region
   project       = var.project_id
   format        = "DOCKER"
-}
-
-resource "google_artifact_registry_repository_iam_policy" "mobilitydata_feed_repository_iam_policy" {
-  repository = google_artifact_registry_repository.feed_repository.name
-  location   = var.gcp_region
-  project    = var.project_id
-
-  policy_data = <<-EOT
-    {
-      "bindings": [
-        {
-          "role": "roles/artifactregistry.writer",
-          "members": ["serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"]
-        }
-      ]
-    }
-  EOT
 }
 
 output "feed_repository_name" {
