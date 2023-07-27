@@ -87,8 +87,8 @@ jobs:
 
       - name: Terraform Init
         run: |
-          cat infra/backend.conf
-          terraform init -backend-config=infra/backend.conf
+          cd infra
+          terraform init -backend-config=backend.conf
 
       - name: Setup Maven Action
         uses: s4u/setup-maven-action@v1.8.0
