@@ -149,5 +149,5 @@ jobs:
       - name: Persist TF plan
         uses: actions/upload-artifact@v3
         with:
-          name: tfplan.txt
+          name: infra/tfplan.txt
           path: tfplan.txt
