@@ -149,5 +149,5 @@ jobs:
       - name: Persist TF plan
         uses: actions/upload-artifact@v3
         with:
-          name: infra/terraform-plan.txt
-          path: terraform-plan.txt
+          name: terraform-plan.txt
+          path: infra/terraform-plan.txt
