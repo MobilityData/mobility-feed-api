@@ -289,8 +289,8 @@ components:
           type: array
           items:
             description: >
-              The feed ID of a feed to use instead of the current one. 
-              This could be due to the current feed being merged or split.
+              The feed ID that should be used in replacement of the current one. 
+              A redirect is defined when several expired feeds are aggregated together or split into new feeds.
             type: string
             example: mdb-100
 
@@ -508,14 +508,6 @@ components:
               type: string
             downloaded_at:
               description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
-              type: string
-              example: 2023-07-10T22:06:00Z
-              format: date
-            created_at:
-              type: string
-              example: 2023-07-10T22:06:00Z
-              format: date
-            updated_at:
               type: string
               example: 2023-07-10T22:06:00Z
               format: date
