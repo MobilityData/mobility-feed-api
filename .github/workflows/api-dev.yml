@@ -9,49 +9,8 @@ on:
 
 jobs:
   # TODO add API tests execution
-  docker-build-publish:
-    runs-on: ubuntu-latest
-    permissions: write-all
-    steps:
-    - name: Authenticate to Google Cloud
-      id: gcloud_auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-    - name: Login to Google Artifact Registry
-      uses: docker/login-action@v2
-      with:
-        registry: us-central1-docker.pkg.dev
-        username: _json_key_base64
-        password: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-    - name: Setup Maven Action
-      uses: s4u/setup-maven-action@v1.8.0
-      with:
-        java-version: 11
-        maven-version: 3.9.2
-
-    - name: Generate API code
-      run: |
-        scripts/setup-openapi-generator.sh
-        scripts/api-gen.sh
-
-    - name: Set Variables
-      run: |
-        echo "Setting variables"
-        echo "PROJECT_ID=${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}" >> $GITHUB_ENV
-        echo "REGION=${{ vars.DEV_MOBILITY_FEEDS_REGION }}" >> $GITHUB_ENV
-        echo "ENVIRONMENT=${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}" >> $GITHUB_ENV
-        echo "FEED_API_IMAGE_VERSION=${{ github.sha }}" >> $GITHUB_ENV
-
-    - name: Build & Publish Docker Image
-      run: |
-        scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
-
   api-build-deployment:
     uses: ./.github/workflows/api-deployer.yml
-    needs: docker-build-publish
     with:
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       BUCKET_NAME: ${{ vars.DEV_MOBILITY_FEEDS_TF_STATE_BUCKET }}
