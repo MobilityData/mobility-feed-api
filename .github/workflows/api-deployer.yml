@@ -71,34 +71,11 @@ jobs:
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION
-          cat infra/backend.conf
-
-      - name: Login to Google Artifact Registry
-        uses: docker/login-action@v2
-        with:
-          registry: us-central1-docker.pkg.dev
-          username: _json_key_base64
-          password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.3
           terraform_wrapper: false
-
-      - name: Setup Maven Action
-        uses: s4u/setup-maven-action@v1.8.0
-        with:
-          java-version: 11
-          maven-version: 3.9.2
-
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
-
-      - name: Build & Publish Docker Image
-        run: |
-          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
 
       - name: Terraform Init
         run: |
