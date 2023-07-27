@@ -132,7 +132,7 @@ jobs:
         run: |
           cd infra
           terraform plan -var-file=vars.tfvars -out=tf.plan
-          terraform show -no-color tf.plan > tfplan.txt
+          terraform show -no-color tf.plan > terraform-plan.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
@@ -149,5 +149,5 @@ jobs:
       - name: Persist TF plan
         uses: actions/upload-artifact@v3
         with:
-          name: infra/tfplan.txt
-          path: tfplan.txt
+          name: infra/terraform-plan.txt
+          path: terraform-plan.txt
