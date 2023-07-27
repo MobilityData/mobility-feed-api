@@ -38,10 +38,6 @@ on:
         description: Terraform apply changes
         required: true
         type: string
-      GH_EVENT:
-        description: Github event from the caller
-        required: true
-        type: string
 
 jobs:
   terraform-deploy:
@@ -96,8 +92,8 @@ jobs:
 
       - name: Terraform Init
         run: |
-          cd infra
-          terraform init -backend-config=backend.conf
+          cat infra/backend.conf
+          terraform init -backend-config=infra/backend.conf
 
       - name: Generate API code
         run: |
@@ -132,22 +128,3 @@ jobs:
         with:
           name: tfplan.txt
           path: tfplan.txt
-
-      - name: Generate PR comment
-        if: ${{ inputs.GH_EVENT == 'pull_request' }}
-        id: generate-comment
-        run: |
-          echo "Terraform plan output:" > comment.md
-          echo "#### Terraform Plan" >> comment.md
-          echo "\n\`\`\`hcl" >> comment.md
-          cat infra/tfplan.txt >> comment.md
-          echo "\`\`\`" >> comment.md
-          PR_COMMENT=$(< comment.md)
-          echo "PR_COMMENT<<EOF" >> $GITHUB_ENV
-          echo "$PR_COMMENT" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-      - name: Comment Pull Request
-        uses: thollander/actions-comment-pull-request@v1.0.4
-        with:
-          message: ${{ env.PR_COMMENT }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

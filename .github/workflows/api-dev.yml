@@ -5,15 +5,11 @@ on:
     branches: [ main, feat/service-deployment-poc ] # remove branch before merge
     paths-ignore:
       - '**.md'
-  pull_request:
-    branches: [ main ]
-    paths-ignore:
-      - '**.md'
 
 
 jobs:
-  # TODO add API tests execution here
-  call-the-workflow:
+  # TODO add API tests execution
+  api-build-deployment:
     uses: ./.github/workflows/api-deployer.yml
     with:
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
@@ -23,7 +19,6 @@ jobs:
       REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
       FEED_API_IMAGE_VERSION: ${{ github.sha }}
-      TF_APPLY: ${{ github.event_name != 'pull_request' }}
-      GH_EVENT: ${{ github.event_name }}
+      TF_APPLY: true
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
