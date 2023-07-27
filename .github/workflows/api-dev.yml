@@ -1,10 +1,15 @@
 # Deploys the feeds API to MobilityData DEV environment
 name: Deploy DEV Feeds API
 on:
+  push:
+    branches: [ main, feat/service-deployment-poc ] # remove branch before merge
+    paths-ignore:
+      - '**.md'
   pull_request:
-    branches:
-      - master
-      - feat/service-deployment-poc # remove branch before merge
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+
 
 jobs:
   # TODO add API tests execution here
