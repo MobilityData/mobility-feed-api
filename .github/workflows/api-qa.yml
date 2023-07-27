@@ -2,7 +2,7 @@
 name: Deploy Feeds API - QA
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   # TODO add API tests execution
