@@ -18,7 +18,7 @@
 #
 
 # This script replace variables on an input file creating an output file with the substituted content.
-# The script receives the name of the variables as parameters. The variables values as read from the environment.
+# The script receives the name of the variables as parameters. The variables values are read from the environment.
 # The input file must contain the variables in the format {{variable_name}}.
 # For an example of a valid input file, check `../infra/vars.tfvars.rename_me`.
 # All variables need to be set to the environment previous running the script.
