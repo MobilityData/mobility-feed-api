@@ -85,11 +85,6 @@ jobs:
           terraform_version: 1.5.3
           terraform_wrapper: false
 
-      - name: Terraform Init
-        run: |
-          cd infra
-          terraform init -backend-config=backend.conf
-
       - name: Setup Maven Action
         uses: s4u/setup-maven-action@v1.8.0
         with:
@@ -104,6 +99,11 @@ jobs:
       - name: Build & Publish Docker Image
         run: |
           scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
+
+      - name: Terraform Init
+        run: |
+          cd infra
+          terraform init -backend-config=backend.conf
 
       - name: Terraform Plan
         id: plan
