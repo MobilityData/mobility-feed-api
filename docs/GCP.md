@@ -1,8 +1,8 @@
 # Set up new GCP environment 
 
-`All roads lead to Rome!`This quote is a reminder that there are multiple ways to get to the same final state.
+`All roads lead to Rome!` This quote is a reminder that there are multiple ways to get to the same final state.
 Take the following steps as a guidance and adapt them to your own local and organizational requirements.
-Fpr more information regarding Google Cloud Platform and terraform go to the [Official GCP Site](https://cloud.google.com/) and [Terraform Official Site](https://www.terraform.io/).
+For more information regarding Google Cloud Platform and terraform go to the [Official GCP Site](https://cloud.google.com/) and [Terraform Official Site](https://www.terraform.io/).
 
 ## Initial project and remote state set up
 
@@ -31,7 +31,7 @@ terraform init -backend-config=backend-<environment>.conf
 ```shell
   terraform plan -var-file=vars-<environment>.tfvars
 ```
-- Once you had reviewed the plan, execute the terraform apply command to commit your the to your GCP environment using,
+- Once you had reviewed the plan, execute the terraform apply command to commit the changes to the GCP environment using,
 ```shell
 terraform apply -var-file=vars-<environment>.tfvars
 ```
