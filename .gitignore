@@ -46,8 +46,13 @@ docs/schemaspy-dev
 
 # Ignore terraform local files
 backend.conf
-vars.tfvars
+backend-*.conf
+*.tfvars
 .terraform
 terraform.tfstate
 terraform.tfstate.backup
+secrets.env
+secrets-*.env
+vars.env
+vars-*.env
 
