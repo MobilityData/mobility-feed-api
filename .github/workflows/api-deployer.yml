@@ -83,6 +83,17 @@ jobs:
           username: _json_key_base64
           password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.8.0
+        with:
+          java-version: 11
+          maven-version: 3.9.2
+
+      - name: Generate API code
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
+
       - name: Build & Publish Docker Image
         run: |
           scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
@@ -101,7 +112,8 @@ jobs:
         id: plan
         run: |
           cd infra
-          terraform plan -var-file=vars.tfvars -out=tfplan.txt
+          terraform plan -var-file=vars.tfvars -out=tf.plan
+          terraform show -no-color tf.plan > tfplan.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
@@ -110,7 +122,7 @@ jobs:
         if: ${{ inputs.TF_APPLY }}
         run: |
           cd infra
-          terraform plan -var-file=vars.tfvars -out=tfplan.txt
+          terraform apply -auto-approve tf.plan
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
@@ -121,31 +133,21 @@ jobs:
           name: tfplan.txt
           path: tfplan.txt
 
-      - name: Create PR comment
+      - name: Generate PR comment
         if: ${{ inputs.GH_EVENT == 'pull_request' }}
-        id: pr_comment
+        id: generate-comment
         run: |
-          cd infra
           echo "Terraform plan output:" > comment.md
           echo "#### Terraform Plan" >> comment.md
           echo "\n\`\`\`hcl" >> comment.md
-          cat tfplan.txt >> comment.md
+          cat infra/tfplan.txt >> comment.md
           echo "\`\`\`" >> comment.md
-
-      - name: Post Plan to Pull Request
-        if: ${{ inputs.GH_EVENT == 'pull_request' }}
-        uses: actions/github-script@v6
+          PR_COMMENT=$(< comment.md)
+          echo "PR_COMMENT<<EOF" >> $GITHUB_ENV
+          echo "$PR_COMMENT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      - name: Comment Pull Request
+        uses: thollander/actions-comment-pull-request@v1.0.4
         with:
-          script: |
-            const fs = require('fs');
-            const comment = fs.readFileSync('infra/comment.md', 'utf8').trim();            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            })
-        env:
+          message: ${{ env.PR_COMMENT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-

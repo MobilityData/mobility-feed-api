@@ -2,7 +2,6 @@
 name: Deploy DEV Feeds API
 on:
   pull_request:
-  push:
     branches:
       - master
       - feat/service-deployment-poc # remove branch before merge
