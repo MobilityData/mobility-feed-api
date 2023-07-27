@@ -22,4 +22,4 @@ jobs:
       FEED_API_IMAGE_VERSION: ${{ github.sha }}
       TF_APPLY: true
     secrets:
-        GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
