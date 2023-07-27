@@ -89,15 +89,6 @@ jobs:
           java-version: 11
           maven-version: 3.9.2
 
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
-
-      - name: Build & Publish Docker Image
-        run: |
-          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
-
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.3
@@ -107,6 +98,15 @@ jobs:
         run: |
           cd infra
           terraform init -backend-config=backend.conf
+
+      - name: Generate API code
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
+
+      - name: Build & Publish Docker Image
+        run: |
+          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
 
       - name: Terraform Plan
         id: plan
