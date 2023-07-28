@@ -72,7 +72,7 @@ class DatabasePopulateHelper:
                 feed_name=row['name'],
                 note=row['note'],
                 producer_url=row['urls.direct_download'],
-                authentication_type=row['urls.authentication_type'] == 1,
+                authentication_type=str(int(row['urls.authentication_type'])),
                 authentication_info_url=row['urls.authentication_info'],
                 api_key_parameter_name=row['urls.api_key_parameter_name'],
                 license_url=row['urls.license'],
@@ -143,6 +143,14 @@ class DatabasePopulateHelper:
                         self.db.merge_relationship(Component, {'name': component_name}, gtfs_dataset, 'datasets')
 
             if feed.data_type == 'gtfs_rt':
+                # Entity Type and Entity Type x GTFSRealtimeFeed relationship
+                for entity_type_name in row['entity_type'].replace('|', '-').split('|'):
+                    if len(entity_type_name) == 0:
+                        continue
+                    entity_type = Entitytype(name=entity_type_name)
+                    self.db.merge(entity_type)
+                    self.db.merge_relationship(Entitytype, {'name': entity_type_name}, feed, 'feeds')
+
                 # Feed Reference
                 if row['static_reference'] is not None:
                     referenced_feeds_list = self.db.select(
@@ -160,14 +168,6 @@ class DatabasePopulateHelper:
             mdb_external_id = Externalid(feed_id=feed.id, associated_id=str(row['mdb_source_id']),
                                          source='mdb')
             self.db.merge(mdb_external_id)
-
-            # Entity Type and Entity Type x Feed relationship
-            for entity_type_name in row['entity_type'].replace('|', '-').split('|'):
-                if len(entity_type_name) == 0:
-                    continue
-                entity_type = Entitytype(name=entity_type_name)
-                self.db.merge(entity_type)
-                self.db.merge_relationship(Entitytype, {'name': entity_type_name}, feed, 'feeds')
 
 
 if __name__ == '__main__':

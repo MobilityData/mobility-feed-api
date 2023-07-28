@@ -1,5 +1,6 @@
 CREATE TYPE DataType AS ENUM ('gtfs', 'gtfs_rt');
 CREATE TYPE Status AS ENUM ('active', 'inactive', 'development', 'deprecated');
+CREATE TYPE AuthenticationType AS ENUM ('0', '1', '2');
 
 CREATE TABLE Feed (
     id VARCHAR(255) PRIMARY KEY,
@@ -8,7 +9,7 @@ CREATE TABLE Feed (
     feed_name VARCHAR(255),
     note VARCHAR(255),
     producer_url VARCHAR(255),
-    authentication_type BOOLEAN DEFAULT false,
+    authentication_type AuthenticationType DEFAULT '0',
     authentication_info_url VARCHAR(255),
     api_key_parameter_name VARCHAR(255),
     license_url VARCHAR(255),
@@ -24,7 +25,7 @@ CREATE TABLE FeedLog (
     feed_name VARCHAR(255),
     note VARCHAR(255),
     producer_url VARCHAR(255),
-    authentication_type BOOLEAN,
+    authentication_type AuthenticationType,
     authentication_info_url VARCHAR(255),
     api_key_parameter_name VARCHAR(255),
     license_url VARCHAR(255),
@@ -43,7 +44,7 @@ CREATE TABLE EntityType (
 
 CREATE TABLE EntityTypeFeed (
     entity_name VARCHAR(255) REFERENCES EntityType(name),
-    feed_id VARCHAR(255) REFERENCES Feed(id),
+    feed_id VARCHAR(255) REFERENCES GTFSRealtimeFeed(id),
     PRIMARY KEY (entity_name, feed_id)
 );
 
