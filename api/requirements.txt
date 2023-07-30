@@ -23,7 +23,7 @@ promise==2.3
 pydantic==1.10.10
 python-dotenv==0.17.1
 python-multipart==0.0.5
-PyYAML==5.4.1
+PyYAML==6.0.1
 requests==2.31.0
 Rx==1.6.1
 six==1.16.0
@@ -35,3 +35,8 @@ uvicorn==0.13.4
 uvloop==0.17.0
 watchgod==0.7
 websockets==10.0
+sqlalchemy
+geoalchemy2
+psycopg2-binary==2.9.6
+sqlacodegen
+pandas

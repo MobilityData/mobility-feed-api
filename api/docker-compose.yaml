@@ -1,9 +1,9 @@
 version: '3.6'
 services:
-  service:
+  api:
+    container_name: api
     build:
       context: .
-      target: service
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    command: uvicorn feeds_gen.main:app --host 0.0.0.0 --port 8080
