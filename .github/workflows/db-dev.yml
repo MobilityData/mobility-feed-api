@@ -2,7 +2,6 @@
 name: Deploy DB - DEV
 on:
   workflow_dispatch:  # Supports manual deployment
-#  Uncomment the following trigger to test on dev
   push:
     branches: [ main, * ] # remove branch before merge
     paths-ignore:
