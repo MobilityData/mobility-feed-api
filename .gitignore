@@ -40,5 +40,19 @@ api/src/database_gen
 # Ignore openapitools binaries
 scripts/bin
 
+
 # Ignore schemaspy generation
 docs/schemaspy-dev
+
+# Ignore terraform local files
+backend.conf
+backend-*.conf
+*.tfvars
+.terraform
+terraform.tfstate
+terraform.tfstate.backup
+secrets.env
+secrets-*.env
+vars.env
+vars-*.env
+

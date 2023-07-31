@@ -1,0 +1,13 @@
+# This file is a template for populating the terraform-init module variables
+# To set variables:
+# - Rename this file to vars.tfvars.
+# - Replace variable values.
+# - Execute your terraform script passing this file as a parameter, example: terraform plan -var-file=vars.tfvars
+
+project_id  = {{PROJECT_ID}}
+gcp_region  = {{REGION}}
+environment = {{ENVIRONMENT}}
+
+deployer_service_account = {{DEPLOYER_SERVICE_ACCOUNT}}
+feed_api_image_version      = {{FEED_API_IMAGE_VERSION}}
+
