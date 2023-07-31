@@ -83,6 +83,8 @@ jobs:
           echo "POSTGRE_SQL_DB_NAME=${{ inputs.POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
           echo "POSTGRE_USER_NAME=${{ inputs.POSTGRE_USER_NAME }}" >> $GITHUB_ENV
           echo "POSTGRE_USER_PASSWORD=${{ inputs.POSTGRE_USER_PASSWORD }}" >> $GITHUB_ENV
+          echo "FEED_API_IMAGE_VERSION=${{ github.sha }}" >> $GITHUB_ENV        
+
 
       - name: Populate Variables
         run: |
