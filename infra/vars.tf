@@ -38,3 +38,23 @@ variable "deployer_service_account" {
   type        = string
   description = "Service account used to deploy resources using impersonation"
 }
+
+variable "postgresql_instance_name" {
+  type        = string
+  description = "The name of the PostgreSQL instance"
+}
+
+variable "postgresql_database_name" {
+  type        = string
+  description = "The name of the PostgreSQL database"
+}
+
+variable "postgresql_user_name" {
+  type        = string
+  description = "The name of the PostgreSQL user"
+}
+
+variable "postgresql_user_password" {
+  type        = string
+  description = "The password for the PostgreSQL user"
+}
