@@ -9,8 +9,9 @@ gcp_region  = {{REGION}}
 environment = {{ENVIRONMENT}}
 
 deployer_service_account = {{DEPLOYER_SERVICE_ACCOUNT}}
+feed_api_image_version   = {{FEED_API_IMAGE_VERSION}}
 
-postgres_instance_name   = {{POSTGRE_SQL_INSTANCE_NAME}}
+postgresql_instance_name = {{POSTGRE_SQL_INSTANCE_NAME}}
 postgresql_database_name = {{POSTGRE_SQL_DB_NAME}}
 postgresql_user_name     = {{POSTGRE_USER_NAME}}
 postgresql_user_password = {{POSTGRE_USER_PASSWORD}}

@@ -89,7 +89,7 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/db-vars.tfvars.rename_me -out_file infra/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD
+          scripts/replace-variables.sh -in_file infra/db-vars.tfvars.rename_me -out_file infra/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD, FEED_API_IMAGE_VERSION
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
