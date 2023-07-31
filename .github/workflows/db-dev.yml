@@ -1,0 +1,27 @@
+# Deploys the Mobility Database to the DEV environment
+name: Deploy DB - DEV
+on:
+  workflow_dispatch:  # Supports manual deployment
+#  Uncomment the following trigger to test on dev
+  push:
+    branches: [ main, * ] # remove branch before merge
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  api-build-deployment:
+    uses: ./.github/workflows/db-deployer.yml
+    with:
+      ENVIRONMENT: "dev"
+      BUCKET_NAME: "mobility-feeds-terraform-dev"
+      OBJECT_PREFIX: "terraform-state-api"
+      PROJECT_ID: "mobility-feeds-dev"
+      REGION: "us-central1"
+      DEPLOYER_SERVICE_ACCOUNT: "ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com"
+      POSTGRE_SQL_INSTANCE_NAME: "database"
+      POSTGRE_SQL_DB_NAME: "MobilityDatabase"
+      POSTGRE_USER_NAME: "postgres"
+      POSTGRE_USER_PASSWORD: "postgres"
+      TF_APPLY: true
+    secrets:
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
