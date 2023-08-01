@@ -139,4 +139,4 @@ jobs:
           changeLogFile: 'changelog.xml'
           username: ${{ secrets.POSTGRE_USER_NAME }}
           password: ${{ secrets.POSTGRE_USER_PASSWORD }}
-          url: 'jdbc:postgresql://${{ env.DB_INSTANCE_HOST }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}'
+          url: 'jdbc:postgresql://${{ env.DB_INSTANCE_HOST }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
