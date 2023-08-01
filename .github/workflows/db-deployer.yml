@@ -127,7 +127,9 @@ jobs:
       - name: Get Terraform Outputs
         id: get_outputs
         run: |
-          echo "DB_INSTANCE_HOST=$(terraform output -json instance_address)" >> $GITHUB_ENV
+          DB_INSTANCE_HOST_RAW=$(terraform output -json instance_address)
+          DB_INSTANCE_HOST=$(echo $DB_INSTANCE_HOST_RAW | jq -r .)
+          echo "DB_INSTANCE_HOST=$DB_INSTANCE_HOST" >> $GITHUB_ENV
         working-directory: infra/postgresql
 
       - name: Liquibase Update
@@ -138,4 +140,3 @@ jobs:
           username: ${{ secrets.POSTGRE_USER_NAME }}
           password: ${{ secrets.POSTGRE_USER_PASSWORD }}
           url: 'jdbc:postgresql://${{ env.DB_INSTANCE_HOST }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}'
-
