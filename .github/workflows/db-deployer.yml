@@ -67,7 +67,7 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: GCloud Setup
+      - name: Google Cloud Setup
         uses: google-github-actions/setup-gcloud@v1
 
       - name: Set Variables
@@ -88,7 +88,7 @@ jobs:
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           cp infra/postgresql/backend.conf infra/terraform-init/backend.conf
-          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD
+          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
