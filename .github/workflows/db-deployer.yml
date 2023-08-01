@@ -83,13 +83,11 @@ jobs:
           echo "POSTGRE_SQL_DB_NAME=${{ inputs.POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
           echo "POSTGRE_USER_NAME=${{ inputs.POSTGRE_USER_NAME }}" >> $GITHUB_ENV
           echo "POSTGRE_USER_PASSWORD=${{ inputs.POSTGRE_USER_PASSWORD }}" >> $GITHUB_ENV
-          echo "FEED_API_IMAGE_VERSION=${{ github.sha }}" >> $GITHUB_ENV        
-
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/db-vars.tfvars.rename_me -out_file infra/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,FEED_API_IMAGE_VERSION
+          scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
@@ -107,7 +105,7 @@ jobs:
 
       - name: Terraform Plan
         run: |
-          cd infra
+          cd infra/postgresql
           terraform plan -var-file=vars.tfvars -out=tf.plan
           terraform show -no-color tf.plan > terraform-plan.txt
         env:
