@@ -127,3 +127,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
 
+      - name: Get Outputs
+        id: get_outputs
+        run: |
+          echo "db_instance_address=$(terraform output -json instance_address)" >> $GITHUB_ENV
+          echo "db_instance_connection_name=$(terraform output -json instance_connection_name)" >> $GITHUB_ENV
+        working-directory: infra/postgresql
+
+      - name: Use Output
+        run: |
+          echo "DB instance address: ${{ env.db_instance_address }}"
+          echo "DB instance connection name: ${{ env.db_instance_connection_name }}"
+
+
