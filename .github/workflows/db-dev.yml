@@ -13,7 +13,7 @@ jobs:
     with:
       ENVIRONMENT: "dev"
       BUCKET_NAME: "mobility-feeds-terraform-dev"
-      OBJECT_PREFIX: "terraform-state-api"
+      OBJECT_PREFIX: "terraform-state-db"
       PROJECT_ID: "mobility-feeds-dev"
       REGION: "us-central1"
       DEPLOYER_SERVICE_ACCOUNT: "ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com"
