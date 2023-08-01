@@ -19,7 +19,7 @@ def set_up_configs():
     Set up function
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", help="Environment to use", default="local")
+    parser.add_argument("--env", help="Environment to use", default="dev")
     parser.add_argument("--filepath", help="Absolute path for the data file", required=True)
     args = parser.parse_args()
     current_path = Path(__file__).resolve()

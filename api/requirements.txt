@@ -40,5 +40,4 @@ geoalchemy2
 psycopg2-binary==2.9.6
 sqlacodegen==3.0.0rc2
 pandas
-cloud-sql-python-connector
-pg8000
+cloud-sql-python-connector[pg8000]
