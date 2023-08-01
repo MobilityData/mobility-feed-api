@@ -1,24 +1,45 @@
-variable "instance_name" {
-  description = "The name of the Cloud SQL instance"
-  type        = string
+# Configure the backend section to match your configuration.
+terraform {
+  backend "gcs" {
+  }
 }
 
-variable "database_name" {
-  description = "The name of the database to create"
+variable "project_id" {
   type        = string
+  description = "GCP project ID"
 }
 
-variable "user_name" {
-  description = "The name of the default user"
+variable "gcp_region" {
   type        = string
+  description = "GCP region"
 }
 
-variable "user_password" {
-  description = "The password for the default user. If not set, a random one will be generated and available in the generated_user_password output variable."
+variable "environment" {
   type        = string
+  description = "API environment. Possible values: prod, staging and dev"
 }
 
-variable "region" {
-  description = "The region of the Cloud SQL resources"
+variable "deployer_service_account" {
   type        = string
+  description = "Service account used to deploy resources using impersonation"
+}
+
+variable "postgresql_instance_name" {
+  type        = string
+  description = "The name of the PostgreSQL instance"
+}
+
+variable "postgresql_database_name" {
+  type        = string
+  description = "The name of the PostgreSQL database"
+}
+
+variable "postgresql_user_name" {
+  type        = string
+  description = "The name of the PostgreSQL user"
+}
+
+variable "postgresql_user_password" {
+  type        = string
+  description = "The password for the PostgreSQL user"
 }

@@ -65,12 +65,3 @@ module "feed-api" {
 
   source = "./feed-api"
 }
-
-module "postgresql" {
-  source          = "./postgresql"
-  instance_name   = var.postgresql_instance_name
-  database_name   = var.postgresql_database_name
-  user_name       = var.postgresql_user_name
-  user_password   = var.postgresql_user_password
-  region          = var.gcp_region
-}
