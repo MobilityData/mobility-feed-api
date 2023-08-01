@@ -133,7 +133,6 @@ jobs:
       - name: Liquibase Update
         uses: liquibase-github-actions/update@v4.23.0
         with:
-          operation: 'update'
           classpath: 'liquibase'
           changeLogFile: 'changelog.xml'
           username: ${{ secrets.POSTGRE_USER_NAME }}
