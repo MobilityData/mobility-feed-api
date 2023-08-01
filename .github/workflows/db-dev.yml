@@ -8,7 +8,7 @@ on:
       - '**.md'
 
 jobs:
-  api-build-deployment:
+  db-deployment:
     uses: ./.github/workflows/db-deployer.yml
     with:
       ENVIRONMENT: "dev"
