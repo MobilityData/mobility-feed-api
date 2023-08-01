@@ -53,7 +53,7 @@ resource "google_sql_user" "users" {
 
 output "instance_address" {
   description = "The first public IPv4 address of the SQL instance"
-  value       = google_sql_database_instance.db.ip_address[0]
+  value       = google_sql_database_instance.db.ip_address[0].ip_address
 }
 
 output "instance_connection_name" {
