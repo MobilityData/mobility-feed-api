@@ -40,3 +40,13 @@ resource "google_sql_user" "users" {
   instance = google_sql_database_instance.db.name
   password = var.postgresql_user_password
 }
+
+output "instance_address" {
+  description = "The first public IPv4 address of the SQL instance"
+  value       = google_sql_database_instance.db.ip_address[0]
+}
+
+output "instance_connection_name" {
+  description = "The connection name of the SQL instance to be used in connection strings"
+  value       = google_sql_database_instance.db.connection_name
+}
