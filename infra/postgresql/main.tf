@@ -27,6 +27,15 @@ resource "google_sql_database_instance" "db" {
 
   settings {
     tier = "db-f1-micro"
+    ip_configuration {
+      ipv4_enabled = true
+      require_ssl  = true
+
+      authorized_networks {
+        name  = "all-ips"
+        value = "0.0.0.0/0"
+      }
+    }
   }
 }
 
