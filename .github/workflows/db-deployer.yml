@@ -121,7 +121,7 @@ jobs:
       - name: Terraform Apply
         if: ${{ inputs.TF_APPLY }}
         run: |
-          cd infra
+          cd infra/postgresql
           terraform apply -auto-approve tf.plan
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
