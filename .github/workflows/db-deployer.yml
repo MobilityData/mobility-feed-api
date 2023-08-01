@@ -139,4 +139,4 @@ jobs:
           changeLogFile: 'changelog.xml'
           username: ${{ secrets.POSTGRE_USER_NAME }}
           password: ${{ secrets.POSTGRE_USER_PASSWORD }}
-          url: 'jdbc:postgresql://${{ env.DB_INSTANCE_HOST }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}?useSSL=true'
+          url: 'jdbc:postgresql://${{ env.DB_INSTANCE_HOST }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}'
