@@ -6,6 +6,15 @@ on:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
         required: true
+      POSTGRE_USER_NAME:
+        description: PostgreSQL User Name
+        required: true
+      POSTGRE_USER_PASSWORD:
+        description: PostgreSQL User Password
+        required: true
+      POSTGRE_SQL_INSTANCE_NAME:
+        description: PostgreSQL Instance Name
+        required: true
     inputs:
       ENVIRONMENT:
         description: Database environment. Possible values prod, staging and dev
@@ -31,20 +40,8 @@ on:
         description: Service account used to deploy resources
         required: true
         type: string
-      POSTGRE_SQL_INSTANCE_NAME:
-        description: PostgreSQL Instance Name
-        required: true
-        type: string
       POSTGRE_SQL_DB_NAME:
         description: PostgreSQL Database Name
-        required: true
-        type: string
-      POSTGRE_USER_NAME:
-        description: PostgreSQL User Name
-        required: true
-        type: string
-      POSTGRE_USER_PASSWORD:
-        description: PostgreSQL User Password
         required: true
         type: string
       TF_APPLY:
@@ -79,10 +76,10 @@ jobs:
           echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
-          echo "POSTGRE_SQL_INSTANCE_NAME=${{ inputs.POSTGRE_SQL_INSTANCE_NAME }}" >> $GITHUB_ENV
+          echo "POSTGRE_SQL_INSTANCE_NAME=${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}" >> $GITHUB_ENV
           echo "POSTGRE_SQL_DB_NAME=${{ inputs.POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
-          echo "POSTGRE_USER_NAME=${{ inputs.POSTGRE_USER_NAME }}" >> $GITHUB_ENV
-          echo "POSTGRE_USER_PASSWORD=${{ inputs.POSTGRE_USER_PASSWORD }}" >> $GITHUB_ENV
+          echo "POSTGRE_USER_NAME=${{ secrets.POSTGRE_USER_NAME }}" >> $GITHUB_ENV
+          echo "POSTGRE_USER_PASSWORD=${{ secrets.POSTGRE_USER_PASSWORD }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
