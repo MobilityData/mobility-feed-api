@@ -75,7 +75,7 @@ jobs:
       if: inputs.RUN_POPULATE_SCRIPT
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.9'
 
     - name: Test verify python version
       if: inputs.RUN_POPULATE_SCRIPT
