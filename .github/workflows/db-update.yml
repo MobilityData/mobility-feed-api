@@ -46,8 +46,8 @@ jobs:
 
     - name: Download pgadapter.jar
       run: |
-        wget https://storage.googleapis.com/pgadapter-jar-releases/pgadapter.tar.gz \ 
-        && tar -xzvf pgadapter.tar.gz
+        wget https://storage.googleapis.com/pgadapter-jar-releases/pgadapter.tar.gz 
+        tar -xzvf pgadapter.tar.gz
 
     - name: Run pgadapter.jar
       run: java -jar pgadapter.jar -p ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }} -i ${{ secrets.DB_INSTANCE_NAME }} -d ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
