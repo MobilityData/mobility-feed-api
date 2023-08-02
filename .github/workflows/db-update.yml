@@ -1,0 +1,35 @@
+# Update the Mobility Database Schema
+name: Database Update
+on:
+  workflow_call:
+    secrets:
+      POSTGRE_USER_NAME:
+        description: PostgreSQL User Name
+        required: true
+      POSTGRE_USER_PASSWORD:
+        description: PostgreSQL User Password
+        required: true
+      DB_INSTANCE_HOST:
+        description: PostgreSQL Database Host
+        required: true
+    inputs:
+      POSTGRE_SQL_DB_NAME:
+        description: PostgreSQL Database Name
+        required: true
+        type: string
+jobs:
+  liquibase:
+    name: 'Liquibase Update'
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Liquibase Update
+      uses: liquibase-github-actions/update@v4.23.0
+      with:
+        classpath: 'liquibase'
+        changeLogFile: 'changelog.xml'
+        username: ${{ secrets.POSTGRE_USER_NAME }}
+        password: ${{ secrets.POSTGRE_USER_PASSWORD }}
+        url: 'jdbc:postgresql://${{ secrets.DB_INSTANCE_HOST }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}'
