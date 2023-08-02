@@ -15,4 +15,4 @@ jobs:
     secrets:
       POSTGRE_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       POSTGRE_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
-      DB_INSTANCE_HOST: "${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}:${{ vars.DEV_MOBILITY_FEEDS_REGION }}:${{ secrets.DB_INSTANCE_NAME }}"
+      DB_INSTANCE_HOST: ${{ secrets.DEV_DB_INSTANCE_HOST }}
