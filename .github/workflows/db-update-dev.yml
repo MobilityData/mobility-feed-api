@@ -4,7 +4,7 @@ on:
   push: # Update on merge on master if the changelog file has been updated
     branches:
       - master
-      - feat/13 # TODO remove
+      - 'feat/13' # TODO remove
     paths:
       - 'liquibase/changelog.xml'
   workflow_call: # Supports manual updates
