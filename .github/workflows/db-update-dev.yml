@@ -20,9 +20,9 @@ jobs:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
       REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
+      RUN_POPULATE_SCRIPT: ${{ inputs.RUN_POPULATE_SCRIPT }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
       DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-      RUN_POPULATE_SCRIPT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.RUN_POPULATE_SCRIPT || 'false' }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
