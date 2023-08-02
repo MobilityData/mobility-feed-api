@@ -1,0 +1,8 @@
+ALTER TABLE Feed
+ADD COLUMN feed_contact_email VARCHAR(255);
+
+ALTER TABLE Feed
+ADD COLUMN provider VARCHAR(255);
+
+DROP TABLE IF EXISTS ProviderFeed;
+DROP TABLE IF EXISTS Provider;

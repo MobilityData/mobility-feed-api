@@ -24,6 +24,10 @@ on:
         description: PostgreSQL Database Name
         required: true
         type: string
+      RUN_POPULATE_SCRIPT:
+        description: Option to run the script that populates the database
+        default: false
+        type: boolean
 jobs:
   liquibase:
     name: 'Liquibase Update'
@@ -56,3 +60,36 @@ jobs:
         username: ${{ secrets.DB_USER_NAME }}
         password: ${{ secrets.DB_USER_PASSWORD }}
         url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
+
+    - name: Clear content of the database
+      if: {{inputs.RUN_POPULATE_SCRIPT}}
+      uses: liquibase-github-actions/update@v4.23.0
+      with:
+        classpath: 'liquibase'
+        changeLogFile: 'changes/clear_tables.sql'
+        username: ${{ secrets.DB_USER_NAME }}
+        password: ${{ secrets.DB_USER_PASSWORD }}
+        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
+
+    - name: Setup python
+      if: {{inputs.RUN_POPULATE_SCRIPT}}
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Test verify python version
+      if: {{inputs.RUN_POPULATE_SCRIPT}}
+      run: which python
+
+    - name: Install requirements and generate db model
+      if: {{inputs.RUN_POPULATE_SCRIPT}}
+      run: scripts/db-gen.sh
+
+    - name: Download csv version of the database
+      if: {{inputs.RUN_POPULATE_SCRIPT}}
+      run: wget -O sources.csv https://bit.ly/catalogs-csv
+
+    - name: Test verify download
+      if: {{inputs.RUN_POPULATE_SCRIPT}}
+      run: ls -la sources*
+

@@ -10,7 +10,7 @@ from geoalchemy2 import WKTElement
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import Component, Feed, Entitytype, Externalid, Gtfsdataset, Gtfsfeed, \
-    Gtfsrealtimefeed, Location, Provider
+    Gtfsrealtimefeed, Location
 from utils.logger import Logger
 
 
@@ -19,7 +19,7 @@ def set_up_configs():
     Set up function
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument("--env", help="Environment to use", default="dev")
+    parser.add_argument("--env", help="Environment to use", default="local")
     parser.add_argument("--filepath", help="Absolute path for the data file", required=True)
     args = parser.parse_args()
     current_path = Path(__file__).resolve()
@@ -77,7 +77,8 @@ class DatabasePopulateHelper:
                 api_key_parameter_name=row['urls.api_key_parameter_name'],
                 license_url=row['urls.license'],
                 stable_id=f"mdb-{row['mdb_source_id']}",
-                status=row['status']
+                status=row['status'],
+                provider=row['provider']
             )
             self.db.merge(feed)
 
@@ -94,16 +95,6 @@ class DatabasePopulateHelper:
             )
             self.db.merge(location)
             self.db.merge_relationship(Feed, {'id': feed.id}, location, 'locations')
-
-            # Provider
-            if row['provider long name'] is not None or row['provider short name'] is not None:
-                provider = Provider(
-                    id=generate_unique_id(),
-                    short_name=row['provider short name'],
-                    long_name=row['provider long name']
-                )
-                self.db.merge(provider)
-                self.db.merge_relationship(Feed, {'id': feed.id}, provider, 'providers')
 
             if feed.data_type == 'gtfs':
                 # GTFS Dataset

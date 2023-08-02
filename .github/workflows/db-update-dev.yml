@@ -3,9 +3,10 @@ name: Database Update
 on:
   push: # Update on merge on master if the changelog file has been updated
     branches:
-      - master
-    paths:
-      - 'liquibase/changelog.xml'
+      - main
+      - 'feat/13'
+#    paths:
+#      - 'liquibase/changelog.xml'
   workflow_dispatch:
 jobs:
   update:
@@ -13,6 +14,7 @@ jobs:
     with:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+      RUN_POPULATE_SCRIPT: true # TODO remove
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
