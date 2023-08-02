@@ -13,10 +13,9 @@ jobs:
     uses: ./.github/workflows/db-update.yml
     with:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
-      POSTGRE_SQL_DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+      DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
     secrets:
-      POSTGRE_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
-      POSTGRE_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
-      DB_INSTANCE_HOST: ${{ secrets.DEV_DB_INSTANCE_HOST }}
+      DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
       DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
