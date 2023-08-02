@@ -130,4 +130,5 @@ jobs:
           DB_INSTANCE_HOST_RAW=$(terraform output -json instance_address)
           DB_INSTANCE_HOST=$(echo $DB_INSTANCE_HOST_RAW | jq -r .)
           echo "DB_INSTANCE_HOST=$DB_INSTANCE_HOST" >> $GITHUB_ENV
+          echo "$DB_INSTANCE_HOST"
         working-directory: infra/postgresql
