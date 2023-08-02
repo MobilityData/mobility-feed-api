@@ -20,7 +20,7 @@ class FeedsApiImpl(BaseFeedsApi):
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
 
-    def get_feed(
+    async def get_feed(
             self,
             id: str,
     ) -> BasicFeed:
@@ -39,7 +39,7 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get a list of logs related to a feed."""
         return []
 
-    def get_feeds(
+    async def get_feeds(
             self,
             limit: int,
             offset: int,
@@ -49,7 +49,7 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get some (or all) feeds from the Mobility Database."""
         return [self.get_feed("gtfsFeedFoo")]
 
-    def get_gtfs_feed(
+    async def get_gtfs_feed(
             self,
             id: str,
     ) -> GtfsFeed:
@@ -57,7 +57,7 @@ class FeedsApiImpl(BaseFeedsApi):
         return GtfsFeed(id="gtfsFeedFoo", data_type=None, status=None, external_ids=[], provider="providerFoo",
                         feed_name="feedFoo", note="note", source_info=SourceInfo(), latest_dataset=LatestDataset())
 
-    def get_gtfs_feed_datasets(
+    async def get_gtfs_feed_datasets(
             self,
             id: str,
             latest: bool,
@@ -74,7 +74,7 @@ class FeedsApiImpl(BaseFeedsApi):
                             download_date=date.today(), creation_date=date.today(), last_update_date=date.today(),
                             hash="123", locations=[], bounding_box=BoundingBox(), features=[])]
 
-    def get_gtfs_feeds(
+    async def get_gtfs_feeds(
             self,
             limit: int,
             offset: int,
@@ -87,7 +87,7 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get some (or all) GTFS feeds from the Mobility Database."""
         return [self.get_gtfs_feed("foo")]
 
-    def get_gtfs_rt_feed(
+    async def get_gtfs_rt_feed(
             self,
             id: str,
     ) -> GtfsRTFeed:
@@ -96,7 +96,7 @@ class FeedsApiImpl(BaseFeedsApi):
                           feed_name="feedFoo", note="Note", source_info=SourceInfo(), entity_types=[],
                           feed_references=[])
 
-    def get_gtfs_rt_feeds(
+    async def get_gtfs_rt_feeds(
             self,
             limit: int,
             offset: int,
