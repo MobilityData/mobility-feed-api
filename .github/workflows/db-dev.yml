@@ -8,7 +8,7 @@ on:
       - '**.md'
 
 jobs:
-  deployment:
+  deploy:
     uses: ./.github/workflows/db-deployer.yml
     with:
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
@@ -24,6 +24,6 @@ jobs:
       POSTGRE_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-  update-schema:
+  update:
     uses: ./.github/workflows/db-update-dev.yml
-    needs: deployment
+    needs: deploy
