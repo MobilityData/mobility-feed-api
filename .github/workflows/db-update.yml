@@ -48,7 +48,8 @@ jobs:
     - name: Get Database Instance IP
       run: |
         gcloud config set project ${{ inputs.PROJECT_ID }}
-        gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress'
+        DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
+        echo "DB_IP=$DB_IP" >> $GITHUB_ENV
 
 #    - name: Setup Java
 #      uses: actions/setup-java@v2
@@ -64,11 +65,11 @@ jobs:
 #    - name: Run pgadapter.jar
 #      run: java -jar pgadapter.jar -p ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }} -i ${{ secrets.DB_INSTANCE_NAME }} -d ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
 
-#    - name: Liquibase Update
-#      uses: liquibase-github-actions/update@v4.23.0
-#      with:
-#        classpath: 'liquibase'
-#        changeLogFile: 'changelog.xml'
-#        username: ${{ secrets.POSTGRE_USER_NAME }}
-#        password: ${{ secrets.POSTGRE_USER_PASSWORD }}
-#        url: 'jdbc:postgresql://localhost:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
+    - name: Liquibase Update
+      uses: liquibase-github-actions/update@v4.23.0
+      with:
+        classpath: 'liquibase'
+        changeLogFile: 'changelog.xml'
+        username: ${{ secrets.POSTGRE_USER_NAME }}
+        password: ${{ secrets.POSTGRE_USER_PASSWORD }}
+        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}'
