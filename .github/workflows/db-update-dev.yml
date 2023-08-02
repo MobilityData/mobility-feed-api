@@ -1,0 +1,18 @@
+# Update the Mobility Database Schema
+name: Database Update
+on:
+  push: # Update on merge on master if the changelog file has been updated
+    branches:
+      - master
+    paths:
+      - 'liquibase/changelog.xml'
+  workflow_dispatch: # Supports manual updates
+jobs:
+  db-deployment:
+    uses: ./.github/workflows/db-update.yml
+    with:
+      POSTGRE_SQL_DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+    secrets:
+      POSTGRE_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
+      POSTGRE_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
+      DB_INSTANCE_HOST: "${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}:${{ vars.DEV_MOBILITY_FEEDS_REGION }}:${{ secrets.DB_INSTANCE_NAME }}"
