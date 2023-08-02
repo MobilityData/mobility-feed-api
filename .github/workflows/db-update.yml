@@ -23,8 +23,29 @@ jobs:
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
+    - name: Authenticate to Google Cloud
+      id: gcloud_auth
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Setup Java
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+        distribution: 'adopt'
+
+    - name: Download pgadapter.jar
+      run: |
+        wget https://storage.googleapis.com/pgadapter-jar-releases/pgadapter.tar.gz \ 
+        && tar -xzvf pgadapter.tar.gz
+
+    - name: Run pgadapter.jar
+      run: java -jar pgadapter.jar -p ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }} -i ${{ secrets.DB_INSTANCE_NAME }} -d ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
       with:
@@ -32,4 +53,4 @@ jobs:
         changeLogFile: 'changelog.xml'
         username: ${{ secrets.POSTGRE_USER_NAME }}
         password: ${{ secrets.POSTGRE_USER_PASSWORD }}
-        url: 'jdbc:cloudspanner:/projects/${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}/instances/${{ secrets.DB_INSTANCE_NAME }}/databases/${{ inputs.POSTGRE_SQL_DB_NAME }}'
+        url: 'jdbc:postgresql://localhost:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}?options=-c%20spanner.ddl_transaction_mode=AutocommitExplicitTransaction'
