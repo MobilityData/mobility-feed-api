@@ -30,6 +30,7 @@ paths:
       description: Get some (or all) feeds from the Mobility Database.
       tags:
         - "feeds"
+      operationId: getFeeds
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
@@ -55,7 +56,7 @@ paths:
       description: Get the specified feed from the Mobility Database.
       tags:
         - "feeds"
-
+      operationId: getFeed
       security:
         - ApiKeyAuth: []
       responses:
@@ -73,6 +74,7 @@ paths:
       description: Get some (or all) GTFS feeds from the Mobility Database.
       tags:
         - "feeds"
+      operationId: getGtfsFeeds
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
@@ -97,6 +99,7 @@ paths:
       description: Get some (or all) GTFS Realtime feeds from the Mobility Database.
       tags:
         - "feeds"
+      operationId: getGtfsRtFeeds
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
@@ -119,6 +122,7 @@ paths:
       description: Get the specified GTFS feed from the Mobility Database.
       tags:
         - "feeds"
+      operationId: getGtfsFeed
 
       security:
         - ApiKeyAuth: []
@@ -137,6 +141,7 @@ paths:
       description: Get the specified GTFS Realtime feed from the Mobility Database.
       tags:
         - "feeds"
+      operationId: getGtfsRtFeed
 
       security:
         - ApiKeyAuth: []
@@ -156,6 +161,7 @@ paths:
       description: Get a list of datasets related to a GTFS feed.
       tags:
         - "feeds"
+      operationId: getGtfsFeedDatasets
       parameters:
         - $ref: "#/components/parameters/latestQueryParam"
         - $ref: "#/components/parameters/limitQueryParam"
@@ -183,6 +189,7 @@ paths:
       description: Get a list of logs related to a feed.
       tags:
         - "feeds"
+      operationId: getFeedLogs
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
@@ -205,6 +212,7 @@ paths:
       description: Get the specified dataset from the Mobility Database.
       tags:
         - "datasets"
+      operationId: getDatasetGtfs
       parameters:
         - $ref: "#/components/parameters/datasetIdPathParam"
       security:
@@ -222,6 +230,7 @@ paths:
       description: Get metadata about this API.
       tags:
         - "metadata"
+      operationId: getMetadata
       security:
         - ApiKeyAuth: []
       responses:
