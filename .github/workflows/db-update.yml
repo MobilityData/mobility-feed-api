@@ -92,6 +92,7 @@ jobs:
         echo "POSTGRES_HOST=${{ env.DB_IP }}" >> config/.env.local
         echo "ENV=dev" >> config/.env.local
         echo "INSTANCE_NAME=${{ inputs.PROJECT_ID }}:${{ inputs.REGION }}:${{ inputs.DB_INSTANCE_NAME }}" >> config/.env.local
+        cat config/.env.local
 
     - name: Install requirements and generate db model
       if: inputs.RUN_POPULATE_SCRIPT
