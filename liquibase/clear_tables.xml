@@ -4,7 +4,7 @@
   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
     <changeSet author="cka-y" id="1" runAlways="true">
         <validCheckSum>ANY</validCheckSum>
-        <sql>DO $$
+        <sql>DO
             DECLARE
                _tbl text;
             BEGIN
@@ -19,7 +19,7 @@
                LOOP
                   EXECUTE 'TRUNCATE TABLE ' || _tbl || ' CASCADE';
                END LOOP;
-            END $$;
+            END;
         </sql>
      </changeSet>
 </databaseChangeLog>
