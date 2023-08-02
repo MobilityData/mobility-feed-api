@@ -5,8 +5,8 @@ on:
     branches:
       - master
       - 'feat/13' # TODO remove
-    paths:
-      - 'liquibase/changelog.xml'
+#    paths:
+#      - 'liquibase/changelog.xml'
   workflow_call: # Supports manual updates
 jobs:
   update:
