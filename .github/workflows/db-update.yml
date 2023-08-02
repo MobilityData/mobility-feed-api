@@ -32,4 +32,4 @@ jobs:
         changeLogFile: 'changelog.xml'
         username: ${{ secrets.POSTGRE_USER_NAME }}
         password: ${{ secrets.POSTGRE_USER_PASSWORD }}
-        url: 'jdbc:postgresql://mobility-feeds-dev:us-central1:mobilitydata-database-instance:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}'
+        url: 'jdbc:cloudspanner:/projects/${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}/instances/${{ secrets.DB_INSTANCE_NAME }}/databases/${{ inputs.POSTGRE_SQL_DB_NAME }}'
