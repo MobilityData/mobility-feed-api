@@ -26,4 +26,4 @@ jobs:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
   update-schema:
     uses: ./.github/workflows/db-update-dev.yml
-    needs: db-deployment
+    needs: deployment
