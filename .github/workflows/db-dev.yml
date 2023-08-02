@@ -24,7 +24,14 @@ jobs:
       POSTGRE_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-#  update:
-#    uses: ./.github/workflows/db-update-dev.yml
-#    needs: deploy
+  update:
+    uses: ./.github/workflows/db-update-dev.yml
+    needs: deploy
+    with:
+      DEV_POSTGRE_SQL_DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+    secrets:
+      DEV_POSTGRE_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
+      DEV_POSTGRE_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
+      DEV_DB_INSTANCE_HOST: ${{ secrets.DEV_DB_INSTANCE_HOST }}
+      DEV_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
