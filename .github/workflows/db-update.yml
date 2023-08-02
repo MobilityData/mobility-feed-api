@@ -87,11 +87,11 @@ jobs:
         echo "POSTGRES_USER=${{ secrets.DB_USER_NAME }}" > config/.env.local
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
-        echo "POSTGRES_DB={{ inputs.DB_NAME }}" >> config/.env.local
+        echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
         echo "POSTGRES_PORT=5432" >> config/.env.local
         echo "POSTGRES_HOST=${{ env.DB_IP }}" >> config/.env.local
         echo "ENV=dev" >> config/.env.local
-        echo "INSTANCE_NAME=${{ inputs.PROJECT_ID }}:${{ inputs.REGION }}:${{ inputs.DB_INSTANCE_NAME }}" >> config/.env.local
+        echo "INSTANCE_NAME=${{ inputs.PROJECT_ID }}:${{ inputs.REGION }}:${{ secrets.DB_INSTANCE_NAME }}" >> config/.env.local
         cat config/.env.local
 
     - name: Install requirements and generate db model
