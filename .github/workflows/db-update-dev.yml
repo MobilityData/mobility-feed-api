@@ -6,7 +6,7 @@ on:
       - master
     paths:
       - 'liquibase/changelog.xml'
-  workflow_dispatch: # Supports manual updates
+  workflow_call: # Supports manual updates
 jobs:
   db-deployment:
     uses: ./.github/workflows/db-update.yml
