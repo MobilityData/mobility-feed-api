@@ -8,7 +8,7 @@ on:
       - 'liquibase/changelog.xml'
   workflow_call: # Supports manual updates
 jobs:
-  db-deployment:
+  update:
     uses: ./.github/workflows/db-update.yml
     with:
       POSTGRE_SQL_DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
