@@ -26,7 +26,7 @@ on:
         type: string
       RUN_POPULATE_SCRIPT:
         description: Option to run the script that populates the database
-        default: false
+        required: true
         type: boolean
 jobs:
   liquibase:
