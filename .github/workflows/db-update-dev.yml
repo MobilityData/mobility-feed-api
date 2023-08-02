@@ -11,6 +11,7 @@ on:
     inputs:
       RUN_POPULATE_SCRIPT:
         description: 'Run populate script (true/false)'
+        required: false
         default: false
 jobs:
   update:
