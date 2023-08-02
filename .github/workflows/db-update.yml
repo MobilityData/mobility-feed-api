@@ -19,6 +19,10 @@ on:
         description: PostgreSQL Database Instance Name
         required: true
     inputs:
+      PROJECT_ID:
+        description: GCP Project ID
+        required: true
+        type: string
       POSTGRE_SQL_DB_NAME:
         description: PostgreSQL Database Name
         required: true
@@ -29,9 +33,6 @@ jobs:
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
-    - name: Install JQ
-      run: sudo apt-get install jq
-
     - name: Checkout code
       uses: actions/checkout@v3
 
@@ -46,7 +47,7 @@ jobs:
 
     - name: Get Database Instance IP
       run: |
-        gcloud config set project ${{ secrets.PROJECT_ID }}
+        gcloud config set project ${{ inputs.PROJECT_ID }}
         gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress'
 
 #    - name: Setup Java
