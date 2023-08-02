@@ -15,6 +15,7 @@ jobs:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
       RUN_POPULATE_SCRIPT: true
+      REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
