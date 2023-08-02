@@ -38,6 +38,6 @@ websockets==10.0
 SQLAlchemy==1.4.49
 geoalchemy2
 psycopg2-binary==2.9.6
-git+https://github.com/agronholm/sqlacodegen@3.0.0rc1#egg=sqlacodegen
+git+https://github.com/agronholm/sqlacodegen@3.0.0rc1#egg=sqlacodegen # sqlcodegen release candidate
 pandas
 cloud-sql-python-connector[pg8000]
