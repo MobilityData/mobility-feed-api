@@ -35,7 +35,7 @@ uvicorn==0.13.4
 uvloop==0.17.0
 watchgod==0.7
 websockets==10.0
-sqlalchemy
+SQLAlchemy==1.4.49
 geoalchemy2
 psycopg2-binary==2.9.6
 sqlacodegen

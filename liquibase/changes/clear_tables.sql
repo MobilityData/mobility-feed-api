@@ -1,3 +1,4 @@
+-- validCheckSum: 1:any runAlways:true
 DO $$
 DECLARE
    _tbl text;
