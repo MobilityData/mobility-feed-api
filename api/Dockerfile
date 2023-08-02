@@ -15,7 +15,7 @@
 #
 
 # Builder Stage
-FROM --platform=$BUILDPLATFORM python:3.9 AS builder
+FROM --platform=$BUILDPLATFORM python:3.11 AS builder
 
 WORKDIR /usr/src/app
 
@@ -29,7 +29,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Service Stage
-FROM --platform=$TARGETPLATFORM python:3.9 AS service
+FROM --platform=$TARGETPLATFORM python:3.11 AS service
 
 WORKDIR /root/app/site-packages
 COPY --from=builder /venv /venv
