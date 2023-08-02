@@ -45,8 +45,8 @@ services:
     volumes:
       - ./docs/${SCHEMA_SPY_DOC}:/output
     depends_on:
-      - liquibase
-      - postgres
+      liquibase:
+       condition: service_completed_successfully
     networks:
       - local
 networks:
