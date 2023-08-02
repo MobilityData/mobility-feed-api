@@ -46,7 +46,7 @@ jobs:
 
     - name: Get Database Instance IP
       run: |
-        cloud config set project ${{ secrets.PROJECT_ID }}
+        gcloud config set project ${{ secrets.PROJECT_ID }}
         gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress'
 
 #    - name: Setup Java
