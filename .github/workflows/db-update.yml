@@ -6,14 +6,11 @@ on:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
         required: true
-      POSTGRE_USER_NAME:
+      DB_USER_NAME:
         description: PostgreSQL User Name
         required: true
-      POSTGRE_USER_PASSWORD:
+      DB_USER_PASSWORD:
         description: PostgreSQL User Password
-        required: true
-      DB_INSTANCE_HOST:
-        description: PostgreSQL Database Host
         required: true
       DB_INSTANCE_NAME:
         description: PostgreSQL Database Instance Name
@@ -23,7 +20,7 @@ on:
         description: GCP Project ID
         required: true
         type: string
-      POSTGRE_SQL_DB_NAME:
+      DB_NAME:
         description: PostgreSQL Database Name
         required: true
         type: string
@@ -51,25 +48,11 @@ jobs:
         DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
         echo "DB_IP=$DB_IP" >> $GITHUB_ENV
 
-#    - name: Setup Java
-#      uses: actions/setup-java@v2
-#      with:
-#        java-version: '11'
-#        distribution: 'adopt'
-#
-#    - name: Download pgadapter.jar
-#      run: |
-#        wget https://storage.googleapis.com/pgadapter-jar-releases/pgadapter.tar.gz
-#        tar -xzvf pgadapter.tar.gz
-#
-#    - name: Run pgadapter.jar
-#      run: java -jar pgadapter.jar -p ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }} -i ${{ secrets.DB_INSTANCE_NAME }} -d ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
-
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
       with:
         classpath: 'liquibase'
         changeLogFile: 'changelog.xml'
-        username: ${{ secrets.POSTGRE_USER_NAME }}
-        password: ${{ secrets.POSTGRE_USER_PASSWORD }}
-        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.POSTGRE_SQL_DB_NAME }}'
+        username: ${{ secrets.DB_USER_NAME }}
+        password: ${{ secrets.DB_USER_PASSWORD }}
+        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
