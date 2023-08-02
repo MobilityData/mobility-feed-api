@@ -42,7 +42,7 @@ class Database:
             self.get_connection = lambda: connector.connect(
                 INSTANCE_NAME,
                 "pg8000",
-                user=POSTGRES_DB,
+                user=POSTGRES_USER,
                 password=POSTGRES_PASSWORD,
                 db=POSTGRES_DB
             )
