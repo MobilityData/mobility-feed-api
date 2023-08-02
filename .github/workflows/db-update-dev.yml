@@ -20,7 +20,7 @@ jobs:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
       REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
-      RUN_POPULATE_SCRIPT: ${{ inputs.RUN_POPULATE_SCRIPT }}
+      RUN_POPULATE_SCRIPT: ${{ github.event.inputs.RUN_POPULATE_SCRIPT || 'false' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
