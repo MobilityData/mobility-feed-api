@@ -66,7 +66,7 @@ jobs:
       uses: liquibase-github-actions/update@v4.23.0
       with:
         classpath: 'liquibase'
-        changeLogFile: 'changes/clear_tables.xml'
+        changeLogFile: 'clear_tables.xml'
         username: ${{ secrets.DB_USER_NAME }}
         password: ${{ secrets.DB_USER_PASSWORD }}
         url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
