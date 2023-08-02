@@ -15,6 +15,9 @@ on:
       DB_INSTANCE_HOST:
         description: PostgreSQL Database Host
         required: true
+      DB_INSTANCE_NAME:
+        description: PostgreSQL Database Instance Name
+        required: true
     inputs:
       POSTGRE_SQL_DB_NAME:
         description: PostgreSQL Database Name
