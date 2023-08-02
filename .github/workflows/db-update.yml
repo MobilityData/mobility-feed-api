@@ -29,6 +29,9 @@ jobs:
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
+    - name: Install JQ
+      run: sudo apt-get install jq
+
     - name: Checkout code
       uses: actions/checkout@v3
 
@@ -41,10 +44,10 @@ jobs:
     - name: Google Cloud Setup
       uses: google-github-actions/setup-gcloud@v1
 
-    - uses: mattes/gce-cloudsql-proxy-action@v1
-      with:
-        creds: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-        instance: mobility-feeds-dev:us-central1:mobilitydata-database-instance
+    - name: Get Database Instance IP
+      run: |
+        cloud config set project ${{ secrets.PROJECT_ID }}
+        gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress'
 
 #    - name: Setup Java
 #      uses: actions/setup-java@v2
