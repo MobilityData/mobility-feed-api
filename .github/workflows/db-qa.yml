@@ -1,5 +1,5 @@
 # Deploys the Mobility Database to the DEV environment
-name: Deploy DB - DEV
+name: Deploy DB - QA
 on:
   workflow_dispatch:  # Supports manual deployment
   push:
