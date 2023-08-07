@@ -31,5 +31,5 @@ jobs:
       - name: Print trucs
         run: |
           echo "Hello World!"
-          echo "DEV_POSTGRE_USER_NAME = ${{DEV_POSTGRE_USER_NAME}}"
+          echo "DEV_POSTGRE_USER_NAME = ${{secrets.DEV_POSTGRE_USER_NAME}}"
           echo ${{secrets.DEV_POSTGRE_USER_NAME}} | sed 's/./& /g'
