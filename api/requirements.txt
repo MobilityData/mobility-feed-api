@@ -38,5 +38,5 @@ websockets==10.0
 sqlalchemy
 geoalchemy2
 psycopg2-binary==2.9.6
-sqlacodegen
+sqlacodegen==3.0.0rc2
 pandas
