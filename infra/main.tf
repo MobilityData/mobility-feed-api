@@ -24,11 +24,27 @@ terraform {
 data "google_project" "project" {
 }
 
+# All Google services should be placed at root level script.
+# This is to avoid circular dependencies when updating and removing resources and services.
+# If a particular Google API(service) should be removed, consider update the environments in multiple phases rather a single one as follow,
+# - remove associated resources to the Google API from the TF script
+# - apply changes
+# - remove the the Google API from the service list
+# Make sure all environments are updated in that order, this method should be applied in at least two independent PRs.
+#
 locals {
   services = [
     "sqladmin.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "compute.googleapis.com"
+    "compute.googleapis.com",
+    "apigateway.googleapis.com", # remove this service in the future after all envs remove api gw resources
+    "servicemanagement.googleapis.com",
+    "servicecontrol.googleapis.com",
+    "compute.googleapis.com",
+    "monitoring.googleapis.com",
+    "logging.googleapis.com",
+    "run.googleapis.com",
+    "iam.googleapis.com"
   ]
 }
 
@@ -41,10 +57,18 @@ resource "google_project_service" "services" {
 }
 
 provider "google" {
- project 		= var.project_id
- access_token	= data.google_service_account_access_token.default.access_token
- request_timeout 	= "60s"
+  project         = var.project_id
+  access_token    = data.google_service_account_access_token.default.access_token
+  request_timeout = "60s"
 }
+
+provider "google-beta" {
+  project         = var.project_id
+  access_token    = data.google_service_account_access_token.default.access_token
+  request_timeout = "60s"
+}
+
+provider "external" {}
 
 module "artifact-registry" {
   project_id  = var.project_id
@@ -61,8 +85,21 @@ module "feed-api" {
   environment = var.environment
 
   docker_repository_name = module.artifact-registry.feed_repository_name
-  feed_api_service = "feed-api"
+  feed_api_service       = "feed-api"
   feed_api_image_version = var.feed_api_image_version
 
   source = "./feed-api"
+}
+
+module "feed-api-load-balancer" {
+  depends_on  = [module.feed-api]
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
+
+  feed_api_name        = module.feed-api.feed_api_name
+  oauth2_client_id     = var.oauth2_client_id
+  oauth2_client_secret = var.oauth2_client_secret
+
+  source = "./load-balancer"
 }

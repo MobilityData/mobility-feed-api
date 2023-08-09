@@ -29,14 +29,9 @@ variable "environment" {
   description = "API environment. Possible values: prod, staging and dev"
 }
 
-variable "feed_api_image_version" {
+variable "feed_api_name" {
   type        = string
-  description = "Docker image version"
-}
-
-variable "deployer_service_account" {
-  type        = string
-  description = "Service account used to deploy resources using impersonation"
+  description = "Domain name of the feed API exposed by API Gateway"
 }
 
 variable "oauth2_client_id" {

@@ -19,21 +19,6 @@
 # Module output:
 #   feed_api_uri: Main URI of the Feed API
 
-locals {
-  services = [
-    "run.googleapis.com",
-    "iam.googleapis.com"
-  ]
-}
-
-# Enabling google cloud services.
-resource "google_project_service" "services" {
-  for_each                   = toset(local.services)
-  service                    = each.value
-  project                    = var.project_id
-  disable_dependent_services = true
-}
-
 # This make the google project information accessible only keeping the project_id as a parameter in the previous provider resource
 data "google_project" "project" {
 }
@@ -48,15 +33,13 @@ resource "google_service_account" "containers_service_account" {
 resource "google_cloud_run_v2_service" "mobility-feed-api" {
   name     = "mobility-feed-api-${var.environment}"
   location = var.gcp_region
+  ingress = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 
   template {
     containers {
       image = "${var.gcp_region}-docker.pkg.dev/${var.project_id}/${var.docker_repository_name}/${var.feed_api_service}:${var.feed_api_image_version}"
     }
   }
-  depends_on = [
-    google_project_service.services
-  ]
 }
 
 # Remove authentication from API endpoints
@@ -73,12 +56,14 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
   service  = google_cloud_run_v2_service.mobility-feed-api.name
 
   policy_data = data.google_iam_policy.noauth.policy_data
-  depends_on  = [
-    google_project_service.services
-  ]
 }
 
 output "feed_api_uri" {
   value       = google_cloud_run_v2_service.mobility-feed-api.uri
+  description = "Main URI of the Feed API"
+}
+
+output "feed_api_name" {
+  value       = google_cloud_run_v2_service.mobility-feed-api.name
   description = "Main URI of the Feed API"
 }
