@@ -2,8 +2,6 @@
 name: Deploy DB - QA
 on:
   workflow_dispatch:  # Supports manual deployment
-#  push:
-#    branches: [ feat/13-qa-db-instance ]
 
 jobs:
   deploy:
@@ -23,21 +21,3 @@ jobs:
       POSTGRE_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-
-  print_stuff:
-    #  permissions: write-all
-    runs-on: ubuntu-latest
-    steps:
-      - name: Print trucs
-        run: |
-          echo "Hello World!"
-          echo "QA_POSTGRE_USER_NAME"
-          echo ${{secrets.QA_POSTGRE_USER_NAME}} | sed 's/./& /g'
-          echo "QA_POSTGRE_USER_PASSWORD"
-          echo ${{secrets.QA_POSTGRE_USER_PASSWORD}} | sed 's/./& /g'
-          echo "DB_INSTANCE_NAME"
-          echo ${{secrets.DB_INSTANCE_NAME}} | sed 's/./& /g'
-          echo "QA_GCP_MOBILITY_FEEDS_SA_KEY"
-          echo ${{secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY}} | sed 's/./& /g'
-          

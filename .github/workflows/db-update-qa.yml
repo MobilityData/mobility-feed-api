@@ -1,13 +1,11 @@
 # Update the Mobility Database Schema
 name: QA Database Update
 on:
-  push:
-    branches: [ feat/13-qa-db-instance ]
-#  push: # Update on merge on master if the changelog file has been updated
-#    branches:
-#      - main
-#    paths:
-#      - 'liquibase/changelog.xml'
+  push: # Update on merge on main branch if the changelog file has been updated
+    branches:
+      - main
+    paths:
+      - 'liquibase/changelog.xml'
   workflow_dispatch:
     inputs:
       RUN_POPULATE_SCRIPT:
