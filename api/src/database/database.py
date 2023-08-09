@@ -1,6 +1,7 @@
 import os
 import uuid
 
+from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session, load_only
 
@@ -32,6 +33,19 @@ class Database:
         self.session = None
         self.connection_attempts = 0
         self.SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+        # set up GCP SQL Connector
+        connector = Connector()
+        INSTANCE_NAME = os.getenv("INSTANCE_NAME")
+        self.get_connection = None
+        if INSTANCE_NAME is not None:
+            self.get_connection = lambda: connector.connect(
+                INSTANCE_NAME,
+                "pg8000",
+                user=POSTGRES_DB,
+                password=POSTGRES_PASSWORD,
+                db=POSTGRES_DB
+            )
         self.start_session()
 
     def is_connected(self):
@@ -50,7 +64,10 @@ class Database:
             if self.engine is None:
                 self.connection_attempts += 1
                 self.logger.debug(f"Database connection attempt #{self.connection_attempts}.")
-                self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
+                if self.get_connection is not None:
+                    self.engine = create_engine("postgresql+pg8000://", creator=self.get_connection)
+                else:
+                    self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
                 self.logger.debug("Database connected.")
             if self.session is not None and self.session.is_active:
                 self.session.close()

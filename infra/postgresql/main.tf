@@ -3,7 +3,8 @@ data "google_project" "project" {}
 locals {
   services = [
     "sqladmin.googleapis.com",
-    "cloudresourcemanager.googleapis.com"
+    "cloudresourcemanager.googleapis.com",
+    "networkmanagement.googleapis.com"
   ]
 }
 
