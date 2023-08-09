@@ -79,7 +79,7 @@ jobs:
       if: inputs.RUN_POPULATE_SCRIPT
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.11'
 
     - name: Update .env file
       run: |
@@ -99,8 +99,4 @@ jobs:
     - name: Download csv version of the database
       if: inputs.RUN_POPULATE_SCRIPT
       run: wget -O sources.csv https://bit.ly/catalogs-csv
-
-    - name: Test verify download
-      if: inputs.RUN_POPULATE_SCRIPT
-      run: ls -la
 
