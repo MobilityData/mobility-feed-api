@@ -1,0 +1,45 @@
+name: Build and Test
+on:
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - '**.md'
+      - 'scripts/**'
+env:
+  python_version: 3.11
+  java_version: 11 # needed by setup-openapi-generator.sh
+  maven_version: 3.9.2 # needed by setup-openapi-generator.sh
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.8.0
+        with:
+          java-version: ${{ env.java_version }}
+          maven-version: ${{ env.maven_version }}
+
+      - name: Generate API code
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
+
+      - name: Generate API code
+        run: |
+          scripts/db-gen.sh
+
+      - name: Generate DB code
+        run: |
+          scripts/db-gen.sh
+
+#      Uncomment the unit tests when tests are ready
+#      - name: Run unit tests
+#        run: |
+#          scripts/api-test.sh
