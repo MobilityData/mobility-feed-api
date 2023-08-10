@@ -64,6 +64,8 @@ class DatabasePopulateHelper:
         if self.df is None:
             return
         for index, row in self.df.iterrows():
+            mdb_id = f"mdb-{int(row['mdb_source_id'])}"
+
             # Feed
             feed_class = Gtfsfeed if row['data_type'] == 'gtfs' else Gtfsrealtimefeed
             feed = feed_class(
@@ -76,7 +78,7 @@ class DatabasePopulateHelper:
                 authentication_info_url=row['urls.authentication_info'],
                 api_key_parameter_name=row['urls.api_key_parameter_name'],
                 license_url=row['urls.license'],
-                stable_id=f"mdb-{row['mdb_source_id']}",
+                stable_id=mdb_id,
                 status=row['status'],
                 provider=row['provider']
             )
@@ -120,7 +122,7 @@ class DatabasePopulateHelper:
                     note=row['note'],
                     download_date=datetime.fromisoformat(
                         row['location.bounding_box.extracted_on'].replace("Z", "+00:00")),
-                    stable_id=f"mdb-{int(row['mdb_source_id'])}",
+                    stable_id=mdb_id,
                 )
                 gtfs_dataset_merged = self.db.merge(gtfs_dataset)
 
@@ -152,11 +154,11 @@ class DatabasePopulateHelper:
                         self.db.merge_relationship(Gtfsfeed, {'id': referenced_feeds_list[0].id}, feed, 'gtfs_rt_feeds')
                     else:
                         self.logger.error(
-                            f'Couldn\'t create reference from mdb-{feed.stable_id} to mdb-{row["static_reference"]}'
+                            f'Couldn\'t create reference from {feed.stable_id} to {row["static_reference"]}'
                         )
 
             # External ID
-            mdb_external_id = Externalid(feed_id=feed.id, associated_id=str(row['mdb_source_id']),
+            mdb_external_id = Externalid(feed_id=feed.id, associated_id=int(row['mdb_source_id']),
                                          source='mdb')
             self.db.merge(mdb_external_id)
 
