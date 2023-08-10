@@ -1,6 +1,10 @@
 # Deploys the Mobility Database to the DEV environment
 name: Deploy DB - DEV
 on:
+#  TODO remove
+  push:
+    branches:
+      - 'feat/13'
   workflow_dispatch:  # Supports manual deployment
 
 jobs:

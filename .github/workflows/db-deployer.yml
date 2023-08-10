@@ -93,11 +93,6 @@ jobs:
           terraform_version: 1.5.3
           terraform_wrapper: false
 
-      - name: Terraform Init Test
-        run: |
-          cd infra/terraform-init
-          terraform init -backend-config=backend.conf
-
       - name: Terraform Init
         run: |
           cd infra/postgresql
