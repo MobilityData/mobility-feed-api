@@ -11,7 +11,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
 
-    async def get_dataset_gtfs(
+    def get_dataset_gtfs(
             self,
             id: str,
     ) -> GtfsDataset:
