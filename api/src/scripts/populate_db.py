@@ -96,7 +96,7 @@ class DatabasePopulateHelper:
                 municipality=municipality
             )
             self.db.merge(location)
-            self.db.merge_relationship(Feed, {'id': feed.id}, location, 'locations')
+            self.db.merge_relationship(Feed, {'id': feed.id}, location, 'location')
 
             if feed.data_type == 'gtfs':
                 # GTFS Dataset
@@ -133,7 +133,7 @@ class DatabasePopulateHelper:
                             continue
                         component = Component(name=component_name)
                         self.db.merge(component)
-                        self.db.merge_relationship(Component, {'name': component_name}, gtfs_dataset, 'datasets')
+                        self.db.merge_relationship(Component, {'name': component_name}, gtfs_dataset, 'dataset')
 
             if feed.data_type == 'gtfs_rt':
                 # Entity Type and Entity Type x GTFSRealtimeFeed relationship
@@ -142,7 +142,7 @@ class DatabasePopulateHelper:
                         continue
                     entity_type = Entitytype(name=entity_type_name)
                     self.db.merge(entity_type)
-                    self.db.merge_relationship(Entitytype, {'name': entity_type_name}, feed, 'feeds')
+                    self.db.merge_relationship(Entitytype, {'name': entity_type_name}, feed, 'feed')
 
                 # Feed Reference
                 if row['static_reference'] is not None:
@@ -151,7 +151,7 @@ class DatabasePopulateHelper:
                         [Feed.stable_id == f"mdb-{int(row['static_reference'])}"]
                     )
                     if len(referenced_feeds_list) == 1:
-                        self.db.merge_relationship(Gtfsfeed, {'id': referenced_feeds_list[0].id}, feed, 'gtfs_rt_feeds')
+                        self.db.merge_relationship(Gtfsfeed, {'id': referenced_feeds_list[0].id}, feed, 'gtfs_rt_feed')
                     else:
                         self.logger.error(
                             f'Couldn\'t create reference from {feed.stable_id} to {row["static_reference"]}'
