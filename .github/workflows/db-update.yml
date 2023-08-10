@@ -27,7 +27,7 @@ on:
       RUN_POPULATE_SCRIPT:
         description: Option to run the script that populates the database
         required: false
-        default: false
+        default: true # TODO change before merge
         type: boolean
       REGION:
         description: GCP region
@@ -102,7 +102,7 @@ jobs:
       if: inputs.RUN_POPULATE_SCRIPT
       run: wget -O sources.csv https://bit.ly/catalogs-csv
 
-    - name: Test
+    - name: Validate file download
       run: ls -la
 
     - name: Get full path of sources.csv

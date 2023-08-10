@@ -13,7 +13,7 @@ on:
       RUN_POPULATE_SCRIPT:
         description: 'Run populate script (true/false)'
         required: false
-        default: true # TODO change before merge
+        default: false
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
