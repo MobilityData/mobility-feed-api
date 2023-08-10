@@ -43,3 +43,8 @@ variable "postgresql_user_password" {
   type        = string
   description = "The password for the PostgreSQL user"
 }
+
+variable "postgresql_db_instance" {
+  type        = string
+  description = "The db instance tier for the PostgreSQL"
+}
