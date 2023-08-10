@@ -7,6 +7,7 @@ on:
       - 'feat/76' # TODO remove before merge
     paths:
       - 'liquibase/changelog.xml'
+      - '*' # TODO remove before merge
   workflow_dispatch:
     inputs:
       RUN_POPULATE_SCRIPT:
