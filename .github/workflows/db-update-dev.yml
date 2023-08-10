@@ -4,6 +4,7 @@ on:
   push: # Update on merge on master if the changelog file has been updated
     branches:
       - main
+      - 'feat/76' # TODO remove before merge
     paths:
       - 'liquibase/changelog.xml'
   workflow_dispatch:
@@ -11,7 +12,7 @@ on:
       RUN_POPULATE_SCRIPT:
         description: 'Run populate script (true/false)'
         required: false
-        default: false
+        default: true # TODO change before merge
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
