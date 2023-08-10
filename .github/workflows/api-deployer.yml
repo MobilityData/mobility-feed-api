@@ -38,7 +38,7 @@ on:
       TF_APPLY:
         description: Terraform apply changes
         required: true
-        type: string
+        type: boolean
 
 jobs:
   docker-build-publish:

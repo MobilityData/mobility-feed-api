@@ -56,3 +56,5 @@ secrets-*.env
 vars.env
 vars-*.env
 
+config/.env.dev
+venv

@@ -1,0 +1,22 @@
+# Deploys the Mobility Database to the DEV environment
+name: Deploy DB - DEV
+on:
+  workflow_dispatch:  # Supports manual deployment
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/db-deployer.yml
+    with:
+      ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
+      BUCKET_NAME: ${{ vars.DEV_MOBILITY_FEEDS_TF_STATE_BUCKET }}
+      OBJECT_PREFIX: ${{ vars.DEV_MOBILITY_DB_TF_STATE_OBJECT_PREFIX }}
+      PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
+      POSTGRE_SQL_DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
+      TF_APPLY: true
+    secrets:
+      POSTGRE_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
+      POSTGRE_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
