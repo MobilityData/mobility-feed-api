@@ -104,15 +104,16 @@ class DatabasePopulateHelper:
                 max_lat = row['location.bounding_box.maximum_latitude']
                 min_lon = row['location.bounding_box.minimum_longitude']
                 max_lon = row['location.bounding_box.maximum_longitude']
-                polygon = 'POLYGON(({} {}, {} {}, {} {}, {} {}, {} {}))'.format(
-                    min_lon, min_lat,
-                    min_lon, max_lat,
-                    max_lon, max_lat,
-                    max_lon, min_lat,
-                    min_lon, min_lat
-                )
-                self.logger.debug(polygon)
-                bbox = WKTElement(polygon, srid=4326)
+                bbox = None
+                if min_lon is not None and min_lat is not None and max_lon is not None and max_lat is not None:
+                    polygon = 'POLYGON(({} {}, {} {}, {} {}, {} {}, {} {}))'.format(
+                        min_lon, min_lat,
+                        min_lon, max_lat,
+                        max_lon, max_lat,
+                        max_lon, min_lat,
+                        min_lon, min_lat
+                    )
+                    bbox = WKTElement(polygon, srid=4326)
                 gtfs_dataset = Gtfsdataset(
                     id=generate_unique_id(),
                     feed_id=feed.id,
@@ -137,7 +138,7 @@ class DatabasePopulateHelper:
 
             if feed.data_type == 'gtfs_rt':
                 # Entity Type and Entity Type x GTFSRealtimeFeed relationship
-                for entity_type_name in row['entity_type'].replace('|', '-').split('|'):
+                for entity_type_name in row['entity_type'].replace('|', '-').split('-'):
                     if len(entity_type_name) == 0:
                         continue
                     entity_type = Entitytype(name=entity_type_name)
@@ -158,7 +159,7 @@ class DatabasePopulateHelper:
                         )
 
             # External ID
-            mdb_external_id = Externalid(feed_id=feed.id, associated_id=int(row['mdb_source_id']),
+            mdb_external_id = Externalid(feed_id=feed.id, associated_id=str(int(row['mdb_source_id'])),
                                          source='mdb')
             self.db.merge(mdb_external_id)
 
