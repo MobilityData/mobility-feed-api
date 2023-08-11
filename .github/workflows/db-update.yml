@@ -113,10 +113,10 @@ jobs:
       if: inputs.RUN_POPULATE_SCRIPT
       run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
-#    - name: Upload log file for verification
-#      if: inputs.RUN_POPULATE_SCRIPT
-#      uses: actions/upload-artifact@v3
-#      with:
-#        name: populate.log
-#        path: populate.log
+    - name: Upload log file for verification
+      if: inputs.RUN_POPULATE_SCRIPT
+      uses: actions/upload-artifact@v3
+      with:
+        name: populate.log
+        path: populate.log
 
