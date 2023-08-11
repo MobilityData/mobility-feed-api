@@ -65,7 +65,7 @@ class DatabasePopulateHelper:
             return
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
-            print(f"Populating Database for with Feed [stable_id = {mdb_id}]")
+            self.logger.error(f"Populating Database for with Feed [stable_id = {mdb_id}]")
 
             # Feed
             feed_class = Gtfsfeed if row['data_type'] == 'gtfs' else Gtfsrealtimefeed
@@ -92,9 +92,9 @@ class DatabasePopulateHelper:
             composite_id = f'{country_code}-{subdivision_name}-{municipality}'.replace(' ', '_')
             location = Location(
                 id=composite_id,
-                country_code=country_code if country_code is not 'unknown' else None,
-                subdivision_name=subdivision_name if subdivision_name is not 'unknown' else None,
-                municipality=municipality if municipality is not 'unknown' else None
+                country_code=country_code if country_code != 'unknown' else None,
+                subdivision_name=subdivision_name if subdivision_name != 'unknown' else None,
+                municipality=municipality if municipality != 'unknown' else None
             )
             self.db.merge(location)
             self.db.merge_relationship(Feed, {'id': feed.id}, location, 'locations')
