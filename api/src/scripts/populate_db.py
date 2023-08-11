@@ -65,6 +65,7 @@ class DatabasePopulateHelper:
             return
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
+            print(f"Populating Database for with Feed [stable_id = {mdb_id}]")
 
             # Feed
             feed_class = Gtfsfeed if row['data_type'] == 'gtfs' else Gtfsrealtimefeed
