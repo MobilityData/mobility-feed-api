@@ -65,11 +65,10 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Generate DB code
-        run: |
-          scripts/db-gen.sh
+        run: scripts/db-gen.sh
 
       - name: Clean up Docker Compose
-        run: docker-compose -f path/to/your/docker-compose-liquibase.yml down
+        run: docker-compose -f docker-compose-liquibase.yml down
         working-directory: ${{ github.workspace }}
 
 
