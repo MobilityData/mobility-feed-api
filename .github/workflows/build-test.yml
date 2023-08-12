@@ -4,7 +4,6 @@ on:
     branches: [ '**' ]
     paths-ignore:
       - '**.md'
-      - 'scripts/**'
 env:
   python_version: 3.11
   java_version: 11 # needed by setup-openapi-generator.sh
