@@ -76,7 +76,7 @@ jobs:
           apt-get update
           apt-get install --yes postgresql-client
 
-       queries database with postgres client
+#       queries database with postgres client
       - name: Query database
         run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
         env:
