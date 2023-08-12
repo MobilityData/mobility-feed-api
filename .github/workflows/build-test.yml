@@ -37,6 +37,12 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
+#      - name: Install JQ Tool
+#        uses: mbround18/install-jq@v1
+#      - name: JQ version
+#        run: |
+#          jq --version
+
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -44,32 +50,32 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Setup Maven Action
-        uses: s4u/setup-maven-action@v1.8.0
-        with:
-          java-version: ${{ env.java_version }}
-          maven-version: ${{ env.maven_version }}
+#      - name: Setup Maven Action
+#        uses: s4u/setup-maven-action@v1.8.0
+#        with:
+#          java-version: ${{ env.java_version }}
+#          maven-version: ${{ env.maven_version }}
+#
+#      - name: Generate API code
+#        run: |
+#          scripts/setup-openapi-generator.sh
+#          scripts/api-gen.sh
+#
+#      - name: Update .env file
+#        run: |
+#          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
+#          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
+#          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
+#          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
+#          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
+#          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
+#          echo "ENV=dev" >> config/.env.local
+#          cat config/.env.local
 
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
-
-      - name: Update .env file
-        run: |
-          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
-          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
-          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
-          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
-          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
-          echo "ENV=dev" >> config/.env.local
-          cat config/.env.local
-
-      - name: Install PostgreSQL client
-        run: |
-          apt-get update
-          apt-get install --yes postgresql-client
+#      - name: Install PostgreSQL client
+#        run: |
+#          apt-get update
+#          apt-get install --yes postgresql-client
 
       # queries database with postgres client
       - name: Query database
