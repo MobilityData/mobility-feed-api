@@ -1,7 +1,7 @@
 name: Build and Test
 on:
-  pull_request:
-    branches: [ main ]
+  push:
+    branches: [ '**' ]
     paths-ignore:
       - '**.md'
       - 'scripts/**'
@@ -42,12 +42,12 @@ jobs:
 #        run: |
 #          jq --version
 
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+#      - name: Checkout code
+#        uses: actions/checkout@v3
+#
+#      - uses: actions/setup-python@v4
+#        with:
+#          python-version: '3.11'
 
 #      - name: Setup Maven Action
 #        uses: s4u/setup-maven-action@v1.8.0
@@ -71,31 +71,31 @@ jobs:
 #          echo "ENV=dev" >> config/.env.local
 #          cat config/.env.local
 
-#      - name: Install PostgreSQL client
-#        run: |
-#          apt-get update
-#          apt-get install --yes postgresql-client
-
-      # queries database with postgres client
-#      - name: Query database
-#        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
-#        env:
-#          # postgress password is required; alternatively, you can run:
-#          # `PGPASSWORD=postgres_password psql ...`
-#          PGPASSWORD: postgres_password
-
-      - name: Liquibase Update
-        uses: liquibase-github-actions/update@v4.23.0
-        with:
-          classpath: 'liquibase'
-          changeLogFile: 'changelog.xml'
-          username: postgres_user
-          password: postgres_password
-          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
-
-      - name: Generate DB code
+      - name: Install PostgreSQL client
         run: |
-          scripts/db-gen.sh
+          apt-get update
+          apt-get install --yes postgresql-client
+
+       queries database with postgres client
+      - name: Query database
+        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
+        env:
+          # postgress password is required; alternatively, you can run:
+          # `PGPASSWORD=postgres_password psql ...`
+          PGPASSWORD: postgres_password
+
+#      - name: Liquibase Update
+#        uses: liquibase-github-actions/update@v4.23.0
+#        with:
+#          classpath: 'liquibase'
+#          changeLogFile: 'changelog.xml'
+#          username: postgres_user
+#          password: postgres_password
+#          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
+#
+#      - name: Generate DB code
+#        run: |
+#          scripts/db-gen.sh
 
 #      Uncomment the unit tests when tests are ready
 #      - name: Run unit tests
