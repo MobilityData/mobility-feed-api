@@ -9,9 +9,33 @@ env:
   python_version: 3.11
   java_version: 11 # needed by setup-openapi-generator.sh
   maven_version: 3.9.2 # needed by setup-openapi-generator.sh
+  local_postgres_host: postgres
+  local_postgres_db: postgres_db
+  local_postgres_user: postgres_user
+  local_postgres_pwd: postgres_password
+  local_postgres_port: 5434
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Docker Hub image that `postgres-job` executes in
+    container: node:latest
+    services:
+      postgres:
+        image: postgres:latest
+        # `POSTGRES_HOST` is `postgres`
+        env:
+          POSTGRES_DB: ${{ env.local_postgres_db }}
+          POSTGRES_PORT: ${{ local_postgres_port }}
+          POSTGRES_USER: ${{ local_postgres_user }}
+          POSTGRES_PASSWORD: ${{ local_postgres_pwd }}
+        ports:
+          - ${{ local_postgres_port }}:${{ local_postgres_port }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -31,9 +55,38 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
 
-      - name: Generate API code
+      - name: Update .env file
         run: |
-          scripts/db-gen.sh
+          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
+          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
+          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
+          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
+          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
+          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
+          echo "ENV=dev" >> config/.env.local
+          cat config/.env.local
+
+      - name: Install PostgreSQL client
+        run: |
+          apt-get update
+          apt-get install --yes postgresql-client
+
+      # queries database with postgres client
+      - name: Query database
+        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
+        env:
+          # postgress password is required; alternatively, you can run:
+          # `PGPASSWORD=postgres_password psql ...`
+          PGPASSWORD: postgres_password
+
+      - name: Liquibase Update
+        uses: liquibase-github-actions/update@v4.23.0
+        with:
+          classpath: 'liquibase'
+          changeLogFile: 'changelog.xml'
+          username: postgres_user
+          password: postgres_password
+          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
 
       - name: Generate DB code
         run: |
