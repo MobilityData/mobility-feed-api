@@ -24,7 +24,7 @@ then
   rm ${SCRIPT_PATH}/sqlacodegen.log
 fi
 # Running sqlacodegen and capturing errors and warnings in the sqlacodegen.log file
-sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}" --outfile "${OUT_FILE}" &> ${SCRIPT_PATH}/sqlacodegen.log
+sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/${POSTGRES_DB}" --outfile "${OUT_FILE}" &> ${SCRIPT_PATH}/sqlacodegen.log
 
 # shellcheck disable=SC2181
 if [ $? -eq 0 ] && [ ! -s ${SCRIPT_PATH}/sqlacodegen.log ]
