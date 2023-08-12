@@ -30,7 +30,7 @@ jobs:
           POSTGRES_USER: ${{ env.local_postgres_user }}
           POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
         ports:
-          - ${{ env.local_postgres_port }}:${{ env.local_postgres_port }}
+          - 5434:5434
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
