@@ -18,23 +18,23 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: ubuntu
-    services:
-      postgres:
-        image: postgres:latest
-        # `POSTGRES_HOST` is `postgres`
-        env:
-          POSTGRES_DB: ${{ env.local_postgres_db }}
-          POSTGRES_PORT: ${{ env.local_postgres_port }}
-          POSTGRES_USER: ${{ env.local_postgres_user }}
-          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
-        ports:
-          - 5434:5434
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+#    container: ubuntu
+#    services:
+#      postgres:
+#        image: postgres:latest
+#        # `POSTGRES_HOST` is `postgres`
+#        env:
+#          POSTGRES_DB: ${{ env.local_postgres_db }}
+#          POSTGRES_PORT: ${{ env.local_postgres_port }}
+#          POSTGRES_USER: ${{ env.local_postgres_user }}
+#          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
+#        ports:
+#          - 5434:5434
+#        options: >-
+#          --health-cmd pg_isready
+#          --health-interval 10s
+#          --health-timeout 5s
+#          --health-retries 5
     steps:
 #      - name: Install JQ Tool
 #        uses: mbround18/install-jq@v1
@@ -44,10 +44,34 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v3
-#
-#      - uses: actions/setup-python@v4
-#        with:
-#          python-version: '3.11'
+
+      - name: Update .env file
+        run: |
+          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
+          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
+          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
+          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
+          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
+          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
+          echo "ENV=dev" >> config/.env.local
+          cat config/.env.local
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Set up Docker Compose
+        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
+        working-directory: ${{ github.workspace }}
+
+      - name: Generate DB code
+        run: |
+          scripts/db-gen.sh
+
+      - name: Clean up Docker Compose
+        run: docker-compose -f path/to/your/docker-compose-liquibase.yml down
+        working-directory: ${{ github.workspace }}
+
 
 #      - name: Setup Maven Action
 #        uses: s4u/setup-maven-action@v1.8.0
@@ -71,27 +95,35 @@ jobs:
 #          echo "ENV=dev" >> config/.env.local
 #          cat config/.env.local
 
-      - name: Install PostgreSQL client
-        run: |
-          apt-get update
-          apt-get install --yes postgresql-client
+#      - name: Install PostgreSQL client
+#        run: |
+#          apt-get update
+#          apt-get install --yes postgresql-client
+#
+##       queries database with postgres client
+#      - name: Query database
+#        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
+#        env:
+#          # postgress password is required; alternatively, you can run:
+#          # `PGPASSWORD=postgres_password psql ...`
+#          PGPASSWORD: postgres_password
 
-#       queries database with postgres client
-      - name: Query database
-        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
-        env:
-          # postgress password is required; alternatively, you can run:
-          # `PGPASSWORD=postgres_password psql ...`
-          PGPASSWORD: postgres_password
-
-      - name: Liquibase Update
-        uses: liquibase-github-actions/update@v4.23.0
-        with:
-          classpath: 'liquibase'
-          changeLogFile: 'changelog.xml'
-          username: postgres_user
-          password: postgres_password
-          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
+#      - name: Set up Liquibase
+#        run: docker pull liquibase/liquibase:latest
+#
+#      - name: Run Liquibase Update
+#        run: |
+#          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
+#        working-directory: ${{ github.workspace }}
+#
+#      - name: Liquibase Update
+#        uses: liquibase-github-actions/update@v4.23.0
+#        with:
+#          classpath: 'liquibase'
+#          changeLogFile: 'changelog.xml'
+#          username: postgres_user
+#          password: postgres_password
+#          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
 #
 #      - name: Generate DB code
 #        run: |
