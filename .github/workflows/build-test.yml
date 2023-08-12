@@ -63,6 +63,17 @@ jobs:
         run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
         working-directory: ${{ github.workspace }}
 
+      - name: Install PostgreSQL client
+        run: |
+          apt-get update
+          apt-get install --yes postgresql-client
+
+#       queries database with postgres client
+      - name: Query database
+        run: psql -h 127.0.0.1 -d postgres_db -U postgres_user -c 'SELECT 1;'
+        env:
+          PGPASSWORD: postgres_password
+
       - name: Generate DB code
         run: scripts/db-gen.sh
 
