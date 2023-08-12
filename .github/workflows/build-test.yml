@@ -26,11 +26,11 @@ jobs:
         # `POSTGRES_HOST` is `postgres`
         env:
           POSTGRES_DB: ${{ env.local_postgres_db }}
-          POSTGRES_PORT: ${{ local_postgres_port }}
-          POSTGRES_USER: ${{ local_postgres_user }}
-          POSTGRES_PASSWORD: ${{ local_postgres_pwd }}
+          POSTGRES_PORT: ${{ env.local_postgres_port }}
+          POSTGRES_USER: ${{ env.local_postgres_user }}
+          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
         ports:
-          - ${{ local_postgres_port }}:${{ local_postgres_port }}
+          - ${{ env.local_postgres_port }}:${{ env.local_postgres_port }}
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
