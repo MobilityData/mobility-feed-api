@@ -70,7 +70,7 @@ jobs:
 
 #       queries database with postgres client
       - name: Query database
-        run: psql -h 127.0.0.1 -d postgres_db -U postgres_user -c 'SELECT 1;'
+        run: psql -h ${{ env.local_postgres_host }} -d postgres_db -U postgres_user -c 'SELECT 1;'
         env:
           PGPASSWORD: postgres_password
 
