@@ -17,7 +17,6 @@ from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
 
 from database.database import Database
-from utils.logger import Logger
 
 db = Database()
 
@@ -42,9 +41,6 @@ class FeedsApiImpl(BaseFeedsApi):
     All methods from the parent class `feeds_gen.apis.feeds_api_base.BaseFeedsApi` should be implemented.
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
-
-    def __init__(self):
-        self.logger = Logger("FeedsApiImpl").get_logger()
 
     def get_feed(
             self,
