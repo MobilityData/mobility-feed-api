@@ -19,8 +19,8 @@ services:
       - ${POSTGRES_PORT}
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
-    networks:
-      - local
+#    networks:
+#      - local
   liquibase:
     container_name: liquibase_update
     image: liquibase/liquibase
@@ -36,8 +36,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - local
+#    networks:
+#      - local
 #networks:
 #  local:
 #    driver: bridge
