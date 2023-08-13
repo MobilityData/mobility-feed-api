@@ -19,6 +19,8 @@ from feeds_gen.models.source_info import SourceInfo
 from database.database import Database
 from utils.logger import Logger
 
+db = Database()
+
 
 def map_feed(feed: Feed):
     return BasicFeed(id=feed.id, data_type=feed.data_type, status=feed.status,
@@ -42,7 +44,6 @@ class FeedsApiImpl(BaseFeedsApi):
     """
 
     def __init__(self):
-        self.database = Database()
         self.logger = Logger("FeedsApiImpl").get_logger()
 
     def get_feed(
@@ -50,7 +51,7 @@ class FeedsApiImpl(BaseFeedsApi):
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        feeds = self.database.select(Feed, conditions=[Feed.id == id])
+        feeds = db.select(Feed, conditions=[Feed.id == id])
         if len(feeds) == 1:
             return map_feed(feeds[0])
         raise HTTPException(status_code=404, detail=f"Feed {id} not found")
@@ -74,7 +75,7 @@ class FeedsApiImpl(BaseFeedsApi):
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return [map_feed(feed) for feed in self.database.select(Feed)]
+        return [map_feed(feed) for feed in db.select(Feed)]
 
     def get_gtfs_feed(
             self,
