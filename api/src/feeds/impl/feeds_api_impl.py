@@ -1,9 +1,13 @@
 from datetime import date
 from typing import List
 
+from fastapi import HTTPException
+
+from database_gen.sqlacodegen_models import Feed
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
+from feeds_gen.models.external_id import ExternalId
 from feeds_gen.models.extra_models import TokenModel
 from feeds_gen.models.feed_log import FeedLog
 from feeds_gen.models.gtfs_dataset import GtfsDataset
@@ -11,6 +15,23 @@ from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
+
+from database.database import Database
+from utils.logger import Logger
+
+
+def map_feed(feed: Feed):
+    return BasicFeed(id=feed.id, data_type=feed.data_type, status=feed.status,
+                     feed_name=feed.feed_name, note=feed.note,
+                     providers=[provider.long_name for provider in feed.provider],
+                     redirects=[target.id for target in feed.target],
+                     external_ids=[ExternalId(external_id=ext_id.associated_id, source=ext_id.source)
+                                   for ext_id in feed.externalid],
+                     source_info=SourceInfo(producer_url=feed.producer_url,
+                                            authentication_type=feed.authentication_type,
+                                            authentication_info_url=feed.authentication_info_url,
+                                            api_key_parameter_name=feed.api_key_parameter_name,
+                                            license_url=feed.license_url))
 
 
 class FeedsApiImpl(BaseFeedsApi):
@@ -20,13 +41,19 @@ class FeedsApiImpl(BaseFeedsApi):
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
 
+    def __init__(self):
+        self.database = Database()
+        self.logger = Logger("FeedsApiImpl").get_logger()
+
     def get_feed(
             self,
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        return BasicFeed(id="gtfsFeedFoo", data_type=None, status=None, external_ids=[], provider="providerFoo",
-                         feed_name="feedFoo", note="note", source_info=SourceInfo())
+        feeds = self.database.select(Feed, conditions=[Feed.id == id])
+        if len(feeds) == 1:
+            return map_feed(feeds[0])
+        raise HTTPException(status_code=404, detail=f"Feed {id} not found")
 
     def get_feed_logs(
             id: str,
@@ -47,7 +74,7 @@ class FeedsApiImpl(BaseFeedsApi):
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return [self.get_feed("gtfsFeedFoo")]
+        return [map_feed(feed) for feed in self.database.select(Feed)]
 
     def get_gtfs_feed(
             self,

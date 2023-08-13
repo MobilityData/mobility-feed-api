@@ -1,5 +1,6 @@
 import os
 import uuid
+from typing import Type
 
 from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
@@ -67,6 +68,7 @@ class Database:
                 if self.get_connection is not None:
                     self.engine = create_engine("postgresql+pg8000://", creator=self.get_connection)
                 else:
+                    print(self.SQLALCHEMY_DATABASE_URL)
                     self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
                 self.logger.debug("Database connected.")
             if self.session is not None and self.session.is_active:
@@ -88,7 +90,7 @@ class Database:
             self.logger.error(f"Session closing failed with exception: \n {e}")
         return self.is_connected()
 
-    def select(self, model: Base, conditions: list = None, attributes: list = None, update_session: bool = True):
+    def select(self, model: Type[Base], conditions: list = None, attributes: list = None, update_session: bool = True):
         """
         Executes a query on the database
         :param model: the sqlalchemy model to query
