@@ -77,11 +77,14 @@ jobs:
           python-version: '3.11'
 #          cache: 'pip'
 
+      - name: Install utils
+        run: apt-get update && apt-get install -y libssl-dev zlib1g-dev build-essential
+
       - name: Python version
         run: |
           python --version
-          python -m ensurepip
-#          pip --version
+#          python -m ensurepip
+          pip --version
 
       - name: Generate DB code
         run: |
