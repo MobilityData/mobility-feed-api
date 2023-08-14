@@ -17,23 +17,23 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: ubuntu
-    services:
-      postgres:
-        image: postgis/postgis
-        # `POSTGRES_HOST` is `postgres`
-        env:
-          POSTGRES_DB: ${{ env.local_postgres_db }}
-          POSTGRES_PORT: ${{ env.local_postgres_port }}
-          POSTGRES_USER: ${{ env.local_postgres_user }}
-          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+#    container: ubuntu
+#    services:
+#      postgres:
+#        image: postgis/postgis
+#        # `POSTGRES_HOST` is `postgres`
+#        env:
+#          POSTGRES_DB: ${{ env.local_postgres_db }}
+#          POSTGRES_PORT: ${{ env.local_postgres_port }}
+#          POSTGRES_USER: ${{ env.local_postgres_user }}
+#          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
+#        ports:
+#          - 5432:5432
+#        options: >-
+#          --health-cmd pg_isready
+#          --health-interval 10s
+#          --health-timeout 5s
+#          --health-retries 5
     steps:
 #      - name: Install JQ Tool
 #        uses: mbround18/install-jq@v1
@@ -59,9 +59,9 @@ jobs:
         with:
           python-version: '3.11'
 
-#      - name: Set up Docker Compose
-#        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
-#        working-directory: ${{ github.workspace }}
+      - name: Set up Docker Compose
+        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
+        working-directory: ${{ github.workspace }}
 
 #      - name: Install PostgreSQL client
 #        run: |
