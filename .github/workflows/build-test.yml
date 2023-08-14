@@ -81,7 +81,7 @@ jobs:
           java-version: '11'
 
       - name: Install utils
-        run: apt-get update && apt-get install -y wget unzip
+        run: apt-get update && apt-get install -y wget unzip postgis
 
       - name: Install Liquibase
         run: |
