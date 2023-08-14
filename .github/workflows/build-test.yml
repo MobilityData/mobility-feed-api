@@ -89,7 +89,7 @@ jobs:
           cd liquibase-cli
           wget -O liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.23.1/liquibase-4.23.1.zip
           unzip liquibase.zip
-          chmod +x liquibase
+          chmod -Rf +x liquibase
           mv liquibase /usr/local/bin/
 
       - name: Run Liquibase Update
