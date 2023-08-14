@@ -94,7 +94,7 @@ jobs:
 
       - name: Run Liquibase Update
         run: |
-          liquibase-cli/liquibase
+          liquibase-cli/liquibase \
           --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
           --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
           --log-level=DEBUG \
