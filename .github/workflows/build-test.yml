@@ -63,31 +63,51 @@ jobs:
 #        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
 #        working-directory: ${{ github.workspace }}
 
-      - name: Install PostgreSQL client
+#      - name: Install PostgreSQL client
+#        run: |
+#          apt-get update
+#          apt-get install --yes postgresql-client
+#
+##       queries database with postgres client
+#      - name: Query database
+#        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
+#        env:
+#          PGPASSWORD: postgres_password
+
+      - name: Install Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '11'
+
+      - name: Install Liquibase
         run: |
-          apt-get update
-          apt-get install --yes postgresql-client
-
-#       queries database with postgres client
-      - name: Query database
-        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
-        env:
-          PGPASSWORD: postgres_password
-
-      - name: Install Docker
-        run: |
-          apt-get update
-          apt-get install -y docker.io
-
-      - name: Set up Liquibase
-        run: docker pull liquibase/liquibase:latest
+          curl -L -o liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.0.0/liquibase-4.0.0.zip
+          unzip liquibase.zip
+          chmod +x liquibase
+          sudo mv liquibase /usr/local/bin/
 
       - name: Run Liquibase Update
         run: |
-          docker run -v changelogs:/liquibase liquibase/liquibase update --changeLogFile=liquibase/changelog.xml \
+          liquibase
           --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
           --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
-          --log-level=DEBUG
+          --log-level=DEBUG \
+          --changeLogFile=liquibase/changelog.xml update
+#      - name: Install Docker
+#        run: |
+#          apt-get update
+#          apt-get install -y docker.io
+
+#      - name: Set up Liquibase
+#        run: docker pull liquibase/liquibase:latest
+#
+#      - name: Run Liquibase Update
+#        run: |
+#          docker run -v changelogs:/liquibase liquibase/liquibase update --changeLogFile=liquibase/changelog.xml \
+#          --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
+#          --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
+#          --log-level=DEBUG
 
 #          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
         working-directory: ${{ github.workspace }}
