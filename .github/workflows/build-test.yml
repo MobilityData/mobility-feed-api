@@ -72,10 +72,7 @@ jobs:
 #          password: postgres_password
 #          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
 
-#      - uses: actions/setup-python@v4
-#        with:
-#          python-version: '3.11'
-##          cache: 'pip'
+
 #
 #      - name: Install utils
 #        run: apt-get update && apt-get install -y libssl-dev zlib1g-dev build-essential
@@ -115,22 +112,31 @@ jobs:
 #          scripts/db-gen.sh
 #        shell: bash
 
-      - name: Set up Docker Compose
+      - name: Docker Compose DB/Liquibase
         run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
         working-directory: ${{ github.workspace }}
 
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
+#      - name: Install PostgreSQL client
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install --yes postgresql-client
+#
+##       queries database with postgres client
+#      - name: Query database
+#        run: |
+#          docker ps
+#          psql -h localhost -d postgres_db -U postgres_user -c 'SELECT 1;'
+#        env:
+#          PGPASSWORD: postgres_password
 
-#       queries database with postgres client
-      - name: Query database
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+#          cache: 'pip'
+
+      - name: Generate DB code
         run: |
-          docker ps
-          psql -h localhost -d postgres_db -U postgres_user -c 'SELECT 1;'
-        env:
-          PGPASSWORD: postgres_password
+          scripts/db-gen.sh
 
 #      - name: Install Java
 #        uses: actions/setup-java@v2
