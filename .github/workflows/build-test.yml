@@ -89,6 +89,7 @@ jobs:
           source python-env/bin/activate
           pip --version
           scripts/db-gen.sh
+        shell: bash
 
 #      - name: Set up Docker Compose
 #        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
