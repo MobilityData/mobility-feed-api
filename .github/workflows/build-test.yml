@@ -81,10 +81,14 @@ jobs:
         run: |
           python --version
           python -m ensurepip
-          pip --version
+#          pip --version
 
       - name: Generate DB code
-        run: scripts/db-gen.sh
+        run: |
+          python -m venv python-env
+          source python-env/bin/activate
+          pip --version
+          scripts/db-gen.sh
 
 #      - name: Set up Docker Compose
 #        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
