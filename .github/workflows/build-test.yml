@@ -17,23 +17,23 @@ env:
 jobs:
   build:
     runs-on: ubuntu-20.04
-    container: ubuntu
-    services:
-      postgres:
-        image: postgis/postgis
-        # `POSTGRES_HOST` is `postgres`
-        env:
-          POSTGRES_DB: ${{ env.local_postgres_db }}
-          POSTGRES_PORT: ${{ env.local_postgres_port }}
-          POSTGRES_USER: ${{ env.local_postgres_user }}
-          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+#    container: ubuntu
+#    services:
+#      postgres:
+#        image: postgis/postgis
+#        # `POSTGRES_HOST` is `postgres`
+#        env:
+#          POSTGRES_DB: ${{ env.local_postgres_db }}
+#          POSTGRES_PORT: ${{ env.local_postgres_port }}
+#          POSTGRES_USER: ${{ env.local_postgres_user }}
+#          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
+#        ports:
+#          - 5432:5432
+#        options: >-
+#          --health-cmd pg_isready
+#          --health-interval 10s
+#          --health-timeout 5s
+#          --health-retries 5
     steps:
 #      - name: Install JQ Tool
 #        uses: mbround18/install-jq@v1
@@ -41,8 +41,8 @@ jobs:
 #        run: |
 #          jq --version
 
-      - name: Checkout code
-        uses: actions/checkout@v3
+#      - name: Checkout code
+#        uses: actions/checkout@v3
 
 #      - name: Update .env file
 #        run: |
@@ -55,10 +55,10 @@ jobs:
 #          echo "ENV=dev" >> config/.env.local
 #          cat config/.env.local
 
-      - name: Install Docker
-        run: |
-          apt-get update
-          apt-get install -y docker.io
+#      - name: Install Docker
+#        run: |
+#          apt-get update
+#          apt-get install -y docker.io
 
 #      - name: Set up Liquibase
 #        run: docker pull liquibase/liquibase:latest
@@ -80,31 +80,31 @@ jobs:
 #      - name: Install utils
 #        run: apt-get update && apt-get install -y libssl-dev zlib1g-dev build-essential
 
-      - name: Set up Python 3.11
-        run: |
-         apt update
-         apt-get install -y software-properties-common 
-         add-apt-repository -y ppa:deadsnakes/ppa
-         apt-get install -y python3.11
+#      - name: Set up Python 3.11
+#        run: |
+#         apt update
+#         apt-get install -y software-properties-common
+#         add-apt-repository -y ppa:deadsnakes/ppa
+#         apt-get install -y python3.11
 
-      - name: Generate DB code
-        run: |
-          python -m venv python-env
-          pip --version
-          scripts/db-gen.sh
-        shell: bash
+#      - name: Generate DB code
+#        run: |
+#          python -m venv python-env
+#          pip --version
+#          scripts/db-gen.sh
+#        shell: bash
 
 #      - name: Python version
 #        run: |
 #          python --version
 #          pip --version
 
-      - name: Generate DB code
-        run: |
-          export workspace=$(pwd)
-          echo $workspace
-          docker run --network host -v $workspace:/api -i python:3.8 ls -al api
-          docker run --network host -v $(pwd)/:/api -i python:3.8 api/scripts/db-gen.sh
+#      - name: Generate DB code
+#        run: |
+#          export workspace=$(pwd)
+#          echo $workspace
+#          docker run --network host -v $workspace:/api -i python:3.8 ls -al api
+#          docker run --network host -v $(pwd)/:/api -i python:3.8 api/scripts/db-gen.sh
 #        working-directory: ${{ github.workspace }}
 
 #      - name: Generate DB code
@@ -115,18 +115,18 @@ jobs:
 #          scripts/db-gen.sh
 #        shell: bash
 
-#      - name: Set up Docker Compose
-#        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
-#        working-directory: ${{ github.workspace }}
+      - name: Set up Docker Compose
+        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
+        working-directory: ${{ github.workspace }}
 
-#      - name: Install PostgreSQL client
-#        run: |
-#          apt-get update
-#          apt-get install --yes postgresql-client
-#
-##       queries database with postgres client
-#      - name: Query database
-#        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
+      - name: Install PostgreSQL client
+        run: |
+          apt-get update
+          apt-get install --yes postgresql-client
+
+#       queries database with postgres client
+      - name: Query database
+        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
 #        env:
 #          PGPASSWORD: postgres_password
 
