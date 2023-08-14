@@ -83,7 +83,6 @@ jobs:
       - name: Python version
         run: |
           python --version
-#          python -m ensurepip
           pip --version
 
       - name: Generate DB code
