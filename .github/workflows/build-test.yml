@@ -99,6 +99,7 @@ jobs:
           --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
           --log-level=DEBUG \
           --changeLogFile=liquibase/changelog.xml update
+
 #      - name: Install Docker
 #        run: |
 #          apt-get update
@@ -115,7 +116,7 @@ jobs:
 #          --log-level=DEBUG
 
 #          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
-        working-directory: ${{ github.workspace }}
+#        working-directory: ${{ github.workspace }}
 
 #      - name: Liquibase Update
 #        uses: liquibase-github-actions/update@v4.23.0
