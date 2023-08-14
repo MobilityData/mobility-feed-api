@@ -5,7 +5,7 @@ on:
     paths-ignore:
       - '**.md'
 env:
-  python_version: 3.11
+  python_version: 3.10
   java_version: 11 # needed by setup-openapi-generator.sh
   maven_version: 3.9.2 # needed by setup-openapi-generator.sh
   local_postgres_host: postgres
@@ -16,14 +16,9 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    permissions: write-all
     steps:
-#      - name: Install JQ Tool
-#        uses: mbround18/install-jq@v1
-#      - name: JQ version
-#        run: |
-#          jq --version
-
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -35,7 +30,7 @@ jobs:
 
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ env.python_version }}
 
       - name: Update .env file
         run: |
@@ -59,176 +54,6 @@ jobs:
         run: |
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
-
-#      - name: Install Docker
-#        run: |
-#          apt-get update
-#          apt-get install -y docker.io
-
-#      - name: Set up Liquibase
-#        run: docker pull liquibase/liquibase:latest
-#
-#      - name: Liquibase Update
-#        uses: liquibase-github-actions/update@v4.23.0
-#        with:
-#          classpath: 'liquibase'
-#          changeLogFile: 'changelog.xml'
-#          username: postgres_user
-#          password: postgres_password
-#          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
-
-
-#
-#      - name: Install utils
-#        run: apt-get update && apt-get install -y libssl-dev zlib1g-dev build-essential
-
-#      - name: Set up Python 3.11
-#        run: |
-#         apt update
-#         apt-get install -y software-properties-common
-#         add-apt-repository -y ppa:deadsnakes/ppa
-#         apt-get install -y python3.11
-
-#      - name: Generate DB code
-#        run: |
-#          python -m venv python-env
-#          pip --version
-#          scripts/db-gen.sh
-#        shell: bash
-
-#      - name: Python version
-#        run: |
-#          python --version
-#          pip --version
-
-#      - name: Generate DB code
-#        run: |
-#          export workspace=$(pwd)
-#          echo $workspace
-#          docker run --network host -v $workspace:/api -i python:3.8 ls -al api
-#          docker run --network host -v $(pwd)/:/api -i python:3.8 api/scripts/db-gen.sh
-#        working-directory: ${{ github.workspace }}
-
-#      - name: Generate DB code
-#        run: |
-#          python -m venv python-env
-#          source python-env/bin/activate
-#          pip --version
-#          scripts/db-gen.sh
-#        shell: bash
-
-#      - name: Install PostgreSQL client
-#        run: |
-#          sudo apt-get update
-#          sudo apt-get install --yes postgresql-client
-#
-##       queries database with postgres client
-#      - name: Query database
-#        run: |
-#          docker ps
-#          psql -h localhost -d postgres_db -U postgres_user -c 'SELECT 1;'
-#        env:
-#          PGPASSWORD: postgres_password
-
-
-#      - name: Install Java
-#        uses: actions/setup-java@v2
-#        with:
-#          distribution: 'adopt'
-#          java-version: '11'
-
-#      - name: Install utils
-#        run: apt-get update && apt-get install -y wget unzip postgis
-#
-#      - name: Install Liquibase
-#        run: |
-#          mkdir liquibase-cli
-#          cd liquibase-cli
-#          wget -O liquibase-cli.zip https://github.com/liquibase/liquibase/releases/download/v4.23.1/liquibase-4.23.1.zip
-#          unzip liquibase-cli.zip
-#          chmod -Rf +x liquibase
-##          mv liquibase /usr/local/bin/
-#
-#      - name: Run Liquibase Update
-#        run: |
-#          liquibase-cli/liquibase \
-#          --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
-#          --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
-#          --log-level=DEBUG \
-#          --changeLogFile=liquibase/changelog.xml update
-
-#      - name: Install Docker
-#        run: |
-#          apt-get update
-#          apt-get install -y docker.io
-
-#      - name: Set up Liquibase
-#        run: docker pull liquibase/liquibase:latest
-#
-#      - name: Run Liquibase Update
-#        run: |
-#          docker run -v changelogs:/liquibase liquibase/liquibase update --changeLogFile=liquibase/changelog.xml \
-#          --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
-#          --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
-#          --log-level=DEBUG
-
-#          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
-#        working-directory: ${{ github.workspace }}
-
-#
-#      - name: Clean up Docker Compose
-#        run: docker-compose -f docker-compose-liquibase.yml down
-#        working-directory: ${{ github.workspace }}
-
-
-#      - name: Setup Maven Action
-#        uses: s4u/setup-maven-action@v1.8.0
-#        with:
-#          java-version: ${{ env.java_version }}
-#          maven-version: ${{ env.maven_version }}
-#
-#      - name: Generate API code
-#        run: |
-#          scripts/setup-openapi-generator.sh
-#          scripts/api-gen.sh
-#
-#      - name: Update .env file
-#        run: |
-#          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
-#          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
-#          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
-#          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
-#          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-#          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
-#          echo "ENV=dev" >> config/.env.local
-#          cat config/.env.local
-
-#      - name: Install PostgreSQL client
-#        run: |
-#          apt-get update
-#          apt-get install --yes postgresql-client
-#
-##       queries database with postgres client
-#      - name: Query database
-#        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
-#        env:
-#          # postgress password is required; alternatively, you can run:
-#          # `PGPASSWORD=postgres_password psql ...`
-#          PGPASSWORD: postgres_password
-
-#
-#      - name: Liquibase Update
-#        uses: liquibase-github-actions/update@v4.23.0
-#        with:
-#          classpath: 'liquibase'
-#          changeLogFile: 'changelog.xml'
-#          username: postgres_user
-#          password: postgres_password
-#          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
-#
-#      - name: Generate DB code
-#        run: |
-#          scripts/db-gen.sh
 
 #      Uncomment the unit tests when tests are ready
 #      - name: Run unit tests
