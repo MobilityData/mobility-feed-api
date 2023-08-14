@@ -18,22 +18,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
 #    container: ubuntu
-#    services:
-#      postgres:
-#        image: postgres:latest
-#        # `POSTGRES_HOST` is `postgres`
-#        env:
-#          POSTGRES_DB: ${{ env.local_postgres_db }}
-#          POSTGRES_PORT: ${{ env.local_postgres_port }}
-#          POSTGRES_USER: ${{ env.local_postgres_user }}
-#          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
-#        ports:
-#          - 5434:5434
-#        options: >-
-#          --health-cmd pg_isready
-#          --health-interval 10s
-#          --health-timeout 5s
-#          --health-retries 5
+    services:
+      postgres:
+        image: postgres:latest
+        # `POSTGRES_HOST` is `postgres`
+        env:
+          POSTGRES_DB: ${{ env.local_postgres_db }}
+          POSTGRES_PORT: ${{ env.local_postgres_port }}
+          POSTGRES_USER: ${{ env.local_postgres_user }}
+          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
+        ports:
+          - 5434:5434
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
 #      - name: Install JQ Tool
 #        uses: mbround18/install-jq@v1
@@ -59,9 +59,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Set up Docker Compose
-        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
-        working-directory: ${{ github.workspace }}
+#      - name: Set up Docker Compose
+#        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
+#        working-directory: ${{ github.workspace }}
 
       - name: Install PostgreSQL client
         run: |
@@ -78,12 +78,20 @@ jobs:
         env:
           PGPASSWORD: postgres_password
 
+      - name: Set up Liquibase
+        run: docker pull liquibase/liquibase:latest
+
+      - name: Run Liquibase Update
+        run: |
+          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
+        working-directory: ${{ github.workspace }}
+
       - name: Generate DB code
         run: scripts/db-gen.sh
-
-      - name: Clean up Docker Compose
-        run: docker-compose -f docker-compose-liquibase.yml down
-        working-directory: ${{ github.workspace }}
+#
+#      - name: Clean up Docker Compose
+#        run: docker-compose -f docker-compose-liquibase.yml down
+#        working-directory: ${{ github.workspace }}
 
 
 #      - name: Setup Maven Action
@@ -121,13 +129,6 @@ jobs:
 #          # `PGPASSWORD=postgres_password psql ...`
 #          PGPASSWORD: postgres_password
 
-#      - name: Set up Liquibase
-#        run: docker pull liquibase/liquibase:latest
-#
-#      - name: Run Liquibase Update
-#        run: |
-#          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
-#        working-directory: ${{ github.workspace }}
 #
 #      - name: Liquibase Update
 #        uses: liquibase-github-actions/update@v4.23.0
