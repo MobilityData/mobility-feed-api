@@ -80,6 +80,9 @@ jobs:
           distribution: 'adopt'
           java-version: '11'
 
+      - name: Install wget
+        run: apt-get install -y curl
+
       - name: Install Liquibase
         run: |
           curl -L -o liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.0.0/liquibase-4.0.0.zip
