@@ -7,7 +7,6 @@ on:
 env:
   python_version: '3.10'
   java_version: '11' # needed by setup-openapi-generator.sh
-  maven_version: '3.9.2' # needed by setup-openapi-generator.sh
   local_postgres_host: postgres
   local_postgres_db: postgres_db
   local_postgres_user: postgres_user
@@ -15,9 +14,10 @@ env:
   local_postgres_port: 5432
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
     permissions: write-all
+    name: Build & Test
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,14 +25,8 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: '11'
+          java-version: ${{ env.java_version }}
           distribution: 'temurin'
-
-#      - name: Setup Maven Action
-#        uses: s4u/setup-maven-action@v1.8.0
-#        with:
-#          java-version: ${{ env.java_version }}
-#          maven-version: ${{ env.maven_version }}
 
       - uses: actions/setup-python@v4
         with:
