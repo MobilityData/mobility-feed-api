@@ -17,23 +17,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-20.04
-#    container: ubuntu
-#    services:
-#      postgres:
-#        image: postgis/postgis
-#        # `POSTGRES_HOST` is `postgres`
-#        env:
-#          POSTGRES_DB: ${{ env.local_postgres_db }}
-#          POSTGRES_PORT: ${{ env.local_postgres_port }}
-#          POSTGRES_USER: ${{ env.local_postgres_user }}
-#          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
-#        ports:
-#          - 5432:5432
-#        options: >-
-#          --health-cmd pg_isready
-#          --health-interval 10s
-#          --health-timeout 5s
-#          --health-retries 5
     steps:
 #      - name: Install JQ Tool
 #        uses: mbround18/install-jq@v1
@@ -44,6 +27,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.8.0
+        with:
+          java-version: ${{ env.java_version }}
+          maven-version: ${{ env.maven_version }}
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
       - name: Update .env file
         run: |
           echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
@@ -51,9 +44,21 @@ jobs:
           echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
           echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
           echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
+          echo "POSTGRES_HOST=localhost" >> config/.env.local
           echo "ENV=dev" >> config/.env.local
-          cat config/.env.local
+
+      - name: Docker Compose DB/Liquibase for db-gen.sh
+        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
+        working-directory: ${{ github.workspace }}
+
+      - name: Generate DB code
+        run: |
+          scripts/db-gen.sh
+
+      - name: Generate API code
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
 
 #      - name: Install Docker
 #        run: |
@@ -112,20 +117,6 @@ jobs:
 #          scripts/db-gen.sh
 #        shell: bash
 
-      - name: Update .env file
-        run: |
-          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
-          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
-          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
-          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
-          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-          echo "POSTGRES_HOST=localhost" >> config/.env.local
-          echo "ENV=dev" >> config/.env.local
-
-      - name: Docker Compose DB/Liquibase
-        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
-        working-directory: ${{ github.workspace }}
-
 #      - name: Install PostgreSQL client
 #        run: |
 #          sudo apt-get update
@@ -138,25 +129,6 @@ jobs:
 #          psql -h localhost -d postgres_db -U postgres_user -c 'SELECT 1;'
 #        env:
 #          PGPASSWORD: postgres_password
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Generate DB code
-        run: |
-          scripts/db-gen.sh
-
-      - name: Setup Maven Action
-        uses: s4u/setup-maven-action@v1.8.0
-        with:
-          java-version: ${{ env.java_version }}
-          maven-version: ${{ env.maven_version }}
-
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
 
 
 #      - name: Install Java
