@@ -65,8 +65,8 @@ jobs:
 
       - name: Install PostgreSQL client
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
+          apt-get update
+          apt-get install --yes postgresql-client
 
 #       queries database with postgres client
       - name: Query database
@@ -81,6 +81,15 @@ jobs:
         run: |
           docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
         working-directory: ${{ github.workspace }}
+
+      - name: Liquibase Update
+        uses: liquibase-github-actions/update@v4.23.0
+        with:
+          classpath: 'liquibase'
+          changeLogFile: 'changelog.xml'
+          username: postgres_user
+          password: postgres_password
+          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
 
       - name: Generate DB code
         run: scripts/db-gen.sh
