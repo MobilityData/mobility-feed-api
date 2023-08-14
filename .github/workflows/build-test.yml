@@ -77,10 +77,10 @@ jobs:
       - name: Set up Liquibase
         run: docker pull liquibase/liquibase:latest
 
-      - name: Run Liquibase Update
-        run: |
-          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
-        working-directory: ${{ github.workspace }}
+#      - name: Run Liquibase Update
+#        run: |
+#          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
+#        working-directory: ${{ github.workspace }}
 
       - name: Liquibase Update
         uses: liquibase-github-actions/update@v4.23.0
