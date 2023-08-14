@@ -138,6 +138,18 @@ jobs:
         run: |
           scripts/db-gen.sh
 
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1.8.0
+        with:
+          java-version: ${{ env.java_version }}
+          maven-version: ${{ env.maven_version }}
+
+      - name: Generate API code
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
+
+
 #      - name: Install Java
 #        uses: actions/setup-java@v2
 #        with:
