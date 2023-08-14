@@ -74,31 +74,31 @@ jobs:
 #        env:
 #          PGPASSWORD: postgres_password
 
-      - name: Install Java
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'adopt'
-          java-version: '11'
+#      - name: Install Java
+#        uses: actions/setup-java@v2
+#        with:
+#          distribution: 'adopt'
+#          java-version: '11'
 
-      - name: Install utils
-        run: apt-get update && apt-get install -y wget unzip postgis
-
-      - name: Install Liquibase
-        run: |
-          mkdir liquibase-cli
-          cd liquibase-cli
-          wget -O liquibase-cli.zip https://github.com/liquibase/liquibase/releases/download/v4.23.1/liquibase-4.23.1.zip
-          unzip liquibase-cli.zip
-          chmod -Rf +x liquibase
-#          mv liquibase /usr/local/bin/
-
-      - name: Run Liquibase Update
-        run: |
-          liquibase-cli/liquibase \
-          --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
-          --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
-          --log-level=DEBUG \
-          --changeLogFile=liquibase/changelog.xml update
+#      - name: Install utils
+#        run: apt-get update && apt-get install -y wget unzip postgis
+#
+#      - name: Install Liquibase
+#        run: |
+#          mkdir liquibase-cli
+#          cd liquibase-cli
+#          wget -O liquibase-cli.zip https://github.com/liquibase/liquibase/releases/download/v4.23.1/liquibase-4.23.1.zip
+#          unzip liquibase-cli.zip
+#          chmod -Rf +x liquibase
+##          mv liquibase /usr/local/bin/
+#
+#      - name: Run Liquibase Update
+#        run: |
+#          liquibase-cli/liquibase \
+#          --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
+#          --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }} \
+#          --log-level=DEBUG \
+#          --changeLogFile=liquibase/changelog.xml update
 
 #      - name: Install Docker
 #        run: |
@@ -118,14 +118,14 @@ jobs:
 #          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
 #        working-directory: ${{ github.workspace }}
 
-#      - name: Liquibase Update
-#        uses: liquibase-github-actions/update@v4.23.0
-#        with:
-#          classpath: 'liquibase'
-#          changeLogFile: 'changelog.xml'
-#          username: postgres_user
-#          password: postgres_password
-#          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
+      - name: Liquibase Update
+        uses: liquibase-github-actions/update@v4.23.0
+        with:
+          classpath: 'liquibase'
+          changeLogFile: 'changelog.xml'
+          username: postgres_user
+          password: postgres_password
+          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
 
       - name: Generate DB code
         run: scripts/db-gen.sh
