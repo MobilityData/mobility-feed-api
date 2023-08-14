@@ -85,8 +85,8 @@ jobs:
 
       - name: Install Liquibase
         run: |
-          wget -O liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.0.0/liquibase-4.0.0.zip
-          unzip liquibase.zip
+          wget -O liquibase-install.zip https://github.com/liquibase/liquibase/releases/download/v4.0.0/liquibase-4.0.0.zip
+          unzip liquibase-install.zip liquibase
           chmod +x liquibase
           mv liquibase /usr/local/bin/
 
