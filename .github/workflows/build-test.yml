@@ -84,7 +84,10 @@ jobs:
 
       - name: Run Liquibase Update
         run: |
-          docker run --network host -v changelogs:/liquibase liquibase/liquibase update --changeLogFile=liquibase/changelog.xml --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}"
+          docker run --network host -v changelogs:/liquibase liquibase/liquibase update --changeLogFile=liquibase/changelog.xml \
+          --url="jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}" \
+          --username=${{ env.local_postgres_user }} --password=${{ env.local_postgres_pwd }}
+
 #          docker run --network host -v $PWD/changelogs:/liquibase/changelogs liquibase/liquibase update
         working-directory: ${{ github.workspace }}
 
