@@ -76,6 +76,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Python version
+        run: |
+          python --version
+          pip --version
+
       - name: Generate DB code
         run: scripts/db-gen.sh
 
