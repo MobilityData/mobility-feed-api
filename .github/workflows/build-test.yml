@@ -87,6 +87,7 @@ jobs:
 
       - name: Generate DB code
         run: |
+          ls -al
           docker run --network host -v api:/api -i python:3.8 ./api/scripts/db-gen.sh
         working-directory: ${{ github.workspace }}
 
