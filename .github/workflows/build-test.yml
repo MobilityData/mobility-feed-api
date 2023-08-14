@@ -65,10 +65,6 @@ jobs:
 
       - name: Install PostgreSQL client
         run: |
-          docker network ls
-
-      - name: Install PostgreSQL client
-        run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
 
