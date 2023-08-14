@@ -44,16 +44,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-#      - name: Update .env file
-#        run: |
-#          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
-#          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
-#          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
-#          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
-#          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-#          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
-#          echo "ENV=dev" >> config/.env.local
-#          cat config/.env.local
+      - name: Update .env file
+        run: |
+          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
+          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
+          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
+          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
+          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
+          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
+          echo "ENV=dev" >> config/.env.local
+          cat config/.env.local
 
 #      - name: Install Docker
 #        run: |
