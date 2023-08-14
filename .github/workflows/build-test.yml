@@ -60,17 +60,17 @@ jobs:
           apt-get update
           apt-get install -y docker.io
 
-      - name: Set up Liquibase
-        run: docker pull liquibase/liquibase:latest
-
-      - name: Liquibase Update
-        uses: liquibase-github-actions/update@v4.23.0
-        with:
-          classpath: 'liquibase'
-          changeLogFile: 'changelog.xml'
-          username: postgres_user
-          password: postgres_password
-          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
+#      - name: Set up Liquibase
+#        run: docker pull liquibase/liquibase:latest
+#
+#      - name: Liquibase Update
+#        uses: liquibase-github-actions/update@v4.23.0
+#        with:
+#          classpath: 'liquibase'
+#          changeLogFile: 'changelog.xml'
+#          username: postgres_user
+#          password: postgres_password
+#          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
 
 #      - uses: actions/setup-python@v4
 #        with:
@@ -79,6 +79,20 @@ jobs:
 #
 #      - name: Install utils
 #        run: apt-get update && apt-get install -y libssl-dev zlib1g-dev build-essential
+
+      - name: Set up Python 3.11
+        run: |
+         apt update
+         apt-get install -y software-properties-common 
+         add-apt-repository -y ppa:deadsnakes/ppa
+         apt-get install -y python3.11
+
+      - name: Generate DB code
+        run: |
+          python -m venv python-env
+          pip --version
+          scripts/db-gen.sh
+        shell: bash
 
 #      - name: Python version
 #        run: |
