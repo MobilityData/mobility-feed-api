@@ -1,101 +1,59 @@
 name: Build and Test
 on:
-  pull_request:
-    branches: [ main ]
+  push:
+    branches: [ '**' ]
     paths-ignore:
       - '**.md'
-      - 'scripts/**'
 env:
-  python_version: 3.11
-  java_version: 11 # needed by setup-openapi-generator.sh
-  maven_version: 3.9.2 # needed by setup-openapi-generator.sh
+  python_version: '3.10'
+  java_version: '11' # needed by setup-openapi-generator.sh
   local_postgres_host: postgres
   local_postgres_db: postgres_db
   local_postgres_user: postgres_user
   local_postgres_pwd: postgres_password
-  local_postgres_port: 5434
+  local_postgres_port: 5432
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
-    container: ubuntu
-    services:
-      postgres:
-        image: postgres:latest
-        # `POSTGRES_HOST` is `postgres`
-        env:
-          POSTGRES_DB: ${{ env.local_postgres_db }}
-          POSTGRES_PORT: ${{ env.local_postgres_port }}
-          POSTGRES_USER: ${{ env.local_postgres_user }}
-          POSTGRES_PASSWORD: ${{ env.local_postgres_pwd }}
-        ports:
-          - 5434:5434
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    permissions: write-all
+    name: Build & Test
     steps:
-#      - name: Install JQ Tool
-#        uses: mbround18/install-jq@v1
-#      - name: JQ version
-#        run: |
-#          jq --version
-
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ env.java_version }}
+          distribution: 'temurin'
+
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: ${{ env.python_version }}
 
-#      - name: Setup Maven Action
-#        uses: s4u/setup-maven-action@v1.8.0
-#        with:
-#          java-version: ${{ env.java_version }}
-#          maven-version: ${{ env.maven_version }}
-#
-#      - name: Generate API code
-#        run: |
-#          scripts/setup-openapi-generator.sh
-#          scripts/api-gen.sh
-#
-#      - name: Update .env file
-#        run: |
-#          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
-#          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
-#          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
-#          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
-#          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-#          echo "POSTGRES_HOST=${{ env.local_postgres_host }}" >> config/.env.local
-#          echo "ENV=dev" >> config/.env.local
-#          cat config/.env.local
+      - name: Update .env file
+        run: |
+          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
+          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
+          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
+          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
+          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
+          echo "POSTGRES_HOST=localhost" >> config/.env.local
+          echo "ENV=dev" >> config/.env.local
 
-#      - name: Install PostgreSQL client
-#        run: |
-#          apt-get update
-#          apt-get install --yes postgresql-client
-
-      # queries database with postgres client
-#      - name: Query database
-#        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
-#        env:
-#          # postgress password is required; alternatively, you can run:
-#          # `PGPASSWORD=postgres_password psql ...`
-#          PGPASSWORD: postgres_password
-
-      - name: Liquibase Update
-        uses: liquibase-github-actions/update@v4.23.0
-        with:
-          classpath: 'liquibase'
-          changeLogFile: 'changelog.xml'
-          username: postgres_user
-          password: postgres_password
-          url: 'jdbc:postgresql://${{ env.local_postgres_host }}:${{ env.local_postgres_port }}/${{ env.local_postgres_db }}'
+      - name: Docker Compose DB/Liquibase for db-gen.sh
+        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
+        working-directory: ${{ github.workspace }}
 
       - name: Generate DB code
         run: |
           scripts/db-gen.sh
+
+      - name: Generate API code
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
 
 #      Uncomment the unit tests when tests are ready
 #      - name: Run unit tests
