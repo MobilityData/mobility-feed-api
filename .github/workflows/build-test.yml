@@ -20,7 +20,7 @@ jobs:
     container: ubuntu
     services:
       postgres:
-        image: postgres:latest
+        image: postgis/postgis
         # `POSTGRES_HOST` is `postgres`
         env:
           POSTGRES_DB: ${{ env.local_postgres_db }}
