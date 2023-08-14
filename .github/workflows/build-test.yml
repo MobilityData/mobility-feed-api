@@ -80,8 +80,8 @@ jobs:
           distribution: 'adopt'
           java-version: '11'
 
-      - name: Install wget
-        run: apt-get update && apt-get install -y wget
+      - name: Install utils
+        run: apt-get update && apt-get install -y wget unzip
 
       - name: Install Liquibase
         run: |
