@@ -126,9 +126,11 @@ jobs:
 
 #       queries database with postgres client
       - name: Query database
-        run: psql -h postgres -d postgres_db -U postgres_user -c 'SELECT 1;'
-#        env:
-#          PGPASSWORD: postgres_password
+        run: |
+          docker ps
+          psql -h localhost -d postgres_db -U postgres_user -c 'SELECT 1;'
+        env:
+          PGPASSWORD: postgres_password
 
 #      - name: Install Java
 #        uses: actions/setup-java@v2
