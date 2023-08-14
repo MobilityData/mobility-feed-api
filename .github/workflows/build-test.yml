@@ -88,7 +88,6 @@ jobs:
           mkdir liquibase-cli
           cd liquibase-cli
           wget -O liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.23.1/liquibase-4.23.1.zip
-#          wget -O liquibase.zip https://github.com/liquibase/liquibase/releases/download/v4.0.0/liquibase-4.0.0.zip
           unzip liquibase.zip
           chmod +x liquibase
           mv liquibase /usr/local/bin/
