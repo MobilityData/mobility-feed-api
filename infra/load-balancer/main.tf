@@ -19,10 +19,6 @@
 # Module output:
 #   feed_api_uri: Main URI of the Feed API
 
-locals {
-  #  openapi_gw_file_absolute_path = "${abspath(path.root)}/${var.openapi_gw_file}"
-}
-
 # This make the google project information accessible only keeping the project_id as a parameter in the previous provider resource
 data "google_project" "project" {
 }
