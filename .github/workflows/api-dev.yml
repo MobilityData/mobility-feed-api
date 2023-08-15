@@ -2,11 +2,6 @@
 name: Deploy Feeds API - DEV
 on:
   workflow_dispatch:  # Supports manual deployment
-#  Uncomment the following trigger to test on dev
-  push:
-    branches: [ main, * ] # remove branch before merge
-#    paths-ignore:
-#      - '**.md'
 
 jobs:
   # TODO add API tests execution
