@@ -42,7 +42,7 @@ jobs:
           echo "ENV=dev" >> config/.env.local
 
       - name: Docker Compose DB/Liquibase for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local  -f docker-compose-liquibase.yaml up -d
+        run: docker-compose --env-file ./config/.env.local  -f up -d liquibase
         working-directory: ${{ github.workspace }}
 
       - name: Generate DB code
