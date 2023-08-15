@@ -16,7 +16,15 @@ Folder `api` contains source code of the API implementation. This repository rel
 
 ## Requirements.
 
-Python == 3.11
+Python <= 3.10
+
+### Python 3.11 incompatibility notice
+This project uses [sqlacodegen](https://github.com/agronholm/sqlacodegen) to generate ORM models. This project is also depending on [SqlAlchemy]https://www.sqlalchemy.org/. This combination od dependencies doesn't support __yet__(August 2023) Python 3.11 due to [bpo-45320](https://github.com/python/cpython/issues/89483).
+
+Related issues:
+- [bpo-45320](https://github.com/python/cpython/issues/89483)
+- [sqlacodegen failing with Error: import name 'ArgSpec' from 'inspect'](https://github.com/agronholm/sqlacodegen/issues/239)
+- [fix function name in codegen.py for python v3.11](https://github.com/agronholm/sqlacodegen/issues/274)
 
 ## Installation & Usage
 
