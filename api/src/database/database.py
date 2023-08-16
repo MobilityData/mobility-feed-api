@@ -89,13 +89,16 @@ class Database:
             self.logger.error(f"Session closing failed with exception: \n {e}")
         return self.is_connected()
 
-    def select(self, model: Type[Base], conditions: list = None, attributes: list = None, update_session: bool = True):
+    def select(self, model: Type[Base], conditions: list = None, attributes: list = None, update_session: bool = True,
+               limit: int = None, offset: int = None):
         """
         Executes a query on the database
         :param model: the sqlalchemy model to query
         :param conditions: list of conditions (filters for the query)
         :param attributes: list of model's attribute names that you want to fetch. If not given, fetches all attributes.
         :param update_session: option to update session before running the query (defaults to True)
+        :param limit: the optional number of rows to limit the query with
+        :param offset: the optional number of rows to offset the query with
         :return: None if database is inaccessible, the results of the query otherwise
         """
         try:
@@ -107,6 +110,10 @@ class Database:
                     query = query.filter(condition)
             if attributes:
                 query = query.options(load_only(*attributes))
+            if limit is not None:
+                query = query.limit(limit)
+            if offset is not None:
+                query = query.offset(offset)
             return query.all()
         except Exception as e:
             self.logger.error(f'SELECT query failed with exception: \n{e}')
@@ -187,3 +194,4 @@ class Database:
             return False
 
 
+DB_ENGINE = Database()

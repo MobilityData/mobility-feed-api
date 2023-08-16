@@ -16,15 +16,13 @@ from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
 
-from database.database import Database
-
-db = Database()
+from database.database import DB_ENGINE
 
 
 def map_feed(feed: Feed):
     return BasicFeed(id=feed.id, data_type=feed.data_type, status=feed.status,
                      feed_name=feed.feed_name, note=feed.note,
-                     providers=[provider.long_name for provider in feed.provider],
+                     providers=[feed.provider] if feed.provider else [],
                      redirects=[target.id for target in feed.target],
                      external_ids=[ExternalId(external_id=ext_id.associated_id, source=ext_id.source)
                                    for ext_id in feed.externalid],
@@ -47,7 +45,7 @@ class FeedsApiImpl(BaseFeedsApi):
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        feeds = db.select(Feed, conditions=[Feed.id == id])
+        feeds = DB_ENGINE.select(Feed, conditions=[Feed.id == id])
         if len(feeds) == 1:
             return map_feed(feeds[0])
         raise HTTPException(status_code=404, detail=f"Feed {id} not found")
@@ -71,7 +69,7 @@ class FeedsApiImpl(BaseFeedsApi):
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return [map_feed(feed) for feed in db.select(Feed)]
+        return [map_feed(feed) for feed in DB_ENGINE.select(Feed, limit=limit, offset=offset)]
 
     def get_gtfs_feed(
             self,
@@ -109,6 +107,7 @@ class FeedsApiImpl(BaseFeedsApi):
             bounding_filter_method: str,
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
+        print("In get_gtfs_feeds endpoint")
         return [self.get_gtfs_feed("foo")]
 
     def get_gtfs_rt_feed(
