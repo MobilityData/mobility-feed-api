@@ -1,3 +1,2 @@
 #Testing
 pytest>=3.2.3
-python-dotenv==1.0.0

@@ -1,11 +1,8 @@
 import pytest
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from feeds_gen.main import app as application
-
-load_dotenv()
 
 
 @pytest.fixture

@@ -68,7 +68,6 @@ class Database:
                 if self.get_connection is not None:
                     self.engine = create_engine("postgresql+pg8000://", creator=self.get_connection)
                 else:
-                    print(self.SQLALCHEMY_DATABASE_URL)
                     self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
                 self.logger.debug("Database connected.")
             if self.session is not None and self.session.is_active:
