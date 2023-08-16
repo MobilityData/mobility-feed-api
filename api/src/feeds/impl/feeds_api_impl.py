@@ -3,7 +3,7 @@ from typing import List
 
 from fastapi import HTTPException
 
-from database_gen.sqlacodegen_models import Feed
+from database_gen.sqlacodegen_models import Feed, Externalid, t_redirectingid
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
@@ -31,11 +31,14 @@ class FeedsApiImpl(BaseFeedsApi):
         """
         Maps sqlalchemy data model Feed to API data model BasicFeed
         """
+        redirects = DB_ENGINE.select(t_redirectingid, conditions=[feed.id == t_redirectingid.c.source_id])
+        external_ids = DB_ENGINE.select(Externalid, conditions=[feed.id == Externalid.feed_id])
+
         return BasicFeed(id=feed.id, data_type=feed.data_type, status=feed.status,
                          feed_name=feed.feed_name, note=feed.note, provider=feed.provider,
-                         redirects=[target.id for target in feed.target],
+                         redirects=[redirect.target_id for redirect in redirects],
                          external_ids=[ExternalId(external_id=ext_id.associated_id, source=ext_id.source)
-                                       for ext_id in feed.externalid],
+                                       for ext_id in external_ids],
                          source_info=SourceInfo(producer_url=feed.producer_url,
                                                 authentication_type=feed.authentication_type,
                                                 authentication_info_url=feed.authentication_info_url,
