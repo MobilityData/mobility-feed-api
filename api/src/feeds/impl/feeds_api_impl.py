@@ -19,26 +19,28 @@ from feeds_gen.models.source_info import SourceInfo
 from database.database import DB_ENGINE
 
 
-def map_feed(feed: Feed):
-    return BasicFeed(id=feed.id, data_type=feed.data_type, status=feed.status,
-                     feed_name=feed.feed_name, note=feed.note,
-                     providers=[feed.provider] if feed.provider else [],
-                     redirects=[target.id for target in feed.target],
-                     external_ids=[ExternalId(external_id=ext_id.associated_id, source=ext_id.source)
-                                   for ext_id in feed.externalid],
-                     source_info=SourceInfo(producer_url=feed.producer_url,
-                                            authentication_type=feed.authentication_type,
-                                            authentication_info_url=feed.authentication_info_url,
-                                            api_key_parameter_name=feed.api_key_parameter_name,
-                                            license_url=feed.license_url))
-
-
 class FeedsApiImpl(BaseFeedsApi):
     """
     This class represents the implementation of the `/feeds` endpoints.
     All methods from the parent class `feeds_gen.apis.feeds_api_base.BaseFeedsApi` should be implemented.
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
+
+    @staticmethod
+    def map_feed(feed: Feed):
+        """
+        Maps sqlalchemy data model Feed to API data model BasicFeed
+        """
+        return BasicFeed(id=feed.id, data_type=feed.data_type, status=feed.status,
+                         feed_name=feed.feed_name, note=feed.note, provider=feed.provider,
+                         redirects=[target.id for target in feed.target],
+                         external_ids=[ExternalId(external_id=ext_id.associated_id, source=ext_id.source)
+                                       for ext_id in feed.externalid],
+                         source_info=SourceInfo(producer_url=feed.producer_url,
+                                                authentication_type=feed.authentication_type,
+                                                authentication_info_url=feed.authentication_info_url,
+                                                api_key_parameter_name=feed.api_key_parameter_name,
+                                                license_url=feed.license_url))
 
     def get_feed(
             self,
@@ -47,7 +49,7 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get the specified feed from the Mobility Database."""
         feeds = DB_ENGINE.select(Feed, conditions=[Feed.id == id])
         if len(feeds) == 1:
-            return map_feed(feeds[0])
+            return self.map_feed(feeds[0])
         raise HTTPException(status_code=404, detail=f"Feed {id} not found")
 
     def get_feed_logs(
@@ -69,7 +71,7 @@ class FeedsApiImpl(BaseFeedsApi):
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return [map_feed(feed) for feed in DB_ENGINE.select(Feed, limit=limit, offset=offset)]
+        return [self.map_feed(feed) for feed in DB_ENGINE.select(Feed, limit=limit, offset=offset)]
 
     def get_gtfs_feed(
             self,

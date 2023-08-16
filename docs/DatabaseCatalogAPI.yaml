@@ -277,12 +277,10 @@ components:
 
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
-        providers:
+        provider:
           description: A commonly used name for the transit provider included in the feed.
-          type: array
-          items:
-            type: string
-            example: London Transit Commission
+          type: string
+          example: London Transit Commission
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
