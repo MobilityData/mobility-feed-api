@@ -34,7 +34,7 @@ class FeedsApiImpl(BaseFeedsApi):
         redirects = DB_ENGINE.select(t_redirectingid, conditions=[feed.id == t_redirectingid.c.source_id])
         external_ids = DB_ENGINE.select(Externalid, conditions=[feed.id == Externalid.feed_id])
 
-        return BasicFeed(id=feed.id, data_type=feed.data_type, status=feed.status,
+        return BasicFeed(id=feed.stable_id, data_type=feed.data_type, status=feed.status,
                          feed_name=feed.feed_name, note=feed.note, provider=feed.provider,
                          redirects=[redirect.target_id for redirect in redirects],
                          external_ids=[ExternalId(external_id=ext_id.associated_id, source=ext_id.source)
@@ -50,7 +50,7 @@ class FeedsApiImpl(BaseFeedsApi):
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        feeds = DB_ENGINE.select(Feed, conditions=[Feed.id == id])
+        feeds = DB_ENGINE.select(Feed, conditions=[Feed.stable_id == id])
         if len(feeds) == 1:
             return self.map_feed(feeds[0])
         raise HTTPException(status_code=404, detail=f"Feed {id} not found")
