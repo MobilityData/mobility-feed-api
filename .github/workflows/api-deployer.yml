@@ -40,6 +40,14 @@ on:
         required: true
         type: boolean
 
+env:
+  python_version: '3.10'
+  java_version: '11' # needed by setup-openapi-generator.sh
+  local_postgres_db: postgres_db
+  local_postgres_user: postgres_user
+  local_postgres_pwd: postgres_password
+  local_postgres_port: 5432
+
 jobs:
   docker-build-publish:
     # Add docker healthy test
@@ -62,11 +70,33 @@ jobs:
           username: _json_key_base64
           password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: Setup Maven Action
-        uses: s4u/setup-maven-action@v1.8.0
+      - name: Set up JDK ${{ env.java_version }}
+        uses: actions/setup-java@v3
         with:
-          java-version: 11
-          maven-version: 3.9.2
+          java-version: ${{ env.java_version }}
+          distribution: 'temurin'
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.python_version }}
+
+      - name: Update .env file
+        run: |
+          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
+          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
+          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
+          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
+          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
+          echo "POSTGRES_HOST=localhost" >> config/.env.local
+          echo "ENV=dev" >> config/.env.local
+
+      - name: Docker Compose DB/Liquibase for db-gen.sh
+        run: docker-compose --env-file ./config/.env.local up -d liquibase
+        working-directory: ${{ github.workspace }}
+
+      - name: Generate DB code
+        run: |
+          scripts/db-gen.sh
 
       - name: Generate API code
         run: |
