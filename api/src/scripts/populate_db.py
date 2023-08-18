@@ -115,7 +115,7 @@ class DatabasePopulateHelper:
             return
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
-            self.logger.error(f"Populating Database for with Feed [stable_id = {mdb_id}]")
+            self.logger.debug(f"Populating Database for with Feed [stable_id = {mdb_id}]")
 
             # Feed
             feed_class = Gtfsfeed if row['data_type'] == 'gtfs' else Gtfsrealtimefeed
@@ -214,7 +214,7 @@ class DatabasePopulateHelper:
         while not entities_index.empty():
             next_priority, entity_index = entities_index.get()
             if priority != next_priority:
-                self.logger.error(f"Flushing for priority {priority}")
+                self.logger.debug(f"Flushing for priority {priority}")
                 priority = next_priority
                 self.db.flush()
             self.fast_merge(entities[entity_index])
