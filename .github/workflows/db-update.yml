@@ -27,7 +27,7 @@ on:
       RUN_POPULATE_SCRIPT:
         description: Option to run the script that populates the database
         required: false
-        default: true
+        default: false
         type: boolean
       REGION:
         description: GCP region
