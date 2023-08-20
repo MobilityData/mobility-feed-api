@@ -1,9 +1,13 @@
 from datetime import date
 from typing import List
 
+from fastapi import HTTPException
+
+from database_gen.sqlacodegen_models import Feed, Externalid, t_redirectingid
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
+from feeds_gen.models.external_id import ExternalId
 from feeds_gen.models.extra_models import TokenModel
 from feeds_gen.models.feed_log import FeedLog
 from feeds_gen.models.gtfs_dataset import GtfsDataset
@@ -11,6 +15,8 @@ from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
+
+from database.database import DB_ENGINE
 
 
 class FeedsApiImpl(BaseFeedsApi):
@@ -20,13 +26,34 @@ class FeedsApiImpl(BaseFeedsApi):
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
 
+    @staticmethod
+    def map_feed(feed: Feed):
+        """
+        Maps sqlalchemy data model Feed to API data model BasicFeed
+        """
+        redirects = DB_ENGINE.select(t_redirectingid, conditions=[feed.id == t_redirectingid.c.source_id])
+        external_ids = DB_ENGINE.select(Externalid, conditions=[feed.id == Externalid.feed_id])
+
+        return BasicFeed(id=feed.stable_id, data_type=feed.data_type, status=feed.status,
+                         feed_name=feed.feed_name, note=feed.note, provider=feed.provider,
+                         redirects=[redirect.target_id for redirect in redirects],
+                         external_ids=[ExternalId(external_id=ext_id.associated_id, source=ext_id.source)
+                                       for ext_id in external_ids],
+                         source_info=SourceInfo(producer_url=feed.producer_url,
+                                                authentication_type=feed.authentication_type,
+                                                authentication_info_url=feed.authentication_info_url,
+                                                api_key_parameter_name=feed.api_key_parameter_name,
+                                                license_url=feed.license_url))
+
     def get_feed(
             self,
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        return BasicFeed(id="gtfsFeedFoo", data_type=None, status=None, external_ids=[], provider="providerFoo",
-                         feed_name="feedFoo", note="note", source_info=SourceInfo())
+        feeds = DB_ENGINE.select(Feed, conditions=[Feed.stable_id == id])
+        if len(feeds) == 1:
+            return self.map_feed(feeds[0])
+        raise HTTPException(status_code=404, detail=f"Feed {id} not found")
 
     def get_feed_logs(
             id: str,
@@ -47,7 +74,7 @@ class FeedsApiImpl(BaseFeedsApi):
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return [self.get_feed("gtfsFeedFoo")]
+        return [self.map_feed(feed) for feed in DB_ENGINE.select(Feed, limit=limit, offset=offset)]
 
     def get_gtfs_feed(
             self,
@@ -85,6 +112,7 @@ class FeedsApiImpl(BaseFeedsApi):
             bounding_filter_method: str,
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
+        print("In get_gtfs_feeds endpoint")
         return [self.get_gtfs_feed("foo")]
 
     def get_gtfs_rt_feed(

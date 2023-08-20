@@ -2,10 +2,6 @@
 
 from fastapi.testclient import TestClient
 
-
-from feeds.models.dataset import Dataset  # noqa: F401
-
-
 def test_datasets_gtfs_get(client: TestClient):
     """Test case for datasets_gtfs_get
 
@@ -17,7 +13,7 @@ def test_datasets_gtfs_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/datasets/gtfs",
+        "/v1/datasets/gtfs",
         headers=headers,
         params=params,
     )
@@ -37,12 +33,12 @@ def test_datasets_gtfs_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/datasets/gtfs/{id}".format(id='dataset_0'),
+        "/v1/datasets/gtfs/{id}".format(id='dataset_0'),
         headers=headers,
     )
 
     # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200
 
 
 def test_feeds_gtfs_id_datasets_get(client: TestClient):
@@ -56,11 +52,11 @@ def test_feeds_gtfs_id_datasets_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/feeds/gtfs/{id}/datasets".format(id='feed_0'),
+        "/v1/feeds/gtfs/{id}/datasets".format(id='feed_0'),
         headers=headers,
         params=params,
     )
 
     # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200
 

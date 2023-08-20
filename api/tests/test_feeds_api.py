@@ -3,13 +3,8 @@
 from fastapi.testclient import TestClient
 
 
-from feeds.models.basic_feed import BasicFeed  # noqa: F401
-from feeds.models.gtfs_feed import GtfsFeed  # noqa: F401
-
-
 def test_feeds_get(client: TestClient):
     """Test case for feeds_get
-
     
     """
     params = [("limit", 10),     ("offset", 0),     ("filter", 'status=active'),     ("sort", '+provider')]
@@ -18,13 +13,13 @@ def test_feeds_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/feeds",
+        "/v1/feeds",
         headers=headers,
         params=params,
     )
 
     # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200
 
 
 def test_feeds_gtfs_get(client: TestClient):
@@ -38,13 +33,13 @@ def test_feeds_gtfs_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/feeds/gtfs",
+        "/v1/feeds/gtfs",
         headers=headers,
         params=params,
     )
 
     # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200
 
 
 def test_feeds_gtfs_id_get(client: TestClient):
@@ -58,12 +53,12 @@ def test_feeds_gtfs_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/feeds/gtfs/{id}".format(id='feed_0'),
+        "/v1/feeds/gtfs/{id}".format(id='feed_0'),
         headers=headers,
     )
 
     # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200
 
 
 def test_feeds_id_get(client: TestClient):
@@ -77,10 +72,10 @@ def test_feeds_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/feeds/{id}".format(id='feed_0'),
+        "/v1/feeds/{id}".format(id='feed_0'),
         headers=headers,
     )
 
     # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200
 
