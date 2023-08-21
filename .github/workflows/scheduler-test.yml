@@ -3,7 +3,7 @@ name: Database Deployment
 on:
   push:
     branches:
-      - *
+      - '*'
 
 jobs:
   terraform:
