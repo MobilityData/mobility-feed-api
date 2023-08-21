@@ -33,7 +33,7 @@ jobs:
 
       - name: Populate Variables
         run: |
-          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables BUCKET_NAME,REGION,PROJECT_ID  
+          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables BUCKET_NAME,REGION,PROJECT_ID  
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
