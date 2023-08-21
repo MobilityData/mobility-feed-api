@@ -25,7 +25,7 @@ provider "google" {
 
 resource "google_storage_bucket" "bucket" {
   name = var.bucket_name
-  location = "US"
+  location = var.gcp_region
 }
 
 resource "google_storage_bucket_object" "object" {
