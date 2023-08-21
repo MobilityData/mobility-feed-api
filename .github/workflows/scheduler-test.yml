@@ -1,0 +1,66 @@
+name: Database Deployment
+
+on:
+  push:
+    branches:
+      - *
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        id: gcloud_auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Set Variables
+        run: |
+          echo "Setting variables"
+          echo "BUCKET_NAME=scheduler-test" >> $GITHUB_ENV
+          echo "PROJECT_ID=mobility-feeds-dev" >> $GITHUB_ENV
+          echo "REGION=us" >> $GITHUB_ENV
+          echo "DEPLOYER_SERVICE_ACCOUNT=ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
+
+      - name: Populate Variables
+        run: |
+          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables BUCKET_NAME,REGION,PROJECT_ID  
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.5.3
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          cd infra/batch
+          terraform init
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+
+      - name: Terraform Plan
+        run: |
+          cd infra/batch
+          terraform plan -var-file=vars.tfvars -out=tf.plan
+          terraform show -no-color tf.plan > terraform-plan.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Terraform Apply
+        if: ${{ inputs.TF_APPLY }}
+        run: |
+          cd infra/batch
+          terraform apply -auto-approve tf.plan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
