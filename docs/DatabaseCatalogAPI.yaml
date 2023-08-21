@@ -69,7 +69,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/BasicFeed"
 
-  /v1/feeds/gtfs:
+  /v1/gtfs_feeds:
     get:
       description: Get some (or all) GTFS feeds from the Mobility Database.
       tags:
@@ -94,7 +94,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeeds"
 
-  /v1/feeds/gtfs_rt:
+  /v1/gtfs_rt_feeds:
     get:
       description: Get some (or all) GTFS Realtime feeds from the Mobility Database.
       tags:
@@ -115,7 +115,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsRTFeeds"
 
-  /v1/feeds/gtfs/{id}:
+  /v1/gtfs_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -134,7 +134,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsFeed"
 
-  /v1/feeds/gtfs_rt/{id}:
+  /v1/gtfs_rt_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feedIdPathParam"
     get:
@@ -154,7 +154,7 @@ paths:
                 $ref: "#/components/schemas/GtfsRTFeed"
 
 
-  /v1/feeds/gtfs/{id}/datasets:
+  /v1/gtfs_feeds/{id}/datasets:
     parameters:
       - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
     get:
