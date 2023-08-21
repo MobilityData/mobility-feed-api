@@ -58,7 +58,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Terraform Apply
-        if: ${{ inputs.TF_APPLY }}
         run: |
           cd infra/batch
           terraform apply -auto-approve tf.plan
