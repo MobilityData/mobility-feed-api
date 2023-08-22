@@ -54,11 +54,11 @@ jobs:
           GOOGLE_CREDENTIALS: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
 
-      - name: Terraform Import
-        run: |
-          cd infra/batch
-          terraform import -var-file=vars.tfvars google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
-          terraform import -var-file=vars.tfvars google_cloudfunctions_function.function projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/functions/my-function
+#      - name: Terraform Import
+#        run: |
+#          cd infra/batch
+#          terraform import -var-file=vars.tfvars google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
+#          terraform import -var-file=vars.tfvars google_cloudfunctions_function.function projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/functions/my-function
 
       - name: Terraform Plan
         run: |

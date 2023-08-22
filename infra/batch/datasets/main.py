@@ -1,4 +1,9 @@
-def my_function(request):
-    # Your Python code here
-    print(request)
-    return 'The function was executed successfully!'
+import functions_framework
+
+# Register an HTTP function with the Functions Framework
+@functions_framework.http
+def batch_dataset(request):
+  # Your code here
+  print(request)
+  # Return an HTTP response
+  return 'Function has run successfully yay'
