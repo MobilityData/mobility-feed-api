@@ -54,7 +54,7 @@ jobs:
       - name: Terraform init change
         run: |
           scripts/replace-variables.sh -in_file infra/terraform-init/backend.conf.rename_me -out_file infra/terraform-init/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/terraform-init/vars.tfvars.rename_me -out_file infra/terraform-init/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT
+          scripts/replace-variables.sh -in_file infra/terraform-init/vars.tfvars.rename_me -out_file infra/terraform-init/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,STATE_BUCKET_NAME_PREFIX
           cd infra/terraform-init
           terraform init -backend-config=backend.conf
           terraform plan -var-file=vars.tfvars -out=tf.plan
