@@ -57,7 +57,7 @@ resource "google_cloud_scheduler_job" "job" {
   attempt_deadline = "320s"
 
   http_target {
-    http_method = "GET"
+    http_method = "Etc/UTC"
     uri         = google_cloudfunctions_function.function.https_trigger_url
   }
 }
