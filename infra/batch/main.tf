@@ -30,13 +30,13 @@ resource "google_storage_bucket" "bucket" {
 }
 
 resource "google_storage_bucket_object" "object" {
-  name   = "datasets/datasets.zip"
+  name   = "batch_processing/datasets.zip" # TODO this should be a variable
   bucket = google_storage_bucket.bucket.name
-  source = "datasets.zip"
+  source = "datasets.zip" # TODO this should be a variable
 }
 
 resource "google_cloudfunctions_function" "function" {
-  name        = "my-function"
+  name        = "dataset-batch-function" # TODO this should be a variable
   description = "Python function"
   runtime     = "python311"
 
@@ -44,13 +44,13 @@ resource "google_cloudfunctions_function" "function" {
   source_archive_bucket = google_storage_bucket.bucket.name
   source_archive_object = google_storage_bucket_object.object.name
 
-  entry_point = "batch_dataset"
+  entry_point = "batch_dataset" # TODO this should be a variable
 
   trigger_http = true
 }
 
 resource "google_cloud_scheduler_job" "job" {
-  name             = "daily-job"
+  name             = "dataset-batch-job" # TODO this should be a variable
   description      = "Run python function daily"
   schedule         = "*/1 * * * *"
   time_zone        = "UTC"
