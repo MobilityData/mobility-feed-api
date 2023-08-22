@@ -45,11 +45,6 @@ jobs:
           cd infra/batch
           zip -r -j datasets.zip datasets/*
 
-      - name: Validate zip
-        run: |
-          cd infra/batch
-          unzip -vl datasets.zip
-
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
         with:
@@ -68,8 +63,8 @@ jobs:
         run: |
           cd infra/batch
           terraform import -var-file=vars.tfvars google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
-          terraform import -var-file=vars.tfvars google_cloudfunctions_function.function projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/functions/my-function
-          terraform import -var-file=vars.tfvars google_cloud_scheduler_job.job projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/jobs/daily-job
+          terraform import -var-file=vars.tfvars google_cloudfunctions_function.function projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/functions/dataset-batch-function
+          terraform import -var-file=vars.tfvars google_cloud_scheduler_job.job projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/jobs/dataset-batch-job
 
       - name: Terraform Plan
         run: |
