@@ -60,6 +60,7 @@ jobs:
           PROJECT_ID: ${{ env.PROJECT_ID }}
 
       - name: Terraform Import
+        continue-on-error: true
         run: |
           cd infra/batch
           terraform import -var-file=vars.tfvars google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
