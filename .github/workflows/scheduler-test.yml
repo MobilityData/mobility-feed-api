@@ -28,7 +28,7 @@ jobs:
           echo "Setting variables"
           echo "FUNCTION_BUCKET_NAME=mobility-feeds-scheduler-test" >> $GITHUB_ENV
           echo "BUCKET_NAME=mobility-feeds-terraform-dev" >> $GITHUB_ENV
-          echo "OBJECT_PREFIX=terraform-state-${env.FUNCTION_BUCKET_NAME}" >> $GITHUB_ENV
+          echo "OBJECT_PREFIX=terraform-state-${{ env.FUNCTION_BUCKET_NAME }}" >> $GITHUB_ENV
           echo "PROJECT_ID=mobility-feeds-dev" >> $GITHUB_ENV
           echo "REGION=us-central1" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
