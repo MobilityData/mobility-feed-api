@@ -43,7 +43,7 @@ jobs:
       - name: Zip source code
         run: |
           cd infra/batch
-          zip datasets.zip datasets
+          zip -r datasets.zip datasets
 
       - name: Validate zip
         run: |
