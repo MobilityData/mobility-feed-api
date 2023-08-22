@@ -40,6 +40,9 @@ resource "google_cloudfunctions_function" "function" {
   source_archive_object = google_storage_bucket_object.object.name
   entry_point           = "batch_dataset" # TODO this should be a variable
   trigger_http          = true
+  triggers = {
+    source_code_hash = filebase64sha256(google_storage_bucket_object.object.source)
+  }
 }
 
 resource "google_cloud_scheduler_job" "job" {
