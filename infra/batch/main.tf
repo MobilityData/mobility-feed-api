@@ -7,7 +7,8 @@ locals {
     "storage.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
-    "networkmanagement.googleapis.com"
+    "networkmanagement.googleapis.com",
+    "cloudbuild.googleapis.com"
   ]
 }
 
