@@ -48,7 +48,7 @@ resource "google_cloud_scheduler_job" "job" {
   schedule         = "*/1 * * * *"
   time_zone        = "Etc/UTC"
   attempt_deadline = "320s"
-  region           = ""
+  region           = var.gcp_region
 
   http_target {
     http_method = var.gcp_region
