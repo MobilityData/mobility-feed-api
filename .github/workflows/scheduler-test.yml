@@ -61,6 +61,7 @@ jobs:
           terraform apply -auto-approve tf.plan
         env:
           ENVIRONMENT: dev
+          STATE_BUCKET_NAME_PREFIX: terraform-init-state
 
       - name: Terraform Init
         run: |
