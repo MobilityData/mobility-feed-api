@@ -26,14 +26,20 @@ jobs:
       - name: Set Variables
         run: |
           echo "Setting variables"
-          echo "BUCKET_NAME=mobility-feeds-scheduler-test" >> $GITHUB_ENV
+          echo "FUNCTION_BUCKET_NAME=mobility-feeds-scheduler-test" >> $GITHUB_ENV
+          echo "BUCKET_NAME=mobility-feeds-terraform-dev" >> $GITHUB_ENV
+          echo "OBJECT_PREFIX=terraform-state-${env.FUNCTION_BUCKET_NAME}" >> $GITHUB_ENV
           echo "PROJECT_ID=mobility-feeds-dev" >> $GITHUB_ENV
           echo "REGION=us-central1" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
+        env:
+          FUNCTION_BUCKET_NAME: mobility-feeds-scheduler-test
 
       - name: Populate Variables
         run: |
-          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables BUCKET_NAME,REGION,PROJECT_ID  
+          scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
+          cp infra/batch/backend.conf infra/terraform-init/backend.conf
+          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID  
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
@@ -44,7 +50,7 @@ jobs:
       - name: Terraform Init
         run: |
           cd infra/batch
-          terraform init
+          terraform init -backend-config=backend.conf
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
