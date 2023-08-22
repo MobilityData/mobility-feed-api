@@ -49,11 +49,11 @@ resource "google_project_service" "services" {
 data "google_project" "project" {
 }
 
-#resource "google_service_account" "ci_impersonator_service_account" {
-#  account_id   = "ci-impersonator"
-#  project      = var.project_id
-#  display_name = "Service account that impersonates the CI deployer"
-#}
+resource "google_service_account" "ci_impersonator_service_account" {
+  account_id   = "ci-impersonator"
+  project      = var.project_id
+  display_name = "Service account that impersonates the CI deployer"
+}
 #
 #resource "google_project_iam_member" "ci_impersonator_binding" {
 #  project = var.project_id
@@ -80,12 +80,12 @@ data "google_project" "project" {
 #}
 #
 #
-#resource "google_service_account" "ci_service_account" {
-#  account_id   = "ci-service-account"
-#  project      = var.project_id
-#  display_name = "Service account to use as CI deployer"
-#}
-#
+resource "google_service_account" "ci_service_account" {
+  account_id   = "ci-service-account"
+  project      = var.project_id
+  display_name = "Service account to use as CI deployer"
+}
+
 #resource "google_project_iam_member" "ci_binding_storage" {
 #  project = var.project_id
 #  role    = "roles/storage.objectAdmin"
