@@ -57,7 +57,7 @@ jobs:
       - name: Terraform Import
         run: |
           cd infra/batch
-          terraform import google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
+          terraform import -var-file=vars.tfvars google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
 
       - name: Terraform Plan
         run: |
