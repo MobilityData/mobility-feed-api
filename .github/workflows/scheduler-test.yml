@@ -37,8 +37,7 @@ jobs:
 
       - name: Populate Variables
         run: |
-          scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          cp infra/batch/backend.conf infra/terraform-init/backend.conf
+          scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID  
 
       - name: Install Terraform
