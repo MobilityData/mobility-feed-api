@@ -40,6 +40,9 @@ jobs:
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID  
 
+      - name: Zip source code
+        run: zip infra/batch/datasets.zip infra/batch/datasets
+
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
         with:
