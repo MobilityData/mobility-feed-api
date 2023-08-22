@@ -69,6 +69,7 @@ jobs:
           cd infra/batch
           terraform import -var-file=vars.tfvars google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
           terraform import -var-file=vars.tfvars google_cloudfunctions_function.function projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/functions/my-function
+          terraform import -var-file=vars.tfvars google_cloud_scheduler_job.job projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/jobs/daily-job
 
       - name: Terraform Plan
         run: |
