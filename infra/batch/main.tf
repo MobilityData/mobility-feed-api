@@ -61,11 +61,7 @@ resource "google_cloud_scheduler_job" "job" {
 }
 
 data "google_iam_policy" "invoker" {
-  binding {
-    project = var.project_id
-    role    = "roles/cloudfunctions.admin"
-    members = [
-      "serviceAccount:ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com", # TODO set as variable name
-    ]
-  }
+  project = var.project_id
+  role    = "roles/cloudfunctions.admin"
+  member  = "serviceAccount:ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com" # TODO set as variable name
 }
