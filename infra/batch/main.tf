@@ -19,6 +19,12 @@ resource "google_project_service" "services" {
   disable_dependent_services = true
 }
 
+resource "google_project_iam_member" "ci_binding_cloud_function" {
+  project = var.project_id
+  role    = "roles/cloudfunctions.admin"
+  member  = "serviceAccount:ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com" # TODO set as variable name
+}
+
 provider "google" {
   project = var.project_id
   region  = var.gcp_region
@@ -60,8 +66,4 @@ resource "google_cloud_scheduler_job" "job" {
   }
 }
 
-resource "google_project_iam_member" "invoker" {
-  project = var.project_id
-  role    = "roles/cloudfunctions.admin"
-  member  = "serviceAccount:ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com" # TODO set as variable name
-}
+
