@@ -48,9 +48,10 @@ resource "google_cloud_scheduler_job" "job" {
   schedule         = "*/1 * * * *"
   time_zone        = "Etc/UTC"
   attempt_deadline = "320s"
+  region           = ""
 
   http_target {
-    http_method = "GET"
+    http_method = var.gcp_region
     uri         = google_cloudfunctions_function.function.https_trigger_url
   }
 }
