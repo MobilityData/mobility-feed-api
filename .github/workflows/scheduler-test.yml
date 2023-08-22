@@ -54,6 +54,11 @@ jobs:
           GOOGLE_CREDENTIALS: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
 
+      - name: Terraform Import
+        run: |
+          cd infra/batch
+          terraform import google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
+
       - name: Terraform Plan
         run: |
           cd infra/batch
