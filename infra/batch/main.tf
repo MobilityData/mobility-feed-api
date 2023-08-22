@@ -19,17 +19,6 @@ resource "google_project_service" "services" {
   disable_dependent_services = true
 }
 
-resource "google_project_iam_member" "ci_binding_cloud_function" {
-  project = var.project_id
-  role    = "roles/cloudfunctions.admin"
-  member  = "serviceAccount:ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com" # TODO set as variable name
-}
-
-provider "google" {
-  project = var.project_id
-  region  = var.gcp_region
-}
-
 resource "google_storage_bucket" "bucket" {
   name     = var.bucket_name
   location = var.gcp_region
