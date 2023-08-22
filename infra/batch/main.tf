@@ -1,3 +1,8 @@
+terraform {
+  backend "gcs" {
+  }
+}
+
 data "google_project" "project" {}
 
 locals {
@@ -33,7 +38,7 @@ resource "google_storage_bucket_object" "object" {
 resource "google_cloudfunctions_function" "function" {
   name        = "dataset-batch-function" # TODO this should be a variable
   description = "Python function"
-  runtime     = "python311"
+  runtime     = "python39" # TODO this should be a variable
 
   available_memory_mb   = 256
   source_archive_bucket = google_storage_bucket.bucket.name
@@ -45,7 +50,7 @@ resource "google_cloudfunctions_function" "function" {
 resource "google_cloud_scheduler_job" "job" {
   name             = "dataset-batch-job" # TODO this should be a variable
   description      = "Run python function daily" # TODO this should be a variable
-  schedule         = "*/1 * * * *"
+  schedule         = "*/1 * * * *" # TODO this is once a day and should be a variable
   time_zone        = "Etc/UTC"
   attempt_deadline = "320s"
   region           = var.gcp_region
