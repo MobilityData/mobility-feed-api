@@ -7,3 +7,4 @@
 bucket_name={{FUNCTION_BUCKET_NAME}}
 gcp_region={{REGION}}
 project_id={{PROJECT_ID}}
+deployer_service_account={{DEPLOYER_SERVICE_ACCOUNT}}

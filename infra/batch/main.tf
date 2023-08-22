@@ -44,7 +44,7 @@ resource "google_cloudfunctions_function" "function" {
 
 resource "google_cloud_scheduler_job" "job" {
   name             = "dataset-batch-job" # TODO this should be a variable
-  description      = "Run python function daily"
+  description      = "Run python function daily" # TODO this should be a variable
   schedule         = "*/1 * * * *"
   time_zone        = "Etc/UTC"
   attempt_deadline = "320s"
@@ -53,6 +53,9 @@ resource "google_cloud_scheduler_job" "job" {
   http_target {
     http_method = "GET"
     uri         = google_cloudfunctions_function.function.https_trigger_url
+    oidc_token {
+      service_account_email = var.deployer_service_account
+    }
   }
 }
 
