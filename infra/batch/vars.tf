@@ -13,3 +13,8 @@ variable "bucket_name" {
   description = "GCS bucket name where the Python code is stored"
 }
 
+variable "deployer_service_account" {
+  type        = string
+  description = "Service account used to deploy resources using impersonation"
+}
+
