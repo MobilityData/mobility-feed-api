@@ -29,22 +29,28 @@ resource "google_storage_bucket" "bucket" {
   location = var.gcp_region
 }
 
-resource "google_storage_bucket_object" "object" {
+resource "google_storage_bucket_object" "entry_point" {
   name   = "datasets/main.py"
   bucket = google_storage_bucket.bucket.name
   source = "datasets/main.py"
 }
 
+resource "google_storage_bucket_object" "python_requirements" {
+  name   = "datasets/requirements.txt"
+  bucket = google_storage_bucket.bucket.name
+  source = "datasets/requirements.txt"
+}
+
 resource "google_cloudfunctions_function" "function" {
   name        = "my-function"
   description = "Python function"
-  runtime     = "python38"
+  runtime     = "python311"
 
   available_memory_mb   = 256
   source_archive_bucket = google_storage_bucket.bucket.name
-  source_archive_object = google_storage_bucket_object.object.name
+  source_archive_object = google_storage_bucket_object.entry_point.name
 
-  entry_point = "my_function"
+  entry_point = "batch_dataset"
 
   trigger_http = true
 }
