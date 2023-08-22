@@ -51,7 +51,7 @@ resource "google_cloud_scheduler_job" "job" {
   region           = var.gcp_region
 
   http_target {
-    http_method = var.gcp_region
+    http_method = "GET"
     uri         = google_cloudfunctions_function.function.https_trigger_url
   }
 }
