@@ -25,7 +25,7 @@ provider "google" {
 }
 
 resource "google_storage_bucket" "bucket" {
-  name = var.bucket_name
+  name     = var.bucket_name
   location = var.gcp_region
 }
 
@@ -43,21 +43,19 @@ resource "google_cloudfunctions_function" "function" {
   available_memory_mb   = 256
   source_archive_bucket = google_storage_bucket.bucket.name
   source_archive_object = google_storage_bucket_object.object.name
-
-  entry_point = "batch_dataset" # TODO this should be a variable
-
-  trigger_http = true
+  entry_point           = "batch_dataset" # TODO this should be a variable
+  trigger_http          = true
 }
 
 resource "google_cloud_scheduler_job" "job" {
   name             = "dataset-batch-job" # TODO this should be a variable
   description      = "Run python function daily"
   schedule         = "*/1 * * * *"
-  time_zone        = "UTC"
+  time_zone        = "Etc/UTC"
   attempt_deadline = "320s"
 
   http_target {
-    http_method = "Etc/UTC"
+    http_method = "GET"
     uri         = google_cloudfunctions_function.function.https_trigger_url
   }
 }
