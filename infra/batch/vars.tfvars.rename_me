@@ -4,6 +4,6 @@
 # - Replace variable values.
 # - Execute your terraform script passing this file as a parameter, example: terraform plan -var-file=vars.tfvars
 
-bucket_name={{BUCKET_NAME}}
+bucket_name={{FUNCTION_BUCKET_NAME}}
 gcp_region={{REGION}}
 project_id={{PROJECT_ID}}
