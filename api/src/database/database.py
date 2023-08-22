@@ -5,6 +5,7 @@ from typing import Type
 from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session, load_only
+from sqlalchemy.sql import Select
 
 from database_gen.sqlacodegen_models import Base
 from utils.logger import Logger
@@ -89,11 +90,13 @@ class Database:
             self.logger.error(f"Session closing failed with exception: \n {e}")
         return self.is_connected()
 
-    def select(self, model: Type[Base], conditions: list = None, attributes: list = None, update_session: bool = True,
+    def select(self, model: Type[Base] = None, query: Select = None,
+               conditions: list = None, attributes: list = None, update_session: bool = True,
                limit: int = None, offset: int = None):
         """
         Executes a query on the database
         :param model: the sqlalchemy model to query
+        :param query: the sqlalchemy ORM query execute
         :param conditions: list of conditions (filters for the query)
         :param attributes: list of model's attribute names that you want to fetch. If not given, fetches all attributes.
         :param update_session: option to update session before running the query (defaults to True)
@@ -104,17 +107,18 @@ class Database:
         try:
             if update_session:
                 self.start_session()
-            query = self.session.query(model)
+            if query is None:
+                query = self.session.query(model)
             if conditions:
                 for condition in conditions:
                     query = query.filter(condition)
-            if attributes:
+            if attributes is not None:
                 query = query.options(load_only(*attributes))
             if limit is not None:
                 query = query.limit(limit)
             if offset is not None:
                 query = query.offset(offset)
-            return query.all()
+            return self.session.execute(query).all()
         except Exception as e:
             self.logger.error(f'SELECT query failed with exception: \n{e}')
             return None
@@ -190,7 +194,8 @@ class Database:
             relationship_elements.append(child)
             return self.merge(parent, update_session=update_session, auto_commit=auto_commit)
         except Exception as e:
-            self.logger.error(f'Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}')
+            self.logger.error(
+                f'Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}')
             return False
 
 
