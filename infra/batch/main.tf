@@ -1,4 +1,7 @@
 data "google_project" "project" {}
+provider "google" {
+ region = var.gcp_region
+}
 
 locals {
   services = [
@@ -26,7 +29,7 @@ resource "google_storage_bucket" "bucket" {
 
 resource "google_storage_bucket_object" "object" {
 #  Workaround to force source code update of cloud function when the zip file hash is updated
-  name   = "datasets/datasets-${filesha256("datasets.zip")}.zip" # TODO  this should be a variable (folder + file name)
+  name   = "datasets/${filesha256("datasets.zip")}.zip" # TODO this should be a variable
   bucket = google_storage_bucket.bucket.name
   source = "datasets.zip" # TODO this should be a variable
   metadata = {
@@ -56,7 +59,7 @@ resource "google_cloud_scheduler_job" "job" {
   schedule         = "*/1 * * * *" # TODO this is once a day and should be a variable
   time_zone        = "Etc/UTC"
   attempt_deadline = "320s"
-  region           = var.gcp_region
+#  region           = var.gcp_region
 
   http_target {
     http_method = "GET"
