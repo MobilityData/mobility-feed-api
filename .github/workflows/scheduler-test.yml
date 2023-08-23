@@ -45,6 +45,9 @@ jobs:
           cd infra/batch
           zip -r -j datasets.zip datasets/*
 
+      - name: Clear Folder in GCP Bucket
+        run: gsutil rm gs://${{env.BUCKET_NAME}}/datasets/*
+
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
         with:
