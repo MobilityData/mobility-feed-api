@@ -40,7 +40,7 @@ resource "google_storage_bucket_object" "object" {
 resource "google_cloudfunctions_function" "function" {
   name        = "dataset-batch-function" # TODO this should be a variable
   description = "Python function"
-  runtime     = "python39" # TODO this should be a variable
+  runtime     = "python310" # TODO this should be a variable
 
   available_memory_mb   = 256
   source_archive_bucket = google_storage_bucket.bucket.name
