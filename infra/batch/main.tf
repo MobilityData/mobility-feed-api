@@ -26,7 +26,7 @@ resource "google_storage_bucket" "bucket" {
 
 resource "google_storage_bucket_object" "object" {
 #  Workaround to force source code update of cloud function when the zip file hash is updated
-  name   = "datasets/datasets-${filesha256("datasets.zip")}.zip" # TODO this should be a variable (folder + file name)
+  name   = "datasets/datasets-${filesha256("datasets.zip")}.zip" # TODO  this should be a variable (folder + file name)
   bucket = google_storage_bucket.bucket.name
   source = "datasets.zip" # TODO this should be a variable
   metadata = {
