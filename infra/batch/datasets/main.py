@@ -1,3 +1,6 @@
+import os
+from datetime import datetime
+
 from google.cloud import storage
 import functions_framework
 import requests
@@ -6,52 +9,48 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 
-def get_file_md5_hash(bucket_name, file_name):
+def upload_dataset(url, bucket_name, stable_id):
     """
-    Returns file MD5 hash in hexadecimal format
-    :param bucket_name: Name of the GCP bucket
-    :param file_name: the file name
-    :return: the hexadecimal format of the MD5 hash
+    Uploads a dataset to a GCP bucket
+    :param url: dataset feed's producer url
+    :param bucket_name: name of the GCP bucket
+    :param stable_id: the dataset stable id
+    :return: true if the dataset has been updated, false otherwise
     """
-    # Retrieve file
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    blob = bucket.blob(file_name)
-    blob.reload()
-
-    # Get and decode the MD5 hash
-    if blob.exists():
-        md5_hash = blob.md5_hash
-        hex_md5_hash = bytes.fromhex(md5_hash).hex()
-        return hex_md5_hash
-    else:
-        print(f"File {file_name} does not exist in bucket {bucket_name}.")
-        return 0
-
-
-def upload_file_from_url(url, bucket_name, file_name):
-    """
-    Uploads a file to GCP bucket from a URL
-    :param url: file url
-    :param bucket_name: name of the GCP
-    :param file_name: name of the file in GCP
-    :return: the file hash
-    """
-    # Create a storage client
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    blob = bucket.blob(file_name)
-
     # Retrieve data
     headers = {'User-Agent': 'Mozilla/5.0'}
     response = requests.get(url, stream=True, headers=headers)
     content = response.content
     file_md5_hash = md5(content).hexdigest()
-    print(f"File hash is {file_md5_hash}")
+    print(f"File hash is {file_md5_hash}.")
 
-    # Upload file
-    blob.upload_from_string(content)
-    return file_md5_hash
+    # Create a storage client
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.blob(f"{stable_id}/latest.zip")
+
+    upload_file = False
+    if blob.exists():
+        # Validate change
+        latest_hash = bytes.fromhex(blob.md5_hash).hex()
+        print(f"Latest hash is {latest_hash}.")
+        if latest_hash != file_md5_hash:
+            upload_file = True
+    else:
+        # Upload first version of dataset
+        upload_file = True
+
+    if upload_file:
+        # Upload file as latest
+        blob.upload_from_string(content)
+
+        # Upload file as upload timestamp
+        current_time = datetime.now()
+        timestamp = current_time.strftime("%Y%m%d%H%M%S")
+        blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
+        blob.upload_from_string(content)
+        return True
+    return False
 
 
 def create_bucket(bucket_name):
@@ -79,14 +78,28 @@ def create_test_file(bucket_name, file_name):
 # Register an HTTP function with the Functions Framework
 @functions_framework.http
 def batch_dataset(request):
-    bucket_name = "mobility-datasets"
-    url = "http://smttracker.com/downloads/gtfs/cascobaylines-portland-me-usa.zip"
+    bucket_name = "mobility-datasets" # TODO this should be an env variable
     create_bucket(bucket_name)
-    upload_file_from_url(url, bucket_name, "test/test.zip")
-    # create_test_file(bucket_name, "test.txt")
-    print("Hello we are inside the code")
-    print("Redeployment test 2")
-    print("Redeployment test 3")
-    print(request)
-    # Return an HTTP response
-    return 'Function has run successfully yay'
+
+    POSTGRES_USER = os.getenv("POSTGRES_USER")
+    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+    POSTGRES_DB = os.getenv("POSTGRES_DB")
+    POSTGRES_PORT = os.getenv("POSTGRES_PORT")
+    POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+
+    SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+    engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
+    sql_statement = text("select stable_id, producer_url from feed where status='active' and authentication_type='0' limit 2")
+
+    results = engine.execute(sql_statement).all()
+    print(f"Retrieved {len(results)} active feeds.")
+
+    for result in results:
+        stable_id = result[0]
+        producer_url = result[1]
+        dataset_uploaded = upload_dataset(producer_url, bucket_name, stable_id)
+        if dataset_uploaded:
+            # TODO update hash in dataset table
+            print("TODO update")
+
+    return 'Completed datasets batch processing.'
