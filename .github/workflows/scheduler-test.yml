@@ -38,7 +38,7 @@ jobs:
       # TODO this should be done outside of the template
       - name: Set function env variable
         run: |
-          echo 'FUNCTION_ENV_VARIABLE="VAR_NAME_1"="value1" "VAR_NAME_2"="value2"' >> $GITHUB_ENV
+          echo 'FUNCTION_ENV_VARIABLE="VAR_NAME_1"="value1", "VAR_NAME_2"="value2"' >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
