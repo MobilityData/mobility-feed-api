@@ -45,7 +45,7 @@ jobs:
           cd infra/batch
           zip -r -j datasets.zip datasets/*
 
-#     Clearing previous versions of source code
+      # Clearing previous versions of the source code
       - name: Check for changes in infra/batch/datasets
         id: check_files
         run: |
