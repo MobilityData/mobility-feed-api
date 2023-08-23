@@ -26,14 +26,14 @@ jobs:
       - name: Set Variables
         run: |
           echo "Setting variables"
-          echo "FUNCTION_BUCKET_NAME=mobility-feeds-scheduler-test" >> $GITHUB_ENV
+          echo "FUNCTION_BUCKET_NAME=mobility-feeds-batch-processing" >> $GITHUB_ENV
           echo "BUCKET_NAME=mobility-feeds-terraform-dev" >> $GITHUB_ENV
           echo "OBJECT_PREFIX=terraform-state-${{ env.FUNCTION_BUCKET_NAME }}" >> $GITHUB_ENV
           echo "PROJECT_ID=mobility-feeds-dev" >> $GITHUB_ENV
           echo "REGION=us-central1" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=ci-impersonator@mobility-feeds-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
         env:
-          FUNCTION_BUCKET_NAME: mobility-feeds-scheduler-test
+          FUNCTION_BUCKET_NAME: mobility-feeds-batch-processing
 
       - name: Populate Variables
         run: |
@@ -45,8 +45,19 @@ jobs:
           cd infra/batch
           zip -r -j datasets.zip datasets/*
 
+#     Clearing previous versions of source code
+      - name: Check for changes in infra/batch/datasets
+        id: check_files
+        run: |
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'infra/batch/datasets'; then
+            echo "CLEAR_PREVIOUS_VERSION=true" >> $GITHUB_ENV
+          else
+            echo "CLEAR_PREVIOUS_VERSION=false" >> $GITHUB_ENV
+          fi
       - name: Clear Folder in GCP Bucket
-        run: gsutil rm gs://${{env.BUCKET_NAME}}/datasets/*
+        if: env.CLEAR_PREVIOUS_VERSION
+        continue-on-error: true # In case the bucket is created yet
+        run: gsutil rm gs://${{env.FUNCTION_BUCKET_NAME}}/datasets/*
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
