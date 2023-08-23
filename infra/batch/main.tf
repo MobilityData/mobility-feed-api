@@ -25,7 +25,7 @@ resource "google_storage_bucket" "bucket" {
 }
 
 resource "google_storage_bucket_object" "object" {
-  name   = "batch_processing/datasets.zip" # TODO this should be a variable
+  name   = "batch_processing/datasets/datasets-${filesha256("datasets.zip")}.zip" # TODO this should be a variable (folder + file name)
   bucket = google_storage_bucket.bucket.name
   source = "datasets.zip" # TODO this should be a variable
   metadata = {
