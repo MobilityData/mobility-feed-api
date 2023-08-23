@@ -1,6 +1,7 @@
 from google.cloud import storage
 import functions_framework
 
+
 def create_bucket(bucket_name):
     storage_client = storage.Client()
     # Check if the bucket already exists
@@ -11,6 +12,7 @@ def create_bucket(bucket_name):
         print(f'Bucket {bucket} created.')
     else:
         print(f'Bucket {bucket_name} already exists.')
+
 
 def create_test_file(bucket_name, file_name):
     # Create a storage client
@@ -35,4 +37,3 @@ def batch_dataset(request):
     print(request)
     # Return an HTTP response
     return 'Function has run successfully yay'
-

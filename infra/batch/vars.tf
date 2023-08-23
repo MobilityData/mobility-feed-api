@@ -18,3 +18,9 @@ variable "deployer_service_account" {
   description = "Service account used to deploy resources using impersonation"
 }
 
+variable "function_env_variables" {
+  description = "Environment variables for the cloud function"
+  type        = map(string)
+  default     = {}
+}
+
