@@ -19,7 +19,7 @@ def create_test_file(bucket_name, file_name):
     blob = bucket.blob(file_name)
 
     # Write data to the blob
-    blob.upload_from_string('This is test data for redeployment test.')
+    blob.upload_from_string('Changing the content of the file test')
 
 
 # Register an HTTP function with the Functions Framework
