@@ -5,12 +5,14 @@ import './App.css';
 
 // import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth'; // Import from react-firebaseui
 import SignInScreen from './SignInScreen';
+import AppRouter from './AppRouter';
+import { RouterProvider } from 'react-router-dom';
 
 function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <SignInScreen />
+        <RouterProvider router={AppRouter} />
       </header>
     </div>
   );

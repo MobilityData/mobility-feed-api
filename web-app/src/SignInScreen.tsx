@@ -2,17 +2,9 @@ import React, { useEffect, useState } from 'react';
 import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
+import { config } from './config/config';
 
-// Configure Firebase.
-const config = {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: ""
-};
-firebase.initializeApp(config);
+firebase.initializeApp(config.firebaseConfig);
 
 // Configure FirebaseUI.
 const uiConfig = {
