@@ -1,2 +1,3 @@
 functions-framework==3.*
 google-cloud-storage
+SQLAlchemy==1.4.49

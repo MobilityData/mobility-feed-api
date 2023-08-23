@@ -1,5 +1,34 @@
 from google.cloud import storage
 import functions_framework
+import requests
+from hashlib import md5
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
+
+
+def upload_file_from_url(url, bucket_name, file_name):
+    """
+    Uploads a file to GCP bucket from a URL
+    :param url: file url
+    :param bucket_name: name of the GCP
+    :param file_name: name of the file in GCP
+    :return: the file hash
+    """
+    # Create a storage client
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.blob(file_name)
+
+    # Retrieve data
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    response = requests.get(url, stream=True, headers=headers)
+    content = response.content
+    file_md5_hash = md5(content).hexdigest()
+    print(f"File hash is {file_md5_hash}")
+
+    # Upload file
+    blob.upload_from_string(content)
+    return file_md5_hash
 
 
 def create_bucket(bucket_name):
@@ -28,9 +57,10 @@ def create_test_file(bucket_name, file_name):
 @functions_framework.http
 def batch_dataset(request):
     bucket_name = "mobility-datasets"
+    url = "http://smttracker.com/downloads/gtfs/cascobaylines-portland-me-usa.zip"
     create_bucket(bucket_name)
-    create_test_file(bucket_name, "test.txt")
-    # Your code here
+    upload_file_from_url(url, bucket_name, "test.zip")
+    # create_test_file(bucket_name, "test.txt")
     print("Hello we are inside the code")
     print("Redeployment test 2")
     print("Redeployment test 3")
