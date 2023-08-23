@@ -35,16 +35,13 @@ jobs:
         env:
           FUNCTION_BUCKET_NAME: mobility-feeds-batch-processing
 
-      # TODO this should be done outside of the template
-      - name: Set function env variable
-        run: |
-          echo 'FUNCTION_ENV_VARIABLE="VAR_NAME_1"="value1", "VAR_NAME_2"="value2"' >> $GITHUB_ENV
-
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/pre-vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT  
           scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
+        env:
+          FUNCTION_ENV_VARIABLE: '"VAR_NAME_3"="value1", "VAR_NAME_2"="value2"'
 
       - name: Zip source code
         run: |
