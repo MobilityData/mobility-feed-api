@@ -27,7 +27,7 @@ def create_test_file(bucket_name, file_name):
 def batch_dataset(request):
     bucket_name = "mobility-datasets"
     create_bucket(bucket_name)
-    # create_test_file(bucket_name, "test.txt")
+    create_test_file(bucket_name, "test.txt")
     # Your code here
     print("Hello we are inside the code")
     print("Redeployment test 2")
