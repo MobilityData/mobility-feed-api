@@ -6,6 +6,29 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 
+def get_file_md5_hash(bucket_name, file_name):
+    """
+    Returns file MD5 hash in hexadecimal format
+    :param bucket_name: Name of the GCP bucket
+    :param file_name: the file name
+    :return: the hexadecimal format of the MD5 hash
+    """
+    # Retrieve file
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.blob(file_name)
+    blob.reload()
+
+    # Get and decode the MD5 hash
+    if blob.exists():
+        md5_hash = blob.md5_hash
+        hex_md5_hash = bytes.fromhex(md5_hash).hex()
+        return hex_md5_hash
+    else:
+        print(f"File {file_name} does not exist in bucket {bucket_name}.")
+        return 0
+
+
 def upload_file_from_url(url, bucket_name, file_name):
     """
     Uploads a file to GCP bucket from a URL
@@ -59,7 +82,7 @@ def batch_dataset(request):
     bucket_name = "mobility-datasets"
     url = "http://smttracker.com/downloads/gtfs/cascobaylines-portland-me-usa.zip"
     create_bucket(bucket_name)
-    upload_file_from_url(url, bucket_name, "test.zip")
+    upload_file_from_url(url, bucket_name, "test/test.zip")
     # create_test_file(bucket_name, "test.txt")
     print("Hello we are inside the code")
     print("Redeployment test 2")
