@@ -48,9 +48,7 @@ resource "google_cloudfunctions_function" "function" {
   entry_point           = "batch_dataset" # TODO this should be a variable
   trigger_http          = true
   # Using metadata as an environment variable
-  environment_variables = {
-    content_hash = google_storage_bucket_object.object.metadata["content_hash"]
-  }
+  environment_variables = var.function_env_variables
 }
 
 resource "google_cloud_scheduler_job" "job" {
