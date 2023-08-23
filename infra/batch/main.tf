@@ -28,6 +28,9 @@ resource "google_storage_bucket_object" "object" {
   name   = "batch_processing/datasets.zip" # TODO this should be a variable
   bucket = google_storage_bucket.bucket.name
   source = "datasets.zip" # TODO this should be a variable
+  metadata = {
+    content_hash = filebase64sha256("datasets.zip") # TODO this should be a variable
+  }
 }
 
 resource "google_cloudfunctions_function" "function" {
@@ -40,8 +43,9 @@ resource "google_cloudfunctions_function" "function" {
   source_archive_object = google_storage_bucket_object.object.name
   entry_point           = "batch_dataset" # TODO this should be a variable
   trigger_http          = true
-  triggers = {
-    source_code_hash = filebase64sha256(google_storage_bucket_object.object.source)
+  # Using metadata as an environment variable
+  environment_variables = {
+    content_hash = google_storage_bucket_object.object.metadata["content_hash"]
   }
 }
 
