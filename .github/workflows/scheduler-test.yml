@@ -41,7 +41,7 @@ jobs:
           scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/pre-vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT  
           scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
         env:
-          FUNCTION_ENV_VARIABLE: '"POSTGRES_USER"="${{ secrets.DEV_POSTGRE_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.DEV_POSTGRE_USER_PASSWORD }}", "POSTGRES_DB"="${{ vars.DEV_POSTGRE_SQL_DB_NAME }}", "POSTGRES_PORT"="5432", "POSTGRES_HOST"="${{ secrets.DEV_DB_PUBLIC_IP }}"'
+          FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="mobility-datasets", "POSTGRES_USER"="${{ secrets.DEV_POSTGRE_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.DEV_POSTGRE_USER_PASSWORD }}", "POSTGRES_DB"="${{ vars.DEV_POSTGRE_SQL_DB_NAME }}", "POSTGRES_PORT"="5432", "POSTGRES_HOST"="${{ secrets.DEV_DB_PUBLIC_IP }}"'
 
       - name: Zip source code
         run: |

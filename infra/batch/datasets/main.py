@@ -1,4 +1,5 @@
 import os
+import uuid
 from datetime import datetime
 
 from google.cloud import storage
@@ -6,7 +7,6 @@ import functions_framework
 import requests
 from hashlib import md5
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import Session
 
 
 def upload_dataset(url, bucket_name, stable_id):
@@ -15,7 +15,7 @@ def upload_dataset(url, bucket_name, stable_id):
     :param url: dataset feed's producer url
     :param bucket_name: name of the GCP bucket
     :param stable_id: the dataset stable id
-    :return: true if the dataset has been updated, false otherwise
+    :return: the file hash and the hosted url as a tuple
     """
     # Retrieve data
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -47,10 +47,10 @@ def upload_dataset(url, bucket_name, stable_id):
         # Upload file as upload timestamp
         current_time = datetime.now()
         timestamp = current_time.strftime("%Y%m%d%H%M%S")
-        blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
-        blob.upload_from_string(content)
-        return True
-    return False
+        timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
+        timestamp_blob.upload_from_string(content)
+        return file_md5_hash, timestamp_blob.public_url
+    return None, None
 
 
 def create_bucket(bucket_name):
@@ -78,28 +78,68 @@ def create_test_file(bucket_name, file_name):
 # Register an HTTP function with the Functions Framework
 @functions_framework.http
 def batch_dataset(request):
-    bucket_name = "mobility-datasets" # TODO this should be an env variable
+    bucket_name = os.getenv("BUCKET_NAME")
     create_bucket(bucket_name)
 
-    POSTGRES_USER = os.getenv("POSTGRES_USER")
-    POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-    POSTGRES_DB = os.getenv("POSTGRES_DB")
-    POSTGRES_PORT = os.getenv("POSTGRES_PORT")
-    POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+    postgres_user = os.getenv("POSTGRES_USER")
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    postgres_db = os.getenv("POSTGRES_DB")
+    postgres_port = os.getenv("POSTGRES_PORT")
+    postgres_host = os.getenv("POSTGRES_HOST")
 
-    SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
-    sql_statement = text("select stable_id, producer_url from feed where status='active' and authentication_type='0' limit 2")
+    sqlalchemy_database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}" \
+                              f"/{postgres_db}"
+    engine = create_engine(sqlalchemy_database_url, echo=True)
+    sql_statement = "select stable_id, producer_url, id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
+                    "status='active' and authentication_type='0' limit 2"
 
-    results = engine.execute(sql_statement).all()
+    results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
+    errors = ""  # Contains datasets that couldn't be processed
+    transaction = None
     for result in results:
         stable_id = result[0]
         producer_url = result[1]
-        dataset_uploaded = upload_dataset(producer_url, bucket_name, stable_id)
-        if dataset_uploaded:
-            # TODO update hash in dataset table
-            print("TODO update")
+        feed_id = result[2]
+        try:
+            md5_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id)
+            if md5_file_hash is not None:
+                continue
+            # Set up transaction for SQL updates
+            connection = engine.connect()
+            transaction = connection.begin()
 
+            # Create a new version of the dataset in the database
+            select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
+            dataset_results = connection.execute(select_dataset_statement).all()
+            dataset_id = dataset_results[0][0]
+            dataset_hash = dataset_results[0][1]
+
+            # Set the previous version latest field to false
+            if dataset_hash is not None:
+                sql_statement = f"update gtfsdataset set latest=false where id='{dataset_id}'"
+                connection.execute(text(sql_statement))
+
+            sql_statement = f"insert into gtfsdataset (id, feed_id, latest, bounding_box, hosted_url, note, hash, " \
+                            f"download_date, creation_date, last_update_date, stable_id, hosted_url) " \
+                            f"select '{str(uuid.uuid4())}', feed_id, true, bounding_box, hosted_url, note, " \
+                            f"'{md5_file_hash}', download_date, creation_date, NOW(), stable_id, '{hosted_url}' from " \
+                            f"gtfsdataset where id='{dataset_id}'"
+
+            # In case the dataset doesn't include a hash, update the existing entity
+            if dataset_hash is None:
+                sql_statement = f"update gtfsdataset set hash='{md5_file_hash}' where id='{dataset_id}'"
+            connection.execute(text(sql_statement))
+
+            # Commit transaction after every step has run successfully
+            transaction.commit()
+
+        except Exception as e:
+            if transaction is not None:
+                transaction.rollback()
+            errors += f"[ERROR] While updating dataset with stable_id = {stable_id}\n{e}\n"
+            continue
+    # TODO upload logs to gcp
+    print(f"Logging errors:\n{errors}")
     return 'Completed datasets batch processing.'
