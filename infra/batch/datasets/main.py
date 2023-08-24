@@ -32,7 +32,8 @@ def upload_dataset(url, bucket_name, stable_id):
     upload_file = False
     if blob.exists():
         # Validate change
-        latest_hash = bytes.fromhex(blob.md5_hash).hex()
+        previous_dataset = blob.download_as_string()
+        latest_hash = md5(previous_dataset).hexdigest()
         print(f"Latest hash is {latest_hash}.")
         if latest_hash != file_md5_hash:
             upload_file = True
