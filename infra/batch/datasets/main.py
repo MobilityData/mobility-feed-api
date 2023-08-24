@@ -92,7 +92,7 @@ def batch_dataset(request):
                               f"/{postgres_db}"
     engine = create_engine(sqlalchemy_database_url, echo=True)
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0' limit 2"
+                    "status='active' and authentication_type='0' limit 20"
 
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
@@ -116,8 +116,12 @@ def batch_dataset(request):
             dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
             dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
             print(f"Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
+            if dataset_id is None:
+                errors += f"Couldn't find latest dataset related to feed_id {feed_id}\n"
+                continue
+
             # Set the previous version latest field to false
-            if dataset_hash is not None:
+            if dataset_hash is not None and dataset_hash != md5_file_hash:
                 sql_statement = f"update gtfsdataset set latest=false where id='{dataset_id}'"
                 connection.execute(text(sql_statement))
 
