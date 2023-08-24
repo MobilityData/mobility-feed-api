@@ -51,7 +51,7 @@ def upload_dataset(url, bucket_name, stable_id):
         timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
         timestamp_blob.upload_from_string(content)
         return file_md5_hash, timestamp_blob.public_url
-    return None, None
+    return file_md5_hash, None
 
 
 def create_bucket(bucket_name):
@@ -105,8 +105,7 @@ def batch_dataset(request):
         feed_id = result[2]
         try:
             md5_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id)
-            if md5_file_hash is not None:
-                continue
+
             # Set up transaction for SQL updates
             connection = engine.connect()
             transaction = connection.begin()
@@ -114,17 +113,17 @@ def batch_dataset(request):
             # Create a new version of the dataset in the database
             select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
             dataset_results = connection.execute(select_dataset_statement).all()
-            dataset_id = dataset_results[0][0]
-            dataset_hash = dataset_results[0][1]
+            dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
+            dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
 
             # Set the previous version latest field to false
             if dataset_hash is not None:
                 sql_statement = f"update gtfsdataset set latest=false where id='{dataset_id}'"
                 connection.execute(text(sql_statement))
 
-            sql_statement = f"insert into gtfsdataset (id, feed_id, latest, bounding_box, hosted_url, note, hash, " \
+            sql_statement = f"insert into gtfsdataset (id, feed_id, latest, bounding_box, note, hash, " \
                             f"download_date, stable_id, hosted_url) " \
-                            f"select '{str(uuid.uuid4())}', feed_id, true, bounding_box, hosted_url, note, " \
+                            f"select '{str(uuid.uuid4())}', feed_id, true, bounding_box, note, " \
                             f"'{md5_file_hash}', NOW(), stable_id, '{hosted_url}' from " \
                             f"gtfsdataset where id='{dataset_id}'"
 
