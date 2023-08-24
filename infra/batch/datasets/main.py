@@ -115,7 +115,7 @@ def batch_dataset(request):
             dataset_results = connection.execute(select_dataset_statement).all()
             dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
             dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
-
+            print(f"Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
             # Set the previous version latest field to false
             if dataset_hash is not None:
                 sql_statement = f"update gtfsdataset set latest=false where id='{dataset_id}'"
