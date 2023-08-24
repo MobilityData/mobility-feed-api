@@ -90,7 +90,7 @@ def batch_dataset(request):
     sqlalchemy_database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}" \
                               f"/{postgres_db}"
     engine = create_engine(sqlalchemy_database_url, echo=True)
-    sql_statement = "select stable_id, producer_url, id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
+    sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
                     "status='active' and authentication_type='0' limit 2"
 
     results = engine.execute(text(sql_statement)).all()
@@ -122,13 +122,14 @@ def batch_dataset(request):
                 connection.execute(text(sql_statement))
 
             sql_statement = f"insert into gtfsdataset (id, feed_id, latest, bounding_box, hosted_url, note, hash, " \
-                            f"download_date, creation_date, last_update_date, stable_id, hosted_url) " \
+                            f"download_date, stable_id, hosted_url) " \
                             f"select '{str(uuid.uuid4())}', feed_id, true, bounding_box, hosted_url, note, " \
-                            f"'{md5_file_hash}', download_date, creation_date, NOW(), stable_id, '{hosted_url}' from " \
+                            f"'{md5_file_hash}', NOW(), stable_id, '{hosted_url}' from " \
                             f"gtfsdataset where id='{dataset_id}'"
 
-            # In case the dataset doesn't include a hash, update the existing entity
-            if dataset_hash is None:
+            # In case the dataset doesn't include a hash or the dataset was deleted from the bucket,
+            # update the existing entity
+            if dataset_hash is None or dataset_hash == md5_file_hash:
                 sql_statement = f"update gtfsdataset set hash='{md5_file_hash}' where id='{dataset_id}'"
             connection.execute(text(sql_statement))
 
