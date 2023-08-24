@@ -1,0 +1,3 @@
+ALTER TABLE GTFSDataset
+DROP COLUMN IF EXISTS last_update_date,
+DROP COLUMN IF EXISTS creation_date;
