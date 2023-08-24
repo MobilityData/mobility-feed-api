@@ -47,7 +47,6 @@ resource "google_cloudfunctions_function" "function" {
   source_archive_object = google_storage_bucket_object.object.name
   entry_point           = "batch_dataset" # TODO this should be a variable
   trigger_http          = true
-  # Using metadata as an environment variable
   environment_variables = var.function_env_variables
 }
 
