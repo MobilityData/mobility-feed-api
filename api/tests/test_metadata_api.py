@@ -18,6 +18,5 @@ def test_metadata_get(client: TestClient):
         headers=headers,
     )
 
-    # uncomment below to assert the status code of the HTTP response
     assert response.status_code == 200
 

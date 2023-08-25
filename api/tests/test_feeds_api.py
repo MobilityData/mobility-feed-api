@@ -18,7 +18,6 @@ def test_feeds_get(client: TestClient):
         params=params,
     )
 
-    # uncomment below to assert the status code of the HTTP response
     assert response.status_code == 200
 
 
@@ -33,12 +32,11 @@ def test_feeds_gtfs_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/feeds/gtfs",
+        "/v1/gtfs_feeds",
         headers=headers,
         params=params,
     )
 
-    # uncomment below to assert the status code of the HTTP response
     assert response.status_code == 200
 
 
@@ -53,11 +51,10 @@ def test_feeds_gtfs_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/feeds/gtfs/{id}".format(id='feed_0'),
+        "/v1/gtfs_feeds/{id}".format(id='feed_0'),
         headers=headers,
     )
 
-    # uncomment below to assert the status code of the HTTP response
     assert response.status_code == 200
 
 
@@ -72,10 +69,9 @@ def test_feeds_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/feeds/{id}".format(id='feed_0'),
+        "/v1/feeds/{id}".format(id='mdb-478'),
         headers=headers,
     )
 
-    # uncomment below to assert the status code of the HTTP response
     assert response.status_code == 200
 
