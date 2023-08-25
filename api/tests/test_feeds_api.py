@@ -69,7 +69,7 @@ def test_feeds_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/feeds/{id}".format(id='mdb-478'),
+        "/v1/feeds/{id}".format(id='mdb-1'),
         headers=headers,
     )
 
