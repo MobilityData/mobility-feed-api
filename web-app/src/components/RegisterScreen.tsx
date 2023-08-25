@@ -18,7 +18,7 @@ function Copyright(props: any) {
     return (
         <Typography variant="body2" color="text.secondary" align="center" {...props}>
             {'Copyright © '}
-            <Link color="inherit" href="https://mui.com/">
+            <Link color="inherit" href="https://mobilitydata.org/">
                 Mobility Database API
             </Link>{' '}
             {new Date().getFullYear()}
@@ -48,9 +48,9 @@ export default function RegisterScreen() {
                     alignItems: 'center',
                 }}
             >
-                <Avatar>
-                    <img src="logo_purple.svg" />
-                </Avatar>
+
+                //<img src="logo_purple.svg" />
+
                 <Typography component="h1" variant="h5">
                     API User Registration
                 </Typography>
@@ -79,7 +79,6 @@ export default function RegisterScreen() {
                         </Grid>
                         <Grid item xs={12}>
                             <TextField
-                                required
                                 fullWidth
                                 id="orgName"
                                 label="Organization Name"

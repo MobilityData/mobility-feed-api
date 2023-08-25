@@ -1,6 +1,6 @@
 import { createBrowserRouter } from "react-router-dom"
-import SignInScreen from "./SignInScreen";
-import RegisterScreen from "./RegisterScreen";
+import SignInScreen from "./components/SignInScreen";
+import RegisterScreen from "./components/RegisterScreen";
 
 const appRouter = createBrowserRouter([
     {

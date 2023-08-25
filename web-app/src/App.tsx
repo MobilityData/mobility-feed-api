@@ -4,7 +4,7 @@ import logo from './logo.svg';
 // import FirebaseUI from './FirebaseUI';
 
 // import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth'; // Import from react-firebaseui
-import SignInScreen from './SignInScreen';
+import SignInScreen from './components/SignInScreen';
 import AppRouter from './AppRouter';
 import { RouterProvider } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';

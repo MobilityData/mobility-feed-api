@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
-import { config } from './config/config';
+import { config } from '../config/config';
 
 firebase.initializeApp(config.firebaseConfig);
 
@@ -20,11 +20,11 @@ const uiConfig = {
   callbacks: {
     // Avoid redirects after sign-in.
     signInSuccessWithAuthResult: (authResult) => {
-        authResult.user.getIdToken().then((token) => {
-          console.log(token);
-        });
-        return false;
-      },
+      authResult.user.getIdToken().then((token) => {
+        console.log(token);
+      });
+      return false;
+    },
   },
 };
 
