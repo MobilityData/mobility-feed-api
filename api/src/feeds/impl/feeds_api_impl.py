@@ -125,7 +125,6 @@ class FeedsApiImpl(BaseFeedsApi):
             bounding_filter_method: str,
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
-        print("In get_gtfs_feeds endpoint")
         return [self.get_gtfs_feed("foo")]
 
     def get_gtfs_rt_feed(
