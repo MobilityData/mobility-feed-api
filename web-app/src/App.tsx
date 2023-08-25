@@ -1,20 +1,24 @@
 import React from 'react';
 import logo from './logo.svg';
-import './App.css';
+// import './App.css';
 // import FirebaseUI from './FirebaseUI';
 
 // import StyledFirebaseAuth from 'react-firebaseui/StyledFirebaseAuth'; // Import from react-firebaseui
 import SignInScreen from './SignInScreen';
 import AppRouter from './AppRouter';
 import { RouterProvider } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import theme from './theme';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <RouterProvider router={AppRouter} />
-      </header>
-    </div>
+    <ThemeProvider theme={theme}>
+      <div className="App">
+        <header className="App-header">
+          <RouterProvider router={AppRouter} />
+        </header>
+      </div>
+    </ThemeProvider>
   );
 }
 
