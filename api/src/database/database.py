@@ -23,6 +23,12 @@ class Database:
     """
     This class represents a database instance
     """
+    instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not isinstance(cls.instance, cls):
+            cls.instance = object.__new__(cls)
+        return cls.instance
 
     def __init__(self):
         POSTGRES_USER = os.getenv("POSTGRES_USER")
@@ -246,5 +252,3 @@ class Database:
                 f'Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}')
             return False
 
-
-DB_ENGINE = Database()
