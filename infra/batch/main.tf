@@ -50,11 +50,12 @@ resource "google_cloudfunctions2_function" "function" {
         object            = google_storage_bucket_object.object.name
       }
     }
-    environment_variables = var.function_env_variables
+#    environment_variables = var.function_env_variables
   }
   service_config {
     available_memory      = "256M"
     timeout_seconds       = 3600
+    environment_variables = var.function_env_variables
   }
 }
 
