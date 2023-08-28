@@ -146,7 +146,7 @@ def batch_dataset(request):
                               f"/{postgres_db}"
     engine = create_engine(sqlalchemy_database_url, echo=True)
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0' limit 20"
+                    "status='active' and authentication_type='0' limit 200"
 
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
