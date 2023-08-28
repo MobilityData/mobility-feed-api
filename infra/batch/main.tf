@@ -38,18 +38,23 @@ resource "google_storage_bucket_object" "object" {
 }
 
 resource "google_cloudfunctions2_function" "function" {
-
   name        = "dataset-batch-function-v2" # TODO this should be a variable
   description = "Python function"
-  runtime     = "python310" # TODO this should be a variable
-
-  available_memory_mb   = 256
-  source_archive_bucket = google_storage_bucket.bucket.name
-  source_archive_object = google_storage_bucket_object.object.name
-  entry_point           = "batch_dataset" # TODO this should be a variable
-  trigger_http          = true
-  environment_variables = var.function_env_variables
-  timeout = 3600 # TODO this should be a variable
+  build_config {
+    runtime = "python310" # TODO this should be a variable
+    entry_point = "batch_dataset" # TODO this should be a variable
+    source {
+      storage_source {
+        bucket = google_storage_bucket.bucket.name
+        object = google_storage_bucket_object.object.name
+      }
+    }
+    environment_variables = var.function_env_variables
+  }
+  service_config {
+    available_memory = "256M"
+    timeout_seconds = 3600
+  }
 }
 
 resource "google_cloud_scheduler_job" "job" {
@@ -61,7 +66,7 @@ resource "google_cloud_scheduler_job" "job" {
 
   http_target {
     http_method = "GET"
-    uri         = google_cloudfunctions_function.function.https_trigger_url
+    uri         = google_cloudfunctions2_function.function.service_config[0].uri
     oidc_token {
       service_account_email = var.deployer_service_account
     }
