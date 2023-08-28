@@ -37,8 +37,9 @@ resource "google_storage_bucket_object" "object" {
   }
 }
 
-resource "google_cloudfunctions_function" "function" {
-  name        = "dataset-batch-function" # TODO this should be a variable
+resource "google_cloudfunctions2_function" "function" {
+
+  name        = "dataset-batch-function-v2" # TODO this should be a variable
   description = "Python function"
   runtime     = "python310" # TODO this should be a variable
 
