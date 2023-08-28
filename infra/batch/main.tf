@@ -48,6 +48,7 @@ resource "google_cloudfunctions_function" "function" {
   entry_point           = "batch_dataset" # TODO this should be a variable
   trigger_http          = true
   environment_variables = var.function_env_variables
+  timeout = 3600 # TODO this should be a variable
 }
 
 resource "google_cloud_scheduler_job" "job" {
