@@ -53,7 +53,7 @@ resource "google_cloudfunctions2_function" "function" {
 #    environment_variables = var.function_env_variables
   }
   service_config {
-    available_memory      = "32G"
+    available_memory      = "512Mi"
     timeout_seconds       = 3600
     environment_variables = var.function_env_variables
   }
