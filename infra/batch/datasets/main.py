@@ -151,7 +151,8 @@ def batch_dataset(request):
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     tasks = [
         loop.create_task(validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id))
