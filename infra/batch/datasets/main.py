@@ -1,3 +1,4 @@
+import gc
 import os
 import uuid
 from datetime import datetime
@@ -66,7 +67,7 @@ async def process_all(engine, bucket_name, results):
     :param bucket_name:
     :param results:
     """
-    connector = TCPConnector(limit_per_host=50)  # Limit the pool size
+    connector = TCPConnector(limit_per_host=20)  # Limit the pool size
     async with ClientSession(connector=connector) as session:
         tasks = [
             validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
@@ -138,6 +139,7 @@ async def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id)
             blob.upload_from_string(errors)
         if connection is not None:
             connection.close()
+        gc.collect()  # Free memory
 
 
 def create_bucket(bucket_name):
