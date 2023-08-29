@@ -2,18 +2,18 @@ import gc
 import os
 import traceback
 import uuid
-from datetime import datetime
-
-from google.cloud import storage
 import functions_framework
-import requests
-from hashlib import md5
 from sqlalchemy import create_engine, text
 from aiohttp import ClientSession, TCPConnector
 import asyncio
 
+import requests
+from google.cloud import storage
+from datetime import datetime
+from hashlib import md5
 
-async def upload_dataset(url, bucket_name, stable_id):
+
+def upload_dataset(url, bucket_name, stable_id):
     """
     Uploads a dataset to a GCP bucket
     :param url: dataset feed's producer url
@@ -21,45 +21,46 @@ async def upload_dataset(url, bucket_name, stable_id):
     :param stable_id: the dataset stable id
     :return: the file hash and the hosted url as a tuple
     """
-    async with ClientSession() as session:
-        # Retrieve data
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        async with session.get(url, headers=headers) as response:
-            content = await response.read()
-            file_md5_hash = md5(content).hexdigest()
-            print(f"File hash is {file_md5_hash}.")
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
 
-            # Create a storage client
-            storage_client = storage.Client()
-            bucket = storage_client.get_bucket(bucket_name)
-            blob = bucket.blob(f"{stable_id}/latest.zip")
+    content = response.content
+    file_md5_hash = md5(content).hexdigest()
+    print(f"File hash is {file_md5_hash}.")
 
-            upload_file = False
-            if blob.exists():
-                # Validate change
-                latest_hash = md5()
-                with blob.open("rb") as f:
-                    for chunk in iter(lambda: f.read(4096), b""):
-                        latest_hash.update(chunk)
-                latest_hash = latest_hash.hexdigest()
-                print(f"Latest hash is {latest_hash}.")
-                if latest_hash != file_md5_hash:
-                    upload_file = True
-            else:
-                # Upload first version of dataset
-                upload_file = True
+    # Create a storage client
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket_name)
+    blob = bucket.blob(f"{stable_id}/latest.zip")
 
-            if upload_file:
-                # Upload file as latest
-                blob.upload_from_string(content)
+    upload_file = False
+    if blob.exists():
+        # Validate change
+        latest_hash = md5()
+        with blob.open("rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                latest_hash.update(chunk)
+        latest_hash = latest_hash.hexdigest()
+        print(f"Latest hash is {latest_hash}.")
+        if latest_hash != file_md5_hash:
+            upload_file = True
+    else:
+        # Upload first version of dataset
+        upload_file = True
 
-                # Upload file as upload timestamp
-                current_time = datetime.now()
-                timestamp = current_time.strftime("%Y%m%d")
-                timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
-                timestamp_blob.upload_from_string(content)
-                return file_md5_hash, timestamp_blob.public_url
-            return file_md5_hash, None
+    if upload_file:
+        # Upload file as latest
+        blob.upload_from_string(content)
+
+        # Upload file as upload timestamp
+        current_time = datetime.now()
+        timestamp = current_time.strftime("%Y%m%d")
+        timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
+        timestamp_blob.upload_from_string(content)
+
+        return file_md5_hash, timestamp_blob.public_url
+    return file_md5_hash, None
 
 
 async def process_all(engine, bucket_name, results):
@@ -78,7 +79,7 @@ async def process_all(engine, bucket_name, results):
         await asyncio.gather(*tasks)
 
 
-async def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
+def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
     """
     Handles the validation of the dataset including the upload of the dataset to GCP
     and the required database changes
@@ -92,7 +93,7 @@ async def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id)
     connection = None
     errors = ""
     try:
-        md5_file_hash, hosted_url = await upload_dataset(url, bucket_name, stable_id)
+        md5_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id)
 
         # Set up transaction for SQL updates
         connection = engine.connect()
