@@ -164,7 +164,11 @@ def create_bucket(bucket_name):
 
 @functions_framework.http
 def process_dataset(request):
-    print(request)
+    try:
+        json_payload = request.json
+        print("JSON Payload:", json_payload)
+    except Exception as e:
+        print("Could not parse JSON:", e)
     return 'Done!'
 
 
