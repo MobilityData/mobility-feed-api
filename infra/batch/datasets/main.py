@@ -112,9 +112,12 @@ async def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id)
         errors += f"[ERROR]: {e}\n"
 
     finally:
-        # TODO upload logs to gcp
+        # Uploading errors to GCP
         if len(errors) > 0:
-            print(f"Logging errors for stable_id = {stable_id}:\n{errors}")
+            storage_client = storage.Client()
+            bucket = storage_client.get_bucket(bucket_name)
+            blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{stable_id}/errors.log")
+            blob.upload_from_string(errors)
         if connection is not None:
             connection.close()
 
@@ -146,7 +149,7 @@ def batch_dataset(request):
                               f"/{postgres_db}"
     engine = create_engine(sqlalchemy_database_url, echo=True)
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0' limit 200"
+                    "status='active' and authentication_type='0'"
 
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
