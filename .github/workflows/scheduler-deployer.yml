@@ -7,7 +7,7 @@ on:
 
 jobs:
   terraform:
-    name: 'Terraform'
+    name: 'Terraform '
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
