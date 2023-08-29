@@ -38,7 +38,7 @@ async def upload_dataset(url, bucket_name, stable_id):
             if blob.exists():
                 # Validate change
                 latest_hash = md5()
-                with blob.open("r") as f:
+                with blob.open("rb") as f:
                     for chunk in iter(lambda: f.read(4096), b""):
                         latest_hash.update(chunk)
                 latest_hash = latest_hash.hexdigest()
