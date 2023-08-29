@@ -12,12 +12,6 @@ from sqlalchemy import create_engine, text
 from aiohttp import ClientSession, TCPConnector
 import asyncio
 
-def calculate_md5(file_path):
-    hash_md5 = md5()
-    with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
 
 async def upload_dataset(url, bucket_name, stable_id):
     """
@@ -111,7 +105,7 @@ async def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id)
         dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
         print(f"Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
         if dataset_id is None:
-            errors += f"Couldn't find latest dataset related to feed_id {feed_id}\n"
+            errors += f"[INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n"
             return
 
         # Set the previous version latest field to false
@@ -142,6 +136,7 @@ async def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id)
     finally:
         # Uploading errors to GCP
         if len(errors) > 0:
+            print(f"Logging errors for stable id {stable_id}\n{errors}")
             storage_client = storage.Client()
             bucket = storage_client.get_bucket(bucket_name)
             blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{stable_id}/errors.log")
@@ -182,7 +177,7 @@ def batch_dataset(request):
                               f"/{postgres_db}"
     engine = create_engine(sqlalchemy_database_url, echo=True)
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0'"
+                    "status='active' and authentication_type='0' limit 20"
 
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
