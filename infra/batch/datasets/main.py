@@ -1,5 +1,6 @@
 import gc
 import os
+import traceback
 import uuid
 from datetime import datetime
 
@@ -46,6 +47,7 @@ async def upload_dataset(url, bucket_name, stable_id):
                 with blob.open("r") as f:
                     for chunk in iter(lambda: f.read(4096), b""):
                         latest_hash.update(chunk)
+                latest_hash = latest_hash.hexdigest()
                 print(f"Latest hash is {latest_hash}.")
                 if latest_hash != file_md5_hash:
                     upload_file = True
@@ -134,7 +136,8 @@ async def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id)
     except Exception as e:
         if transaction is not None:
             transaction.rollback()
-        errors += f"[ERROR]: {e}\n"
+        error_traceback = traceback.format_exc()
+        errors += f"[ERROR]: {e}\n{error_traceback}\n"
 
     finally:
         # Uploading errors to GCP
