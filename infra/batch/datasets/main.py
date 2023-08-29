@@ -163,37 +163,7 @@ def create_bucket(bucket_name):
         print(f'Bucket {bucket_name} already exists.')
 
 
-@functions_framework.http
-def process_dataset(request):
-    try:
-        json_payload = dict(request.json)
-        producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload["feed_id"]
-        print("JSON Payload:", json_payload)
-
-        bucket_name = os.getenv("BUCKET_NAME")
-        create_bucket(bucket_name)
-
-        postgres_user = os.getenv("POSTGRES_USER")
-        postgres_password = os.getenv("POSTGRES_PASSWORD")
-        postgres_db = os.getenv("POSTGRES_DB")
-        postgres_port = os.getenv("POSTGRES_PORT")
-        postgres_host = os.getenv("POSTGRES_HOST")
-
-        sqlalchemy_database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}" \
-                                  f"/{postgres_db}"
-        engine = create_engine(sqlalchemy_database_url, echo=True)
-        validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
-    except Exception as e:
-        print("Could not parse JSON:", e)
-        return f'[ERROR] Error processing request \n{e}\n{traceback.format_exc()}'
-    return 'Done!'
-
-
-@functions_framework.http
-def batch_dataset(request):
-    bucket_name = os.getenv("BUCKET_NAME")
-    create_bucket(bucket_name)
-
+def get_db_engine():
     postgres_user = os.getenv("POSTGRES_USER")
     postgres_password = os.getenv("POSTGRES_PASSWORD")
     postgres_db = os.getenv("POSTGRES_DB")
@@ -203,14 +173,60 @@ def batch_dataset(request):
     sqlalchemy_database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}" \
                               f"/{postgres_db}"
     engine = create_engine(sqlalchemy_database_url, echo=True)
+    return engine
+
+
+@functions_framework.http
+def process_dataset(request):
+    try:
+        json_payload = dict(request.json)
+        producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
+            "feed_id"]
+        print("JSON Payload:", json_payload)
+
+        bucket_name = os.getenv("BUCKET_NAME")
+        engine = get_db_engine()
+        validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
+    except Exception as e:
+        print("Could not parse JSON:", e)
+        return f'[ERROR] Error processing request \n{e}\n{traceback.format_exc()}'
+    return 'Done!'
+
+
+async def call_process_dataset(session, url, payload):
+    async with session.post(url, json=payload) as response:
+        return await response.text()
+
+
+@functions_framework.http
+def batch_dataset(request):
+    engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
                     "status='active' and authentication_type='0' limit 100"
 
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
+    async def main():
+        url = "https://us-central1-mobility-feeds-dev.cloudfunctions.net/dataset-function"
+        tasks = []
+
+        async with ClientSession() as session:
+            for stable_id, producer_url, feed_id in results[90:105]:
+                payload = {
+                    "producer_url": producer_url,
+                    "stable_id": stable_id,
+                    "feed_id": feed_id
+                }
+
+                task = asyncio.ensure_future(call_process_dataset(session, url, payload))
+                tasks.append(task)
+
+            responses = await asyncio.gather(*tasks)
+            print(responses)
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(process_all(engine, bucket_name, results))
+    loop.run_until_complete(main())
 
     return 'Completed datasets batch processing.'
