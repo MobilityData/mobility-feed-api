@@ -194,7 +194,7 @@ def process_dataset(request):
 
 
 async def call_process_dataset(session, url, payload):
-    async with session.post(url, json=payload) as response:
+    async with session.post(url, json=payload, headers={'Content-Type': 'application/json'}) as response:
         return await response.text()
 
 
