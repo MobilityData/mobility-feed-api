@@ -163,6 +163,11 @@ def create_bucket(bucket_name):
 
 
 @functions_framework.http
+def process_dataset(request):
+    print(request)
+
+
+@functions_framework.http
 def batch_dataset(request):
     bucket_name = os.getenv("BUCKET_NAME")
     create_bucket(bucket_name)

@@ -58,6 +58,27 @@ resource "google_cloudfunctions2_function" "function" {
   }
 }
 
+resource "google_cloudfunctions2_function" "function2" {
+  name                    = "dataset-function" # TODO this should be a variable
+  description             = "Python function"
+  location                = "us-central1"
+  build_config {
+    runtime               = "python310" # TODO this should be a variable
+    entry_point           = "process_dataset" # TODO this should be a variable
+    source {
+      storage_source {
+        bucket            = google_storage_bucket.bucket.name
+        object            = google_storage_bucket_object.object.name
+      }
+    }
+  }
+  service_config {
+    available_memory      = "512Mi"
+    timeout_seconds       = 3600
+    environment_variables = var.function_env_variables
+  }
+}
+
 resource "google_cloud_scheduler_job" "job" {
   name                      = "dataset-batch-job" # TODO this should be a variable
   description               = "Run python function daily" # TODO this should be a variable
