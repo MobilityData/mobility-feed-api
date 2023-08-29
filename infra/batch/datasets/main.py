@@ -165,10 +165,26 @@ def create_bucket(bucket_name):
 @functions_framework.http
 def process_dataset(request):
     try:
-        json_payload = request.json
+        json_payload = dict(request.json)
+        producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload["feed_id"]
         print("JSON Payload:", json_payload)
+
+        bucket_name = os.getenv("BUCKET_NAME")
+        create_bucket(bucket_name)
+
+        postgres_user = os.getenv("POSTGRES_USER")
+        postgres_password = os.getenv("POSTGRES_PASSWORD")
+        postgres_db = os.getenv("POSTGRES_DB")
+        postgres_port = os.getenv("POSTGRES_PORT")
+        postgres_host = os.getenv("POSTGRES_HOST")
+
+        sqlalchemy_database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}" \
+                                  f"/{postgres_db}"
+        engine = create_engine(sqlalchemy_database_url, echo=True)
+        validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
     except Exception as e:
         print("Could not parse JSON:", e)
+        return f'[ERROR] Error processing request \n{e}\n{traceback.format_exc()}'
     return 'Done!'
 
 
