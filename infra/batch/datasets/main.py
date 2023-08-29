@@ -178,6 +178,6 @@ def batch_dataset(request):
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(process_all())
+    loop.run_until_complete(process_all(engine, bucket_name, results))
 
     return 'Completed datasets batch processing.'
