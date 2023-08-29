@@ -15,6 +15,18 @@ locals {
   ]
 }
 
+resource "google_service_account" "ci_impersonator_service_account" {
+  account_id   = "ci-impersonator"
+  project      = var.project_id
+  display_name = "Service account that impersonates the CI deployer"
+}
+
+resource "google_project_iam_member" "function_invoker" {
+  project = var.project_id
+  role    = "roles/cloudfunctions.invoker"
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
+
 resource "google_project_service" "services" {
   for_each                   = toset(local.services)
   service                    = each.value
@@ -55,6 +67,7 @@ resource "google_cloudfunctions2_function" "function" {
     available_memory      = "512Mi"
     timeout_seconds       = 3600
     environment_variables = var.function_env_variables
+    service_account_email = google_service_account.ci_impersonator_service_account.email
   }
 }
 
@@ -76,6 +89,7 @@ resource "google_cloudfunctions2_function" "function2" {
     available_memory      = "512Mi"
     timeout_seconds       = 3600
     environment_variables = var.function_env_variables
+    service_account_email = google_service_account.ci_impersonator_service_account.email
   }
 }
 

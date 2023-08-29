@@ -152,6 +152,12 @@ resource "google_storage_bucket" "tf_state_bucket" {
   }
 }
 
+resource "google_project_iam_member" "function_invoker" {
+  project = var.project_id
+  role    = "roles/cloudfunctions.invoker"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 output "ci_service_account_id" {
   value       = google_service_account.ci_service_account.id
   description = "CI service account ID"
