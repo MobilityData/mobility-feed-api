@@ -165,6 +165,7 @@ def create_bucket(bucket_name):
 @functions_framework.http
 def process_dataset(request):
     print(request)
+    return 'Done!'
 
 
 @functions_framework.http
