@@ -11,6 +11,12 @@ from sqlalchemy import create_engine, text
 from aiohttp import ClientSession, TCPConnector
 import asyncio
 
+def calculate_md5(file_path):
+    hash_md5 = md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
 
 async def upload_dataset(url, bucket_name, stable_id):
     """
@@ -37,9 +43,9 @@ async def upload_dataset(url, bucket_name, stable_id):
             if blob.exists():
                 # Validate change
                 latest_hash = md5()
-                stream = blob.open("rb")
-                for chunk in stream.iter_content(chunk_size=4096):
-                    latest_hash.update(chunk)
+                with blob.open("r") as f:
+                    for chunk in iter(lambda: f.read(4096), b""):
+                        latest_hash.update(chunk)
                 print(f"Latest hash is {latest_hash}.")
                 if latest_hash != file_md5_hash:
                     upload_file = True
