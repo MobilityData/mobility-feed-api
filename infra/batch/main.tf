@@ -15,10 +15,9 @@ locals {
   ]
 }
 
-resource "google_service_account" "ci_impersonator_service_account" {
-  account_id   = "ci-impersonator"
-  project      = var.project_id
-  display_name = "Service account that impersonates the CI deployer"
+data "google_service_account" "ci_impersonator_service_account" {
+  account_id = "ci-impersonator"
+  project    = var.project_id
 }
 
 resource "google_project_iam_member" "function_invoker" {
