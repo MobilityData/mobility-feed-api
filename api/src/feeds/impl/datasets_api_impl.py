@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Query
 
 from database.database import Database
-from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset
+from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset, Feed
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.bounding_box import BoundingBox
 from feeds_gen.models.gtfs_dataset import GtfsDataset
@@ -23,8 +23,10 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
     @staticmethod
     def create_dataset_query():
-        return (Query([Gtfsdataset, t_componentgtfsdataset.c['component'], Gtfsdataset.bounding_box.ST_AsGeoJSON()])
-                .join(t_componentgtfsdataset, t_componentgtfsdataset.c['dataset_id'] == Gtfsdataset.id, isouter=True))
+        return (Query([Gtfsdataset, t_componentgtfsdataset.c['component'],
+                       Gtfsdataset.bounding_box.ST_AsGeoJSON(), Feed.stable_id])
+                .join(t_componentgtfsdataset, t_componentgtfsdataset.c['dataset_id'] == Gtfsdataset.id, isouter=True)
+                .join(Feed, Feed.id == Gtfsdataset.feed_id))
 
     @staticmethod
     def apply_bounding_filtering(query: Query, bounding_latitudes: str, bounding_longitudes: str,
@@ -58,24 +60,21 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
     @staticmethod
     def get_datasets_gtfs(query: Query, limit: int = None, offset: int = None) -> List[GtfsDataset]:
-        db = Database()
-
-        all_rows = [[x for x in y] for _, y in
-                    itertools.groupby(db.select(query=query, limit=limit, offset=offset), lambda x: x[0].id)]
+        dataset_groups = Database().select(query=query, limit=limit, offset=offset, group_by=lambda x: x[0].stable_id)
 
         gtfs_datasets = []
-        for row in all_rows:
-            database_gtfs_dataset = row[0][0]
-
-            gtfs_dataset = GtfsDataset(id=database_gtfs_dataset.id,
-                                       feed_id=database_gtfs_dataset.feed_id,
+        for dataset_group in dataset_groups:
+            dataset_objects, components, bound_box_strings, feed_ids = zip(*dataset_group)
+            database_gtfs_dataset = dataset_objects[0]
+            gtfs_dataset = GtfsDataset(id=database_gtfs_dataset.stable_id,
+                                       feed_id=feed_ids[0],
                                        hosted_url=database_gtfs_dataset.hosted_url,
                                        note=database_gtfs_dataset.note,
                                        downloaded_at=database_gtfs_dataset.download_date.date() if database_gtfs_dataset.download_date else None,
                                        hash=database_gtfs_dataset.hash,
-                                       components=list({x[1] for x in row if x[1]}), )
+                                       components=[component for component in components if component is not None])
 
-            if bound_box_string := row[0][2]:
+            if bound_box_string := bound_box_strings[0]:
                 coordinates = json.loads(bound_box_string)['coordinates'][0]
                 gtfs_dataset.bounding_box = BoundingBox(
                     minimum_latitude=coordinates[0][1],
@@ -91,7 +90,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
     ) -> GtfsDataset:
         """Get the specified dataset from the Mobility Database."""
 
-        query = DatasetsApiImpl.create_dataset_query().filter(Gtfsdataset.id == id)
+        query = DatasetsApiImpl.create_dataset_query().filter(Gtfsdataset.stable_id == id)
 
         if (ret := DatasetsApiImpl.get_datasets_gtfs(query)) and len(ret) == 1:
             return ret[0]

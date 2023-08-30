@@ -15,7 +15,7 @@ def test_datasets_gtfs_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/datasets/gtfs/{id}".format(id='9d4feb5a-adc2-4852-91ad-0cb80c701fa6'),
+        "/v1/datasets/gtfs/{id}".format(id='mdb-1'),
         headers=headers,
     )
 
@@ -33,7 +33,7 @@ def test_feeds_gtfs_id_datasets_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets".format(id='116e51b1-9d91-41a3-8894-56eda76c3036'),
+        "/v1/gtfs_feeds/{id}/datasets".format(id='mdb-1'),
         headers=headers,
         params=params,
     )

@@ -59,7 +59,7 @@ def test_feeds_gtfs_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}".format(id='22c8b41c-88bc-40fc-9989-b275188fef25'),
+        "/v1/gtfs_feeds/{id}".format(id='mdb-1'),
         headers=headers,
     )
 
@@ -101,7 +101,7 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/gtfs_rt_feeds/{id}".format(id='704cf086-c988-4068-b7a8-e1f7c41f28c0'),
+        "/v1/gtfs_rt_feeds/{id}".format(id='mdb-1561'),
         headers=headers,
     )
 

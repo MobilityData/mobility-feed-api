@@ -1,6 +1,7 @@
+import itertools
 import os
 import uuid
-from typing import Type
+from typing import Type, Callable
 
 from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
@@ -98,7 +99,7 @@ class Database:
 
     def select(self, model: Type[Base] = None, query: Select = None,
                conditions: list = None, attributes: list = None, update_session: bool = True,
-               limit: int = None, offset: int = None):
+               limit: int = None, offset: int = None, group_by: Callable = None):
         """
         Executes a query on the database
         :param model: the sqlalchemy model to query
@@ -108,6 +109,7 @@ class Database:
         :param update_session: option to update session before running the query (defaults to True)
         :param limit: the optional number of rows to limit the query with
         :param offset: the optional number of rows to offset the query with
+        :param group_by: an optional function, when given query results will group by return value of group_by function
         :return: None if database is inaccessible, the results of the query otherwise
         """
         try:
@@ -124,7 +126,10 @@ class Database:
                 query = query.limit(limit)
             if offset is not None:
                 query = query.offset(offset)
-            return self.session.execute(query).all()
+            results = self.session.execute(query).all()
+            if group_by:
+                return [list(group) for _, group in itertools.groupby(results, group_by)]
+            return results
         except Exception as e:
             self.logger.error(f'SELECT query failed with exception: \n{e}')
             return None

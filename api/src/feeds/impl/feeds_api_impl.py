@@ -1,10 +1,7 @@
-import itertools
 from typing import List, Type, Set, Union
 
 from fastapi import HTTPException
-from sqlalchemy import select, func, literal_column
-from sqlalchemy.orm import joinedload, Query
-from sqlalchemy.sql import Select
+from sqlalchemy.orm import joinedload, Query, aliased
 
 from database.database import Database
 from database_gen.sqlacodegen_models import Externalid, Feed, Gtfsdataset, Gtfsfeed, Gtfsrealtimefeed
@@ -37,7 +34,7 @@ class FeedsApiImpl(BaseFeedsApi):
                             external_ids: Set[Externalid]) -> Union[APIFeedType]:
         """ Maps the ORM object Feed to API data model specified by clazz"""
 
-        params = {"id": database_feed.id,
+        params = {"id": database_feed.stable_id,
                   "data_type": database_feed.data_type,
                   "status": database_feed.status,
                   "feed_name": database_feed.feed_name,
@@ -48,47 +45,35 @@ class FeedsApiImpl(BaseFeedsApi):
                                             authentication_info_url=database_feed.authentication_info_url,
                                             api_key_parameter_name=database_feed.api_key_parameter_name,
                                             license_url=database_feed.license_url),
-                  "redirects": list(redirects),
+                  "redirects": [redirect for redirect in redirects if redirect is not None],
                   "external_ids": [ExternalId(external_id=external_id.associated_id, source=external_id.source) for
-                                   external_id in external_ids]}
+                                   external_id in external_ids if external_id is not None]}
         obj = clazz(**params)
         return obj
 
     @staticmethod
-    def get_feeds_query() -> Select:
-        return (((select(*Feed.__table__.columns,
-                         func.string_agg(Externalid.associated_id, literal_column("','")).label("associated_ids"),
-                         func.string_agg(Externalid.source, literal_column("','")).label("sources"),
-                         func.string_agg(t_redirectingid.c.target_id, literal_column("','")).label("target_ids"))
-                  .outerjoin(Externalid, Feed.id == Externalid.feed_id))
-                 .outerjoin(t_redirectingid, Feed.id == t_redirectingid.c.source_id))
-                .group_by(*Feed.__table__.columns))
+    def _create_feeds_query(feed_type: Type[Feed]) -> Query:
+        target_feed = aliased(Feed)
+        return (Query([feed_type, target_feed.stable_id, Externalid])
+                .options(joinedload(feed_type.locations))
+                .join(t_redirectingid, feed_type.id == t_redirectingid.c['source_id'], isouter=True)
+                .join(target_feed, t_redirectingid.c.target_id == target_feed.id, isouter=True)
+                .join(Externalid, feed_type.id == Externalid.feed_id, isouter=True))
 
     @staticmethod
-    def map_feed(feed: Feed) -> BasicFeed:
+    def _get_basic_feeds(limit: int = None,
+                         offset: int = None,
+                         conditions: List[Query] = None) -> List[BasicFeed]:
         """
         Maps sqlalchemy data model Feed to API data model BasicFeed
         """
-        redirects = [target for target in feed.target_ids.split(",")] if feed.target_ids else []
-        external_ids = [ExternalId(external_id=associated_id, source=source)
-                        for associated_id, source
-                        in zip(feed.associated_ids.split(","), feed.sources.split(","))] \
-            if feed.associated_ids and feed.sources else []
-        return BasicFeed(id=feed.stable_id, data_type=feed.data_type, status=feed.status,
-                         feed_name=feed.feed_name, note=feed.note, provider=feed.provider,
-                         redirects=redirects, external_ids=external_ids,
-                         source_info=SourceInfo(producer_url=feed.producer_url,
-                                                authentication_type=feed.authentication_type,
-                                                authentication_info_url=feed.authentication_info_url,
-                                                api_key_parameter_name=feed.api_key_parameter_name,
-                                                license_url=feed.license_url))
-
-    @staticmethod
-    def _create_feeds_query(feed_type: Type[Feed]) -> Query:
-        return (Query([feed_type, t_redirectingid.c['target_id'], Externalid])
-                .options(joinedload(feed_type.locations))
-                .join(t_redirectingid, feed_type.id == t_redirectingid.c['source_id'], isouter=True)
-                .join(Externalid, feed_type.id == Externalid.feed_id, isouter=True))
+        feed_groups = Database().select(query=FeedsApiImpl._create_feeds_query(Feed), limit=limit, offset=offset,
+                                        conditions=conditions, group_by=lambda x: x[0].stable_id)
+        basic_feeds = []
+        for feed_group in feed_groups:
+            feed_objects, redirects, external_ids = zip(*feed_group)
+            basic_feeds.append(FeedsApiImpl._create_common_feed(feed_objects[0], BasicFeed, redirects, external_ids))
+        return basic_feeds
 
     @staticmethod
     def _get_gtfs_feeds(limit: int = None,
@@ -103,20 +88,18 @@ class FeedsApiImpl(BaseFeedsApi):
         query = DatasetsApiImpl.apply_bounding_filtering(query, bounding_latitudes, bounding_longitudes,
                                                          bounding_filter_method)
         db = Database()
-        all_rows = [[x for x in y] for _, y in
-                    itertools.groupby(db.select(query=query, limit=limit, offset=offset, conditions=conditions),
-                                      lambda x: x[0].id)]
+        feed_groups = db.select(query=query, limit=limit, offset=offset,
+                                conditions=conditions, group_by=lambda x: x[0].stable_id)
         gtfs_feeds = []
-        for row in all_rows:
-            redirects = {x[1] for x in row if x[1]}
-            external_ids = {x[2] for x in row if x[2]}
+        for feed_group in feed_groups:
+            feed_objects, redirects, external_ids, latest_datasets = zip(*feed_group)
 
-            gtfs_feed = FeedsApiImpl._create_common_feed(row[0][0], GtfsFeed, redirects, external_ids)
-            latest_datasets = {x[3] for x in row if x[3]}
+            gtfs_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsFeed, redirects, external_ids)
 
-            if latest_dataset := next(filter(lambda x: x.latest, latest_datasets), None):
+            if latest_dataset := next(filter(lambda x: x is not None and x.latest, latest_datasets), None):
                 # better check if there are more than one latest dataset
-                gtfs_feed.latest_dataset = LatestDataset(id=latest_dataset.id, hosted_url=latest_dataset.hosted_url)
+                gtfs_feed.latest_dataset = LatestDataset(id=latest_dataset.stable_id,
+                                                         hosted_url=latest_dataset.hosted_url)
 
             gtfs_feeds.append(gtfs_feed)
 
@@ -128,18 +111,15 @@ class FeedsApiImpl(BaseFeedsApi):
                  .join(t_entitytypefeed, isouter=True)
                  .join(t_feedreference, isouter=True)
                  .add_columns(t_entitytypefeed.c['entity_name'], t_feedreference.c['gtfs_feed_id']))
-        db = Database()
-        all_rows = [[x for x in y] for _, y in
-                    itertools.groupby(db.select(query=query, limit=limit, offset=offset, conditions=conditions),
-                                      lambda x: x[0].id)]
+        feed_groups = Database().select(query=query, limit=limit, offset=offset,
+                                        conditions=conditions, group_by=lambda x: x[0].stable_id)
         gtfs_rt_feeds = []
-        for row in all_rows:
-            redirects = {x[1] for x in row if x[1]}
-            external_ids = {x[2] for x in row if x[2]}
+        for feed_group in feed_groups:
+            feed_objects, redirects, external_ids, entity_types, feed_references = zip(*feed_group)
 
-            gtfs_rt_feed = FeedsApiImpl._create_common_feed(row[0][0], GtfsRTFeed, redirects, external_ids)
-            gtfs_rt_feed.entity_types = {x[3] for x in row if x[3]}
-            gtfs_rt_feed.feed_references = {x[4] for x in row if x[4]}
+            gtfs_rt_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsRTFeed, redirects, external_ids)
+            gtfs_rt_feed.entity_types = {entity_type for entity_type in entity_types if entity_type is not None}
+            gtfs_rt_feed.feed_references = {reference for reference in feed_references if reference is not None}
             gtfs_rt_feeds.append(gtfs_rt_feed)
 
         return gtfs_rt_feeds
@@ -149,10 +129,10 @@ class FeedsApiImpl(BaseFeedsApi):
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        feeds = Database().select(query=self.get_feeds_query(), conditions=[Feed.stable_id == id])
-        if len(feeds) == 1:
-            return self.map_feed(feeds[0])
-        raise HTTPException(status_code=404, detail=f"Feed {id} not found")
+        if (ret := self._get_basic_feeds(conditions=[Feed.stable_id == id])) and len(ret) == 1:
+            return ret[0]
+        else:
+            raise HTTPException(status_code=404, detail=f"Feed {id} not found")
 
     def get_feed_logs(
             id: str,
@@ -173,15 +153,14 @@ class FeedsApiImpl(BaseFeedsApi):
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return [self.map_feed(feed) for feed in
-                Database().select(query=self.get_feeds_query(), limit=limit, offset=offset)]
+        return self._get_basic_feeds(limit=limit, offset=offset)
 
     def get_gtfs_feed(
             self,
             id: str,
     ) -> GtfsFeed:
         """Get the specified feed from the Mobility Database."""
-        if (ret := self._get_gtfs_feeds(conditions=[Gtfsfeed.id == id])) and len(ret) == 1:
+        if (ret := self._get_gtfs_feeds(conditions=[Gtfsfeed.stable_id == id])) and len(ret) == 1:
             return ret[0]
         else:
             raise HTTPException(status_code=404, detail=f"GTFS feed {id} not found")
@@ -200,7 +179,7 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         # getting the bounding box as JSON to make it easier to process
-        query = DatasetsApiImpl.create_dataset_query().filter(Gtfsdataset.feed_id == id)
+        query = DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id)
         query = DatasetsApiImpl.apply_bounding_filtering(query, bounding_latitudes, bounding_longitudes,
                                                          bounding_filter_method)
 
@@ -229,7 +208,7 @@ class FeedsApiImpl(BaseFeedsApi):
             id: str,
     ) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
-        if (ret := self._get_gtfs_rt_feeds(conditions=[Gtfsrealtimefeed.id == id])) and len(ret) == 1:
+        if (ret := self._get_gtfs_rt_feeds(conditions=[Gtfsrealtimefeed.stable_id == id])) and len(ret) == 1:
             return ret[0]
         else:
             raise HTTPException(status_code=404, detail=f"GTFS realtime feed {id} not found")
