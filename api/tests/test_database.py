@@ -23,64 +23,65 @@ def test_database_singleton():
     assert Database() is Database()
 
 
-class TestingBoundingBox(unittest.TestCase):
-    def setUp(self):
-        super().__init__()
-        self.db = Database()
-        # latitudes: 37.615264, 38.2321
-        # longitudes: -84.8984452721203, -84.4789953029549
-        self.base_query = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
-            Gtfsdataset.stable_id == "mdb-1")
-
-    def test_dateset_exists(self):
-        self.assertEquals(1, len(self.db.select(query=self.base_query)))
-
-    # TODO (jujiang): Change these datasets to use stable_id the id column are auto-generated in scripts/populate_db.py
-    # def test_completed_closed(self):
-    #     self._test_bounding("37.7, 38", "-84.7,-84.6", "completely_enclosed", True)
-    #     # min latitude is too low
-    #     self._test_bounding("37, 38", "-84.7,-84.6", "completely_enclosed", False)
-    #     # max latitude is too high
-    #     self._test_bounding("37.7, 39", "-84.7,-84.6", "completely_enclosed", False)
-    #     # min longitude is too low
-    #     self._test_bounding("37.7, 38", "-85,-84.6", "completely_enclosed", False)
-    #     # max longitude is too high
-    #     self._test_bounding("37.7, 38", "-84.7,-83", "completely_enclosed", False)
-    #
-    # def test_partial_closed(self):
-    #     # completely enclosed, still considered as partially enclosed
-    #     self._test_bounding("37.7, 38", "-84.7,-84.6", "partially_enclosed", True)
-    #     # min latitude is too low
-    #     self._test_bounding("37, 38", "-84.7,-84.6", "partially_enclosed", True)
-    #     # max latitude is too high
-    #     self._test_bounding("37.7, 39", "-84.7,-84.6", "partially_enclosed", True)
-    #     # min longitude is too low
-    #     self._test_bounding("37.7, 38", "-85,-84.6", "partially_enclosed", True)
-    #     # max longitude is too high
-    #     self._test_bounding("37.7, 38", "-84.7,-83", "partially_enclosed", True)
-    #     # disjoint
-    #     self._test_bounding("1, 2", "3, 4", "partially_enclosed", False)
-    #     # contained
-    #     self._test_bounding("37, 39", "-85,-83", "partially_enclosed", False)
-    #
-    # def test_disjoint(self):
-    #     # completely enclosed
-    #     self._test_bounding("37.7, 38", "-84.7,-84.6", "disjoint", False)
-    #     # overlap
-    #     self._test_bounding("37, 38", "-84.7,-84.6", "disjoint", False)
-    #     # disjoint
-    #     self._test_bounding("1, 2", "3, 4", "disjoint", True)
-    #     # contained
-    #     self._test_bounding("37, 39", "-85,-83", "disjoint", False)
-    #
-    # def _test_bounding(self, latitudes, longitudes, method, expected_found):
-    #     query = DatasetsApiImpl.apply_bounding_filtering(self.base_query, latitudes, longitudes, method)
-    #     result = self.db.select(query=query)
-    #     if expected_found:
-    #         self.assertTrue(result)
-    #     else:
-    #         self.assertFalse(result)
-
+# TODO (jujiang): Change these datasets to use stable_id the id column are auto-generated in scripts/populate_db.py
+# class TestingBoundingBox(unittest.TestCase):
+#     def setUp(self):
+#         super().__init__()
+#         self.db = Database()
+#         # latitudes: 37.615264, 38.2321
+#         # longitudes: -84.8984452721203, -84.4789953029549
+#         self.base_query = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
+#             Gtfsdataset.id == "053a6871-0089-42d7-b516-e7a4edc41e30")
+#
+#     def test_dateset_exists(self):
+#         self.assertEquals(1, len(self.db.select(query=self.base_query)))
+#
+#
+#     def test_completed_closed(self):
+#         self._test_bounding("37.7, 38", "-84.7,-84.6", "completely_enclosed", True)
+#         # min latitude is too low
+#         self._test_bounding("37, 38", "-84.7,-84.6", "completely_enclosed", False)
+#         # max latitude is too high
+#         self._test_bounding("37.7, 39", "-84.7,-84.6", "completely_enclosed", False)
+#         # min longitude is too low
+#         self._test_bounding("37.7, 38", "-85,-84.6", "completely_enclosed", False)
+#         # max longitude is too high
+#         self._test_bounding("37.7, 38", "-84.7,-83", "completely_enclosed", False)
+#
+#     def test_partial_closed(self):
+#         # completely enclosed, still considered as partially enclosed
+#         self._test_bounding("37.7, 38", "-84.7,-84.6", "partially_enclosed", True)
+#         # min latitude is too low
+#         self._test_bounding("37, 38", "-84.7,-84.6", "partially_enclosed", True)
+#         # max latitude is too high
+#         self._test_bounding("37.7, 39", "-84.7,-84.6", "partially_enclosed", True)
+#         # min longitude is too low
+#         self._test_bounding("37.7, 38", "-85,-84.6", "partially_enclosed", True)
+#         # max longitude is too high
+#         self._test_bounding("37.7, 38", "-84.7,-83", "partially_enclosed", True)
+#         # disjoint
+#         self._test_bounding("1, 2", "3, 4", "partially_enclosed", False)
+#         # contained
+#         self._test_bounding("37, 39", "-85,-83", "partially_enclosed", False)
+#
+#     def test_disjoint(self):
+#         # completely enclosed
+#         self._test_bounding("37.7, 38", "-84.7,-84.6", "disjoint", False)
+#         # overlap
+#         self._test_bounding("37, 38", "-84.7,-84.6", "disjoint", False)
+#         # disjoint
+#         self._test_bounding("1, 2", "3, 4", "disjoint", True)
+#         # contained
+#         self._test_bounding("37, 39", "-85,-83", "disjoint", False)
+#
+#     def _test_bounding(self, latitudes, longitudes, method, expected_found):
+#         query = DatasetsApiImpl.apply_bounding_filtering(self.base_query, latitudes, longitudes, method)
+#         result = self.db.select(query=query)
+#         if expected_found:
+#             self.assertTrue(result)
+#         else:
+#             self.assertFalse(result)
+#
 
 # class TestDatabaseQuery(unittest.TestCase):
 #

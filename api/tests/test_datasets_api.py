@@ -1,8 +1,6 @@
 # coding: utf-8
 from fastapi.testclient import TestClient
 
-import test_database
-
 
 def test_datasets_gtfs_id_get(client: TestClient):
     """Test case for datasets_gtfs_id_get
