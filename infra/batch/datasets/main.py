@@ -183,10 +183,11 @@ def get_db_engine():
 @functions_framework.cloud_event
 def process_dataset(cloud_event: CloudEvent):
     try:
+        data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
+        json_payload = json.loads(data)
         print(
-            "Hello, " + base64.b64decode(cloud_event.data["message"]["data"]).decode() + "!"
+            json_payload
         )
-        # json_payload = dict(request.json)
         # producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
         #     "feed_id"]
         # print("JSON Payload:", json_payload)

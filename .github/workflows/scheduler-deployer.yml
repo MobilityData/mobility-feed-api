@@ -71,15 +71,6 @@ jobs:
           cd infra/batch
           terraform init -backend-config=backend.conf
 
-#      - name: Terraform Import
-#        continue-on-error: true
-#        run: |
-#          cd infra/batch
-#          terraform import -var-file=vars.tfvars google_storage_bucket.bucket "${{ env.PROJECT_ID }}/${{ env.FUNCTION_BUCKET_NAME }}"
-#          terraform import -var-file=vars.tfvars google_cloudfunctions2_function.function projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/functions/dataset-batch-function-v2
-#          terraform import -var-file=vars.tfvars google_cloudfunctions2_function.function2 projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/functions/dataset-function
-#          terraform import -var-file=vars.tfvars google_cloud_scheduler_job.job projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/jobs/dataset-batch-job
-
       - name: Terraform Plan
         run: |
           cd infra/batch
