@@ -190,7 +190,6 @@ def process_dataset(cloud_event: CloudEvent):
         print("JSON Payload:", json_payload)
 
         bucket_name = os.getenv("BUCKET_NAME")
-        create_bucket(bucket_name)
         engine = get_db_engine()
         validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
     except Exception as e:
@@ -206,6 +205,9 @@ async def call_process_dataset(session, url, payload):
 
 @functions_framework.http
 def batch_dataset(request):
+    bucket_name = os.getenv("BUCKET_NAME")
+    create_bucket(bucket_name)
+
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
                     "status='active' and authentication_type='0' limit 100"
@@ -216,7 +218,7 @@ def batch_dataset(request):
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path('mobility-feeds-dev', 'functions2-topic')
 
-    for stable_id, producer_url, feed_id in results[0:10]:
+    for stable_id, producer_url, feed_id in results:
         payload = {
             "producer_url": producer_url,
             "stable_id": stable_id,
