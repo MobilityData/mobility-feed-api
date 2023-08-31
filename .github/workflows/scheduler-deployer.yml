@@ -72,7 +72,7 @@ jobs:
           cat backend.conf
           terraform init -backend-config=backend.conf
         env:
-          GOOGLE_CREDENTIALS: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
           PROJECT_ID: ${{ env.PROJECT_ID }}
 
       - name: Terraform Import
