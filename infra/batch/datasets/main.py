@@ -127,7 +127,7 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         # In case the dataset doesn't include a hash or the dataset was deleted from the bucket,
         # update the existing entity
         if dataset_hash is None or dataset_hash == md5_file_hash:
-            sql_statement = f"update gtfsdataset set hash='{md5_file_hash}' where id='{dataset_id}'"
+            sql_statement = f"update gtfsdataset set hash='{md5_file_hash}', hosted_url={hosted_url} where id='{dataset_id}'"
         connection.execute(text(sql_statement))
 
         # Commit transaction after every step has run successfully
