@@ -190,6 +190,7 @@ def process_dataset(cloud_event: CloudEvent):
         print("JSON Payload:", json_payload)
 
         bucket_name = os.getenv("BUCKET_NAME")
+        create_bucket(bucket_name)
         engine = get_db_engine()
         validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
     except Exception as e:
