@@ -144,7 +144,8 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
             print(f"Logging errors for stable id {stable_id}\n{errors}")
             storage_client = storage.Client()
             bucket = storage_client.get_bucket(bucket_name)
-            blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{stable_id}/errors.log")
+            error_type = "other" if 'requests.exceptions.HTTPError' not in errors else "http"
+            blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
             blob.upload_from_string(errors)
         if connection is not None:
             connection.close()
