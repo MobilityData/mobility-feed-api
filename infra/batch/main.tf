@@ -1,10 +1,5 @@
 data "google_project" "project" {}
 
-terraform {
-  backend "gcs" {
-  }
-}
-
 provider "google" {
  region = var.gcp_region
 }

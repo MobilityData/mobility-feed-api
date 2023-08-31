@@ -1,3 +1,8 @@
+terraform {
+  backend "gcs" {
+  }
+}
+
 variable "project_id" {
   type        = string
   description = "GCP project ID"

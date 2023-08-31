@@ -71,9 +71,6 @@ jobs:
           cd infra/batch
           cat backend.conf
           terraform init -backend-config=backend.conf
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-          PROJECT_ID: ${{ env.PROJECT_ID }}
 
       - name: Terraform Import
         continue-on-error: true
