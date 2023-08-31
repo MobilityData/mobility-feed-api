@@ -215,7 +215,7 @@ def batch_dataset(request):
     print(f"Retrieved {len(results)} active feeds.")
 
     publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path('mobility-feeds-dev', 'functions2')
+    topic_path = publisher.topic_path('mobility-feeds-dev', 'functions2-topic')
 
     for stable_id, producer_url, feed_id in results[0:10]:
         payload = {
