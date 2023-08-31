@@ -185,16 +185,13 @@ def process_dataset(cloud_event: CloudEvent):
     try:
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         json_payload = json.loads(data)
-        print(
-            json_payload
-        )
-        # producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
-        #     "feed_id"]
-        # print("JSON Payload:", json_payload)
-        #
-        # bucket_name = os.getenv("BUCKET_NAME")
-        # engine = get_db_engine()
-        # validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
+        producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
+            "feed_id"]
+        print("JSON Payload:", json_payload)
+
+        bucket_name = os.getenv("BUCKET_NAME")
+        engine = get_db_engine()
+        validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
     except Exception as e:
         print("Could not parse JSON:", e)
         return f'[ERROR] Error processing request \n{e}\n{traceback.format_exc()}'
