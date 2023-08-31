@@ -1,4 +1,6 @@
+import base64
 import gc
+import json
 import os
 import traceback
 import uuid
@@ -11,6 +13,8 @@ import requests
 from google.cloud import storage
 from datetime import datetime
 from hashlib import md5
+from cloudevents.http import CloudEvent
+from google.cloud import pubsub_v1
 
 
 def upload_dataset(url, bucket_name, stable_id):
@@ -176,17 +180,20 @@ def get_db_engine():
     return engine
 
 
-@functions_framework.http
-def process_dataset(request):
+@functions_framework.cloud_event
+def process_dataset(cloud_event: CloudEvent):
     try:
-        json_payload = dict(request.json)
-        producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
-            "feed_id"]
-        print("JSON Payload:", json_payload)
-
-        bucket_name = os.getenv("BUCKET_NAME")
-        engine = get_db_engine()
-        validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
+        print(
+            "Hello, " + base64.b64decode(cloud_event.data["message"]["data"]).decode() + "!"
+        )
+        # json_payload = dict(request.json)
+        # producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
+        #     "feed_id"]
+        # print("JSON Payload:", json_payload)
+        #
+        # bucket_name = os.getenv("BUCKET_NAME")
+        # engine = get_db_engine()
+        # validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
     except Exception as e:
         print("Could not parse JSON:", e)
         return f'[ERROR] Error processing request \n{e}\n{traceback.format_exc()}'
@@ -207,26 +214,17 @@ def batch_dataset(request):
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
-    async def main():
-        url = "https://us-central1-mobility-feeds-dev.cloudfunctions.net/dataset-function"
-        tasks = []
+    publisher = pubsub_v1.PublisherClient()
+    topic_path = publisher.topic_path('mobility-feeds-dev', 'functions2')
 
-        async with ClientSession() as session:
-            for stable_id, producer_url, feed_id in results[90:105]:
-                payload = {
-                    "producer_url": producer_url,
-                    "stable_id": stable_id,
-                    "feed_id": feed_id
-                }
-
-                task = asyncio.ensure_future(call_process_dataset(session, url, payload))
-                tasks.append(task)
-
-            responses = await asyncio.gather(*tasks)
-            print(responses)
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(main())
+    for stable_id, producer_url, feed_id in results[0:10]:
+        payload = {
+            "producer_url": producer_url,
+            "stable_id": stable_id,
+            "feed_id": feed_id
+        }
+        data_str = json.dumps(payload)
+        data_bytes = data_str.encode('utf-8')
+        publisher.publish(topic_path, data=data_bytes)
 
     return 'Completed datasets batch processing.'

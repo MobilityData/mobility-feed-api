@@ -1,4 +1,10 @@
 data "google_project" "project" {}
+
+terraform {
+  backend "gcs" {
+  }
+}
+
 provider "google" {
  region = var.gcp_region
 }
@@ -64,6 +70,11 @@ resource "google_cloudfunctions2_function" "function" {
   }
 }
 
+resource "google_pubsub_topic" "default" {
+  name = "functions2-topic"
+}
+
+
 resource "google_cloudfunctions2_function" "function2" {
   name                    = "dataset-function" # TODO this should be a variable
   description             = "Python function"
@@ -84,6 +95,12 @@ resource "google_cloudfunctions2_function" "function2" {
     environment_variables = var.function_env_variables
     service_account_email = data.google_service_account.ci_impersonator_service_account.email
   }
+  event_trigger {
+    trigger_region = "us-central1"
+    event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic   = google_pubsub_topic.default.id
+    retry_policy   = "RETRY_POLICY_RETRY"
+  }
 }
 
 resource "google_cloud_scheduler_job" "job" {
@@ -101,5 +118,3 @@ resource "google_cloud_scheduler_job" "job" {
     }
   }
 }
-
-
