@@ -28,7 +28,7 @@ jobs:
           echo "Setting variables"
           echo "FUNCTION_BUCKET_NAME=mobility-batch-processing" >> $GITHUB_ENV
           echo "BUCKET_NAME=mobility-feeds-terraform-dev" >> $GITHUB_ENV
-          echo "OBJECT_PREFIX=${{ env.FUNCTION_BUCKET_NAME }}-tf-state" >> $GITHUB_ENV
+          echo "OBJECT_PREFIX=mobility-batch-processing-tf-state" >> $GITHUB_ENV
           echo "PROJECT_ID=mobility-feeds-dev" >> $GITHUB_ENV
           echo "REGION=us-central1" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=ci-impersonator@mobility-feeds-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
