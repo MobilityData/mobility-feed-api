@@ -86,7 +86,7 @@ resource "google_cloudfunctions2_function" "function2" {
   }
   service_config {
     available_memory      = "512Mi"
-    timeout_seconds       = 3600
+    timeout_seconds       = 540
     environment_variables = var.function_env_variables
     service_account_email = data.google_service_account.ci_impersonator_service_account.email
   }
