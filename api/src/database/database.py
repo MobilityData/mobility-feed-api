@@ -2,6 +2,7 @@ import itertools
 import os
 import uuid
 from typing import Type, Callable
+from dotenv import load_dotenv
 
 from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
@@ -32,6 +33,7 @@ class Database:
         return cls.instance
 
     def __init__(self):
+        load_dotenv()
         POSTGRES_USER = os.getenv("POSTGRES_USER")
         POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
         POSTGRES_DB = os.getenv("POSTGRES_DB")
