@@ -1,6 +1,7 @@
 import os
 import uuid
 from typing import Type
+from dotenv import load_dotenv
 
 from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
@@ -25,6 +26,7 @@ class Database:
     """
 
     def __init__(self):
+        load_dotenv()
         POSTGRES_USER = os.getenv("POSTGRES_USER")
         POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
         POSTGRES_DB = os.getenv("POSTGRES_DB")
