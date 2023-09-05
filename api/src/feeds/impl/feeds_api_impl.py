@@ -1,11 +1,16 @@
 from typing import List, Type, Set, Union
 
 from fastapi import HTTPException
-from sqlalchemy.orm import joinedload, Query, aliased
+from sqlalchemy.orm import Query, aliased
 
 from database.database import Database
-from database_gen.sqlacodegen_models import Externalid, Feed, Gtfsdataset, Gtfsfeed, Gtfsrealtimefeed
+from database_gen.sqlacodegen_models import Externalid, Feed, Gtfsdataset, Gtfsfeed, Gtfsrealtimefeed, t_locationfeed, \
+    Location, Entitytype
 from database_gen.sqlacodegen_models import t_redirectingid, t_entitytypefeed, t_feedreference
+from feeds.filters.feed_filter import FeedFilter
+from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
+from feeds.filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
+from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
@@ -17,6 +22,7 @@ from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
+from feeds_gen.models.location import Location as ApiLocation
 
 
 class FeedsApiImpl(BaseFeedsApi):
@@ -55,20 +61,21 @@ class FeedsApiImpl(BaseFeedsApi):
     def _create_feeds_query(feed_type: Type[Feed]) -> Query:
         target_feed = aliased(Feed)
         return (Query([feed_type, target_feed.stable_id, Externalid])
-                .options(joinedload(feed_type.locations))
                 .join(t_redirectingid, feed_type.id == t_redirectingid.c['source_id'], isouter=True)
                 .join(target_feed, t_redirectingid.c.target_id == target_feed.id, isouter=True)
                 .join(Externalid, feed_type.id == Externalid.feed_id, isouter=True))
 
     @staticmethod
-    def _get_basic_feeds(limit: int = None,
+    def _get_basic_feeds(feed_filter: FeedFilter,
+                         limit: int = None,
                          offset: int = None,
-                         conditions: List[Query] = None) -> List[BasicFeed]:
+                         ) -> List[BasicFeed]:
         """
         Maps sqlalchemy data model Feed to API data model BasicFeed
         """
-        feed_groups = Database().select(query=FeedsApiImpl._create_feeds_query(Feed), limit=limit, offset=offset,
-                                        conditions=conditions, group_by=lambda x: x[0].stable_id)
+        feed_groups = Database().select(query=feed_filter.filter(FeedsApiImpl._create_feeds_query(Feed)),
+                                        limit=limit, offset=offset,
+                                        group_by=lambda x: x[0].stable_id)
         basic_feeds = []
         for feed_group in feed_groups:
             feed_objects, redirects, external_ids = zip(*feed_group)
@@ -76,15 +83,19 @@ class FeedsApiImpl(BaseFeedsApi):
         return basic_feeds
 
     @staticmethod
-    def _get_gtfs_feeds(limit: int = None,
+    def _get_gtfs_feeds(feed_filter: GtfsFeedFilter,
+                        limit: int = None,
                         offset: int = None,
                         conditions: List[Query] = None,
                         bounding_latitudes: str = None,
                         bounding_longitudes: str = None,
                         bounding_filter_method: str = None) -> List[GtfsFeed]:
-        query = (FeedsApiImpl._create_feeds_query(Gtfsfeed)
-                 .join(Gtfsdataset, Gtfsfeed.id == Gtfsdataset.feed_id, isouter=True)
-                 .add_entity(Gtfsdataset))
+        query = feed_filter.filter(FeedsApiImpl._create_feeds_query(Gtfsfeed)
+                                   .join(Gtfsdataset, Gtfsfeed.id == Gtfsdataset.feed_id, isouter=True)
+                                   .add_entity(Gtfsdataset)
+                                   .join(t_locationfeed, t_locationfeed.c.feed_id == Gtfsfeed.id, isouter=True)
+                                   .join(Location, t_locationfeed.c.location_id == Location.id, isouter=True)
+                                   .add_entity(Location))
         query = DatasetsApiImpl.apply_bounding_filtering(query, bounding_latitudes, bounding_longitudes,
                                                          bounding_filter_method)
         db = Database()
@@ -92,10 +103,13 @@ class FeedsApiImpl(BaseFeedsApi):
                                 conditions=conditions, group_by=lambda x: x[0].stable_id)
         gtfs_feeds = []
         for feed_group in feed_groups:
-            feed_objects, redirects, external_ids, latest_datasets = zip(*feed_group)
+            feed_objects, redirects, external_ids, latest_datasets, locations = zip(*feed_group)
 
             gtfs_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsFeed, redirects, external_ids)
-
+            gtfs_feed.locations = [ApiLocation(country_code=location.country_code,
+                                               subdivision_name=location.subdivision_name,
+                                               municipality=location.municipality)
+                                   for location in locations if location is not None]
             if latest_dataset := next(filter(lambda x: x is not None and x.latest, latest_datasets), None):
                 # better check if there are more than one latest dataset
                 gtfs_feed.latest_dataset = LatestDataset(id=latest_dataset.stable_id,
@@ -106,11 +120,16 @@ class FeedsApiImpl(BaseFeedsApi):
         return gtfs_feeds
 
     @staticmethod
-    def _get_gtfs_rt_feeds(limit: int = None, offset: int = None, conditions: List[Query] = None) -> List[GtfsRTFeed]:
-        query = (FeedsApiImpl._create_feeds_query(Gtfsrealtimefeed)
-                 .join(t_entitytypefeed, isouter=True)
-                 .join(t_feedreference, isouter=True)
-                 .add_columns(t_entitytypefeed.c['entity_name'], t_feedreference.c['gtfs_feed_id']))
+    def _get_gtfs_rt_feeds(feed_filter: GtfsRtFeedFilter,
+                           limit: int = None, offset: int = None, conditions: List[Query] = None) -> List[GtfsRTFeed]:
+        referenced_feed = aliased(Feed)
+        query = feed_filter.filter(FeedsApiImpl._create_feeds_query(Gtfsrealtimefeed)
+                                   .join(t_entitytypefeed, isouter=True)
+                                   .join(Entitytype, isouter=True)
+                                   .join(t_feedreference, isouter=True)
+                                   .join(referenced_feed, referenced_feed.id == t_feedreference.c.gtfs_feed_id,
+                                         isouter=True)
+                                   .add_columns(Entitytype.name, referenced_feed.stable_id))
         feed_groups = Database().select(query=query, limit=limit, offset=offset,
                                         conditions=conditions, group_by=lambda x: x[0].stable_id)
         gtfs_rt_feeds = []
@@ -129,7 +148,7 @@ class FeedsApiImpl(BaseFeedsApi):
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        if (ret := self._get_basic_feeds(conditions=[Feed.stable_id == id])) and len(ret) == 1:
+        if (ret := self._get_basic_feeds(FeedFilter(stable_id=id))) and len(ret) == 1:
             return ret[0]
         else:
             raise HTTPException(status_code=404, detail=f"Feed {id} not found")
@@ -149,18 +168,21 @@ class FeedsApiImpl(BaseFeedsApi):
             self,
             limit: int,
             offset: int,
-            filter: str,
+            status: str,
+            provider: str,
+            data_type: str,
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return self._get_basic_feeds(limit=limit, offset=offset)
+        return self._get_basic_feeds(FeedFilter(status=status, provider__ilike=provider,
+                                                data_type=data_type), limit, offset)
 
     def get_gtfs_feed(
             self,
             id: str,
     ) -> GtfsFeed:
         """Get the specified feed from the Mobility Database."""
-        if (ret := self._get_gtfs_feeds(conditions=[Gtfsfeed.stable_id == id])) and len(ret) == 1:
+        if (ret := self._get_gtfs_feeds(GtfsFeedFilter(stable_id=id))) and len(ret) == 1:
             return ret[0]
         else:
             raise HTTPException(status_code=404, detail=f"GTFS feed {id} not found")
@@ -171,7 +193,8 @@ class FeedsApiImpl(BaseFeedsApi):
             latest: bool,
             limit: int,
             offset: int,
-            filter: str,
+            downloaded_date_gte: str,
+            downloaded_date_lte: str,
             sort: str,
             bounding_latitudes: str,
             bounding_longitudes: str,
@@ -179,7 +202,8 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         # getting the bounding box as JSON to make it easier to process
-        query = DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id)
+        query = (GtfsDatasetFilter(download_date__lte=downloaded_date_lte, download_date__gte=downloaded_date_gte)
+                 .filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id)))
         query = DatasetsApiImpl.apply_bounding_filtering(query, bounding_latitudes, bounding_longitudes,
                                                          bounding_filter_method)
 
@@ -192,14 +216,21 @@ class FeedsApiImpl(BaseFeedsApi):
             self,
             limit: int,
             offset: int,
-            filter: str,
+            provider: str,
+            country_code: str,
+            subdivision_name: str,
+            municipality: str,
             sort: str,
             bounding_latitudes: str,
             bounding_longitudes: str,
             bounding_filter_method: str,
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
-        return self._get_gtfs_feeds(limit=limit, offset=offset, bounding_latitudes=bounding_latitudes,
+        location_filter = LocationFilter(country_code=country_code,
+                                         subdivision_name__ilike=subdivision_name,
+                                         municipality__ilike=municipality)
+        return self._get_gtfs_feeds(GtfsFeedFilter(provider__ilike=provider, location=location_filter),
+                                    limit=limit, offset=offset, bounding_latitudes=bounding_latitudes,
                                     bounding_longitudes=bounding_longitudes,
                                     bounding_filter_method=bounding_filter_method)
 
@@ -208,7 +239,7 @@ class FeedsApiImpl(BaseFeedsApi):
             id: str,
     ) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
-        if (ret := self._get_gtfs_rt_feeds(conditions=[Gtfsrealtimefeed.stable_id == id])) and len(ret) == 1:
+        if (ret := self._get_gtfs_rt_feeds(GtfsRtFeedFilter(stable_id=id))) and len(ret) == 1:
             return ret[0]
         else:
             raise HTTPException(status_code=404, detail=f"GTFS realtime feed {id} not found")
@@ -217,8 +248,11 @@ class FeedsApiImpl(BaseFeedsApi):
             self,
             limit: int,
             offset: int,
-            filter: str,
+            provider: str,
+            entity_types: str,
             sort: str,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
-        return self._get_gtfs_rt_feeds(limit, offset)
+        return self._get_gtfs_rt_feeds(GtfsRtFeedFilter(provider__ilike=provider,
+                                                        entity_types=EntityTypeFilter(name__in=entity_types)),
+                                       limit, offset)

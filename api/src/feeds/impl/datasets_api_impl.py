@@ -69,7 +69,8 @@ class DatasetsApiImpl(BaseDatasetsApi):
                                        feed_id=feed_ids[0],
                                        hosted_url=database_gtfs_dataset.hosted_url,
                                        note=database_gtfs_dataset.note,
-                                       downloaded_at=database_gtfs_dataset.download_date.date() if database_gtfs_dataset.download_date else None,
+                                       downloaded_at=database_gtfs_dataset.download_date.isoformat()
+                                       if database_gtfs_dataset.download_date else None,
                                        hash=database_gtfs_dataset.hash,
                                        components=[component for component in components if component is not None])
 
