@@ -2,12 +2,14 @@ import base64
 import gc
 import json
 import os
+import time
 import traceback
 import uuid
 import functions_framework
 from sqlalchemy import create_engine, text
 from aiohttp import ClientSession, TCPConnector
 import asyncio
+from requests.exceptions import HTTPError
 
 import requests
 from google.cloud import storage
@@ -25,8 +27,15 @@ def upload_dataset(url, bucket_name, stable_id):
     :param stable_id: the dataset stable id
     :return: the file hash and the hosted url as a tuple
     """
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    response = requests.get(url, headers=headers)
+    headers = {
+        'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/39.0.2171.95 Safari/537.36'
+    }
+    response = requests.get(url, headers=headers, verify=False)
+    print(response.status_code)
+    print(response.headers)
+    print(response.text)
     response.raise_for_status()
 
     content = response.content
@@ -133,6 +142,8 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         # Commit transaction after every step has run successfully
         transaction.commit()
     except Exception as e:
+        if isinstance(e, HTTPError):
+            errors += f"{e.response.status_code} "
         if transaction is not None:
             transaction.rollback()
         error_traceback = traceback.format_exc()
@@ -144,7 +155,12 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
             print(f"Logging errors for stable id {stable_id}\n{errors}")
             storage_client = storage.Client()
             bucket = storage_client.get_bucket(bucket_name)
-            error_type = "other" if 'requests.exceptions.HTTPError' not in errors else "http"
+            error_type = "other" if 'HTTPError' not in errors else "http"
+            try:
+                http_error_status = int(error_type[0:3])
+                error_type += f'/{http_error_status}'
+            except ValueError:
+                print('Not http error')
             blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
             blob.upload_from_string(errors)
         if connection is not None:
@@ -219,6 +235,7 @@ def batch_dataset(request):
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path('mobility-feeds-dev', 'functions2-topic')
 
+    batch_count = 0
     for stable_id, producer_url, feed_id in results:
         payload = {
             "producer_url": producer_url,
@@ -228,5 +245,10 @@ def batch_dataset(request):
         data_str = json.dumps(payload)
         data_bytes = data_str.encode('utf-8')
         publisher.publish(topic_path, data=data_bytes)
+        batch_count += 1
+        if batch_count >= 5:
+            print("Published 5 messages, sleeping for 10 seconds...")
+            time.sleep(10)
+            batch_count = 0  # Reset counter after sleep
 
     return 'Completed datasets batch processing.'
