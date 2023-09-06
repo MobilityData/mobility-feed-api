@@ -34,8 +34,6 @@ def upload_dataset(url, bucket_name, stable_id):
     }
     response = requests.get(url, headers=headers, verify=False)
     print(response.status_code)
-    print(response.headers)
-    print(response.text)
     response.raise_for_status()
 
     content = response.content
@@ -74,22 +72,6 @@ def upload_dataset(url, bucket_name, stable_id):
 
         return file_md5_hash, timestamp_blob.public_url
     return file_md5_hash, None
-
-
-async def process_all(engine, bucket_name, results):
-    """
-    TODO
-    :param engine:
-    :param bucket_name:
-    :param results:
-    """
-    connector = TCPConnector(limit_per_host=20)  # Limit the pool size
-    async with ClientSession(connector=connector) as session:
-        tasks = [
-            validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
-            for stable_id, producer_url, feed_id in results
-        ]
-        await asyncio.gather(*tasks)
 
 
 def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
@@ -170,14 +152,12 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
 
 def create_bucket(bucket_name):
     """
-    TODO
-    :param bucket_name:
+    Creates GCP storage bucket if it doesn't exist
+    :param bucket_name: name of the bucket to create
     """
     storage_client = storage.Client()
-    # Check if the bucket already exists
     bucket = storage_client.lookup_bucket(bucket_name)
     if bucket is None:
-        # If not, create the bucket
         bucket = storage_client.create_bucket(bucket_name)
         print(f'Bucket {bucket} created.')
     else:
@@ -235,7 +215,7 @@ def batch_dataset(request):
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path('mobility-feeds-dev', 'functions2-topic')
 
-    batch_count = 0
+    # batch_count = 0
     for stable_id, producer_url, feed_id in results:
         payload = {
             "producer_url": producer_url,
@@ -245,10 +225,10 @@ def batch_dataset(request):
         data_str = json.dumps(payload)
         data_bytes = data_str.encode('utf-8')
         publisher.publish(topic_path, data=data_bytes)
-        batch_count += 1
-        if batch_count >= 5:
-            print("Published 5 messages, sleeping for 10 seconds...")
-            time.sleep(10)
-            batch_count = 0  # Reset counter after sleep
+        # batch_count += 1
+        # if batch_count >= 5:
+        #     print("Published 5 messages, sleeping for 10 seconds...")
+        #     time.sleep(5)
+        #     batch_count = 0  # Reset counter after sleep
 
     return 'Completed datasets batch processing.'
