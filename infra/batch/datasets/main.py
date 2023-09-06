@@ -124,27 +124,17 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         # Commit transaction after every step has run successfully
         transaction.commit()
     except Exception as e:
-        if isinstance(e, HTTPError):
-            errors += f"{e.response.status_code} "
         if transaction is not None:
             transaction.rollback()
         error_traceback = traceback.format_exc()
         errors += f"[ERROR]: {e}\n{error_traceback}\n"
-
+        print(f"Logging errors for stable id {stable_id}\n{errors}")
+        storage_client = storage.Client()
+        bucket = storage_client.get_bucket(bucket_name)
+        error_type = f"http/{e.response.status_code}" if isinstance(e, HTTPError) else "other"
+        blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
+        blob.upload_from_string(errors)
     finally:
-        # Uploading errors to GCP
-        if len(errors) > 0:
-            print(f"Logging errors for stable id {stable_id}\n{errors}")
-            storage_client = storage.Client()
-            bucket = storage_client.get_bucket(bucket_name)
-            error_type = "other" if 'HTTPError' not in errors else "http"
-            try:
-                http_error_status = int(error_type[0:3])
-                error_type += f'/{http_error_status}'
-            except ValueError:
-                print('Not http error')
-            blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
-            blob.upload_from_string(errors)
         if connection is not None:
             connection.close()
         gc.collect()  # Free memory
