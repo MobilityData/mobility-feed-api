@@ -118,7 +118,7 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         # In case the dataset doesn't include a hash or the dataset was deleted from the bucket,
         # update the existing entity
         if dataset_hash is None or dataset_hash == md5_file_hash:
-            sql_statement = f"update gtfsdataset set hash='{md5_file_hash}', hosted_url={hosted_url} where id='{dataset_id}'"
+            sql_statement = f"update gtfsdataset set hash='{md5_file_hash}', hosted_url='{hosted_url}' where id='{dataset_id}'"
         connection.execute(text(sql_statement))
 
         # Commit transaction after every step has run successfully
@@ -131,7 +131,11 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         print(f"Logging errors for stable id {stable_id}\n{errors}")
         storage_client = storage.Client()
         bucket = storage_client.get_bucket(bucket_name)
-        error_type = f"http/{e.response.status_code}" if isinstance(e, HTTPError) else "other"
+        error_type = 'other'
+        if 'sqlalchemy' in errors:
+            error_type = 'sqlachemy'
+        elif isinstance(e, HTTPError):
+            error_type = f"http/{e.response.status_code}"
         blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
         blob.upload_from_string(errors)
     finally:
