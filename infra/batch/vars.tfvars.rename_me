@@ -9,7 +9,6 @@ gcp_region={{REGION}}
 project_id={{PROJECT_ID}}
 deployer_service_account={{DEPLOYER_SERVICE_ACCOUNT}}
 function_env_variables={{{FUNCTION_ENV_VARIABLE}}}
-
 source_code_path={{SOURCE_ZIP_PATH}}
 source_code_zip_file={{SOURCE_CODE_ZIP_FILE}}
 http_function_name={{HTTP_FUNCTION_NAME}}
