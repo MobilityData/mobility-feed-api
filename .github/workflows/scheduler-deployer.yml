@@ -32,6 +32,32 @@ jobs:
           echo "PROJECT_ID=mobility-feeds-dev" >> $GITHUB_ENV
           echo "REGION=us-central1" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=ci-impersonator@mobility-feeds-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
+          echo "SOURCE_ZIP_PATH=datasets/" >> $GITHUB_ENV
+          echo "DATASET_ZIP_FILE=datasets.zip" >> $GITHUB_ENV
+          echo "HTTP_FUNCTION_NAME=dataset-batch" >> $GITHUB_ENV
+          echo "PUBSUB_FUNCTION_NAME=single-dataset-function" >> $GITHUB_ENV
+          echo "RUNTIME=python310" >> $GITHUB_ENV
+          echo "HTTP_ENTRY_POINT=batch_dataset" >> $GITHUB_ENV
+          echo "PUBSUB_ENTRY_POINT=process_dataset" >> $GITHUB_ENV
+          echo "AVAILABLE_MEMORY=512Mi" >> $GITHUB_ENV
+          echo "PUBSUB_TIMEOUT_SECONDS=540" >> $GITHUB_ENV
+          echo "HTTP_TIMEOUT_SECONDS=3600" >> $GITHUB_ENV
+          echo "MAX_INSTANCE_COUNT=10" >> $GITHUB_ENV
+          echo "JOB_NAME=dataset-batch-job" >> $GITHUB_ENV
+          echo "JOB_DESCRIPTION=Run python function daily" >> $GITHUB_ENV
+          echo "JOB_SCHEDULE=*/1 * * * *" >> $GITHUB_ENV
+          echo "JOB_HTTP_METHOD=GET" >> $GITHUB_ENV
+          echo "JOB_ATTEMPT_DEADLINE=320s" >> $GITHUB_ENV
+          echo "PUBSUB_TOPIC_NAME=datasets-batch-topic" >> $GITHUB_ENV
+          echo "CREATE_PUBSUB_FUNCTION=true" >> $GITHUB_ENV
+
+      - name: Populate Variables
+        run: |
+          scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
+          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/pre-vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,SOURCE_ZIP_PATH,SOURCE_CODE_ZIP_FILE,HTTP_FUNCTION_NAME,PUBSUB_FUNCTION_NAME, RUNTIME,HTTP_ENTRY_POINT,PUBSUB_ENTRY_POINT,AVAILABLE_MEMORY,HTTP_TIMEOUT_SECONDS,PUBSUB_TIMEOUT_SECONDS,MAX_INSTANCE_COUNT,JOB_NAME,JOB_DESCRIPTION,JOB_SCHEDULE,JOB_ATTEMPT_DEADLINE,JOB_HTTP_METHOD,PUBSUB_TOPIC_NAME,CREATE_PUBSUB_FUNCTION  
+          scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
+        env:
+          FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="mobility-datasets", "POSTGRES_USER"="${{ secrets.DEV_POSTGRE_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.DEV_POSTGRE_USER_PASSWORD }}", "POSTGRES_DB"="${{ vars.DEV_POSTGRE_SQL_DB_NAME }}", "POSTGRES_PORT"="5432", "POSTGRES_HOST"="${{ secrets.DEV_DB_PUBLIC_IP }}"'
 
       - name: Populate Variables
         run: |
@@ -57,7 +83,7 @@ jobs:
           fi
       - name: Clear Folder in GCP Bucket
         if: env.CLEAR_PREVIOUS_VERSION
-        continue-on-error: true # In case the bucket is created yet
+        continue-on-error: true # In case the bucket is not yet created
         run: gsutil rm gs://${{env.FUNCTION_BUCKET_NAME}}/datasets/*
 
       - name: Install Terraform

@@ -1,7 +1,7 @@
 data "google_project" "project" {}
 
 provider "google" {
- region = var.gcp_region
+  region = var.gcp_region
 }
 
 locals {
@@ -34,22 +34,21 @@ resource "google_storage_bucket" "bucket" {
 }
 
 resource "google_storage_bucket_object" "object" {
-#  Workaround to force source code update of cloud function when the zip file hash is updated
-  name            = "datasets/${filesha256("datasets.zip")}.zip" # TODO this should be a variable
+  name            = "${var.source_code_path}/${filesha256(var.source_code_zip_file)}.zip"
   bucket          = google_storage_bucket.bucket.name
-  source          = "datasets.zip" # TODO this should be a variable
+  source          = var.source_code_zip_file
   metadata        = {
-    content_hash  = filebase64sha256("datasets.zip") # TODO this should be a variable
+    content_hash  = filebase64sha256(var.source_code_zip_file)
   }
 }
 
-resource "google_cloudfunctions2_function" "function" {
-  name                    = "dataset-batch-function-v2" # TODO this should be a variable
+resource "google_cloudfunctions2_function" "http_function" {
+  name                    = var.http_function_name
   description             = "Python function"
   location                = "us-central1"
   build_config {
-    runtime               = "python310" # TODO this should be a variable
-    entry_point           = "batch_dataset" # TODO this should be a variable
+    runtime               = var.runtime
+    entry_point           = var.http_entry_point
     source {
       storage_source {
         bucket            = google_storage_bucket.bucket.name
@@ -58,58 +57,59 @@ resource "google_cloudfunctions2_function" "function" {
     }
   }
   service_config {
-    available_memory      = "512Mi"
-    timeout_seconds       = 3600
-    environment_variables = var.function_env_variables
-    service_account_email =data.google_service_account.ci_impersonator_service_account.email
-  }
-}
-
-resource "google_pubsub_topic" "default" {
-  name = "functions2-topic"
-}
-
-
-resource "google_cloudfunctions2_function" "function2" {
-  name                    = "dataset-function" # TODO this should be a variable
-  description             = "Python function"
-  location                = "us-central1"
-  build_config {
-    runtime               = "python310" # TODO this should be a variable
-    entry_point           = "process_dataset" # TODO this should be a variable
-    source {
-      storage_source {
-        bucket            = google_storage_bucket.bucket.name
-        object            = google_storage_bucket_object.object.name
-      }
-    }
-  }
-  service_config {
-    available_memory      = "512Mi"
-    timeout_seconds       = 540
+    available_memory      = var.available_memory
+    timeout_seconds       = var.http_timeout_seconds
     environment_variables = var.function_env_variables
     service_account_email = data.google_service_account.ci_impersonator_service_account.email
-    max_instance_count = 10 # TODO this should be a variable
+  }
+}
+
+resource "google_pubsub_topic" "pubsub_topic" {
+  count = var.create_pubsub_function ? 1 : 0
+  name = var.pubsub_topic_name
+}
+
+resource "google_cloudfunctions2_function" "pubsub_function" {
+  name                    = var.pubsub_function_name
+  description             = "Batch processing function"
+  location                = "us-central1"
+  count = var.create_pubsub_function ? 1 : 0
+  build_config {
+    runtime               = var.runtime
+    entry_point           = var.pubsub_entry_point
+    source {
+      storage_source {
+        bucket            = google_storage_bucket.bucket.name
+        object            = google_storage_bucket_object.object.name
+      }
+    }
+  }
+  service_config {
+    available_memory      = var.available_memory
+    timeout_seconds       = var.pubsub_timeout_seconds
+    environment_variables = var.function_env_variables
+    service_account_email = data.google_service_account.ci_impersonator_service_account.email
+    max_instance_count    = var.max_instance_count
   }
   event_trigger {
-    trigger_region = "us-central1"
+    trigger_region        = "us-central1"
     service_account_email = data.google_service_account.ci_impersonator_service_account.email
-    event_type     = "google.cloud.pubsub.topic.v1.messagePublished"
-    pubsub_topic   = google_pubsub_topic.default.id
-    retry_policy   = "RETRY_POLICY_RETRY"
+    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic          = google_pubsub_topic.pubsub_topic.id
+    retry_policy          = "RETRY_POLICY_RETRY"
   }
 }
 
 resource "google_cloud_scheduler_job" "job" {
-  name                      = "dataset-batch-job" # TODO this should be a variable
-  description               = "Run python function daily" # TODO this should be a variable
-  schedule                  = "*/1 * * * *" # TODO this is once a day and should be a variable
-  time_zone                 = "Etc/UTC"
-  attempt_deadline          = "320s"
+  name                     = var.job_name
+  description              = var.job_description
+  schedule                 = var.job_schedule
+  time_zone                = "Etc/UTC"
+  attempt_deadline         = var.job_attempt_deadline
 
   http_target {
-    http_method             = "GET"
-    uri                     = google_cloudfunctions2_function.function.service_config[0].uri
+    http_method            = var.http_method
+    uri                    = google_cloudfunctions2_function.http_function.service_config[0].uri
     oidc_token {
       service_account_email = var.deployer_service_account
     }
