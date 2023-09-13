@@ -116,9 +116,9 @@ do
     # shellcheck disable=SC2001
     # shellcheck disable=SC2016
     if [[ "$ADD_QUOTES" == "true" ]]; then
-        output=$(echo "$output" | sed  's/{{'"$varname"'}}/'\""${!varname}"\"'/g')
+        output=$(echo "$output" | sed  's|{{'"$varname"'}}|'\""${!varname}"\"'|g')
     else
-        output=$(echo "$output" | sed  's/{{'"$varname"'}}/'"${!varname}"'/g')
+        output=$(echo "$output" | sed  's|{{'"$varname"'}}|'"${!varname}"'|g')
     fi
 done
 
