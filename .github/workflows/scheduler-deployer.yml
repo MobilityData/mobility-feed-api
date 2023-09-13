@@ -33,7 +33,7 @@ jobs:
           echo "REGION=us-central1" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=ci-impersonator@mobility-feeds-dev.iam.gserviceaccount.com" >> $GITHUB_ENV
           echo "SOURCE_ZIP_PATH=datasets/" >> $GITHUB_ENV
-          echo "DATASET_ZIP_FILE=datasets.zip" >> $GITHUB_ENV
+          echo "SOURCE_CODE_ZIP_FILE=datasets.zip" >> $GITHUB_ENV
           echo "HTTP_FUNCTION_NAME=dataset-batch" >> $GITHUB_ENV
           echo "PUBSUB_FUNCTION_NAME=single-dataset-function" >> $GITHUB_ENV
           echo "RUNTIME=python310" >> $GITHUB_ENV
