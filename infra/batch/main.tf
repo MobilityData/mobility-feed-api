@@ -95,7 +95,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     trigger_region        = "us-central1"
     service_account_email = data.google_service_account.ci_impersonator_service_account.email
     event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
-    pubsub_topic          = google_pubsub_topic.pubsub_topic.id
+    pubsub_topic          = google_pubsub_topic.pubsub_topic[0].id
     retry_policy          = "RETRY_POLICY_RETRY"
   }
 }
