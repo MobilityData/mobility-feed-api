@@ -2,13 +2,11 @@ import base64
 import gc
 import json
 import os
-import time
 import traceback
 import uuid
 import functions_framework
+import urllib3
 from sqlalchemy import create_engine, text
-from aiohttp import ClientSession, TCPConnector
-import asyncio
 from requests.exceptions import HTTPError
 
 import requests
@@ -27,13 +25,21 @@ def upload_dataset(url, bucket_name, stable_id):
     :param stable_id: the dataset stable id
     :return: the file hash and the hosted url as a tuple
     """
+    # Fix DH Key issues in server side
+    requests.packages.urllib3.disable_warnings()
+    requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
+    try:
+        requests.packages.urllib3.contrib.pyopenssl.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
+    except AttributeError:
+        # no pyopenssl support used / needed / available
+        pass
+
     headers = {
         'User-Agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) '
             'Chrome/39.0.2171.95 Safari/537.36'
     }
     response = requests.get(url, headers=headers, verify=False)
-    print(response.status_code)
     response.raise_for_status()
 
     content = response.content
@@ -189,11 +195,6 @@ def process_dataset(cloud_event: CloudEvent):
     return 'Done!'
 
 
-async def call_process_dataset(session, url, payload):
-    async with session.post(url, json=payload, headers={'Content-Type': 'application/json'}) as response:
-        return await response.text()
-
-
 @functions_framework.http
 def batch_dataset(request):
     bucket_name = os.getenv("BUCKET_NAME")
@@ -201,17 +202,16 @@ def batch_dataset(request):
     project_id = os.getenv("PROJECT_ID")
     create_bucket(bucket_name)
 
+    # Retrieve feeds
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
                     "status='active' and authentication_type='0'"
-
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
+    # Publish to topic for processing
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
-
-    # batch_count = 0
     for stable_id, producer_url, feed_id in results:
         payload = {
             "producer_url": producer_url,
@@ -221,10 +221,5 @@ def batch_dataset(request):
         data_str = json.dumps(payload)
         data_bytes = data_str.encode('utf-8')
         publisher.publish(topic_path, data=data_bytes)
-        # batch_count += 1
-        # if batch_count >= 5:
-        #     print("Published 5 messages, sleeping for 10 seconds...")
-        #     time.sleep(5)
-        #     batch_count = 0  # Reset counter after sleep
 
     return 'Completed datasets batch processing.'
