@@ -1,9 +1,15 @@
 from datetime import date
 from typing import List
 
+from fastapi import HTTPException
+from sqlalchemy import select, func, literal_column
+from sqlalchemy.sql import Select
+
+from database_gen.sqlacodegen_models import Feed, Externalid, t_redirectingid
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
+from feeds_gen.models.external_id import ExternalId
 from feeds_gen.models.extra_models import TokenModel
 from feeds_gen.models.feed_log import FeedLog
 from feeds_gen.models.gtfs_dataset import GtfsDataset
@@ -11,6 +17,8 @@ from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
+
+from database.database import DB_ENGINE
 
 
 class FeedsApiImpl(BaseFeedsApi):
@@ -20,13 +28,44 @@ class FeedsApiImpl(BaseFeedsApi):
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
 
+    @staticmethod
+    def get_feeds_query() -> Select:
+        return (((select(*Feed.__table__.columns,
+                         func.string_agg(Externalid.associated_id, literal_column("','")).label("associated_ids"),
+                         func.string_agg(Externalid.source, literal_column("','")).label("sources"),
+                         func.string_agg(t_redirectingid.c.target_id, literal_column("','")).label("target_ids"))
+                  .outerjoin(Externalid, Feed.id == Externalid.feed_id))
+                 .outerjoin(t_redirectingid, Feed.id == t_redirectingid.c.source_id))
+                .group_by(*Feed.__table__.columns))
+
+    @staticmethod
+    def map_feed(feed: Feed) -> BasicFeed:
+        """
+        Maps sqlalchemy data model Feed to API data model BasicFeed
+        """
+        redirects = [target for target in feed.target_ids.split(",")] if feed.target_ids else []
+        external_ids = [ExternalId(external_id=associated_id, source=source)
+                        for associated_id, source
+                        in zip(feed.associated_ids.split(","), feed.sources.split(","))] \
+            if feed.associated_ids and feed.sources else []
+        return BasicFeed(id=feed.stable_id, data_type=feed.data_type, status=feed.status,
+                         feed_name=feed.feed_name, note=feed.note, provider=feed.provider,
+                         redirects=redirects, external_ids=external_ids,
+                         source_info=SourceInfo(producer_url=feed.producer_url,
+                                                authentication_type=feed.authentication_type,
+                                                authentication_info_url=feed.authentication_info_url,
+                                                api_key_parameter_name=feed.api_key_parameter_name,
+                                                license_url=feed.license_url))
+
     def get_feed(
             self,
             id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        return BasicFeed(id="gtfsFeedFoo", data_type=None, status=None, external_ids=[], provider="providerFoo",
-                         feed_name="feedFoo", note="note", source_info=SourceInfo())
+        feeds = DB_ENGINE.select(query=self.get_feeds_query(), conditions=[Feed.stable_id == id])
+        if len(feeds) == 1:
+            return self.map_feed(feeds[0])
+        raise HTTPException(status_code=404, detail=f"Feed {id} not found")
 
     def get_feed_logs(
             id: str,
@@ -47,7 +86,8 @@ class FeedsApiImpl(BaseFeedsApi):
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return [self.get_feed("gtfsFeedFoo")]
+        return [self.map_feed(feed) for feed in
+                DB_ENGINE.select(query=self.get_feeds_query(), limit=limit, offset=offset)]
 
     def get_gtfs_feed(
             self,

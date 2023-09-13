@@ -12,4 +12,4 @@ class MetadataApiImpl(BaseMetadataApi):
         self,
     ) -> Metadata:
         """Get metadata about this API."""
-        return Metadata(version="0.0.0")
+        return Metadata(version="1.0.0")

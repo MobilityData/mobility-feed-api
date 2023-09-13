@@ -3,9 +3,6 @@
 from fastapi.testclient import TestClient
 
 
-from feeds.models.metadata import Metadata  # noqa: F401
-
-
 def test_metadata_get(client: TestClient):
     """Test case for metadata_get
 
@@ -17,10 +14,9 @@ def test_metadata_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/metadata",
+        "/v1/metadata",
         headers=headers,
     )
 
-    # uncomment below to assert the status code of the HTTP response
-    #assert response.status_code == 200
+    assert response.status_code == 200
 
