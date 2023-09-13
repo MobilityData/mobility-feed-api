@@ -39,7 +39,7 @@ def upload_dataset(url, bucket_name, stable_id):
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) '
             'Chrome/39.0.2171.95 Safari/537.36'
     }
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, verify=False)
     response.raise_for_status()
 
     content = response.content
@@ -222,4 +222,4 @@ def batch_dataset(request):
         data_bytes = data_str.encode('utf-8')
         publisher.publish(topic_path, data=data_bytes)
 
-    return 'Completed datasets batch processing.'
+    return 'Publish completed.'
