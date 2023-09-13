@@ -106,7 +106,7 @@ jobs:
 
     - name: Get full path of sources.csv
       id: getpath
-      run: echo "::set-output name=PATH::$(realpath sources.csv)"
+      run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
 
     - name: Populate Database
       if: inputs.RUN_POPULATE_SCRIPT
