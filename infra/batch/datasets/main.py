@@ -197,6 +197,8 @@ async def call_process_dataset(session, url, payload):
 @functions_framework.http
 def batch_dataset(request):
     bucket_name = os.getenv("BUCKET_NAME")
+    pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
+    project_id = os.getenv("PROJECT_ID")
     create_bucket(bucket_name)
 
     engine = get_db_engine()
@@ -207,7 +209,7 @@ def batch_dataset(request):
     print(f"Retrieved {len(results)} active feeds.")
 
     publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path('mobility-feeds-dev', 'functions2-topic')
+    topic_path = publisher.topic_path(project_id, pubsub_topic_name)
 
     # batch_count = 0
     for stable_id, producer_url, feed_id in results:
