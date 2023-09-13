@@ -69,6 +69,11 @@ variable "available_memory" {
   description = "Available memory for functions"
 }
 
+variable "available_cpu" {
+  type        = string
+  description = "Available CPU for functions"
+}
+
 variable "pubsub_timeout_seconds" {
   type        = number
   description = "Timeout seconds for the pubsub function"

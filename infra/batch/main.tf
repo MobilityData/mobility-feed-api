@@ -58,7 +58,7 @@ resource "google_cloudfunctions2_function" "http_function" {
   }
   service_config {
     available_memory      = var.available_memory
-    available_cpu         = "583m"
+    available_cpu         = var.available_cpu
     timeout_seconds       = var.http_timeout_seconds
     environment_variables = var.function_env_variables
     service_account_email = data.google_service_account.ci_impersonator_service_account.email
@@ -87,6 +87,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
   }
   service_config {
     available_memory      = var.available_memory
+    available_cpu         = var.available_cpu
     timeout_seconds       = var.pubsub_timeout_seconds
     environment_variables = var.function_env_variables
     service_account_email = data.google_service_account.ci_impersonator_service_account.email

@@ -40,6 +40,7 @@ jobs:
           echo "HTTP_ENTRY_POINT=batch_dataset" >> $GITHUB_ENV
           echo "PUBSUB_ENTRY_POINT=process_dataset" >> $GITHUB_ENV
           echo "AVAILABLE_MEMORY=1Gi" >> $GITHUB_ENV
+          echo "AVAILABLE_CPU=583m" >> $GITHUB_ENV
           echo "PUBSUB_TIMEOUT_SECONDS=540" >> $GITHUB_ENV
           echo "HTTP_TIMEOUT_SECONDS=3600" >> $GITHUB_ENV
           echo "MAX_INSTANCE_COUNT=10" >> $GITHUB_ENV
@@ -54,7 +55,7 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/pre-vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,SOURCE_ZIP_PATH,SOURCE_CODE_ZIP_FILE,HTTP_FUNCTION_NAME,PUBSUB_FUNCTION_NAME,RUNTIME,HTTP_ENTRY_POINT,PUBSUB_ENTRY_POINT,AVAILABLE_MEMORY,HTTP_TIMEOUT_SECONDS,PUBSUB_TIMEOUT_SECONDS,MAX_INSTANCE_COUNT,JOB_NAME,JOB_DESCRIPTION,JOB_SCHEDULE,JOB_ATTEMPT_DEADLINE,JOB_HTTP_METHOD,PUBSUB_TOPIC_NAME,CREATE_PUBSUB_FUNCTION  
+          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/pre-vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,SOURCE_ZIP_PATH,SOURCE_CODE_ZIP_FILE,HTTP_FUNCTION_NAME,PUBSUB_FUNCTION_NAME,RUNTIME,HTTP_ENTRY_POINT,PUBSUB_ENTRY_POINT,AVAILABLE_MEMORY,AVAILABLE_CPU,HTTP_TIMEOUT_SECONDS,PUBSUB_TIMEOUT_SECONDS,MAX_INSTANCE_COUNT,JOB_NAME,JOB_DESCRIPTION,JOB_SCHEDULE,JOB_ATTEMPT_DEADLINE,JOB_HTTP_METHOD,PUBSUB_TOPIC_NAME,CREATE_PUBSUB_FUNCTION  
           scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
           cat infra/batch/vars.tfvars
         env:

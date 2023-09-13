@@ -17,6 +17,7 @@ runtime={{RUNTIME}}
 http_entry_point={{HTTP_ENTRY_POINT}}
 pubsub_entry_point={{PUBSUB_ENTRY_POINT}}
 available_memory={{AVAILABLE_MEMORY}}
+available_cpu={{AVAILABLE_CPU}}
 http_timeout_seconds={{HTTP_TIMEOUT_SECONDS}}
 pubsub_timeout_seconds={{PUBSUB_TIMEOUT_SECONDS}}
 max_instance_count={{MAX_INSTANCE_COUNT}}
