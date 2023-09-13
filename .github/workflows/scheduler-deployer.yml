@@ -39,7 +39,7 @@ jobs:
           echo "RUNTIME=python310" >> $GITHUB_ENV
           echo "HTTP_ENTRY_POINT=batch_dataset" >> $GITHUB_ENV
           echo "PUBSUB_ENTRY_POINT=process_dataset" >> $GITHUB_ENV
-          echo "AVAILABLE_MEMORY=512Mi" >> $GITHUB_ENV
+          echo "AVAILABLE_MEMORY=1Gi" >> $GITHUB_ENV
           echo "PUBSUB_TIMEOUT_SECONDS=540" >> $GITHUB_ENV
           echo "HTTP_TIMEOUT_SECONDS=3600" >> $GITHUB_ENV
           echo "MAX_INSTANCE_COUNT=10" >> $GITHUB_ENV

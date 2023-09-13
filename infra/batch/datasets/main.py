@@ -39,7 +39,7 @@ def upload_dataset(url, bucket_name, stable_id):
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) '
             'Chrome/39.0.2171.95 Safari/537.36'
     }
-    response = requests.get(url, headers=headers, verify=False)
+    response = requests.get(url, headers=headers)
     response.raise_for_status()
 
     content = response.content
