@@ -103,10 +103,10 @@ on:
         required: false
         default: true
         type: boolean
+    secrets:
       FUNCTION_ENV_VARIABLE:
         description: Comma separated environment variable for the GCP function
         required: true
-        type: string
 
 jobs:
   terraform:
@@ -154,7 +154,7 @@ jobs:
           echo "JOB_ATTEMPT_DEADLINE=${{ inputs.JOB_ATTEMPT_DEADLINE }}" >> $GITHUB_ENV
           echo "PUBSUB_TOPIC_NAME=${{ inputs.PUBSUB_TOPIC_NAME }}" >> $GITHUB_ENV
           echo "CREATE_PUBSUB_FUNCTION=${{ inputs.CREATE_PUBSUB_FUNCTION }}" >> $GITHUB_ENV
-          echo "FUNCTION_ENV_VARIABLE=${{ inputs.FUNCTION_ENV_VARIABLE }}" >> $GITHUB_ENV
+          echo "FUNCTION_ENV_VARIABLE=${{ secrets.FUNCTION_ENV_VARIABLE }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
