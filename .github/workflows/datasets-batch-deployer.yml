@@ -151,7 +151,7 @@ jobs:
         run: |
           echo "Setting variables"
           echo "FUNCTION_BUCKET_NAME=${{ inputs.FUNCTION_BUCKET_NAME }}" >> $GITHUB_ENV
-          echo "STATE_BUCKET_NAME=${{ inputs.STATE_BUCKET_NAME }}" >> $GITHUB_ENV
+          echo "BUCKET_NAME=${{ inputs.STATE_BUCKET_NAME }}" >> $GITHUB_ENV
           echo "OBJECT_PREFIX=${{ inputs.OBJECT_PREFIX }}" >> $GITHUB_ENV
           echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
