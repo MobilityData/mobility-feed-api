@@ -3,15 +3,15 @@ on:
   workflow_call:
     inputs:
       FUNCTION_BUCKET_NAME:
-        description: Function bucket name
+        description: Bucket name containing the GCP functions
         required: true
         type: string
-      BUCKET_NAME:
-        description: Bucket name
+      STATE_BUCKET_NAME:
+        description: Bucket name for the terraform state
         required: true
         type: string
       OBJECT_PREFIX:
-        description: Object prefix
+        description: Object prefix for the terraform state
         required: true
         type: string
       PROJECT_ID:
@@ -27,7 +27,7 @@ on:
         required: true
         type: string
       SOURCE_ZIP_PATH:
-        description: Source zip path
+        description: Source code zip path
         required: true
         type: string
       SOURCE_CODE_ZIP_FILE:
@@ -43,7 +43,7 @@ on:
         required: true
         type: string
       RUNTIME:
-        description: Runtime
+        description: Runtime environment
         required: true
         type: string
       HTTP_ENTRY_POINT:
@@ -55,39 +55,39 @@ on:
         required: true
         type: string
       AVAILABLE_MEMORY:
-        description: Available memory
+        description: Available memory for the cloud functions
         required: true
         type: string
       AVAILABLE_CPU:
-        description: Available CPU
+        description: Available CPU for the cloud functions
         required: true
         type: string
       PUBSUB_TIMEOUT_SECONDS:
-        description: PubSub timeout in seconds
+        description: PubSub function timeout in seconds
         required: true
         type: string
       HTTP_TIMEOUT_SECONDS:
-        description: HTTP timeout in seconds
+        description: HTTP function timeout in seconds
         required: true
         type: string
       MAX_INSTANCE_COUNT:
-        description: Max instance count
+        description: Max instance count for the pubsub function
         required: true
         type: string
       JOB_NAME:
-        description: Job name
+        description: Job name for the GCP scheduler
         required: true
         type: string
       JOB_DESCRIPTION:
-        description: Job description
+        description: Job description for the GCP scheduler
         required: true
         type: string
       JOB_SCHEDULE:
-        description: Job schedule
+        description: Schedule for the GCP scheduler
         required: true
         type: string
       JOB_HTTP_METHOD:
-        description: Job HTTP method
+        description: GCP Scheduler HTTP method for call
         required: true
         type: string
       JOB_ATTEMPT_DEADLINE:
@@ -99,16 +99,34 @@ on:
         required: true
         type: string
       CREATE_PUBSUB_FUNCTION:
-        description: Option to create PubSub function
+        description: Flag to create PubSub function
         required: false
         default: true
         type: boolean
-    secrets:
-      FUNCTION_ENV_VARIABLE:
-        description: Comma separated environment variable for the GCP function
+      DATASETS_BUCKET:
+        description: Bucket name containing the historical datasets
         required: true
+        type: string
+      POSTGRES_DB:
+        description: PostgreSQL database name
+        required: true
+        type: string
+      POSTGRES_PORT:
+        description: PostgreSQL database port number
+        required: true
+        type: string
+    secrets:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
+        required: true
+      POSTGRES_USER:
+        description: PostgreSQL username
+        required: true
+      POSTGRES_PASSWORD:
+        description: PostgreSQL password
+        required: true
+      POSTGRES_HOST:
+        description: PostgreSQL database host
         required: true
 
 jobs:
@@ -133,7 +151,7 @@ jobs:
         run: |
           echo "Setting variables"
           echo "FUNCTION_BUCKET_NAME=${{ inputs.FUNCTION_BUCKET_NAME }}" >> $GITHUB_ENV
-          echo "BUCKET_NAME=${{ inputs.BUCKET_NAME }}" >> $GITHUB_ENV
+          echo "STATE_BUCKET_NAME=${{ inputs.STATE_BUCKET_NAME }}" >> $GITHUB_ENV
           echo "OBJECT_PREFIX=${{ inputs.OBJECT_PREFIX }}" >> $GITHUB_ENV
           echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
@@ -161,10 +179,20 @@ jobs:
 
       - name: Populate Variables
         run: |
-          scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
+          scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables STATE_BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/pre-vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,SOURCE_ZIP_PATH,SOURCE_CODE_ZIP_FILE,HTTP_FUNCTION_NAME,PUBSUB_FUNCTION_NAME,RUNTIME,HTTP_ENTRY_POINT,PUBSUB_ENTRY_POINT,AVAILABLE_MEMORY,AVAILABLE_CPU,HTTP_TIMEOUT_SECONDS,PUBSUB_TIMEOUT_SECONDS,MAX_INSTANCE_COUNT,JOB_NAME,JOB_DESCRIPTION,JOB_SCHEDULE,JOB_ATTEMPT_DEADLINE,JOB_HTTP_METHOD,PUBSUB_TOPIC_NAME,CREATE_PUBSUB_FUNCTION  
           scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
           cat infra/batch/vars.tfvars
+        env:
+          FUNCTION_ENV_VARIABLE: >
+            "BUCKET_NAME"="${{  inputs.DATASETS_BUCKET }}", 
+            "POSTGRES_USER"="${{ secrets.POSTGRE_USER_NAME }}", 
+            "POSTGRES_PASSWORD"="${{ secrets.POSTGRE_USER_PASSWORD }}", 
+            "POSTGRES_DB"="${{ inputs.POSTGRES_DB }}", 
+            "POSTGRES_PORT"="${{ inputs.POSTGRES_PORT }}", 
+            "POSTGRES_HOST"="${{ secrets.POSTGRES_HOST }}", 
+            "PUBSUB_TOPIC_NAME"="${{ inputs.PUBSUB_TOPIC_NAME }}", 
+            "PROJECT_ID"="${{ inputs.PROJECT_ID }}"
 
       - name: Zip source code
         run: |
