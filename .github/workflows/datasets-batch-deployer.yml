@@ -184,7 +184,7 @@ jobs:
           scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
           cat infra/batch/vars.tfvars
         env:
-          FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="${{  inputs.DATASETS_BUCKET }}", "POSTGRES_USER"="${{ secrets.POSTGRE_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.POSTGRE_USER_PASSWORD }}", "POSTGRES_DB"="${{ inputs.POSTGRES_DB }}", "POSTGRES_PORT"="${{ inputs.POSTGRES_PORT }}", "POSTGRES_HOST"="${{ secrets.POSTGRES_HOST }}", "PUBSUB_TOPIC_NAME"="${{ inputs.PUBSUB_TOPIC_NAME }}", "PROJECT_ID"="${{ inputs.PROJECT_ID }}"'
+          FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="${{  inputs.DATASETS_BUCKET }}", "POSTGRES_USER"="${{ secrets.POSTGRES_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.POSTGRES_USER_PASSWORD }}", "POSTGRES_DB"="${{ inputs.POSTGRES_DB }}", "POSTGRES_PORT"="${{ inputs.POSTGRES_PORT }}", "POSTGRES_HOST"="${{ secrets.POSTGRES_HOST }}", "PUBSUB_TOPIC_NAME"="${{ inputs.PUBSUB_TOPIC_NAME }}", "PROJECT_ID"="${{ inputs.PROJECT_ID }}"'
 
       - name: Zip source code
         run: |
