@@ -11,8 +11,8 @@ jobs:
     uses: ./.github/workflows/datasets-batch-deployer.yml
     with:
       FUNCTION_BUCKET_NAME: 'mobility-batch-processing'
-      STATE_BUCKET_NAME: 'terraform-init-state'
-      OBJECT_PREFIX: 'datasets-batch-tf-state'
+      STATE_BUCKET_NAME: 'mobility-feeds-terraform-dev'
+      OBJECT_PREFIX: 'terraform-state-datasets-batch'
       PROJECT_ID: 'mobility-feeds-dev'
       REGION: 'us-central1'
       DEPLOYER_SERVICE_ACCOUNT: 'ci-impersonator@mobility-feeds-dev.iam.gserviceaccount.com'
