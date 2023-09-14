@@ -37,3 +37,4 @@ jobs:
       CREATE_PUBSUB_FUNCTION: true
     secrets:
       FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="mobility-datasets", "POSTGRES_USER"="${{ secrets.DEV_POSTGRE_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.DEV_POSTGRE_USER_PASSWORD }}", "POSTGRES_DB"="${{ vars.DEV_POSTGRE_SQL_DB_NAME }}", "POSTGRES_PORT"="5432", "POSTGRES_HOST"="${{ secrets.DEV_DB_PUBLIC_IP }}", "PUBSUB_TOPIC_NAME"="datasets-batch-topic", "PROJECT_ID"="mobility-feeds-dev"'
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
