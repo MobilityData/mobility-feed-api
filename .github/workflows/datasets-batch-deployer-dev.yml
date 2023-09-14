@@ -1,0 +1,38 @@
+name: Deploy Historical Batch Processing - DEV
+
+on:
+  workflow_dispatch:  # Supports manual deployment
+  push:
+    branches:
+      - '**'
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/datasets-batch-deployer.yml
+    with:
+      FUNCTION_BUCKET_NAME: 'mobility-batch-processing'
+      BUCKET_NAME: 'mobility-feeds-terraform-dev'
+      OBJECT_PREFIX: 'mobility-batch-processing-tf-state'
+      PROJECT_ID: 'mobility-feeds-dev'
+      REGION: 'us-central1'
+      DEPLOYER_SERVICE_ACCOUNT: 'ci-impersonator@mobility-feeds-dev.iam.gserviceaccount.com'
+      SOURCE_ZIP_PATH: 'datasets/'
+      SOURCE_CODE_ZIP_FILE: 'datasets.zip'
+      HTTP_FUNCTION_NAME: 'dataset-batch'
+      PUBSUB_FUNCTION_NAME: 'single-dataset-function'
+      RUNTIME: 'python310'
+      HTTP_ENTRY_POINT: 'batch_dataset'
+      PUBSUB_ENTRY_POINT: 'process_dataset'
+      AVAILABLE_MEMORY: '1Gi'
+      AVAILABLE_CPU: '583m'
+      PUBSUB_TIMEOUT_SECONDS: '540'
+      HTTP_TIMEOUT_SECONDS: '3600'
+      MAX_INSTANCE_COUNT: '10'
+      JOB_NAME: 'dataset-batch-job'
+      JOB_DESCRIPTION: 'Run python function daily'
+      JOB_SCHEDULE: '*/1 * * * *'
+      JOB_HTTP_METHOD: 'GET'
+      JOB_ATTEMPT_DEADLINE: '320s'
+      PUBSUB_TOPIC_NAME: 'datasets-batch-topic'
+      CREATE_PUBSUB_FUNCTION: true
+      FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="mobility-datasets", "POSTGRES_USER"="${{ secrets.DEV_POSTGRE_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.DEV_POSTGRE_USER_PASSWORD }}", "POSTGRES_DB"="${{ vars.DEV_POSTGRE_SQL_DB_NAME }}", "POSTGRES_PORT"="5432", "POSTGRES_HOST"="${{ secrets.DEV_DB_PUBLIC_IP }}", "PUBSUB_TOPIC_NAME"="datasets-batch-topic", "PROJECT_ID"="mobility-feeds-dev"'
