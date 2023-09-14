@@ -107,6 +107,9 @@ on:
       FUNCTION_ENV_VARIABLE:
         description: Comma separated environment variable for the GCP function
         required: true
+      GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key
+        required: true
 
 jobs:
   terraform:
@@ -121,7 +124,7 @@ jobs:
         id: gcloud_auth
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup
         uses: google-github-actions/setup-gcloud@v1
