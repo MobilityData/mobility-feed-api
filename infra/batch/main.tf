@@ -34,7 +34,7 @@ resource "google_storage_bucket" "bucket" {
 }
 
 resource "google_storage_bucket_object" "object" {
-  name            = "${var.source_code_path}/${filesha256(var.source_code_zip_file)}.zip"
+  name            = "${var.source_code_path}${filesha256(var.source_code_zip_file)}.zip"
   bucket          = google_storage_bucket.bucket.name
   source          = var.source_code_zip_file
   metadata        = {
