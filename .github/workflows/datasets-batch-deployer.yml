@@ -201,6 +201,7 @@ jobs:
             echo "CLEAR_PREVIOUS_VERSION=false" >> $GITHUB_ENV
           fi
       - name: Clear Folder in GCP Bucket
+        if: env.CLEAR_PREVIOUS_VERSION
         continue-on-error: true # In case the bucket is not yet created
         run: gsutil rm gs://${{inputs.FUNCTION_BUCKET_NAME}}/${{inputs.SOURCE_ZIP_PATH}}*
 
