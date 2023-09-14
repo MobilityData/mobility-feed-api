@@ -11,7 +11,7 @@ jobs:
     uses: ./.github/workflows/datasets-batch-deployer.yml
     with:
       FUNCTION_BUCKET_NAME: 'mobility-batch-processing'
-      BUCKET_NAME: 'mobility-feeds-terraform-dev'
+      STATE_BUCKET_NAME: 'mobility-feeds-terraform-dev'
       OBJECT_PREFIX: 'mobility-batch-processing-tf-state'
       PROJECT_ID: 'mobility-feeds-dev'
       REGION: 'us-central1'
