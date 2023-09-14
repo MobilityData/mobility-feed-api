@@ -184,7 +184,7 @@ jobs:
           scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
           cat infra/batch/vars.tfvars
         env:
-          FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="${{  inputs.DATASETS_BUCKET }}", "POSTGRES_USER"="${{ secrets.POSTGRES_USER_NAME }}", "POSTGRES_PASSWORD"="${{ secrets.POSTGRES_USER_PASSWORD }}", "POSTGRES_DB"="${{ inputs.POSTGRES_DB }}", "POSTGRES_PORT"="${{ inputs.POSTGRES_PORT }}", "POSTGRES_HOST"="${{ secrets.POSTGRES_HOST }}", "PUBSUB_TOPIC_NAME"="${{ inputs.PUBSUB_TOPIC_NAME }}", "PROJECT_ID"="${{ inputs.PROJECT_ID }}"'
+          FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="${{  inputs.DATASETS_BUCKET }}", "POSTGRES_USER"="${{ secrets.POSTGRES_USER }}", "POSTGRES_PASSWORD"="${{ secrets.POSTGRES_PASSWORD }}", "POSTGRES_DB"="${{ inputs.POSTGRES_DB }}", "POSTGRES_PORT"="${{ inputs.POSTGRES_PORT }}", "POSTGRES_HOST"="${{ secrets.POSTGRES_HOST }}", "PUBSUB_TOPIC_NAME"="${{ inputs.PUBSUB_TOPIC_NAME }}", "PROJECT_ID"="${{ inputs.PROJECT_ID }}"'
 
       - name: Zip source code
         run: |
@@ -192,16 +192,7 @@ jobs:
           zip -r -j ${{ inputs.SOURCE_CODE_ZIP_FILE }} ${{ inputs.SOURCE_ZIP_PATH }}*
 
       # Clearing previous versions of the source code
-      - name: Check for changes in infra/batch/datasets
-        id: check_files
-        run: |
-          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep 'infra/batch/${{inputs.SOURCE_ZIP_PATH}}'; then
-            echo "CLEAR_PREVIOUS_VERSION=true" >> $GITHUB_ENV
-          else
-            echo "CLEAR_PREVIOUS_VERSION=false" >> $GITHUB_ENV
-          fi
       - name: Clear Folder in GCP Bucket
-        if: env.CLEAR_PREVIOUS_VERSION
         continue-on-error: true # In case the bucket is not yet created
         run: gsutil rm gs://${{inputs.FUNCTION_BUCKET_NAME}}/${{inputs.SOURCE_ZIP_PATH}}*
 
