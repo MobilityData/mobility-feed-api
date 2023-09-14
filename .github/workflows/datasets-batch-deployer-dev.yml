@@ -30,7 +30,7 @@ jobs:
       MAX_INSTANCE_COUNT: '10'
       JOB_NAME: 'dataset-batch-job'
       JOB_DESCRIPTION: 'Run python function daily'
-      JOB_SCHEDULE: '*/1 * * * *'
+      JOB_SCHEDULE: '0 0 * * *'
       JOB_HTTP_METHOD: 'GET'
       JOB_ATTEMPT_DEADLINE: '320s'
       PUBSUB_TOPIC_NAME: 'datasets-batch-topic'
