@@ -110,7 +110,8 @@ class Database:
         :param update_session: option to update session before running the query (defaults to True)
         :param limit: the optional number of rows to limit the query with
         :param offset: the optional number of rows to offset the query with
-        :param group_by: an optional function, when given query results will group by return value of group_by function
+        :param group_by: an optional function, when given query results will group by return value of group_by function.
+        Query needs to order the return values by the key being grouped by
         :return: None if database is inaccessible, the results of the query otherwise
         """
         try:

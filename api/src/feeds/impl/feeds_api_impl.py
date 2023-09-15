@@ -73,7 +73,9 @@ class FeedsApiImpl(BaseFeedsApi):
         """
         Maps sqlalchemy data model Feed to API data model BasicFeed
         """
-        feed_groups = Database().select(query=feed_filter.filter(FeedsApiImpl._create_feeds_query(Feed)),
+        # Results are sorted by stable_id because Database.select(group_by=) requires it so
+        feed_query = feed_filter.filter(FeedsApiImpl._create_feeds_query(Feed)).order_by(Feed.stable_id)
+        feed_groups = Database().select(query=feed_query,
                                         limit=limit, offset=offset,
                                         group_by=lambda x: x[0].stable_id)
         basic_feeds = []
@@ -130,7 +132,9 @@ class FeedsApiImpl(BaseFeedsApi):
                                    .join(t_feedreference, isouter=True)
                                    .join(referenced_feed, referenced_feed.id == t_feedreference.c.gtfs_feed_id,
                                          isouter=True)
-                                   .add_columns(Entitytype.name, referenced_feed.stable_id))
+                                   .add_columns(Entitytype.name, referenced_feed.stable_id)
+                                   .order_by(Feed.stable_id))
+        # Results are sorted by stable_id because Database.select(group_by=) requires it so
         feed_groups = Database().select(query=query, limit=limit, offset=offset,
                                         conditions=conditions, group_by=lambda x: x[0].stable_id)
         gtfs_rt_feeds = []
