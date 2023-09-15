@@ -59,7 +59,9 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
     @staticmethod
     def get_datasets_gtfs(query: Query, limit: int = None, offset: int = None) -> List[GtfsDataset]:
-        dataset_groups = Database().select(query=query, limit=limit, offset=offset, group_by=lambda x: x[0].stable_id)
+        # Results are sorted by stable_id because Database.select(group_by=) requires it so
+        dataset_groups = Database().select(query=query.order_by(Gtfsdataset.stable_id),
+                                           limit=limit, offset=offset, group_by=lambda x: x[0].stable_id)
 
         gtfs_datasets = []
         for dataset_group in dataset_groups:
