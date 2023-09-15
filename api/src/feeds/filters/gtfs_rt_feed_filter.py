@@ -15,6 +15,7 @@ class EntityTypeFilter(Filter):
 class GtfsRtFeedFilter(Filter):
     stable_id: Optional[str]
     provider__ilike: Optional[str]  # case insensitive
+    producer_url__ilike: Optional[str]  # case insensitive
     entity_types: Optional[EntityTypeFilter]
 
     class Constants(Filter.Constants):

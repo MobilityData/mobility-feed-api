@@ -177,12 +177,12 @@ class FeedsApiImpl(BaseFeedsApi):
             offset: int,
             status: str,
             provider: str,
-            data_type: str,
+            producer_url: str,
             sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        return self._get_basic_feeds(FeedFilter(status=status, provider__ilike=provider,
-                                                data_type=data_type), limit, offset)
+        feed_filter = FeedFilter(status=status, provider__ilike=provider, producer_url__ilike=producer_url)
+        return self._get_basic_feeds(feed_filter, limit, offset)
 
     def get_gtfs_feed(
             self,
@@ -224,6 +224,7 @@ class FeedsApiImpl(BaseFeedsApi):
             limit: int,
             offset: int,
             provider: str,
+            producer_url: str,
             country_code: str,
             subdivision_name: str,
             municipality: str,
@@ -236,8 +237,10 @@ class FeedsApiImpl(BaseFeedsApi):
         location_filter = LocationFilter(country_code=country_code,
                                          subdivision_name__ilike=subdivision_name,
                                          municipality__ilike=municipality)
-        return self._get_gtfs_feeds(GtfsFeedFilter(provider__ilike=provider, location=location_filter),
-                                    limit=limit, offset=offset, bounding_latitudes=bounding_latitudes,
+        feed_filter = GtfsFeedFilter(provider__ilike=provider, producer_url__ilike=producer_url,
+                                     location=location_filter)
+        return self._get_gtfs_feeds(feed_filter, limit=limit, offset=offset,
+                                    bounding_latitudes=bounding_latitudes,
                                     bounding_longitudes=bounding_longitudes,
                                     bounding_filter_method=bounding_filter_method)
 
@@ -256,10 +259,11 @@ class FeedsApiImpl(BaseFeedsApi):
             limit: int,
             offset: int,
             provider: str,
+            producer_url: str,
             entity_types: str,
             sort: str,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
-        return self._get_gtfs_rt_feeds(GtfsRtFeedFilter(provider__ilike=provider,
+        return self._get_gtfs_rt_feeds(GtfsRtFeedFilter(provider__ilike=provider, producer_url__ilike=producer_url,
                                                         entity_types=EntityTypeFilter(name__in=entity_types)),
                                        limit, offset)

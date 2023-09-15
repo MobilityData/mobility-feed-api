@@ -9,7 +9,7 @@ class FeedFilter(Filter):
     status: Optional[str]
     stable_id: Optional[str]
     provider__ilike: Optional[str]  # case insensitive
-    data_type: Optional[str]
+    producer_url__ilike: Optional[str]  # case insensitive
 
     class Constants(Filter.Constants):
         model = Feed

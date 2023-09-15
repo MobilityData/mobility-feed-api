@@ -36,7 +36,7 @@ paths:
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
-        - $ref: "#/components/parameters/data_type"
+        - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/sort"
 
       security:
@@ -81,6 +81,7 @@ paths:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/country_code"
         - $ref: "#/components/parameters/subdivision_name"
         - $ref: "#/components/parameters/municipality"
@@ -109,6 +110,7 @@ paths:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/entity_types"
         - $ref: "#/components/parameters/sort"
       security:
@@ -676,17 +678,16 @@ components:
       schema:
         type: string
         example: London Transit
-    data_type:
-      name: data_type
+    producer_url:
+      name: producer_url
       in: query
-      description: Filter feeds by their type
       required: false
+      description: >
+        Filter feeds by URL where the producer is providing the dataset.  Phrase is matched case insensitively.
       schema:
         type: string
-        enum:
-          - gtfs
-          - gtfs_rt
-        example: gtfs
+        format: url
+        example: http://www.londontransit.ca/gtfsfeed/google_transit.zip
     entity_types:
       name: entity_types
       in: query
