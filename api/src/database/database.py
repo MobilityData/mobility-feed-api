@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 
 from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import Session, load_only
-from sqlalchemy.sql import Select
+from sqlalchemy.orm import Session, load_only, Query
 
 from database_gen.sqlacodegen_models import Base
 from utils.logger import Logger
@@ -99,7 +98,7 @@ class Database:
             self.logger.error(f"Session closing failed with exception: \n {e}")
         return self.is_connected()
 
-    def select(self, model: Type[Base] = None, query: Select = None,
+    def select(self, model: Type[Base] = None, query: Query = None,
                conditions: list = None, attributes: list = None, update_session: bool = True,
                limit: int = None, offset: int = None, group_by: Callable = None):
         """
