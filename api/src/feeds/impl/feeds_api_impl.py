@@ -98,7 +98,8 @@ class FeedsApiImpl(BaseFeedsApi):
                                    .add_entity(Gtfsdataset)
                                    .join(t_locationfeed, t_locationfeed.c.feed_id == Gtfsfeed.id, isouter=True)
                                    .join(Location, t_locationfeed.c.location_id == Location.id, isouter=True)
-                                   .add_entity(Location))
+                                   .add_entity(Location)
+                                   .order_by(Gtfsfeed.stable_id))
         query = DatasetsApiImpl.apply_bounding_filtering(query, bounding_latitudes, bounding_longitudes,
                                                          bounding_filter_method)
         db = Database()
