@@ -21,8 +21,8 @@ from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.latest_dataset import LatestDataset
-from feeds_gen.models.source_info import SourceInfo
 from feeds_gen.models.location import Location as ApiLocation
+from feeds_gen.models.source_info import SourceInfo
 
 
 class FeedsApiImpl(BaseFeedsApi):
@@ -79,7 +79,8 @@ class FeedsApiImpl(BaseFeedsApi):
         basic_feeds = []
         for feed_group in feed_groups:
             feed_objects, redirects, external_ids = zip(*feed_group)
-            basic_feeds.append(FeedsApiImpl._create_common_feed(feed_objects[0], BasicFeed, redirects, external_ids))
+            basic_feeds.append(
+                FeedsApiImpl._create_common_feed(feed_objects[0], BasicFeed, set(redirects), set(external_ids)))
         return basic_feeds
 
     @staticmethod
@@ -105,7 +106,7 @@ class FeedsApiImpl(BaseFeedsApi):
         for feed_group in feed_groups:
             feed_objects, redirects, external_ids, latest_datasets, locations = zip(*feed_group)
 
-            gtfs_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsFeed, redirects, external_ids)
+            gtfs_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsFeed, set(redirects), set(external_ids))
             gtfs_feed.locations = [ApiLocation(country_code=location.country_code,
                                                subdivision_name=location.subdivision_name,
                                                municipality=location.municipality)
@@ -136,7 +137,8 @@ class FeedsApiImpl(BaseFeedsApi):
         for feed_group in feed_groups:
             feed_objects, redirects, external_ids, entity_types, feed_references = zip(*feed_group)
 
-            gtfs_rt_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsRTFeed, redirects, external_ids)
+            gtfs_rt_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsRTFeed, set(redirects),
+                                                            set(external_ids))
             gtfs_rt_feed.entity_types = {entity_type for entity_type in entity_types if entity_type is not None}
             gtfs_rt_feed.feed_references = {reference for reference in feed_references if reference is not None}
             gtfs_rt_feeds.append(gtfs_rt_feed)
