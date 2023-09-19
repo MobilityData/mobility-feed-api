@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-# This script deploys the Feed API cloud run service.
+# This script deploys the Load Balancer's rules are related resources.
 # The cloud run service is created with name: mobility-feed-api-${var.environment}
 # Module output:
 #   feed_api_uri: Main URI of the Feed API
