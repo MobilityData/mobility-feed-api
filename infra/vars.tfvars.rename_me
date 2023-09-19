@@ -11,3 +11,5 @@ environment = {{ENVIRONMENT}}
 deployer_service_account = {{DEPLOYER_SERVICE_ACCOUNT}}
 feed_api_image_version      = {{FEED_API_IMAGE_VERSION}}
 
+oauth2_client_id = {{OAUTH2_CLIENT_ID}}
+oauth2_client_secret = {{OAUTH2_CLIENT_SECRET}}

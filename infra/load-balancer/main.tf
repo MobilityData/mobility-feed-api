@@ -23,6 +23,12 @@
 data "google_project" "project" {
 }
 
+# This resource maps an already created SSL certificate to a terraform state resource.
+# The SSL setup is done outsite terraform for security reasons.
+data "google_compute_ssl_certificate" "existing_ssl_cert" {
+  name = "api-${var.environment}-mobilitydatabase"
+}
+
 resource "google_compute_security_policy" "policy_rate_limiting" {
   name        = "feed-rate-limiting-${var.environment}"
   description = "Rate limiting"
@@ -69,7 +75,6 @@ resource "google_compute_backend_service" "feed_api_lb_backend" {
     enable = true
   }
   protocol = "HTTPS"
-  #  custom_request_headers = ["Host: ${google_compute_region_network_endpoint_group.feed_cloudrun_neg.cloud_run. .feed_api_endpoint.fqdn}"]
 
   backend {
     group = google_compute_region_network_endpoint_group.feed_cloudrun_neg.id
@@ -95,16 +100,6 @@ resource "google_compute_health_check" "http_health_check" {
   }
 }
 
-resource "google_compute_ssl_certificate" "feed_api_cert" {
-  name_prefix = "my-certificate-"
-  private_key = file("gen/myCA.key")
-  certificate = file("gen/myCA.pem")
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
 resource "google_compute_url_map" "feed_api_url_map" {
   name            = "feed-run-url-map-${var.environment}"
   default_service = google_compute_backend_service.feed_api_lb_backend.id
@@ -113,12 +108,20 @@ resource "google_compute_url_map" "feed_api_url_map" {
 resource "google_compute_target_https_proxy" "feed_https_proxy" {
   name             = "feed-proxy"
   url_map          = google_compute_url_map.feed_api_url_map.id
-  ssl_certificates = [google_compute_ssl_certificate.feed_api_cert.id]
+  ssl_certificates = [data.google_compute_ssl_certificate.existing_ssl_cert.id]
 }
 
 resource "google_compute_global_forwarding_rule" "feed_http_lb_rule" {
   name       = "feed-http-lb-rule-${var.environment}"
   target     = google_compute_target_https_proxy.feed_https_proxy.self_link
   port_range = "443"
+  ip_version = "IPV6"
+}
+
+resource "google_compute_global_forwarding_rule" "feed_http_lb_rule_ipv4" {
+  name       = "feed-http-lb-rule-v4-${var.environment}"
+  target     = google_compute_target_https_proxy.feed_https_proxy.self_link
+  port_range = "443"
+  ip_version = "IPV4"
 }
 
