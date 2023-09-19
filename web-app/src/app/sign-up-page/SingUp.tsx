@@ -10,17 +10,16 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import { useNavigate } from 'react-router-dom';
 
 export default function SignUp(): React.ReactElement {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     console.log(data);
-    // console.log({
-    //   email: data.get('email'),
-    //   password: data.get('password'),
-    // });
   };
+
+  const navigateTo = useNavigate();
 
   return (
     <Container component='main' maxWidth='xs'>
@@ -83,6 +82,9 @@ export default function SignUp(): React.ReactElement {
           type='submit'
           variant='contained'
           sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
+          onClick={() => {
+            navigateTo('/contact-info');
+          }}
         >
           Sign Up
         </Button>
