@@ -71,6 +71,9 @@ resource "google_pubsub_topic" "pubsub_topic" {
 }
 
 resource "google_cloudfunctions2_function" "pubsub_function" {
+  depends_on = [
+        google_cloudfunctions2_function.http_function
+  ]
   name                    = var.pubsub_function_name
   description             = "Batch processing function"
   location                = "us-central1"
