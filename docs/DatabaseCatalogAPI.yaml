@@ -34,7 +34,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/status"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/sort"
 
       security:
@@ -78,7 +80,11 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/country_code"
+        - $ref: "#/components/parameters/subdivision_name"
+        - $ref: "#/components/parameters/municipality"
         - $ref: "#/components/parameters/sort"
         - $ref: "#/components/parameters/boundingLatitudes"
         - $ref: "#/components/parameters/boundingLongitudes"
@@ -103,7 +109,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/entity_types"
         - $ref: "#/components/parameters/sort"
       security:
         - ApiKeyAuth: []
@@ -166,7 +174,8 @@ paths:
         - $ref: "#/components/parameters/latestQueryParam"
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/downloaded_date_gte"
+        - $ref: "#/components/parameters/downloaded_date_lte"
         - $ref: "#/components/parameters/sort"
         - $ref: "#/components/parameters/boundingLatitudes"
         - $ref: "#/components/parameters/boundingLongitudes"
@@ -492,7 +501,7 @@ components:
               description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
               type: string
               example: 2023-07-10T22:06:00Z
-              format: date
+              format: datetime
             hash:
               description: A MD5 hash of the dataset.
               type: string
@@ -562,6 +571,79 @@ components:
       schema:
         type: string
         example: status=active
+    status:
+      name: status
+      in: query
+      description: Filter feeds by their status
+      required: false
+      schema:
+        type: string
+        enum:
+          - active
+          - deprecated
+          - inactive
+          - development
+    provider:
+      name: provider
+      in: query
+      description: Filter feeds by provider name. Phrase is matched case insensitively to actual provider names.
+      required: false
+      schema:
+        type: string
+        example: London Transit
+    producer_url:
+      name: producer_url
+      in: query
+      required: false
+      description: >
+        Filter feeds by URL where the producer is providing the dataset.  Phrase is matched case insensitively.
+      schema:
+        type: string
+        format: url
+        example: londontransit.ca/gtfsfeed
+    entity_types:
+      name: entity_types
+      in: query
+      description: Filter feeds by their entity type. Expects a comma separated list of all types to fetch.
+      required: false
+      schema:
+        type: string
+        example: vp,sa
+    country_code:
+      name: country_code
+      in: query
+      description: Filter feeds by their exact country code.
+      schema:
+        type: string
+        example: USA
+    subdivision_name:
+      name: subdivision_name
+      in: query
+      description: Filter feeds by subdivision name. Phrase is matched case insensitively to actual subdivision names.
+      schema:
+        type: string
+        example: California
+    municipality:
+      name: municipality
+      in: query
+      description: Filter feeds by municipality name. Phrase is matched case insensitively to actual municipality names.
+      schema:
+        type: string
+        example: Los Angeles
+    downloaded_date_gte:
+      name: downloaded_date_gte
+      in: query
+      description: Filter feed datasets with downloaded date greater or equal to given date.
+      schema:
+        type: string
+        example: 2023-07-00T22:06:00Z
+    downloaded_date_lte:
+      name: downloaded_date_lte
+      in: query
+      description: Filter feed datasets with downloaded date less or equal to given date.
+      schema:
+        type: string
+        example: 2023-07-20T22:06:00Z
     sort:
       name: sort
       in: query

@@ -41,3 +41,4 @@ psycopg2-binary==2.9.6
 sqlacodegen==2.3.0post1
 pandas
 cloud-sql-python-connector[pg8000]
+fastapi-filter[sqlalchemy]==0.6.1
