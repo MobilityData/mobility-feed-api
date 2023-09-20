@@ -40,11 +40,16 @@ variable "deployer_service_account" {
 }
 
 variable "oauth2_client_id" {
-  type = string
+  type        = string
   description = "OAuth2 Client id"
 }
 
 variable "oauth2_client_secret" {
-    type = string
+  type        = string
   description = "OAuth2 Client secret"
+}
+
+variable "global_rate_limit_req_per_minutes" {
+  type        = string
+  description = "Global load balancer rate limit"
 }

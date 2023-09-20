@@ -50,9 +50,10 @@ resource "google_compute_security_policy" "policy_rate_limiting" {
 
       enforce_on_key = "ALL"
 
+#     This is a global rate limit threshold limiting all clients
       rate_limit_threshold {
-        count        = 10
-        interval_sec = 30
+        count        = var.global_rate_limit_req_per_minutes
+        interval_sec = 60
       }
     }
   }
