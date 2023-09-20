@@ -6,6 +6,12 @@ on:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
         required: true
+      OAUTH2_CLIENT_ID:
+        description: Oauth client id part of the the Identity Aware Proxy configuration
+        required: true
+      OAUTH2_CLIENT_SECRET:
+        description: Oauth client secret part of the the Identity Aware Proxy configuration
+        required: true      
     inputs:
       ENVIRONMENT:
         description: API environment. Possible values prod, staging and dev
@@ -39,14 +45,6 @@ on:
         description: Terraform apply changes
         required: true
         type: boolean
-      OAUTH2_CLIENT_ID:
-        description: Oauth client id part of the the Identity Aware Proxy configuration
-        required: true
-        type: string
-      OAUTH2_CLIENT_SECRET:
-        description: Oauth client secret part of the the Identity Aware Proxy configuration
-        required: true
-        type: string
       GLOBAL_RATE_LIMIT_REQ_PER_MINUTE:
         description: Global Load Balancer rate limit per minute
         required: true
@@ -154,9 +152,9 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
           echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV
-          echo "OAUTH2_CLIENT_ID=${{ inputs.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
-          echo "OAUTH2_CLIENT_SECRET=${{ inputs.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
-          echo "OAUTH2_CLIENT_SECRET=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
+          echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
+          echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
