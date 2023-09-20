@@ -43,3 +43,8 @@ variable "oauth2_client_secret" {
     type = string
   description = "OAuth2 Client secret"
 }
+
+variable "global_rate_limit_req_per_minute" {
+  type        = string
+  description = "Global load balancer rate limit"
+}

@@ -100,6 +100,7 @@ module "feed-api-load-balancer" {
   feed_api_name        = module.feed-api.feed_api_name
   oauth2_client_id     = var.oauth2_client_id
   oauth2_client_secret = var.oauth2_client_secret
+  global_rate_limit_req_per_minute = var.global_rate_limit_req_per_minute
 
   source = "./load-balancer"
 }
