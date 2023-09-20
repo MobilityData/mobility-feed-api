@@ -182,31 +182,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsDatasets"
 
-  /v1/feeds/{id}/logs:
-    parameters:
-      - $ref: "#/components/parameters/feedIdLogsPathParam"
-    get:
-      description: Get a list of logs related to a feed.
-      tags:
-        - "feeds"
-      operationId: getFeedLogs
-      parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
-        - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
-        - $ref: "#/components/parameters/sort"
-
-      security:
-        - ApiKeyAuth: []
-      responses:
-        200:
-          description: Successful pull of the requested log entries.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FeedLogs"
-
-
   /v1/datasets/gtfs/{id}:
     get:
       description: Get the specified dataset from the Mobility Database.
@@ -577,68 +552,6 @@ components:
 #        - gtfs
 #        - gtfs_rt
 #      example: gtfs
-
-    FeedLogs:
-      type: array
-      items:
-        $ref: "#/components/schemas/FeedLog"
-
-    FeedLog:
-      type: object
-      properties:
-        log_id:
-          description: Unique identifier used as a key for the feed logs table.
-          type: string
-        logged_at:
-          type: string
-          description: The date and time when the log was created in iso 8601 format.
-          example: 2023-07-10T22:06:00Z
-        feed_info:
-          $ref: "#/components/schemas/FeedInfoForLog"
-
-    FeedInfoForLog:
-      type: object
-      properties:
-        id:
-          type: string
-          description: The feed ID of the feed this log relates to.
-          example: mdb-100
-        data_type:
-          type: string
-          enum:
-            - gtfs
-            - gtfs_rt
-          example: gtfs
-        status:
-          description: >
-            Describes status of the Feed. Should be one of 
-              * `active` Feed should be used in public trip planners.
-              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-              * `development` Feed is being used for development purposes and should not be used in public trip planners.
-          type: string
-          enum:
-            - active
-            - deprecated
-            - inactive
-            - development
-          example: active
-        provider:
-          description: The provider of the feed. If there is more than onem a comma separated list of providers.
-          type: string
-          example: London Transit Commission
-        feed_name:
-          description: >
-            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
-            multiple providers, or which network is represented by the feed.
-          type: string
-          example: Atlantic Station Shuttle (FREE RIDE)
-        note:
-          description: A note to clarify complex use cases for consumers.
-          type: string
-        source_info:
-            $ref: "#/components/schemas/SourceInfo"
-
   parameters:
 
     filter:
@@ -740,15 +653,6 @@ components:
       name: id
       in: path
       description: The feed ID of the requested feed.
-      required: True
-      schema:
-        type: string
-        example: mdb-10
-
-    feedIdLogsPathParam:
-      name: id
-      in: path
-      description: The feed ID of the feed for which to get the logs.
       required: True
       schema:
         type: string

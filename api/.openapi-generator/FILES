@@ -12,8 +12,6 @@ src/feeds_gen/models/basic_feed.py
 src/feeds_gen/models/bounding_box.py
 src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
-src/feeds_gen/models/feed_info_for_log.py
-src/feeds_gen/models/feed_log.py
 src/feeds_gen/models/gtfs_dataset.py
 src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_rt_feed.py
