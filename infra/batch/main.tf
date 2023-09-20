@@ -111,7 +111,7 @@ resource "google_cloud_scheduler_job" "job" {
 
   http_target {
     http_method            = var.http_method
-    uri                    = google_cloudfunctions2_function.http_function.service_config.uri
+    uri                    = google_cloudfunctions2_function.http_function.service_config[0].uri
     oidc_token {
       service_account_email = var.deployer_service_account
     }
