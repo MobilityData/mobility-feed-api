@@ -1,0 +1,8 @@
+repos:
+  - repo: local
+    hooks:
+      - id: lint-tests
+        name: lint-tests-sh
+        entry: scripts/lint-tests.sh
+        language: script
+        pass_filenames: false
