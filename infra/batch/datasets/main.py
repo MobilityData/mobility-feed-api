@@ -54,6 +54,9 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     blob = bucket.blob(f"{stable_id}/latest.zip")
 
     if latest_hash != file_sha256_hash:
+        print(f"Dataset with stable id {stable_id} has changed (hash {latest_hash} -≥ {file_sha256_hash}). "
+              f"Uploading new version.")
+
         # Upload file as latest
         blob.upload_from_string(content)
 
@@ -64,7 +67,10 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         timestamp_blob.upload_from_string(content)
 
         return file_sha256_hash, timestamp_blob.public_url
-    return file_sha256_hash, None
+    else:
+        print(f"Dataset with stable id {stable_id} has not changed (hash {latest_hash} -≥ {file_sha256_hash}). "
+              f"Not uploading.")
+        return file_sha256_hash, None
 
 
 def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
