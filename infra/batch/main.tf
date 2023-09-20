@@ -111,7 +111,7 @@ resource "google_cloud_scheduler_job" "job" {
 
   http_target {
     http_method            = var.http_method
-    uri                    = 'https://us-central1-mobility-feeds-dev.cloudfunctions.net/dataset-batch' # TODO update before merge
+    uri                    = "https://us-central1-mobility-feeds-dev.cloudfunctions.net/dataset-batch"
     oidc_token {
       service_account_email = var.deployer_service_account
     }
