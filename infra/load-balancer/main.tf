@@ -52,7 +52,7 @@ resource "google_compute_security_policy" "policy_rate_limiting" {
 
 #     This is a global rate limit threshold limiting all clients
       rate_limit_threshold {
-        count        = var.global_rate_limit_req_per_minutes
+        count        = var.global_rate_limit_req_per_minute
         interval_sec = 60
       }
     }
