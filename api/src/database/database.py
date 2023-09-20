@@ -1,5 +1,6 @@
 import itertools
 import os
+import threading
 import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
@@ -10,6 +11,9 @@ from sqlalchemy.orm import Session, load_only, Query
 
 from database_gen.sqlacodegen_models import Base
 from utils.logger import Logger
+
+
+lock = threading.Lock()
 
 
 def generate_unique_id() -> str:
@@ -28,7 +32,9 @@ class Database:
 
     def __new__(cls, *args, **kwargs):
         if not isinstance(cls.instance, cls):
-            cls.instance = object.__new__(cls)
+            with lock:
+                if not isinstance(cls.instance, cls):
+                    cls.instance = object.__new__(cls)
         return cls.instance
 
     def __init__(self):
