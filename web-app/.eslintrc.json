@@ -1,0 +1,32 @@
+{
+    "env": {
+      "browser": true,
+      "es2021": true
+    },
+    "extends": [
+      "standard-with-typescript",
+      "plugin:react/recommended",
+      "eslint:recommended",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/recommended",
+      "prettier",
+      "plugin:prettier/recommended"
+    ],
+    "parserOptions": {
+      "ecmaVersion": "latest"
+    },
+    "plugins": [
+      "react",
+      "@typescript-eslint",
+      "unused-imports",
+      "prettier"
+    ],
+    "rules": {
+      "@typescript-eslint/no-unused-vars": "error",
+      "no-console": "warn",
+      "unused-imports/no-unused-imports": "error",
+      "react/react-in-jsx-scope": "off",
+      "prettier/prettier": "error"
+    }
+  }
+  
