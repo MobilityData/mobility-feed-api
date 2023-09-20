@@ -103,9 +103,6 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
 }
 
 resource "google_cloud_scheduler_job" "job" {
-  depends_on = [
-        google_cloudfunctions2_function.http_function
-  ]
   name                     = var.job_name
   description              = var.job_description
   schedule                 = var.job_schedule
@@ -114,7 +111,7 @@ resource "google_cloud_scheduler_job" "job" {
 
   http_target {
     http_method            = var.http_method
-    uri                    = google_cloudfunctions2_function.http_function.service_config[0].uri
+    uri                    = 'https://us-central1-mobility-feeds-dev.cloudfunctions.net/dataset-batch' # TODO update before merge
     oidc_token {
       service_account_email = var.deployer_service_account
     }
