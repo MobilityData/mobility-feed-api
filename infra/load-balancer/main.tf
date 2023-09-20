@@ -24,7 +24,7 @@ data "google_project" "project" {
 }
 
 # This resource maps an already created SSL certificate to a terraform state resource.
-# The SSL setup is done outsite terraform for security reasons.
+# The SSL setup is done outside terraform for security reasons.
 data "google_compute_ssl_certificate" "existing_ssl_cert" {
   name = "api-${var.environment}-mobilitydatabase"
 }
@@ -46,7 +46,7 @@ resource "google_compute_security_policy" "policy_rate_limiting" {
 
     rate_limit_options {
       conform_action = "allow"
-      exceed_action  = "deny(403)"
+      exceed_action  = "deny(429)"
 
       enforce_on_key = "ALL"
 
