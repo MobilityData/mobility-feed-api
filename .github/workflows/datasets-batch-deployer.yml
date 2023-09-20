@@ -175,7 +175,6 @@ jobs:
           echo "JOB_ATTEMPT_DEADLINE=${{ inputs.JOB_ATTEMPT_DEADLINE }}" >> $GITHUB_ENV
           echo "PUBSUB_TOPIC_NAME=${{ inputs.PUBSUB_TOPIC_NAME }}" >> $GITHUB_ENV
           echo "CREATE_PUBSUB_FUNCTION=${{ inputs.CREATE_PUBSUB_FUNCTION }}" >> $GITHUB_ENV
-          echo "FUNCTION_ENV_VARIABLE=${{ secrets.FUNCTION_ENV_VARIABLE }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |

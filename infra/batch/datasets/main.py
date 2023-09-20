@@ -12,17 +12,19 @@ from requests.exceptions import HTTPError
 import requests
 from google.cloud import storage
 from datetime import datetime
-from hashlib import md5
+from hashlib import sha256
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
 
 
-def upload_dataset(url, bucket_name, stable_id):
+def upload_dataset(url, bucket_name, stable_id, latest_hash):
     """
-    Uploads a dataset to a GCP bucket
+    Uploads a dataset to a GCP bucket as ≤stable_id≥/latest.zip and ≤stable_id≥/≤upload_date≥.zip
+    if the dataset hash is different from the latest dataset stored
     :param url: dataset feed's producer url
     :param bucket_name: name of the GCP bucket
     :param stable_id: the dataset stable id
+    :param latest_hash: the latest dataset hash
     :return: the file hash and the hosted url as a tuple
     """
     # Fix DH Key issues in server side
@@ -43,30 +45,15 @@ def upload_dataset(url, bucket_name, stable_id):
     response.raise_for_status()
 
     content = response.content
-    file_md5_hash = md5(content).hexdigest()
-    print(f"File hash is {file_md5_hash}.")
+    file_sha256_hash = sha256(content).hexdigest()
+    print(f"File hash is {file_sha256_hash}.")
 
     # Create a storage client
     storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
     blob = bucket.blob(f"{stable_id}/latest.zip")
 
-    upload_file = False
-    if blob.exists():
-        # Validate change
-        latest_hash = md5()
-        with blob.open("rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                latest_hash.update(chunk)
-        latest_hash = latest_hash.hexdigest()
-        print(f"Latest hash is {latest_hash}.")
-        if latest_hash != file_md5_hash:
-            upload_file = True
-    else:
-        # Upload first version of dataset
-        upload_file = True
-
-    if upload_file:
+    if latest_hash != file_sha256_hash:
         # Upload file as latest
         blob.upload_from_string(content)
 
@@ -76,8 +63,8 @@ def upload_dataset(url, bucket_name, stable_id):
         timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
         timestamp_blob.upload_from_string(content)
 
-        return file_md5_hash, timestamp_blob.public_url
-    return file_md5_hash, None
+        return file_sha256_hash, timestamp_blob.public_url
+    return file_sha256_hash, None
 
 
 def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
@@ -94,37 +81,40 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
     connection = None
     errors = ""
     try:
-        md5_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id)
-
-        # Set up transaction for SQL updates
-        connection = engine.connect()
-        transaction = connection.begin()
-
-        # Create a new version of the dataset in the database
+        # Check latest version of the dataset
         select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
         dataset_results = connection.execute(select_dataset_statement).all()
         dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
         dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
         print(f"Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
+
+        sha256_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id, dataset_hash)
+
+        # Set up transaction for SQL updates
+        connection = engine.connect()
+        transaction = connection.begin()
+
         if dataset_id is None:
             errors += f"[INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n"
             return
+        if dataset_hash is None:
+            print(f"[WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
 
         # Set the previous version latest field to false
-        if dataset_hash is not None and dataset_hash != md5_file_hash:
+        if dataset_hash is not None and dataset_hash != sha256_file_hash:
             sql_statement = f"update gtfsdataset set latest=false where id='{dataset_id}'"
             connection.execute(text(sql_statement))
 
         sql_statement = f"insert into gtfsdataset (id, feed_id, latest, bounding_box, note, hash, " \
                         f"download_date, stable_id, hosted_url) " \
                         f"select '{str(uuid.uuid4())}', feed_id, true, bounding_box, note, " \
-                        f"'{md5_file_hash}', NOW(), stable_id, '{hosted_url}' from " \
+                        f"'{sha256_file_hash}', NOW(), stable_id, '{hosted_url}' from " \
                         f"gtfsdataset where id='{dataset_id}'"
 
         # In case the dataset doesn't include a hash or the dataset was deleted from the bucket,
         # update the existing entity
-        if dataset_hash is None or dataset_hash == md5_file_hash:
-            sql_statement = f"update gtfsdataset set hash='{md5_file_hash}', hosted_url='{hosted_url}' where id='{dataset_id}'"
+        if dataset_hash is None or dataset_hash == sha256_file_hash:
+            sql_statement = f"update gtfsdataset set hash='{sha256_file_hash}', hosted_url='{hosted_url}' where id='{dataset_id}'"
         connection.execute(text(sql_statement))
 
         # Commit transaction after every step has run successfully
@@ -165,6 +155,9 @@ def create_bucket(bucket_name):
 
 
 def get_db_engine():
+    """
+    :return: Database engine
+    """
     postgres_user = os.getenv("POSTGRES_USER")
     postgres_password = os.getenv("POSTGRES_PASSWORD")
     postgres_db = os.getenv("POSTGRES_DB")
@@ -179,6 +172,10 @@ def get_db_engine():
 
 @functions_framework.cloud_event
 def process_dataset(cloud_event: CloudEvent):
+    """
+    Pub/Sub function entry point that processes a single dataset
+    :param cloud_event: GCP Cloud Event
+    """
     try:
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         json_payload = json.loads(data)
@@ -197,6 +194,10 @@ def process_dataset(cloud_event: CloudEvent):
 
 @functions_framework.http
 def batch_dataset(request):
+    """
+    HTTP Function entry point that processes the datasets
+    :param request: HTTP request
+    """
     bucket_name = os.getenv("BUCKET_NAME")
     pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
     project_id = os.getenv("PROJECT_ID")
