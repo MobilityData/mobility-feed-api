@@ -81,6 +81,10 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
     connection = None
     errors = ""
     try:
+        # Set up transaction for SQL updates
+        connection = engine.connect()
+        transaction = connection.begin()
+
         # Check latest version of the dataset
         select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
         dataset_results = connection.execute(select_dataset_statement).all()
@@ -89,10 +93,6 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         print(f"Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
 
         sha256_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id, dataset_hash)
-
-        # Set up transaction for SQL updates
-        connection = engine.connect()
-        transaction = connection.begin()
 
         if dataset_id is None:
             errors += f"[INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n"
