@@ -2,7 +2,7 @@ from typing import Optional, List
 
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from database_gen.sqlacodegen_models import Gtfsrealtimefeed, t_entitytypefeed, Entitytype
+from database_gen.sqlacodegen_models import Gtfsrealtimefeed, Entitytype
 
 
 class EntityTypeFilter(Filter):

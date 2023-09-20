@@ -5,8 +5,9 @@ class Logger:
     """
     Util class for logging information, errors or warnings
     """
+
     def __init__(self, name):
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s %(message)s')
+        formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)

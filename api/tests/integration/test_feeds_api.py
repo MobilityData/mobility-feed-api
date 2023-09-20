@@ -1,20 +1,10 @@
 # coding: utf-8
-import os
-
 from fastapi.testclient import TestClient
-
-from feeds_gen.models.basic_feed import BasicFeed  # noqa: F401
-from feeds_gen.models.gtfs_feed import GtfsFeed  # noqa: F401
-
-# to load those environment variables
-import test_database
 
 
 def test_feeds_get(client: TestClient):
-    """Test case for feeds_get
-    
-    """
-    params = [("limit", 10),     ("offset", 0),     ("filter", 'status=active'),     ("sort", '+provider')]
+    """Test case for feeds_get"""
+    params = [("limit", 10), ("offset", 0), ("filter", "status=active"), ("sort", "+provider")]
     headers = {
         "ApiKeyAuth": "special-key",
     }
@@ -29,10 +19,7 @@ def test_feeds_get(client: TestClient):
 
 
 def test_feeds_gtfs_get(client: TestClient):
-    """Test case for feeds_gtfs_get
-
-    
-    """
+    """Test case for feeds_gtfs_get"""
 
     params = []
     headers = {
@@ -49,17 +36,14 @@ def test_feeds_gtfs_get(client: TestClient):
 
 
 def test_feeds_gtfs_id_get(client: TestClient):
-    """Test case for feeds_gtfs_id_get
-
-    
-    """
+    """Test case for feeds_gtfs_id_get"""
 
     headers = {
         "ApiKeyAuth": "special-key",
     }
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}".format(id='mdb-1'),
+        "/v1/gtfs_feeds/{id}".format(id="mdb-1"),
         headers=headers,
     )
 
@@ -68,14 +52,17 @@ def test_feeds_gtfs_id_get(client: TestClient):
 
 
 def test_feeds_gtfs_rt_get(client: TestClient):
-    """Test case for feeds_gtfs_get
+    """Test case for feeds_gtfs_get"""
 
-
-    """
-
-    params = [("limit", 10), ("offset", 0), ("filter", 'status=active'), ("sort", '+provider'),
-              ("bounding_latitudes", '41.46,42.67'), ("bounding_longitudes", '-78.58,-87-29'),
-              ("bounding_filter_method", 'completely_enclosed')]
+    params = [
+        ("limit", 10),
+        ("offset", 0),
+        ("filter", "status=active"),
+        ("sort", "+provider"),
+        ("bounding_latitudes", "41.46,42.67"),
+        ("bounding_longitudes", "-78.58,-87-29"),
+        ("bounding_filter_method", "completely_enclosed"),
+    ]
     headers = {
         "ApiKeyAuth": "special-key",
     }
@@ -91,17 +78,14 @@ def test_feeds_gtfs_rt_get(client: TestClient):
 
 
 def test_feeds_gtfs_rt_id_get(client: TestClient):
-    """Test case for feeds_gtfs_id_get
-
-
-    """
+    """Test case for feeds_gtfs_id_get"""
 
     headers = {
         "ApiKeyAuth": "special-key",
     }
     response = client.request(
         "GET",
-        "/v1/gtfs_rt_feeds/{id}".format(id='mdb-1561'),
+        "/v1/gtfs_rt_feeds/{id}".format(id="mdb-1561"),
         headers=headers,
     )
 
@@ -109,17 +93,14 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
 
 
 def test_feeds_id_get(client: TestClient):
-    """Test case for feeds_id_get
-
-    
-    """
+    """Test case for feeds_id_get"""
 
     headers = {
         "ApiKeyAuth": "special-key",
     }
     response = client.request(
         "GET",
-        "/v1/feeds/{id}".format(id='mdb-1'),
+        "/v1/feeds/{id}".format(id="mdb-1"),
         headers=headers,
     )
 

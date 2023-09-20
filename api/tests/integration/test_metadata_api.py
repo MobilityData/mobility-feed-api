@@ -4,10 +4,7 @@ from fastapi.testclient import TestClient
 
 
 def test_metadata_get(client: TestClient):
-    """Test case for metadata_get
-
-    
-    """
+    """Test case for metadata_get"""
 
     headers = {
         "ApiKeyAuth": "special-key",
@@ -19,4 +16,3 @@ def test_metadata_get(client: TestClient):
     )
 
     assert response.status_code == 200
-
