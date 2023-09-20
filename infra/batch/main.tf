@@ -73,7 +73,7 @@ resource "google_pubsub_topic" "pubsub_topic" {
 resource "google_cloudfunctions2_function" "pubsub_function" {
   name                    = var.pubsub_function_name
   description             = "Batch processing function"
-  location                = "us-central1"
+  location                = var.gcp_region
   count = var.create_pubsub_function ? 1 : 0
   build_config {
     runtime               = var.runtime
@@ -111,7 +111,7 @@ resource "google_cloud_scheduler_job" "job" {
 
   http_target {
     http_method            = var.http_method
-    uri                    = "https://us-central1-mobility-feeds-dev.cloudfunctions.net/dataset-batch"
+    uri                    = "https://${var.gcp_region}-${var.project_id}.cloudfunctions.net/${google_cloudfunctions2_function.http_function.name}"
     oidc_token {
       service_account_email = var.deployer_service_account
     }
