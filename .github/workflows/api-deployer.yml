@@ -6,6 +6,12 @@ on:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
         required: true
+      OAUTH2_CLIENT_ID:
+        description: Oauth client id part of the the Identity Aware Proxy configuration
+        required: true
+      OAUTH2_CLIENT_SECRET:
+        description: Oauth client secret part of the the Identity Aware Proxy configuration
+        required: true      
     inputs:
       ENVIRONMENT:
         description: API environment. Possible values prod, staging and dev
@@ -39,6 +45,10 @@ on:
         description: Terraform apply changes
         required: true
         type: boolean
+      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE:
+        description: Global Load Balancer rate limit per minute
+        required: true
+        type: string
 
 env:
   python_version: '3.10'
@@ -142,11 +152,14 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
           echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV
+          echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
+          echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE
 
       - uses: hashicorp/setup-terraform@v2
         with:
