@@ -44,7 +44,9 @@ locals {
     "monitoring.googleapis.com",
     "logging.googleapis.com",
     "run.googleapis.com",
-    "iam.googleapis.com"
+    "iam.googleapis.com",
+    "iap.googleapis.com",
+    "identitytoolkit.googleapis.com"
   ]
 }
 
