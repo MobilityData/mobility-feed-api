@@ -15,8 +15,6 @@ from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.external_id import ExternalId
-from feeds_gen.models.extra_models import TokenModel
-from feeds_gen.models.feed_log import FeedLog
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
@@ -159,17 +157,6 @@ class FeedsApiImpl(BaseFeedsApi):
             return ret[0]
         else:
             raise HTTPException(status_code=404, detail=f"Feed {id} not found")
-
-    def get_feed_logs(
-            id: str,
-            limit: int,
-            offset: int,
-            filter: str,
-            sort: str,
-            token_ApiKeyAuth: TokenModel,
-    ) -> List[FeedLog]:
-        """Get a list of logs related to a feed."""
-        return []
 
     def get_feeds(
             self,
