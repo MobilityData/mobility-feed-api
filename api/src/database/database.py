@@ -28,6 +28,7 @@ class Database:
     """
     This class represents a database instance
     """
+
     instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -39,28 +40,28 @@ class Database:
 
     def __init__(self):
         load_dotenv()
-        POSTGRES_USER = os.getenv("POSTGRES_USER")
-        POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-        POSTGRES_DB = os.getenv("POSTGRES_DB")
-        POSTGRES_PORT = os.getenv("POSTGRES_PORT")
-        POSTGRES_HOST = os.getenv("POSTGRES_HOST")
+        username = os.getenv("POSTGRES_USER")
+        password = os.getenv("POSTGRES_PASSWORD")
+        schema = os.getenv("POSTGRES_DB")
+        port = os.getenv("POSTGRES_PORT")
+        host = os.getenv("POSTGRES_HOST")
         self.logger = Logger(Database.__module__).get_logger()
         self.engine = None
         self.session = None
         self.connection_attempts = 0
-        self.SQLALCHEMY_DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+        self.SQLALCHEMY_DATABASE_URL = f"postgresql://{username}:{password}@{host}:{port}/{schema}"
 
         # set up GCP SQL Connector
         connector = Connector()
-        INSTANCE_NAME = os.getenv("INSTANCE_NAME")
+        instance_name = os.getenv("INSTANCE_NAME")
         self.get_connection = None
-        if INSTANCE_NAME is not None:
+        if instance_name is not None:
             self.get_connection = lambda: connector.connect(
-                INSTANCE_NAME,
+                instance_name,
                 "pg8000",
-                user=POSTGRES_USER,
-                password=POSTGRES_PASSWORD,
-                db=POSTGRES_DB
+                user=username,
+                password=password,
+                db=schema,
             )
         self.start_session()
 
@@ -104,9 +105,17 @@ class Database:
             self.logger.error(f"Session closing failed with exception: \n {e}")
         return self.is_connected()
 
-    def select(self, model: Type[Base] = None, query: Query = None,
-               conditions: list = None, attributes: list = None, update_session: bool = True,
-               limit: int = None, offset: int = None, group_by: Callable = None):
+    def select(
+        self,
+        model: Type[Base] = None,
+        query: Query = None,
+        conditions: list = None,
+        attributes: list = None,
+        update_session: bool = True,
+        limit: int = None,
+        offset: int = None,
+        group_by: Callable = None,
+    ):
         """
         Executes a query on the database
         :param model: the sqlalchemy model to query
@@ -139,7 +148,7 @@ class Database:
                 return [list(group) for _, group in itertools.groupby(results, group_by)]
             return results
         except Exception as e:
-            self.logger.error(f'SELECT query failed with exception: \n{e}')
+            self.logger.error(f"SELECT query failed with exception: \n{e}")
             return None
 
     def select_from_active_session(self, model: Base, conditions: list = None, attributes: list = None):
@@ -152,7 +161,7 @@ class Database:
         """
         try:
             if not self.session or not self.session.is_active:
-                raise Exception('Inactive session')
+                raise Exception("Inactive session")
             results = [obj for obj in self.session.new if isinstance(obj, model)]
             if conditions:
                 for condition in conditions:
@@ -163,10 +172,16 @@ class Database:
                 results = [{attr: getattr(obj, attr) for attr in attributes} for obj in results]
             return results
         except Exception as e:
-            self.logger.error(f'Object selection within the uncommitted session objects failed with exception: \n{e}')
+            self.logger.error(f"Object selection within the uncommitted session objects failed with exception: \n{e}")
             return []
 
-    def merge(self, orm_object: Base, update_session: bool = False, auto_commit: bool = False, load: bool = True):
+    def merge(
+        self,
+        orm_object: Base,
+        update_session: bool = False,
+        auto_commit: bool = False,
+        load: bool = True,
+    ):
         """
         Updates or inserts an object in the database
         :param orm_object: the modeled object to update or insert
@@ -183,7 +198,7 @@ class Database:
                 self.session.commit()
             return True
         except Exception as e:
-            self.logger.error(f'Merge query failed with exception: \n{e}')
+            self.logger.error(f"Merge query failed with exception: \n{e}")
             return False
 
     def commit(self):
@@ -198,7 +213,7 @@ class Database:
                 return True
             return False
         except Exception as e:
-            self.logger.error(f'Commit failed with exception: \n{e}')
+            self.logger.error(f"Commit failed with exception: \n{e}")
             return False
         finally:
             if self.session is not None:
@@ -216,18 +231,18 @@ class Database:
                 return True
             return False
         except Exception as e:
-            self.logger.error(f'Flush failed with exception: \n{e}')
+            self.logger.error(f"Flush failed with exception: \n{e}")
             return False
 
     def merge_relationship(
-            self,
-            parent_model: Base.__class__,
-            parent_key_values: dict,
-            child: Base,
-            relationship_name: str,
-            update_session: bool = False,
-            auto_commit: bool = False,
-            uncommitted: bool = False
+        self,
+        parent_model: Base.__class__,
+        parent_key_values: dict,
+        child: Base,
+        relationship_name: str,
+        update_session: bool = False,
+        auto_commit: bool = False,
+        uncommitted: bool = False,
     ):
         """
         Adds a child instance to a parent's related items. If the parent doesn't exist, it creates a new one.
@@ -262,6 +277,6 @@ class Database:
             return True
         except Exception as e:
             self.logger.error(
-                f'Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}')
+                f"Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}"
+            )
             return False
-
