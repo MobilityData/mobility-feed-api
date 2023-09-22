@@ -103,21 +103,67 @@ class TestDatabaseQuery(unittest.TestCase):
         self._DATASET_ID_3 = "DATASET_3"
         self._DATASET_ID_4 = "DATASET_4"
         self.db.merge(
-            Gtfsdataset(id=self._DATASET_ID_1, stable_id=self._DATASET_ID_1, feed_id=self._FEED_ID_1, latest=True)
+            Gtfsdataset(
+                id=self._DATASET_ID_1,
+                stable_id=self._DATASET_ID_1,
+                feed_id=self._FEED_ID_1,
+                latest=True,
+            )
         )
-        self.db.merge(Gtfsdataset(id=self._DATASET_ID_2, stable_id=self._DATASET_ID_2, feed_id=self._FEED_ID_1))
-        self.db.merge(Gtfsdataset(id=self._DATASET_ID_3, stable_id=self._DATASET_ID_3, feed_id=self._FEED_ID_2))
         self.db.merge(
-            Gtfsdataset(id=self._DATASET_ID_4, stable_id=self._DATASET_ID_4, feed_id=self._FEED_ID_2, latest=True)
+            Gtfsdataset(
+                id=self._DATASET_ID_2,
+                stable_id=self._DATASET_ID_2,
+                feed_id=self._FEED_ID_1,
+            )
+        )
+        self.db.merge(
+            Gtfsdataset(
+                id=self._DATASET_ID_3,
+                stable_id=self._DATASET_ID_3,
+                feed_id=self._FEED_ID_2,
+            )
+        )
+        self.db.merge(
+            Gtfsdataset(
+                id=self._DATASET_ID_4,
+                stable_id=self._DATASET_ID_4,
+                feed_id=self._FEED_ID_2,
+                latest=True,
+            )
         )
 
         self._EXTERNAL_ID_1 = "EXTERNAL_ID_1"
         self._EXTERNAL_ID_2 = "EXTERNAL_ID_2"
         self._EXTERNAL_ID_3 = "EXTERNAL_ID_3"
-        self.db.merge(Externalid(feed_id=self._FEED_ID_1, associated_id=self._EXTERNAL_ID_1, source="source1"))
-        self.db.merge(Externalid(feed_id=self._FEED_ID_1, associated_id=self._EXTERNAL_ID_2, source="source2"))
-        self.db.merge(Externalid(feed_id=self._FEED_ID_2, associated_id=self._EXTERNAL_ID_2, source="source3"))
-        self.db.merge(Externalid(feed_id=self._FEED_ID_2, associated_id=self._EXTERNAL_ID_3, source="source4"))
+        self.db.merge(
+            Externalid(
+                feed_id=self._FEED_ID_1,
+                associated_id=self._EXTERNAL_ID_1,
+                source="source1",
+            )
+        )
+        self.db.merge(
+            Externalid(
+                feed_id=self._FEED_ID_1,
+                associated_id=self._EXTERNAL_ID_2,
+                source="source2",
+            )
+        )
+        self.db.merge(
+            Externalid(
+                feed_id=self._FEED_ID_2,
+                associated_id=self._EXTERNAL_ID_2,
+                source="source3",
+            )
+        )
+        self.db.merge(
+            Externalid(
+                feed_id=self._FEED_ID_2,
+                associated_id=self._EXTERNAL_ID_3,
+                source="source4",
+            )
+        )
         self.db.commit()
 
         self.db.select(
@@ -177,7 +223,10 @@ class TestDatabaseQuery(unittest.TestCase):
             [self._EXTERNAL_ID_1, self._EXTERNAL_ID_2],
             sorted([external_id.external_id for external_id in feed_1.external_ids]),
         )
-        self.assertEquals(["source1", "source2"], sorted([external_id.source for external_id in feed_1.external_ids]))
+        self.assertEquals(
+            ["source1", "source2"],
+            sorted([external_id.source for external_id in feed_1.external_ids]),
+        )
         self.assertEquals(self._DATASET_ID_1, feed_1.latest_dataset.id)
         self.assertEquals([self._FEED_ID_2], sorted([redirect for redirect in feed_1.redirects]))
 
@@ -186,6 +235,12 @@ class TestDatabaseQuery(unittest.TestCase):
             [self._EXTERNAL_ID_2, self._EXTERNAL_ID_3],
             sorted([external_id.external_id for external_id in feed_2.external_ids]),
         )
-        self.assertEquals(["source3", "source4"], sorted([external_id.source for external_id in feed_2.external_ids]))
+        self.assertEquals(
+            ["source3", "source4"],
+            sorted([external_id.source for external_id in feed_2.external_ids]),
+        )
         self.assertEquals(self._DATASET_ID_4, feed_2.latest_dataset.id)
-        self.assertEquals([self._FEED_ID_3, self._FEED_ID_4], sorted([redirect for redirect in feed_2.redirects]))
+        self.assertEquals(
+            [self._FEED_ID_3, self._FEED_ID_4],
+            sorted([redirect for redirect in feed_2.redirects]),
+        )

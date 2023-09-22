@@ -128,12 +128,35 @@ resource "google_project_iam_member" "ci_binding_account" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "ci_binding_instance_admin" {
+  project = var.project_id
+  role    = "roles/compute.instanceAdmin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
+resource "google_project_iam_member" "ci_binding_load_balancer_admin" {
+  project = var.project_id
+  role    = "roles/compute.loadBalancerAdmin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
+resource "google_project_iam_member" "ci_binding_security_policy" {
+  project = var.project_id
+  role    = "roles/compute.orgSecurityPolicyAdmin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_project_iam_member" "ci_binding_cloudsql_admin" {
   project = var.project_id
   role    = "roles/cloudsql.admin"
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "ci_binding_servicemanagement_admin" {
+  project = var.project_id
+  role    = "roles/servicemanagement.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
 
 resource "google_storage_bucket" "tf_state_bucket" {
   name          = "${var.terraform_state_bucket_name_prefix}-${var.environment}"

@@ -4,7 +4,12 @@ from fastapi.testclient import TestClient
 
 def test_feeds_get(client: TestClient):
     """Test case for feeds_get"""
-    params = [("limit", 10), ("offset", 0), ("filter", "status=active"), ("sort", "+provider")]
+    params = [
+        ("limit", 10),
+        ("offset", 0),
+        ("filter", "status=active"),
+        ("sort", "+provider"),
+    ]
     headers = {
         "ApiKeyAuth": "special-key",
     }

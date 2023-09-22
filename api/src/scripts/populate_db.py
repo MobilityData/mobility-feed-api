@@ -167,7 +167,16 @@ class DatabasePopulateHelper:
                 bbox = None
                 if min_lon is not None and min_lat is not None and max_lon is not None and max_lat is not None:
                     polygon = "POLYGON(({} {}, {} {}, {} {}, {} {}, {} {}))".format(
-                        min_lon, min_lat, min_lon, max_lat, max_lon, max_lat, max_lon, min_lat, min_lon, min_lat
+                        min_lon,
+                        min_lat,
+                        min_lon,
+                        max_lat,
+                        max_lon,
+                        max_lat,
+                        max_lon,
+                        min_lat,
+                        min_lon,
+                        min_lat,
                     )
                     bbox = WKTElement(polygon, srid=4326)
                 gtfs_dataset = Gtfsdataset(
@@ -216,7 +225,11 @@ class DatabasePopulateHelper:
                         )
 
             # External ID
-            mdb_external_id = Externalid(feed_id=feed.id, associated_id=str(int(row["mdb_source_id"])), source="mdb")
+            mdb_external_id = Externalid(
+                feed_id=feed.id,
+                associated_id=str(int(row["mdb_source_id"])),
+                source="mdb",
+            )
             add_entity(mdb_external_id, 4)
 
         priority = 1

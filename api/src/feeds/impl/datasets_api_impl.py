@@ -31,13 +31,20 @@ class DatasetsApiImpl(BaseDatasetsApi):
                     Feed.stable_id,
                 ]
             )
-            .join(t_componentgtfsdataset, t_componentgtfsdataset.c["dataset_id"] == Gtfsdataset.id, isouter=True)
+            .join(
+                t_componentgtfsdataset,
+                t_componentgtfsdataset.c["dataset_id"] == Gtfsdataset.id,
+                isouter=True,
+            )
             .join(Feed, Feed.id == Gtfsdataset.feed_id)
         )
 
     @staticmethod
     def apply_bounding_filtering(
-        query: Query, bounding_latitudes: str, bounding_longitudes: str, bounding_filter_method: str
+        query: Query,
+        bounding_latitudes: str,
+        bounding_longitudes: str,
+        bounding_filter_method: str,
     ) -> Query:
         """Create a new query based on the bounding parameters."""
 
@@ -49,7 +56,8 @@ class DatasetsApiImpl(BaseDatasetsApi):
             or len(bounding_longitudes_tokens := bounding_longitudes.split(",")) != 2
         ):
             raise HTTPException(
-                status_code=400, detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}"
+                status_code=400,
+                detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
             )
         min_latitude, max_latitude = bounding_latitudes_tokens
         min_longitude, max_longitude = bounding_longitudes_tokens
@@ -72,13 +80,19 @@ class DatasetsApiImpl(BaseDatasetsApi):
         elif bounding_filter_method == "disjoint":
             return query.filter(Gtfsdataset.bounding_box.ST_Disjoint(bounding_box))
         else:
-            raise HTTPException(status_code=400, detail=f"Invalid bounding_filter_method {bounding_filter_method}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid bounding_filter_method {bounding_filter_method}",
+            )
 
     @staticmethod
     def get_datasets_gtfs(query: Query, limit: int = None, offset: int = None) -> List[GtfsDataset]:
         # Results are sorted by stable_id because Database.select(group_by=) requires it so
         dataset_groups = Database().select(
-            query=query.order_by(Gtfsdataset.stable_id), limit=limit, offset=offset, group_by=lambda x: x[0].stable_id
+            query=query.order_by(Gtfsdataset.stable_id),
+            limit=limit,
+            offset=offset,
+            group_by=lambda x: x[0].stable_id,
         )
 
         gtfs_datasets = []

@@ -14,7 +14,11 @@ from database_gen.sqlacodegen_models import (
     Location,
     Entitytype,
 )
-from database_gen.sqlacodegen_models import t_redirectingid, t_entitytypefeed, t_feedreference
+from database_gen.sqlacodegen_models import (
+    t_redirectingid,
+    t_entitytypefeed,
+    t_feedreference,
+)
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
 from feeds.filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
@@ -23,8 +27,6 @@ from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.external_id import ExternalId
-from feeds_gen.models.extra_models import TokenModel
-from feeds_gen.models.feed_log import FeedLog
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
@@ -44,7 +46,10 @@ class FeedsApiImpl(BaseFeedsApi):
 
     @staticmethod
     def _create_common_feed(
-        database_feed: Feed, clazz: Type[APIFeedType], redirects: Set[str], external_ids: Set[Externalid]
+        database_feed: Feed,
+        clazz: Type[APIFeedType],
+        redirects: Set[str],
+        external_ids: Set[Externalid],
     ) -> Union[APIFeedType]:
         """Maps the ORM object Feed to API data model specified by clazz"""
 
@@ -77,7 +82,11 @@ class FeedsApiImpl(BaseFeedsApi):
         target_feed = aliased(Feed)
         return (
             Query([feed_type, target_feed.stable_id, Externalid])
-            .join(t_redirectingid, feed_type.id == t_redirectingid.c["source_id"], isouter=True)
+            .join(
+                t_redirectingid,
+                feed_type.id == t_redirectingid.c["source_id"],
+                isouter=True,
+            )
             .join(target_feed, t_redirectingid.c.target_id == target_feed.id, isouter=True)
             .join(Externalid, feed_type.id == Externalid.feed_id, isouter=True)
         )
@@ -93,7 +102,12 @@ class FeedsApiImpl(BaseFeedsApi):
         """
         # Results are sorted by stable_id because Database.select(group_by=) requires it so
         feed_query = feed_filter.filter(FeedsApiImpl._create_feeds_query(Feed)).order_by(Feed.stable_id)
-        feed_groups = Database().select(query=feed_query, limit=limit, offset=offset, group_by=lambda x: x[0].stable_id)
+        feed_groups = Database().select(
+            query=feed_query,
+            limit=limit,
+            offset=offset,
+            group_by=lambda x: x[0].stable_id,
+        )
         basic_feeds = []
         for feed_group in feed_groups:
             feed_objects, redirects, external_ids = zip(*feed_group)
@@ -126,7 +140,11 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         db = Database()
         feed_groups = db.select(
-            query=query, limit=limit, offset=offset, conditions=conditions, group_by=lambda x: x[0].stable_id
+            query=query,
+            limit=limit,
+            offset=offset,
+            conditions=conditions,
+            group_by=lambda x: x[0].stable_id,
         )
         gtfs_feeds = []
         for feed_group in feed_groups:
@@ -154,7 +172,10 @@ class FeedsApiImpl(BaseFeedsApi):
 
     @staticmethod
     def _get_gtfs_rt_feeds(
-        feed_filter: GtfsRtFeedFilter, limit: int = None, offset: int = None, conditions: List[Query] = None
+        feed_filter: GtfsRtFeedFilter,
+        limit: int = None,
+        offset: int = None,
+        conditions: List[Query] = None,
     ) -> List[GtfsRTFeed]:
         referenced_feed = aliased(Feed)
         query = feed_filter.filter(
@@ -162,13 +183,21 @@ class FeedsApiImpl(BaseFeedsApi):
             .join(t_entitytypefeed, isouter=True)
             .join(Entitytype, isouter=True)
             .join(t_feedreference, isouter=True)
-            .join(referenced_feed, referenced_feed.id == t_feedreference.c.gtfs_feed_id, isouter=True)
+            .join(
+                referenced_feed,
+                referenced_feed.id == t_feedreference.c.gtfs_feed_id,
+                isouter=True,
+            )
             .add_columns(Entitytype.name, referenced_feed.stable_id)
             .order_by(Feed.stable_id)
         )
         # Results are sorted by stable_id because Database.select(group_by=) requires it so
         feed_groups = Database().select(
-            query=query, limit=limit, offset=offset, conditions=conditions, group_by=lambda x: x[0].stable_id
+            query=query,
+            limit=limit,
+            offset=offset,
+            conditions=conditions,
+            group_by=lambda x: x[0].stable_id,
         )
         gtfs_rt_feeds = []
         for feed_group in feed_groups:
@@ -192,17 +221,6 @@ class FeedsApiImpl(BaseFeedsApi):
             return ret[0]
         else:
             raise HTTPException(status_code=404, detail=f"Feed {id} not found")
-
-    def get_feed_logs(
-        id: str,
-        limit: int,
-        offset: int,
-        filter: str,
-        sort: str,
-        token_ApiKeyAuth: TokenModel,
-    ) -> List[FeedLog]:
-        """Get a list of logs related to a feed."""
-        return []
 
     def get_feeds(
         self,
@@ -243,7 +261,8 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get a list of datasets related to a feed."""
         # getting the bounding box as JSON to make it easier to process
         query = GtfsDatasetFilter(
-            download_date__lte=downloaded_date_lte, download_date__gte=downloaded_date_gte
+            download_date__lte=downloaded_date_lte,
+            download_date__gte=downloaded_date_gte,
         ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id))
         query = DatasetsApiImpl.apply_bounding_filtering(
             query, bounding_latitudes, bounding_longitudes, bounding_filter_method
@@ -270,10 +289,14 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         location_filter = LocationFilter(
-            country_code=country_code, subdivision_name__ilike=subdivision_name, municipality__ilike=municipality
+            country_code=country_code,
+            subdivision_name__ilike=subdivision_name,
+            municipality__ilike=municipality,
         )
         feed_filter = GtfsFeedFilter(
-            provider__ilike=provider, producer_url__ilike=producer_url, location=location_filter
+            provider__ilike=provider,
+            producer_url__ilike=producer_url,
+            location=location_filter,
         )
         return self._get_gtfs_feeds(
             feed_filter,
