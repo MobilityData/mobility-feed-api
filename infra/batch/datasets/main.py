@@ -67,8 +67,8 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     blob = bucket.blob(f"{stable_id}/latest.zip")
 
     if latest_hash != file_sha256_hash:
-        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has changed (hash {latest_hash} -> {file_sha256_hash}). "
-              f"Uploading new version.")
+        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has changed (hash {latest_hash} "
+              f"-> {file_sha256_hash}). Uploading new version.")
 
         # Upload file as latest
         blob.upload_from_string(content)
@@ -76,9 +76,8 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         # Upload file as upload timestamp
         current_time = datetime.now()
         timestamp = current_time.strftime("%Y%m%d")
-        blob_name =  f"{stable_id}/{timestamp}.zip"
-        bucket.copy_blob(blob, bucket_name, blob_name)
-        timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip", blob_name)
+        timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip", f"{stable_id}/{timestamp}.zip")
+        bucket.copy_blob(blob, bucket_name, timestamp_blob)
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
