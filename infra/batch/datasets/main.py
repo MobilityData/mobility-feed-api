@@ -63,10 +63,11 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         # Upload file as upload timestamp
         current_time = datetime.now()
         timestamp = current_time.strftime("%Y%m%d")
-        timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
-        timestamp_blob.upload_from_string(content)
-
+        blob_name =  f"{stable_id}/{timestamp}.zip"
+        bucket.copy_blob(blob, bucket_name, blob_name)
+        timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip", blob_name)
         return file_sha256_hash, timestamp_blob.public_url
+
     else:
         print(f"Dataset with stable id {stable_id} has not changed (hash {latest_hash} -≥ {file_sha256_hash}). "
               f"Not uploading.")
@@ -212,7 +213,7 @@ def batch_dataset(request):
     # Retrieve feeds
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0' limit 10" # TODO delete limit
+                    "status='active' and authentication_type='0' limit 1" # TODO delete limit
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
