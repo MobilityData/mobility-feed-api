@@ -77,7 +77,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         current_time = datetime.now()
         timestamp = current_time.strftime("%Y%m%d")
         timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
-        bucket.copy_blob(blob, bucket_name, timestamp_blob)
+        timestamp_blob.upload_from_string(content)
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
@@ -111,13 +111,13 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
         print(f"[{stable_id}, INFO] Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
 
-        sha256_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id, dataset_hash)
-
         if dataset_id is None:
             errors += f"[{stable_id}, INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n"
             return
         if dataset_hash is None:
             print(f"[{stable_id}, WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
+
+        sha256_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id, dataset_hash)
 
         # Set the previous version latest field to false
         if dataset_hash is not None and dataset_hash != sha256_file_hash:
