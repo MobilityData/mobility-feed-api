@@ -96,7 +96,7 @@ jobs:
           PR_ID: ${{ github.event.number }}
 
       - name: Comment on PR with Hosting URL (PR Preview)
-        if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
+        if: ${{ github.event_name == 'pull_request' }}
         working-directory: web-app
         run: |
           HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
