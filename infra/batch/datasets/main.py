@@ -112,7 +112,7 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         print(f"[{stable_id}, INFO] Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
 
         if dataset_id is None:
-            errors += f"[{stable_id}, INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n"
+            print(f"[{stable_id}, INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n")
             return
         if dataset_hash is None:
             print(f"[{stable_id}, WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
@@ -138,6 +138,7 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
 
         # Commit transaction after every step has run successfully
         transaction.commit()
+        print(f"[{stable_id}, INFO] Processing completed successfully.")
     except Exception as e:
         if transaction is not None:
             transaction.rollback()
