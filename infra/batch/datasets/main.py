@@ -162,6 +162,7 @@ def handle_error(bucket_name, e, errors, stable_id):
     bucket = storage_client.get_bucket(bucket_name)
     error_type = 'other'
     if 'remaining connection slots are reserved for non-replication superuser connections' in errors:
+        print(f"[{stable_id} SQL ERROR] No connection slot available. Retrying..")
         raise e  # Rethrow error to trigger retry process until a connection is available
     elif isinstance(e, HTTPError):
         error_type = f"http/{e.response.status_code}"
