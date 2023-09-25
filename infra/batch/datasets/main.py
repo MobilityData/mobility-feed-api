@@ -39,7 +39,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         pass
 
     # Retrieving dataset from producer's URL
-    print(f"[{stable_id}, INFO] - Accessing URL {url}")
+    print(f"[{stable_id} INFO] - Accessing URL {url}")
     headers = {
         'User-Agent':
             'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36'
@@ -58,7 +58,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
 
     content = response.content
     file_sha256_hash = sha256(content).hexdigest()
-    print(f"[{stable_id}, INFO] File hash is {file_sha256_hash}.")
+    print(f"[{stable_id} INFO] File hash is {file_sha256_hash}.")
 
     # Create a storage client
     storage_client = storage.Client()
@@ -66,7 +66,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     blob = bucket.blob(f"{stable_id}/latest.zip")
 
     if latest_hash != file_sha256_hash:
-        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has changed (hash {latest_hash} "
+        print(f"[{stable_id} INFO] Dataset with stable id {stable_id} has changed (hash {latest_hash} "
               f"-> {file_sha256_hash}). Uploading new version.")
 
         # Upload file as latest
@@ -80,7 +80,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
-        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has not changed (hash {latest_hash} "
+        print(f"[{stable_id} INFO] Dataset with stable id {stable_id} has not changed (hash {latest_hash} "
               f"-> {file_sha256_hash}). Not uploading.")
         return file_sha256_hash, None
 
@@ -105,13 +105,13 @@ def validate_dataset_version(engine, json_payload, bucket_name):
         # Check latest version of the dataset
         producer_url, stable_id, feed_id, dataset_id, dataset_hash = json_payload["producer_url"], \
             json_payload["stable_id"], json_payload["feed_id"], json_payload["dataset_id"], json_payload["dataset_hash"]
-        print(f"[{stable_id}, INFO] Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
+        print(f"[{stable_id} INFO] Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
 
         if dataset_id is None:
-            print(f"[{stable_id}, INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n")
+            print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n")
             return
         if dataset_hash is None:
-            print(f"[{stable_id}, WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
+            print(f"[{stable_id} WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
 
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
 
