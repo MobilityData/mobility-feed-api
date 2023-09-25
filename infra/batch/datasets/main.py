@@ -22,7 +22,7 @@ from google.cloud import pubsub_v1
 
 def upload_dataset(url, bucket_name, stable_id, latest_hash):
     """
-    Uploads a dataset to a GCP bucket as ≤stable_id≥/latest.zip and ≤stable_id≥/≤upload_date≥.zip
+    Uploads a dataset to a GCP bucket as <stable_id>/latest.zip and <stable_id>/<upload_date>.zip
     if the dataset hash is different from the latest dataset stored
     :param url: dataset feed's producer url
     :param bucket_name: name of the GCP bucket
@@ -81,8 +81,8 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
-        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has not changed (hash {latest_hash} -≥ {file_sha256_hash}). "
-              f"Not uploading.")
+        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has not changed (hash {latest_hash} "
+              f"-> {file_sha256_hash}). Not uploading.")
         return file_sha256_hash, None
 
 
