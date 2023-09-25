@@ -54,7 +54,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
-    response = session.get(url, headers=headers, verify=False, timeout=10, stream=True)
+    response = session.get(url, headers=headers, verify=False, timeout=300, stream=True)
     response.raise_for_status()
 
     content = response.content
