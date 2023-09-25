@@ -8,6 +8,9 @@ import functions_framework
 import urllib3
 from sqlalchemy import create_engine, text
 from requests.exceptions import HTTPError
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 
 import requests
 from google.cloud import storage
@@ -36,17 +39,28 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         # no pyopenssl support used / needed / available
         pass
 
+    # Retrieving dataset from producer's URL
+    print(f"[{stable_id}, INFO] - Accessing URL {url}")
     headers = {
         'User-Agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) '
             'Chrome/39.0.2171.95 Safari/537.36'
     }
-    response = requests.get(url, headers=headers, verify=False)
+    session = requests.Session()
+    retry = Retry(
+        total=5,
+        backoff_factor=0.1,
+        status_forcelist=[500, 502, 503, 504]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    response = session.get(url, headers=headers, verify=False, timeout=10)
     response.raise_for_status()
 
     content = response.content
     file_sha256_hash = sha256(content).hexdigest()
-    print(f"File hash is {file_sha256_hash}.")
+    print(f"[{stable_id}, INFO] File hash is {file_sha256_hash}.")
 
     # Create a storage client
     storage_client = storage.Client()
@@ -54,7 +68,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     blob = bucket.blob(f"{stable_id}/latest.zip")
 
     if latest_hash != file_sha256_hash:
-        print(f"Dataset with stable id {stable_id} has changed (hash {latest_hash} -≥ {file_sha256_hash}). "
+        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has changed (hash {latest_hash} -> {file_sha256_hash}). "
               f"Uploading new version.")
 
         # Upload file as latest
@@ -69,7 +83,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
-        print(f"Dataset with stable id {stable_id} has not changed (hash {latest_hash} -≥ {file_sha256_hash}). "
+        print(f"[{stable_id}, INFO] Dataset with stable id {stable_id} has not changed (hash {latest_hash} -≥ {file_sha256_hash}). "
               f"Not uploading.")
         return file_sha256_hash, None
 
@@ -97,15 +111,15 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         dataset_results = connection.execute(select_dataset_statement).all()
         dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
         dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
-        print(f"Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
+        print(f"[{stable_id}, INFO] Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
 
         sha256_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id, dataset_hash)
 
         if dataset_id is None:
-            errors += f"[INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n"
+            errors += f"[{stable_id}, INTERNAL ERROR] Couldn't find latest dataset related to feed_id {feed_id}\n"
             return
         if dataset_hash is None:
-            print(f"[WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
+            print(f"[{stable_id}, WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
 
         # Set the previous version latest field to false
         if dataset_hash is not None and dataset_hash != sha256_file_hash:
@@ -130,7 +144,7 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         if transaction is not None:
             transaction.rollback()
         error_traceback = traceback.format_exc()
-        errors += f"[ERROR]: {e}\n{error_traceback}\n"
+        errors += f"[{stable_id}, ERROR]: {e}\n{error_traceback}\n"
         print(f"Logging errors for stable id {stable_id}\n{errors}")
         storage_client = storage.Client()
         bucket = storage_client.get_bucket(bucket_name)
@@ -188,7 +202,7 @@ def process_dataset(cloud_event: CloudEvent):
         json_payload = json.loads(data)
         producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
             "feed_id"]
-        print("JSON Payload:", json_payload)
+        print(f"[{stable_id}, INFO] JSON Payload:", json_payload)
 
         bucket_name = os.getenv("BUCKET_NAME")
         engine = get_db_engine()
