@@ -134,7 +134,7 @@ def validate_dataset_version(engine, json_payload, bucket_name):
 
         # Commit transaction after every step has run successfully
         transaction.commit()
-        print(f"[{stable_id}, INFO] Processing completed successfully.")
+        print(f"[{stable_id} INFO] Processing completed successfully.")
     except Exception as e:
         if transaction is not None:
             transaction.rollback()
@@ -156,7 +156,7 @@ def handle_error(bucket_name, e, errors, stable_id):
     if stable_id is None:
         return
     error_traceback = traceback.format_exc()
-    errors += f"[{stable_id}, ERROR]: {e}\n{error_traceback}\n"
+    errors += f"[{stable_id} ERROR]: {e}\n{error_traceback}\n"
     print(f"Logging errors for stable id {stable_id}\n{errors}")
     storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
@@ -209,7 +209,7 @@ def process_dataset(cloud_event: CloudEvent):
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         json_payload = json.loads(data)
         stable_id = json_payload["stable_id"]
-        print(f"[{stable_id}, INFO] JSON Payload:", json_payload)
+        print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
         bucket_name = os.getenv("BUCKET_NAME")
         engine = get_db_engine()
