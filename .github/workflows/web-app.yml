@@ -91,7 +91,7 @@ jobs:
       - name: Deploy to Firebase Hosting (PR Preview)
         if: ${{ github.event_name == 'pull_request' }}
         working-directory: web-app
-        run: npx firebase deploy --only hosting:pr_${{ env.PR_ID }}
+        run: npx firebase hosting:channel:deploy pr_${{ env.PR_ID }}
         env:
           PR_ID: ${{ github.event.number }}
 
@@ -99,7 +99,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
         working-directory: web-app
         run: |
-          HOSTING_URL=$(npx firebase hosting:sites:list | grep "pr_${{ env.PR_ID }}" | awk '{print $5}')
+          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
