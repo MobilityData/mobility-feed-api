@@ -243,4 +243,4 @@ def batch_dataset(request):
         data_bytes = data_str.encode('utf-8')
         publisher.publish(topic_path, data=data_bytes)
 
-    return 'Publish completed.'
+    return f'Publish completed. Published {len(results)} feeds to {pubsub_topic_name}.'
