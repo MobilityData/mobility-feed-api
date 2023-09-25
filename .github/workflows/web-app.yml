@@ -13,7 +13,7 @@ env:
 
 jobs:
   build:
-    name: "Build"
+    name: "Build & Deploy"
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
@@ -90,6 +90,7 @@ jobs:
 
       - name: Deploy to Firebase Hosting (PR Preview)
         if: ${{ github.event_name == 'pull_request' }}
+        working-directory: web-app
         run: npx firebase deploy --only hosting:pr_${{ env.PR_ID }}
         env:
           PR_ID: ${{ github.event.number }}
@@ -98,10 +99,9 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
         working-directory: web-app
         run: |
-          PR_NUMBER=$(echo "${{ github.event.pull_request.html_url }}" | awk -F/ '{print $NF}')
           HOSTING_URL=$(npx firebase hosting:sites:list | grep "pr_${{ env.PR_ID }}" | awk '{print $5}')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           echo "$COMMENT" > comment.txt
-          curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments"
+          curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
         env:
           PR_ID: ${{ github.event.number }}
