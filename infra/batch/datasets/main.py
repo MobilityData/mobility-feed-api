@@ -11,7 +11,6 @@ from requests.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-
 import requests
 from google.cloud import storage
 from datetime import datetime
@@ -86,29 +85,26 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         return file_sha256_hash, None
 
 
-def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
+def validate_dataset_version(engine, json_payload, bucket_name):
     """
     Handles the validation of the dataset including the upload of the dataset to GCP
     and the required database changes
     :param engine: Database engine
-    :param url: Producer URL
+    :param json_payload: Pub/Sub payload
     :param bucket_name: GCP bucket name
-    :param stable_id: Feed's stable ID
-    :param feed_id: Feed's ID
     """
     transaction = None
     connection = None
     errors = ""
+    stable_id = None
     try:
         # Set up transaction for SQL updates
         connection = engine.connect()
         transaction = connection.begin()
 
         # Check latest version of the dataset
-        select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
-        dataset_results = connection.execute(select_dataset_statement).all()
-        dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
-        dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
+        producer_url, stable_id, feed_id, dataset_id, dataset_hash = json_payload["producer_url"], \
+            json_payload["stable_id"], json_payload["feed_id"], json_payload["dataset_id"], json_payload["dataset_hash"]
         print(f"[{stable_id}, INFO] Dataset ID = {dataset_id}, Dataset Hash = {dataset_hash}")
 
         if dataset_id is None:
@@ -117,7 +113,7 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
         if dataset_hash is None:
             print(f"[{stable_id}, WARNING] Dataset {dataset_id} for feed {feed_id} has a NULL hash.")
 
-        sha256_file_hash, hosted_url = upload_dataset(url, bucket_name, stable_id, dataset_hash)
+        sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
 
         # Set the previous version latest field to false
         if dataset_hash is not None and dataset_hash != sha256_file_hash:
@@ -142,22 +138,35 @@ def validate_dataset_version(engine, url, bucket_name, stable_id, feed_id):
     except Exception as e:
         if transaction is not None:
             transaction.rollback()
-        error_traceback = traceback.format_exc()
-        errors += f"[{stable_id}, ERROR]: {e}\n{error_traceback}\n"
-        print(f"Logging errors for stable id {stable_id}\n{errors}")
-        storage_client = storage.Client()
-        bucket = storage_client.get_bucket(bucket_name)
-        error_type = 'other'
-        if 'sqlalchemy' in errors:
-            error_type = 'sqlachemy'
-        elif isinstance(e, HTTPError):
-            error_type = f"http/{e.response.status_code}"
-        blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
-        blob.upload_from_string(errors)
+        handle_error(bucket_name, e, errors, stable_id)
     finally:
         if connection is not None:
             connection.close()
         gc.collect()  # Free memory
+
+
+def handle_error(bucket_name, e, errors, stable_id):
+    """
+    Persists error logs to GCP bucket
+    :param bucket_name: Bucket name where the error logs are updates
+    :param e: thrown error
+    :param errors: error logs
+    :param stable_id: Feed's stable ID
+    """
+    if stable_id is None:
+        return
+    error_traceback = traceback.format_exc()
+    errors += f"[{stable_id}, ERROR]: {e}\n{error_traceback}\n"
+    print(f"Logging errors for stable id {stable_id}\n{errors}")
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket_name)
+    error_type = 'other'
+    if 'remaining connection slots are reserved for non-replication superuser connections' in errors:
+        raise e  # Rethrow error to trigger retry process until a connection is available
+    elif isinstance(e, HTTPError):
+        error_type = f"http/{e.response.status_code}"
+    blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
+    blob.upload_from_string(errors)
 
 
 def create_bucket(bucket_name):
@@ -199,13 +208,12 @@ def process_dataset(cloud_event: CloudEvent):
     try:
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         json_payload = json.loads(data)
-        producer_url, stable_id, feed_id = json_payload["producer_url"], json_payload["stable_id"], json_payload[
-            "feed_id"]
+        stable_id = json_payload["stable_id"]
         print(f"[{stable_id}, INFO] JSON Payload:", json_payload)
 
         bucket_name = os.getenv("BUCKET_NAME")
         engine = get_db_engine()
-        validate_dataset_version(engine, producer_url, bucket_name, stable_id, feed_id)
+        validate_dataset_version(engine, json_payload, bucket_name)
     except Exception as e:
         print("Could not parse JSON:", e)
         return f'[ERROR] Error processing request \n{e}\n{traceback.format_exc()}'
@@ -234,10 +242,18 @@ def batch_dataset(request):
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
     for stable_id, producer_url, feed_id in results:
+        # Retrieve latest dataset
+        select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
+        dataset_results = engine.execute(select_dataset_statement).all()
+        dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
+        dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
+
         payload = {
             "producer_url": producer_url,
             "stable_id": stable_id,
-            "feed_id": feed_id
+            "feed_id": feed_id,
+            "dataset_id": dataset_id,
+            "dataset_hash": dataset_hash
         }
         data_str = json.dumps(payload)
         data_bytes = data_str.encode('utf-8')
