@@ -67,6 +67,10 @@ jobs:
             echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
           fi
 
+      - name: Lint
+        working-directory: web-app
+        run: yarn lint
+
       - name: Build
         working-directory: web-app
         run: yarn build
@@ -74,10 +78,6 @@ jobs:
       #   TODO uncomment when tests are added to the repo
       #   - name: Test
       #   run: yarn test
-
-      # - name: Authenticate with Firebase
-      #   run: |
-      #      firebase login:ci --no-localhost
 
       - name: Select Firebase Project
         working-directory: web-app

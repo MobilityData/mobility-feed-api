@@ -11,6 +11,10 @@ For more information regarding Google Cloud Platform and terraform go to the [Of
 gcloud projects create PROJECT_ID --name="Mobility Feeds API"
 ```
 - Assign a billing account to the project 
+- Create a Firebase project to host the UI
+- Create Oauth credentials and to be used as part of the terraform parameters
+- Create SSL certificates for the Load Balancer
+- Enable and configure Identity Platform
 - Login to gcloud cli using, 
 ```shell
 gcloud auth login
