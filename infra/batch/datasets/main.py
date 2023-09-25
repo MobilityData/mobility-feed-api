@@ -43,8 +43,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     print(f"[{stable_id}, INFO] - Accessing URL {url}")
     headers = {
         'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) '
-            'Chrome/39.0.2171.95 Safari/537.36'
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36'
     }
     session = requests.Session()
     retry = Retry(
@@ -55,7 +54,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
-    response = session.get(url, headers=headers, verify=False, timeout=10)
+    response = session.get(url, headers=headers, verify=False, timeout=10, stream=True)
     response.raise_for_status()
 
     content = response.content
