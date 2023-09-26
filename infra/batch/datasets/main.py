@@ -162,6 +162,8 @@ def handle_error(bucket_name, e, errors, stable_id):
     if 'remaining connection slots are reserved' in errors:
         print(f"[{stable_id} SQL ERROR] No connection slot available. Retrying..")
         raise e  # Rethrow error to trigger retry process until a connection is available
+    elif 'sqlalchemy' in errors:
+        error_type = 'sqlalchemy'
     elif isinstance(e, HTTPError):
         error_type = f"http/{e.response.status_code}"
     blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
