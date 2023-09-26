@@ -226,7 +226,7 @@ def process_dataset(cloud_event: CloudEvent):
 
 
 @functions_framework.http
-def batch_dataset(request):
+def batch_datasets(request):
     """
     HTTP Function entry point that processes the datasets
     :param request: HTTP request
