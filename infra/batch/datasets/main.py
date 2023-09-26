@@ -52,7 +52,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
-    response = session.get(url, headers=headers, verify=False, timeout=300, stream=True)
+    response = session.get(url, headers=headers, verify=False, timeout=120, stream=True)
     response.raise_for_status()
 
     content = response.content
@@ -69,13 +69,13 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
               f"-> {file_sha256_hash}). Uploading new version.")
 
         # Upload file as latest
-        blob.upload_from_string(content)
+        blob.upload_from_string(content, timeout=300)
 
         # Upload file as upload timestamp
         current_time = datetime.now()
         timestamp = current_time.strftime("%Y%m%d")
         timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
-        timestamp_blob.upload_from_string(content)
+        timestamp_blob.upload_from_string(content, timeout=300)
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
