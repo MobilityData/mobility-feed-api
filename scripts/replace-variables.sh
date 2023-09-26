@@ -26,6 +26,7 @@
 #   -variables <VARIABLES_LIST>         Comma separated list of variables names.
 #   -in_file <INPUT_FULL_PATH_NAME>     Full path and file name of the input file.
 #   -out_file <OUTPUT_FULL_PATH_NAME>   Full path and file name of the output file.
+#   -no_quotes                          Option to disable enclosing variable in double quotes during substitution
 
 display_usage() {
   printf "\nThis script replaces variables from an input file creating/overriding the content of on an output file"
@@ -35,6 +36,7 @@ display_usage() {
   echo "  -variables <VARIABLES_LIST>         Comma separated list of variables names."
   echo "  -in_file <INPUT_FULL_PATH_NAME>     Full path and file name of the input file."
   echo "  -out_file <OUTPUT_FULL_PATH_NAME>   Full path and file name of the output file."
+  echo "  -no_quotes                          Do not enclose variable values with quotes."
   echo "  -help                               Display help content."
   exit 1
 }
@@ -42,6 +44,7 @@ display_usage() {
 VARIABLES=""
 INPUT_FILE=""
 OUT_FILE=""
+ADD_QUOTES="true"
 
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -61,6 +64,10 @@ while [[ $# -gt 0 ]]; do
       OUT_FILE="$2"
       shift # past argument
       shift # past value
+      ;;
+    -no_quotes)
+      ADD_QUOTES="false"
+      shift # past argument
       ;;
     -h|--help)
       display_usage
@@ -108,7 +115,11 @@ for varname in $list
 do
     # shellcheck disable=SC2001
     # shellcheck disable=SC2016
-    output=$(echo "$output" | sed  's/{{'"$varname"'}}/'\""${!varname}"\"'/g')
+    if [[ "$ADD_QUOTES" == "true" ]]; then
+        output=$(echo "$output" | sed  's|{{'"$varname"'}}|'\""${!varname}"\"'|g')
+    else
+        output=$(echo "$output" | sed  's|{{'"$varname"'}}|'"${!varname}"'|g')
+    fi
 done
 
 echo "$output" > "$OUT_FILE"

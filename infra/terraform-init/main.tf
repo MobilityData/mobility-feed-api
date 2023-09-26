@@ -146,6 +146,12 @@ resource "google_project_iam_member" "ci_binding_security_policy" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+ resource "google_project_iam_member" "ci_binding_cloud_function" {
+  project = var.project_id
+  role    = "roles/cloudfunctions.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_project_iam_member" "ci_binding_cloudsql_admin" {
   project = var.project_id
   role    = "roles/cloudsql.admin"
@@ -166,6 +172,12 @@ resource "google_storage_bucket" "tf_state_bucket" {
   versioning {
     enabled = true
   }
+}
+
+resource "google_project_iam_member" "function_invoker" {
+  project = var.project_id
+  role    = "roles/cloudfunctions.invoker"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
 output "ci_service_account_id" {
