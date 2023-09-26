@@ -25,7 +25,7 @@ jobs:
       HTTP_ENTRY_POINT: 'batch_dataset'
       PUBSUB_ENTRY_POINT: 'process_dataset'
       AVAILABLE_MEMORY: '2Gi'
-      AVAILABLE_CPU: '583m'
+      AVAILABLE_CPU: '1'
       PUBSUB_TIMEOUT_SECONDS: '540'
       HTTP_TIMEOUT_SECONDS: '3600'
       MAX_INSTANCE_COUNT: '5'
