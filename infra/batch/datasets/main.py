@@ -205,16 +205,15 @@ def process_dataset(cloud_event: CloudEvent):
     """
     Pub/Sub function entry point that processes a single dataset
     :param cloud_event: GCP Cloud Event
-    """
-    try:
-        data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
-        json_payload = json.loads(data)
-        stable_id = json_payload["stable_id"]
-        print(f"[{stable_id} INFO] JSON Payload:", json_payload)
+"""
+    data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
+    json_payload = json.loads(data)
+    stable_id = json_payload["stable_id"]
+    print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
-        bucket_name = os.getenv("BUCKET_NAME")
-        engine = get_db_engine()
-        validate_dataset_version(engine, json_payload, bucket_name)
+    bucket_name = os.getenv("BUCKET_NAME")
+    engine = get_db_engine()
+    validate_dataset_version(engine, json_payload, bucket_name)
     return 'Done!'
 
 
