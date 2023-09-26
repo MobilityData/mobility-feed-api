@@ -96,7 +96,7 @@ def validate_dataset_version(engine, json_payload, bucket_name):
     transaction = None
     connection = None
     errors = ""
-    stable_id = None
+    stable_id = "UNKNOWN"
     try:
         # Set up transaction for SQL updates
         connection = engine.connect()
@@ -153,15 +153,13 @@ def handle_error(bucket_name, e, errors, stable_id):
     :param errors: error logs
     :param stable_id: Feed's stable ID
     """
-    if stable_id is None:
-        return
     error_traceback = traceback.format_exc()
     errors += f"[{stable_id} ERROR]: {e}\n{error_traceback}\n"
     print(f"Logging errors for stable id {stable_id}\n{errors}")
     storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
     error_type = 'other'
-    if 'remaining connection slots are reserved for non-replication superuser connections' in errors:
+    if 'remaining connection slots are reserved' in errors:
         print(f"[{stable_id} SQL ERROR] No connection slot available. Retrying..")
         raise e  # Rethrow error to trigger retry process until a connection is available
     elif isinstance(e, HTTPError):
@@ -215,9 +213,6 @@ def process_dataset(cloud_event: CloudEvent):
         bucket_name = os.getenv("BUCKET_NAME")
         engine = get_db_engine()
         validate_dataset_version(engine, json_payload, bucket_name)
-    except Exception as e:
-        print("Could not parse JSON:", e)
-        return f'[ERROR] Error processing request \n{e}\n{traceback.format_exc()}'
     return 'Done!'
 
 
