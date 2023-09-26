@@ -1,0 +1,107 @@
+name: Web App - Build Deploy
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "web-app/**"
+  push:
+    branches: [main]
+
+env:
+  NODE_VERSION: "18"
+  FIREBASE_PROJECT: dev
+
+jobs:
+  build:
+    name: "Build & Deploy"
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud DEV
+        if: ${{ github.event_name == 'pull_request' }}
+        # id: gcloud_auth_dev
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Authenticate to Google Cloud QA
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        # id: gcloud_auth_dev
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Authenticate to Google Cloud PROD
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        # id: gcloud_auth_dev
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install
+
+      - name: Set Firebase project name
+        working-directory: web-app
+        run: |
+          if [[ $GITHUB_EVENT_NAME == 'push' && $GITHUB_REF == 'refs/heads/main' ]]; then
+              echo "Setting FIREBASE_PROJECT to 'pushed to main branch'"
+              echo "FIREBASE_PROJECT=qa" >> $GITHUB_ENV
+          elif [[ $GITHUB_EVENT_NAME == 'release' ]]; then
+            echo "Setting FIREBASE_PROJECT to 'release'"
+            echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
+          else
+            echo "Setting FIREBASE_PROJECT to 'dev'"
+            echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Lint
+        working-directory: web-app
+        run: yarn lint
+
+      - name: Build
+        working-directory: web-app
+        run: yarn build
+
+      #   TODO uncomment when tests are added to the repo
+      #   - name: Test
+      #   run: yarn test
+
+      - name: Select Firebase Project
+        working-directory: web-app
+        run: npx firebase use ${{  env.FIREBASE_PROJECT }}
+
+      - name: Deploy to Firebase Hosting (${{ env.FIREBASE_PROJECT }})
+        if: ${{ env.FIREBASE_PROJECT != 'dev' }}
+        working-directory: web-app
+        run: npx firebase deploy --only hosting
+
+      - name: Deploy to Firebase Hosting (PR Preview)
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: web-app
+        run: npx firebase hosting:channel:deploy pr_${{ env.PR_ID }}
+        env:
+          PR_ID: ${{ github.event.number }}
+
+      - name: Comment on PR with Hosting URL (PR Preview)
+        if: ${{ github.event_name == 'pull_request' && github.event.action == 'opened' }}
+        working-directory: web-app
+        run: |
+          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
+          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
+          echo "$COMMENT" > comment.txt
+          curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
+        env:
+          PR_ID: ${{ github.event.number }}
