@@ -85,21 +85,19 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         return file_sha256_hash, None
 
 
-def validate_dataset_version(engine, json_payload, bucket_name):
+def validate_dataset_version(connection, json_payload, bucket_name):
     """
     Handles the validation of the dataset including the upload of the dataset to GCP
     and the required database changes
-    :param engine: Database engine
+    :param connection: Database connection
     :param json_payload: Pub/Sub payload
     :param bucket_name: GCP bucket name
     """
     transaction = None
-    connection = None
     errors = ""
     stable_id = "UNKNOWN"
     try:
         # Set up transaction for SQL updates
-        connection = engine.connect()
         transaction = connection.begin()
 
         # Check latest version of the dataset
@@ -205,15 +203,16 @@ def process_dataset(cloud_event: CloudEvent):
     """
     Pub/Sub function entry point that processes a single dataset
     :param cloud_event: GCP Cloud Event
-"""
+    """
     data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
     json_payload = json.loads(data)
     stable_id = json_payload["stable_id"]
     print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
     bucket_name = os.getenv("BUCKET_NAME")
+    # Allow raised exception to trigger the retry process until a connection is available
     engine = get_db_engine()
-    validate_dataset_version(engine, json_payload, bucket_name)
+    validate_dataset_version(engine.connect(), json_payload, bucket_name)
     return 'Done!'
 
 
