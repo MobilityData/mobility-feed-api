@@ -3,8 +3,8 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.black]
-line-length = 88
-exclude = '''
+line-length = 120
+extend-exclude = '''
 (
   /(
       \.eggs         # exclude a few common directories in the
@@ -13,10 +13,13 @@ exclude = '''
     | \.mypy_cache
     | \.tox
     | \.venv
+    | .*/venv
     | _build
     | buck-out
     | build
     | dist
+    | src/feeds_gen/*
+    | src/database_gen/*
   )/
 )
 '''

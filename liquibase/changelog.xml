@@ -12,5 +12,6 @@
     <include file="changes/feat_57.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_15.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_76.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_77.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_88.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

@@ -34,7 +34,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/status"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/sort"
 
       security:
@@ -78,7 +80,11 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/country_code"
+        - $ref: "#/components/parameters/subdivision_name"
+        - $ref: "#/components/parameters/municipality"
         - $ref: "#/components/parameters/sort"
         - $ref: "#/components/parameters/boundingLatitudes"
         - $ref: "#/components/parameters/boundingLongitudes"
@@ -103,7 +109,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/entity_types"
         - $ref: "#/components/parameters/sort"
       security:
         - ApiKeyAuth: []
@@ -166,7 +174,8 @@ paths:
         - $ref: "#/components/parameters/latestQueryParam"
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
+        - $ref: "#/components/parameters/downloaded_date_gte"
+        - $ref: "#/components/parameters/downloaded_date_lte"
         - $ref: "#/components/parameters/sort"
         - $ref: "#/components/parameters/boundingLatitudes"
         - $ref: "#/components/parameters/boundingLongitudes"
@@ -181,31 +190,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GtfsDatasets"
-
-  /v1/feeds/{id}/logs:
-    parameters:
-      - $ref: "#/components/parameters/feedIdLogsPathParam"
-    get:
-      description: Get a list of logs related to a feed.
-      tags:
-        - "feeds"
-      operationId: getFeedLogs
-      parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
-        - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/filter"
-        - $ref: "#/components/parameters/sort"
-
-      security:
-        - ApiKeyAuth: []
-      responses:
-        200:
-          description: Successful pull of the requested log entries.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FeedLogs"
-
 
   /v1/datasets/gtfs/{id}:
     get:
@@ -517,7 +501,7 @@ components:
               description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
               type: string
               example: 2023-07-10T22:06:00Z
-              format: date
+              format: datetime
             hash:
               description: A MD5 hash of the dataset.
               type: string
@@ -577,68 +561,6 @@ components:
 #        - gtfs
 #        - gtfs_rt
 #      example: gtfs
-
-    FeedLogs:
-      type: array
-      items:
-        $ref: "#/components/schemas/FeedLog"
-
-    FeedLog:
-      type: object
-      properties:
-        log_id:
-          description: Unique identifier used as a key for the feed logs table.
-          type: string
-        logged_at:
-          type: string
-          description: The date and time when the log was created in iso 8601 format.
-          example: 2023-07-10T22:06:00Z
-        feed_info:
-          $ref: "#/components/schemas/FeedInfoForLog"
-
-    FeedInfoForLog:
-      type: object
-      properties:
-        id:
-          type: string
-          description: The feed ID of the feed this log relates to.
-          example: mdb-100
-        data_type:
-          type: string
-          enum:
-            - gtfs
-            - gtfs_rt
-          example: gtfs
-        status:
-          description: >
-            Describes status of the Feed. Should be one of 
-              * `active` Feed should be used in public trip planners.
-              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-              * `development` Feed is being used for development purposes and should not be used in public trip planners.
-          type: string
-          enum:
-            - active
-            - deprecated
-            - inactive
-            - development
-          example: active
-        provider:
-          description: The provider of the feed. If there is more than onem a comma separated list of providers.
-          type: string
-          example: London Transit Commission
-        feed_name:
-          description: >
-            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
-            multiple providers, or which network is represented by the feed.
-          type: string
-          example: Atlantic Station Shuttle (FREE RIDE)
-        note:
-          description: A note to clarify complex use cases for consumers.
-          type: string
-        source_info:
-            $ref: "#/components/schemas/SourceInfo"
-
   parameters:
 
     filter:
@@ -649,6 +571,79 @@ components:
       schema:
         type: string
         example: status=active
+    status:
+      name: status
+      in: query
+      description: Filter feeds by their status
+      required: false
+      schema:
+        type: string
+        enum:
+          - active
+          - deprecated
+          - inactive
+          - development
+    provider:
+      name: provider
+      in: query
+      description: Filter feeds by provider name. Phrase is matched case insensitively to actual provider names.
+      required: false
+      schema:
+        type: string
+        example: London Transit
+    producer_url:
+      name: producer_url
+      in: query
+      required: false
+      description: >
+        Filter feeds by URL where the producer is providing the dataset.  Phrase is matched case insensitively.
+      schema:
+        type: string
+        format: url
+        example: londontransit.ca/gtfsfeed
+    entity_types:
+      name: entity_types
+      in: query
+      description: Filter feeds by their entity type. Expects a comma separated list of all types to fetch.
+      required: false
+      schema:
+        type: string
+        example: vp,sa
+    country_code:
+      name: country_code
+      in: query
+      description: Filter feeds by their exact country code.
+      schema:
+        type: string
+        example: USA
+    subdivision_name:
+      name: subdivision_name
+      in: query
+      description: Filter feeds by subdivision name. Phrase is matched case insensitively to actual subdivision names.
+      schema:
+        type: string
+        example: California
+    municipality:
+      name: municipality
+      in: query
+      description: Filter feeds by municipality name. Phrase is matched case insensitively to actual municipality names.
+      schema:
+        type: string
+        example: Los Angeles
+    downloaded_date_gte:
+      name: downloaded_date_gte
+      in: query
+      description: Filter feed datasets with downloaded date greater or equal to given date.
+      schema:
+        type: string
+        example: 2023-07-00T22:06:00Z
+    downloaded_date_lte:
+      name: downloaded_date_lte
+      in: query
+      description: Filter feed datasets with downloaded date less or equal to given date.
+      schema:
+        type: string
+        example: 2023-07-20T22:06:00Z
     sort:
       name: sort
       in: query
@@ -740,15 +735,6 @@ components:
       name: id
       in: path
       description: The feed ID of the requested feed.
-      required: True
-      schema:
-        type: string
-        example: mdb-10
-
-    feedIdLogsPathParam:
-      name: id
-      in: path
-      description: The feed ID of the feed for which to get the logs.
       required: True
       schema:
         type: string
