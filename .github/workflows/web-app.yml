@@ -22,21 +22,18 @@ jobs:
 
       - name: Authenticate to Google Cloud DEV
         if: ${{ github.event_name == 'pull_request' }}
-        # id: gcloud_auth_dev
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Authenticate to Google Cloud QA
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        # id: gcloud_auth_dev
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Authenticate to Google Cloud PROD
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        # id: gcloud_auth_dev
+        if: ${{ github.event_name == 'release' }}
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
