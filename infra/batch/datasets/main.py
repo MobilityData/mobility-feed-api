@@ -1,5 +1,4 @@
 import base64
-import gc
 import json
 import os
 import traceback
@@ -140,7 +139,6 @@ def validate_dataset_version(connection, json_payload, bucket_name):
     finally:
         if connection is not None:
             connection.close()
-        gc.collect()  # Free memory
 
 
 def handle_error(bucket_name, e, errors, stable_id):
