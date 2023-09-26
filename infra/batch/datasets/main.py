@@ -130,6 +130,7 @@ def validate_dataset_version(connection, json_payload, bucket_name, sha256_file_
         transaction.commit()
         print(f"[{stable_id} INFO] Processing completed successfully.")
     except Exception as e:
+        pass
         if transaction is not None:
             transaction.rollback()
         handle_error(bucket_name, e, errors, stable_id)
@@ -216,11 +217,11 @@ def process_dataset(cloud_event: CloudEvent):
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
     except Exception:
         print(f'[{stable_id} ERROR] Error while updating dataset\n {traceback.format_exc()}')
+        pass
         return error_return_message
     # Allow raised exception to trigger the retry process until a connection is available
     engine = get_db_engine()
     validate_dataset_version(engine.connect(), json_payload, bucket_name, sha256_file_hash, hosted_url)
-
     return 'Done!'
 
 
