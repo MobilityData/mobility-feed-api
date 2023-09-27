@@ -94,8 +94,8 @@ def validate_dataset_version(connection, json_payload, bucket_name, sha256_file_
     :param connection: Database connection
     :param json_payload: Pub/Sub payload
     :param bucket_name: GCP bucket name
-    :param sha256_file_hash:
-    :param hosted_url:
+    :param sha256_file_hash: Dataset's sha256 hash
+    :param hosted_url: GCP URL hosting the dataset
     """
     transaction = None
     errors = ""
@@ -219,6 +219,8 @@ def process_dataset(cloud_event: CloudEvent):
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
             return error_return_message
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
+        if hosted_url is None:
+            print(f'[{stable_id} INFO] Process completed. No database update required.')
     except Exception as e:
         print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
         return error_return_message
