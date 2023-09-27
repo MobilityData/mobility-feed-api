@@ -13,7 +13,7 @@
   },
   "emulators": {
     "hosting": {
-      "port": 4000
+      "port": 4040
     },
     "storage": {
       "port": 9199

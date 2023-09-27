@@ -40,7 +40,7 @@ const DrawerContent: React.FC<{
   const { isAuthenticated } = useAuth();
   return (
     <Box onClick={onClick} sx={{ textAlign: 'center' }}>
-      <Typography variant='h6' sx={{ my: 2 }}>
+      <Typography variant='h6' sx={{ my: 2 }} data-testid='websiteTile'>
         {websiteTile}
       </Typography>
       <Divider />

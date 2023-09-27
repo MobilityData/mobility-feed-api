@@ -68,6 +68,12 @@ jobs:
         working-directory: web-app
         run: yarn lint
 
+      - name: Cypress run
+        uses: cypress-io/github-action@v6
+        with:
+          # build: yarn run build
+          start: yarn start
+
       - name: Build
         working-directory: web-app
         run: yarn build
