@@ -71,6 +71,7 @@ jobs:
   build:
     name: "Build & Deploy"
     permissions: write-all
+    needs: [ list-test ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
