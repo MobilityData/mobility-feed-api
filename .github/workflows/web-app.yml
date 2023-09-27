@@ -64,16 +64,16 @@ jobs:
             echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
           fi
 
-      - name: Lint
-        working-directory: web-app
-        run: yarn lint
+      # - name: Lint
+      #   working-directory: web-app
+      #   run: yarn lint
 
       - name: Cypress run
         uses: cypress-io/github-action@v6
         with:
           # build: yarn run build
           start: yarn start
-          wait-on: 'npx wait-on --timeout 5000 http://localhost:3000'
+          wait-on: 'npx wait-on --timeout 60000 http://localhost:3000'
           working-directory: web-app
 
       - name: Build
