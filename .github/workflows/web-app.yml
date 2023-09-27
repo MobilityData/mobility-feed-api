@@ -73,6 +73,7 @@ jobs:
         with:
           # build: yarn run build
           start: yarn start
+          working-directory: web-app
 
       - name: Build
         working-directory: web-app
