@@ -31,7 +31,6 @@ jobs:
         env:
           cache-name: cache-node-modules
         with:
-          working-directory: web-app
           path: |
             **/node_modules
             **/.eslintcache
@@ -60,13 +59,13 @@ jobs:
         if: failure()
         with:
           name: cypress-screenshots
-          path: ./cypress/screenshots
+          path: ./web-app/cypress/screenshots
 
       - uses: actions/upload-artifact@v2
         if: always()
         with:
           name: cypress-videos
-          path: ./cypress/videos
+          path: ./web-app/cypress/videos
 
   build:
     name: "Build & Deploy"
@@ -109,7 +108,6 @@ jobs:
         env:
           cache-name: cache-node-modules
         with:
-          working-directory: web-app
           path: |
             **/node_modules
             **/.eslintcache
