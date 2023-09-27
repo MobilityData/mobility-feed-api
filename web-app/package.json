@@ -50,6 +50,7 @@
     ]
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -70,6 +71,7 @@
     "firebase-tools": "^12.5.4",
     "prettier": "^3.0.3",
     "ts-loader": "^9.4.4",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "wait-on": "^7.0.1"
   }
 }
