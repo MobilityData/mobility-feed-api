@@ -32,9 +32,9 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     :return: the file hash and the hosted url as a tuple
     """
     # Fix DH Key issues in server side
-    requests.packages.urllib3.disable_warnings()
-    requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
     try:
+        requests.packages.urllib3.disable_warnings()
+        requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
         requests.packages.urllib3.contrib.pyopenssl.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
     except AttributeError:
         # no pyopenssl support used / needed / available
