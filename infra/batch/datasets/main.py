@@ -255,10 +255,8 @@ def batch_datasets(request):
         maximum=540.0,  # at most 9 minutes between retries (pub/sub timeout)
         deadline=1800.0,  # Retry for 30 minutes
         predicate=api_core.retry.if_exception_type(
-            Aborted,
             psycopg2.OperationalError,
-            ServiceUnavailable,
-            Cancelled,
+            ServiceUnavailable
         ),
     )
     publisher = pubsub_v1.PublisherClient()
