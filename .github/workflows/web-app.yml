@@ -73,6 +73,7 @@ jobs:
         with:
           # build: yarn run build
           start: yarn start
+          wait-on: 'npx wait-on --timeout 5000 http://localhost:3000'
           working-directory: web-app
 
       - name: Build
