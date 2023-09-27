@@ -147,6 +147,7 @@ def handle_error(bucket_name, e, errors, stable_id):
     :param errors: error logs
     :param stable_id: Feed's stable ID
     """
+    pass
     error_traceback = traceback.format_exc()
     errors += f"[{stable_id} ERROR]: {e}\n{error_traceback}\n"
     print(f"Logging errors for stable id {stable_id}\n{errors}")
@@ -215,9 +216,9 @@ def process_dataset(cloud_event: CloudEvent):
         return error_return_message
     try:
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
-    except Exception:
-        print(f'[{stable_id} ERROR] Error while updating dataset\n {traceback.format_exc()}')
+    except Exception as e:
         pass
+        print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
         return error_return_message
     # Allow raised exception to trigger the retry process until a connection is available
     engine = get_db_engine()
