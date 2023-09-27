@@ -13,6 +13,61 @@ env:
   FIREBASE_PROJECT: dev
 
 jobs:
+  list-test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}        
+
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          working-directory: web-app
+          path: |
+            **/node_modules
+            **/.eslintcache
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        working-directory: web-app
+        run: yarn lint
+
+      - name: Cypress test
+        uses: cypress-io/github-action@v6
+        with:
+          start: yarn start
+          wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
+          working-directory: web-app
+
+      - uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: ./cypress/screenshots
+
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: cypress-videos
+          path: ./cypress/videos
+
   build:
     name: "Build & Deploy"
     permissions: write-all
@@ -21,35 +76,51 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # - name: Authenticate to Google Cloud DEV
-      #   if: ${{ github.event_name == 'pull_request' }}
-      #   uses: google-github-actions/auth@v1
-      #   with:
-      #     credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+      - name: Authenticate to Google Cloud DEV
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      # - name: Authenticate to Google Cloud QA
-      #   if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      #   uses: google-github-actions/auth@v1
-      #   with:
-      #     credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      - name: Authenticate to Google Cloud QA
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      # - name: Authenticate to Google Cloud PROD
-      #   if: ${{ github.event_name == 'release' }}
-      #   uses: google-github-actions/auth@v1
-      #   with:
-      #     credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+      - name: Authenticate to Google Cloud PROD
+        if: ${{ github.event_name == 'release' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      # - name: Google Cloud Setup
-      #   uses: google-github-actions/setup-gcloud@v1
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v1
 
-      # - name: Setup Node.js
-      #   uses: actions/setup-node@v3
-      #   with:
-      #     node-version: ${{ env.NODE_VERSION }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          working-directory: web-app
+          path: |
+            **/node_modules
+            **/.eslintcache
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
 
       - name: Install dependencies
         working-directory: web-app
-        run: yarn install
+        run: yarn install --frozen-lockfile
 
       - name: Set Firebase project name
         working-directory: web-app
@@ -65,25 +136,9 @@ jobs:
             echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
           fi
 
-      # - name: Lint
-      #   working-directory: web-app
-      #   run: yarn lint
-
-      - name: Cypress run
-        uses: cypress-io/github-action@v6
-        with:
-          # build: yarn run build
-          start: yarn start
-          wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
-          working-directory: web-app
-
       - name: Build
         working-directory: web-app
         run: yarn build
-
-      #   TODO uncomment when tests are added to the repo
-      #   - name: Test
-      #   run: yarn test
 
       - name: Select Firebase Project
         working-directory: web-app
