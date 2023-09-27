@@ -5,17 +5,20 @@ import traceback
 import uuid
 import functions_framework
 import urllib3
+from google import api_core
 from sqlalchemy import create_engine, text
 from requests.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import requests
+from google.api_core.retry import Retry as RetryPolicy
 from google.cloud import storage
 from datetime import datetime
 from hashlib import sha256
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
+from google.api_core.exceptions import *
 
 
 def upload_dataset(url, bucket_name, stable_id, latest_hash):
@@ -201,23 +204,22 @@ def process_dataset(cloud_event: CloudEvent):
     Pub/Sub function entry point that processes a single dataset
     :param cloud_event: GCP Cloud Event
     """
-    data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
-    json_payload = json.loads(data)
-    producer_url, stable_id, dataset_hash, dataset_id = json_payload["producer_url"], json_payload["stable_id"], \
-        json_payload["dataset_hash"], json_payload["dataset_id"]
-
+    stable_id = "UNKNOWN"
     error_return_message = f'ERROR - Unsuccessful processing of dataset with stable id {stable_id}.'
-
-    print(f"[{stable_id} INFO] JSON Payload:", json_payload)
-    bucket_name = os.getenv("BUCKET_NAME")
-
-    if dataset_id is None:
-        print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
-        return error_return_message
     try:
+        data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
+        json_payload = json.loads(data)
+        producer_url, stable_id, dataset_hash, dataset_id = json_payload["producer_url"], json_payload["stable_id"], \
+            json_payload["dataset_hash"], json_payload["dataset_id"]
+
+        print(f"[{stable_id} INFO] JSON Payload:", json_payload)
+        bucket_name = os.getenv("BUCKET_NAME")
+
+        if dataset_id is None:
+            print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
+            return error_return_message
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
     except Exception as e:
-        pass
         print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
         return error_return_message
     # Allow raised exception to trigger the retry process until a connection is available
@@ -245,6 +247,17 @@ def batch_datasets(request):
     print(f"Retrieved {len(results)} active feeds.")
 
     # Publish to topic for processing
+    custom_retry_policy = RetryPolicy(
+        initial=60.0,  # at least 1 min between retries
+        maximum=540.0,  # at most 9 minutes between retries (pub/sub timeout)
+        deadline=1800.0,  # Retry for 30 minutes
+        predicate=api_core.retry.if_exception_type(
+            Aborted,
+            InternalServerError,
+            ServiceUnavailable,
+            Cancelled,
+        ),
+    )
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
     for stable_id, producer_url, feed_id in results:
@@ -263,6 +276,6 @@ def batch_datasets(request):
         }
         data_str = json.dumps(payload)
         data_bytes = data_str.encode('utf-8')
-        publisher.publish(topic_path, data=data_bytes)
+        publisher.publish(topic_path, data=data_bytes, retry=custom_retry_policy)
 
     return f'Publish completed. Published {len(results)} feeds to {pubsub_topic_name}.'
