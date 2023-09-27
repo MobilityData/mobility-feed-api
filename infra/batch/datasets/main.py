@@ -80,6 +80,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         timestamp = current_time.strftime("%Y%m%d")
         timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
         timestamp_blob.upload_from_string(content, timeout=300)
+        timestamp_blob.make_public()
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
