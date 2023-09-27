@@ -6,6 +6,7 @@ on:
       - "web-app/**"
   push:
     branches: [main]
+  workflow_dispatch:
 
 env:
   NODE_VERSION: "18"
@@ -20,31 +21,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Authenticate to Google Cloud DEV
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+      # - name: Authenticate to Google Cloud DEV
+      #   if: ${{ github.event_name == 'pull_request' }}
+      #   uses: google-github-actions/auth@v1
+      #   with:
+      #     credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: Authenticate to Google Cloud QA
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      # - name: Authenticate to Google Cloud QA
+      #   if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      #   uses: google-github-actions/auth@v1
+      #   with:
+      #     credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: Authenticate to Google Cloud PROD
-        if: ${{ github.event_name == 'release' }}
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+      # - name: Authenticate to Google Cloud PROD
+      #   if: ${{ github.event_name == 'release' }}
+      #   uses: google-github-actions/auth@v1
+      #   with:
+      #     credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v1
+      # - name: Google Cloud Setup
+      #   uses: google-github-actions/setup-gcloud@v1
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+      # - name: Setup Node.js
+      #   uses: actions/setup-node@v3
+      #   with:
+      #     node-version: ${{ env.NODE_VERSION }}
 
       - name: Install dependencies
         working-directory: web-app
@@ -73,7 +74,7 @@ jobs:
         with:
           # build: yarn run build
           start: yarn start
-          wait-on: 'npx wait-on --timeout 120000 http://localhost:3000'
+          wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
           working-directory: web-app
 
       - name: Build
