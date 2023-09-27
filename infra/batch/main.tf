@@ -33,6 +33,14 @@ resource "google_storage_bucket" "bucket" {
   location = var.gcp_region
 }
 
+resource "google_storage_bucket_acl" "my_bucket_acl" {
+  bucket = google_storage_bucket.bucket.name
+  role_entity = [
+    "READER:allUsers"
+  ]
+}
+
+
 resource "google_storage_bucket_object" "object" {
   name            = "${var.source_code_path}${filesha256(var.source_code_zip_file)}.zip"
   bucket          = google_storage_bucket.bucket.name

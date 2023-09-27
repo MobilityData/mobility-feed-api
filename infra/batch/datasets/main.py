@@ -4,6 +4,7 @@ import os
 import traceback
 import uuid
 import functions_framework
+import psycopg2
 import urllib3
 from google import api_core
 from sqlalchemy import create_engine, text
@@ -255,7 +256,7 @@ def batch_datasets(request):
         deadline=1800.0,  # Retry for 30 minutes
         predicate=api_core.retry.if_exception_type(
             Aborted,
-            InternalServerError,
+            psycopg2.OperationalError,
             ServiceUnavailable,
             Cancelled,
         ),
