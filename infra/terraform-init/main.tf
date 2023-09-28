@@ -164,6 +164,12 @@ resource "google_project_iam_member" "ci_binding_servicemanagement_admin" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "ci_binding_firebase_admin" {
+  project = var.project_id
+  role    = "roles/firebase.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_storage_bucket" "tf_state_bucket" {
   name          = "${var.terraform_state_bucket_name_prefix}-${var.environment}"
   force_destroy = false

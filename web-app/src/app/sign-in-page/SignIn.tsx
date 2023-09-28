@@ -90,6 +90,7 @@ export default function SignIn(): React.ReactElement {
             variant='contained'
             sx={{ mt: 3, mb: 2 }}
             onClick={login}
+            data-testid='signin'
           >
             Sign In
           </Button>
