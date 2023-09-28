@@ -55,13 +55,13 @@ jobs:
           wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
           working-directory: web-app
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: cypress-screenshots
           path: ./web-app/cypress/screenshots
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: cypress-videos

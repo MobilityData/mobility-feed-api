@@ -51,6 +51,23 @@ npx firebase use {project_name_or_alias}
 npx firebase hosting:channel:deploy {channel_name}
 ```
 
+# Component and E2E tests
+
+Component and E2E tests are executed with [Cypress](https://docs.cypress.io/). Cypress tests are located in the cypress folder.
+
+Cypress useful commands:
+- Run local headless tests
+```
+yarn start
+```
+In a different terminal,
+```
+yarn cypress-run
+```
+- Opens Cypress in the interactive GUI
+```
+yarn cypress-open
+```
 ## References
 
  - You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
