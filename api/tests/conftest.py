@@ -20,6 +20,7 @@ def app() -> FastAPI:
     db.merge(
         Gtfsrealtimefeed(id=uuid.uuid4(), stable_id=FAKE_GTFS_RT_FEED_STABLE_ID, data_type="gtfs_rt", status="active")
     )
+    db.commit()
     return application
 
 
