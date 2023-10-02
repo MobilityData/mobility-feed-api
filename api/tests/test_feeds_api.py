@@ -59,15 +59,7 @@ def test_feeds_gtfs_id_get(client: TestClient):
 def test_feeds_gtfs_rt_get(client: TestClient):
     """Test case for feeds_gtfs_get"""
 
-    params = [
-        ("limit", 10),
-        ("offset", 0),
-        ("filter", "status=active"),
-        ("sort", "+provider"),
-        ("bounding_latitudes", "41.46,42.67"),
-        ("bounding_longitudes", "-78.58,-87-29"),
-        ("bounding_filter_method", "completely_enclosed"),
-    ]
+    params = [("limit", 10), ("offset", 0), ("filter", "status=active"), ("sort", "+provider")]
     headers = {
         "ApiKeyAuth": "special-key",
     }
