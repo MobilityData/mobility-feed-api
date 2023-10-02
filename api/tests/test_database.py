@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.orm import Query
 
-from test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS, TEST_EXTERNAL_IDS
+from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS, TEST_EXTERNAL_IDS
 from database.database import Database
 from database_gen.sqlacodegen_models import Gtfsdataset
 from feeds.impl.datasets_api_impl import DatasetsApiImpl

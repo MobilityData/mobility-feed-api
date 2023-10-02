@@ -1,7 +1,7 @@
 # coding: utf-8
 from fastapi.testclient import TestClient
 
-from test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
+from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 
 
 def test_feeds_get(client: TestClient):

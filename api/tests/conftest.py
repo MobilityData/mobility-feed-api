@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from database.database import Database
 from feeds_gen.main import app as application
-from test_utils.database import populate_database
+from .test_utils.database import populate_database
 
 
 @pytest.fixture
