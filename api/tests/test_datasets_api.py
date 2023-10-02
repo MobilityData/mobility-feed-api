@@ -1,7 +1,7 @@
 # coding: utf-8
 from fastapi.testclient import TestClient
 
-from conftest import TEST_DATASET_STABLE_IDS
+from test_utils.database import TEST_DATASET_STABLE_IDS
 
 
 def test_datasets_gtfs_id_get(client: TestClient):
