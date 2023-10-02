@@ -57,7 +57,6 @@ jobs:
       - name: Run lint checks
         run: |
           scripts/lint-tests.sh
-#      Uncomment the unit tests when tests are ready
-#      - name: Run unit tests
-#        run: |
-#          scripts/api-test.sh
+      - name: Run unit tests
+        run: |
+          scripts/api-test.sh
