@@ -1,6 +1,8 @@
 # coding: utf-8
 from fastapi.testclient import TestClient
 
+from conftest import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
+
 
 def test_feeds_get(client: TestClient):
     """Test case for feeds_get"""
@@ -48,7 +50,7 @@ def test_feeds_gtfs_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}".format(id="mdb-1"),
+        "/v1/gtfs_feeds/{id}".format(id=TEST_GTFS_FEED_STABLE_IDS[0]),
         headers=headers,
     )
 
@@ -82,7 +84,7 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/gtfs_rt_feeds/{id}".format(id="mdb-1561"),
+        "/v1/gtfs_rt_feeds/{id}".format(id=TEST_GTFS_RT_FEED_STABLE_ID),
         headers=headers,
     )
 
@@ -97,7 +99,7 @@ def test_feeds_id_get(client: TestClient):
     }
     response = client.request(
         "GET",
-        "/v1/feeds/{id}".format(id="mdb-1"),
+        "/v1/feeds/{id}".format(id=TEST_GTFS_FEED_STABLE_IDS[0]),
         headers=headers,
     )
 
