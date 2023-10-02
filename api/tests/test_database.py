@@ -218,8 +218,9 @@ class TestDatabaseQuery(unittest.TestCase):
         self.db.select(Feed, conditions=[Feed.id == self._FEED_ID_1])
 
         self.db.select(
-            query=f"DELETE FROM gtfsdataset where feed_id IN "
-                  f"{self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, self._DATASET_ID_3, self._DATASET_ID_4])}"
+            query=f'''DELETE FROM gtfsdataset where feed_id IN 
+                    {self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, 
+                                               self._DATASET_ID_3, self._DATASET_ID_4])}'''
         )
         self.db.commit()
         in_clause = self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, self._DATASET_ID_3, self._DATASET_ID_4])
@@ -231,7 +232,7 @@ class TestDatabaseQuery(unittest.TestCase):
         in_clause = f"('{self._EXTERNAL_ID_1}', '{self._EXTERNAL_ID_2}',  '{self._EXTERNAL_ID_3}')"
         self.db.select(query=f"DELETE FROM externalid where associated_id IN {in_clause}")
         self.db.commit()
-        in_clause = f"('{self._EXTERNAL_ID_1}', '{self._EXTERNAL_ID_2}',  '{self._EXTERNAL_ID_3}', '{self._FEED_ID_4}')"
+        in_clause = f"('{self._FEED_ID_1}', '{self._FEED_ID_2}',  '{self._FEED_ID_3}', '{self._FEED_ID_4}')"
         self.db.select(query=f"DELETE FROM gtfsfeed where id IN {in_clause}")
         self.db.commit()
         in_clause = f"('{self._FEED_ID_1}', '{self._FEED_ID_2}',  '{self._FEED_ID_3}', '{self._FEED_ID_4}')"
@@ -245,7 +246,9 @@ class TestDatabaseQuery(unittest.TestCase):
     def test_merge_gtfs_feed(self):
         results = {
             feed.id: feed
-            for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None, None, None, None, None, None, None, None)
+            for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None,
+                                                      None, None, None, None,
+                                                      None, None, None)
             if feed.id in [self._FEED_ID_1, self._FEED_ID_2]
         }
         self.assertEquals(2, len(results))
