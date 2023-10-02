@@ -59,4 +59,4 @@ jobs:
           scripts/lint-tests.sh
       - name: Run unit tests
         run: |
-          scripts/api-test.sh
+          scripts/api-tests.sh
