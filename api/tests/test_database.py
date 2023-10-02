@@ -2,6 +2,7 @@ import os
 import unittest
 from typing import List
 
+from geoalchemy2 import WKTElement
 from sqlalchemy.orm import Query
 
 from database.database import Database
@@ -26,11 +27,44 @@ class TestingBoundingBox(unittest.TestCase):
     def setUp(self):
         super().__init__()
         self.db = Database()
-        # latitudes: 37.615264, 38.2321
-        # longitudes: -84.8984452721203, -84.4789953029549
-        self.base_query = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
-            Gtfsdataset.stable_id == "mdb-362"
+
+        self._FAKE_FEED_ID = "FAKE_FEED_ID"
+        self._FAKE_FEED_STABLE_ID = "FAKE_FEED_STABLE_ID"
+        self._FAKE_DATASET_ID = "FAKE_DATASET_ID"
+
+        self.db.merge(Gtfsfeed(id=self._FAKE_FEED_ID, stable_id=self._FAKE_FEED_STABLE_ID))
+        self.db.commit()
+
+        min_lat = 37.615264
+        max_lat = 38.2321
+        min_lon = -84.8984452721203
+        max_lon = -84.4789953029549
+        polygon = f"POLYGON(({min_lon} {min_lat}, {min_lon} {max_lat}, {max_lon} {max_lat}, {max_lon} {min_lat}, {min_lon} {min_lat}))"
+
+        self.db.merge(
+            Gtfsdataset(
+                id=self._FAKE_DATASET_ID,
+                stable_id=self._FAKE_FEED_STABLE_ID,
+                feed_id=self._FAKE_FEED_ID,
+                latest=True,
+                bounding_box=WKTElement(polygon, srid=4326)
+            )
         )
+        self.db.commit()
+
+        self.base_query = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
+            Gtfsdataset.stable_id == self._FAKE_FEED_STABLE_ID
+        )
+
+    def tearDown(self) -> None:
+        self.db.select(
+            query=f"DELETE FROM gtfsdataset where feed_id IN ('{self._FAKE_FEED_ID}')"
+        )
+        self.db.commit()
+        self.db.select(query=f"DELETE FROM gtfsfeed where id IN ('{self._FAKE_FEED_ID}')")
+        self.db.commit()
+        self.db.select(query=f"DELETE FROM feed where id IN ('{self._FAKE_FEED_ID}')")
+        self.db.commit()
 
     def test_dateset_exists(self):
         self.assertEquals(1, len(self.db.select(query=self.base_query)))
