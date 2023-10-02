@@ -38,8 +38,10 @@ class TestingBoundingBox(unittest.TestCase):
         max_lat = 38.2321
         min_lon = -84.8984452721203
         max_lon = -84.4789953029549
-        polygon = (f"POLYGON(({min_lon} {min_lat}, {min_lon} {max_lat}, {max_lon} {max_lat}, {max_lon} {min_lat}, "
-                   f"{min_lon} {min_lat}))")
+        polygon = (
+            f"POLYGON(({min_lon} {min_lat}, {min_lon} {max_lat}, {max_lon} {max_lat}, {max_lon} {min_lat}, "
+            f"{min_lon} {min_lat}))"
+        )
 
         self.db.merge(
             Gtfsdataset(
@@ -47,7 +49,7 @@ class TestingBoundingBox(unittest.TestCase):
                 stable_id=self._FAKE_FEED_STABLE_ID,
                 feed_id=self._FAKE_FEED_ID,
                 latest=True,
-                bounding_box=WKTElement(polygon, srid=4326)
+                bounding_box=WKTElement(polygon, srid=4326),
             )
         )
         self.db.commit()
@@ -57,9 +59,7 @@ class TestingBoundingBox(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
-        self.db.select(
-            query=f"DELETE FROM gtfsdataset where feed_id IN ('{self._FAKE_FEED_ID}')"
-        )
+        self.db.select(query=f"DELETE FROM gtfsdataset where feed_id IN ('{self._FAKE_FEED_ID}')")
         self.db.commit()
         self.db.select(query=f"DELETE FROM gtfsfeed where id IN ('{self._FAKE_FEED_ID}')")
         self.db.commit()
@@ -218,9 +218,9 @@ class TestDatabaseQuery(unittest.TestCase):
         self.db.select(Feed, conditions=[Feed.id == self._FEED_ID_1])
 
         self.db.select(
-            query=f'''DELETE FROM gtfsdataset where feed_id IN 
-                    {self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, 
-                                               self._DATASET_ID_3, self._DATASET_ID_4])}'''
+            query=f"""DELETE FROM gtfsdataset where feed_id IN
+                    {self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2,
+                                               self._DATASET_ID_3, self._DATASET_ID_4])}"""
         )
         self.db.commit()
         in_clause = self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, self._DATASET_ID_3, self._DATASET_ID_4])
@@ -246,9 +246,7 @@ class TestDatabaseQuery(unittest.TestCase):
     def test_merge_gtfs_feed(self):
         results = {
             feed.id: feed
-            for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None,
-                                                      None, None, None, None,
-                                                      None, None, None)
+            for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None, None, None, None, None, None, None, None)
             if feed.id in [self._FEED_ID_1, self._FEED_ID_2]
         }
         self.assertEquals(2, len(results))
