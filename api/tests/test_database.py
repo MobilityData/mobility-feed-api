@@ -10,7 +10,6 @@ from database_gen.sqlacodegen_models import Gtfsdataset, Feed, Gtfsfeed, Externa
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 
-
 # TODO- Need to find a better way to setup the database for unit tests
 os.environ["POSTGRES_USER"] = "postgres"
 os.environ["POSTGRES_PASSWORD"] = "postgres"
@@ -39,7 +38,8 @@ class TestingBoundingBox(unittest.TestCase):
         max_lat = 38.2321
         min_lon = -84.8984452721203
         max_lon = -84.4789953029549
-        polygon = f"POLYGON(({min_lon} {min_lat}, {min_lon} {max_lat}, {max_lon} {max_lat}, {max_lon} {min_lat}, {min_lon} {min_lat}))"
+        polygon = (f"POLYGON(({min_lon} {min_lat}, {min_lon} {max_lat}, {max_lon} {max_lat}, {max_lon} {min_lat}, "
+                   f"{min_lon} {min_lat}))")
 
         self.db.merge(
             Gtfsdataset(
@@ -63,7 +63,7 @@ class TestingBoundingBox(unittest.TestCase):
         self.db.commit()
         self.db.select(query=f"DELETE FROM gtfsfeed where id IN ('{self._FAKE_FEED_ID}')")
         self.db.commit()
-        self.db.select(query=f"DELETE FROM feed where id IN ('{self._FAKE_FEED_ID}')")
+        self.db.select(query=f"DELETE FROM Òfeed where id IN ('{self._FAKE_FEED_ID}')")
         self.db.commit()
 
     def test_dateset_exists(self):
@@ -219,7 +219,7 @@ class TestDatabaseQuery(unittest.TestCase):
 
         self.db.select(
             query=f"DELETE FROM gtfsdataset where feed_id IN "
-            f"{self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, self._DATASET_ID_3, self._DATASET_ID_4])}"
+                  f"{self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, self._DATASET_ID_3, self._DATASET_ID_4])}"
         )
         self.db.commit()
         in_clause = self._generate_in_clause([self._FEED_ID_1, self._FEED_ID_2, self._DATASET_ID_3, self._DATASET_ID_4])
