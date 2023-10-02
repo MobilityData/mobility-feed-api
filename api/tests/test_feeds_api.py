@@ -40,6 +40,25 @@ def test_feeds_gtfs_get(client: TestClient):
     assert response.status_code == 200
 
 
+def test_feeds_gtfs_get_with_sorting(client: TestClient):
+    """Test case for feeds_gtfs_get"""
+
+    params = [
+        ("order_by", "+external_id"),
+    ]
+    headers = {
+        "ApiKeyAuth": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=headers,
+        params=params,
+    )
+
+    assert response.status_code == 200
+
+
 def test_feeds_gtfs_id_get(client: TestClient):
     """Test case for feeds_gtfs_id_get"""
 
