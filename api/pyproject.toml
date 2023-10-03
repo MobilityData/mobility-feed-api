@@ -33,7 +33,4 @@ skip = [
 skip_gitignore = true
 
 [tool.pytest.ini_options]
-pythonpath = [".", "src"]
-addopts = [
-    "--import-mode=importlib",
-]
+pythonpath = ["src"]
