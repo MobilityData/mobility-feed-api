@@ -13,7 +13,7 @@ def app() -> FastAPI:
     return application
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def test_database():
     with populate_database(Database()) as db:
         yield db
