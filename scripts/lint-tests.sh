@@ -13,4 +13,7 @@
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 
-(cd $SCRIPT_PATH/../api/ && pip3 install -r requirements_dev.txt && python3 -m flake8 && python3 -m black . --check)
+cd $SCRIPT_PATH/../api/ || exit 1
+python -m virtualenv venv
+venv/bin/python -m pip install -r requirements_dev.txt
+venv/bin/python -m flake8 && venv/bin/python -m black . --check
