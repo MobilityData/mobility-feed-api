@@ -31,3 +31,6 @@ skip = [
     '.venv', '_build', 'buck-out', 'build', 'dist', 'node_modules', 'venv',
 ]
 skip_gitignore = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

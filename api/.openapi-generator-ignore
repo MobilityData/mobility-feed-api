@@ -35,3 +35,4 @@ setup.cfg
 requirements_dev.txt
 requirements.txt
 .flake8
+tests/conftest.py

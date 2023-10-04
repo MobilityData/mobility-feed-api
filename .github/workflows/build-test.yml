@@ -7,10 +7,6 @@ on:
 env:
   python_version: '3.10'
   java_version: '11' # needed by setup-openapi-generator.sh
-  local_postgres_db: postgres_db
-  local_postgres_user: postgres_user
-  local_postgres_pwd: postgres_password
-  local_postgres_port: 5432
 
 jobs:
   build-test:
@@ -31,16 +27,6 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
-      - name: Update .env file
-        run: |
-          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
-          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
-          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
-          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
-          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-          echo "POSTGRES_HOST=localhost" >> config/.env.local
-          echo "ENV=dev" >> config/.env.local
-
       - name: Docker Compose DB/Liquibase for db-gen.sh
         run: docker-compose --env-file ./config/.env.local up -d liquibase
         working-directory: ${{ github.workspace }}
@@ -57,7 +43,7 @@ jobs:
       - name: Run lint checks
         run: |
           scripts/lint-tests.sh
-#      Uncomment the unit tests when tests are ready
-#      - name: Run unit tests
-#        run: |
-#          scripts/api-test.sh
+
+      - name: Run unit tests
+        run: |
+          scripts/api-tests.sh

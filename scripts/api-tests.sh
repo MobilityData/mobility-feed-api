@@ -12,5 +12,9 @@
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
-
-(cd $SCRIPT_PATH/../api/ && pip3 install -r requirements_dev.txt && PYTHONPATH=src pytest tests/$1)
+cd $SCRIPT_PATH/../api/ || exit 1
+pip3 install virtualenv
+python -m virtualenv venv
+venv/bin/python -m pip install -r requirements.txt
+venv/bin/python -m pip install -r requirements_dev.txt
+venv/bin/python -m pytest tests/$1
