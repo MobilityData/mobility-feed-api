@@ -125,7 +125,27 @@ class FeedsApiImpl(BaseFeedsApi):
         bounding_latitudes: str = None,
         bounding_longitudes: str = None,
         bounding_filter_method: str = None,
+        order_by: list[str] = None,
     ) -> List[GtfsFeed]:
+        def _get_order_by_key(order_by: list[str] = None):
+            order_by_columns = []
+            for field in order_by:
+                if "country_code" in field:
+                    if field.startswith("-"):
+                        order_by_columns.append(Location.country_code.desc())
+                    else:
+                        order_by_columns.append(Location.country_code.asc())
+                elif "external_id" in field:
+                    if field.startswith("-"):
+                        order_by_columns.append(Externalid.associated_id.desc())
+                    else:
+                        order_by_columns.append(Externalid.associated_id.asc())
+            return order_by_columns
+
+        if order_by is None:
+            order_by_columns = [Gtfsfeed.stable_id]
+        else:
+            order_by_columns = _get_order_by_key(order_by)
         query = feed_filter.filter(
             FeedsApiImpl._create_feeds_query(Gtfsfeed)
             .join(Gtfsdataset, Gtfsfeed.id == Gtfsdataset.feed_id, isouter=True)
@@ -133,7 +153,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .join(t_locationfeed, t_locationfeed.c.feed_id == Gtfsfeed.id, isouter=True)
             .join(Location, t_locationfeed.c.location_id == Location.id, isouter=True)
             .add_entity(Location)
-            .order_by(Gtfsfeed.stable_id)
+            .order_by(*order_by_columns)
         )
         query = DatasetsApiImpl.apply_bounding_filtering(
             query, bounding_latitudes, bounding_longitudes, bounding_filter_method
@@ -286,6 +306,7 @@ class FeedsApiImpl(BaseFeedsApi):
         bounding_latitudes: str,
         bounding_longitudes: str,
         bounding_filter_method: str,
+        order_by: list[str],
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         location_filter = LocationFilter(
@@ -305,6 +326,7 @@ class FeedsApiImpl(BaseFeedsApi):
             bounding_latitudes=bounding_latitudes,
             bounding_longitudes=bounding_longitudes,
             bounding_filter_method=bounding_filter_method,
+            order_by=order_by,
         )
 
     def get_gtfs_rt_feed(
