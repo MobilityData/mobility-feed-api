@@ -73,8 +73,9 @@ def test_bounding_box_disjoint(latitudes, longitudes, method, expected_found, te
 def test_merge_gtfs_feed(test_database):
     results = {
         feed.id: feed
-        for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None, None, None, 
-                                                  None, None, None, None, None, None)
+        for feed in FeedsApiImpl().get_gtfs_feeds(
+            None, None, None, None, None, None, None, None, None, None, None, None
+        )
         if feed.id in TEST_GTFS_FEED_STABLE_IDS
     }
     assert len(results) == len(TEST_GTFS_FEED_STABLE_IDS)
