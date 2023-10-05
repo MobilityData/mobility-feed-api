@@ -211,7 +211,7 @@ class TestDatabaseQuery(unittest.TestCase):
     def test_merge_gtfs_feed(self):
         results = {
             feed.id: feed
-            for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None, None, None, None, None, None, None, None)
+            for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None, None, None, None, None, None, None, None, None)
             if feed.id in [self._FEED_ID_1, self._FEED_ID_2]
         }
         self.assertEquals(2, len(results))
