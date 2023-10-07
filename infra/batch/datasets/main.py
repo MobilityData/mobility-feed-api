@@ -8,13 +8,22 @@ from sqlalchemy import create_engine, text
 from requests.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import logging
 
 import requests
-from google.cloud import storage
+from google.cloud import storage, firestore
 from datetime import datetime
 from hashlib import sha256
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
+
+from enum import Enum
+
+
+class Status(Enum):
+    UPDATED = 0
+    NOT_UPDATED = 1
+    FAILED = 2
 
 
 def upload_dataset(url, bucket_name, stable_id, latest_hash):
@@ -144,6 +153,24 @@ def validate_dataset_version(connection, json_payload, bucket_name, sha256_file_
             connection.close()
 
 
+def update_feed_status(status, stable_id):
+    """
+    Update status in Firestore to disable further retries
+    """
+    date = datetime.now().strftime('%Y%m%d')
+    db = firestore.Client()
+    doc_ref = db.collection('feeds').document(stable_id)
+    doc = doc_ref.get()
+    doc_content = {
+        'status': status,
+        'last_updated': date
+    }
+    if doc.exists:
+        doc_ref.update(doc_content)
+    else:
+        doc_ref.set(doc_content)
+
+
 def handle_error(bucket_name, e, errors, stable_id):
     """
     Persists error logs to GCP bucket
@@ -152,12 +179,17 @@ def handle_error(bucket_name, e, errors, stable_id):
     :param errors: error logs
     :param stable_id: Feed's stable ID
     """
+    date = datetime.now().strftime('%Y%m%d')
     error_traceback = traceback.format_exc()
     errors += f"[{stable_id} ERROR]: {e}\n{error_traceback}\n"
+
     print(f"Logging errors for stable id {stable_id}\n{errors}")
+
     storage_client = storage.Client()
     bucket = storage_client.get_bucket(bucket_name)
     error_type = 'other'
+
+    # Determine error category
     if 'remaining connection slots are reserved' in errors:
         print(f"[{stable_id} SQL ERROR] No connection slot available. Retrying..")
         raise e  # Rethrow error to trigger retry process until a connection is available
@@ -165,8 +197,17 @@ def handle_error(bucket_name, e, errors, stable_id):
         error_type = 'sqlalchemy'
     elif isinstance(e, HTTPError):
         error_type = f"http/{e.response.status_code}"
+
+    # Upload error logs to GCP
     blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
     blob.upload_from_string(errors)
+    logging.getLogger(bucket_name).info("Feed processing status", extra={
+        "stable_id": stable_id,
+        "status": Status.FAILED,
+        "timestamp": date
+    })
+
+    update_feed_status(Status.FAILED, stable_id)
 
 
 def create_bucket(bucket_name):
@@ -208,6 +249,7 @@ def process_dataset(cloud_event: CloudEvent):
     stable_id = "UNKNOWN"
     error_return_message = f'ERROR - Unsuccessful processing of dataset with stable id {stable_id}.'
     bucket_name = os.getenv("BUCKET_NAME")
+    date = datetime.now().strftime('%Y%m%d')
     try:
         #  Extract  data from message
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
@@ -217,25 +259,50 @@ def process_dataset(cloud_event: CloudEvent):
 
         print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
+        # Validate that the feed wasn't previously processed
+        db = firestore.Client()
+        doc_ref = db.collection('feeds').document(stable_id)
+        doc = doc_ref.get()
+        if doc.exists:
+            if doc.to_dict()['last_updated'] == date:
+                print(f"[{stable_id} INFO] Feed was already processed")
+                return 'Completed.'
+
         if dataset_id is None:
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
+            logging.getLogger(bucket_name).info("Feed processing status", extra={
+                "stable_id": stable_id,
+                "status": Status.FAILED,
+                "timestamp": date
+            })
             return error_return_message
 
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
 
         if hosted_url is None:
             print(f'[{stable_id} INFO] Process completed. No database update required.')
+            logging.getLogger(bucket_name).info("Feed processing status", extra={
+                "stable_id": stable_id,
+                "status": Status.NOT_UPDATED,
+                "timestamp": date
+            })
 
     except Exception as e:
         print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
         handle_error(bucket_name, e, "", stable_id)
         return error_return_message
 
-    # Allow raised exception to trigger the retry process until a connection is available
-    engine = get_db_engine()
-    validate_dataset_version(engine.connect(), json_payload, bucket_name, sha256_file_hash, hosted_url)
+    if hosted_url is not None:
+        # Allow raised exception to trigger the retry process until a connection is available
+        engine = get_db_engine()
+        validate_dataset_version(engine.connect(), json_payload, bucket_name, sha256_file_hash, hosted_url)
 
-    return 'Done!'
+    logging.getLogger(bucket_name).info("Feed processing status", extra={
+        "stable_id": stable_id,
+        "status": Status.UPDATED,
+        "timestamp": date
+    })
+    return 'Completed.'
 
 
 @functions_framework.http
