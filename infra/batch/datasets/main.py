@@ -208,6 +208,7 @@ def process_dataset(cloud_event: CloudEvent):
     """
     stable_id = "UNKNOWN"
     error_return_message = f'ERROR - Unsuccessful processing of dataset with stable id {stable_id}.'
+    bucket_name = os.getenv("BUCKET_NAME")
     try:
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         json_payload = json.loads(data)
@@ -215,7 +216,6 @@ def process_dataset(cloud_event: CloudEvent):
             json_payload["dataset_hash"], json_payload["dataset_id"]
 
         print(f"[{stable_id} INFO] JSON Payload:", json_payload)
-        bucket_name = os.getenv("BUCKET_NAME")
 
         if dataset_id is None:
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
@@ -225,10 +225,13 @@ def process_dataset(cloud_event: CloudEvent):
             print(f'[{stable_id} INFO] Process completed. No database update required.')
     except Exception as e:
         print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
+        handle_error(bucket_name, e, "", stable_id)
         return error_return_message
+
     # Allow raised exception to trigger the retry process until a connection is available
     engine = get_db_engine()
     validate_dataset_version(engine.connect(), json_payload, bucket_name, sha256_file_hash, hosted_url)
+
     return 'Done!'
 
 
@@ -246,7 +249,7 @@ def batch_datasets(request):
     # Retrieve feeds
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0'"
+                    "status='active' and authentication_type='0' and stable_id='mdb-1061'"
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
