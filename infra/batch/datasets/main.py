@@ -284,14 +284,15 @@ def process_dataset(cloud_event: CloudEvent):
 
         print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
-        update_feed_status(Status.DO_NOT_RETRY.name, stable_id, bucket_name)
-
         # Validate that the feed wasn't previously processed
         feed_status, updated_today = retrieve_feed_status(stable_id, bucket_name)
         print(f"[{stable_id} INFO] Feed status is {feed_status}")
         if updated_today:
             print(f"[{stable_id} INFO] Feed was already processed")
             return 'Completed.'
+
+        update_feed_status(Status.DO_NOT_RETRY.name, stable_id, bucket_name)
+
 
         if dataset_id is None:
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
