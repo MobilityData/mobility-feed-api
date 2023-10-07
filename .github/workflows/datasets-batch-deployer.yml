@@ -146,9 +146,9 @@ jobs:
 
       - name: Google Cloud Setup
         uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ inputs.PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+#        with:
+#          project_id: ${{ inputs.PROJECT_ID }}
+#          service_account_key: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Set Variables
         run: |
@@ -199,7 +199,7 @@ jobs:
         run: gsutil rm gs://${{inputs.FUNCTION_BUCKET_NAME}}/${{inputs.SOURCE_ZIP_PATH}}*
 
       - name: Create Firestore Database
-        run: gcloud firestore databases create --region=${{ inputs.REGION }}
+        run: gcloud firestore databases create --location=${{ inputs.REGION }}
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
