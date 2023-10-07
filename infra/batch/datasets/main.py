@@ -188,7 +188,7 @@ def retrieve_feed_status(stable_id, bucket_name):
     feed_state = json.loads(feed_state_json)
     if 'status' not in feed_state:
         return None, False
-    return feed_state['status'], feed_state_json['last_updated'] == datetime.now().strftime('%Y%m%d')
+    return feed_state['status'], feed_state['last_updated'] == datetime.now().strftime('%Y%m%d')
 
 
 def handle_error(bucket_name, e, errors, stable_id):
@@ -342,7 +342,7 @@ def batch_datasets(request):
     # Retrieve feeds
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0' and stable_id='mdb-1039'"
+                    "status='active' and authentication_type='0'"
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
