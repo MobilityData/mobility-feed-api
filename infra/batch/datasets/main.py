@@ -19,7 +19,7 @@ from google.cloud import pubsub_v1
 
 def upload_dataset(url, bucket_name, stable_id, latest_hash):
     """
-    Uploads a dataset to a GCP bucket as <stable_id>/latest.zip and <stable_id>/<upload_date>.zip
+    Uploads a dataset to a GCP bucket as <stable_id>/latest.zip and <stable_id>/<upload_datetime>.zip
     if the dataset hash is different from the latest dataset stored
     :param url: dataset feed's producer url
     :param bucket_name: name of the GCP bucket
@@ -77,7 +77,7 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
 
         # Upload file as upload timestamp
         current_time = datetime.now()
-        timestamp = current_time.strftime("%Y%m%d")
+        timestamp = current_time.strftime("%Y%m%d_%H%M%S")
         timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
         timestamp_blob.upload_from_string(content, timeout=300)
         timestamp_blob.make_public()
@@ -252,7 +252,7 @@ def batch_datasets(request):
     # Retrieve feeds
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0' and stable_id like 'mdb-106%'"
+                    "status='active' and authentication_type='0'"
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
