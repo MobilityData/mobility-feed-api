@@ -8,7 +8,6 @@ from sqlalchemy import create_engine, text
 from requests.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import logging
 
 import requests
 from google.cloud import storage
@@ -222,13 +221,13 @@ def handle_error(bucket_name, e, errors, stable_id):
     # Upload error logs to GCP
     blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
     blob.upload_from_string(errors)
-    logging.getLogger(bucket_name).debug("Feed processing status", extra={
+    print(json.dumps({
         "stable_id": stable_id,
-        "status": Status.FAILED,
+        "status": Status.FAILED.name,
         "timestamp": date
-    })
+    }))
 
-    update_feed_status(Status.FAILED, stable_id, bucket_name)
+    update_feed_status(Status.FAILED.name, stable_id, bucket_name)
 
 
 def create_bucket(bucket_name):
@@ -296,22 +295,22 @@ def process_dataset(cloud_event: CloudEvent):
 
         if dataset_id is None:
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
-            logging.getLogger(bucket_name).debug("Feed processing status", extra={
+            print(json.dumps({
                 "stable_id": stable_id,
-                "status": Status.FAILED,
+                "status": Status.FAILED.name,
                 "timestamp": date
-            })
+            }))
             return error_return_message
 
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
 
         if hosted_url is None:
             print(f'[{stable_id} INFO] Process completed. No database update required.')
-            logging.getLogger(bucket_name).debug("Feed processing status", extra={
+            print(json.dumps({
                 "stable_id": stable_id,
-                "status": Status.NOT_UPDATED,
+                "status": Status.NOT_UPDATED.name,
                 "timestamp": date
-            })
+            }))
 
     except Exception as e:
         print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
@@ -321,11 +320,11 @@ def process_dataset(cloud_event: CloudEvent):
     if hosted_url is not None:
         validate_dataset_version(connection, json_payload, bucket_name, sha256_file_hash, hosted_url)
 
-    logging.getLogger(bucket_name).debug("Feed processing status", extra={
+    print(json.dumps({
         "stable_id": stable_id,
-        "status": Status.UPDATED,
+        "status": Status.UPDATED.name,
         "timestamp": date
-    })
+    }))
     return 'Completed.'
 
 
