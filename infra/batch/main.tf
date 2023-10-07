@@ -21,6 +21,12 @@ data "google_service_account" "ci_impersonator_service_account" {
   project    = var.project_id
 }
 
+resource "google_project_iam_member" "ci_binding_cloudsql_admin" {
+  project = var.project_id
+  role    = "roles/datastore.databases.owner"
+  member  = "serviceAccount:${data.google_service_account.ci_impersonator_service_account.email}"
+}
+
 resource "google_project_service" "services" {
   for_each                   = toset(local.services)
   service                    = each.value

@@ -160,13 +160,7 @@ resource "google_project_iam_member" "ci_binding_cloudsql_admin" {
 
 resource "google_project_iam_member" "ci_binding_cloudsql_admin" {
   project = var.project_id
-  role    = "roles/datastore.databases.create"
-  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
-}
-
-resource "google_project_iam_member" "ci_binding_cloudsql_admin" {
-  project = var.project_id
-  role    = "roles/datastore.databases.list"
+  role    = "roles/datastore.databases.owner"
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
