@@ -4,22 +4,17 @@ import os
 import traceback
 import uuid
 import functions_framework
-import psycopg2
-import urllib3
-from google import api_core
 from sqlalchemy import create_engine, text
 from requests.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import requests
-# from google.api_core.retry import Retry as RetryPolicy
 from google.cloud import storage
 from datetime import datetime
 from hashlib import sha256
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
-from google.api_core.exceptions import *
 
 
 def upload_dataset(url, bucket_name, stable_id, latest_hash):
@@ -157,7 +152,6 @@ def handle_error(bucket_name, e, errors, stable_id):
     :param errors: error logs
     :param stable_id: Feed's stable ID
     """
-    pass
     error_traceback = traceback.format_exc()
     errors += f"[{stable_id} ERROR]: {e}\n{error_traceback}\n"
     print(f"Logging errors for stable id {stable_id}\n{errors}")
@@ -215,6 +209,7 @@ def process_dataset(cloud_event: CloudEvent):
     error_return_message = f'ERROR - Unsuccessful processing of dataset with stable id {stable_id}.'
     bucket_name = os.getenv("BUCKET_NAME")
     try:
+        #  Extract  data from message
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         json_payload = json.loads(data)
         producer_url, stable_id, dataset_hash, dataset_id = json_payload["producer_url"], json_payload["stable_id"], \
@@ -225,9 +220,12 @@ def process_dataset(cloud_event: CloudEvent):
         if dataset_id is None:
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
             return error_return_message
+
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
+
         if hosted_url is None:
             print(f'[{stable_id} INFO] Process completed. No database update required.')
+
     except Exception as e:
         print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
         handle_error(bucket_name, e, "", stable_id)
@@ -254,20 +252,10 @@ def batch_datasets(request):
     # Retrieve feeds
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0' and stable_id='mdb-1061'"
+                    "status='active' and authentication_type='0' and stable_id like 'mdb-106%'"
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 
-    # Publish to topic for processing
-    # custom_retry_policy = RetryPolicy(
-    #     initial=60.0,  # at least 1 min between retries
-    #     maximum=540.0,  # at most 9 minutes between retries (pub/sub timeout)
-    #     deadline=1800.0,  # Retry for 30 minutes
-    #     predicate=api_core.retry.if_exception_type(
-    #         psycopg2.OperationalError,
-    #         ServiceUnavailable
-    #     ),
-    # )
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
     for stable_id, producer_url, feed_id in results:
