@@ -195,6 +195,9 @@ jobs:
         continue-on-error: true # In case the bucket is not yet created
         run: gsutil rm gs://${{inputs.FUNCTION_BUCKET_NAME}}/${{inputs.SOURCE_ZIP_PATH}}*
 
+      - name: Create Firestore Database
+        run: gcloud firestore databases create --region=${{ inputs.REGION }}
+
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1
         with:
