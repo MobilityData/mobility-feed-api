@@ -24,6 +24,7 @@ class Status(Enum):
     NOT_UPDATED = 1
     FAILED = 2
     DO_NOT_RETRY = 3
+    PUBLISHED = 4
 
 
 def upload_dataset(url, bucket_name, stable_id, latest_hash):
@@ -44,6 +45,13 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
     except AttributeError:
         # no pyopenssl support used / needed / available
         pass
+
+    # Validate that the dataset wasn't previously uploaded
+    state, updated_today = retrieve_feed_state(stable_id, bucket_name)
+    if updated_today and state['status'] == Status.PUBLISHED and 'data' in state:
+        return state['data']['file_sha256_hash'], state['data']['url']
+
+    update_feed_status(Status.DO_NOT_RETRY.name, stable_id, bucket_name)
 
     # Retrieving dataset from producer's URL
     print(f"[{stable_id} INFO] - Accessing URL {url}")
@@ -90,11 +98,21 @@ def upload_dataset(url, bucket_name, stable_id, latest_hash):
         timestamp_blob = bucket.blob(f"{stable_id}/{timestamp}.zip")
         timestamp_blob.upload_from_string(content, timeout=300)
         timestamp_blob.make_public()
+        update_feed_status(
+            Status.PUBLISHED.name,
+            stable_id,
+            bucket_name,
+            {
+                'file_sha256_hash': file_sha256_hash,
+                'url': timestamp_blob.public_url
+            }
+        )
         return file_sha256_hash, timestamp_blob.public_url
 
     else:
         print(f"[{stable_id} INFO] Dataset with stable id {stable_id} has not changed (hash {latest_hash} "
               f"-> {file_sha256_hash}). Not uploading.")
+        update_feed_status(Status.NOT_UPDATED.name, stable_id, bucket_name)
         return file_sha256_hash, None
 
 
@@ -153,7 +171,7 @@ def validate_dataset_version(connection, json_payload, bucket_name, sha256_file_
             connection.close()
 
 
-def update_feed_status(status, stable_id, bucket_name):
+def update_feed_status(status, stable_id, bucket_name, data=None):
     """
     Update status in GCS
     """
@@ -165,6 +183,8 @@ def update_feed_status(status, stable_id, bucket_name):
         'status': status,
         'last_updated': datetime.now().strftime('%Y%m%d')
     }
+    if data is not None:
+        feed_state['data'] = data
     feed_state_json = json.dumps(feed_state)
 
     # Create a new blob or update an existing one
@@ -172,7 +192,7 @@ def update_feed_status(status, stable_id, bucket_name):
     blob.upload_from_string(feed_state_json)
 
 
-def retrieve_feed_status(stable_id, bucket_name):
+def retrieve_feed_state(stable_id, bucket_name):
     """
     Retrieves status from GCS
     :return tuple where the first element is the status and the second element check if it was updated today
@@ -188,7 +208,7 @@ def retrieve_feed_status(stable_id, bucket_name):
     feed_state = json.loads(feed_state_json)
     if 'status' not in feed_state:
         return None, False
-    return feed_state['status'], feed_state['last_updated'] == datetime.now().strftime('%Y%m%d')
+    return feed_state, feed_state['last_updated'] == datetime.now().strftime('%Y%m%d')
 
 
 def handle_error(bucket_name, e, errors, stable_id):
@@ -271,10 +291,6 @@ def process_dataset(cloud_event: CloudEvent):
     bucket_name = os.getenv("BUCKET_NAME")
     date = datetime.now().strftime('%Y%m%d')
 
-    # Allow raised exception to trigger the retry process until a connection is available
-    engine = get_db_engine()
-    connection = engine.connect()
-
     try:
         #  Extract  data from message
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
@@ -285,13 +301,11 @@ def process_dataset(cloud_event: CloudEvent):
         print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
         # Validate that the feed wasn't previously processed
-        feed_status, updated_today = retrieve_feed_status(stable_id, bucket_name)
-        print(f"[{stable_id} INFO] Feed status is {feed_status}")
-        if updated_today:
+        feed_state, updated_today = retrieve_feed_state(stable_id, bucket_name)
+        print(f"[{stable_id} INFO] Feed status is {feed_state['status']}")
+        if updated_today and feed_state['status'] != Status.PUBLISHED.name:
             print(f"[{stable_id} INFO] Feed was already processed")
             return 'Completed.'
-
-        update_feed_status(Status.DO_NOT_RETRY.name, stable_id, bucket_name)
 
         if dataset_id is None:
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
@@ -300,6 +314,7 @@ def process_dataset(cloud_event: CloudEvent):
                 "status": Status.FAILED.name,
                 "timestamp": date
             }))
+            update_feed_status(Status.FAILED.name, stable_id, bucket_name)
             return error_return_message
 
         sha256_file_hash, hosted_url = upload_dataset(producer_url, bucket_name, stable_id, dataset_hash)
@@ -318,13 +333,17 @@ def process_dataset(cloud_event: CloudEvent):
         return error_return_message
 
     if hosted_url is not None:
+        # Allow raised exception to trigger the retry process until a connection is available
+        engine = get_db_engine()
+        connection = engine.connect()
         validate_dataset_version(connection, json_payload, bucket_name, sha256_file_hash, hosted_url)
+        print(json.dumps({
+            "stable_id": stable_id,
+            "status": Status.UPDATED.name,
+            "timestamp": date
+        }))
+        update_feed_status(Status.UPDATED.name, stable_id, bucket_name)
 
-    print(json.dumps({
-        "stable_id": stable_id,
-        "status": Status.UPDATED.name,
-        "timestamp": date
-    }))
     return 'Completed.'
 
 
