@@ -180,7 +180,7 @@ def retrieve_feed_status(stable_id, bucket_name):
     bucket = storage_client.get_bucket(bucket_name)
 
     blob = bucket.get_blob(f"states/{stable_id}.json")
-    if not blob.exists():
+    if blob is None:
         return None
 
     feed_state_json = blob.download_as_text()
