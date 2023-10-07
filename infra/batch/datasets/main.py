@@ -284,7 +284,7 @@ def process_dataset(cloud_event: CloudEvent):
 
         print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
-        update_feed_status(Status.DO_NOT_RETRY, stable_id, bucket_name)
+        update_feed_status(Status.DO_NOT_RETRY.name, stable_id, bucket_name)
 
         # Validate that the feed wasn't previously processed
         feed_status, updated_today = retrieve_feed_status(stable_id, bucket_name)
