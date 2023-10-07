@@ -302,7 +302,7 @@ def process_dataset(cloud_event: CloudEvent):
 
         # Validate that the feed wasn't previously processed
         feed_state, updated_today = retrieve_feed_state(stable_id, bucket_name)
-        print(f"[{stable_id} INFO] Feed status is {feed_state['status']}")
+        print(f"[{stable_id} INFO] Feed status is {feed_state['status'] if feed_state is not None else None}")
         if updated_today and feed_state['status'] != Status.PUBLISHED.name:
             print(f"[{stable_id} INFO] Feed was already processed")
             return 'Completed.'
