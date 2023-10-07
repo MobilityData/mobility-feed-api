@@ -146,9 +146,6 @@ jobs:
 
       - name: Google Cloud Setup
         uses: google-github-actions/setup-gcloud@v1
-#        with:
-#          project_id: ${{ inputs.PROJECT_ID }}
-#          service_account_key: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Set Variables
         run: |
@@ -222,6 +219,3 @@ jobs:
           terraform apply -auto-approve tf.plan
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Firestore Database
-        run: gcloud firestore databases create --location=${{ inputs.REGION }}
