@@ -293,7 +293,6 @@ def process_dataset(cloud_event: CloudEvent):
 
         update_feed_status(Status.DO_NOT_RETRY.name, stable_id, bucket_name)
 
-
         if dataset_id is None:
             print(f"[{stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
             print(json.dumps({
