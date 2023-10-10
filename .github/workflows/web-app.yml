@@ -51,7 +51,7 @@ jobs:
       - name: Cypress test
         uses: cypress-io/github-action@v6
         with:
-          start: yarn start:dev
+          start: yarn start:test
           wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
           working-directory: web-app
 
