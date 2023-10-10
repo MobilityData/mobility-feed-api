@@ -185,19 +185,22 @@ jobs:
         working-directory: web-app
         if: ${{ github.event_name == 'pull_request' }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
           HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
-          COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments")
+          COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
           if echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")" > /dev/null; then
+            echo "$COMMENTS"
+            echo "$COMMENT"
             echo "Comment already exists."
-            echo ::set-output name=comment_exists::true
+            echo "{comment_exists}={true}" >> $GITHUB_OUTPUT
           else
+            echo "$COMMENTS"
+            echo "$COMMENT"
             echo "Comment does not exist."
-            echo ::set-output name=comment_exists::false
+            echo "{comment_exists}={false}" >> $GITHUB_OUTPUT
           fi
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_ID: ${{ github.event.number }}
           
       - name: Comment on PR with Hosting URL (PR Preview)
         if: ${{ github.event_name == 'pull_request' && steps.check-comment.outputs.comment_exists == 'false' }}
