@@ -11,21 +11,32 @@ import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { useAppDispatch } from '../hooks';
+import { login, selectIsAuthenticated } from '../store/profile-reducer';
+import { type EmailLogin } from '../types';
+import { useSelector } from 'react-redux';
 
 export default function SignIn(): React.ReactElement {
+  const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+
+  const handleEmailLogin = (event: React.FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    console.log({
-      email: data.get('email'),
-      password: data.get('password'),
-    });
-    navigateTo('/account');
+    const emailLogin: EmailLogin = {
+      email: data.get('email') != null ? (data.get('email') as string) : '',
+      password:
+        data.get('password') != null ? (data.get('password') as string) : '',
+    };
+    dispatch(login(emailLogin));
   };
 
-  const { login } = useAuth();
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigateTo('/account');
+    }
+  }, [isAuthenticated]);
 
   return (
     <Container component='main' maxWidth='xs'>
@@ -51,7 +62,7 @@ export default function SignIn(): React.ReactElement {
         </Typography>
         <Box
           component='form'
-          onSubmit={handleSubmit}
+          onSubmit={handleEmailLogin}
           noValidate
           sx={{
             mt: 1,
@@ -89,7 +100,7 @@ export default function SignIn(): React.ReactElement {
             type='submit'
             variant='contained'
             sx={{ mt: 3, mb: 2 }}
-            onClick={login}
+            onClick={() => handleEmailLogin}
             data-testid='signin'
           >
             Sign In

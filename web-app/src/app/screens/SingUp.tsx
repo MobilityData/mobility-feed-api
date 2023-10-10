@@ -16,7 +16,6 @@ export default function SignUp(): React.ReactElement {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    console.log(data);
   };
 
   const navigateTo = useNavigate();
