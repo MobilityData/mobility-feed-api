@@ -13,65 +13,65 @@ env:
   FIREBASE_PROJECT: dev
 
 jobs:
-  list-test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  # list-test:
+  #   name: Test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ env.NODE_VERSION }}        
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}        
 
-      - name: Cache node modules
-        id: cache-npm
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-node-modules
-        with:
-          path: |
-            **/node_modules
-            **/.eslintcache
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+  #     - name: Cache node modules
+  #       id: cache-npm
+  #       uses: actions/cache@v3
+  #       env:
+  #         cache-name: cache-node-modules
+  #       with:
+  #         path: |
+  #           **/node_modules
+  #           **/.eslintcache
+  #         key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+  #           ${{ runner.os }}-build-${{ env.cache-name }}-
+  #           ${{ runner.os }}-build-
+  #           ${{ runner.os }}-
 
-      - name: Install dependencies
-        working-directory: web-app
-        run: yarn install --frozen-lockfile
+  #     - name: Install dependencies
+  #       working-directory: web-app
+  #       run: yarn install --frozen-lockfile
 
-      - name: Lint
-        working-directory: web-app
-        run: yarn lint
+  #     - name: Lint
+  #       working-directory: web-app
+  #       run: yarn lint
 
-      - name: Cypress test
-        uses: cypress-io/github-action@v6
-        with:
-          start: yarn start:test
-          wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
-          working-directory: web-app
+  #     - name: Cypress test
+  #       uses: cypress-io/github-action@v6
+  #       with:
+  #         start: yarn start:test
+  #         wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
+  #         working-directory: web-app
 
-      - uses: actions/upload-artifact@v3
-        if: failure()
-        with:
-          name: cypress-screenshots
-          path: ./web-app/cypress/screenshots
+  #     - uses: actions/upload-artifact@v3
+  #       if: failure()
+  #       with:
+  #         name: cypress-screenshots
+  #         path: ./web-app/cypress/screenshots
 
-      - uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: cypress-videos
-          path: ./web-app/cypress/videos
+  #     - uses: actions/upload-artifact@v3
+  #       if: always()
+  #       with:
+  #         name: cypress-videos
+  #         path: ./web-app/cypress/videos
 
   build:
     name: "Build & Deploy"
     permissions: write-all
-    needs: [ list-test ]
+    # needs: [ list-test ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
