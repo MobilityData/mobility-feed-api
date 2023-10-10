@@ -188,17 +188,15 @@ jobs:
           HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
-          if echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")" > /dev/null; then
-            echo "$COMMENTS"
-            echo "$COMMENT"
-            echo "Comment already exists."
-            echo "{comment_exists}={true}" >> $GITHUB_OUTPUT
-          else
-            echo "$COMMENTS"
-            echo "$COMMENT"
+
+          JQ_CHECK=`echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")"`
+          if [ -z "$JQ_CHECK" ]; then
             echo "Comment does not exist."
             echo "{comment_exists}={false}" >> $GITHUB_OUTPUT
-          fi
+          else
+            echo "Comment already exists."
+            echo "{comment_exists}={true}" >> $GITHUB_OUTPUT
+          fi          
         env:
           PR_ID: ${{ github.event.number }}
           
