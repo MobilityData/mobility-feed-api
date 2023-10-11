@@ -3,6 +3,7 @@ google-cloud-storage
 google-cloud-pubsub
 google-api-core
 google-cloud-firestore
+google-cloud-bigquery
 SQLAlchemy==1.4.49
 psycopg2-binary==2.9.6
 aiohttp

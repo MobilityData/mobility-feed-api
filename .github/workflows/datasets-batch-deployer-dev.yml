@@ -28,7 +28,7 @@ jobs:
       AVAILABLE_CPU: '1'
       PUBSUB_TIMEOUT_SECONDS: '540'
       HTTP_TIMEOUT_SECONDS: '3600'
-      MAX_INSTANCE_COUNT: '5'
+      MAX_INSTANCE_COUNT: '50'
       JOB_NAME: 'dataset-batch-job'
       JOB_DESCRIPTION: 'Run python function daily'
       JOB_SCHEDULE: '0 0 * * *'

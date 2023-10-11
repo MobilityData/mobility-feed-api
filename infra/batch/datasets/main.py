@@ -4,11 +4,10 @@ import os
 import traceback
 import uuid
 import functions_framework
-from sqlalchemy import create_engine, text
-from requests.exceptions import HTTPError
+from sqlalchemy import text
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from helpers.utils import test
+from helpers.utils import create_bucket, get_db_engine
 
 import requests
 from google.cloud import storage
@@ -16,16 +15,7 @@ from datetime import datetime
 from hashlib import sha256
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
-
-from enum import Enum
-
-
-class Status(Enum):
-    UPDATED = 0
-    NOT_UPDATED = 1
-    FAILED = 2
-    DO_NOT_RETRY = 3
-    PUBLISHED = 4
+from status import Status
 
 
 def upload_dataset(url, bucket_name, stable_id, latest_hash):
@@ -214,7 +204,7 @@ def retrieve_feed_state(stable_id, bucket_name):
 
 def handle_error(bucket_name, e, errors, stable_id):
     """
-    Persists error logs to GCP bucket
+    TODO
     :param bucket_name: Bucket name where the error logs are updates
     :param e: thrown error
     :param errors: error logs
@@ -222,26 +212,10 @@ def handle_error(bucket_name, e, errors, stable_id):
     """
     date = datetime.now().strftime('%Y%m%d')
     error_traceback = traceback.format_exc()
-    errors += f"[{stable_id} ERROR]: {e}\n{error_traceback}\n"
+    errors += f"[{stable_id} ERROR]: {e} \t {error_traceback}"
 
-    print(f"Logging errors for stable id {stable_id}\n{errors}")
+    print(f"Logging errors for stable id {stable_id}: {errors}")
 
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    error_type = 'other'
-
-    # Determine error category
-    if 'remaining connection slots are reserved' in errors:
-        print(f"[{stable_id} SQL ERROR] No connection slot available. Retrying..")
-        raise e  # Rethrow error to trigger retry process until a connection is available
-    elif 'sqlalchemy' in errors:
-        error_type = 'sqlalchemy'
-    elif isinstance(e, HTTPError):
-        error_type = f"http/{e.response.status_code}"
-
-    # Upload error logs to GCP
-    blob = bucket.blob(f"errors/{datetime.now().strftime('%Y%m%d')}/{error_type}/{stable_id}.log")
-    blob.upload_from_string(errors)
     print(json.dumps({
         "stable_id": stable_id,
         "status": Status.FAILED.name,
@@ -249,36 +223,6 @@ def handle_error(bucket_name, e, errors, stable_id):
     }))
 
     update_feed_status(Status.FAILED.name, stable_id, bucket_name)
-
-
-def create_bucket(bucket_name):
-    """
-    Creates GCP storage bucket if it doesn't exist
-    :param bucket_name: name of the bucket to create
-    """
-    storage_client = storage.Client()
-    bucket = storage_client.lookup_bucket(bucket_name)
-    if bucket is None:
-        bucket = storage_client.create_bucket(bucket_name)
-        print(f'Bucket {bucket} created.')
-    else:
-        print(f'Bucket {bucket_name} already exists.')
-
-
-def get_db_engine():
-    """
-    :return: Database engine
-    """
-    postgres_user = os.getenv("POSTGRES_USER")
-    postgres_password = os.getenv("POSTGRES_PASSWORD")
-    postgres_db = os.getenv("POSTGRES_DB")
-    postgres_port = os.getenv("POSTGRES_PORT")
-    postgres_host = os.getenv("POSTGRES_HOST")
-
-    sqlalchemy_database_url = f"postgresql://{postgres_user}:{postgres_password}@{postgres_host}:{postgres_port}" \
-                              f"/{postgres_db}"
-    engine = create_engine(sqlalchemy_database_url, echo=True)
-    return engine
 
 
 @functions_framework.cloud_event
@@ -303,7 +247,10 @@ def process_dataset(cloud_event: CloudEvent):
 
         # Validate that the feed wasn't previously processed
         feed_state, updated_today = retrieve_feed_state(stable_id, bucket_name)
-        print(f"[{stable_id} INFO] Feed status is {feed_state['status'] if feed_state is not None else None}")
+        if updated_today:
+            print(f"[{stable_id} INFO] Feed status is {feed_state['status'] if feed_state is not None else None}")
+        else:
+            print(f"[{stable_id} INFO] Feed processed for the first time.")
         if updated_today and feed_state['status'] != Status.PUBLISHED.name:
             print(f"[{stable_id} INFO] Feed was already processed")
             return 'Completed.'
@@ -354,38 +301,37 @@ def batch_datasets(request):
     HTTP Function entry point that processes the datasets
     :param request: HTTP request
     """
-    test()
-    # bucket_name = os.getenv("BUCKET_NAME")
-    # pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
-    # project_id = os.getenv("PROJECT_ID")
-    # create_bucket(bucket_name)
-    #
-    # # Retrieve feeds
-    # engine = get_db_engine()
-    # sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-    #                 "status='active' and authentication_type='0'"
-    # results = engine.execute(text(sql_statement)).all()
-    # print(f"Retrieved {len(results)} active feeds.")
-    #
-    # publisher = pubsub_v1.PublisherClient()
-    # topic_path = publisher.topic_path(project_id, pubsub_topic_name)
-    # for stable_id, producer_url, feed_id in results:
-    #     # Retrieve latest dataset
-    #     select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
-    #     dataset_results = engine.execute(select_dataset_statement).all()
-    #     dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
-    #     dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
-    #
-    #     payload = {
-    #         "producer_url": producer_url,
-    #         "stable_id": stable_id,
-    #         "feed_id": feed_id,
-    #         "dataset_id": dataset_id,
-    #         "dataset_hash": dataset_hash
-    #     }
-    #     data_str = json.dumps(payload)
-    #     data_bytes = data_str.encode('utf-8')
-    #     publisher.publish(topic_path, data=data_bytes)
+    bucket_name = os.getenv("BUCKET_NAME")
+    pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
+    project_id = os.getenv("PROJECT_ID")
+    create_bucket(bucket_name)
+    # TODO Create the bigquery table for the status
 
-    # return f'Publish completed. Published {len(results)} feeds to {pubsub_topic_name}.'
-    return "Done!"
+    # Retrieve feeds
+    engine = get_db_engine()
+    sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
+                    "status='active' and authentication_type='0'"
+    results = engine.execute(text(sql_statement)).all()
+    print(f"Retrieved {len(results)} active feeds.")
+
+    publisher = pubsub_v1.PublisherClient()
+    topic_path = publisher.topic_path(project_id, pubsub_topic_name)
+    for stable_id, producer_url, feed_id in results:
+        # Retrieve latest dataset
+        select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
+        dataset_results = engine.execute(select_dataset_statement).all()
+        dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
+        dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
+
+        payload = {
+            "producer_url": producer_url,
+            "stable_id": stable_id,
+            "feed_id": feed_id,
+            "dataset_id": dataset_id,
+            "dataset_hash": dataset_hash
+        }
+        data_str = json.dumps(payload)
+        data_bytes = data_str.encode('utf-8')
+        publisher.publish(topic_path, data=data_bytes)
+
+    return f'Publish completed. Published {len(results)} feeds to {pubsub_topic_name}.'

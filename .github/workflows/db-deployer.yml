@@ -52,6 +52,10 @@ on:
         description: PostgreSQL Database instance tier
         required: true
         type: string
+      MAX_CONNECTIONS:
+        description: PostgreSQL maximum number of connections to db
+        required: true
+        type: string
 
 jobs:
   terraform:

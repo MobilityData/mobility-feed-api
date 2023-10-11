@@ -48,3 +48,8 @@ variable "postgresql_db_instance" {
   type        = string
   description = "The db instance tier for the PostgreSQL"
 }
+
+variable "max_db_connections" {
+  type        = string
+  description = "Maximum number of database connections"
+}
