@@ -1,8 +1,9 @@
-import { all, fork } from 'redux-saga/effects';
+import { all } from 'redux-saga/effects';
 import { watchAuth } from './auth-saga';
+import { watchProfile } from './profile-saga';
 
 const rootSaga = function* (): Generator {
-  yield all([fork(watchAuth)]);
+  yield all([watchAuth(), watchProfile()]);
 };
 
 export default rootSaga;

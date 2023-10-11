@@ -29,8 +29,9 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated, logout } from '../store/profile-reducer';
+import { logout } from '../store/profile-reducer';
 import { useAppDispatch } from '../hooks';
+import { selectIsAuthenticated } from '../store/selectors';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';

@@ -2,8 +2,6 @@ import * as React from 'react';
 import Button from '@mui/material/Button';
 import CssBaseline from '@mui/material/CssBaseline';
 import TextField from '@mui/material/TextField';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -12,16 +10,16 @@ import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
-import {
-  login,
-  selectEmailLoginError,
-  selectIsAuthenticated,
-} from '../store/profile-reducer';
+import { login } from '../store/profile-reducer';
 import { type EmailLogin } from '../types';
 import { useSelector } from 'react-redux';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { Alert } from '@mui/material';
+import {
+  selectEmailLoginError,
+  selectIsAuthenticated,
+} from '../store/selectors';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
@@ -34,7 +32,7 @@ export default function SignIn(): React.ReactElement {
 
     password: Yup.string()
       .required('Password is required')
-      .min(4, 'Password is too short - should be 4 chars minimum'),
+      .min(12, 'Password is too short - should be 12 chars minimum'),
   });
 
   const formik = useFormik({
@@ -115,25 +113,27 @@ export default function SignIn(): React.ReactElement {
             label='Password'
             type='password'
             id='password'
-            autoComplete='current-password'
+            autoComplete='new-password'
             onChange={formik.handleChange}
             value={formik.values.password}
             error={formik.errors.password != null}
           />
-          {formik.errors.email != null ? (
+          {formik.errors.password != null ? (
             <Alert severity='error'>{formik.errors.password}</Alert>
           ) : null}
-          <FormControlLabel
+          {/* TODO: Add remember me functionality
+            <FormControlLabel
             control={<Checkbox value='remember' color='primary' />}
             label='Remember me'
             sx={{ width: '100%' }}
-          />
+          /> */}
           <Button
             type='submit'
             variant='contained'
             sx={{ mt: 3, mb: 2 }}
             onClick={() => formik.handleChange}
             data-testid='signin'
+            disabled={formik.isSubmitting}
           >
             Sign In
           </Button>

@@ -1,26 +1,32 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { type RootState } from './store';
-import { type AppError, type EmailLogin } from '../types';
+import {
+  type AppError,
+  type EmailLogin,
+  type AppErrors,
+  type User,
+} from '../types';
 import { type NavigateFunction } from 'react-router-dom';
 
-interface User {
-  fullname: string | undefined;
-  email: string | undefined;
-  organization: string | undefined;
-}
-
 interface UserProfileState {
-  status: 'unauthenticated' | 'login_in' | 'authenticated' | 'login_out';
-  loginError: AppError | null;
+  status:
+    | 'unauthenticated'
+    | 'login_in'
+    | 'authenticated'
+    | 'login_out'
+    | 'sign_up'
+    | 'loading_organization';
+  errors: AppErrors;
   user: User | undefined;
 }
-
-// type  = ProfileState & User;
 
 const initialState: UserProfileState = {
   status: 'unauthenticated',
   user: undefined,
-  loginError: null,
+  errors: {
+    SignUp: null,
+    Login: null,
+    Logout: null,
+  },
 };
 
 export const userProfileSlice = createSlice({
@@ -29,14 +35,15 @@ export const userProfileSlice = createSlice({
   reducers: {
     login: (state, action: PayloadAction<EmailLogin>) => {
       state.status = 'login_in';
-      state.loginError = null;
+      state.errors = { ...initialState.errors };
     },
     loginSuccess: (state, action: PayloadAction<User>) => {
       state.status = 'authenticated';
-      state.loginError = null;
+      state.errors = { ...initialState.errors };
+      state.user = action.payload;
     },
     loginFail: (state, action: PayloadAction<AppError>) => {
-      state.loginError = action.payload;
+      state.errors = { ...state.errors, Login: action.payload };
       state.status = 'unauthenticated';
     },
     logout: (
@@ -47,25 +54,58 @@ export const userProfileSlice = createSlice({
       }>,
     ) => {
       state.status = 'login_out';
-      state.loginError = null;
+      state.errors = { ...initialState.errors };
     },
     logoutSucess: (state) => {
       state.status = 'unauthenticated';
-      state.loginError = null;
+      state.errors = { ...initialState.errors };
+    },
+    logoutFail: (state) => {
+      state.status = 'unauthenticated';
+      state.errors = { ...initialState.errors };
+    },
+    signUp: (
+      state,
+      action: PayloadAction<{
+        email: string;
+        password: string;
+        redirectScreen: string;
+        navigateTo: NavigateFunction;
+      }>,
+    ) => {
+      state.status = 'sign_up';
+      state.errors = { ...state.errors, SignUp: null };
+    },
+    signUpSuccess: (state, action: PayloadAction<User>) => {
+      state.status = 'authenticated';
+      state.user = action.payload;
+      state.errors = { ...state.errors, SignUp: null };
+    },
+    signUpFail: (state, action: PayloadAction<AppError>) => {
+      state.errors = { ...state.errors, SignUp: action.payload };
+    },
+    loadOrganization: (state) => {
+      state.status = 'loading_organization';
+    },
+    loadOrganizationSuccess: (state, action: PayloadAction<string>) => {
+      state.status = 'authenticated';
+      if (state.user !== undefined) {
+        state.user.organization = action.payload;
+      }
     },
   },
 });
 
-export const { login, loginSuccess, loginFail, logout } =
-  userProfileSlice.actions;
-
-export const selectUserProfile = (state: RootState): User | undefined =>
-  state.userProfile.user;
-
-export const selectIsAuthenticated = (state: RootState): boolean =>
-  state.userProfile.status === 'authenticated';
-
-export const selectEmailLoginError = (state: RootState): AppError | null =>
-  state.userProfile.loginError;
+export const {
+  login,
+  loginSuccess,
+  loginFail,
+  logout,
+  logoutSucess,
+  logoutFail,
+  signUp,
+  signUpSuccess,
+  signUpFail,
+} = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;

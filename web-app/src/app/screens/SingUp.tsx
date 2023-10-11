@@ -11,14 +11,51 @@ import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate } from 'react-router-dom';
+import * as Yup from 'yup';
+import { useFormik } from 'formik';
+import { useAppDispatch } from '../hooks';
+import { signUp } from '../store/profile-reducer';
+import { Alert } from '@mui/material';
+import { useSelector } from 'react-redux';
+import { selectSignUpError } from '../store/selectors';
 
 export default function SignUp(): React.ReactElement {
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    // const data = new FormData(event.currentTarget);
-  };
-
   const navigateTo = useNavigate();
+  const dispatch = useAppDispatch();
+  const signUpError = useSelector(selectSignUpError);
+  const SignUpSchema = Yup.object().shape({
+    email: Yup.string().email().required('Email is required'),
+    password: Yup.string()
+      .required('Password is required')
+      .matches(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{12,})/,
+        'Password must contain at least one uppercase letter, one lowercase letter, one digit, one special char(!@#$%^&*) and be at least 12 chars long',
+      ),
+    confirmPassword: Yup.string().oneOf(
+      [Yup.ref('password'), ''],
+      'Passwords must match',
+    ),
+  });
+
+  const formik = useFormik({
+    initialValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
+    validationSchema: SignUpSchema,
+    onSubmit: (values) => {
+      dispatch(
+        signUp({
+          email: values.email,
+          password: values.password,
+          redirectScreen: '/account',
+          navigateTo,
+        }),
+      );
+    },
+  });
+  // const navigateTo = useNavigate();
 
   return (
     <Container component='main' maxWidth='xs'>
@@ -41,7 +78,17 @@ export default function SignUp(): React.ReactElement {
         <Typography component='h5'>
           Already have an account? <Link href='/sign-in'>Sign In Here</Link>.
         </Typography>
-        <Box component='form' onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
+        <Box
+          component='form'
+          onSubmit={formik.handleSubmit}
+          noValidate
+          sx={{
+            mt: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
           <TextField
             margin='normal'
             required
@@ -51,7 +98,13 @@ export default function SignUp(): React.ReactElement {
             name='email'
             autoComplete='email'
             autoFocus
+            onChange={formik.handleChange}
+            value={formik.values.email}
+            error={formik.errors.email != null}
           />
+          {formik.errors.email != null ? (
+            <Alert severity='error'>{formik.errors.email}</Alert>
+          ) : null}
           <TextField
             margin='normal'
             required
@@ -61,7 +114,13 @@ export default function SignUp(): React.ReactElement {
             type='password'
             id='password'
             autoComplete='current-password'
+            onChange={formik.handleChange}
+            value={formik.values.password}
+            error={formik.errors.password != null}
           />
+          {formik.errors.password != null ? (
+            <Alert severity='error'>{formik.errors.password}</Alert>
+          ) : null}
           <TextField
             margin='normal'
             required
@@ -71,22 +130,31 @@ export default function SignUp(): React.ReactElement {
             type='password'
             id='confirmPassword'
             autoComplete='new-password'
+            onChange={formik.handleChange}
+            value={formik.values.confirmPassword}
+            error={formik.errors.confirmPassword != null}
           />
+          {formik.errors.confirmPassword != null ? (
+            <Alert severity='error'>{formik.errors.confirmPassword}</Alert>
+          ) : null}
           <FormControlLabel
             control={<Checkbox value='agreeToTerms' color='primary' />}
             label='I agree to the terms and conditions'
+            sx={{ width: '100%' }}
           />
+          <Button
+            type='submit'
+            variant='contained'
+            sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
+            onClick={formik.handleChange}
+            disabled={formik.isSubmitting}
+          >
+            Sign Up
+          </Button>
+          {signUpError != null ? (
+            <Alert severity='error'>{signUpError.message}</Alert>
+          ) : null}
         </Box>
-        <Button
-          type='submit'
-          variant='contained'
-          sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
-          onClick={() => {
-            navigateTo('/contact-info');
-          }}
-        >
-          Sign Up
-        </Button>
         <Box
           sx={{
             display: 'flex',
