@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, text
 from requests.exceptions import HTTPError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from helpers.utils import test
 
 import requests
 from google.cloud import storage
@@ -353,36 +354,38 @@ def batch_datasets(request):
     HTTP Function entry point that processes the datasets
     :param request: HTTP request
     """
-    bucket_name = os.getenv("BUCKET_NAME")
-    pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
-    project_id = os.getenv("PROJECT_ID")
-    create_bucket(bucket_name)
+    test()
+    # bucket_name = os.getenv("BUCKET_NAME")
+    # pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
+    # project_id = os.getenv("PROJECT_ID")
+    # create_bucket(bucket_name)
+    #
+    # # Retrieve feeds
+    # engine = get_db_engine()
+    # sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
+    #                 "status='active' and authentication_type='0'"
+    # results = engine.execute(text(sql_statement)).all()
+    # print(f"Retrieved {len(results)} active feeds.")
+    #
+    # publisher = pubsub_v1.PublisherClient()
+    # topic_path = publisher.topic_path(project_id, pubsub_topic_name)
+    # for stable_id, producer_url, feed_id in results:
+    #     # Retrieve latest dataset
+    #     select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
+    #     dataset_results = engine.execute(select_dataset_statement).all()
+    #     dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
+    #     dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
+    #
+    #     payload = {
+    #         "producer_url": producer_url,
+    #         "stable_id": stable_id,
+    #         "feed_id": feed_id,
+    #         "dataset_id": dataset_id,
+    #         "dataset_hash": dataset_hash
+    #     }
+    #     data_str = json.dumps(payload)
+    #     data_bytes = data_str.encode('utf-8')
+    #     publisher.publish(topic_path, data=data_bytes)
 
-    # Retrieve feeds
-    engine = get_db_engine()
-    sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0'"
-    results = engine.execute(text(sql_statement)).all()
-    print(f"Retrieved {len(results)} active feeds.")
-
-    publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(project_id, pubsub_topic_name)
-    for stable_id, producer_url, feed_id in results:
-        # Retrieve latest dataset
-        select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
-        dataset_results = engine.execute(select_dataset_statement).all()
-        dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
-        dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
-
-        payload = {
-            "producer_url": producer_url,
-            "stable_id": stable_id,
-            "feed_id": feed_id,
-            "dataset_id": dataset_id,
-            "dataset_hash": dataset_hash
-        }
-        data_str = json.dumps(payload)
-        data_bytes = data_str.encode('utf-8')
-        publisher.publish(topic_path, data=data_bytes)
-
-    return f'Publish completed. Published {len(results)} feeds to {pubsub_topic_name}.'
+    # return f'Publish completed. Published {len(results)} feeds to {pubsub_topic_name}.'
+    return "Done!"
