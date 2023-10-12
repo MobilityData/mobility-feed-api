@@ -133,7 +133,6 @@ export default function SignIn(): React.ReactElement {
             sx={{ mt: 3, mb: 2 }}
             onClick={() => formik.handleChange}
             data-testid='signin'
-            disabled={formik.isSubmitting}
           >
             Sign In
           </Button>

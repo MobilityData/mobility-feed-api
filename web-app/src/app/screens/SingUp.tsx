@@ -151,7 +151,6 @@ export default function SignUp(): React.ReactElement {
             variant='contained'
             sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
             onClick={formik.handleChange}
-            disabled={formik.isSubmitting}
             id='sign-up-button'
           >
             Sign Up
