@@ -21,17 +21,17 @@ export const sendEmailVerification = async (): Promise<void> => {
 /**
  * Return the current user or null if the user is not logged in.
  */
-export const getUserFromSession = async (): Promise<User | null> => {
+export const getUserFromSession = (): User | null => {
   const currentUser = app.auth().currentUser;
   if (currentUser === null) {
-    return await Promise.resolve(null);
+    return null;
   }
-  return await Promise.resolve({
+  return {
     fullname: currentUser?.displayName ?? undefined,
     email: currentUser?.email ?? '',
     // Organization cannot be retrieved from the current user
     organization: undefined,
-  });
+  };
 };
 
 export const getUserOrganization = async (): Promise<string> => {

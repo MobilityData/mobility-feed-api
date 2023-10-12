@@ -1,12 +1,13 @@
 import { app } from '../../../firebase';
 import { type PayloadAction } from '@reduxjs/toolkit';
-import { type StrictEffect, call, put, takeLatest } from 'redux-saga/effects';
+import { call, put, takeLatest } from 'redux-saga/effects';
 import {
   type AppError,
   USER_PROFILE_LOGIN,
   USER_PROFILE_LOGOUT,
   USER_PROFILE_SIGNUP,
   type User,
+  USER_PROFILE_SIGNUP_SUCCESS,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -76,20 +77,30 @@ function* signUpSaga({
   password: string;
   redirectScreen: string;
   navigateTo: NavigateFunction;
-}>): Generator<StrictEffect, void, User> {
+}>): Generator {
   try {
-    yield call(app.auth().createUserWithEmailAndPassword, email, password);
-    const user = yield call(getUserFromSession);
+    yield app.auth().createUserWithEmailAndPassword(email, password);
+    const user = getUserFromSession();
+    if (user === null) {
+      throw new Error('User not found');
+    }
     yield put(signUpSuccess(user));
-    yield call(sendEmailVerification);
     navigateTo(redirectScreen);
   } catch (error) {
     yield put(signUpFail(getAppError(error)));
   }
 }
 
+function* sendEmailVerificationSaga(): Generator {
+  try {
+    yield call(sendEmailVerification);
+  } catch (error) {
+    yield put(signUpFail(getAppError(error)));
+  }
+}
 export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_LOGIN, emailLoginSaga);
   yield takeLatest(USER_PROFILE_LOGOUT, logoutSaga);
   yield takeLatest(USER_PROFILE_SIGNUP, signUpSaga);
+  yield takeLatest(USER_PROFILE_SIGNUP_SUCCESS, sendEmailVerificationSaga);
 }

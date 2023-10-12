@@ -43,7 +43,7 @@ export const userProfileSlice = createSlice({
       state.user = action.payload;
     },
     loginFail: (state, action: PayloadAction<AppError>) => {
-      state.errors = { ...state.errors, Login: action.payload };
+      state.errors = { ...initialState.errors, Login: action.payload };
       state.status = 'unauthenticated';
     },
     logout: (
@@ -58,11 +58,9 @@ export const userProfileSlice = createSlice({
     },
     logoutSucess: (state) => {
       state.status = 'unauthenticated';
-      state.errors = { ...initialState.errors };
     },
     logoutFail: (state) => {
       state.status = 'unauthenticated';
-      state.errors = { ...initialState.errors };
     },
     signUp: (
       state,
@@ -74,15 +72,16 @@ export const userProfileSlice = createSlice({
       }>,
     ) => {
       state.status = 'sign_up';
-      state.errors = { ...state.errors, SignUp: null };
+      state.errors = { ...initialState.errors };
     },
     signUpSuccess: (state, action: PayloadAction<User>) => {
       state.status = 'authenticated';
       state.user = action.payload;
-      state.errors = { ...state.errors, SignUp: null };
+      state.errors = { ...initialState.errors };
     },
     signUpFail: (state, action: PayloadAction<AppError>) => {
-      state.errors = { ...state.errors, SignUp: action.payload };
+      state.status = 'unauthenticated';
+      state.errors = { ...initialState.errors, SignUp: action.payload };
     },
     loadOrganization: (state) => {
       state.status = 'loading_organization';
