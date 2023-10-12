@@ -13,6 +13,8 @@ export interface User {
   fullname?: string;
   email: string;
   organization?: string;
+  accessToken?: string;
+  refreshToken?: string;
 }
 
 export const USER_PROFILE = 'userProfile';

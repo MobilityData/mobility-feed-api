@@ -80,11 +80,11 @@ function* signUpSaga({
 }>): Generator {
   try {
     yield app.auth().createUserWithEmailAndPassword(email, password);
-    const user = getUserFromSession();
+    const user = yield call(getUserFromSession);
     if (user === null) {
       throw new Error('User not found');
     }
-    yield put(signUpSuccess(user));
+    yield put(signUpSuccess(user as User));
     navigateTo(redirectScreen);
   } catch (error) {
     yield put(signUpFail(getAppError(error)));
