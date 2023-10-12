@@ -1,9 +1,10 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import SignIn from '../sign-in-page/SignIn';
-import SignUp from '../sign-up-page/SingUp';
-import Account from '../account-page/Account';
-import ContactInformation from '../contact-information-page/ContactInformation';
+import SignIn from '../screens/SignIn';
+import SignUp from '../screens/SingUp';
+import Account from '../screens/Account';
+import ContactInformation from '../screens/ContactInformation';
+import { ProtectedRoute } from './ProtectedRoute';
 
 export const AppRouter: React.FC = () => {
   return (
@@ -11,7 +12,9 @@ export const AppRouter: React.FC = () => {
       <Route path='/' element={<SignIn />} />
       <Route path='sign-in' element={<SignIn />} />
       <Route path='sign-up' element={<SignUp />} />
-      <Route path='account' element={<Account />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path='account' element={<Account />} />
+      </Route>
       <Route path='contact-info' element={<ContactInformation />} />
     </Routes>
   );

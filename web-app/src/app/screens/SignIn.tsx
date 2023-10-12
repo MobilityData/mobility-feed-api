@@ -2,8 +2,6 @@ import * as React from 'react';
 import Button from '@mui/material/Button';
 import CssBaseline from '@mui/material/CssBaseline';
 import TextField from '@mui/material/TextField';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Checkbox from '@mui/material/Checkbox';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -11,21 +9,52 @@ import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext';
+import { useAppDispatch } from '../hooks';
+import { login } from '../store/profile-reducer';
+import { type EmailLogin } from '../types';
+import { useSelector } from 'react-redux';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { Alert } from '@mui/material';
+import {
+  selectEmailLoginError,
+  selectIsAuthenticated,
+} from '../store/selectors';
 
 export default function SignIn(): React.ReactElement {
+  const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    console.log({
-      email: data.get('email'),
-      password: data.get('password'),
-    });
-    navigateTo('/account');
-  };
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const emailLoginError = useSelector(selectEmailLoginError);
 
-  const { login } = useAuth();
+  const SignInSchema = Yup.object().shape({
+    email: Yup.string().email().required('Email is required'),
+
+    password: Yup.string()
+      .required('Password is required')
+      .min(12, 'Password is too short - should be 12 chars minimum'),
+  });
+
+  const formik = useFormik({
+    initialValues: {
+      email: '',
+      password: '',
+    },
+    validationSchema: SignInSchema,
+    onSubmit: (values) => {
+      const emailLogin: EmailLogin = {
+        email: values.email,
+        password: values.password,
+      };
+      dispatch(login(emailLogin));
+    },
+  });
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigateTo('/account');
+    }
+  }, [isAuthenticated]);
 
   return (
     <Container component='main' maxWidth='xs'>
@@ -51,7 +80,7 @@ export default function SignIn(): React.ReactElement {
         </Typography>
         <Box
           component='form'
-          onSubmit={handleSubmit}
+          onSubmit={formik.handleSubmit}
           noValidate
           sx={{
             mt: 1,
@@ -69,7 +98,13 @@ export default function SignIn(): React.ReactElement {
             name='email'
             autoComplete='email'
             autoFocus
+            onChange={formik.handleChange}
+            value={formik.values.email}
+            error={formik.errors.email != null}
           />
+          {formik.errors.email != null ? (
+            <Alert severity='error'>{formik.errors.email}</Alert>
+          ) : null}
           <TextField
             margin='normal'
             required
@@ -78,22 +113,32 @@ export default function SignIn(): React.ReactElement {
             label='Password'
             type='password'
             id='password'
-            autoComplete='current-password'
+            autoComplete='new-password'
+            onChange={formik.handleChange}
+            value={formik.values.password}
+            error={formik.errors.password != null}
           />
-          <FormControlLabel
+          {formik.errors.password != null ? (
+            <Alert severity='error'>{formik.errors.password}</Alert>
+          ) : null}
+          {/* TODO: Add remember me functionality
+            <FormControlLabel
             control={<Checkbox value='remember' color='primary' />}
             label='Remember me'
             sx={{ width: '100%' }}
-          />
+          /> */}
           <Button
             type='submit'
             variant='contained'
             sx={{ mt: 3, mb: 2 }}
-            onClick={login}
+            onClick={() => formik.handleChange}
             data-testid='signin'
           >
             Sign In
           </Button>
+          {emailLoginError != null ? (
+            <Alert severity='error'>{emailLoginError.message}</Alert>
+          ) : null}
         </Box>
         <Box
           sx={{

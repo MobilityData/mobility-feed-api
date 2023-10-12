@@ -15,7 +15,6 @@ import {
   Button,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import { useAuth } from '../sign-in-page/AuthContext';
 import {
   type NavigationHandler,
   SIGN_IN_TARGET,
@@ -29,6 +28,10 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
+import { useSelector } from 'react-redux';
+import { logout } from '../store/profile-reducer';
+import { useAppDispatch } from '../hooks';
+import { selectIsAuthenticated } from '../store/selectors';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -37,7 +40,7 @@ const DrawerContent: React.FC<{
   onClick: React.MouseEventHandler;
   onNavigationClick: NavigationHandler;
 }> = ({ onClick, onNavigationClick }) => {
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
   return (
     <Box onClick={onClick} sx={{ textAlign: 'center' }}>
       <Typography variant='h6' sx={{ my: 2 }} data-testid='websiteTile'>
@@ -68,7 +71,8 @@ export default function DrawerAppBar(): React.ReactElement {
   const [openDialog, setOpenDialog] = React.useState(false);
 
   const navigateTo = useNavigate();
-  const { isAuthenticated, logout } = useAuth();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const dispatch = useAppDispatch();
 
   const handleDrawerToggle = (): void => {
     setMobileOpen((prevState) => !prevState);
@@ -83,8 +87,7 @@ export default function DrawerAppBar(): React.ReactElement {
   };
 
   const confirmLogout = (): void => {
-    logout();
-    navigateTo(SIGN_IN_TARGET);
+    dispatch(logout({ redirectScreen: SIGN_IN_TARGET, navigateTo }));
     setOpenDialog(false);
   };
 
