@@ -93,6 +93,9 @@ export const userProfileSlice = createSlice({
         state.user.organization = action.payload;
       }
     },
+    resetProfileErrors: (state) => {
+      state.errors = { ...initialState.errors };
+    },
   },
 });
 
@@ -106,6 +109,7 @@ export const {
   signUp,
   signUpSuccess,
   signUpFail,
+  resetProfileErrors,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
