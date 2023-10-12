@@ -56,7 +56,6 @@ export default function SignUp(): React.ReactElement {
       );
     },
   });
-  // const navigateTo = useNavigate();
 
   return (
     <Container component='main' maxWidth='xs'>
