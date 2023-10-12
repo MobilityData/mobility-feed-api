@@ -18,6 +18,7 @@ import { signUp } from '../store/profile-reducer';
 import { Alert } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { selectSignUpError } from '../store/selectors';
+import { passwordValidatioError } from '../types';
 
 export default function SignUp(): React.ReactElement {
   const navigateTo = useNavigate();
@@ -29,11 +30,11 @@ export default function SignUp(): React.ReactElement {
       .required('Password is required')
       .matches(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{12,})/,
-        'Password must contain at least one uppercase letter, one lowercase letter, one digit, one special char(!@#$%^&*) and be at least 12 chars long',
+        passwordValidatioError,
       ),
     confirmPassword: Yup.string().oneOf(
       [Yup.ref('password'), ''],
-      'Passwords must match',
+      'Passwords do not match',
     ),
   });
 
@@ -119,7 +120,9 @@ export default function SignUp(): React.ReactElement {
             error={formik.errors.password != null}
           />
           {formik.errors.password != null ? (
-            <Alert severity='error'>{formik.errors.password}</Alert>
+            <Alert severity='error' data-testid='passwordError'>
+              {formik.errors.password}
+            </Alert>
           ) : null}
           <TextField
             margin='normal'
@@ -135,7 +138,9 @@ export default function SignUp(): React.ReactElement {
             error={formik.errors.confirmPassword != null}
           />
           {formik.errors.confirmPassword != null ? (
-            <Alert severity='error'>{formik.errors.confirmPassword}</Alert>
+            <Alert severity='error' data-testid='confirmPasswordError'>
+              {formik.errors.confirmPassword}
+            </Alert>
           ) : null}
           <FormControlLabel
             control={<Checkbox value='agreeToTerms' color='primary' />}
@@ -148,6 +153,7 @@ export default function SignUp(): React.ReactElement {
             sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
             onClick={formik.handleChange}
             disabled={formik.isSubmitting}
+            id='sign-up-button'
           >
             Sign Up
           </Button>
