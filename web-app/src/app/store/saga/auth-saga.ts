@@ -8,6 +8,8 @@ import {
   USER_PROFILE_SIGNUP,
   type User,
   USER_PROFILE_SIGNUP_SUCCESS,
+  OauthProvider,
+  USER_PROFILE_LOGIN_WITH_PROVIDER,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -20,6 +22,7 @@ import {
 import { FirebaseError } from '@firebase/util';
 import { type NavigateFunction } from 'react-router-dom';
 import { getUserFromSession, sendEmailVerification } from '../../services';
+import { AdditionalUserInfo, UserCredential, getAdditionalUserInfo } from 'firebase/auth';
 
 const getAppError = (error: unknown): AppError => {
   const appError: AppError = {
@@ -98,9 +101,28 @@ function* sendEmailVerificationSaga(): Generator {
     yield put(signUpFail(getAppError(error)));
   }
 }
+
+function* loginWithProviderSaga({
+  payload: { oauthProvider, userCredential },
+}: PayloadAction<{
+  oauthProvider: OauthProvider;
+  userCredential: UserCredential;
+}>): Generator {
+  try {
+    const user = yield call(getUserFromSession);
+    const userInfo = yield call(
+      getAdditionalUserInfo(userCredential)
+    ) as unknown  as AdditionalUserInfo;
+    yield put(loginSuccess(user as User));
+  } catch (error) {
+    yield put(loginFail(getAppError(error)));
+  }
+}
+
 export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_LOGIN, emailLoginSaga);
   yield takeLatest(USER_PROFILE_LOGOUT, logoutSaga);
   yield takeLatest(USER_PROFILE_SIGNUP, signUpSaga);
   yield takeLatest(USER_PROFILE_SIGNUP_SUCCESS, sendEmailVerificationSaga);
+  yield takeLatest(USER_PROFILE_LOGIN_WITH_PROVIDER, loginWithProviderSaga);
 }

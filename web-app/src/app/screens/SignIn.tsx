@@ -10,8 +10,8 @@ import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
-import { login } from '../store/profile-reducer';
-import { type EmailLogin } from '../types';
+import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
+import { OauthProvider, type EmailLogin, ErrorSource } from '../types';
 import { useSelector } from 'react-redux';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -20,6 +20,13 @@ import {
   selectEmailLoginError,
   selectIsAuthenticated,
 } from '../store/selectors';
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider,
+  GithubAuthProvider,
+  UserCredential,
+} from 'firebase/auth';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
@@ -56,6 +63,28 @@ export default function SignIn(): React.ReactElement {
     }
   }, [isAuthenticated]);
 
+  const providers = {
+    Google: new GoogleAuthProvider(),
+    Github: new GithubAuthProvider(),
+  };
+
+  const signInWithProvider = (oauthProvider: OauthProvider): void => {
+    const auth = getAuth();
+    const provider = providers[oauthProvider];
+    signInWithPopup(auth, provider)
+      .then((userCredential: UserCredential) => {
+        dispatch(loginWithProvider({ oauthProvider, userCredential }));
+      })
+      .catch((error) => {
+        dispatch(
+          loginFail({
+            code: error.code,
+            message: error.message,
+            source: ErrorSource.Login,
+          }),
+        );
+      });
+  };
   return (
     <Container component='main' maxWidth='xs'>
       <CssBaseline />
@@ -158,6 +187,9 @@ export default function SignIn(): React.ReactElement {
           color='inherit'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
+          onClick={() => {
+            signInWithProvider(OauthProvider.Google);
+          }}
         >
           Sign In With Google
         </Button>
@@ -166,6 +198,9 @@ export default function SignIn(): React.ReactElement {
           color='inherit'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
+          onClick={() => {
+            signInWithProvider(OauthProvider.Github);
+          }}
         >
           Sign In With GitHub
         </Button>
