@@ -35,7 +35,7 @@ export default function APIAccount(): React.ReactElement {
           showAccessToken: !values.showAccessToken,
           accessToken: values.showAccessToken
             ? 'Your access token is hidden'
-            : user?.accessToken || 'Your access token is unavailable',
+            : user?.accessToken ?? 'Your access token is unavailable',
         });
         break;
       case 'refresh':
@@ -44,14 +44,13 @@ export default function APIAccount(): React.ReactElement {
           showRefreshToken: !values.showRefreshToken,
           refreshToken: values.showRefreshToken
             ? 'Your refresh token is hidden'
-            : user?.refreshToken || 'Your refresh token is unavailable',
+            : user?.refreshToken ?? 'Your refresh token is unavailable',
         });
         break;
       default:
         break;
     }
   };
-
 
   const handleCopyToClipboard = (token: string): void => {
     navigator.clipboard
@@ -117,14 +116,18 @@ export default function APIAccount(): React.ReactElement {
       <IconButton
         aria-label='Copy Refresh Token to clipboard'
         edge='end'
-        onClick={() => handleCopyToClipboard(values.refreshToken)}
+        onClick={() => {
+          handleCopyToClipboard(values.refreshToken);
+        }}
         sx={{ display: 'inline-block', verticalAlign: 'middle' }}
       >
         <ContentCopy />
       </IconButton>
       <IconButton
         aria-label='toggle Refresh Token visibility'
-        onClick={() => handleClickShowApiKey('refresh')}
+        onClick={() => {
+          handleClickShowApiKey('refresh');
+        }}
         edge='end'
         sx={{ display: 'inline-block', verticalAlign: 'middle' }}
       >
@@ -178,14 +181,18 @@ export default function APIAccount(): React.ReactElement {
       <IconButton
         aria-label='Copy Access Token to clipboard'
         edge='end'
-        onClick={() => handleCopyToClipboard(values.accessToken)}
+        onClick={() => {
+          handleCopyToClipboard(values.accessToken);
+        }}
         sx={{ display: 'inline-block', verticalAlign: 'middle' }}
       >
         <ContentCopy />
       </IconButton>
       <IconButton
         aria-label='toggle Access Token visibility'
-        onClick={() => handleClickShowApiKey('access')}
+        onClick={() => {
+          handleClickShowApiKey('access');
+        }}
         edge='end'
         sx={{ display: 'inline-block', verticalAlign: 'middle' }}
       >
