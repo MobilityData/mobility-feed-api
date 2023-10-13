@@ -7,7 +7,7 @@ import {
   type OauthProvider,
 } from '../types';
 import { type NavigateFunction } from 'react-router-dom';
-import { UserCredential } from 'firebase/auth';
+import { type UserCredential } from 'firebase/auth';
 
 interface UserProfileState {
   status:

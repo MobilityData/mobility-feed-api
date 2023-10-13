@@ -1,3 +1,5 @@
+import { GithubAuthProvider, GoogleAuthProvider } from 'firebase/auth';
+
 export type ChildrenElement =
   | string
   | JSX.Element
@@ -11,10 +13,11 @@ export interface EmailLogin {
 
 export interface User {
   fullname?: string;
-  email: string;
+  email?: string;
   organization?: string;
   accessToken?: string;
   refreshToken?: string;
+  accessTokenExpirationTime?: string;
 }
 
 export const USER_PROFILE = 'userProfile';
@@ -55,3 +58,8 @@ export enum OauthProvider {
   Google = 'Google',
   Github = 'Github',
 }
+
+export const oathProviders = {
+  Google: new GoogleAuthProvider(),
+  Github: new GithubAuthProvider(),
+};

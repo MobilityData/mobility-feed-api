@@ -11,7 +11,12 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
 import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
-import { OauthProvider, type EmailLogin, ErrorSource } from '../types';
+import {
+  OauthProvider,
+  type EmailLogin,
+  ErrorSource,
+  oathProviders,
+} from '../types';
 import { useSelector } from 'react-redux';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -20,13 +25,7 @@ import {
   selectEmailLoginError,
   selectIsAuthenticated,
 } from '../store/selectors';
-import {
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-  GithubAuthProvider,
-  UserCredential,
-} from 'firebase/auth';
+import { getAuth, signInWithPopup, type UserCredential } from 'firebase/auth';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
@@ -63,14 +62,9 @@ export default function SignIn(): React.ReactElement {
     }
   }, [isAuthenticated]);
 
-  const providers = {
-    Google: new GoogleAuthProvider(),
-    Github: new GithubAuthProvider(),
-  };
-
   const signInWithProvider = (oauthProvider: OauthProvider): void => {
     const auth = getAuth();
-    const provider = providers[oauthProvider];
+    const provider = oathProviders[oauthProvider];
     signInWithPopup(auth, provider)
       .then((userCredential: UserCredential) => {
         dispatch(loginWithProvider({ oauthProvider, userCredential }));
@@ -85,6 +79,7 @@ export default function SignIn(): React.ReactElement {
         );
       });
   };
+
   return (
     <Container component='main' maxWidth='xs'>
       <CssBaseline />

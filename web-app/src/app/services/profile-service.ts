@@ -1,5 +1,6 @@
+import { type AdditionalUserInfo } from 'firebase/auth';
 import { app } from '../../firebase';
-import { type User } from '../types';
+import { type OauthProvider, type User } from '../types';
 
 /**
  * Send an email verification to the current user.
@@ -29,7 +30,7 @@ export const getUserFromSession = async (): Promise<User | null> => {
   const idTokenResult = await currentUser.getIdTokenResult(true);
   const refreshToken = currentUser.refreshToken;
   const accessToken = idTokenResult.token;
-  // const expiresIn = idTokenResult.expirationTime;
+  const accessTokenExpirationTime = idTokenResult.expirationTime;
   return {
     fullname: currentUser?.displayName ?? undefined,
     email: currentUser?.email ?? '',
@@ -37,6 +38,23 @@ export const getUserFromSession = async (): Promise<User | null> => {
     organization: undefined,
     refreshToken,
     accessToken,
+    accessTokenExpirationTime,
+  };
+};
+
+export const populateUserWithAdditionalInfo = (
+  user: User,
+  additionalUserInfo: AdditionalUserInfo,
+  oauthProvider: OauthProvider,
+): User => {
+  return {
+    ...user,
+    fullname:
+      user?.fullname ??
+      (additionalUserInfo.profile?.name as string) ??
+      undefined,
+    email:
+      user?.email ?? (additionalUserInfo.profile?.email as string) ?? undefined,
   };
 };
 
