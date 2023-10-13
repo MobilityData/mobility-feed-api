@@ -135,15 +135,10 @@ jobs:
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV        
-          echo "POSTGRES_DB=${{ inputs.POSTGRES_DB }}" >> $GITHUB_ENV
-          echo "POSTGRES_HOST=${{ inputs.POSTGRES_HOST }}" >> $GITHUB_ENV
-          echo "POSTGRES_PASSWORD=${{ inputs.POSTGRES_PASSWORD }}" >> $GITHUB_ENV
-          echo "POSTGRES_PORT=${{ inputs.POSTGRES_PORT }}" >> $GITHUB_ENV
-          echo "POSTGRES_USER=${{ inputs.POSTGRES_USER }}" >> $GITHUB_ENV
 
       - name: Build & Publish Docker Image
         run: |
-          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION,POSTGRES_DB,POSTGRES_HOST,POSTGRES_PASSWORD,POSTGRES_PORT,POSTGRES_USER
+          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
 
   terraform-deploy:
     runs-on: ubuntu-latest
@@ -175,11 +170,16 @@ jobs:
           echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> $GITHUB_ENV
+          echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" >> $GITHUB_ENV
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> $GITHUB_ENV
+          echo "POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}" >> $GITHUB_ENV
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,,POSTGRES_DB,POSTGRES_HOST,POSTGRES_PASSWORD,POSTGRES_PORT,POSTGRES_USER
 
       - uses: hashicorp/setup-terraform@v2
         with:
