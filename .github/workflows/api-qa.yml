@@ -3,6 +3,7 @@ name: Deploy Feeds API - QA
 on:
   push:
     branches: [ main ]
+  workflow_dispatch: # Supports manual deployment
 
 jobs:
   # TODO add API tests execution
@@ -22,3 +23,8 @@ jobs:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}      
+      POSTGRES_DB: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
+      POSTGRES_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
+      POSTGRES_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
+      POSTGRES_HOST: ${{ secrets.QA_DB_PUBLIC_IP }}
+      POSTGRES_PORT: ${{ secrets.QA_DB_PUBLIC_PORT }}      

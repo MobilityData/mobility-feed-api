@@ -23,6 +23,48 @@
 data "google_project" "project" {
 }
 
+locals {
+  env = {
+    "POSTGRES_DB" = {
+      secret_id   = "${var.environment}_POSTGRES_DB",
+      secret_data = var.feed_api_postgres_db
+    },
+    "POSTGRES_HOST" = {
+      secret_id   = "${var.environment}_POSTGRES_HOST",
+      secret_data = var.feed_api_postgres_host
+    },
+    "POSTGRES_PASSWORD" = {
+      secret_id   = "${var.environment}_POSTGRES_PASSWORD"
+      secret_data = var.feed_api_postgres_password
+    },
+    "POSTGRES_PORT" = {
+      secret_id   = "${var.environment}_POSTGRES_PORT"
+      secret_data = var.feed_api_postgres_port
+    }
+    "POSTGRES_USER" = {
+      secret_id   = "${var.environment}_POSTGRES_USER"
+      secret_data = var.feed_api_postgres_user
+    }
+  }
+}
+
+resource "google_secret_manager_secret" "secret" {
+  for_each = local.env
+
+  project   = var.project_id
+  secret_id = each.value.secret_id
+  replication {
+    automatic = true
+  }
+}
+
+resource "google_secret_manager_secret_version" "secret_version" {
+  for_each = local.env
+
+  secret = google_secret_manager_secret.secret[each.key].id
+  secret_data = each.value.secret_data
+}
+
 # Service account to execute the cloud run service
 resource "google_service_account" "containers_service_account" {
   account_id   = "containers-service-account"
@@ -36,8 +78,54 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
   ingress = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 
   template {
+    service_account = google_service_account.containers_service_account.email
     containers {
       image = "${var.gcp_region}-docker.pkg.dev/${var.project_id}/${var.docker_repository_name}/${var.feed_api_service}:${var.feed_api_image_version}"
+      env {
+        name = "POSTGRES_DB"
+        value_source {
+          secret_key_ref {
+            secret = google_secret_manager_secret.secret["POSTGRES_DB"].id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "POSTGRES_HOST"
+        value_source {
+          secret_key_ref {
+            secret = google_secret_manager_secret.secret["POSTGRES_HOST"].id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "POSTGRES_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret = google_secret_manager_secret.secret["POSTGRES_PASSWORD"].id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "POSTGRES_PORT"
+        value_source {
+          secret_key_ref {
+            secret = google_secret_manager_secret.secret["POSTGRES_PORT"].id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "POSTGRES_USER"
+        value_source {
+          secret_key_ref {
+            secret = google_secret_manager_secret.secret["POSTGRES_USER"].id
+            version = "latest"
+          }
+        }
+      }      
     }
   }
 }
@@ -56,6 +144,23 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
   service  = google_cloud_run_v2_service.mobility-feed-api.name
 
   policy_data = data.google_iam_policy.noauth.policy_data
+}
+
+data "google_iam_policy" "secret_access" {
+  binding {
+    role = "roles/secretmanager.secretAccessor"
+    members = [
+      "serviceAccount:${google_service_account.containers_service_account.email}"
+    ]
+  }
+}
+
+resource "google_secret_manager_secret_iam_policy" "policy" {
+  for_each = local.env
+
+  project = var.project_id
+  secret_id = google_secret_manager_secret.secret[each.key].id
+  policy_data = data.google_iam_policy.secret_access.policy_data
 }
 
 output "feed_api_uri" {
