@@ -46,7 +46,8 @@ locals {
     "run.googleapis.com",
     "iam.googleapis.com",
     "iap.googleapis.com",
-    "identitytoolkit.googleapis.com"
+    "identitytoolkit.googleapis.com",
+    "secretmanager.googleapis.com"
   ]
 }
 
@@ -90,7 +91,13 @@ module "feed-api" {
   feed_api_service       = "feed-api"
   feed_api_image_version = var.feed_api_image_version
 
-  source = "./feed-api"
+  feed_api_postgres_db       = var.feed_api_postgres_db
+  feed_api_postgres_host     = var.feed_api_postgres_host
+  feed_api_postgres_password = var.feed_api_postgres_password
+  feed_api_postgres_port     = var.feed_api_postgres_port
+  feed_api_postgres_user     = var.feed_api_postgres_user
+
+  source                     = "./feed-api"
 }
 
 module "feed-api-load-balancer" {
@@ -99,9 +106,9 @@ module "feed-api-load-balancer" {
   gcp_region  = var.gcp_region
   environment = var.environment
 
-  feed_api_name        = module.feed-api.feed_api_name
-  oauth2_client_id     = var.oauth2_client_id
-  oauth2_client_secret = var.oauth2_client_secret
+  feed_api_name                    = module.feed-api.feed_api_name
+  oauth2_client_id                 = var.oauth2_client_id
+  oauth2_client_secret             = var.oauth2_client_secret
   global_rate_limit_req_per_minute = var.global_rate_limit_req_per_minute
 
   source = "./load-balancer"
