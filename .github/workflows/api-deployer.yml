@@ -11,6 +11,21 @@ on:
         required: true
       OAUTH2_CLIENT_SECRET:
         description: Oauth client secret part of the the Identity Aware Proxy configuration
+        required: true
+      POSTGRES_DB:
+        description: Postgres database name
+        required: true
+      POSTGRES_HOST:
+        description: Postgres host
+        required: true
+      POSTGRES_PASSWORD:
+        description: Postgres password
+        required: true
+      POSTGRES_PORT:
+        description: Postgres port
+        required: true
+      POSTGRES_USER:
+        description: Postgres user
         required: true      
     inputs:
       ENVIRONMENT:
@@ -47,26 +62,6 @@ on:
         type: boolean
       GLOBAL_RATE_LIMIT_REQ_PER_MINUTE:
         description: Global Load Balancer rate limit per minute
-        required: true
-        type: string
-      POSTGRES_DB:
-        description: Postgres database name
-        required: true
-        type: string
-      POSTGRES_HOST:
-        description: Postgres host
-        required: true
-        type: string
-      POSTGRES_PASSWORD:
-        description: Postgres password
-        required: true
-        type: string
-      POSTGRES_PORT:
-        description: Postgres port
-        required: true
-        type: string
-      POSTGRES_USER:
-        description: Postgres user
         required: true
         type: string
 
