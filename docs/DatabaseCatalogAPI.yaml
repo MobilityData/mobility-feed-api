@@ -14,8 +14,10 @@ info:
 
 servers:
   - url: http://localhost:8080/
-    description: Development server
-
+    description: Local development environment
+  - url: https://qa.mobilitydatabase.org/
+    description: Pre-prod environment
+    
 tags:
   - name: "feeds"
     description: "Feeds of the Mobility Database"
