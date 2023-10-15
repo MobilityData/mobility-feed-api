@@ -4,8 +4,10 @@ import {
   type EmailLogin,
   type AppErrors,
   type User,
+  type OauthProvider,
 } from '../types';
 import { type NavigateFunction } from 'react-router-dom';
+import { type UserCredential } from 'firebase/auth';
 
 interface UserProfileState {
   status:
@@ -95,6 +97,16 @@ export const userProfileSlice = createSlice({
     resetProfileErrors: (state) => {
       state.errors = { ...initialState.errors };
     },
+    loginWithProvider: (
+      state,
+      action: PayloadAction<{
+        oauthProvider: OauthProvider;
+        userCredential: UserCredential;
+      }>,
+    ) => {
+      state.status = 'authenticated';
+      state.errors = { ...initialState.errors };
+    },
   },
 });
 
@@ -109,6 +121,7 @@ export const {
   signUpSuccess,
   signUpFail,
   resetProfileErrors,
+  loginWithProvider,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;

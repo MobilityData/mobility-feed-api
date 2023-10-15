@@ -14,16 +14,23 @@ import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useAppDispatch } from '../hooks';
-import { signUp } from '../store/profile-reducer';
+import { loginFail, loginWithProvider, signUp } from '../store/profile-reducer';
 import { Alert } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { selectSignUpError } from '../store/selectors';
-import { passwordValidatioError } from '../types';
+import { selectIsAuthenticated, selectSignUpError } from '../store/selectors';
+import {
+  ErrorSource,
+  OauthProvider,
+  oathProviders,
+  passwordValidatioError,
+} from '../types';
+import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 
 export default function SignUp(): React.ReactElement {
   const navigateTo = useNavigate();
   const dispatch = useAppDispatch();
   const signUpError = useSelector(selectSignUpError);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
   const SignUpSchema = Yup.object().shape({
     email: Yup.string().email().required('Email is required'),
     password: Yup.string()
@@ -56,6 +63,30 @@ export default function SignUp(): React.ReactElement {
       );
     },
   });
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigateTo('/account');
+    }
+  }, [isAuthenticated]);
+
+  const signInWithProvider = (oauthProvider: OauthProvider): void => {
+    const auth = getAuth();
+    const provider = oathProviders[oauthProvider];
+    signInWithPopup(auth, provider)
+      .then((userCredential: UserCredential) => {
+        dispatch(loginWithProvider({ oauthProvider, userCredential }));
+      })
+      .catch((error) => {
+        dispatch(
+          loginFail({
+            code: error.code,
+            message: error.message,
+            source: ErrorSource.Login,
+          }),
+        );
+      });
+  };
 
   return (
     <Container component='main' maxWidth='xs'>
@@ -177,6 +208,9 @@ export default function SignUp(): React.ReactElement {
           color='inherit'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
+          onClick={() => {
+            signInWithProvider(OauthProvider.Google);
+          }}
         >
           Sign Up With Google
         </Button>
@@ -185,6 +219,9 @@ export default function SignUp(): React.ReactElement {
           color='inherit'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
+          onClick={() => {
+            signInWithProvider(OauthProvider.Github);
+          }}
         >
           Sign Up With GitHub
         </Button>

@@ -27,6 +27,7 @@
   },
   "scripts": {
     "start:dev": "env-cmd -f src/.env.dev react-scripts start",
+    "start:qa": "env-cmd -f src/.env.qa react-scripts start",
     "start:test": "env-cmd -f src/.env.test react-scripts start",
     "build:dev": "CI=false env-cmd -f src/.env.dev react-scripts build",
     "build:qa": "CI=false env-cmd -f src/.env.qa react-scripts build",

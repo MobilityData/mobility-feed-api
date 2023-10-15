@@ -102,6 +102,7 @@ export default function APIAccount(): React.ReactElement {
       </Typography>
       <Typography
         variant='body1'
+        // width='100%'
         sx={{
           display: 'inline-block',
           mr: 2,

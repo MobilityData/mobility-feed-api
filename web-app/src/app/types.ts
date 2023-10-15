@@ -1,3 +1,5 @@
+import { GithubAuthProvider, GoogleAuthProvider } from 'firebase/auth';
+
 export type ChildrenElement =
   | string
   | JSX.Element
@@ -11,10 +13,11 @@ export interface EmailLogin {
 
 export interface User {
   fullname?: string;
-  email: string;
+  email?: string;
   organization?: string;
   accessToken?: string;
   refreshToken?: string;
+  accessTokenExpirationTime?: string;
 }
 
 export const USER_PROFILE = 'userProfile';
@@ -29,6 +32,8 @@ export const USER_PROFILE_SIGNUP_SUCCESS = `${USER_PROFILE}/signUpSuccess`;
 export const USER_PROFILE_SIGNUP_FAIL = `${USER_PROFILE}/signUpFail`;
 export const USER_PROFILE_LOAD_ORGANIZATION = `${USER_PROFILE}/loadOrganization`;
 export const USER_PROFILE_LOAD_ORGANIZATION_SUCCESS = `${USER_PROFILE}/loadOrganizationSuccess`;
+export const USER_PROFILE_LOAD_ORGANIZATION_FAIL = `${USER_PROFILE}/loadOrganizationFail`;
+export const USER_PROFILE_LOGIN_WITH_PROVIDER = `${USER_PROFILE}/loginWithProvider`;
 
 export enum ErrorSource {
   SignUp = 'SignUp',
@@ -48,3 +53,13 @@ export type AppErrors = {
 
 export const passwordValidatioError =
   'Password must contain at least one uppercase letter, one lowercase letter, one digit, one special char(!@#$%^&*) and be at least 12 chars long';
+
+export enum OauthProvider {
+  Google = 'Google',
+  Github = 'Github',
+}
+
+export const oathProviders = {
+  Google: new GoogleAuthProvider(),
+  Github: new GithubAuthProvider(),
+};
