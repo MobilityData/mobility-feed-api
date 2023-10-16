@@ -15,7 +15,7 @@ info:
 servers:
   - url: http://localhost:8080/
     description: Local development environment
-  - url: https://qa.mobilitydatabase.org/
+  - url: https://api-qa.mobilitydatabase.org/
     description: Pre-prod environment
     
 tags:
