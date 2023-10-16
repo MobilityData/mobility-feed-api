@@ -17,8 +17,6 @@ import { useAppDispatch } from '../hooks';
 import { loginFail, loginWithProvider, signUp } from '../store/profile-reducer';
 import { Alert } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { selectSignUpError } from '../store/selectors';
-import { passwordValidatioError } from '../types';
 import { ACCOUNT_TARGET, SIGN_IN_TARGET } from '../constants/Navigation';
 import '../styles/SignUp.css';
 import { selectIsAuthenticated, selectSignUpError } from '../store/selectors';
@@ -231,7 +229,7 @@ export default function SignUp(): React.ReactElement {
 
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
           className='sso-button'
@@ -243,7 +241,7 @@ export default function SignUp(): React.ReactElement {
         </Button>
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
           className='sso-button'

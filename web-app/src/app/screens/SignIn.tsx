@@ -190,7 +190,7 @@ export default function SignIn(): React.ReactElement {
 
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
           className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
@@ -202,7 +202,7 @@ export default function SignIn(): React.ReactElement {
         </Button>
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
           className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}

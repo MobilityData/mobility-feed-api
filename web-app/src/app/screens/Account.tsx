@@ -63,7 +63,7 @@ export default function APIAccount(): React.ReactElement {
             user?.accessTokenExpirationTime,
           ),
         );
-      }, 1000);
+      }, 250);
     }
 
     return () => {
