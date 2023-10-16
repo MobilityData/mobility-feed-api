@@ -27,6 +27,21 @@ export const getUserFromSession = async (): Promise<User | null> => {
   if (currentUser === null) {
     return null;
   }
+  const refreshToken = currentUser.refreshToken;
+  return {
+    fullname: currentUser?.displayName ?? undefined,
+    email: currentUser?.email ?? '',
+    // Organization cannot be retrieved from the current user
+    organization: undefined,
+    refreshToken,
+  };
+};
+
+export const generateUserAccessToken = async (): Promise<User | null> => {
+  const currentUser = app.auth().currentUser;
+  if (currentUser === null) {
+    return null;
+  }
   const idTokenResult = await currentUser.getIdTokenResult(true);
   const refreshToken = currentUser.refreshToken;
   const accessToken = idTokenResult.token;

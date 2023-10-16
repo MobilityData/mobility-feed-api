@@ -97,6 +97,14 @@ export const userProfileSlice = createSlice({
     resetProfileErrors: (state) => {
       state.errors = { ...initialState.errors };
     },
+    requestRefreshAccessToken: (state) => {},
+    refreshAccessToken: (state, action: PayloadAction<User>) => {
+      if (state.user !== undefined && state.status === 'authenticated') {
+        state.user.accessToken = action.payload.accessToken;
+        state.user.accessTokenExpirationTime =
+          action.payload.accessTokenExpirationTime;
+      }
+    },
     loginWithProvider: (
       state,
       action: PayloadAction<{
@@ -121,6 +129,8 @@ export const {
   signUpSuccess,
   signUpFail,
   resetProfileErrors,
+  refreshAccessToken,
+  requestRefreshAccessToken,
   loginWithProvider,
 } = userProfileSlice.actions;
 

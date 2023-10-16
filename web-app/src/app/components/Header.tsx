@@ -13,25 +13,27 @@ import {
   Toolbar,
   Typography,
   Button,
+  ListItemIcon,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import LogoutIcon from '@mui/icons-material/Logout';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import HelpIcon from '@mui/icons-material/Help';
 import {
   type NavigationHandler,
-  SIGN_IN_TARGET,
-  SIGN_OUT_TARGET,
   navigationItems,
+  navigationAccountItem,
+  navigationHelpItem,
+  SIGN_IN_TARGET,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { useNavigate } from 'react-router-dom';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
 import { useSelector } from 'react-redux';
-import { logout } from '../store/profile-reducer';
-import { useAppDispatch } from '../hooks';
 import { selectIsAuthenticated } from '../store/selectors';
+import LogoutConfirmModal from './LogoutConfirmModal';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -40,7 +42,6 @@ const DrawerContent: React.FC<{
   onClick: React.MouseEventHandler;
   onNavigationClick: NavigationHandler;
 }> = ({ onClick, onNavigationClick }) => {
-  const isAuthenticated = useSelector(selectIsAuthenticated);
   return (
     <Box onClick={onClick} sx={{ textAlign: 'center' }}>
       <Typography variant='h6' sx={{ my: 2 }} data-testid='websiteTile'>
@@ -48,7 +49,7 @@ const DrawerContent: React.FC<{
       </Typography>
       <Divider />
       <List>
-        {navigationItems(isAuthenticated).map((item) => (
+        {navigationItems.map((item) => (
           <ListItem
             key={item.title}
             disablePadding
@@ -72,31 +73,46 @@ export default function DrawerAppBar(): React.ReactElement {
 
   const navigateTo = useNavigate();
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const dispatch = useAppDispatch();
 
   const handleDrawerToggle = (): void => {
     setMobileOpen((prevState) => !prevState);
   };
 
   const handleNavigation = (navigationItem: NavigationItem): void => {
-    if (navigationItem.target === SIGN_OUT_TARGET) {
-      setOpenDialog(true);
-    } else {
-      navigateTo(navigationItem.target);
-    }
+    navigateTo(navigationItem.target);
   };
 
-  const confirmLogout = (): void => {
-    dispatch(logout({ redirectScreen: SIGN_IN_TARGET, navigateTo }));
-    setOpenDialog(false);
+  const handleLogoutClick = (): void => {
+    setOpenDialog(true);
+    handleMenuClose();
   };
 
   const container =
     window !== undefined ? () => window.document.body : undefined;
 
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>): void => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = (): void => {
+    setAnchorEl(null);
+  };
+
+  const handleMenuItemClick = (item: NavigationItem): void => {
+    handleMenuClose();
+    handleNavigation(item);
+  };
+
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar component='nav' color='inherit' elevation={0}>
+      <AppBar
+        component='nav'
+        color='inherit'
+        elevation={0}
+        sx={{ background: 'white' }}
+      >
         <Toolbar>
           <IconButton
             color='inherit'
@@ -116,10 +132,10 @@ export default function DrawerAppBar(): React.ReactElement {
             {websiteTile}
           </Typography>
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-            {navigationItems(isAuthenticated).map((item) => (
+            {navigationItems.map((item) => (
               <Button
                 key={item.title}
-                sx={{ color: item.color }}
+                sx={{ color: item.color, minWidth: 'fit-content' }}
                 onClick={() => {
                   handleNavigation(item);
                 }}
@@ -128,6 +144,53 @@ export default function DrawerAppBar(): React.ReactElement {
                 {item.title}
               </Button>
             ))}
+            {isAuthenticated ? (
+              <>
+                <Button
+                  aria-controls='account-menu'
+                  aria-haspopup='true'
+                  onClick={handleMenuOpen}
+                  endIcon={<ArrowDropDownIcon />}
+                >
+                  Account
+                </Button>
+                <Menu
+                  id='account-menu'
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleMenuClose}
+                >
+                  <MenuItem
+                    onClick={() => {
+                      handleMenuItemClick(navigationAccountItem);
+                    }}
+                  >
+                    <ListItemIcon>
+                      <AccountCircleIcon fontSize='small' />
+                    </ListItemIcon>
+                    Account Details
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      handleMenuItemClick(navigationHelpItem);
+                    }}
+                  >
+                    <ListItemIcon>
+                      <HelpIcon fontSize='small' />
+                    </ListItemIcon>
+                    Help
+                  </MenuItem>
+                  <MenuItem onClick={handleLogoutClick}>
+                    <ListItemIcon>
+                      <LogoutIcon fontSize='small' />
+                    </ListItemIcon>
+                    Sign Out
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : (
+              <Button href={SIGN_IN_TARGET}>Login</Button>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
@@ -152,38 +215,10 @@ export default function DrawerAppBar(): React.ReactElement {
           />
         </Drawer>
       </nav>
-      <Box sx={{ display: 'flex' }}>
-        {/* ... (the rest of your JSX) */}
-        <Dialog
-          open={openDialog}
-          onClose={() => {
-            setOpenDialog(false);
-          }}
-        >
-          <DialogTitle color='primary' sx={{ fontWeight: 'bold' }}>
-            Confirm Sign Out
-          </DialogTitle>
-          <DialogContent dividers>
-            <DialogContentText color='inherit'>
-              Are you sure you want to sign out?
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => {
-                setOpenDialog(false);
-              }}
-              color='inherit'
-              variant='outlined'
-            >
-              Cancel
-            </Button>
-            <Button onClick={confirmLogout} color='primary' variant='contained'>
-              Confirm
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
+      <LogoutConfirmModal
+        openDialog={openDialog}
+        setOpenDialog={setOpenDialog}
+      />
     </Box>
   );
 }

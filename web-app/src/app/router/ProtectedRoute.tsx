@@ -6,6 +6,7 @@ import { selectIsAuthenticated } from '../store/selectors';
  * This component is used to protect routes that require authentication.
  */
 export const ProtectedRoute = (): JSX.Element => {
+  return <Outlet />; // TODO remove before merge
   const isAuthenticated = useSelector(selectIsAuthenticated);
   if (!isAuthenticated) {
     return <Navigate to='/' />;
