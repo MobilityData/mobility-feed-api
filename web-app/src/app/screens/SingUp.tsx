@@ -115,7 +115,10 @@ export default function SignUp(): React.ReactElement {
         </Typography>
         <Typography component='h5'>
           Already have an account?{' '}
-          <Link href={SIGN_IN_TARGET} color={'inherit'} fontWeight='bold'>Log In Here</Link>.
+          <Link href={SIGN_IN_TARGET} color={'inherit'} fontWeight='bold'>
+            Log In Here
+          </Link>
+          .
         </Typography>
         <Box
           component='form'
