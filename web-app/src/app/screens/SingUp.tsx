@@ -17,6 +17,8 @@ import { useAppDispatch } from '../hooks';
 import { loginFail, loginWithProvider, signUp } from '../store/profile-reducer';
 import { Alert } from '@mui/material';
 import { useSelector } from 'react-redux';
+import { ACCOUNT_TARGET, SIGN_IN_TARGET } from '../constants/Navigation';
+import '../styles/SignUp.css';
 import { selectIsAuthenticated, selectSignUpError } from '../store/selectors';
 import {
   ErrorSource,
@@ -33,6 +35,10 @@ export default function SignUp(): React.ReactElement {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const SignUpSchema = Yup.object().shape({
     email: Yup.string().email().required('Email is required'),
+    confirmEmail: Yup.string().oneOf(
+      [Yup.ref('email'), ''],
+      'Emails do not match',
+    ),
     password: Yup.string()
       .required('Password is required')
       .matches(
@@ -48,6 +54,7 @@ export default function SignUp(): React.ReactElement {
   const formik = useFormik({
     initialValues: {
       email: '',
+      confirmEmail: '',
       password: '',
       confirmPassword: '',
     },
@@ -57,7 +64,7 @@ export default function SignUp(): React.ReactElement {
         signUp({
           email: values.email,
           password: values.password,
-          redirectScreen: '/account',
+          redirectScreen: ACCOUNT_TARGET,
           navigateTo,
         }),
       );
@@ -66,7 +73,7 @@ export default function SignUp(): React.ReactElement {
 
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigateTo('/account');
+      navigateTo(ACCOUNT_TARGET);
     }
   }, [isAuthenticated]);
 
@@ -101,13 +108,17 @@ export default function SignUp(): React.ReactElement {
         <Typography
           component='h1'
           variant='h5'
-          color='secondary'
+          color='primary'
           fontWeight='bold'
         >
           API Sign Up
         </Typography>
         <Typography component='h5'>
-          Already have an account? <Link href='/sign-in'>Sign In Here</Link>.
+          Already have an account?{' '}
+          <Link href={SIGN_IN_TARGET} color={'inherit'} fontWeight='bold'>
+            Log In Here
+          </Link>
+          .
         </Typography>
         <Box
           component='form'
@@ -135,6 +146,22 @@ export default function SignUp(): React.ReactElement {
           />
           {formik.errors.email != null ? (
             <Alert severity='error'>{formik.errors.email}</Alert>
+          ) : null}
+          <TextField
+            margin='normal'
+            required
+            fullWidth
+            id='confirmEmail'
+            label='Confirm Email'
+            name='confirmEmail'
+            autoComplete='email'
+            autoFocus
+            onChange={formik.handleChange}
+            value={formik.values.confirmEmail}
+            error={formik.errors.confirmEmail != null}
+          />
+          {formik.errors.confirmEmail != null ? (
+            <Alert severity='error'>{formik.errors.confirmEmail}</Alert>
           ) : null}
           <TextField
             margin='normal'
@@ -205,9 +232,10 @@ export default function SignUp(): React.ReactElement {
 
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
+          className='sso-button'
           onClick={() => {
             signInWithProvider(OauthProvider.Google);
           }}
@@ -216,9 +244,10 @@ export default function SignUp(): React.ReactElement {
         </Button>
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
+          className='sso-button'
           onClick={() => {
             signInWithProvider(OauthProvider.Github);
           }}

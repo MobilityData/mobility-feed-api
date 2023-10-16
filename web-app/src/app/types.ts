@@ -16,8 +16,8 @@ export interface User {
   email?: string;
   organization?: string;
   accessToken?: string;
-  refreshToken?: string;
   accessTokenExpirationTime?: string;
+  refreshToken?: string;
 }
 
 export const USER_PROFILE = 'userProfile';
@@ -32,6 +32,7 @@ export const USER_PROFILE_SIGNUP_SUCCESS = `${USER_PROFILE}/signUpSuccess`;
 export const USER_PROFILE_SIGNUP_FAIL = `${USER_PROFILE}/signUpFail`;
 export const USER_PROFILE_LOAD_ORGANIZATION = `${USER_PROFILE}/loadOrganization`;
 export const USER_PROFILE_LOAD_ORGANIZATION_SUCCESS = `${USER_PROFILE}/loadOrganizationSuccess`;
+export const USER_REQUEST_REFRESH_ACCESS_TOKEN = `${USER_PROFILE}/requestRefreshAccessToken`;
 export const USER_PROFILE_LOAD_ORGANIZATION_FAIL = `${USER_PROFILE}/loadOrganizationFail`;
 export const USER_PROFILE_LOGIN_WITH_PROVIDER = `${USER_PROFILE}/loginWithProvider`;
 

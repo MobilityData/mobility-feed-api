@@ -9,17 +9,17 @@ import AppSpinner from './components/AppSpinner';
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
   return (
-    <div className='container'>
-      <ContextProviders>
+    <ContextProviders>
+      <div id='app-main-container'>
         <AppSpinner>
           <BrowserRouter>
             <Header />
             <AppRouter />
-            <Footer />
           </BrowserRouter>
         </AppSpinner>
-      </ContextProviders>
-    </div>
+        <Footer />
+      </div>
+    </ContextProviders>
   );
 }
 

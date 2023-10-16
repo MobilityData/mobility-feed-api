@@ -1,0 +1,36 @@
+#code-block {
+    font-family: monospace;
+    background-color: #121c2d;
+    color: #d7deea;
+    padding: 20px;
+    border-radius: 5px;
+    margin-top: 20px;
+    word-wrap: break-word;
+}
+
+#code-block-content {
+    font-family: monospace;
+    word-wrap: break-word;
+    width: 60vw;
+}
+
+.token-display-element {
+    display: inline-block;
+    margin: 5px;
+    padding: 5px;
+    border-radius: 5px;
+    background-color: #1a2a44;
+    display: flex;
+    justify-content: space-between;
+    background-color: #e6e6e6 ;
+    align-items: center;
+    padding: 0 15px;
+    border-radius: 2px;
+    border: 1px solid #3959fa;
+    word-wrap: break-word;
+    width: 610px;
+}
+
+.token-action-buttons {
+    align-self: baseline;
+}

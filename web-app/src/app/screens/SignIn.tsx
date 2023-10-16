@@ -21,6 +21,7 @@ import { useSelector } from 'react-redux';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { Alert } from '@mui/material';
+import '../styles/SignUp.css';
 import {
   selectEmailLoginError,
   selectIsAuthenticated,
@@ -93,13 +94,16 @@ export default function SignIn(): React.ReactElement {
         <Typography
           component='h1'
           variant='h5'
-          color='secondary'
+          color='primary'
           fontWeight='bold'
         >
-          API Sign In
+          API Login
         </Typography>
         <Typography component='h5'>
-          Don&apos;t have an account? <Link href='/sign-up'>Register Here</Link>
+          Don&apos;t have an account?{' '}
+          <Link href='/sign-up' color={'inherit'} fontWeight='bold'>
+            Register Here
+          </Link>
           .
         </Typography>
         <Box
@@ -151,6 +155,13 @@ export default function SignIn(): React.ReactElement {
             label='Remember me'
             sx={{ width: '100%' }}
           /> */}
+          <Typography component='h5'>
+            Forgot your password?{' '}
+            <Link href='/forgot-password' color={'inherit'} fontWeight='bold'>
+              Reset Here
+            </Link>
+            .
+          </Typography>
           <Button
             type='submit'
             variant='contained'
@@ -179,7 +190,8 @@ export default function SignIn(): React.ReactElement {
 
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
+          className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
           onClick={() => {
@@ -190,7 +202,8 @@ export default function SignIn(): React.ReactElement {
         </Button>
         <Button
           variant='outlined'
-          color='inherit'
+          color='primary'
+          className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
           onClick={() => {

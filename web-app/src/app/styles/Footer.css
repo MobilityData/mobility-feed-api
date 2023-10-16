@@ -1,0 +1,11 @@
+.footer {
+    width: 100%;
+    text-align: center;
+    padding: 10px;
+    font-size: 13px;
+}
+
+.link-button:hover {
+    color: white !important;
+    background-color: #3959fa !important;
+}
