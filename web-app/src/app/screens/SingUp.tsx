@@ -49,6 +49,9 @@ export default function SignUp(): React.ReactElement {
       [Yup.ref('password'), ''],
       'Passwords do not match',
     ),
+    agreeToTerms: Yup.boolean()
+      .required('You must accept the terms and conditions.')
+      .isTrue('You must accept the terms and conditions.'),
   });
 
   const formik = useFormik({
@@ -57,6 +60,7 @@ export default function SignUp(): React.ReactElement {
       confirmEmail: '',
       password: '',
       confirmPassword: '',
+      agreeToTerms: false,
     },
     validationSchema: SignUpSchema,
     onSubmit: (values) => {
@@ -200,10 +204,22 @@ export default function SignUp(): React.ReactElement {
             </Alert>
           ) : null}
           <FormControlLabel
-            control={<Checkbox value='agreeToTerms' color='primary' />}
+            control={
+              <Checkbox
+                id='agreeToTerms'
+                value={formik.values.agreeToTerms}
+                onChange={formik.handleChange}
+                color='primary'
+              />
+            }
             label='I agree to the terms and conditions'
             sx={{ width: '100%' }}
           />
+          {formik.errors.agreeToTerms != null ? (
+            <Alert severity='error' data-testid='agreeToTermsError'>
+              {formik.errors.agreeToTerms}
+            </Alert>
+          ) : null}
           <Button
             type='submit'
             variant='contained'
