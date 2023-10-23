@@ -1,9 +1,7 @@
 # Update the Mobility Database Schema
 name: PROD Database Update
 on:
-  push: # Update on merge on master if the changelog file has been updated
-    branches:
-      - main
+  release: # Update on merge on master if the changelog file has been updated
     paths:
       - "liquibase/changelog.xml"
   workflow_dispatch:
