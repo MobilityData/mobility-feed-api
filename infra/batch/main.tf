@@ -66,11 +66,11 @@ resource "google_cloudfunctions2_function" "http_function" {
   }
 }
 
-resource "google_project_iam_member" "project_iam_member" {
-  project = var.project_id
-  role    = "roles/datastore.owner"
-  member  = "serviceAccount:${data.google_service_account.ci_impersonator_service_account.email}"
-}
+# resource "google_project_iam_member" "project_iam_member" {
+#   project = var.project_id
+#   role    = "roles/datastore.owner"
+#   member  = "serviceAccount:${data.google_service_account.ci_impersonator_service_account.email}"
+# }
 
 resource "google_project_service" "firestore" {
   service = "firestore.googleapis.com"
@@ -81,7 +81,7 @@ resource "google_firestore_database" "default" {
   name    = "default"
   project = var.project_id
   location_id = "northamerica-northeast1"
-  type = "FIRESTORE_NATIVE"
+  type = "DATASTORE_MODE"
   depends_on = [
     google_project_service.firestore,
   ]
