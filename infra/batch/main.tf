@@ -78,7 +78,7 @@ resource "google_project_service" "firestore" {
 }
 
 resource "google_firestore_database" "default" {
-  name    = "default"
+  name    = "test-from-tf"
   project = var.project_id
   location_id = "northamerica-northeast1"
   type = "DATASTORE_MODE"

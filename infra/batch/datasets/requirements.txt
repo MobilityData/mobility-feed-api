@@ -9,3 +9,4 @@ psycopg2-binary==2.9.6
 aiohttp
 asyncio
 urllib3
+firebase-admin
