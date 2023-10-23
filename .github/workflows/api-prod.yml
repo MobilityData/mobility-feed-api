@@ -1,0 +1,28 @@
+# Deploys the feeds API to MobilityData PROD environment
+name: Deploy Feeds API - PROD
+on:
+  workflow_dispatch: # Supports manual deployment
+
+jobs:
+  # TODO add API tests execution
+  api-build-deployment:
+    uses: ./.github/workflows/api-deployer.yml
+    with:
+      ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      BUCKET_NAME: ${{ vars.PROD_MOBILITY_FEEDS_TF_STATE_BUCKET }}
+      OBJECT_PREFIX: ${{ vars.PROD_MOBILITY_FEEDS_TF_STATE_OBJECT_PREFIX }}
+      PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.PROD_MOBILITY_FEEDS_REGION }}
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.PROD_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
+      FEED_API_IMAGE_VERSION: ${{ github.sha }}
+      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
+      TF_APPLY: true
+    secrets:
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OAUTH2_CLIENT_ID: ${{ secrets.PROD_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
+      OAUTH2_CLIENT_SECRET: ${{ secrets.PROD_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+      POSTGRES_DB: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
+      POSTGRES_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
+      POSTGRES_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
+      POSTGRES_HOST: ${{ secrets.PROD_DB_PUBLIC_IP }}
+      POSTGRES_PORT: ${{ secrets.PROD_DB_PUBLIC_PORT }}
