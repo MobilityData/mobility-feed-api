@@ -74,7 +74,7 @@ resource "google_project_service" "firestore" {
 resource "google_firestore_database" "default" {
   name    = "default"
   project = var.project_id
-  location = "northamerica-northeast1"
+  location_id = "northamerica-northeast1"
   depends_on = [
     google_project_service.firestore,
   ]
