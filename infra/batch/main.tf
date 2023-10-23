@@ -66,6 +66,20 @@ resource "google_cloudfunctions2_function" "http_function" {
   }
 }
 
+resource "google_project_service" "firestore" {
+  service = "firestore.googleapis.com"
+  disable_dependent_services = true
+}
+
+resource "google_firestore_database" "default" {
+  name    = "default"
+  project = var.project_id
+  location = "northamerica-northeast1"
+  depends_on = [
+    google_project_service.firestore,
+  ]
+}
+
 resource "google_pubsub_topic" "pubsub_topic" {
   count = var.create_pubsub_function ? 1 : 0
   name = var.pubsub_topic_name
