@@ -75,6 +75,7 @@ resource "google_firestore_database" "default" {
   name    = "default"
   project = var.project_id
   location_id = "northamerica-northeast1"
+  type = "FIRESTORE_NATIVE"
   depends_on = [
     google_project_service.firestore,
   ]
