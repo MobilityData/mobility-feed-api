@@ -41,7 +41,7 @@ class DatasetProcessor:
             # Validate that the feed wasn't previously processed
             print(f"[{self.stable_id} INFO] Feed status is {self.init_status}")
 
-            if self.init_status != Status.PUBLISHED:
+            if self.init_status and self.init_status != Status.PUBLISHED:
                 print(f"[{self.stable_id} INFO] Feed was already processed")
                 return
 
