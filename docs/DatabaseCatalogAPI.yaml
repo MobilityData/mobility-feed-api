@@ -17,6 +17,8 @@ servers:
     description: Local development environment
   - url: https://api-qa.mobilitydatabase.org/
     description: Pre-prod environment
+  - url: https://api-dev.mobilitydatabase.org/
+    description: Development environment
     
 tags:
   - name: "feeds"
@@ -42,7 +44,7 @@ paths:
         - $ref: "#/components/parameters/sort"
 
       security:
-        - ApiKeyAuth: [ ]
+        - BearerToken: [ ]
       responses:
         200:
           description: >
@@ -62,7 +64,7 @@ paths:
         - "feeds"
       operationId: getFeed
       security:
-        - ApiKeyAuth: []
+        - BearerToken: []
       responses:
         200:
           description: >
@@ -94,7 +96,7 @@ paths:
         - $ref: "#/components/parameters/order_by"
 
       security:
-        - ApiKeyAuth: []
+        - BearerToken: []
       responses:
         200:
           description: Successful pull of the GTFS feeds info.
@@ -117,7 +119,7 @@ paths:
         - $ref: "#/components/parameters/entity_types"
         - $ref: "#/components/parameters/sort"
       security:
-        - ApiKeyAuth: []
+        - BearerToken: []
       responses:
         200:
           description: Successful pull of the GTFS Realtime feeds info.
@@ -136,7 +138,7 @@ paths:
       operationId: getGtfsFeed
 
       security:
-        - ApiKeyAuth: []
+        - BearerToken: []
       responses:
         200:
           description: Successful pull of the requested feed.
@@ -155,7 +157,7 @@ paths:
       operationId: getGtfsRtFeed
 
       security:
-        - ApiKeyAuth: []
+        - BearerToken: []
       responses:
         200:
           description: Successful pull of the requested feed.
@@ -185,7 +187,7 @@ paths:
         - $ref: "#/components/parameters/boundingFilterMethod"
 
       security:
-        - ApiKeyAuth: []
+        -  BearerToken: []
       responses:
         200:
           description: Successful pull of the requested datasets.
@@ -203,7 +205,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/datasetIdPathParam"
       security:
-        - ApiKeyAuth: []
+        - BearerToken: []
       responses:
         200:
           description: Successful pull of the requested dataset.
@@ -219,7 +221,7 @@ paths:
         - "metadata"
       operationId: getMetadata
       security:
-        - ApiKeyAuth: []
+        - BearerToken: []
       responses:
         200:
           description: Successful pull of the metadata.
@@ -782,10 +784,10 @@ components:
         example: dataset_0
 
   securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: query
-      name: key
+    BearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
 security:
-  - ApiKeyAuth: []
+  - BearerToken: []
