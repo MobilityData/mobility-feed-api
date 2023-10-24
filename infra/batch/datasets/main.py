@@ -14,7 +14,7 @@ from google.cloud import storage
 from datetime import datetime
 from hashlib import sha256
 from cloudevents.http import CloudEvent
-from google.cloud import pubsub_v1, firestore
+from google.cloud import pubsub_v1, datastore
 from status import Status
 
 
@@ -29,14 +29,19 @@ class DatasetProcessor:
         self.storage_client = storage.Client()
         self.connection = connection
         self.date = datetime.now().strftime('%Y%m%d')
-        self.firestore = firestore.Client()
+        self.datastore = datastore.Client()
+
+        self.init_status = None
+        self.init_status_additional_data = None
+        self.status_entity_key = None
+
+        self.retrieve_feed_state()
 
     def process(self):
         # Validate that the feed wasn't previously processed
-        process_status, _ = self.retrieve_feed_state()
-        print(f"[{self.stable_id} INFO] Feed status is {process_status}")
+        print(f"[{self.stable_id} INFO] Feed status is {self.init_status}")
 
-        if process_status and process_status != Status.PUBLISHED:
+        if self.init_status and self.init_status != Status.PUBLISHED:
             print(f"[{self.stable_id} INFO] Feed was already processed")
             return
 
@@ -88,9 +93,8 @@ class DatasetProcessor:
             pass
 
         # Validate that the dataset wasn't previously uploaded
-        status, extra_data = self.retrieve_feed_state()
-        if status and status == Status.PUBLISHED and extra_data is not None:
-            return extra_data['file_sha256_hash'], extra_data['url']
+        if self.init_status == Status.PUBLISHED and self.init_status_additional_data is not None:
+            return self.init_status_additional_data['file_sha256_hash'], self.init_status_additional_data['url']
 
         self.update_feed_status(Status.DO_NOT_RETRY)
 
@@ -157,27 +161,27 @@ class DatasetProcessor:
     def retrieve_feed_state(self):
         """
         Retrieves the feed's state from the database
-        :return: the feed's status and additional data
         """
-        # TODO name as env param
-        collection_ref = self.firestore.collection('historical_dataset_batch')
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        status_query = self.datastore.query(kind='historical_dataset_batch')
+        status_query.add_filter('stable_id', '=', self.stable_id)
+        status_query.add_filter('timestamp', 'GREATER_THAN_OR_EQUAL', today_start)
 
-        query = (
-            collection_ref
-            .where('stable_id', '==', self.stable_id)
-            .where('timestamp', '>=', today_start)
-        )
-        docs = query.stream()
-        doc_count = 0
-        status_number, additional_data = None, None
-        for doc in docs:
-            doc_dict = doc.to_dict()
-            status_number, additional_data = doc_dict['status'], doc_dict['data']
-            doc_count += 1
-        if doc_count != 1:
-            return None, None
-        return Status(status_number), additional_data
+        docs = list(status_query.fetch())
+        print(f"{20 * '*'} The query results are --> {docs} {20 * '*'}")
+
+        if len(docs) != 1:
+            # No status was persisted today -- create new entity key
+            self.status_entity_key = self.datastore.key('historical_dataset_batch')
+            return
+
+        print(f"{20 * '*'} The query single result are --> {docs[0]} {20 * '*'}")
+        status_entity = docs[0]
+        status_code = status_entity.get('status', None)
+
+        self.init_status = Status(status_code) if status_code is not None else None
+        self.init_status_additional_data = status_entity.get('data', None)
+        self.status_entity_key = status_entity.key
 
     def update_feed_status(self, status: Status, extra_data=None):
         """
@@ -193,8 +197,10 @@ class DatasetProcessor:
         if extra_data is not None:
             data['data'] = extra_data
 
-        # TODO add collection name as env variable
-        self.firestore.collection('historical_dataset_batch').add(data)
+        with self.datastore.transaction():
+            status = datastore.Entity(key=self.status_entity_key)
+            status.update(data)
+            self.datastore.put(status)
 
     def handle_error(self, e, errors):
         """
@@ -314,7 +320,7 @@ def batch_datasets(request):
     # Retrieve feeds
     engine = get_db_engine()
     sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0'"
+                    "status='active' and authentication_type='0' limit 1"
     results = engine.execute(text(sql_statement)).all()
     print(f"Retrieved {len(results)} active feeds.")
 

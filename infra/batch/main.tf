@@ -73,7 +73,7 @@ resource "google_cloudfunctions2_function" "http_function" {
  }
 
 resource "google_project_service" "firestore" {
-  service = "firestore.googleapis.com"
+  service = "datastore.googleapis.com"
   disable_dependent_services = true
 }
 
