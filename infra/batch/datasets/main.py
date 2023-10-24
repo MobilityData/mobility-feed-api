@@ -19,7 +19,7 @@ from status import Status
 
 
 class DatasetProcessor:
-    def __init__(self, producer_url, stable_id, feed_id, dataset_id, bucket_name, latest_hash, connection):
+    def __init__(self, producer_url, stable_id, feed_id, dataset_id, bucket_name, latest_hash):
         self.producer_url = producer_url
         self.bucket_name = bucket_name
         self.stable_id = stable_id
@@ -27,7 +27,6 @@ class DatasetProcessor:
         self.latest_hash = latest_hash
         self.feed_id = feed_id
         self.storage_client = storage.Client()
-        self.connection = connection
         self.date = datetime.now().strftime('%Y%m%d')
         self.datastore = datastore.Client()
 
@@ -35,40 +34,46 @@ class DatasetProcessor:
         self.init_status_additional_data = None
         self.status_entity_key = None
 
-        self.retrieve_feed_state()
+        self.retrieve_feed_status()
 
     def process(self):
-        # Validate that the feed wasn't previously processed
-        print(f"[{self.stable_id} INFO] Feed status is {self.init_status}")
+        try:
+            # Validate that the feed wasn't previously processed
+            print(f"[{self.stable_id} INFO] Feed status is {self.init_status}")
 
-        if self.init_status and self.init_status != Status.PUBLISHED:
-            print(f"[{self.stable_id} INFO] Feed was already processed")
-            return
+            if self.init_status != Status.PUBLISHED:
+                print(f"[{self.stable_id} INFO] Feed was already processed")
+                return
 
-        if self.dataset_id is None:
-            print(f"[{self.stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
-            print(
-                json.dumps(
-                    {
-                        "stable_id": self.stable_id,
-                        "status": Status.FAILED.name,
-                        "timestamp": self.date
-                    }
+            if self.dataset_id is None:
+                print(f"[{self.stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
+                print(
+                    json.dumps(
+                        {
+                            "stable_id": self.stable_id,
+                            "status": Status.FAILED.name,
+                            "timestamp": self.date
+                        }
+                    )
                 )
-            )
-            self.update_feed_status(Status.FAILED)
+                self.update_feed_status(Status.FAILED)
+                return
+
+            sha256_file_hash, hosted_url = self.upload_dataset()
+
+            if hosted_url is None:
+                print(f'[{self.stable_id} INFO] Process completed. No database update required.')
+                print(json.dumps({
+                    "stable_id": self.stable_id,
+                    "status": Status.NOT_UPDATED.name,
+                    "timestamp": self.date
+                }))
+        except Exception as e:
+            self.handle_error(e, "")
             return
 
-        sha256_file_hash, hosted_url = self.upload_dataset()
-
-        if hosted_url is None:
-            print(f'[{self.stable_id} INFO] Process completed. No database update required.')
-            print(json.dumps({
-                "stable_id": self.stable_id,
-                "status": Status.NOT_UPDATED.name,
-                "timestamp": self.date
-            }))
-        if hosted_url is not None:
+        if hosted_url is not None and sha256_file_hash is not None:
+            # Allow exceptions to be raised
             self.validate_dataset_version(sha256_file_hash, hosted_url)
             print(json.dumps({
                 "stable_id": self.stable_id,
@@ -76,6 +81,7 @@ class DatasetProcessor:
                 "timestamp": self.date
             }))
             self.update_feed_status(Status.UPDATED)
+            print(f"[{self.stable_id} INFO] Process completed.")
 
     def upload_dataset(self):
         """
@@ -155,12 +161,12 @@ class DatasetProcessor:
             print(
                 f"[{self.stable_id} INFO] Dataset with stable id {self.stable_id} has not changed (hash {self.latest_hash} "
                 f"-> {file_sha256_hash}). Not uploading.")
-            self.update_feed_status(Status.NOT_UPDATED, self.bucket_name)
+            self.update_feed_status(Status.NOT_UPDATED)
             return file_sha256_hash, None
 
-    def retrieve_feed_state(self):
+    def retrieve_feed_status(self):
         """
-        Retrieves the feed's state from the database
+        Retrieves the feed's status from the database
         """
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         status_query = self.datastore.query(kind='historical_dataset_batch')
@@ -189,7 +195,7 @@ class DatasetProcessor:
         """
         timestamp = datetime.utcnow()
         data = {
-            'state': status.value.real,
+            'status': status.value.real,
             'timestamp': timestamp,
             'run_id': uuid.uuid4().hex,
             'stable_id': self.stable_id
@@ -205,10 +211,8 @@ class DatasetProcessor:
     def handle_error(self, e, errors):
         """
         Handles the error logs and updates the feed's status to failed
-        :param bucket_name: Bucket name where the error logs are updates
-        :param e: thrown error
-        :param errors: error logs
-        :param stable_id: Feed's stable ID
+        :param e: the thrown error
+        :param errors: the error logs
         """
         date = datetime.now().strftime('%Y%m%d')
         error_traceback = traceback.format_exc()
@@ -231,11 +235,13 @@ class DatasetProcessor:
         :param sha256_file_hash: Dataset's sha256 hash
         :param hosted_url: GCP URL hosting the dataset
         """
+        engine = get_db_engine()
+        connection = engine.connect()
         transaction = None
         errors = ""
         try:
             # Set up transaction for SQL updates
-            transaction = self.connection.begin()
+            transaction = connection.begin()
 
             # Check latest version of the dataset
             print(f"[{self.stable_id} INFO] Dataset ID = {self.dataset_id}, Dataset Hash = {self.latest_hash}")
@@ -246,7 +252,7 @@ class DatasetProcessor:
             # Set the previous version latest field to false
             if self.latest_hash is not None and self.latest_hash != sha256_file_hash:
                 sql_statement = f"update gtfsdataset set latest=false where id='{self.dataset_id}'"
-                self.connection.execute(text(sql_statement))
+                connection.execute(text(sql_statement))
 
             sql_statement = f"insert into gtfsdataset (id, feed_id, latest, bounding_box, note, hash, " \
                             f"download_date, stable_id, hosted_url) " \
@@ -258,7 +264,7 @@ class DatasetProcessor:
             # update the existing entity
             if self.latest_hash is None or self.latest_hash == sha256_file_hash:
                 sql_statement = f"update gtfsdataset set hash='{sha256_file_hash}', hosted_url='{hosted_url}' where id='{self.dataset_id}'"
-            self.connection.execute(text(sql_statement))
+            connection.execute(text(sql_statement))
 
             # Commit transaction after every step has run successfully
             transaction.commit()
@@ -269,8 +275,8 @@ class DatasetProcessor:
                 transaction.rollback()
             self.handle_error(e, errors)
         finally:
-            if self.connection is not None:
-                self.connection.close()
+            if connection is not None:
+                connection.close()
 
 
 @functions_framework.cloud_event
@@ -282,10 +288,6 @@ def process_dataset(cloud_event: CloudEvent):
     stable_id = "UNKNOWN"
     error_return_message = f'ERROR - Unsuccessful processing of dataset with stable id {stable_id}.'
     bucket_name = os.getenv("BUCKET_NAME")
-
-    # Allow raised exception to trigger the retry process until a connection is available
-    engine = get_db_engine()
-    connection = engine.connect()
     processor = None
     try:
         #  Extract  data from message
@@ -296,13 +298,16 @@ def process_dataset(cloud_event: CloudEvent):
 
         print(f"[{stable_id} INFO] JSON Payload:", json_payload)
 
-        processor = DatasetProcessor(producer_url, stable_id, feed_id, dataset_id, bucket_name, dataset_hash, connection)
-        processor.process()
+        processor = DatasetProcessor(producer_url, stable_id, feed_id, dataset_id, bucket_name, dataset_hash)
     except Exception as e:
         print(f'[{stable_id} ERROR] Error while uploading dataset\n {e} \n {traceback.format_exc()}')
         if processor is not None:
             processor.handle_error(e, "")
         return error_return_message
+
+    if processor is not None:
+        processor.process()
+
     return 'Completed.'
 
 
