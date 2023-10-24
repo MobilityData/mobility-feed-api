@@ -128,26 +128,10 @@ resource "google_compute_url_map" "feed_api_url_map" {
           allow_headers        = ["Authorization", "Content-Type"]
           allow_methods        = ["GET", "POST"]
           allow_origins        = ["*"]
-          max_age              = 10
+          max_age              = 1200
           disabled             = false
         }
       }      
-    }
-
-
-    path_rule {
-      paths = ["/"]
-      service = google_compute_backend_service.feed_api_lb_backend.id
-      route_action {
-        cors_policy {
-          allow_credentials    = true
-          allow_headers        = ["*"]
-          allow_methods        = ["*"]
-          allow_origins        = ["*"]
-          max_age              = 10
-          disabled             = false
-        }
-      }
     }
   }
 }
