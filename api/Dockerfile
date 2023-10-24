@@ -22,11 +22,11 @@ WORKDIR /usr/src/app
 RUN python3 -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 
-RUN pip install --upgrade pip
+RUN pip3 install --upgrade pip
 
 COPY src .
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # Service Stage
 FROM --platform=$TARGETPLATFORM python:3.11 AS service
@@ -35,6 +35,7 @@ WORKDIR /root/app/site-packages
 COPY --from=builder /venv /venv
 COPY --from=builder /usr/src/app .
 ENV PATH=/venv/bin:$PATH
+# ENV PYTHONPATH "${PYTHONPATH}:/usr/src/app"
 
 # Set the environment variable for the port or use default (8080)
 ENV PORT=${PORT:-8080}
@@ -43,4 +44,4 @@ ENV PORT=${PORT:-8080}
 EXPOSE $PORT
 
 # Run the Uvicorn server for the FastAPI application
-CMD ["uvicorn", "feeds_gen.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
