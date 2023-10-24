@@ -165,7 +165,7 @@ class DatasetProcessor:
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         status_query = self.datastore.query(kind='historical_dataset_batch')
         status_query.add_filter('stable_id', '=', self.stable_id)
-        status_query.add_filter('timestamp', 'GREATER_THAN_OR_EQUAL', today_start)
+        status_query.add_filter('timestamp', '>=', today_start)
 
         docs = list(status_query.fetch())
         print(f"{20 * '*'} The query results are --> {docs} {20 * '*'}")
