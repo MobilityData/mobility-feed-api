@@ -98,10 +98,6 @@ resource "google_datastore_index" "dataset_processing_index" {
     name        = "timestamp"
     direction  = "ASCENDING"
   }
-  properties {
-    direction = "ASCENDING"
-    name      = "data"
-  }
 }
 
 resource "google_pubsub_topic" "pubsub_topic" {

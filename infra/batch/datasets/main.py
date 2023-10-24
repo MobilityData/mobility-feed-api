@@ -195,10 +195,10 @@ class DatasetProcessor:
             'stable_id': self.stable_id
         }
         if extra_data is not None:
-            data['data'] = datastore.Entity(extra_data, exclude_from_indexes=('url', 'file_sha256_hash'))
+            data['data'] = extra_data
 
         with self.datastore.transaction():
-            status = datastore.Entity(key=self.status_entity_key)
+            status = datastore.Entity(key=self.status_entity_key, exclude_from_indexes=['data'])
             status.update(data)
             self.datastore.put(status)
 
