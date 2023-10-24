@@ -108,10 +108,33 @@ resource "google_compute_url_map" "feed_api_url_map" {
   host_rule {
     hosts        = ["*"]
     path_matcher = "allpaths"
+
   }
   path_matcher {
     name = "allpaths"
     default_service = google_compute_backend_service.feed_api_lb_backend.id
+    route_rules {
+      priority = 1
+      match_rules {
+        prefix_match = "/"       
+      }
+      route_action {
+        weighted_backend_services {
+          backend_service = google_compute_backend_service.home.id
+          weight = 100
+        }     
+        cors_policy {
+          allow_credentials    = true
+          allow_headers        = ["Authorization", "Content-Type"]
+          allow_methods        = ["GET", "POST"]
+          allow_origins        = ["*"]
+          max_age              = 10
+          disabled             = false
+        }
+      }      
+    }
+
+
     path_rule {
       paths = ["/"]
       service = google_compute_backend_service.feed_api_lb_backend.id
