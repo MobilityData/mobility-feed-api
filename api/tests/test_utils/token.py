@@ -12,6 +12,8 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+#
+# Import authHeaders from this file to hit the API with a JWT token
 
 import jwt
 from .cryptography import private_key, public_key
@@ -65,8 +67,8 @@ def get_jwk(pb_key):
     public_numbers = pb_key.public_numbers()
 
     return {
-        "kid": PUBLIC_KEY_ID,  # Public key id constant from previous step
-        "alg": ALGORITHM,  # Algorithm constant from previous step
+        "kid": PUBLIC_KEY_ID,
+        "alg": ALGORITHM,
         "kty": "RSA",
         "use": "sig",
         "n": to_base64url_uint(public_numbers.n).decode("ascii"),
