@@ -14,7 +14,7 @@
 #  limitations under the License.
 
 import jwt
-from api.tests.test_utils.cryptography import private_key, public_key
+from .cryptography import private_key, public_key
 from jwt.utils import to_base64url_uint
 
 ALGORITHM = "RS256"

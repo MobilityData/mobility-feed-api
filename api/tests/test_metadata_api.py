@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from api.tests.test_utils.token import authHeaders
+from .test_utils.token import authHeaders
 
 
 def test_metadata_get(client: TestClient):
