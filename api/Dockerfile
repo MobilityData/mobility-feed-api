@@ -35,7 +35,6 @@ WORKDIR /root/app/site-packages
 COPY --from=builder /venv /venv
 COPY --from=builder /usr/src/app .
 ENV PATH=/venv/bin:$PATH
-# ENV PYTHONPATH "${PYTHONPATH}:/usr/src/app"
 
 # Set the environment variable for the port or use default (8080)
 ENV PORT=${PORT:-8080}
