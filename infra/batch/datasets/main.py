@@ -208,10 +208,11 @@ class DatasetProcessor:
             status_entity.update(data)
             self.datastore.put(status_entity)
             self.status_entity_key = status_entity.key
+            print(f'update done to {status.name} --> key is {self.status_entity_key}')
 
     def handle_error(self, e, errors):
         """
-        Handles the error logs and updates the feed's status to failed
+        Handles the error logs and updates the feed's status to "Failed"
         :param e: the thrown error
         :param errors: the error logs
         """
