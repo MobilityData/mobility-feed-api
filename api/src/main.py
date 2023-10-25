@@ -22,14 +22,17 @@ from feeds_gen.apis.datasets_api import router as DatasetsApiRouter
 from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
 
+
 # Using the starlettte implementaiton as fastapi implementation generates errors with CORS in certain situations and
 # returns 200 in the method response. More info, https://github.com/tiangolo/fastapi/issues/1663#issuecomment-730362611
 from starlette.middleware.cors import CORSMiddleware
 
+from middleware.request_context import RequestContextMiddleware
+
 app = FastAPI(
     title="Mobility Data Catalog API",
     description="API as required in the _Proposed Version 1_ from the _Product Requirement Document for the Mobility "
-    "Database_",
+                "Database_",
     version="0.1.0",
 )
 
@@ -40,6 +43,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RequestContextMiddleware)
 
 app.include_router(DatasetsApiRouter)
 app.include_router(FeedsApiRouter)
