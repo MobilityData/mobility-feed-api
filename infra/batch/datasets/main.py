@@ -178,7 +178,7 @@ class DatasetProcessor:
 
         if len(docs) != 1:
             # No status was persisted today -- create new entity key
-            self.status_entity_key = self.datastore.key('historical_dataset_batch')
+            # self.status_entity_key = self.datastore.key('historical_dataset_batch')
             return
 
         print(f"{20 * '*'} The query single result are --> {docs[0]} {20 * '*'}")
@@ -197,18 +197,22 @@ class DatasetProcessor:
         data = {
             'status': status.value.real,
             'timestamp': timestamp,
-            'run_id': uuid.uuid4().hex,
             'stable_id': self.stable_id
         }
         if extra_data is not None:
             data['data'] = extra_data
 
         with self.datastore.transaction():
-            status_entity = datastore.Entity(key=self.status_entity_key, exclude_from_indexes=['data'])
+            # No status was persisted today -- create new entity key
+            if self.status_entity_key is None:
+                self.status_entity_key = self.datastore.key('historical_dataset_batch')
+                status_entity = datastore.Entity(key=self.status_entity_key, exclude_from_indexes=['data'])
+            else:
+                status_entity = self.datastore.get(self.status_entity_key)
             status_entity.update(data)
             self.datastore.put(status_entity)
             self.status_entity_key = status_entity.key
-            print(f'update done to {status.name} --> key is {self.status_entity_key}')
+            print(f'update done to {status.name} --> key is {self.status_entity_key.name}')
 
     def handle_error(self, e, errors):
         """
