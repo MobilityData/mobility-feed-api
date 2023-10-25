@@ -204,9 +204,10 @@ class DatasetProcessor:
             data['data'] = extra_data
 
         with self.datastore.transaction():
-            status = datastore.Entity(key=self.status_entity_key, exclude_from_indexes=['data'])
-            status.update(data)
-            self.datastore.put(status)
+            status_entity = datastore.Entity(key=self.status_entity_key, exclude_from_indexes=['data'])
+            status_entity.update(data)
+            self.datastore.put(status_entity)
+            self.status_entity_key = status_entity.key
 
     def handle_error(self, e, errors):
         """
