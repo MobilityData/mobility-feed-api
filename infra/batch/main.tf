@@ -66,7 +66,7 @@ resource "google_cloudfunctions2_function" "http_function" {
   }
 }
 
-resource "google_datastore_index" "dataset_processing_index" {
+resource "google_datastore_index" "dataset_processing_index_1" {
   project     = var.project_id
   kind        = "historical_dataset_batch"
   properties {
@@ -75,6 +75,32 @@ resource "google_datastore_index" "dataset_processing_index" {
   }
   properties {
     name        = "timestamp"
+    direction  = "ASCENDING"
+  }
+}
+
+resource "google_datastore_index" "dataset_processing_index_2" {
+  project     = var.project_id
+  kind        = "historical_dataset_batch"
+  properties {
+    name        = "status"
+    direction  = "ASCENDING"
+  }
+  properties {
+    name        = "timestamp"
+    direction  = "ASCENDING"
+  }
+}
+
+resource "google_datastore_index" "dataset_processing_index_3" {
+  project     = var.project_id
+  kind        = "historical_dataset_batch"
+  properties {
+    name        = "stable_id"
+    direction  = "ASCENDING"
+  }
+  properties {
+    name        = "status"
     direction  = "ASCENDING"
   }
 }
