@@ -117,6 +117,7 @@ class DatasetProcessor:
 
         bucket = self.storage_client.get_bucket(self.bucket_name)
         blob = bucket.blob(f"{self.stable_id}/latest.zip")
+        blob.make_public()
 
         if self.latest_hash != file_sha256_hash:
             print(
