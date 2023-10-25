@@ -66,7 +66,7 @@ resource "google_cloudfunctions2_function" "http_function" {
   }
 }
 
-resource "google_datastore_index" "dataset_processing_index_1" {
+resource "google_datastore_index" "dataset_processing_index" {
   project     = var.project_id
   kind        = "historical_dataset_batch"
   properties {

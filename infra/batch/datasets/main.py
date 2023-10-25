@@ -50,15 +50,6 @@ class DatasetProcessor:
 
             if self.dataset_id is None:
                 print(f"[{self.stable_id} INTERNAL ERROR] Couldn't find latest dataset related to feed_id.\n")
-                print(
-                    json.dumps(
-                        {
-                            "stable_id": self.stable_id,
-                            "status": Status.FAILED.name,
-                            "timestamp": self.date
-                        }
-                    )
-                )
                 self.update_feed_status(Status.FAILED)
                 return
 
@@ -66,11 +57,6 @@ class DatasetProcessor:
 
             if hosted_url is None:
                 print(f'[{self.stable_id} INFO] Process completed. No database update required.')
-                print(json.dumps({
-                    "stable_id": self.stable_id,
-                    "status": Status.NOT_UPDATED.name,
-                    "timestamp": self.date
-                }))
         except Exception as e:
             self.handle_error(e, "")
             return
@@ -78,11 +64,6 @@ class DatasetProcessor:
         if hosted_url is not None and sha256_file_hash is not None:
             # Allow exceptions to be raised
             self.validate_dataset_version(sha256_file_hash, hosted_url)
-            print(json.dumps({
-                "stable_id": self.stable_id,
-                "status": Status.UPDATED.name,
-                "timestamp": self.date
-            }))
             self.update_feed_status(Status.UPDATED)
             print(f"[{self.stable_id} INFO] Process completed.")
 
@@ -176,12 +157,10 @@ class DatasetProcessor:
         status_query = self.datastore.query(kind='historical_dataset_batch', filters=filters)
 
         docs = list(status_query.fetch())
-        print(f"{20 * '*'} The query results are --> {docs} {20 * '*'}")
 
         if len(docs) != 1:
             return
 
-        print(f"{20 * '*'} The query single result are --> {docs[0]} {20 * '*'}")
         self.status_entity = docs[0]
         status_code = self.status_entity.get('status', None)
 
@@ -209,7 +188,6 @@ class DatasetProcessor:
 
             self.status_entity.update(data)
             self.datastore.put(self.status_entity)
-            print(f'update done to {status.name} --> key is {self.status_entity.key.id_or_name}')
 
     def handle_error(self, e, errors):
         """
@@ -217,18 +195,10 @@ class DatasetProcessor:
         :param e: the thrown error
         :param errors: the error logs
         """
-        date = datetime.now().strftime('%Y%m%d')
         error_traceback = traceback.format_exc()
         errors += f"[{self.stable_id} ERROR]: {e} \t {error_traceback}"
 
         print(f"Logging errors for stable id {self.stable_id}: {errors}")
-
-        print(json.dumps({
-            "stable_id": self.stable_id,
-            "status": Status.FAILED.name,
-            "timestamp": date
-        }))
-
         self.update_feed_status(Status.FAILED)
 
     def validate_dataset_version(self, sha256_file_hash, hosted_url):
