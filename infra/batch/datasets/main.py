@@ -32,7 +32,7 @@ class DatasetProcessor:
 
         self.init_status = None
         self.init_status_additional_data = None
-        self.status_entity_key = None
+        self.status_entity = None
 
         self.retrieve_feed_status()
 
@@ -182,12 +182,11 @@ class DatasetProcessor:
             return
 
         print(f"{20 * '*'} The query single result are --> {docs[0]} {20 * '*'}")
-        status_entity = docs[0]
-        status_code = status_entity.get('status', None)
+        self.status_entity = docs[0]
+        status_code = self.status_entity.get('status', None)
 
         self.init_status = Status(status_code) if status_code is not None else None
-        self.init_status_additional_data = status_entity.get('data', None)
-        self.status_entity_key = status_entity.key
+        self.init_status_additional_data = self.status_entity.get('data', None)
 
     def update_feed_status(self, status: Status, extra_data=None):
         """
@@ -204,15 +203,13 @@ class DatasetProcessor:
 
         with self.datastore.transaction():
             # No status was persisted today -- create new entity key
-            if self.status_entity_key is None:
-                self.status_entity_key = self.datastore.key('historical_dataset_batch')
-                status_entity = datastore.Entity(key=self.status_entity_key, exclude_from_indexes=['data'])
-            else:
-                status_entity = self.datastore.get(self.status_entity_key)
-            status_entity.update(data)
-            self.datastore.put(status_entity)
-            self.status_entity_key = status_entity.key
-            print(f'update done to {status.name} --> key is {self.status_entity_key.name}')
+            if self.status_entity is None:
+                status_entity_key = self.datastore.key('historical_dataset_batch')
+                self.status_entity = datastore.Entity(key=status_entity_key, exclude_from_indexes=['data'])
+
+            self.status_entity.update(data)
+            self.datastore.put(self.status_entity)
+            print(f'update done to {status.name} --> key is {self.status_entity.key.id_or_name}')
 
     def handle_error(self, e, errors):
         """
