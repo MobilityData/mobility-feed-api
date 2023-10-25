@@ -37,6 +37,9 @@ class DatasetProcessor:
         self.retrieve_feed_status()
 
     def process(self):
+        """
+        Process the dataset and store new version in GCP bucket if any changes are detected
+        """
         try:
             # Validate that the feed wasn't previously processed
             print(f"[{self.stable_id} INFO] Feed status is {self.init_status}")
@@ -166,11 +169,11 @@ class DatasetProcessor:
 
     def retrieve_feed_status(self):
         """
-        Retrieves the feed's status from the database
+        Retrieves the feed's status from GCP Datastore
         """
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         filters = [('stable_id', '=', self.stable_id), ('timestamp', '>=', today_start)]
-        status_query = self.datastore.query(kind='historical_dataset_batch', filter=filters)
+        status_query = self.datastore.query(kind='historical_dataset_batch', filters=filters)
 
         docs = list(status_query.fetch())
         print(f"{20 * '*'} The query results are --> {docs} {20 * '*'}")
@@ -187,7 +190,7 @@ class DatasetProcessor:
 
     def update_feed_status(self, status: Status, extra_data=None):
         """
-        Updates the feed's status in the database
+        Updates the feed's status in GCP Datastore
         """
         timestamp = datetime.utcnow()
         data = {
