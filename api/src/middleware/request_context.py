@@ -13,7 +13,6 @@ def get_request_context():
 
 
 class RequestContextMiddleware:
-
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
         self.logger = Logger(RequestContextMiddleware.__module__).get_logger()

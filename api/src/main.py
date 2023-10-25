@@ -32,7 +32,7 @@ from middleware.request_context import RequestContextMiddleware
 app = FastAPI(
     title="Mobility Data Catalog API",
     description="API as required in the _Proposed Version 1_ from the _Product Requirement Document for the Mobility "
-                "Database_",
+    "Database_",
     version="0.1.0",
 )
 
