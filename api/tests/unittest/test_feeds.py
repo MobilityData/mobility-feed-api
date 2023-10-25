@@ -84,7 +84,7 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
     response = client.request(
         "GET",
         "/v1/gtfs_feeds",
-        headers = authHeaders,
+        headers=authHeaders,
     )
 
     assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
