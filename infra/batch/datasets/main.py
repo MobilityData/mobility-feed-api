@@ -169,16 +169,13 @@ class DatasetProcessor:
         Retrieves the feed's status from the database
         """
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        status_query = self.datastore.query(kind='historical_dataset_batch')
-        status_query.add_filter('stable_id', '=', self.stable_id)
-        status_query.add_filter('timestamp', '>=', today_start)
+        filters = [('stable_id', '=', self.stable_id), ('timestamp', '>=', today_start)]
+        status_query = self.datastore.query(kind='historical_dataset_batch', filter=filters)
 
         docs = list(status_query.fetch())
         print(f"{20 * '*'} The query results are --> {docs} {20 * '*'}")
 
         if len(docs) != 1:
-            # No status was persisted today -- create new entity key
-            # self.status_entity_key = self.datastore.key('historical_dataset_batch')
             return
 
         print(f"{20 * '*'} The query single result are --> {docs[0]} {20 * '*'}")

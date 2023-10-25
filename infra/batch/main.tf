@@ -100,6 +100,15 @@ resource "google_datastore_index" "dataset_processing_index" {
   }
 }
 
+resource "google_datastore_index" "dataset_processing_timestamp_index" {
+  project     = var.project_id
+  kind        = "historical_dataset_batch"
+  properties {
+    name        = "timestamp"
+    direction  = "ASCENDING"
+  }
+}
+
 resource "google_pubsub_topic" "pubsub_topic" {
   count = var.create_pubsub_function ? 1 : 0
   name = var.pubsub_topic_name
