@@ -2,7 +2,6 @@
 name: Deploy DB - DEV
 on:
   workflow_dispatch:  # Supports manual deployment
-  push: # TODO remove before merge
 
 jobs:
   deploy:
