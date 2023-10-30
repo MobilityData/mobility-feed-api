@@ -8,16 +8,7 @@
 #   api-gen.sh
 #
 
-# Fixing generators version to have consistent generation
-BETA_VERSION=7.0.0-beta
-# This stable version is only for reference here as the generation is currently been done with the BETA_VERSION
-STABLE_VERSION=6.6.0
-
-## Few fixes introduced in the latest beta version(2023/07/12) improving the python-fastapi generation.
-## More info,
-##      https://github.com/OpenAPITools/openapi-generator/issues/13863
-##      https://github.com/OpenAPITools/openapi-generator/issues/13863
-GENERATOR_VERSION=$BETA_VERSION
+GENERATOR_VERSION=7.0.1
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
