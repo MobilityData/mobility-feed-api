@@ -27,9 +27,9 @@ class RequestContext:
 
     def __repr__(self) -> str:
         # Omitting sensitive data like email and jwt assertion
-        safe_properties = dict(user_id=self.user_id,
-                               client_user_agent=self.client_user_agent,
-                               client_host=self.client_host)
+        safe_properties = dict(
+            user_id=self.user_id, client_user_agent=self.client_user_agent, client_host=self.client_host
+        )
         return f"request-context={safe_properties})"
 
 
