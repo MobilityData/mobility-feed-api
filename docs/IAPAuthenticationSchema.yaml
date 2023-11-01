@@ -1,0 +1,6 @@
+components:
+  securitySchemes:
+    Authentication:
+      type: apiKey
+      in: header
+      name: x-goog-iap-jwt-assertion

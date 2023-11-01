@@ -1,4 +1,6 @@
 from fastapi.testclient import TestClient
+
+from tests.test_utils.token import authHeaders
 from database.database import Database
 from database_gen.sqlacodegen_models import Feed, Externalid, Location, Gtfsdataset
 
@@ -15,6 +17,7 @@ def test_feeds_get(client: TestClient, mocker):
     response = client.request(
         "GET",
         "/v1/feeds",
+        headers=authHeaders,
     )
 
     assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
@@ -44,6 +47,7 @@ def test_feed_get(client: TestClient, mocker):
     response = client.request(
         "GET",
         "/v1/feeds/test_id",
+        headers=authHeaders,
     )
 
     assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
@@ -80,6 +84,7 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
     response = client.request(
         "GET",
         "/v1/gtfs_feeds",
+        headers=authHeaders,
     )
 
     assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
@@ -139,6 +144,7 @@ def test_gtfs_feed_get(client: TestClient, mocker):
     response = client.request(
         "GET",
         "/v1/gtfs_feeds/test_gtfs_id",
+        headers=authHeaders,
     )
 
     assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
@@ -195,6 +201,7 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
     response = client.request(
         "GET",
         "/v1/gtfs_rt_feeds",
+        headers=authHeaders,
     )
 
     assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
@@ -237,6 +244,7 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
     response = client.request(
         "GET",
         "/v1/gtfs_rt_feeds/test_gtfs_id",
+        headers=authHeaders,
     )
 
     assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"

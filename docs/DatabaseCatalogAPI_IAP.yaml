@@ -786,7 +786,7 @@ components:
 
   securitySchemes:
     Authentication:
-      $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
+      $ref: "./IAPAuthenticationSchema.yaml#/components/securitySchemes/Authentication"
 
 security:
   - Authentication: []

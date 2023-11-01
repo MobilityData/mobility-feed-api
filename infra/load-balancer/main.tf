@@ -50,7 +50,7 @@ resource "google_compute_security_policy" "policy_rate_limiting" {
 
       enforce_on_key = "ALL"
 
-#     This is a global rate limit threshold limiting all clients
+      #     This is a global rate limit threshold limiting all clients
       rate_limit_threshold {
         count        = var.global_rate_limit_req_per_minute
         interval_sec = 60
@@ -76,6 +76,7 @@ resource "google_compute_backend_service" "feed_api_lb_backend" {
     enable = true
   }
   protocol = "HTTPS"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
 
   backend {
     group = google_compute_region_network_endpoint_group.feed_cloudrun_neg.id
@@ -104,6 +105,35 @@ resource "google_compute_health_check" "http_health_check" {
 resource "google_compute_url_map" "feed_api_url_map" {
   name            = "feed-run-url-map-${var.environment}"
   default_service = google_compute_backend_service.feed_api_lb_backend.id
+  host_rule {
+    hosts        = ["*"]
+    path_matcher = "allpaths"
+
+  }
+  path_matcher {
+    name = "allpaths"
+    default_service = google_compute_backend_service.feed_api_lb_backend.id
+    route_rules {
+      priority = 1
+      match_rules {
+        prefix_match = "/"       
+      }
+      route_action {
+        weighted_backend_services {
+          backend_service = google_compute_backend_service.feed_api_lb_backend.id
+          weight = 100
+        }     
+        cors_policy {
+          allow_credentials    = true
+          allow_headers        = ["Authorization", "Content-Type"]
+          allow_methods        = ["GET", "POST"]
+          allow_origins        = ["*"]
+          max_age              = 1200
+          disabled             = false
+        }
+      }      
+    }
+  }
 }
 
 resource "google_compute_target_https_proxy" "feed_https_proxy" {
@@ -112,17 +142,31 @@ resource "google_compute_target_https_proxy" "feed_https_proxy" {
   ssl_certificates = [data.google_compute_ssl_certificate.existing_ssl_cert.id]
 }
 
+resource "google_compute_global_address" "feed_http_lb_ipv4" {
+  name = "feed-http-lb-ipv4-${var.environment}"
+  address_type = "EXTERNAL"
+  ip_version = "IPV4"
+}
+
+resource "google_compute_global_address" "feed_http_lb_ipv6" {
+  name = "feed-http-lb-ipv6-${var.environment}"
+  address_type = "EXTERNAL"
+  ip_version = "IPV6"
+}
+
 resource "google_compute_global_forwarding_rule" "feed_http_lb_rule" {
   name       = "feed-http-lb-rule-${var.environment}"
   target     = google_compute_target_https_proxy.feed_https_proxy.self_link
   port_range = "443"
-  ip_version = "IPV6"
+  ip_address = google_compute_global_address.feed_http_lb_ipv6.address
+  load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
 resource "google_compute_global_forwarding_rule" "feed_http_lb_rule_ipv4" {
   name       = "feed-http-lb-rule-v4-${var.environment}"
   target     = google_compute_target_https_proxy.feed_https_proxy.self_link
   port_range = "443"
-  ip_version = "IPV4"
+  ip_address = google_compute_global_address.feed_http_lb_ipv4.address
+  load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
