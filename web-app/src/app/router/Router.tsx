@@ -5,6 +5,7 @@ import SignUp from '../screens/SingUp';
 import Account from '../screens/Account';
 import ContactInformation from '../screens/ContactInformation';
 import { ProtectedRoute } from './ProtectedRoute';
+import CompleteRegistration from '../screens/CompleteRegistration';
 
 export const AppRouter: React.FC = () => {
   return (
@@ -12,6 +13,7 @@ export const AppRouter: React.FC = () => {
       <Route path='/' element={<SignIn />} />
       <Route path='sign-in' element={<SignIn />} />
       <Route path='sign-up' element={<SignUp />} />
+      <Route path='complete-registration' element={<CompleteRegistration />} />
       <Route element={<ProtectedRoute />}>
         <Route path='account' element={<Account />} />
       </Route>

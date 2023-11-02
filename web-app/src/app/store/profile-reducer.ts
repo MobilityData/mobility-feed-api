@@ -7,7 +7,7 @@ import {
   type OauthProvider,
 } from '../types';
 import { type NavigateFunction } from 'react-router-dom';
-import { type UserCredential } from 'firebase/auth';
+import { type UserCredential, type User as FirebaseUser } from 'firebase/auth';
 
 interface UserProfileState {
   status:
@@ -115,6 +115,13 @@ export const userProfileSlice = createSlice({
       state.status = 'authenticated';
       state.errors = { ...initialState.errors };
     },
+    refreshUserInformation: (state, action: PayloadAction<FirebaseUser>) => {
+      if (state.user !== undefined && state.status === 'authenticated') {
+        state.user.fullname = action.payload?.displayName ?? '';
+        // TODO: save information to datastore
+        state.user.organization = 'Dummy Organization';
+      }
+    },
   },
 });
 
@@ -132,6 +139,7 @@ export const {
   refreshAccessToken,
   requestRefreshAccessToken,
   loginWithProvider,
+  refreshUserInformation,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
