@@ -233,6 +233,17 @@ paths:
 
 components:
   schemas:
+    Redirect:
+      type: object
+      properties:
+        target_id:
+          description: ID of the feed to which the current feed is being redirected.
+          type: string
+          example: mdb_10
+        comment:
+          description: A comment explaining the redirect.
+          type: string
+          example: Redirected because of a change of URL.
     BasicFeed:
       type: object
       properties:
@@ -285,11 +296,7 @@ components:
         redirects:
           type: array
           items:
-            description: >
-              The feed ID that should be used in replacement of the current one. 
-              A redirect is defined when several expired feeds are aggregated together or split into new feeds.
-            type: string
-            example: mdb-100
+            $ref: "#/components/schemas/Redirect"
 
     GtfsFeed:
       allOf:
