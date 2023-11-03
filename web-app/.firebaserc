@@ -2,6 +2,7 @@
   "projects": {
     "default": "mobility-feeds-dev",
     "dev": "mobility-feeds-dev",
-    "qa": "mobility-feeds-qa"
+    "qa": "mobility-feeds-qa",
+    "prod": "mobility-feeds-prod"
   }
 }
