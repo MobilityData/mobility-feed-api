@@ -1,5 +1,5 @@
 # Update the Mobility Database Schema
-name: PROD Database Update
+name: Database Update - PROD
 on:
   release: # Update on merge on master if the changelog file has been updated
     paths:
@@ -17,7 +17,7 @@ jobs:
       PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
       REGION: ${{ vars.PROD_MOBILITY_FEEDS_REGION }}
-      RUN_POPULATE_SCRIPT: ${{ github.event.inputs.RUN_POPULATE_SCRIPT || false }}
+      RUN_POPULATE_SCRIPT: ${{ github.event.inputs.RUN_POPULATE_SCRIPT || 'false' }}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
