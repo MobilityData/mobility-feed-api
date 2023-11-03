@@ -13,12 +13,15 @@ info:
     url: https://mobilitydata.org/license
 
 servers:
-  - url: http://localhost:8080/
-    description: Local development environment
+# Replace beta address with prod address when ready
+  - url: https://beta.mobilitydatabase.org/
+    description: Beta release environment
   - url: https://api-qa.mobilitydatabase.org/
     description: Pre-prod environment
   - url: https://api-dev.mobilitydatabase.org/
-    description: Development environment
+    description: Development environment    
+  - url: http://localhost:8080/
+    description: Local development environment
 
 tags:
   - name: "feeds"
