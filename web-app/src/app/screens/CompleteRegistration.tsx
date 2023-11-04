@@ -5,7 +5,7 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { getAuth, updateProfile } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import 'firebase/firestore';
 import {
   Alert,
@@ -18,12 +18,26 @@ import { useAppDispatch } from '../hooks';
 import { refreshUserInformation } from '../store/profile-reducer';
 import { useNavigate } from 'react-router-dom';
 import { ACCOUNT_TARGET } from '../constants/Navigation';
+import {
+  selectIsRegistered,
+  selectRegistrationError,
+} from '../store/profile-selectors';
+import { useSelector } from 'react-redux';
 
 export default function CompleteRegistration(): React.ReactElement {
   const auth = getAuth();
   const user = auth.currentUser;
   const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
+
+  const isRegistered = useSelector(selectIsRegistered);
+  const registrationError = useSelector(selectRegistrationError);
+
+  React.useEffect(() => {
+    if (isRegistered) {
+      navigateTo(ACCOUNT_TARGET);
+    }
+  }, [isRegistered]);
 
   const CompleteRegistrationSchema = Yup.object().shape({
     fullname: Yup.string().required('Your full name is required.'),
@@ -47,11 +61,12 @@ export default function CompleteRegistration(): React.ReactElement {
     validationSchema: CompleteRegistrationSchema,
     onSubmit: async (values) => {
       if (user != null) {
-        await updateProfile(user, {
-          displayName: values?.fullname,
-        });
-        dispatch(refreshUserInformation(user));
-
+        dispatch(
+          refreshUserInformation({
+            fullname: values?.fullname,
+            organization: values?.organizationName,
+          }),
+        );
         navigateTo(ACCOUNT_TARGET);
       }
     },
@@ -160,6 +175,9 @@ export default function CompleteRegistration(): React.ReactElement {
             <Button type='submit' variant='contained'>
               Finish Account Setup
             </Button>
+            {registrationError != null ? (
+              <Alert severity='error'>{registrationError.message}</Alert>
+            ) : null}
           </Box>
         </form>
       </Box>

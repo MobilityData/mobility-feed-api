@@ -2,7 +2,6 @@ import { app } from '../../../firebase';
 import { type PayloadAction } from '@reduxjs/toolkit';
 import { call, put, takeLatest } from 'redux-saga/effects';
 import {
-  type AppError,
   USER_PROFILE_LOGIN,
   USER_PROFILE_LOGOUT,
   USER_PROFILE_SIGNUP,
@@ -19,7 +18,6 @@ import {
   signUpFail,
   signUpSuccess,
 } from '../profile-reducer';
-import { FirebaseError } from '@firebase/util';
 import { type NavigateFunction } from 'react-router-dom';
 import {
   getUserFromSession,
@@ -31,24 +29,7 @@ import {
   type UserCredential,
   getAdditionalUserInfo,
 } from 'firebase/auth';
-
-const getAppError = (error: unknown): AppError => {
-  const appError: AppError = {
-    code: 'unknown',
-    message: 'Unknown error',
-  };
-  if (error instanceof FirebaseError) {
-    appError.code = error.code;
-    let message = error.message;
-    if (error.message.startsWith('Firebase: ')) {
-      message = error.message.substring('Firebase: '.length);
-    }
-    appError.message = message;
-  } else {
-    appError.message = error as string;
-  }
-  return appError;
-};
+import { getAppError } from '../../utils/error';
 
 function* emailLoginSaga({
   payload: { email, password },

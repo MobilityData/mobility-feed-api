@@ -13,7 +13,12 @@ export const AppRouter: React.FC = () => {
       <Route path='/' element={<SignIn />} />
       <Route path='sign-in' element={<SignIn />} />
       <Route path='sign-up' element={<SignUp />} />
-      <Route path='complete-registration' element={<CompleteRegistration />} />
+      <Route element={<ProtectedRoute />}>
+        <Route
+          path='complete-registration'
+          element={<CompleteRegistration />}
+        />
+      </Route>
       <Route element={<ProtectedRoute />}>
         <Route path='account' element={<Account />} />
       </Route>

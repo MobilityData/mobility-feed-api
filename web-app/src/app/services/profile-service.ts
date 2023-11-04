@@ -1,4 +1,4 @@
-import { type AdditionalUserInfo } from 'firebase/auth';
+import { updateProfile, type AdditionalUserInfo } from 'firebase/auth';
 import { app } from '../../firebase';
 import { type OauthProvider, type User } from '../types';
 
@@ -57,6 +57,18 @@ export const generateUserAccessToken = async (): Promise<User | null> => {
   };
 };
 
+export const updateUserInformation = async (values: {
+  fullname: string;
+}): Promise<void> => {
+  const currentUser = app.auth().currentUser;
+  // TODO: this is to be removed and replaced by storing the information in Datastore
+  if (currentUser !== null) {
+    await updateProfile(currentUser, {
+      displayName: values?.fullname,
+    });
+  }
+};
+
 export const populateUserWithAdditionalInfo = (
   user: User,
   additionalUserInfo: AdditionalUserInfo,
@@ -71,12 +83,4 @@ export const populateUserWithAdditionalInfo = (
     email:
       user?.email ?? (additionalUserInfo.profile?.email as string) ?? undefined,
   };
-};
-
-export const getUserOrganization = async (): Promise<string> => {
-  throw new Error('Not implemented');
-};
-
-export const saveOrganization = async (): Promise<string> => {
-  throw new Error('Not implemented');
 };
