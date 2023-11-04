@@ -58,3 +58,5 @@ vars-*.env
 
 config/.env.dev
 venv
+
+__pycache__
