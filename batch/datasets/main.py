@@ -316,7 +316,6 @@ def batch_datasets(request):
         .outerjoin(Gtfsdataset, (Gtfsdataset.feed_id == Feed.id))
         .filter(Gtfsfeed.status == 'active', Gtfsfeed.authentication_type == '0')
         .filter(Gtfsdataset.id is not None, Gtfsdataset.latest.is_(True))
-        .limit(10)
     )
 
     # Executing the query
