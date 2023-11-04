@@ -5,8 +5,9 @@ google-api-core
 google-cloud-firestore
 google-cloud-datastore
 google-cloud-bigquery
-SQLAlchemy==1.4.49
 psycopg2-binary==2.9.6
 aiohttp
 asyncio
 urllib3
+SQLAlchemy==1.4.49
+geoalchemy2
