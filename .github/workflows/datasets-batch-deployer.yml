@@ -187,12 +187,13 @@ jobs:
 
       - name: Zip source code
         run: |
-          cd infra/batch
+          cd batch
           mkdir temp_zip_folder
           rsync -av --exclude '__init__.py' ${{ inputs.SOURCE_ZIP_PATH }}* temp_zip_folder/
           cp -R helpers temp_zip_folder
           cd temp_zip_folder
           zip -r ../${{ inputs.SOURCE_CODE_ZIP_FILE }} *
+          cp ../${{ inputs.SOURCE_CODE_ZIP_FILE }} ../infra/batch
 
       # Clearing previous versions of the source code
       - name: Clear Folder in GCP Bucket
