@@ -67,7 +67,6 @@ export default function CompleteRegistration(): React.ReactElement {
             organization: values?.organizationName,
           }),
         );
-        navigateTo(ACCOUNT_TARGET);
       }
     },
   });
