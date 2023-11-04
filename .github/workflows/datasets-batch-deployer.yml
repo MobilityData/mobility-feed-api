@@ -193,7 +193,9 @@ jobs:
           cp -R helpers temp_zip_folder
           cd temp_zip_folder
           zip -r ../${{ inputs.SOURCE_CODE_ZIP_FILE }} *
-          cp ../${{ inputs.SOURCE_CODE_ZIP_FILE }} ../infra/batch
+          ls
+          pwd
+          cp ../${{ inputs.SOURCE_CODE_ZIP_FILE }} ../infra/batch/${{ inputs.SOURCE_CODE_ZIP_FILE }}
 
       # Clearing previous versions of the source code
       - name: Clear Folder in GCP Bucket
