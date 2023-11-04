@@ -3,18 +3,21 @@ import json
 import os
 import traceback
 import uuid
-import functions_framework
-from sqlalchemy import text
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from helpers.utils import create_bucket, get_db_engine
-
-import requests
-from google.cloud import storage
 from datetime import datetime
 from hashlib import sha256
+
+import functions_framework
+import requests
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1, datastore
+from google.cloud import storage
+from requests.adapters import HTTPAdapter
+from sqlalchemy import func
+from sqlalchemy.orm import sessionmaker
+from urllib3.util.retry import Retry
+
+from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset, Feed
+from helpers.utils import create_bucket, get_db_engine
 from status import Status
 
 
@@ -209,48 +212,49 @@ class DatasetProcessor:
         :param sha256_file_hash: Dataset's sha256 hash
         :param hosted_url: GCP URL hosting the dataset
         """
-        engine = get_db_engine()
-        connection = engine.connect()
+        Session = sessionmaker(bind=get_db_engine())
+        session = Session()
         transaction = None
         errors = ""
         try:
-            # Set up transaction for SQL updates
-            transaction = connection.begin()
+            # Start a transaction
+            transaction = session.begin_nested()
 
             # Check latest version of the dataset
-            print(f"[{self.stable_id} INFO] Dataset ID = {self.dataset_id}, Dataset Hash = {self.latest_hash}")
+            latest_dataset = session.query(Gtfsdataset).filter_by(id=self.dataset_id).one_or_none()
+            if not latest_dataset:
+                print(f"[{self.stable_id} INFO] No dataset found with id {self.dataset_id}")
+                raise Exception(f"No dataset found with id {self.dataset_id}")
 
-            if self.latest_hash is None:
-                print(f"[{self.stable_id} WARNING] Dataset {self.dataset_id} for feed {self.feed_id} has a NULL hash.")
+            print(f"[{self.stable_id} INFO] Dataset ID = {latest_dataset.id}, Dataset Hash = {latest_dataset.hash}")
+            if latest_dataset.hash is None:
+                print(
+                    f"[{self.stable_id} WARNING] Dataset {latest_dataset.id} for feed {self.feed_id} has a NULL hash.")
+            elif latest_dataset.hash != sha256_file_hash:
+                latest_dataset.latest = False  # Set previous version 'latest' to False
 
-            # Set the previous version latest field to false
-            if self.latest_hash is not None and self.latest_hash != sha256_file_hash:
-                sql_statement = f"update gtfsdataset set latest=false where id='{self.dataset_id}'"
-                connection.execute(text(sql_statement))
+            # Create or update the dataset
+            if latest_dataset.hash != sha256_file_hash:
+                new_dataset = Gtfsdataset(id=str(uuid.uuid4()), feed_id=self.feed_id, latest=True,
+                                          bounding_box=latest_dataset.bounding_box if latest_dataset else None,
+                                          note=latest_dataset.note if latest_dataset else None,
+                                          hash=sha256_file_hash, download_date=func.now(),
+                                          stable_id=self.stable_id, hosted_url=hosted_url)
+                session.add(new_dataset)
+            else:
+                latest_dataset.hash = sha256_file_hash
+                latest_dataset.hosted_url = hosted_url
 
-            sql_statement = f"insert into gtfsdataset (id, feed_id, latest, bounding_box, note, hash, " \
-                            f"download_date, stable_id, hosted_url) " \
-                            f"select '{str(uuid.uuid4())}', feed_id, true, bounding_box, note, " \
-                            f"'{sha256_file_hash}', NOW(), stable_id, '{hosted_url}' from " \
-                            f"gtfsdataset where id='{self.dataset_id}'"
-
-            # In case the dataset doesn't include a hash or the dataset was deleted from the bucket,
-            # update the existing entity
-            if self.latest_hash is None or self.latest_hash == sha256_file_hash:
-                sql_statement = f"update gtfsdataset set hash='{sha256_file_hash}', hosted_url='{hosted_url}' where id='{self.dataset_id}'"
-            connection.execute(text(sql_statement))
-
-            # Commit transaction after every step has run successfully
-            transaction.commit()
+            session.commit()
             print(f"[{self.stable_id} INFO] Processing completed successfully.")
         except Exception as e:
             pass
-            if transaction is not None:
-                transaction.rollback()
+            if session is not None:
+                session.rollback()
             self.handle_error(e, errors)
         finally:
-            if connection is not None:
-                connection.close()
+            if session is not None:
+                session.close()
 
 
 @functions_framework.cloud_event
@@ -297,21 +301,33 @@ def batch_datasets(request):
     create_bucket(bucket_name)
 
     # Retrieve feeds
-    engine = get_db_engine()
-    sql_statement = "select stable_id, producer_url, gtfsfeed.id from feed join gtfsfeed on gtfsfeed.id=feed.id where " \
-                    "status='active' and authentication_type='0'"
-    results = engine.execute(text(sql_statement)).all()
+    Session = sessionmaker(bind=get_db_engine())
+    session = Session()
+
+    query = (
+        session.query(
+            Gtfsfeed.stable_id,
+            Gtfsfeed.producer_url,
+            Gtfsfeed.id,
+            Gtfsdataset.id.label('dataset_id'),
+            Gtfsdataset.hash
+        )
+        .select_from(Gtfsfeed)
+        .outerjoin(Gtfsdataset, (Gtfsdataset.feed_id == Feed.id))
+        .filter(Gtfsfeed.status == 'active', Gtfsfeed.authentication_type == '0')
+        .filter(Gtfsdataset.id is not None, Gtfsdataset.latest.is_(True))
+        .limit(10)
+    )
+
+    # Executing the query
+    results = query.all()
     print(f"Retrieved {len(results)} active feeds.")
 
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
-    for stable_id, producer_url, feed_id in results:
-        # Retrieve latest dataset
-        select_dataset_statement = text(f"select id, hash from gtfsdataset where latest=true and feed_id='{feed_id}'")
-        dataset_results = engine.execute(select_dataset_statement).all()
-        dataset_id = dataset_results[0][0] if len(dataset_results) > 0 else None
-        dataset_hash = dataset_results[0][1] if len(dataset_results) > 0 else None
 
+    for stable_id, producer_url, feed_id, dataset_id, dataset_hash in results:
+        # Retrieve latest dataset
         payload = {
             "producer_url": producer_url,
             "stable_id": stable_id,

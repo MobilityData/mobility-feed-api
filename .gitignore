@@ -35,7 +35,7 @@ data/
 
 # Ignore generated files
 api/src/feeds_gen
-api/src/database_gen
+database_gen
 
 # Ignore openapitools binaries
 scripts/bin
