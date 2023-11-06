@@ -261,12 +261,15 @@ class DatabasePopulateHelper:
                 target_feed = feed_map.get(target_stable_id, None)
 
                 if target_feed:
-                    redirect = Redirectingid(
-                        source_id=feed.id,
-                        target_id=target_feed.id,
-                        redirect_comment=comment
-                    )
-                    add_entity(redirect, 5)
+                    if target_feed.id != feed.id:
+                        redirect = Redirectingid(
+                            source_id=feed.id,
+                            target_id=target_feed.id,
+                            redirect_comment=comment
+                        )
+                        add_entity(redirect, 5)
+                    else:
+                        self.logger.error(f'Feed has redirect pointing to itself {mdb_id}')
                 else:
                     self.logger.warn(f'Could not find redirect target feed {target_stable_id} for feed {mdb_id}')
 
