@@ -16,7 +16,8 @@ interface UserProfileState {
     | 'authenticated'
     | 'login_out'
     | 'sign_up'
-    | 'loading_organization';
+    | 'registered'
+    | 'registering';
   errors: AppErrors;
   user: User | undefined;
 }
@@ -28,6 +29,7 @@ const initialState: UserProfileState = {
     SignUp: null,
     Login: null,
     Logout: null,
+    Registration: null,
   },
 };
 
@@ -85,15 +87,6 @@ export const userProfileSlice = createSlice({
       state.status = 'unauthenticated';
       state.errors = { ...initialState.errors, SignUp: action.payload };
     },
-    loadOrganization: (state) => {
-      state.status = 'loading_organization';
-    },
-    loadOrganizationSuccess: (state, action: PayloadAction<string>) => {
-      state.status = 'authenticated';
-      if (state.user !== undefined) {
-        state.user.organization = action.payload;
-      }
-    },
     resetProfileErrors: (state) => {
       state.errors = { ...initialState.errors };
     },
@@ -115,6 +108,25 @@ export const userProfileSlice = createSlice({
       state.status = 'authenticated';
       state.errors = { ...initialState.errors };
     },
+    refreshUserInformation: (
+      state,
+      action: PayloadAction<{ fullname: string; organization: string }>,
+    ) => {
+      if (state.user !== undefined && state.status === 'authenticated') {
+        state.errors.Registration = null;
+        state.user.fullname = action.payload?.fullname ?? '';
+        state.user.organization = action.payload?.organization ?? 'Unknown';
+        state.status = 'registering';
+      }
+    },
+    refreshUserInformationFail: (state, action: PayloadAction<AppError>) => {
+      state.errors.Registration = action.payload;
+      state.status = 'authenticated';
+    },
+    refreshUserInformationSuccess: (state) => {
+      state.errors.Registration = null;
+      state.status = 'registered';
+    },
   },
 });
 
@@ -132,6 +144,9 @@ export const {
   refreshAccessToken,
   requestRefreshAccessToken,
   loginWithProvider,
+  refreshUserInformation,
+  refreshUserInformationFail,
+  refreshUserInformationSuccess,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
