@@ -13,7 +13,7 @@ from database_gen.sqlacodegen_models import (
     t_locationfeed,
     Location,
     Entitytype,
-    Redirectingid
+    Redirectingid,
 )
 from database_gen.sqlacodegen_models import (
     t_entitytypefeed,
@@ -113,8 +113,11 @@ class FeedsApiImpl(BaseFeedsApi):
         for feed_group in feed_groups:
             feed_objects, redirect_ids, external_ids, redirect_comments = zip(*feed_group)
             # Put together the redirect ids and the corresponding comments. Eliminate Nones.
-            redirects_list = [Redirect(target_id=redirect, comment=comment) for redirect, comment in
-                              zip(redirect_ids, redirect_comments) if redirect is not None]
+            redirects_list = [
+                Redirect(target_id=redirect, comment=comment)
+                for redirect, comment in zip(redirect_ids, redirect_comments)
+                if redirect is not None
+            ]
 
             basic_feeds.append(
                 FeedsApiImpl._create_common_feed(feed_objects[0], BasicFeed, redirects_list, set(external_ids))
@@ -240,11 +243,15 @@ class FeedsApiImpl(BaseFeedsApi):
         gtfs_rt_feeds = []
         for feed_group in feed_groups:
             feed_objects, redirect_ids, external_ids, redirect_comments, entity_types, feed_references = zip(
-                *feed_group)
+                *feed_group
+            )
 
             # Put together the redirect ids and the corresponding comments. Eliminate Nones.
-            redirects_list = [Redirect(target_id=redirect, comment=comment) for redirect, comment in
-                              zip(redirect_ids, redirect_comments) if redirect is not None]
+            redirects_list = [
+                Redirect(target_id=redirect, comment=comment)
+                for redirect, comment in zip(redirect_ids, redirect_comments)
+                if redirect is not None
+            ]
 
             gtfs_rt_feed = FeedsApiImpl._create_common_feed(
                 feed_objects[0], GtfsRTFeed, redirects_list, set(external_ids)

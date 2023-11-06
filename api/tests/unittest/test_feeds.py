@@ -11,7 +11,7 @@ expected_redirect_response = {"target_id": redirect_target_id, "comment": redire
 
 def check_redirect(response: dict):
     assert (
-            response["redirects"][0] == expected_redirect_response
+        response["redirects"][0] == expected_redirect_response
     ), f'Response feed redirect was {response["redirects"][0]} instead of {expected_redirect_response}'
 
 
@@ -87,7 +87,8 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         municipality="test_municipality",
     )
     mock_select.return_value = [
-        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]]
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]
+    ]
 
     response = client.request(
         "GET",
@@ -146,7 +147,8 @@ def test_gtfs_feed_get(client: TestClient, mocker):
         municipality="test_municipality",
     )
     mock_select.return_value = [
-        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]]
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]
+    ]
 
     response = client.request(
         "GET",
