@@ -28,15 +28,20 @@ import {
   selectRefreshingAccessTokenError,
   selectUserProfile,
 } from '../store/selectors';
+import LogoutConfirmModal from '../components/LogoutConfirmModal';
 import { useAppDispatch } from '../hooks';
 import { requestRefreshAccessToken } from '../store/profile-reducer';
-import { getTimeLeftForTokenExpiration } from '../utils/date';
-import LogoutConfirmModal from '../components/LogoutConfirmModal';
-export interface APIAccountState {
+import {
+  formatTokenExpiration,
+  getTimeLeftForTokenExpiration,
+} from '../utils/date';
+
+interface APIAccountState {
   showRefreshToken: boolean;
   showAccessToken: boolean;
   accessTokenGenerated: boolean;
   codeBlockTooltip: string;
+  tokenExpired: boolean | undefined;
 }
 
 enum TokenTypes {
@@ -69,6 +74,7 @@ export default function APIAccount(): React.ReactElement {
     showAccessToken: false,
     accessTokenGenerated: false,
     codeBlockTooltip: texts.copyToClipboard,
+    tokenExpired: undefined,
   });
 
   const [timeLeftForTokenExpiration, setTimeLeftForTokenExpiration] =
@@ -85,15 +91,22 @@ export default function APIAccount(): React.ReactElement {
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-
-    if (user?.accessTokenExpirationTime !== null) {
+    const accessTokenExpirationTime = user?.accessTokenExpirationTime;
+    if (accessTokenExpirationTime !== undefined) {
       interval = setInterval(() => {
-        setTimeLeftForTokenExpiration(
-          getTimeLeftForTokenExpiration(
-            Intl.DateTimeFormat().resolvedOptions().timeZone,
-            user?.accessTokenExpirationTime,
-          ),
+        const expirationTime = getTimeLeftForTokenExpiration(
+          accessTokenExpirationTime,
         );
+        let formattedExpirationTime = '';
+        if (!expirationTime.future) {
+          clearInterval(interval as NodeJS.Timeout);
+          setAccountState({ ...accountState, tokenExpired: true });
+        } else {
+          formattedExpirationTime = formatTokenExpiration(
+            expirationTime.duration,
+          );
+        }
+        setTimeLeftForTokenExpiration(formattedExpirationTime);
       }, 250);
     }
 
@@ -487,7 +500,10 @@ export default function APIAccount(): React.ReactElement {
                 </Box>
                 <Typography color='error' sx={{ mb: 2 }}>
                   <WarningAmberOutlined style={{ verticalAlign: 'bottom' }} />
-                  {timeLeftForTokenExpiration}.
+                  {accountState.tokenExpired === true
+                    ? 'Token expired.'
+                    : `Your token will expire in ${timeLeftForTokenExpiration}`}
+                  .
                 </Typography>
               </Box>
             )}

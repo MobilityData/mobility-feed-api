@@ -41,6 +41,7 @@
     "build:qa": "CI=false env-cmd -f src/.env.qa react-scripts build",
     "build:prod": "CI=false env-cmd -f src/.env.prod react-scripts build",
     "test": "react-scripts test",
+    "test:ci": "CI=true react-scripts test",
     "eject": "react-scripts eject",
     "lint": "eslint 'src/app/**/*.{js,ts,tsx}'",
     "lint:fix": "eslint 'src/app/**/*.{js,ts,tsx}' --fix",
@@ -66,7 +67,10 @@
     ]
   },
   "devDependencies": {
+    "@babel/core": "^7.23.2",
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/preset-env": "^7.23.2",
+    "@babel/preset-typescript": "^7.23.2",
     "@react-firebase/auth": "^0.2.10",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
@@ -74,7 +78,7 @@
     "@types/cypress": "^1.1.3",
     "@types/jest": "^27.5.2",
     "@types/material-ui": "^0.21.12",
-    "@types/node": "^16.18.50",
+    "@types/node": "^20.8.10",
     "@types/react": "^18.2.25",
     "@types/react-dom": "^18.2.7",
     "@types/react-redux": "^7.1.27",
@@ -82,6 +86,7 @@
     "@types/redux-saga": "^0.10.5",
     "@typescript-eslint/eslint-plugin": "^6.7.0",
     "@typescript-eslint/parser": "^6.7.0",
+    "babel-jest": "^29.7.0",
     "cypress": "^13.2.0",
     "env-cmd": "^10.1.0",
     "eslint": "^8.49.0",
@@ -98,5 +103,8 @@
     "ts-loader": "^9.4.4",
     "typescript": "^5.2.2",
     "wait-on": "^7.0.1"
+  },
+  "jest": {
+    "globalSetup": "./jest-global-setup.ts"
   }
 }
