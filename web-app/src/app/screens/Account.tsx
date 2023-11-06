@@ -146,7 +146,7 @@ export default function APIAccount(): React.ReactElement {
       user?.accessToken !== undefined
         ? user?.accessToken
         : '[Your Access Token]';
-    const codeBlock = `curl --location 'https://api-dev.mobilitydatabase.org/api/v1/metadata' --header 'Accept: application/json' --header 'Authorization: Bearer ${accessToken}'`;
+    const codeBlock = `curl --location 'https://api.mobilitydatabase.org/api/v1/metadata' --header 'Accept: application/json' --header 'Authorization: Bearer ${accessToken}'`;
     navigator.clipboard
       .writeText(codeBlock)
       .then(() => {
