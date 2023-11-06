@@ -41,7 +41,7 @@ interface APIAccountState {
   showAccessToken: boolean;
   accessTokenGenerated: boolean;
   codeBlockTooltip: string;
-  tokenExpired: boolean | undefined;
+  tokenExpired: boolean;
 }
 
 enum TokenTypes {
@@ -74,7 +74,7 @@ export default function APIAccount(): React.ReactElement {
     showAccessToken: false,
     accessTokenGenerated: false,
     codeBlockTooltip: texts.copyToClipboard,
-    tokenExpired: undefined,
+    tokenExpired: false,
   });
 
   const [timeLeftForTokenExpiration, setTimeLeftForTokenExpiration] =
@@ -165,7 +165,7 @@ export default function APIAccount(): React.ReactElement {
     setAccountState({
       ...accountState,
       accessTokenGenerated: true,
-      tokenExpired: undefined,
+      tokenExpired: false,
     });
     dispatch(requestRefreshAccessToken());
   };
@@ -501,7 +501,7 @@ export default function APIAccount(): React.ReactElement {
                 </Box>
                 <Typography color='error' sx={{ mb: 2 }}>
                   <WarningAmberOutlined style={{ verticalAlign: 'bottom' }} />
-                  {accountState.tokenExpired === true
+                  {accountState.tokenExpired
                     ? 'Token expired'
                     : `Your token will expire in ${timeLeftForTokenExpiration}`}
                   .
