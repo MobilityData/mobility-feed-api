@@ -40,7 +40,7 @@
     "build:dev": "CI=false env-cmd -f src/.env.dev react-scripts build",
     "build:qa": "CI=false env-cmd -f src/.env.qa react-scripts build",
     "build:prod": "CI=false env-cmd -f src/.env.prod react-scripts build",
-    "test": "react-scripts test",
+    "test": "react-scripts test --watchAll",
     "test:ci": "CI=true react-scripts test",
     "eject": "react-scripts eject",
     "lint": "eslint 'src/app/**/*.{js,ts,tsx}'",
