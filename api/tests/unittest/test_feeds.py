@@ -4,6 +4,16 @@ from tests.test_utils.token import authHeaders
 from database.database import Database
 from database_gen.sqlacodegen_models import Feed, Externalid, Location, Gtfsdataset
 
+redirect_target_id = "test_target_id"
+redirect_comment = "Some comment"
+expected_redirect_response = {"target_id": redirect_target_id, "comment": redirect_comment}
+
+
+def check_redirect(response: dict):
+    assert (
+        response["redirects"][0] == expected_redirect_response
+    ), f'Response feed redirect was {response["redirects"][0]} instead of {expected_redirect_response}'
+
 
 def test_feeds_get(client: TestClient, mocker):
     """
@@ -13,7 +23,7 @@ def test_feeds_get(client: TestClient, mocker):
 
     mock_feed = Feed(stable_id="test_id")
     mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_select.return_value = [[(mock_feed, "test_target_id", mock_external_id)]]
+    mock_select.return_value = [[(mock_feed, redirect_target_id, mock_external_id, redirect_comment)]]
     response = client.request(
         "GET",
         "/v1/feeds",
@@ -30,9 +40,7 @@ def test_feeds_get(client: TestClient, mocker):
     assert (
         response_feed["external_ids"][0]["source"] == "test_source"
     ), f'Response feed source was {response_feed["external_ids"][0]["source"]} instead of test_source'
-    assert (
-        response_feed["redirects"][0] == "test_target_id"
-    ), f'Response feed redirect was {response_feed["redirects"][0]} instead of test_target_id'
+    check_redirect(response_feed)
 
 
 def test_feed_get(client: TestClient, mocker):
@@ -42,7 +50,7 @@ def test_feed_get(client: TestClient, mocker):
     mock_select = mocker.patch.object(Database(), "select")
     mock_feed = Feed(stable_id="test_id")
     mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_select.return_value = [[(mock_feed, "test_target_id", mock_external_id)]]
+    mock_select.return_value = [[(mock_feed, redirect_target_id, mock_external_id, redirect_comment)]]
 
     response = client.request(
         "GET",
@@ -60,9 +68,8 @@ def test_feed_get(client: TestClient, mocker):
     assert (
         response_feed["external_ids"][0]["source"] == "test_source"
     ), f'Response feed source was {response_feed["external_ids"][0]["source"]} instead of test_source'
-    assert (
-        response_feed["redirects"][0] == "test_target_id"
-    ), f'Response feed redirect was {response_feed["redirects"][0]} instead of test_target_id'
+
+    check_redirect(response_feed)
 
 
 def test_gtfs_feeds_get(client: TestClient, mocker):
@@ -79,7 +86,9 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         subdivision_name="test_subdivision_name",
         municipality="test_municipality",
     )
-    mock_select.return_value = [[(mock_feed, "test_target_id", mock_external_id, mock_latest_datasets, mock_locations)]]
+    mock_select.return_value = [
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]
+    ]
 
     response = client.request(
         "GET",
@@ -100,9 +109,7 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
     assert (
         response_gtfs_feed["external_ids"][0]["source"] == "test_source"
     ), f'Response feed source was {response_gtfs_feed["external_ids"][0]["source"]} instead of test_source'
-    assert (
-        response_gtfs_feed["redirects"][0] == "test_target_id"
-    ), f'Response feed redirect was {response_gtfs_feed["redirects"][0]} instead of test_target_id'
+    check_redirect(response_gtfs_feed)
     assert (
         response_gtfs_feed["locations"][0]["country_code"] == "test_country_code"
     ), f'Response feed country code was {response_gtfs_feed["locations"][0]["country_code"]} \
@@ -139,7 +146,9 @@ def test_gtfs_feed_get(client: TestClient, mocker):
         subdivision_name="test_subdivision_name",
         municipality="test_municipality",
     )
-    mock_select.return_value = [[(mock_feed, "test_target_id", mock_external_id, mock_latest_datasets, mock_locations)]]
+    mock_select.return_value = [
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]
+    ]
 
     response = client.request(
         "GET",
@@ -160,9 +169,9 @@ def test_gtfs_feed_get(client: TestClient, mocker):
     assert (
         response_gtfs_feed["external_ids"][0]["source"] == "test_source"
     ), f'Response feed source was {response_gtfs_feed["external_ids"][0]["source"]} instead of test_source'
-    assert (
-        response_gtfs_feed["redirects"][0] == "test_target_id"
-    ), f'Response feed redirect was {response_gtfs_feed["redirects"][0]} instead of test_target_id'
+
+    check_redirect(response_gtfs_feed)
+
     assert (
         response_gtfs_feed["locations"][0]["country_code"] == "test_country_code"
     ), f'Response feed country code was {response_gtfs_feed["locations"][0]["country_code"]} \
@@ -195,7 +204,7 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
     mock_entity_types = "test_entity_type"
     mock_feed_references = "test_feed_reference"
     mock_select.return_value = [
-        [(mock_feed, "test_target_id", mock_external_id, mock_entity_types, mock_feed_references)]
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_entity_types, mock_feed_references)]
     ]
 
     response = client.request(
@@ -217,9 +226,9 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
     assert (
         response_gtfs_rt_feed["external_ids"][0]["source"] == "test_source"
     ), f'Response feed source was {response_gtfs_rt_feed["external_ids"][0]["source"]} instead of test_source'
-    assert (
-        response_gtfs_rt_feed["redirects"][0] == "test_target_id"
-    ), f'Response feed redirect was {response_gtfs_rt_feed["redirects"][0]} instead of test_target_id'
+
+    check_redirect(response_gtfs_rt_feed)
+
     assert (
         response_gtfs_rt_feed["entity_types"][0] == "test_entity_type"
     ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of test_entity_type'
@@ -238,7 +247,7 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
     mock_entity_types = "test_entity_type"
     mock_feed_references = "test_feed_reference"
     mock_select.return_value = [
-        [(mock_feed, "test_target_id", mock_external_id, mock_entity_types, mock_feed_references)]
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_entity_types, mock_feed_references)]
     ]
 
     response = client.request(
@@ -260,9 +269,9 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
     assert (
         response_gtfs_rt_feed["external_ids"][0]["source"] == "test_source"
     ), f'Response feed source was {response_gtfs_rt_feed["external_ids"][0]["source"]} instead of test_source'
-    assert (
-        response_gtfs_rt_feed["redirects"][0] == "test_target_id"
-    ), f'Response feed redirect was {response_gtfs_rt_feed["redirects"][0]} instead of test_target_id'
+
+    check_redirect(response_gtfs_rt_feed)
+
     assert (
         response_gtfs_rt_feed["entity_types"][0] == "test_entity_type"
     ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of test_entity_type'

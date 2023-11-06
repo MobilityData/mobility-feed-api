@@ -13,13 +13,13 @@ from sqlalchemy import inspect
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import (
     Component,
-    Feed,
     Entitytype,
     Externalid,
     Gtfsdataset,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Location,
+    Redirectingid,
     Base,
 )
 from utils.logger import Logger
@@ -122,6 +122,10 @@ class DatabasePopulateHelper:
 
         if self.df is None:
             return
+
+        # Keep a dict (map) of stable_id -> feed so we can reference the feeds when processing the static_reference
+        # and the redirects.
+        feed_map = {}
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
             self.logger.debug(f"Populating Database for with Feed [stable_id = {mdb_id}]")
@@ -134,7 +138,7 @@ class DatabasePopulateHelper:
                 feed_name=row["name"],
                 note=row["note"],
                 producer_url=row["urls.direct_download"],
-                authentication_type=str(int(row["urls.authentication_type"])),
+                authentication_type=str(int(row.get("urls.authentication_type", "0") or "0")),
                 authentication_info_url=row["urls.authentication_info"],
                 api_key_parameter_name=row["urls.api_key_parameter_name"],
                 license_url=row["urls.license"],
@@ -142,6 +146,8 @@ class DatabasePopulateHelper:
                 status=row["status"],
                 provider=row["provider"],
             )
+
+            feed_map[mdb_id] = feed
 
             # Location
             country_code = row["location.country_code"]
@@ -210,20 +216,6 @@ class DatabasePopulateHelper:
                     entity_type.feeds.append(feed)
                     add_entity(entity_type, 4)
 
-                # Feed Reference
-                if row["static_reference"] is not None:
-                    referenced_feeds_list = [
-                        entity
-                        for entity in entities
-                        if isinstance(entity, Feed) and entity.stable_id == f"mdb-{int(row['static_reference'])}"
-                    ]
-                    if len(referenced_feeds_list) == 1:
-                        referenced_feeds_list[0].gtfs_rt_feeds.append(feed)
-                    else:
-                        self.logger.error(
-                            f'Couldn\'t create reference from {feed.stable_id} to {row["static_reference"]}'
-                        )
-
             # External ID
             mdb_external_id = Externalid(
                 feed_id=feed.id,
@@ -231,6 +223,49 @@ class DatabasePopulateHelper:
                 source="mdb",
             )
             add_entity(mdb_external_id, 4)
+
+        # Iterate again over the contents of the csv files to process the feed references.
+        for index, row in self.df.iterrows():
+            mdb_id = f"mdb-{int(row['mdb_source_id'])}"
+            feed = feed_map[mdb_id]
+            if row["data_type"] == "gtfs_rt":
+                # Feed Reference
+                if row["static_reference"] is not None:
+                    static_reference_mdb_id = f"mdb-{int(row['static_reference'])}"
+                    referenced_feed = feed_map.get(static_reference_mdb_id, None)
+                    if referenced_feed:
+                        referenced_feed.gtfs_rt_feeds.append(feed)
+
+            # Process redirects
+            raw_redirects = row.get("redirect.id", None)
+            redirects_ids = raw_redirects.split("|") if raw_redirects is not None else []
+            raw_comments = row.get("redirect.comment", None)
+            comments = raw_comments.split("|") if raw_comments is not None else []
+
+            if len(redirects_ids) != len(comments):
+                self.logger.warn(f"Number of redirect ids and redirect comments differ for feed {mdb_id}")
+
+            for mdb_source_id in redirects_ids:
+                if len(mdb_source_id) == 0:
+                    # since there is a 1:1 correspondence between redirect ids and comments, skip also the comment
+                    comments = comments[1:]
+                    continue
+                if comments:
+                    comment = comments.pop(0)
+                else:
+                    comment = ""
+
+                target_stable_id = f"mdb-{mdb_source_id}"
+                target_feed = feed_map.get(target_stable_id, None)
+
+                if target_feed:
+                    if target_feed.id != feed.id:
+                        redirect = Redirectingid(source_id=feed.id, target_id=target_feed.id, redirect_comment=comment)
+                        add_entity(redirect, 5)
+                    else:
+                        self.logger.error(f"Feed has redirect pointing to itself {mdb_id}")
+                else:
+                    self.logger.warn(f"Could not find redirect target feed {target_stable_id} for feed {mdb_id}")
 
         priority = 1
         while not entities_index.empty():

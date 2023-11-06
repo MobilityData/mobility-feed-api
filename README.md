@@ -59,14 +59,6 @@ docker-compose --env-file ./config/.env.local  up schemaspy -d --force-recreate
 scripts/api-start.sh
 ```
 
-## Unit tests
-Test are located in `tests` directory.
-
-To run all tests:
-```bash
-scripts/api-start.sh
-```
-
 ## Linter
 This repository uses Flak8 and Black for code styling
 
