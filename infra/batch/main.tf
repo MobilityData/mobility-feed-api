@@ -33,6 +33,7 @@ resource "google_storage_bucket" "bucket" {
   location = var.gcp_region
 }
 
+
 resource "google_storage_bucket_object" "object" {
   name            = "${var.source_code_path}${filesha256(var.source_code_zip_file)}.zip"
   bucket          = google_storage_bucket.bucket.name
@@ -62,6 +63,45 @@ resource "google_cloudfunctions2_function" "http_function" {
     timeout_seconds       = var.http_timeout_seconds
     environment_variables = var.function_env_variables
     service_account_email = data.google_service_account.ci_impersonator_service_account.email
+  }
+}
+
+resource "google_datastore_index" "dataset_processing_index" {
+  project     = var.project_id
+  kind        = "historical_dataset_batch"
+  properties {
+    name        = "stable_id"
+    direction  = "ASCENDING"
+  }
+  properties {
+    name        = "timestamp"
+    direction  = "ASCENDING"
+  }
+}
+
+resource "google_datastore_index" "dataset_processing_index_2" {
+  project     = var.project_id
+  kind        = "historical_dataset_batch"
+  properties {
+    name        = "status"
+    direction  = "ASCENDING"
+  }
+  properties {
+    name        = "timestamp"
+    direction  = "ASCENDING"
+  }
+}
+
+resource "google_datastore_index" "dataset_processing_index_3" {
+  project     = var.project_id
+  kind        = "historical_dataset_batch"
+  properties {
+    name        = "stable_id"
+    direction  = "ASCENDING"
+  }
+  properties {
+    name        = "status"
+    direction  = "ASCENDING"
   }
 }
 

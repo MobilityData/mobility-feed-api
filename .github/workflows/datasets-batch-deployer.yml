@@ -185,10 +185,26 @@ jobs:
         env:
           FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="${{  inputs.DATASETS_BUCKET }}", "POSTGRES_USER"="${{ secrets.POSTGRES_USER }}", "POSTGRES_PASSWORD"="${{ secrets.POSTGRES_PASSWORD }}", "POSTGRES_DB"="${{ inputs.POSTGRES_DB }}", "POSTGRES_PORT"="${{ inputs.POSTGRES_PORT }}", "POSTGRES_HOST"="${{ secrets.POSTGRES_HOST }}", "PUBSUB_TOPIC_NAME"="${{ inputs.PUBSUB_TOPIC_NAME }}", "PROJECT_ID"="${{ inputs.PROJECT_ID }}"'
 
+      - name: Docker Compose DB/Liquibase for db-gen.sh
+        run: docker-compose --env-file ./config/.env.local up -d liquibase
+        working-directory: ${{ github.workspace }}
+
+      - name: Generate DB models
+        run: |
+          mkdir batch/database_gen/
+          scripts/db-gen.sh batch/database_gen/sqlacodegen_models.py
+
       - name: Zip source code
         run: |
-          cd infra/batch
-          zip -r -j ${{ inputs.SOURCE_CODE_ZIP_FILE }} ${{ inputs.SOURCE_ZIP_PATH }}*
+          cd batch
+          mkdir temp_zip_folder
+          rsync -av --exclude '__init__.py' ${{ inputs.SOURCE_ZIP_PATH }}* temp_zip_folder/
+          cp -R helpers temp_zip_folder
+          cp -R database_gen temp_zip_folder
+          cd temp_zip_folder
+          zip -r ../${{ inputs.SOURCE_CODE_ZIP_FILE }} *
+          cd ..
+          cp ${{ inputs.SOURCE_CODE_ZIP_FILE }} ../infra/batch/${{ inputs.SOURCE_CODE_ZIP_FILE }}
 
       # Clearing previous versions of the source code
       - name: Clear Folder in GCP Bucket
