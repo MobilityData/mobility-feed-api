@@ -6,10 +6,12 @@ from database_gen.sqlacodegen_models import Feed, Externalid, Location, Gtfsdata
 
 redirect_target_id = "test_target_id"
 redirect_comment = "Some comment"
-expected_redirect_response = { "target_id": redirect_target_id, "comment":redirect_comment}
+expected_redirect_response = {"target_id": redirect_target_id, "comment": redirect_comment}
+
+
 def check_redirect(response: dict):
     assert (
-        response["redirects"][0] == expected_redirect_response
+            response["redirects"][0] == expected_redirect_response
     ), f'Response feed redirect was {response["redirects"][0]} instead of {expected_redirect_response}'
 
 
@@ -69,6 +71,7 @@ def test_feed_get(client: TestClient, mocker):
 
     check_redirect(response_feed)
 
+
 def test_gtfs_feeds_get(client: TestClient, mocker):
     """
     Unit test for get_gtfs_feeds
@@ -83,7 +86,8 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         subdivision_name="test_subdivision_name",
         municipality="test_municipality",
     )
-    mock_select.return_value = [[(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]]
+    mock_select.return_value = [
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]]
 
     response = client.request(
         "GET",
@@ -141,7 +145,8 @@ def test_gtfs_feed_get(client: TestClient, mocker):
         subdivision_name="test_subdivision_name",
         municipality="test_municipality",
     )
-    mock_select.return_value = [[(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]]
+    mock_select.return_value = [
+        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]]
 
     response = client.request(
         "GET",

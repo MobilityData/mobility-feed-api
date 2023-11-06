@@ -13,7 +13,6 @@ from sqlalchemy import inspect
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import (
     Component,
-    Feed,
     Entitytype,
     Externalid,
     Gtfsdataset,
@@ -139,7 +138,7 @@ class DatabasePopulateHelper:
                 feed_name=row["name"],
                 note=row["note"],
                 producer_url=row["urls.direct_download"],
-                authentication_type = str(int(row.get("urls.authentication_type", "0") or "0")),
+                authentication_type=str(int(row.get("urls.authentication_type", "0") or "0")),
                 authentication_info_url=row["urls.authentication_info"],
                 api_key_parameter_name=row["urls.api_key_parameter_name"],
                 license_url=row["urls.license"],
@@ -216,7 +215,6 @@ class DatabasePopulateHelper:
                     entity_type = Entitytype(name=entity_type_name)
                     entity_type.feeds.append(feed)
                     add_entity(entity_type, 4)
-
 
             # External ID
             mdb_external_id = Externalid(

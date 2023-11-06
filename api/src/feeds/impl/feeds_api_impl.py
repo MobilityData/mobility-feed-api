@@ -239,7 +239,8 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         gtfs_rt_feeds = []
         for feed_group in feed_groups:
-            feed_objects, redirect_ids, external_ids, redirect_comments, entity_types, feed_references = zip(*feed_group)
+            feed_objects, redirect_ids, external_ids, redirect_comments, entity_types, feed_references = zip(
+                *feed_group)
 
             # Put together the redirect ids and the corresponding comments. Eliminate Nones.
             redirects_list = [Redirect(target_id=redirect, comment=comment) for redirect, comment in
