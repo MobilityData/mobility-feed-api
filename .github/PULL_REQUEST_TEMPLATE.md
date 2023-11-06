@@ -9,7 +9,7 @@ Explain and/or show screenshots for how you expect the pull request to work in y
 **Testing tips:**
 
 Provide tips, procedures and sample files on how to test the feature.
-Testers are invited to follow the tips AND to try anything then deem pertinent outside the bounds of the testing tips. 
+Testers are invited to follow the tips AND to try anything they deem relevant outside the bounds of the testing tips. 
 
 Please make sure these boxes are checked before submitting your pull request - thanks!
 
