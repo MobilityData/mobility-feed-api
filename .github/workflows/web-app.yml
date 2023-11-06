@@ -130,7 +130,7 @@ jobs:
               echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.QA_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
               echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.QA_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
           elif [[ $GITHUB_EVENT_NAME == 'release' ]]; then
-            echo "Setting FIREBASE_PROJECT to 'release'"
+            echo "Setting FIREBASE_PROJECT to 'prod'"
             echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
             echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.PROD_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
             echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.PROD_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV

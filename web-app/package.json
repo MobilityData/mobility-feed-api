@@ -35,10 +35,11 @@
   "scripts": {
     "start:dev": "env-cmd -f src/.env.dev react-scripts start",
     "start:qa": "env-cmd -f src/.env.qa react-scripts start",
+    "start:prod": "env-cmd -f src/.env.prod react-scripts start",
     "start:test": "env-cmd -f src/.env.test react-scripts start",
     "build:dev": "CI=false env-cmd -f src/.env.dev react-scripts build",
     "build:qa": "CI=false env-cmd -f src/.env.qa react-scripts build",
-    "start:prod": "env-cmd -f src/.env.prod react-scripts start",
+    "build:prod": "CI=false env-cmd -f src/.env.prod react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "lint": "eslint 'src/app/**/*.{js,ts,tsx}'",
