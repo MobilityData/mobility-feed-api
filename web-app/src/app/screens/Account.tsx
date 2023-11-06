@@ -165,6 +165,7 @@ export default function APIAccount(): React.ReactElement {
     setAccountState({
       ...accountState,
       accessTokenGenerated: true,
+      tokenExpired: undefined,
     });
     dispatch(requestRefreshAccessToken());
   };
@@ -501,7 +502,7 @@ export default function APIAccount(): React.ReactElement {
                 <Typography color='error' sx={{ mb: 2 }}>
                   <WarningAmberOutlined style={{ verticalAlign: 'bottom' }} />
                   {accountState.tokenExpired === true
-                    ? 'Token expired.'
+                    ? 'Token expired'
                     : `Your token will expire in ${timeLeftForTokenExpiration}`}
                   .
                 </Typography>
