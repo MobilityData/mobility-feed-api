@@ -13,7 +13,7 @@ env:
   FIREBASE_PROJECT: dev
 
 jobs:
-  list-test:
+  lint-test:
     name: Test
     runs-on: ubuntu-latest
     steps:
@@ -46,6 +46,10 @@ jobs:
         working-directory: web-app
         run: yarn lint
 
+      - name: Unit tests
+        working-directory: web-app
+        run: yarn test:ci
+        
       - name: Cypress test
         uses: cypress-io/github-action@v6
         with:
@@ -68,7 +72,7 @@ jobs:
   build:
     name: "Build & Deploy"
     permissions: write-all
-    needs: [ list-test ]
+    needs: [lint-test ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

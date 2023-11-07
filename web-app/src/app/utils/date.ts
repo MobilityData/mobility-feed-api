@@ -1,28 +1,35 @@
 import { utcToZonedTime } from 'date-fns-tz';
-import { intervalToDuration } from 'date-fns';
+import { intervalToDuration, isFuture } from 'date-fns';
 
-export function getTimeLeftForTokenExpiration(
-  timeZone: string,
-  dateString?: string,
-): string {
-  if (dateString === undefined) return 'No date provided';
+/**
+ *
+ * @param dateString date in ISO format
+ * @returns Duration object with the time left for the token to expire
+ */
+export const getTimeLeftForTokenExpiration = (
+  dateString: string,
+): { future: boolean; duration: Duration } => {
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const targetDate = utcToZonedTime(new Date(dateString), timeZone);
   const now = utcToZonedTime(new Date(), timeZone);
 
-  const duration = intervalToDuration({ start: now, end: targetDate });
-  if (
-    duration.days === undefined ||
-    duration.hours === undefined ||
-    duration.minutes === undefined ||
-    duration.seconds === undefined
-  )
-    return 'No date provided';
+  return {
+    future: isFuture(targetDate),
+    duration: intervalToDuration({ start: now, end: targetDate }),
+  };
+};
 
-  const hours = (duration.days * 24 + duration.hours)
+/**
+ *
+ * @param duration Duration object
+ * @returns the formatted string of the duration wiht the pattern HH:MM:SS
+ */
+export const formatTokenExpiration = (duration: Duration): string => {
+  const hours = ((duration?.days ?? 0) * 24 + (duration?.hours ?? 0))
     .toString()
     .padStart(2, '0');
-  const minutes = duration.minutes.toString().padStart(2, '0');
-  const seconds = duration.seconds.toString().padStart(2, '0');
+  const minutes = (duration?.minutes ?? 0).toString().padStart(2, '0');
+  const seconds = (duration?.seconds ?? 0).toString().padStart(2, '0');
 
-  return `Your token will expire in ${hours}:${minutes}:${seconds}`;
-}
+  return `${hours}:${minutes}:${seconds}`;
+};
