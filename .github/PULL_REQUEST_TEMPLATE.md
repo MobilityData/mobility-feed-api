@@ -6,6 +6,10 @@ Summarize the changes in the pull request including how it relates to any issues
 
 Explain and/or show screenshots for how you expect the pull request to work in your testing (in case other devices exhibit different behavior).
 
+**Testing tips:**
+
+Provide tips, procedures and sample files on how to test the feature.
+Testers are invited to follow the tips AND to try anything they deem relevant outside the bounds of the testing tips. 
 
 Please make sure these boxes are checked before submitting your pull request - thanks!
 

@@ -15,3 +15,4 @@ postgresql_database_name = {{POSTGRE_SQL_DB_NAME}}
 postgresql_user_name     = {{POSTGRE_USER_NAME}}
 postgresql_user_password = {{POSTGRE_USER_PASSWORD}}
 postgresql_db_instance = {{POSTGRE_INSTANCE_TIER}}
+max_db_connections = {{MAX_CONNECTIONS}}

@@ -30,17 +30,17 @@ export const USER_PROFILE_LOGOUT_SUCCESS = `${USER_PROFILE}/logoutSuccess`;
 export const USER_PROFILE_SIGNUP = `${USER_PROFILE}/signUp`;
 export const USER_PROFILE_SIGNUP_SUCCESS = `${USER_PROFILE}/signUpSuccess`;
 export const USER_PROFILE_SIGNUP_FAIL = `${USER_PROFILE}/signUpFail`;
-export const USER_PROFILE_LOAD_ORGANIZATION = `${USER_PROFILE}/loadOrganization`;
-export const USER_PROFILE_LOAD_ORGANIZATION_SUCCESS = `${USER_PROFILE}/loadOrganizationSuccess`;
 export const USER_REQUEST_REFRESH_ACCESS_TOKEN = `${USER_PROFILE}/requestRefreshAccessToken`;
 export const USER_PROFILE_LOAD_ORGANIZATION_FAIL = `${USER_PROFILE}/loadOrganizationFail`;
 export const USER_PROFILE_LOGIN_WITH_PROVIDER = `${USER_PROFILE}/loginWithProvider`;
+export const USER_PROFILE_REFRESH_INFORMATION = `${USER_PROFILE}/refreshUserInformation`;
 
 export enum ErrorSource {
   SignUp = 'SignUp',
   Login = 'Login',
   Logout = 'Logout',
   RefreshingAccessToken = 'RefreshingAccessToken',
+  Registration = 'Registration',
 }
 
 export interface AppError {

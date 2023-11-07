@@ -27,6 +27,10 @@ resource "google_sql_database_instance" "db" {
 
   settings {
     tier = var.postgresql_db_instance
+    database_flags {
+      name  = "max_connections"
+      value = var.max_db_connections
+    }
     ip_configuration {
       ipv4_enabled = true
 

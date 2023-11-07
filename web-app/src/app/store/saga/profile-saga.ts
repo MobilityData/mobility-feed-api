@@ -1,19 +1,23 @@
-import { type StrictEffect, call, takeLatest, put } from 'redux-saga/effects';
 import {
-  USER_PROFILE_LOAD_ORGANIZATION,
-  USER_PROFILE_LOAD_ORGANIZATION_SUCCESS,
+  type StrictEffect,
+  call,
+  takeLatest,
+  put,
+  select,
+} from 'redux-saga/effects';
+import {
+  USER_PROFILE_REFRESH_INFORMATION,
   USER_REQUEST_REFRESH_ACCESS_TOKEN,
   type User,
 } from '../../types';
-import { generateUserAccessToken, getUserOrganization } from '../../services';
-import { refreshAccessToken } from '../profile-reducer';
-
-function* loadUserOrganizationSaga(): Generator<StrictEffect, void, User> {
-  try {
-    const organization = yield call(getUserOrganization);
-    console.log(organization);
-  } catch (error) {}
-}
+import { generateUserAccessToken, updateUserInformation } from '../../services';
+import {
+  refreshAccessToken,
+  refreshUserInformationFail,
+  refreshUserInformationSuccess,
+} from '../profile-reducer';
+import { getAppError } from '../../utils/error';
+import { selectUserProfile } from '../profile-selectors';
 
 function* refreshAccessTokenSaga(): Generator<StrictEffect, void, User> {
   try {
@@ -26,16 +30,19 @@ function* refreshAccessTokenSaga(): Generator<StrictEffect, void, User> {
   }
 }
 
-// eslint-disable-next-line require-yield
-function* saveUserOrganizationSaga(): Generator<StrictEffect, void, User> {
-  throw new Error('Not implemented');
+function* refreshUserInformation(): Generator<StrictEffect, void, User> {
+  try {
+    const user = yield select(selectUserProfile);
+    if (user?.fullname !== undefined) {
+      yield call(updateUserInformation, { fullname: user.fullname });
+      yield put(refreshUserInformationSuccess());
+    }
+  } catch (error) {
+    yield put(refreshUserInformationFail(getAppError(error)));
+  }
 }
 
 export function* watchProfile(): Generator {
-  yield takeLatest(USER_PROFILE_LOAD_ORGANIZATION, loadUserOrganizationSaga);
-  yield takeLatest(
-    USER_PROFILE_LOAD_ORGANIZATION_SUCCESS,
-    saveUserOrganizationSaga,
-  );
   yield takeLatest(USER_REQUEST_REFRESH_ACCESS_TOKEN, refreshAccessTokenSaga);
+  yield takeLatest(USER_PROFILE_REFRESH_INFORMATION, refreshUserInformation);
 }

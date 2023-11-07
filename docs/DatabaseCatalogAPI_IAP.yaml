@@ -13,12 +13,15 @@ info:
     url: https://mobilitydata.org/license
 
 servers:
-  - url: http://localhost:8080/
-    description: Local development environment
+# Replace beta address with prod address when ready
+  - url: https://beta.mobilitydatabase.org/
+    description: Beta release environment
   - url: https://api-qa.mobilitydatabase.org/
     description: Pre-prod environment
   - url: https://api-dev.mobilitydatabase.org/
-    description: Development environment
+    description: Development environment    
+  - url: http://localhost:8080/
+    description: Local development environment
 
 tags:
   - name: "feeds"
@@ -233,13 +236,24 @@ paths:
 
 components:
   schemas:
+    Redirect:
+      type: object
+      properties:
+        target_id:
+          description: The feed ID that should be used in replacement of the current one.
+          type: string
+          example: mdb-10
+        comment:
+          description: A comment explaining the redirect.
+          type: string
+          example: Redirected because of a change of URL.
     BasicFeed:
       type: object
       properties:
         id:
           description: Unique identifier used as a key for the feeds table.
           type: string
-          example: mdb_10
+          example: mdb-10
         data_type:
           type: string
           enum:
@@ -285,11 +299,7 @@ components:
         redirects:
           type: array
           items:
-            description: >
-              The feed ID that should be used in replacement of the current one. 
-              A redirect is defined when several expired feeds are aggregated together or split into new feeds.
-            type: string
-            example: mdb-100
+            $ref: "#/components/schemas/Redirect"
 
     GtfsFeed:
       allOf:
