@@ -316,7 +316,7 @@ export default function APIAccount(): React.ReactElement {
                       disabled={user?.refreshToken === undefined}
                       onClick={() => {
                         handleCopyTokenToClipboard(
-                          user!.refreshToken!,
+                          user?.refreshToken,
                           setRefreshTokenCopyResult,
                           setShowRefreshTokenCopiedTooltip,
                         );
@@ -427,7 +427,7 @@ export default function APIAccount(): React.ReactElement {
                           disabled={user?.accessToken === undefined}
                           onClick={() => {
                             handleCopyTokenToClipboard(
-                              user!.accessToken!,
+                              user?.accessToken,
                               setAccessTokenCopyResult,
                               setShowAccessTokenCopiedTooltip,
                             );
