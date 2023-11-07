@@ -68,18 +68,11 @@ export const generateUserAccessToken = async (): Promise<User | null> => {
   const refreshToken = currentUser.refreshToken;
   let accessToken: string | undefined = undefined;
   let accessTokenExpirationTime: string | undefined = undefined;
-  try {
-    const idTokenResult = await currentUser.getIdTokenResult(true);
-    console.log('idTokenResult', idTokenResult);
-    accessToken = idTokenResult.token;
-    accessTokenExpirationTime = idTokenResult.expirationTime;
-    console.log('accessTokenExpirationTime', accessTokenExpirationTime);
-    //refreshingAccessToken false
-  } catch (error) {
-    console.log('error', error);
-    //show an error message
-    //refreshingAccessToken false
-  }
+
+  const idTokenResult = await currentUser.getIdTokenResult(true);
+  accessToken = idTokenResult.token;
+  accessTokenExpirationTime = idTokenResult.expirationTime;
+
   return {
     fullname: currentUser?.displayName ?? undefined,
     email: currentUser?.email ?? '',

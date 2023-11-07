@@ -128,31 +128,29 @@ export default function APIAccount(): React.ReactElement {
     [accountState],
   );
 
-  // const handleCopyToken = (token: string, onClick: () => void, ): void => {
-  //   let token: string | undefined;
-  //   let showToken: string;
-  //   switch (tokenType) {
-  //     case TokenTypes.Access:
-  //       token = user?.accessToken;
-  //       showToken = 'showAccessToken';
-  //       break;
-  //     case TokenTypes.Refresh:
-  //       token = user?.refreshToken;
-  //       showToken = 'showRefreshToken';
-  //       break;
-  //   }
-  //   if (token === undefined) {
-  //     return;
-  //   }
-
-  //   navigator.clipboard
-  //     .writeText(token)
-  //     .then(() => {
-  //     )
-  //     .catch((error) => {
-  //       console.error('Could not copy text: ', error);
-  //     });
-  // };
+  const handleCopyTokenToClipboard = React.useCallback(
+    (
+      token: string,
+      setResult: (result: string) => void,
+      setShowTooltip: (showToolTip: boolean) => void,
+    ): void => {
+      navigator.clipboard
+        .writeText(token)
+        .then(() => {
+          setResult(texts.copied);
+        })
+        .catch((error) => {
+          setResult(`Could not copy text: ${error}`);
+        })
+        .finally(() => {
+          setShowTooltip(true);
+          setTimeout(() => {
+            setShowTooltip(false);
+          }, 1000);
+        });
+    },
+    [],
+  );
 
   const handleGenerateAccessToken = (): void => {
     setAccountState({
@@ -321,23 +319,11 @@ export default function APIAccount(): React.ReactElement {
                       edge='end'
                       disabled={user?.refreshToken === undefined}
                       onClick={() => {
-                        navigator.clipboard
-                          .writeText(user!.refreshToken!)
-                          .then(() => {
-                            setRefreshTokenCopyResult(texts.copied);
-                          })
-                          .catch((error) => {
-                            setRefreshTokenCopyResult(
-                              `Could not copy text: ${error}`,
-                            );
-                            console.error('Could not copy text: ', error);
-                          })
-                          .finally(() => {
-                            setShowRefreshTokenCopiedTooltip(true);
-                            setTimeout(() => {
-                              setShowRefreshTokenCopiedTooltip(false);
-                            }, 1000);
-                          });
+                        handleCopyTokenToClipboard(
+                          user!.refreshToken!,
+                          setRefreshTokenCopyResult,
+                          setShowRefreshTokenCopiedTooltip,
+                        );
                       }}
                       sx={{
                         display: 'inline-block',
@@ -444,23 +430,11 @@ export default function APIAccount(): React.ReactElement {
                           edge='end'
                           disabled={user?.accessToken === undefined}
                           onClick={() => {
-                            navigator.clipboard
-                              .writeText(user!.accessToken!)
-                              .then(() => {
-                                setAccessTokenCopyResult(texts.copied);
-                              })
-                              .catch((error) => {
-                                setAccessTokenCopyResult(
-                                  `Could not copy text: ${error}`,
-                                );
-                                console.error('Could not copy text: ', error);
-                              })
-                              .finally(() => {
-                                setShowAccessTokenCopiedTooltip(true);
-                                setTimeout(() => {
-                                  setShowAccessTokenCopiedTooltip(false);
-                                }, 1000);
-                              });
+                            handleCopyTokenToClipboard(
+                              user!.accessToken!,
+                              setAccessTokenCopyResult,
+                              setShowAccessTokenCopiedTooltip,
+                            );
                           }}
                           sx={{
                             display: 'inline-block',

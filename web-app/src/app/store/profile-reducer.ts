@@ -9,7 +9,7 @@ import {
 import { type NavigateFunction } from 'react-router-dom';
 import { type UserCredential } from 'firebase/auth';
 
-export interface UserProfileState {
+interface UserProfileState {
   status:
     | 'unauthenticated'
     | 'login_in'
@@ -101,7 +101,6 @@ export const userProfileSlice = createSlice({
       state.errors = { ...initialState.errors };
     },
     requestRefreshAccessToken: (state) => {
-      console.log('requestRefreshAccessToken');
       state.isRefreshingAccessToken = true;
       state.errors = { ...initialState.errors };
     },
