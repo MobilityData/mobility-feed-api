@@ -18,3 +18,9 @@ export const selectEmailLoginError = (state: RootState): AppError | null =>
 
 export const selectSignUpError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.SignUp);
+
+export const selectRefreshingAccessTokenError = (state: RootState): AppError | null =>
+  selectErrorBySource(state, ErrorSource.RefreshingAccessToken);
+
+export const selectIsRefreshingAccessToken = (state: RootState): boolean =>
+  state.userProfile.isRefreshingAccessToken;

@@ -22,6 +22,7 @@ const persistConfig = {
   key: 'root',
   version: 1,
   storage,
+  blacklist: ['userProfile.errors', 'userProfile.isRefreshingAccessToken'],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

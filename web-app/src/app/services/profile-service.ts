@@ -1,6 +1,7 @@
 import { type AdditionalUserInfo } from 'firebase/auth';
 import { app } from '../../firebase';
 import { type OauthProvider, type User } from '../types';
+import { access } from 'fs';
 
 /**
  * Send an email verification to the current user.
@@ -38,14 +39,47 @@ export const getUserFromSession = async (): Promise<User | null> => {
 };
 
 export const generateUserAccessToken = async (): Promise<User | null> => {
+  // FIXME: currentUser is always null on the first call.
+  // It works on the second call.
+  // See https://firebase.google.com/docs/auth/web/manage-users#get_the_currently_signed-in_user
+  // > Note: currentUser might also be null because the auth object has not finished initializing.
+  // > If you use an observer to keep track of the user's sign-in status, you don't need to handle this case.
+
+  // Below is a workaround to make it work.
+  // app.auth();
+  // await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // The better fix would be to use the onAuthStateChanged callback.
+  /*
+  app.auth().onAuthStateChanged((user) => {
+    if (user) {
+      console.log('User is signed in.');
+    } else {
+      console.log('No user is signed in.');
+    }
+  }*/
+  // I suggest to use the check above to test if the user is logged in, and update userProfileSlice accordingly.
+  // When the user is no longer logged in, we should redirect to the login page.
+
   const currentUser = app.auth().currentUser;
   if (currentUser === null) {
     return null;
   }
-  const idTokenResult = await currentUser.getIdTokenResult(true);
   const refreshToken = currentUser.refreshToken;
-  const accessToken = idTokenResult.token;
-  const accessTokenExpirationTime = idTokenResult.expirationTime;
+  let accessToken: string | undefined = undefined;
+  let accessTokenExpirationTime: string | undefined = undefined;
+  try {
+    const idTokenResult = await currentUser.getIdTokenResult(true);
+    console.log('idTokenResult', idTokenResult);
+    accessToken = idTokenResult.token;
+    accessTokenExpirationTime = idTokenResult.expirationTime;
+    console.log('accessTokenExpirationTime', accessTokenExpirationTime);
+    //refreshingAccessToken false
+  } catch (error) {
+    console.log('error', error);
+    //show an error message
+    //refreshingAccessToken false
+  }
   return {
     fullname: currentUser?.displayName ?? undefined,
     email: currentUser?.email ?? '',

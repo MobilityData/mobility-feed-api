@@ -40,6 +40,7 @@ export enum ErrorSource {
   SignUp = 'SignUp',
   Login = 'Login',
   Logout = 'Logout',
+  RefreshingAccessToken = 'RefreshingAccessToken',
 }
 
 export interface AppError {
