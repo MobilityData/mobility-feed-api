@@ -240,7 +240,7 @@ components:
       type: object
       properties:
         target_id:
-          description: ID of the feed to which the current feed is being redirected.
+          description: The feed ID that should be used in replacement of the current one.
           type: string
           example: mdb-10
         comment:
