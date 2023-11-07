@@ -1,7 +1,6 @@
 import { updateProfile, type AdditionalUserInfo } from 'firebase/auth';
 import { app } from '../../firebase';
 import { type OauthProvider, type User } from '../types';
-import { access } from 'fs';
 
 /**
  * Send an email verification to the current user.
@@ -57,7 +56,7 @@ export const generateUserAccessToken = async (): Promise<User | null> => {
     } else {
       console.log('No user is signed in.');
     }
-  }*/
+  } */
   // I suggest to use the check above to test if the user is logged in, and update userProfileSlice accordingly.
   // When the user is no longer logged in, we should redirect to the login page.
 
@@ -66,12 +65,10 @@ export const generateUserAccessToken = async (): Promise<User | null> => {
     return null;
   }
   const refreshToken = currentUser.refreshToken;
-  let accessToken: string | undefined = undefined;
-  let accessTokenExpirationTime: string | undefined = undefined;
 
   const idTokenResult = await currentUser.getIdTokenResult(true);
-  accessToken = idTokenResult.token;
-  accessTokenExpirationTime = idTokenResult.expirationTime;
+  const accessToken = idTokenResult.token;
+  const accessTokenExpirationTime = idTokenResult.expirationTime;
 
   return {
     fullname: currentUser?.displayName ?? undefined,
