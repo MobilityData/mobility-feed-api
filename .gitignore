@@ -60,3 +60,4 @@ config/.env.dev
 venv
 
 __pycache__
+/functions-python/*/.env.local

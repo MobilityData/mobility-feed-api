@@ -1,0 +1,5 @@
+{
+  "function_name": "tokens-api",
+  "entry_point": "tokens_post",
+  "path": "/v1/tokens/*"
+}

@@ -1,0 +1,53 @@
+openapi: 3.0.0
+info:
+  version: 0.1.0
+  title: Mobility Data Catalog API
+  description: API as required in the _Proposed Version 1_ from the _Product Requirement Document for the Mobility Database_
+  termsOfService: https://mobilitydata.org/terms-of-use
+  contact:
+    name: MobilityData
+    url: https://mobilitydata.org/
+    email: it@mobilitydata.org
+  license:
+    name: MobilityData License
+    url: https://mobilitydata.org/license
+
+servers:
+# Replace beta address with prod address when ready
+  - url: https://beta.mobilitydatabase.org/
+    description: Beta release environment
+  - url: https://api-qa.mobilitydatabase.org/
+    description: Pre-prod environment
+  - url: https://api-dev.mobilitydatabase.org/
+    description: Development environment    
+  - url: http://localhost:8080/
+    description: Local development environment
+
+tags:
+  - name: "tokens"
+    description: "Token to access the API"
+
+paths:
+  /v1/tokens/access:
+    post:
+      description: Create an access token.
+      tags:
+        - "tokens"
+      operationId: postAccessToken
+      consumes:
+        - application/json
+      parameters:
+        - in: body
+          description: The refresh token.
+          schema:
+            $ref: '#/components/schemas/PostAccessTokenBody'
+
+components:
+  schemas:
+    PostAccessTokenBody:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required:
+        - refresh_token
