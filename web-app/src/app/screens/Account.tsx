@@ -315,11 +315,13 @@ export default function APIAccount(): React.ReactElement {
                       edge='end'
                       disabled={user?.refreshToken === undefined}
                       onClick={() => {
-                        handleCopyTokenToClipboard(
-                          user?.refreshToken,
-                          setRefreshTokenCopyResult,
-                          setShowRefreshTokenCopiedTooltip,
-                        );
+                        if (user?.refreshToken != null) {
+                          handleCopyTokenToClipboard(
+                            user.refreshToken,
+                            setRefreshTokenCopyResult,
+                            setShowRefreshTokenCopiedTooltip,
+                          );
+                        }
                       }}
                       sx={{
                         display: 'inline-block',
@@ -426,11 +428,13 @@ export default function APIAccount(): React.ReactElement {
                           edge='end'
                           disabled={user?.accessToken === undefined}
                           onClick={() => {
-                            handleCopyTokenToClipboard(
-                              user?.accessToken,
-                              setAccessTokenCopyResult,
-                              setShowAccessTokenCopiedTooltip,
-                            );
+                            if (user?.accessToken != null) {
+                              handleCopyTokenToClipboard(
+                                user.accessToken,
+                                setAccessTokenCopyResult,
+                                setShowAccessTokenCopiedTooltip,
+                              );
+                            }
                           }}
                           sx={{
                             display: 'inline-block',
