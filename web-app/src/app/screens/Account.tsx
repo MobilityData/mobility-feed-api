@@ -10,6 +10,8 @@ import {
   Paper,
   Box,
   Tooltip,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   AccountCircleOutlined,
@@ -21,36 +23,65 @@ import {
   WarningAmberOutlined,
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
-import { selectUserProfile } from '../store/selectors';
+import {
+  selectIsRefreshingAccessToken,
+  selectRefreshingAccessTokenError,
+  selectUserProfile,
+} from '../store/selectors';
 import { useAppDispatch } from '../hooks';
 import { requestRefreshAccessToken } from '../store/profile-reducer';
 import { getTimeLeftForTokenExpiration } from '../utils/date';
 import LogoutConfirmModal from '../components/LogoutConfirmModal';
-
-interface APIAccountState {
-  refreshToken: string;
+export interface APIAccountState {
   showRefreshToken: boolean;
   showAccessToken: boolean;
   accessTokenGenerated: boolean;
-  accessToken: string;
   codeBlockTooltip: string;
 }
+
+enum TokenTypes {
+  Access = 'accessToken',
+  Refresh = 'refreshToken',
+}
+
+const texts = {
+  accessTokenHidden: 'Your access token is hidden',
+  refreshTokenHidden: 'Your refresh token is hidden',
+  copyAccessToken: 'Copy Access Token',
+  copyAccessTokenToClipboard: 'Copy access token to clipboard',
+  copyRefreshToken: 'Copy Refresh Token',
+  copyRefreshTokenToClipboard: 'Copy refresh token to clipboard',
+  copyToClipboard: 'Copy to clipboard',
+  copied: 'Copied!',
+  tokenUnavailable: 'Your token is unavailable',
+};
 
 export default function APIAccount(): React.ReactElement {
   const dispatch = useAppDispatch();
   const user = useSelector(selectUserProfile);
+  const refreshingAccessTokenError = useSelector(
+    selectRefreshingAccessTokenError,
+  );
+  const isRefreshingAccessToken = useSelector(selectIsRefreshingAccessToken);
+
   const [accountState, setAccountState] = React.useState<APIAccountState>({
-    refreshToken: 'Your refresh token is hidden',
     showRefreshToken: false,
     showAccessToken: false,
     accessTokenGenerated: false,
-    accessToken: 'Your access token is hidden',
-    codeBlockTooltip: 'Copy to clipboard',
+    codeBlockTooltip: texts.copyToClipboard,
   });
 
   const [timeLeftForTokenExpiration, setTimeLeftForTokenExpiration] =
     React.useState<string>('');
   const [openDialog, setOpenDialog] = React.useState<boolean>(false);
+  const [showAccessTokenCopiedTooltip, setShowAccessTokenCopiedTooltip] =
+    React.useState(false);
+  const [accessTokenCopyResult, setAccessTokenCopyResult] =
+    React.useState<string>('');
+  const [showRefreshTokenCopiedTooltip, setShowRefreshTokenCopiedTooltip] =
+    React.useState(false);
+  const [refreshTokenCopyResult, setRefreshTokenCopyResult] =
+    React.useState<string>('');
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -71,67 +102,51 @@ export default function APIAccount(): React.ReactElement {
         clearInterval(interval);
       }
     };
-  }, [user]);
+  }, [user?.accessTokenExpirationTime]);
 
-  const handleClickShowToken = (
-    tokenType: 'refreshToken' | 'accessToken',
-  ): void => {
-    let token =
-      tokenType === 'refreshToken' ? user?.refreshToken : user?.accessToken;
-    if (token === undefined) token = 'Your token is unavailable';
-    const hiddenMessage =
-      tokenType === 'refreshToken'
-        ? 'Your refresh token is hidden'
-        : 'Your access token is hidden';
-    const showToken =
-      tokenType === 'refreshToken' ? 'showRefreshToken' : 'showAccessToken';
-
-    setAccountState({
-      ...accountState,
-      [showToken]: !accountState[showToken],
-      [tokenType]: accountState[showToken] ? hiddenMessage : token,
-    });
-  };
-
-  const handleCopyToken = (tokenType: 'refreshToken' | 'accessToken'): void => {
-    const token =
-      tokenType === 'refreshToken' ? user?.refreshToken : user?.accessToken;
-    const hiddenMessage =
-      tokenType === 'refreshToken'
-        ? 'Your key is hidden'
-        : 'Your access token is hidden';
-    const showToken =
-      tokenType === 'refreshToken' ? 'showRefreshToken' : 'showAccessToken';
-    if (token === undefined) {
-      setAccountState({
-        ...accountState,
-        [tokenType]: 'Your token is unavailable',
-      });
-      setTimeout(() => {
-        setAccountState({
-          ...accountState,
-          [tokenType]: hiddenMessage,
-          [showToken]: false,
-        });
-      }, 1000);
-      return;
-    }
-    navigator.clipboard
-      .writeText(token)
-      .then(() => {
-        setAccountState({ ...accountState, [tokenType]: 'Copied!' });
-        setTimeout(() => {
+  const handleClickShowToken = React.useCallback(
+    (tokenType: TokenTypes): void => {
+      switch (tokenType) {
+        case TokenTypes.Access:
           setAccountState({
             ...accountState,
-            [tokenType]: hiddenMessage,
-            [showToken]: false,
+            showAccessToken: !accountState.showAccessToken,
           });
-        }, 1000);
-      })
-      .catch((error) => {
-        console.error('Could not copy text: ', error);
-      });
-  };
+          break;
+        case TokenTypes.Refresh:
+          setAccountState({
+            ...accountState,
+            showRefreshToken: !accountState.showRefreshToken,
+          });
+          break;
+      }
+    },
+    [accountState],
+  );
+
+  const handleCopyTokenToClipboard = React.useCallback(
+    (
+      token: string,
+      setResult: (result: string) => void,
+      setShowTooltip: (showToolTip: boolean) => void,
+    ): void => {
+      navigator.clipboard
+        .writeText(token)
+        .then(() => {
+          setResult(texts.copied);
+        })
+        .catch((error) => {
+          setResult(`Could not copy text: ${error}`);
+        })
+        .finally(() => {
+          setShowTooltip(true);
+          setTimeout(() => {
+            setShowTooltip(false);
+          }, 1000);
+        });
+    },
+    [],
+  );
 
   const handleGenerateAccessToken = (): void => {
     setAccountState({
@@ -171,6 +186,10 @@ export default function APIAccount(): React.ReactElement {
     setOpenDialog(true);
   }
 
+  const refreshAccessTokenButtonText = isRefreshingAccessToken
+    ? 'Refreshing Access token...'
+    : 'Refresh Access token';
+
   return (
     <Container
       component={'main'}
@@ -182,6 +201,9 @@ export default function APIAccount(): React.ReactElement {
         alignItems: 'center',
       }}
     >
+      {refreshingAccessTokenError != null ? (
+        <Alert severity='error'>{refreshingAccessTokenError.message}</Alert>
+      ) : null}
       <CssBaseline />
       <Typography
         component='h1'
@@ -272,28 +294,50 @@ export default function APIAccount(): React.ReactElement {
             </Typography>
             <Box className='token-display-element'>
               <Typography width={500} variant='body1'>
-                {accountState.refreshToken}
+                {accountState.showRefreshToken
+                  ? user?.refreshToken !== undefined
+                    ? user?.refreshToken
+                    : texts.tokenUnavailable
+                  : texts.refreshTokenHidden}
               </Typography>
               <Box className='token-action-buttons'>
-                <Tooltip title='Copy Refresh Token'>
-                  <IconButton
-                    color='primary'
-                    aria-label='Copy refresh token to clipboard'
-                    edge='end'
-                    onClick={() => {
-                      handleCopyToken('refreshToken');
-                    }}
-                    sx={{ display: 'inline-block', verticalAlign: 'middle' }}
-                  >
-                    <ContentCopyOutlined fontSize='small' />
-                  </IconButton>
+                <Tooltip
+                  title={
+                    showRefreshTokenCopiedTooltip
+                      ? refreshTokenCopyResult
+                      : texts.copyRefreshToken
+                  }
+                >
+                  <span>
+                    <IconButton
+                      color='primary'
+                      aria-label={texts.copyRefreshTokenToClipboard}
+                      edge='end'
+                      disabled={user?.refreshToken === undefined}
+                      onClick={() => {
+                        if (user?.refreshToken != null) {
+                          handleCopyTokenToClipboard(
+                            user.refreshToken,
+                            setRefreshTokenCopyResult,
+                            setShowRefreshTokenCopiedTooltip,
+                          );
+                        }
+                      }}
+                      sx={{
+                        display: 'inline-block',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      <ContentCopyOutlined fontSize='small' />
+                    </IconButton>
+                  </span>
                 </Tooltip>
                 <Tooltip title='Toggle Refresh Token Visibility'>
                   <IconButton
                     color='primary'
                     aria-label='toggle refresh token visibility'
                     onClick={() => {
-                      handleClickShowToken('refreshToken');
+                      handleClickShowToken(TokenTypes.Refresh);
                     }}
                     edge='end'
                     sx={{ display: 'inline-block', verticalAlign: 'middle' }}
@@ -335,38 +379,77 @@ export default function APIAccount(): React.ReactElement {
               <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
                 <Box className='token-display-element'>
                   <Typography width={500} variant='body1'>
-                    {accountState.accessToken}
+                    {accountState.showAccessToken
+                      ? user?.accessToken !== undefined
+                        ? user?.accessToken
+                        : texts.tokenUnavailable
+                      : texts.accessTokenHidden}
                   </Typography>
                   <Box className='token-action-buttons'>
-                    <Tooltip title='Refresh Access Token'>
-                      <IconButton
-                        color='primary'
-                        aria-label='Refresh access token'
-                        edge='end'
-                        sx={{
-                          display: 'inline-block',
-                          verticalAlign: 'middle',
-                        }}
-                        onClick={handleGenerateAccessToken}
-                      >
-                        <RefreshOutlined fontSize='small' />
-                      </IconButton>
+                    <Tooltip title={refreshAccessTokenButtonText}>
+                      <span>
+                        <IconButton
+                          color='primary'
+                          aria-label={refreshAccessTokenButtonText}
+                          edge='end'
+                          sx={{
+                            display: 'inline-block',
+                            verticalAlign: 'middle',
+                          }}
+                          onClick={handleGenerateAccessToken}
+                          disabled={isRefreshingAccessToken}
+                        >
+                          {isRefreshingAccessToken ? (
+                            <CircularProgress size={14} />
+                          ) : (
+                            <RefreshOutlined
+                              fontSize='small'
+                              sx={{
+                                display: 'inline-block',
+                                verticalAlign: 'middle',
+                              }}
+                            />
+                          )}
+                        </IconButton>
+                      </span>
                     </Tooltip>
-                    <Tooltip title='Copy Access Token'>
-                      <IconButton
-                        color='primary'
-                        aria-label='Copy access token to clipboard'
-                        edge='end'
-                        onClick={() => {
-                          handleCopyToken('accessToken');
-                        }}
-                        sx={{
-                          display: 'inline-block',
-                          verticalAlign: 'middle',
-                        }}
-                      >
-                        <ContentCopyOutlined fontSize='small' />
-                      </IconButton>
+
+                    <Tooltip
+                      title={
+                        showAccessTokenCopiedTooltip
+                          ? accessTokenCopyResult
+                          : texts.copyAccessToken
+                      }
+                    >
+                      <span>
+                        <IconButton
+                          color='primary'
+                          aria-label={texts.copyAccessTokenToClipboard}
+                          edge='end'
+                          disabled={user?.accessToken === undefined}
+                          onClick={() => {
+                            if (user?.accessToken != null) {
+                              handleCopyTokenToClipboard(
+                                user.accessToken,
+                                setAccessTokenCopyResult,
+                                setShowAccessTokenCopiedTooltip,
+                              );
+                            }
+                          }}
+                          sx={{
+                            display: 'inline-block',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <ContentCopyOutlined
+                            fontSize='small'
+                            sx={{
+                              display: 'inline-block',
+                              verticalAlign: 'middle',
+                            }}
+                          />
+                        </IconButton>
+                      </span>
                     </Tooltip>
                     <Tooltip title='Toggle Access Token Visibility'>
                       <IconButton
@@ -374,7 +457,7 @@ export default function APIAccount(): React.ReactElement {
                         aria-label='Toggle access token visibility'
                         edge='end'
                         onClick={() => {
-                          handleClickShowToken('accessToken');
+                          handleClickShowToken(TokenTypes.Access);
                         }}
                         sx={{
                           display: 'inline-block',
@@ -382,9 +465,21 @@ export default function APIAccount(): React.ReactElement {
                         }}
                       >
                         {accountState.showAccessToken ? (
-                          <VisibilityOffOutlined fontSize='small' />
+                          <VisibilityOffOutlined
+                            fontSize='small'
+                            sx={{
+                              display: 'inline-block',
+                              verticalAlign: 'middle',
+                            }}
+                          />
                         ) : (
-                          <VisibilityOutlined fontSize='small' />
+                          <VisibilityOutlined
+                            fontSize='small'
+                            sx={{
+                              display: 'inline-block',
+                              verticalAlign: 'middle',
+                            }}
+                          />
                         )}
                       </IconButton>
                     </Tooltip>

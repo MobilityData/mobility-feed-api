@@ -16,8 +16,10 @@ interface UserProfileState {
     | 'authenticated'
     | 'login_out'
     | 'sign_up'
+    | 'loading_organization'
     | 'registered'
     | 'registering';
+  isRefreshingAccessToken: boolean;
   errors: AppErrors;
   user: User | undefined;
 }
@@ -29,8 +31,10 @@ const initialState: UserProfileState = {
     SignUp: null,
     Login: null,
     Logout: null,
+    RefreshingAccessToken: null,
     Registration: null,
   },
+  isRefreshingAccessToken: false,
 };
 
 export const userProfileSlice = createSlice({
@@ -90,13 +94,17 @@ export const userProfileSlice = createSlice({
     resetProfileErrors: (state) => {
       state.errors = { ...initialState.errors };
     },
-    requestRefreshAccessToken: (state) => {},
+    requestRefreshAccessToken: (state) => {
+      state.isRefreshingAccessToken = true;
+      state.errors = { ...initialState.errors };
+    },
     refreshAccessToken: (state, action: PayloadAction<User>) => {
       if (state.user !== undefined && state.status === 'authenticated') {
         state.user.accessToken = action.payload.accessToken;
         state.user.accessTokenExpirationTime =
           action.payload.accessTokenExpirationTime;
       }
+      state.isRefreshingAccessToken = false;
     },
     loginWithProvider: (
       state,

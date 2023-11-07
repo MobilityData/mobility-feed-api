@@ -39,6 +39,7 @@ export enum ErrorSource {
   SignUp = 'SignUp',
   Login = 'Login',
   Logout = 'Logout',
+  RefreshingAccessToken = 'RefreshingAccessToken',
   Registration = 'Registration',
 }
 
