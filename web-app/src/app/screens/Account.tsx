@@ -32,10 +32,6 @@ import { useAppDispatch } from '../hooks';
 import { requestRefreshAccessToken } from '../store/profile-reducer';
 import { getTimeLeftForTokenExpiration } from '../utils/date';
 import LogoutConfirmModal from '../components/LogoutConfirmModal';
-import { ErrorSource } from '../types';
-import { string } from 'yup';
-import { set } from 'cypress/types/lodash';
-
 export interface APIAccountState {
   showRefreshToken: boolean;
   showAccessToken: boolean;
