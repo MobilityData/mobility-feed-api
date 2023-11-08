@@ -7,6 +7,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { getAuth } from 'firebase/auth';
 import 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   Alert,
   Box,
@@ -23,6 +24,7 @@ import {
   selectRegistrationError,
 } from '../store/profile-selectors';
 import { useSelector } from 'react-redux';
+import { app } from '../../firebase';
 
 export default function CompleteRegistration(): React.ReactElement {
   const auth = getAuth();

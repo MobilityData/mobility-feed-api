@@ -36,6 +36,9 @@ import {
   formatTokenExpiration,
   getTimeLeftForTokenExpiration,
 } from '../utils/date';
+import { app } from '../../firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+
 
 interface APIAccountState {
   showRefreshToken: boolean;
@@ -62,6 +65,21 @@ const texts = {
 };
 
 export default function APIAccount(): React.ReactElement {
+  console.log(app.auth().currentUser);
+  const functions = getFunctions(app, 'us-central1');
+  const helloWorld2 = httpsCallable(functions, 'helloWorld2');
+  helloWorld2()
+  .then((result) => { console.log(result); })
+  .catch((error) => {
+    // Getting the Error details.
+    console.log('An error occurred', error);
+    const code = error.code;
+    const message = error.message;
+    const details = error.details;
+    console.log(code, message, details);
+    // ...
+  });
+  console.log(helloWorld2);
   const dispatch = useAppDispatch();
   const user = useSelector(selectUserProfile);
   const refreshingAccessTokenError = useSelector(
