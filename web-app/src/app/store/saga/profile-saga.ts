@@ -13,6 +13,7 @@ import {
 import { generateUserAccessToken, updateUserInformation } from '../../services';
 import {
   refreshAccessToken,
+  refreshAccessTokenFail,
   refreshUserInformationFail,
   refreshUserInformationSuccess,
 } from '../profile-reducer';
@@ -26,7 +27,7 @@ function* refreshAccessTokenSaga(): Generator<StrictEffect, void, User> {
       yield put(refreshAccessToken(user));
     }
   } catch (error) {
-    // ignore
+    yield put(refreshAccessTokenFail(getAppError(error)));
   }
 }
 

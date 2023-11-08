@@ -12,6 +12,7 @@ import {
   Tooltip,
   Alert,
   CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   AccountCircleOutlined,
@@ -82,6 +83,8 @@ export default function APIAccount(): React.ReactElement {
   const [openDialog, setOpenDialog] = React.useState<boolean>(false);
   const [showAccessTokenCopiedTooltip, setShowAccessTokenCopiedTooltip] =
     React.useState(false);
+  const [showAccessTokenSnackbar, setShowAccessTokenSnackbar] =
+    React.useState(false);
   const [accessTokenCopyResult, setAccessTokenCopyResult] =
     React.useState<string>('');
   const [showRefreshTokenCopiedTooltip, setShowRefreshTokenCopiedTooltip] =
@@ -116,6 +119,10 @@ export default function APIAccount(): React.ReactElement {
       }
     };
   }, [user?.accessTokenExpirationTime]);
+
+  React.useEffect(() => {
+    setShowAccessTokenSnackbar(refreshingAccessTokenError !== null);
+  }, [refreshingAccessTokenError]);
 
   const handleClickShowToken = React.useCallback(
     (tokenType: TokenTypes): void => {
@@ -215,9 +222,23 @@ export default function APIAccount(): React.ReactElement {
         alignItems: 'center',
       }}
     >
-      {refreshingAccessTokenError != null ? (
-        <Alert severity='error'>{refreshingAccessTokenError.message}</Alert>
-      ) : null}
+      <Snackbar
+        open={showAccessTokenSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        autoHideDuration={6000}
+        onClose={() => {
+          setShowAccessTokenSnackbar(false);
+        }}
+      >
+        <Alert
+          severity='error'
+          onClose={() => {
+            setShowAccessTokenSnackbar(false);
+          }}
+        >
+          {refreshingAccessTokenError?.message ?? ''}
+        </Alert>
+      </Snackbar>
       <CssBaseline />
       <Typography
         component='h1'

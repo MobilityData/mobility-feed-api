@@ -106,6 +106,10 @@ export const userProfileSlice = createSlice({
       }
       state.isRefreshingAccessToken = false;
     },
+    refreshAccessTokenFail: (state, action: PayloadAction<AppError>) => {
+      state.isRefreshingAccessToken = false;
+      state.errors.RefreshingAccessToken = action.payload;
+    },
     loginWithProvider: (
       state,
       action: PayloadAction<{
@@ -150,6 +154,7 @@ export const {
   signUpFail,
   resetProfileErrors,
   refreshAccessToken,
+  refreshAccessTokenFail,
   requestRefreshAccessToken,
   loginWithProvider,
   refreshUserInformation,
