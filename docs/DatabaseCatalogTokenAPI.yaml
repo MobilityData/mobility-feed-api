@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   version: 0.1.0
   title: Mobility Data Catalog API
-  description: API as required in the _Proposed Version 1_ from the _Product Requirement Document for the Mobility Database_
+  description: API to interact with tokens from the Mobility Database API
   termsOfService: https://mobilitydata.org/terms-of-use
   contact:
     name: MobilityData
@@ -25,7 +25,7 @@ servers:
 
 tags:
   - name: "tokens"
-    description: "Token to access the API"
+    description: "Token to access the Mobility Database API"
 
 paths:
   /v1/tokens/access:
@@ -34,13 +34,39 @@ paths:
       tags:
         - "tokens"
       operationId: postAccessToken
-      consumes:
-        - application/json
-      parameters:
-        - in: body
-          description: The refresh token.
-          schema:
-            $ref: '#/components/schemas/PostAccessTokenBody'
+      requestBody:
+        description: Generates an access token from a refresh token
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostAccessTokenBody'
+        required: true
+      responses:
+        200:
+          description: Successful generated the access token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostAccessTokenResponse"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        '415':
+          description: Unsupported Media Type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"          
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"          
+                
 
 components:
   schemas:
@@ -51,3 +77,20 @@ components:
           type: string
       required:
         - refresh_token
+    PostAccessTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        expiration_datetime_utc:
+          type: string
+          format: date-time
+          example: "2020-01-01T00:00:00Z"
+        token_type:
+          type: string
+          example: "Bearer"
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
