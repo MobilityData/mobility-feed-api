@@ -47,19 +47,22 @@ while [[ $# -gt 0 ]]; do
   key="$1"
 
   case $key in
-    -h|--help)
-      display_usage
-      exit 0
-      ;;
-    *)
-      function_name="$2"
-      shift # past argument
-      shift # past value
-      ;;
+  -h | --help)
+    display_usage
+    exit 0
+    ;;
+  --function_name)
+    function_name="$2"
+    shift # past argument
+    shift # past value
+    ;;
+  *)      # unknown option
+    shift # past argument
+    ;;
   esac
 done
 
-FX_PATH="$FUNCTIONS_PATH/$function_name"
+FX_PATH="$FUNCTIONS_PATH/$function_name/src"
 
 if [ ! -d "$FX_PATH" ]; then
   printf "\nERROR: function's folder not found at location: %s\n" "$FX_PATH"
@@ -67,10 +70,10 @@ if [ ! -d "$FX_PATH" ]; then
   exit 1
 fi
 
-if [ ! -f "$FX_PATH/.env.local" ]; then
+if [ ! -f "$FX_PATH/../.env.local" ]; then
   printf "\nWARN: .env.local file not found at location: %s/.env.local" "$FX_PATH"
 else
-  source "$FX_PATH/.env.local"
+  source "$FX_PATH/../.env.local"
 fi
 
 # extract the --target value from the function's name main.py file with @functions_framework.http annotation
