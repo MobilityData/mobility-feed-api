@@ -9,7 +9,7 @@
 ABS_SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 
 # funtion to execute tests with parameter path
-execute_tests() {
+execute_lint() {
     printf "\nExecuting lint write in $1\n" 
     cd $ABS_SCRIPTPATH/$1 || exit 1
     pip3 install --disable-pip-version-check virtualenv > /dev/null
@@ -19,6 +19,6 @@ execute_tests() {
     printf "\n"
 }
 
-execute_tests "../api/"
-execute_tests "../functions-python/"
+execute_lint "../api/"
+execute_lint "../functions-python/"
 
