@@ -2,3 +2,4 @@ functions-framework==3.*
 flask
 requests
 PyJWT
+werkzeug
