@@ -1,5 +1,7 @@
 {
-  "function_name": "tokens-api",
+  "name": "tokens-api",
+  "description": "Tokens API",
   "entry_point": "tokens_post",
-  "path": "/v1/tokens/*"
+  "path": "/v1/tokens/*",
+  "include_folders": []
 }
