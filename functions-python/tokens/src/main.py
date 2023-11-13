@@ -57,7 +57,7 @@ def get_idp_api_key() -> str:
     """
     gcp_idp_api_key = os.environ.get("FEEDS_GCP_IDP_API_KEY")
     if gcp_idp_api_key is None:
-        raise ValueError("GCP_IDP_API_KEY environment variable is not set.")
+        raise ValueError("FEEDS_GCP_IDP_API_KEY environment variable is not set.")
     return gcp_idp_api_key
 
 

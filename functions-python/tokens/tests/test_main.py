@@ -43,7 +43,7 @@ def get_source_path(file: str):
     return source
 
 
-@mock.patch.dict(os.environ, {"GCP_IDP_API_KEY": "gcp_idp_api_test_key"})
+@mock.patch.dict(os.environ, {"FEEDS_GCP_IDP_API_KEY": "gcp_idp_api_test_key"})
 @patch("requests.post")
 def test_get_idp_response__valid_request(mock_post):
     # Mock the response from IDP requests.post
@@ -131,7 +131,7 @@ def test_tokens_post_missing_refresh_token():
     )
 
 
-@mock.patch.dict(os.environ, {"GCP_IDP_API_KEY": "gcp_idp_api_test_key"})
+@mock.patch.dict(os.environ, {"FEEDS_GCP_IDP_API_KEY": "gcp_idp_api_test_key"})
 @patch("requests.post")
 def test_tokens_valid_request(mock_post):
     """

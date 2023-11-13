@@ -74,9 +74,8 @@ if [[ ! -z "${TEST_FILE}" && ! -z "${FOLDER}" ]]; then
   exit 1
 fi
 
-# if no parameters is passed, execute all tests
-if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
-  execute_tests "../api"
+execute_python_tests() {
+  printf "\nExecuting python tests in $1\n"
   cd $ABS_SCRIPTPATH/../functions-python
   for file in */; do
     if [[ -d "$file" && ! -L "$file" ]]; then
@@ -86,6 +85,11 @@ if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
       fi
     fi
   done
+}
+
+# if no parameters is passed, execute all tests
+if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
+  execute_tests "../api"
   exit 0
 fi
 
@@ -95,6 +99,9 @@ if [[ ! -z "${TEST_FILE}" ]]; then
 fi
 
 if [[ ! -z "${FOLDER}" ]]; then
-  execute_tests "../$FOLDER"
-  exit 0
+  if [[ "${FOLDER}" == "functions-python" ]]; then
+    execute_python_tests
+  else
+    execute_tests "../$FOLDER"
+  fi
 fi
