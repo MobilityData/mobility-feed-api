@@ -3,5 +3,15 @@
   "description": "Tokens API",
   "entry_point": "tokens_post",
   "path": "/v1/tokens/*",
-  "include_folders": []
+  "timeout": 20,
+  "memory": "128Mi",
+  "trigger_http": true,
+  "include_folders": [],
+  "environment_variables": [],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_GCP_IDP_API_KEY"
+    }
+  ],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB"
 }

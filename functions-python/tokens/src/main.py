@@ -24,7 +24,6 @@ from flask import Response
 from typing import Final
 from datetime import datetime
 from datetime import timezone
-
 from werkzeug.exceptions import UnsupportedMediaType, BadRequest
 
 IDP_TOKEN_URL: Final[str] = "https://securetoken.googleapis.com/v1/token"
@@ -36,7 +35,7 @@ HEADERS: Final[dict[str, str]] = {
 
 class TokenPostResponse:
     def __init__(
-        self, access_token: str, expiration_datetime_utc: str, token_type: str
+            self, access_token: str, expiration_datetime_utc: str, token_type: str
     ):
         self.access_token = access_token
         self.expiration_datetime_utc = expiration_datetime_utc
@@ -56,7 +55,7 @@ def get_idp_api_key() -> str:
     """
     Get the GCP IDP API key from the environment variables or raise an error if it is not set.
     """
-    gcp_idp_api_key = os.environ.get("GCP_IDP_API_KEY")
+    gcp_idp_api_key = os.environ.get("FEEDS_GCP_IDP_API_KEY")
     if gcp_idp_api_key is None:
         raise ValueError("GCP_IDP_API_KEY environment variable is not set.")
     return gcp_idp_api_key
@@ -74,9 +73,9 @@ def get_idp_response(refresh_token: str) -> requests.Response:
         "refresh_token": refresh_token,
         "audiences": "feed_api",
     }
-    gcp_idp_api_key = os.environ.get("GCP_IDP_API_KEY")
+
     idp_response = requests.post(
-        IDP_TOKEN_URL + f"?key={gcp_idp_api_key}",
+        IDP_TOKEN_URL + f"?key={get_idp_api_key()}",
         headers=HEADERS,
         data=json.dumps(data),
     )
