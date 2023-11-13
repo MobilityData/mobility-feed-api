@@ -61,6 +61,11 @@ execute_tests() {
   venv/bin/python -m pip install -r requirements.txt >/dev/null
   venv/bin/python -m pip install -r requirements_dev.txt >/dev/null
   venv/bin/python -m pytest tests
+  # Fail if tests fail
+  if [ $? -ne 0 ]; then
+    printf "\nTests failed in $1\n"
+    exit 1
+  fi
   printf "\n"
 }
 
