@@ -12,6 +12,7 @@ import {
   Tooltip,
   Alert,
   CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   AccountCircleOutlined,
@@ -39,7 +40,6 @@ import {
 interface APIAccountState {
   showRefreshToken: boolean;
   showAccessToken: boolean;
-  accessTokenGenerated: boolean;
   codeBlockTooltip: string;
   tokenExpired: boolean;
 }
@@ -72,7 +72,6 @@ export default function APIAccount(): React.ReactElement {
   const [accountState, setAccountState] = React.useState<APIAccountState>({
     showRefreshToken: false,
     showAccessToken: false,
-    accessTokenGenerated: false,
     codeBlockTooltip: texts.copyToClipboard,
     tokenExpired: false,
   });
@@ -82,12 +81,18 @@ export default function APIAccount(): React.ReactElement {
   const [openDialog, setOpenDialog] = React.useState<boolean>(false);
   const [showAccessTokenCopiedTooltip, setShowAccessTokenCopiedTooltip] =
     React.useState(false);
+  const [showAccessTokenSnackbar, setShowAccessTokenSnackbar] =
+    React.useState(false);
   const [accessTokenCopyResult, setAccessTokenCopyResult] =
     React.useState<string>('');
   const [showRefreshTokenCopiedTooltip, setShowRefreshTokenCopiedTooltip] =
     React.useState(false);
   const [refreshTokenCopyResult, setRefreshTokenCopyResult] =
     React.useState<string>('');
+
+  const showGenerateAccessTokenButton = React.useMemo(() => {
+    return user?.accessToken == null;
+  }, [user?.accessToken]);
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -116,6 +121,10 @@ export default function APIAccount(): React.ReactElement {
       }
     };
   }, [user?.accessTokenExpirationTime]);
+
+  React.useEffect(() => {
+    setShowAccessTokenSnackbar(refreshingAccessTokenError !== null);
+  }, [refreshingAccessTokenError]);
 
   const handleClickShowToken = React.useCallback(
     (tokenType: TokenTypes): void => {
@@ -164,7 +173,6 @@ export default function APIAccount(): React.ReactElement {
   const handleGenerateAccessToken = (): void => {
     setAccountState({
       ...accountState,
-      accessTokenGenerated: true,
       tokenExpired: false,
     });
     dispatch(requestRefreshAccessToken());
@@ -215,9 +223,23 @@ export default function APIAccount(): React.ReactElement {
         alignItems: 'center',
       }}
     >
-      {refreshingAccessTokenError != null ? (
-        <Alert severity='error'>{refreshingAccessTokenError.message}</Alert>
-      ) : null}
+      <Snackbar
+        open={showAccessTokenSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        autoHideDuration={6000}
+        onClose={() => {
+          setShowAccessTokenSnackbar(false);
+        }}
+      >
+        <Alert
+          severity='error'
+          onClose={() => {
+            setShowAccessTokenSnackbar(false);
+          }}
+        >
+          {refreshingAccessTokenError?.message ?? ''}
+        </Alert>
+      </Snackbar>
       <CssBaseline />
       <Typography
         component='h1'
@@ -381,7 +403,7 @@ export default function APIAccount(): React.ReactElement {
               <br />
               The access token updates regularly.
             </Typography>
-            {!accountState.accessTokenGenerated && (
+            {showGenerateAccessTokenButton && (
               <Box sx={{ mb: 2 }}>
                 <Button onClick={handleGenerateAccessToken} variant='contained'>
                   Generate Access Token
@@ -389,7 +411,7 @@ export default function APIAccount(): React.ReactElement {
               </Box>
             )}
 
-            {accountState.accessTokenGenerated && (
+            {!showGenerateAccessTokenButton && (
               <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
                 <Box className='token-display-element'>
                   <Typography width={500} variant='body1'>
@@ -549,9 +571,7 @@ export default function APIAccount(): React.ReactElement {
               <br />
               <span style={{ color: '#f1fa8c' }}>--header</span>
               &apos;Authorization: Bearer{' '}
-              {accountState.accessTokenGenerated
-                ? user?.accessToken
-                : '[Your Access Token]'}
+              {user?.accessToken ?? '[Your Access Token]'}
               &apos;
             </Typography>
           </Paper>
