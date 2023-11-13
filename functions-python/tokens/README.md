@@ -1,6 +1,4 @@
 # Tokens API Function
-<!-- Refers github page open api schema -->
-
 The tokens API function implements the tokens API described at [docs/DatabaseCatalogTokenAPI.yaml](https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html?urls.primaryName=Tokens).
 
 # Local development
