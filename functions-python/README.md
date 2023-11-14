@@ -3,7 +3,7 @@
 This folder contains Python functions. These functions should not have interdependencies. However, common code can be shared across multiple functions if they are in folders that don't contain functions.
 
 # Python function folders
-On each function folder, a file should contain all related configurations. Currently, there is no automated process to deploy all functions; this is why, to be able to deploy it the function should be added to the terraform scripts. In the future, we should axe to automate the deployment.
+On each function folder, a file should contain all related configurations. Currently, there is no automated process to deploy all functions; this is why, to be able to deploy it the function should be added to the terraform scripts. In the future, we should automate the deployment.
 
 # Useful scripts
 - To locally execute a function use the following command:

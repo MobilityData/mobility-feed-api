@@ -23,9 +23,9 @@
 # The script look for a `.env.local` file in the function's folder to load environment variables.
 
 # Usage:
-#   run-python-function.sh --function_name <function name>
+#   function-python-run.sh --function_name <function name>
 # Example:
-#   run-python-function.sh --function_name tokens
+#   function-python-run.sh --function_name tokens
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"

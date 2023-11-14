@@ -16,7 +16,7 @@
 #
 #
 
-# Build a python function compressing the source code and it's dependencies exluding the libs in requirements.txt.
+# Build a python function compressing the source code and its dependencies exluding the libs in requirements.txt.
 # The script receives the name of the function as parameter.
 # The function must be located in the folder `functions-python/<function_name>`.
 # The function config must be defined in the file `functions-python/<function_name>/function_config.json`.
