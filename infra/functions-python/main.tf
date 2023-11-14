@@ -73,6 +73,10 @@ resource "google_cloudfunctions2_function" "tokens" {
   service_config {
     available_memory = local.function_tokens_config.memory
     timeout_seconds = local.function_tokens_config.timeout
+    available_cpu = local.function_tokens_config.available_cpu
+    max_instance_request_concurrency = local.function_tokens_config.max_instance_request_concurrency
+    max_instance_count = local.function_tokens_config.max_instance_count
+    min_instance_count = local.function_tokens_config.min_instance_count
     dynamic "secret_environment_variables" {
       for_each = local.function_tokens_config.secret_environment_variables
       content {

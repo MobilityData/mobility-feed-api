@@ -13,5 +13,9 @@
       "key": "FEEDS_GCP_IDP_API_KEY"
     }
   ],
-  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB"
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 20,
+  "max_instance_count": 100,
+  "min_instance_count": 0,
+  "available_cpu": 1
 }
