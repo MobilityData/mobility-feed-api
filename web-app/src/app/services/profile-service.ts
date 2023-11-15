@@ -1,6 +1,7 @@
-import { updateProfile, type AdditionalUserInfo } from 'firebase/auth';
+import { type AdditionalUserInfo } from 'firebase/auth';
 import { app } from '../../firebase';
-import { type OauthProvider, type User } from '../types';
+import { type User, type UserData } from '../types';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 /**
  * Send an email verification to the current user.
@@ -29,61 +30,83 @@ export const getUserFromSession = async (): Promise<User | null> => {
   }
   const refreshToken = currentUser.refreshToken;
   return {
-    fullname: currentUser?.displayName ?? undefined,
+    fullName: currentUser?.displayName ?? undefined,
     email: currentUser?.email ?? '',
+    isRegistered: false,
     // Organization cannot be retrieved from the current user
     organization: undefined,
     refreshToken,
   };
 };
 
-export const generateUserAccessToken = async (): Promise<User | null> => {
+export const generateUserAccessToken = async (
+  user: User,
+): Promise<User | null> => {
   const currentUser = app.auth().currentUser;
 
   if (currentUser === null) {
     return null;
   }
   const refreshToken = currentUser.refreshToken;
-
   const idTokenResult = await currentUser.getIdTokenResult(true);
   const accessToken = idTokenResult.token;
   const accessTokenExpirationTime = idTokenResult.expirationTime;
 
   return {
-    fullname: currentUser?.displayName ?? undefined,
-    email: currentUser?.email ?? '',
-    // Organization cannot be retrieved from the current user
-    organization: undefined,
+    ...user,
     refreshToken,
     accessToken,
     accessTokenExpirationTime,
   };
 };
 
-export const updateUserInformation = async (values: {
-  fullname: string;
+export const updateUserInformation = async (data: {
+  fullName: string | undefined;
+  organization: string | undefined;
 }): Promise<void> => {
-  const currentUser = app.auth().currentUser;
-  // TODO: this is to be removed and replaced by storing the information in Datastore
-  if (currentUser !== null) {
-    await updateProfile(currentUser, {
-      displayName: values?.fullname,
-    });
+  const functions = getFunctions(app, 'us-central1');
+  const updateUserInformation = httpsCallable(
+    functions,
+    'updateUserInformation',
+  );
+  await updateUserInformation({
+    fullName: data.fullName,
+    organization: data.organization,
+  });
+};
+
+export const retrieveUserInformation = async (): Promise<
+  UserData | undefined
+> => {
+  const functions = getFunctions(app, 'us-central1');
+  const retrieveUserInformation = httpsCallable(
+    functions,
+    'retrieveUserInformation',
+  );
+  const user = await retrieveUserInformation();
+  if (user !== undefined) {
+    return user.data as UserData;
   }
+  return undefined;
 };
 
 export const populateUserWithAdditionalInfo = (
   user: User,
-  additionalUserInfo: AdditionalUserInfo,
-  oauthProvider: OauthProvider,
+  userData: UserData | undefined,
+  additionalUserInfo: AdditionalUserInfo | undefined,
 ): User => {
   return {
     ...user,
-    fullname:
-      user?.fullname ??
-      (additionalUserInfo.profile?.name as string) ??
+    isRegistered: userData !== null,
+    fullName:
+      user?.fullName ??
+      userData?.fullName ??
+      (additionalUserInfo?.profile?.name as string) ??
       undefined,
+    organization: userData?.organization ?? undefined,
     email:
-      user?.email ?? (additionalUserInfo.profile?.email as string) ?? undefined,
+      user?.email ??
+      (additionalUserInfo?.profile?.email as string) ??
+      undefined,
   };
 };

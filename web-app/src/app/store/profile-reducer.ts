@@ -48,7 +48,16 @@ export const userProfileSlice = createSlice({
       state.errors = { ...initialState.errors };
     },
     loginSuccess: (state, action: PayloadAction<User>) => {
-      state.status = 'authenticated';
+      state.status = action.payload?.isRegistered
+        ? 'registered'
+        : 'authenticated';
+      state.errors = { ...initialState.errors };
+      state.user = action.payload;
+    },
+    authenticated: (state, action: PayloadAction<User>) => {
+      state.status = action.payload?.isRegistered
+        ? 'registered'
+        : 'authenticated';
       state.errors = { ...initialState.errors };
       state.user = action.payload;
     },
@@ -66,7 +75,7 @@ export const userProfileSlice = createSlice({
       state.status = 'login_out';
       state.errors = { ...initialState.errors };
     },
-    logoutSucess: (state) => {
+    logoutSuccess: (state) => {
       state.status = 'unauthenticated';
     },
     logoutFail: (state) => {
@@ -85,7 +94,9 @@ export const userProfileSlice = createSlice({
       state.errors = { ...initialState.errors };
     },
     signUpSuccess: (state, action: PayloadAction<User>) => {
-      state.status = 'authenticated';
+      state.status = state.status = action.payload?.isRegistered
+        ? 'registered'
+        : 'authenticated';
       state.user = action.payload;
       state.errors = { ...initialState.errors };
     },
@@ -101,7 +112,7 @@ export const userProfileSlice = createSlice({
       state.errors = { ...initialState.errors };
     },
     refreshAccessToken: (state, action: PayloadAction<User>) => {
-      if (state.user !== undefined && state.status === 'authenticated') {
+      if (state.user !== undefined && state.status === 'registered') {
         state.user.accessToken = action.payload.accessToken;
         state.user.accessTokenExpirationTime =
           action.payload.accessTokenExpirationTime;
@@ -119,16 +130,15 @@ export const userProfileSlice = createSlice({
         userCredential: UserCredential;
       }>,
     ) => {
-      state.status = 'authenticated';
       state.errors = { ...initialState.errors };
     },
     refreshUserInformation: (
       state,
-      action: PayloadAction<{ fullname: string; organization: string }>,
+      action: PayloadAction<{ fullName: string; organization: string }>,
     ) => {
-      if (state.user !== undefined && state.status === 'authenticated') {
+      if (state.user !== undefined && state.status === 'registered') {
         state.errors.Registration = null;
-        state.user.fullname = action.payload?.fullname ?? '';
+        state.user.fullName = action.payload?.fullName ?? '';
         state.user.organization = action.payload?.organization ?? 'Unknown';
         state.status = 'registering';
       }
@@ -155,7 +165,7 @@ export const {
   loginSuccess,
   loginFail,
   logout,
-  logoutSucess,
+  logoutSuccess,
   logoutFail,
   signUp,
   signUpSuccess,

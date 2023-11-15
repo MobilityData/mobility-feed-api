@@ -12,12 +12,18 @@ export interface EmailLogin {
 }
 
 export interface User {
-  fullname?: string;
+  fullName?: string;
   email?: string;
   organization?: string;
   accessToken?: string;
   accessTokenExpirationTime?: string;
   refreshToken?: string;
+  isRegistered: boolean;
+}
+
+export interface UserData {
+  fullName: string;
+  organization?: string;
 }
 
 export const USER_PROFILE = 'userProfile';

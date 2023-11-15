@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - "web-app/**"
+      - "functions"
   push:
     branches: [main]
   workflow_dispatch:
@@ -90,7 +91,7 @@ jobs:
   build:
     name: "Build & Deploy"
     permissions: write-all
-    needs: [lint-test ]
+    needs: [lint-test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -186,6 +187,10 @@ jobs:
       - name: Select Firebase Project
         working-directory: web-app
         run: npx firebase use ${{  env.FIREBASE_PROJECT }}
+
+      - name: Deploy Firebase functions
+        working-directory: functions
+        run: npx firebase deploy --only functions
 
       - name: Deploy to Firebase Hosting (${{ env.FIREBASE_PROJECT }})
         if: ${{ env.FIREBASE_PROJECT != 'dev' }}
