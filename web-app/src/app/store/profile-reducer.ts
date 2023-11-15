@@ -20,6 +20,7 @@ interface UserProfileState {
     | 'registered'
     | 'registering';
   isRefreshingAccessToken: boolean;
+  isAppRefreshing: boolean;
   errors: AppErrors;
   user: User | undefined;
 }
@@ -35,6 +36,7 @@ const initialState: UserProfileState = {
     Registration: null,
   },
   isRefreshingAccessToken: false,
+  isAppRefreshing: false,
 };
 
 export const userProfileSlice = createSlice({
@@ -139,6 +141,12 @@ export const userProfileSlice = createSlice({
       state.errors.Registration = null;
       state.status = 'registered';
     },
+    refreshApp: (state) => {
+      state.isAppRefreshing = true;
+    },
+    refreshAppSuccess: (state) => {
+      state.isAppRefreshing = false;
+    },
   },
 });
 
@@ -160,6 +168,8 @@ export const {
   refreshUserInformation,
   refreshUserInformationFail,
   refreshUserInformationSuccess,
+  refreshApp,
+  refreshAppSuccess,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
