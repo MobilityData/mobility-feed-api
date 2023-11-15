@@ -29,7 +29,7 @@ resource "google_service_account" "containers_service_account" {
 }
 
 resource "google_storage_bucket" "functions_bucket" {
-  name     = "functions-python"
+  name     = "mobility-feeds-functions-python-${var.environment}"
   location = "us"
 }
 
