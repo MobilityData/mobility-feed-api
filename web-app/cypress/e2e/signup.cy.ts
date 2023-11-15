@@ -64,4 +64,13 @@ describe('Sign up screen', () => {
       .should('exist')
       .contains('You must accept the terms and conditions.');
   });
+
+  it('should show the captcha error when is not accepted', () => {
+    cy.get('iframe[title="reCAPTCHA"]').should('exist');
+    cy.get('button[id="sign-up-button"]').click();
+
+    cy.get('[data-testid=reCaptchaError]')
+      .should('exist')
+      .contains('You must verify you are not a robot.');
+  });
 });
