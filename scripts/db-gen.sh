@@ -20,7 +20,7 @@ ENV_PATH=$SCRIPT_PATH/../config/.env.local
 source "$ENV_PATH"
 rm -rf "$SCRIPT_PATH/../api/src/database_gen/"
 mkdir "$SCRIPT_PATH/../api/src/database_gen/"
-pip3 install -r "${SCRIPT_PATH}/../api/requirements.txt"
+pip3 install -r "${SCRIPT_PATH}/../api/requirements.txt" > /dev/null
 
 # removing sqlacodegen.log file
 if [ -s ${SCRIPT_PATH}/sqlacodegen.log ]

@@ -98,11 +98,19 @@ module "feed-api" {
   feed_api_postgres_port     = var.feed_api_postgres_port
   feed_api_postgres_user     = var.feed_api_postgres_user
 
-  source                     = "./feed-api"
+  source = "./feed-api"
+}
+
+module "functions-python" {
+  source = "./functions-python"
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
+
 }
 
 module "feed-api-load-balancer" {
-  depends_on  = [module.feed-api]
+  depends_on  = [module.feed-api, module.functions-python]
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
@@ -111,6 +119,8 @@ module "feed-api-load-balancer" {
   oauth2_client_id                 = var.oauth2_client_id
   oauth2_client_secret             = var.oauth2_client_secret
   global_rate_limit_req_per_minute = var.global_rate_limit_req_per_minute
+
+  function_tokens_name = module.functions-python.function_tokens_name
 
   source = "./load-balancer"
 }

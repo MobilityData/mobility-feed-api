@@ -29,27 +29,8 @@ variable "environment" {
   description = "API environment. Possible values: prod, staging and dev"
 }
 
-variable "feed_api_name" {
-  type        = string
-  description = "Domain name of the feed API exposed by API Gateway"
-}
-
-variable "oauth2_client_id" {
+variable "python_runtime" {
   type = string
-  description = "OAuth2 Client id"
-}
-
-variable "oauth2_client_secret" {
-    type = string
-  description = "OAuth2 Client secret"
-}
-
-variable "global_rate_limit_req_per_minute" {
-  type        = string
-  description = "Global load balancer rate limit"
-}
-
-variable "function_tokens_name" {
-  type = string
-  description = "Tokens API function name"
+  description = "Python runtime version"
+  default = "python310"
 }

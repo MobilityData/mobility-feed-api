@@ -44,6 +44,10 @@ jobs:
         run: |
           scripts/lint-tests.sh
 
-      - name: Run unit tests
+      - name: Unit tests - API
         run: |
-          scripts/api-tests.sh
+          scripts/api-tests.sh --folder api
+
+      - name: Unit tests - Python Functions
+        run: |
+          scripts/api-tests.sh --folder functions-python

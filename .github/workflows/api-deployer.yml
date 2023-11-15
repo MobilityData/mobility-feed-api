@@ -138,7 +138,7 @@ jobs:
 
       - name: Build & Publish Docker Image
         run: |
-          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
+          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION     
 
   terraform-deploy:
     runs-on: ubuntu-latest
@@ -147,6 +147,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.python_version }} 
+
+      - name: Build python functions
+        run: |
+          scripts/function-python-build.sh --all
 
       - name: Authenticate to Google Cloud
         id: gcloud_auth

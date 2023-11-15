@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 120
+extend-exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | .*/venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | src/feeds_gen/*
+    | src/database_gen/*
+  )/
+)
+'''
+
+[tool.isort]
+profile = "black"
+skip = [
+    '.eggs', '.git', '.hg', '.mypy_cache', '.nox', '.pants.d', '.tox',
+    '.venv', '_build', 'buck-out', 'build', 'dist', 'node_modules', 'venv',
+]
+skip_gitignore = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
