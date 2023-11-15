@@ -1,8 +1,4 @@
-import {
-  updateProfile,
-  type AdditionalUserInfo,
-  updateCurrentUser,
-} from 'firebase/auth';
+import { updateProfile, type AdditionalUserInfo } from 'firebase/auth';
 import { app } from '../../firebase';
 import { type OauthProvider, type User } from '../types';
 

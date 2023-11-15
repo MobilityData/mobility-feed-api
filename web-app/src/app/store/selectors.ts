@@ -1,4 +1,3 @@
-import { is } from 'cypress/types/bluebird';
 import { type RootState } from './store';
 
 export * from './profile-selectors';
