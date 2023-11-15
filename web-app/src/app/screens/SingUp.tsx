@@ -27,6 +27,8 @@ import {
   passwordValidatioError,
 } from '../types';
 import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
+import ReCAPTCHA from 'react-google-recaptcha';
+import { getEnvConfig } from '../utils/config';
 
 export default function SignUp(): React.ReactElement {
   const navigateTo = useNavigate();
@@ -52,6 +54,7 @@ export default function SignUp(): React.ReactElement {
     agreeToTerms: Yup.boolean()
       .required('You must accept the terms and conditions.')
       .isTrue('You must accept the terms and conditions.'),
+    reCaptcha: Yup.string().required('You must verify you are not a robot.'),
   });
 
   const formik = useFormik({
@@ -61,6 +64,7 @@ export default function SignUp(): React.ReactElement {
       password: '',
       confirmPassword: '',
       agreeToTerms: false,
+      reCaptcha: null,
     },
     validationSchema: SignUpSchema,
     onSubmit: (values) => {
@@ -97,6 +101,10 @@ export default function SignUp(): React.ReactElement {
           }),
         );
       });
+  };
+
+  const onChangeReCaptcha = (value: string | null): void => {
+    void formik.setFieldValue('reCaptcha', value);
   };
 
   return (
@@ -218,6 +226,16 @@ export default function SignUp(): React.ReactElement {
           {formik.errors.agreeToTerms != null ? (
             <Alert severity='error' data-testid='agreeToTermsError'>
               {formik.errors.agreeToTerms}
+            </Alert>
+          ) : null}
+          <ReCAPTCHA
+            sitekey={getEnvConfig('REACT_APP_RECAPTCHA_SITE_KEY')}
+            onChange={onChangeReCaptcha}
+            data-testid='reCaptcha'
+          />
+          {formik.errors.reCaptcha != null ? (
+            <Alert severity='error' data-testid='reCaptchaError'>
+              {formik.errors.reCaptcha}
             </Alert>
           ) : null}
           <Button

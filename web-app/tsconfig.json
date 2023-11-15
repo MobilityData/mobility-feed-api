@@ -19,11 +19,14 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "react": [ "./node_modules/@types/react" ]
+    }
   },
   "include": [
     "src",
     "cypress/**/*.ts",
     "jest-global-setup.ts"
-  ]
+  ],
 }

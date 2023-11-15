@@ -11,6 +11,7 @@ describe('Sign up screen', () => {
     cy.get('input[id="confirmPassword"]').should('exist');
     cy.get('button[id="sign-up-button"]').should('exist');
     cy.get('input[id="agreeToTerms"]').should('exist');
+    cy.get('iframe[title="reCAPTCHA"]').should('exist');
   });
 
   it('should show the password error when password length is less than 12', () => {
