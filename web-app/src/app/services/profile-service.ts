@@ -5,7 +5,6 @@ import {
 } from 'firebase/auth';
 import { app } from '../../firebase';
 import { type OauthProvider, type User } from '../types';
-import { onAuthStateChanged } from 'firebase/auth';
 
 /**
  * Send an email verification to the current user.
@@ -43,28 +42,8 @@ export const getUserFromSession = async (): Promise<User | null> => {
 };
 
 export const generateUserAccessToken = async (): Promise<User | null> => {
-  // FIXME: currentUser is always null on the first call.
-  // It works on the second call.
-  // See https://firebase.google.com/docs/auth/web/manage-users#get_the_currently_signed-in_user
-  // > Note: currentUser might also be null because the auth object has not finished initializing.
-  // > If you use an observer to keep track of the user's sign-in status, you don't need to handle this case.
+  const currentUser = app.auth().currentUser;
 
-  // Below is a workaround to make it work.
-  // app.auth();
-  // await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // The better fix would be to use the onAuthStateChanged callback.
-  /*
-  app.auth().onAuthStateChanged((user) => {
-    if (user) {
-      console.log('User is signed in.');
-    } else {
-      console.log('No user is signed in.');
-    }
-  } */
-  // I suggest to use the check above to test if the user is logged in, and update userProfileSlice accordingly.
-  // When the user is no longer logged in, we should redirect to the login page.
-  let currentUser = app.auth().currentUser;
   if (currentUser === null) {
     return null;
   }
@@ -73,17 +52,6 @@ export const generateUserAccessToken = async (): Promise<User | null> => {
   const idTokenResult = await currentUser.getIdTokenResult(true);
   const accessToken = idTokenResult.token;
   const accessTokenExpirationTime = idTokenResult.expirationTime;
-
-  app.auth().onAuthStateChanged((user) => {
-    if (user != null) {
-      // User is signed in
-      currentUser = user;
-    } else {
-      // User is signed out
-      console.log('User is signed out');
-      // return <Navigate to='/' />;
-    }
-  });
 
   return {
     fullname: currentUser?.displayName ?? undefined,
