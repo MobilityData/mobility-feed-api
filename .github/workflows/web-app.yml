@@ -49,7 +49,25 @@ jobs:
       - name: Unit tests
         working-directory: web-app
         run: yarn test:ci
-        
+
+      - name: Set Firebase project properties
+        working-directory: web-app
+        run: |
+            echo "Setting FIREBASE_PROJECT to 'dev'"
+            echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+
+      - name: Populate Variables
+        working-directory: web-app
+        run: |
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.test -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+
       - name: Cypress test
         uses: cypress-io/github-action@v6
         with:
