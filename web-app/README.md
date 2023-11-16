@@ -4,7 +4,7 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 Using node v18.16.0 (npm v9.5.1)
 
 ## Configuration variables
-React scripts can inject all necessary environment variables to the application in development mode and the JS bundle files. 
+React scripts can inject all necessary environment variables into the application in development mode and the JS bundle files. 
 Steps to set environment variables:
 - Create a file based on `src/.env.rename_me` with the name `src/.env.{environment}`. Example, `src/.env.dev`.
 - Replace all key values with the desired content.

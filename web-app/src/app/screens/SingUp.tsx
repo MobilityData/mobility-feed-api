@@ -228,11 +228,14 @@ export default function SignUp(): React.ReactElement {
               {formik.errors.agreeToTerms}
             </Alert>
           ) : null}
-          <ReCAPTCHA
-            sitekey={getEnvConfig('REACT_APP_RECAPTCHA_SITE_KEY')}
-            onChange={onChangeReCaptcha}
-            data-testid='reCaptcha'
-          />
+          <Box m={1}>
+            <ReCAPTCHA
+              sitekey={getEnvConfig('REACT_APP_RECAPTCHA_SITE_KEY')}
+              onChange={onChangeReCaptcha}
+              data-testid='reCaptcha'
+              style={{ alignSelf: 'center', margin: 'normal' }}
+            />
+          </Box>
           {formik.errors.reCaptcha != null ? (
             <Alert severity='error' data-testid='reCaptchaError'>
               {formik.errors.reCaptcha}
