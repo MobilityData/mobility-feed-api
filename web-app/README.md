@@ -3,36 +3,59 @@
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 Using node v18.16.0 (npm v9.5.1)
 
+## Configuration variables
+React scripts can inject all necessary environment variables into the application in development mode and the JS bundle files. 
+Steps to set environment variables:
+- Create a file based on `src/.env.rename_me` with the name `src/.env.{environment}`. Example, `src/.env.dev`.
+- Replace all key values with the desired content.
+- Done! You can now start or build the application with the commands described below.
+
+### Adding a new environment variable
+To add a new environment variable, add the variable name to the `src/.env.{environment}` and modify the GitHub actions injecting the value per environment. When adding a new variable, make sure that the variable name is prefixed with `REACT_APP`; otherwise, the react app will not read the variable.
+
 ## Available Scripts
 
 In the project directory, you can run:
 
-### `yarn start`
+- Runs the app in the development mode:
+```
+yarn start:dev
+```
 
-Runs the app in the development mode.\
 Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
 The page will reload if you make edits.\
 You will also see any lint errors in the console.
 
-### `yarn test`
+- Launches the test runner in the interactive watch mode:
+```
+yarn test
+```
 
-Launches the test runner in the interactive watch mode.\
 See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-### `yarn build`
+- Builds the app locally to the `build` folder:
+```
+yarn build:dev
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+It bundles React in production mode for a target Firebase environment.
 
 The build is minified and the filenames include the hashes.\
 Your app is ready to be deployed!
 
 See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-### `yarn lint`
+- Linter check
+```
+yarn lint
+```
+Executes linter on sources to review warnings and errors
 
-Executes linter on sources to review warnings and errors. It can be used to _auto_ fix issues when the solution is available by adding _--fix_ paramter. Full command: `yarn lint --fix`.
+- Linter fix
+```
+yarn lint --fix
+```
 
 # Firebase integration
 
@@ -58,7 +81,7 @@ Component and E2E tests are executed with [Cypress](https://docs.cypress.io/). C
 Cypress useful commands:
 - Run local headless tests
 ```
-yarn start
+yarn start:dev
 ```
 In a different terminal,
 ```

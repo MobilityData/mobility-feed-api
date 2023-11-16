@@ -11,6 +11,7 @@ describe('Sign up screen', () => {
     cy.get('input[id="confirmPassword"]').should('exist');
     cy.get('button[id="sign-up-button"]').should('exist');
     cy.get('input[id="agreeToTerms"]').should('exist');
+    cy.get('iframe[title="reCAPTCHA"]').should('exist');
   });
 
   it('should show the password error when password length is less than 12', () => {
@@ -62,5 +63,14 @@ describe('Sign up screen', () => {
     cy.get('[data-testid=agreeToTermsError]')
       .should('exist')
       .contains('You must accept the terms and conditions.');
+  });
+
+  it('should show the captcha error when is not accepted', () => {
+    cy.get('iframe[title="reCAPTCHA"]').should('exist');
+    cy.get('button[id="sign-up-button"]').click();
+
+    cy.get('[data-testid=reCaptchaError]')
+      .should('exist')
+      .contains('You must verify you are not a robot.');
   });
 });
