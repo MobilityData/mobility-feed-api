@@ -136,7 +136,7 @@ export const userProfileSlice = createSlice({
       state,
       action: PayloadAction<{ fullName: string; organization: string }>,
     ) => {
-      if (state.user !== undefined && state.status === 'registered') {
+      if (state.user !== undefined) {
         state.errors.Registration = null;
         state.user.fullName = action.payload?.fullName ?? '';
         state.user.organization = action.payload?.organization ?? 'Unknown';

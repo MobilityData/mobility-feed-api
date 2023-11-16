@@ -54,7 +54,7 @@ export default function CompleteRegistration(): React.ReactElement {
     initialValues: {
       fullName: '',
       organizationName: '',
-      receiveAPIannouncements: false,
+      receiveAPIAnnouncements: false,
       agreeToTerms: false,
       agreeToPrivacyPolicy: false,
     },
@@ -121,7 +121,7 @@ export default function CompleteRegistration(): React.ReactElement {
             control={
               <Checkbox
                 id='receiveAPIannouncements'
-                value={formik.values.receiveAPIannouncements}
+                value={formik.values.receiveAPIAnnouncements}
                 onChange={formik.handleChange}
                 color='primary'
               />

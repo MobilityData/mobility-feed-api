@@ -188,12 +188,8 @@ jobs:
         working-directory: web-app
         run: npx firebase use ${{  env.FIREBASE_PROJECT }}
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-
-#      - name: Install Firebase functions dependencies
-#        working-directory: functions/
-#        run: npm install
+#      - name: Install Firebase CLI
+#        run: npm install -g firebase-tools
 
       - name: Deploy Firebase functions
         working-directory: functions

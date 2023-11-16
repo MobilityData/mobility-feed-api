@@ -6,12 +6,15 @@
       "ignore": [
         "node_modules",
         ".git",
+        "__tests__",
         "firebase-debug.log",
         "firebase-debug.*.log"
       ],
       "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run lint",
-        "npm --prefix \"$RESOURCE_DIR\" run build"
+        "yarn --cwd \"$RESOURCE_DIR\" install",
+        "yarn --cwd \"$RESOURCE_DIR\" lint",
+        "yarn --cwd \"$RESOURCE_DIR\" run test",
+        "yarn --cwd \"$RESOURCE_DIR\" build"
       ]
     }
   ],
