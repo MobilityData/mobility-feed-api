@@ -1,6 +1,7 @@
 import * as React from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import '../styles/Account.css';
+import { useNavigate } from 'react-router-dom';
 import {
   Typography,
   Container,
@@ -64,6 +65,7 @@ const texts = {
 export default function APIAccount(): React.ReactElement {
   const dispatch = useAppDispatch();
   const user = useSelector(selectUserProfile);
+  const navigateTo = useNavigate();
   const refreshingAccessTokenError = useSelector(
     selectRefreshingAccessTokenError,
   );
@@ -199,13 +201,16 @@ export default function APIAccount(): React.ReactElement {
         }, 1000);
       })
       .catch((error) => {
-        // TODO display error message
         console.log('Could not copy text: ', error);
       });
   };
 
   function handleSignOutClick(): void {
     setOpenDialog(true);
+  }
+
+  function handleChangePasswordClick(): void {
+    navigateTo('/changepassword');
   }
 
   const refreshAccessTokenButtonText = isRefreshingAccessToken
@@ -289,7 +294,12 @@ export default function APIAccount(): React.ReactElement {
           </Typography>
           <Box sx={{ mt: 4 }} />
           <Box sx={{ display: 'flex', justifyContent: 'space-evenly' }}>
-            <Button variant='contained' color='primary' sx={{ mt: 1, ml: 1 }}>
+            <Button
+              variant='contained'
+              color='primary'
+              sx={{ mt: 1, ml: 1 }}
+              onClick={handleChangePasswordClick}
+            >
               Change Password
             </Button>
             <Button
