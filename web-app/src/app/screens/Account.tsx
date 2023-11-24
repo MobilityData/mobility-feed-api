@@ -210,7 +210,7 @@ export default function APIAccount(): React.ReactElement {
   }
 
   function handleChangePasswordClick(): void {
-    navigateTo('/changepassword');
+    navigateTo('/change-password');
   }
 
   const refreshAccessTokenButtonText = isRefreshingAccessToken
