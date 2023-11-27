@@ -98,4 +98,25 @@ describe("updateUserInformation", () => {
       .rejects
       .toThrow(HttpsError);
   });
+  it("should throw an HttpsError when save throws an error", async () => {
+    const mockRequest = {
+      auth: {uid: "testUid"},
+      data: {fullName: "Test User", organization: "Test Org"},
+      rawRequest: {},
+    };
+
+    Datastore.prototype.save = jest.fn().mockImplementation(() => {
+      throw new Error("Datastore save error");
+    });
+
+    await expect(
+      updateUserInformation(mockRequest as unknown as CallableRequest))
+      .rejects
+      .toThrow(HttpsError);
+
+    await expect(
+      updateUserInformation(mockRequest as unknown as CallableRequest))
+      .rejects
+      .toThrow(new HttpsError("internal", "Unable to update user information"));
+  });
 });
