@@ -9,6 +9,7 @@ import {
   USER_PROFILE_SIGNUP_SUCCESS,
   type OauthProvider,
   USER_PROFILE_LOGIN_WITH_PROVIDER,
+  USER_PROFILE_RESET_PASSWORD,
   type UserData,
 } from '../../types';
 import 'firebase/compat/auth';
@@ -18,6 +19,8 @@ import {
   logoutSuccess,
   signUpFail,
   signUpSuccess,
+  resetPasswordFail,
+  resetPasswordSuccess,
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
 import {
@@ -30,6 +33,8 @@ import {
   type AdditionalUserInfo,
   type UserCredential,
   getAdditionalUserInfo,
+  getAuth,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { getAppError } from '../../utils/error';
 
@@ -117,10 +122,23 @@ function* loginWithProviderSaga({
       userData,
       additionalUserInfo,
     );
-    console.log(userEnhanced);
     yield put(loginSuccess(userEnhanced));
   } catch (error) {
     yield put(loginFail(getAppError(error)));
+  }
+}
+
+function* resetPasswordSaga({
+  payload: email,
+}: PayloadAction<string>): Generator {
+  try {
+    const auth = getAuth();
+    yield call(async () => {
+      await sendPasswordResetEmail(auth, email);
+    });
+    yield put(resetPasswordSuccess());
+  } catch (error) {
+    yield put(resetPasswordFail(getAppError(error)));
   }
 }
 
@@ -130,4 +148,5 @@ export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_SIGNUP, signUpSaga);
   yield takeLatest(USER_PROFILE_SIGNUP_SUCCESS, sendEmailVerificationSaga);
   yield takeLatest(USER_PROFILE_LOGIN_WITH_PROVIDER, loginWithProviderSaga);
+  yield takeLatest(USER_PROFILE_RESET_PASSWORD, resetPasswordSaga);
 }

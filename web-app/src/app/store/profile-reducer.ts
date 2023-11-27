@@ -21,6 +21,7 @@ interface UserProfileState {
     | 'registering';
   isRefreshingAccessToken: boolean;
   isAppRefreshing: boolean;
+  isRecoveryEmailSent: boolean;
   errors: AppErrors;
   user: User | undefined;
 }
@@ -34,9 +35,11 @@ const initialState: UserProfileState = {
     Logout: null,
     RefreshingAccessToken: null,
     Registration: null,
+    ResetPassword: null,
   },
   isRefreshingAccessToken: false,
   isAppRefreshing: false,
+  isRecoveryEmailSent: false,
 };
 
 export const userProfileSlice = createSlice({
@@ -163,6 +166,20 @@ export const userProfileSlice = createSlice({
     refreshAppSuccess: (state) => {
       state.isAppRefreshing = false;
     },
+    resetPassword: (state, action: PayloadAction<string>) => {
+      if (state.status === 'unauthenticated') {
+        state.isRecoveryEmailSent = false;
+        state.errors = { ...initialState.errors };
+      }
+    },
+    resetPasswordFail: (state, action: PayloadAction<AppError>) => {
+      state.isRecoveryEmailSent = false;
+      state.errors.ResetPassword = action.payload;
+    },
+    resetPasswordSuccess: (state) => {
+      state.isRecoveryEmailSent = true;
+      state.errors.ResetPassword = null;
+    },
   },
 });
 
@@ -186,6 +203,9 @@ export const {
   refreshUserInformationSuccess,
   refreshApp,
   refreshAppSuccess,
+  resetPassword,
+  resetPasswordFail,
+  resetPasswordSuccess,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
