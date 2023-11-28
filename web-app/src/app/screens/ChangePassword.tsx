@@ -77,7 +77,7 @@ export default function ChangePassword(): React.ReactElement {
           sx={{ width: '50%' }}
         />
         {formik.errors.currentPassword != null ? (
-          <Alert severity='error'>{formik.errors.confirmNewPassword}</Alert>
+          <Alert severity='error'>{formik.errors.currentPassword}</Alert>
         ) : null}
         <TextField
           variant='outlined'
