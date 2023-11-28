@@ -24,9 +24,9 @@ export const AppRouter: React.FC = () => {
         <Route path='account' element={<Account />} />
       </Route>
       <Route path='contact-info' element={<ContactInformation />} />
-<Route element={<ProtectedRoute />}>
-      <Route path='change-password' element={<ChangePassword />} />
-</Route>
+      <Route element={<ProtectedRoute />}>
+        <Route path='change-password' element={<ChangePassword />} />
+      </Route>
     </Routes>
   );
 };

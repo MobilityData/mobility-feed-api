@@ -8,10 +8,16 @@ import Container from '@mui/material/Container';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { Alert } from '@mui/material';
+import { passwordValidatioError } from '../types';
 
 export default function ChangePassword(): React.ReactElement {
   const ChangePasswordSchema = Yup.object().shape({
-    currentPassword: Yup.string().required('Current Password is required'),
+    currentPassword: Yup.string()
+      .required('Password is required')
+      .matches(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
+        passwordValidatioError,
+      ),
     newPassword: Yup.string()
       .required('New Password is required')
       .min(12, 'Password is too short - should be 12 chars minimum'),
