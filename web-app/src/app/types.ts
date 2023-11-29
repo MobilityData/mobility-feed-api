@@ -19,11 +19,13 @@ export interface User {
   accessTokenExpirationTime?: string;
   refreshToken?: string;
   isRegistered: boolean;
+  isRegisteredToReceiveAPIAnnouncements: boolean;
 }
 
 export interface UserData {
   fullName: string;
   organization?: string;
+  isRegisteredToReceiveAPIAnnouncements: boolean;
 }
 
 export const USER_PROFILE = 'userProfile';

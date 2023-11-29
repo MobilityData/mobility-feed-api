@@ -1,8 +1,6 @@
 import {CallableRequest, HttpsError} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {Datastore, Entity, PropertyFilter} from "@google-cloud/datastore";
-import {database} from "firebase-admin";
-import ServerValue = database.ServerValue;
 
 const DATASTORE_USER_INFORMATION_KIND = "web_api_users";
 const UID_PROPERTY_NAME = "uid";
@@ -48,11 +46,12 @@ export const retrieveUserKey = async (
 /**
  * Updates or creates instance of user's information in Datastore
  * @param {CallableRequest} request
+ * @return {Promise<string>} Success message
  * @throws {HttpsError} Throws an error if the user is not authenticated,
  * full name is not provided or if there is an error updating the user
  */
 export const updateUserInformation =
-  async (request: CallableRequest) => {
+  async (request: CallableRequest): Promise<string> => {
     const uid = request.auth?.uid ?? undefined;
     if (uid === undefined) {
       throw new HttpsError("unauthenticated",
@@ -69,6 +68,9 @@ export const updateUserInformation =
     const datastore = new Datastore();
     logger.info(`Updating user ${uid} information with ` +
       `full name ${fullName} and organization ${organization}.`);
+
+    const isRegisteredToReceiveAPIAnnouncements =
+        request.data["isRegisteredToReceiveAPIAnnouncements"] ?? undefined;
 
     const userKey = await retrieveUserKey(datastore, uid) ??
       datastore.key(DATASTORE_USER_INFORMATION_KIND);
@@ -89,8 +91,12 @@ export const updateUserInformation =
           value: organization,
         },
         {
+          name: "isRegisteredToReceiveAPIAnnouncements",
+          value: isRegisteredToReceiveAPIAnnouncements,
+        },
+        {
           name: "registrationCompletionTime",
-          value: ServerValue.TIMESTAMP,
+          value: new Date().toJSON(),
         },
       ],
     };
@@ -110,15 +116,16 @@ export const updateUserInformation =
  * @return {Promise<Entity | undefined>} The user information from the datastore
  * @throws {HttpsError} Throws an error if the user is not authenticated
  */
-export const retrieveUserInformation = async (request: CallableRequest) => {
-  const uid = request.auth?.uid ?? undefined;
-  if (uid === undefined) {
-    throw new HttpsError("unauthenticated",
-      "Error retrieving the user. Verify authentication information."
-    );
-  }
-  logger.info(`Retrieving user ${uid} information.`);
-  const datastore = new Datastore();
-  return await retrieveUser(datastore, uid);
-};
+export const retrieveUserInformation =
+    async (request: CallableRequest): Promise<Entity | undefined> => {
+      const uid = request.auth?.uid ?? undefined;
+      if (uid === undefined) {
+        throw new HttpsError("unauthenticated",
+          "Error retrieving the user. Verify authentication information."
+        );
+      }
+      logger.info(`Retrieving user ${uid} information.`);
+      const datastore = new Datastore();
+      return await retrieveUser(datastore, uid);
+    };
 

@@ -35,6 +35,7 @@ export const getUserFromSession = async (): Promise<User | null> => {
     isRegistered: false,
     // Organization cannot be retrieved from the current user
     organization: undefined,
+    isRegisteredToReceiveAPIAnnouncements: false,
     refreshToken,
   };
 };
@@ -63,6 +64,7 @@ export const generateUserAccessToken = async (
 export const updateUserInformation = async (data: {
   fullName: string | undefined;
   organization: string | undefined;
+  isRegisteredToReceiveAPIAnnouncements: boolean;
 }): Promise<void> => {
   const functions = getFunctions(app, 'us-central1');
   const updateUserInformation = httpsCallable(
@@ -72,6 +74,8 @@ export const updateUserInformation = async (data: {
   await updateUserInformation({
     fullName: data.fullName,
     organization: data.organization,
+    isRegisteredToReceiveAPIAnnouncements:
+      data.isRegisteredToReceiveAPIAnnouncements,
   });
 };
 
@@ -99,7 +103,6 @@ export const populateUserWithAdditionalInfo = (
     ...user,
     isRegistered: userData !== null,
     fullName:
-      user?.fullName ??
       userData?.fullName ??
       (additionalUserInfo?.profile?.name as string) ??
       undefined,
@@ -108,5 +111,7 @@ export const populateUserWithAdditionalInfo = (
       user?.email ??
       (additionalUserInfo?.profile?.email as string) ??
       undefined,
+    isRegisteredToReceiveAPIAnnouncements:
+      userData?.isRegisteredToReceiveAPIAnnouncements ?? false,
   };
 };

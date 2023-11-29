@@ -40,6 +40,8 @@ function* refreshUserInformation(): Generator<StrictEffect, void, User> {
         await updateUserInformation({
           fullName: user.fullName,
           organization: user.organization,
+          isRegisteredToReceiveAPIAnnouncements:
+            user.isRegisteredToReceiveAPIAnnouncements,
         });
       });
       yield put(refreshUserInformationSuccess());

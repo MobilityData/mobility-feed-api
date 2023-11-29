@@ -65,6 +65,8 @@ export default function CompleteRegistration(): React.ReactElement {
           refreshUserInformation({
             fullName: values?.fullName,
             organization: values?.organizationName,
+            isRegisteredToReceiveAPIAnnouncements:
+              values?.receiveAPIAnnouncements,
           }),
         );
       }
@@ -117,18 +119,22 @@ export default function CompleteRegistration(): React.ReactElement {
             onChange={formik.handleChange}
             value={formik.values.organizationName}
           />
-          <FormControlLabel
-            control={
-              <Checkbox
-                id='receiveAPIannouncements'
-                value={formik.values.receiveAPIAnnouncements}
-                onChange={formik.handleChange}
-                color='primary'
-              />
-            }
-            label='I would like to receive new API release announcements via email.'
-            sx={{ width: '100%' }}
-          />
+          {user?.email !== null &&
+          user?.email !== undefined &&
+          user?.email !== '' ? (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  id='receiveAPIAnnouncements'
+                  value={formik.values.receiveAPIAnnouncements}
+                  onChange={formik.handleChange}
+                  color='primary'
+                />
+              }
+              label='I would like to receive new API release announcements via email.'
+              sx={{ width: '100%' }}
+            />
+          ) : null}
           <FormControlLabel
             control={
               <Checkbox
@@ -161,8 +167,6 @@ export default function CompleteRegistration(): React.ReactElement {
           {formik.errors.agreeToPrivacyPolicy != null ? (
             <Alert severity='error'>{formik.errors.agreeToPrivacyPolicy}</Alert>
           ) : null}
-
-          {/* TODO: Add Captcha Here */}
           <Box
             width={'100%'}
             sx={{

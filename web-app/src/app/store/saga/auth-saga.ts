@@ -117,6 +117,7 @@ function* loginWithProviderSaga({
       userData,
       additionalUserInfo,
     );
+    console.log(userEnhanced);
     yield put(loginSuccess(userEnhanced));
   } catch (error) {
     yield put(loginFail(getAppError(error)));
