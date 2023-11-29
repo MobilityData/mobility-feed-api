@@ -1,5 +1,6 @@
 {
   "name": "user-api",
+  "version": "1.0.0",
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",

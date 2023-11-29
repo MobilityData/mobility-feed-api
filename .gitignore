@@ -53,7 +53,7 @@ terraform.tfstate
 terraform.tfstate.backup
 secrets.env
 secrets-*.env
-vars.env
+vars.envx
 vars-*.env
 
 config/.env.dev
@@ -61,3 +61,5 @@ venv
 
 __pycache__
 /functions-python/*/.env.local
+
+**/node_modules

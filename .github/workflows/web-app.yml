@@ -185,15 +185,16 @@ jobs:
         run: npx firebase use ${{  env.FIREBASE_PROJECT }}
 
       - name: Run Install for Functions
-        run: |
-          chmod +x ./scripts/firebase-functions-cmd.sh
-          ./scripts/firebase-functions-cmd.sh install
+        working-directory: functions
+        run: yarn install
 
       - name: Run Lint for Functions
-        run: ./scripts/firebase-functions-cmd.sh lint
+        working-directory: functions
+        run: yarn lint
 
       - name: Run Tests for Functions
-        run: ./scripts/firebase-functions-cmd.sh test
+        working-directory: functions
+        run: yarn test
 
       - name: Deploy Firebase Functions
         working-directory: functions

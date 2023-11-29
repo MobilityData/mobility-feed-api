@@ -1,7 +1,7 @@
 {
   "functions": [
     {
-      "source": "user-api",
+      "source": "packages/user-api",
       "codebase": "user-api",
       "ignore": [
         "node_modules",
