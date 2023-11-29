@@ -5,5 +5,8 @@
     "test": "yarn workspaces run test",
     "build": "yarn workspaces run build",
     "lint": "yarn workspaces run lint"
+  },
+  "devDependencies": {
+    "firebase-tools": "^12.5.4"
   }
 }
