@@ -145,7 +145,7 @@ export const userProfileSlice = createSlice({
       state.status = 'registered';
     },
     changePassword: (state, action: PayloadAction<{ password: string }>) => {
-      if (state.status == 'unauthenticated') {
+      if (state.status === 'unauthenticated') {
         state.isPasswordChanging = false;
         state.errors = { ...initialState.errors };
       }

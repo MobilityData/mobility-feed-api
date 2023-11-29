@@ -22,17 +22,20 @@ export default function ChangePassword(): React.ReactElement {
   const changePasswordError = useSelector(selectChangePasswordError);
   const isChangingPassword = useSelector(selectIsChangingPassword);
   const ChangePasswordSchema = Yup.object().shape({
-    currentPassword: Yup.string()
-      .required('Password is required')
+    currentPassword: Yup.string().required('Password is required'),
+    newPassword: Yup.string()
+      .required('New Password is required')
+      .min(12, 'Password is too short - should be 12 chars minimum')
       .matches(
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
         passwordValidatioError,
       ),
-    newPassword: Yup.string()
-      .required('New Password is required')
-      .min(12, 'Password is too short - should be 12 chars minimum'),
     confirmNewPassword: Yup.string()
       .required('Confirm New Password is required')
+      .matches(
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
+        passwordValidatioError,
+      )
       .oneOf([Yup.ref('newPassword')], 'Passwords must match'),
   });
 
@@ -134,6 +137,11 @@ export default function ChangePassword(): React.ReactElement {
         {changePasswordError != null ? (
           <Alert severity='error' data-testid='firebaseError'>
             {changePasswordError.message}
+          </Alert>
+        ) : null}
+        {isChangingPassword ? (
+          <Alert severity='info' data-testid='firebaseInfo'>
+            Changing Password...
           </Alert>
         ) : null}
       </Box>
