@@ -180,13 +180,13 @@ jobs:
         run: |
           ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  env.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
 
-      - name: Select Firebase Project for Functions
-        working-directory: functions
-        run: npx firebase use ${{  env.FIREBASE_PROJECT }}
-
       - name: Run Install for Functions
         working-directory: functions
         run: yarn install
+
+      - name: Select Firebase Project for Functions
+        working-directory: functions
+        run: npx firebase use ${{  env.FIREBASE_PROJECT }}
 
       - name: Run Lint for Functions
         working-directory: functions
