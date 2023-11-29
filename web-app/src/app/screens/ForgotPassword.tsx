@@ -22,6 +22,8 @@ import {
   ACCOUNT_TARGET,
   COMPLETE_REGISTRATION_TARGET,
 } from '../constants/Navigation';
+import { getEnvConfig } from '../utils/config';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 export default function ForgotPassword(): React.ReactElement {
   const dispatch = useAppDispatch();
@@ -30,15 +32,17 @@ export default function ForgotPassword(): React.ReactElement {
   const resetPasswordError = useSelector(selectResetPasswordError);
   const resetPasswordSuccess = useSelector(selectIsRecoveryEmailSent);
 
-  const SignInSchema = Yup.object().shape({
+  const ForgotPasswordScheme = Yup.object().shape({
     email: Yup.string().email().required('Email is required'),
+    reCaptcha: Yup.string().required('You must verify you are not a robot.'),
   });
 
   const formik = useFormik({
     initialValues: {
       email: '',
+      reCaptcha: null,
     },
-    validationSchema: SignInSchema,
+    validationSchema: ForgotPasswordScheme,
     onSubmit: (values) => {
       dispatch(resetPassword(values.email));
     },
@@ -52,6 +56,10 @@ export default function ForgotPassword(): React.ReactElement {
       navigateTo(COMPLETE_REGISTRATION_TARGET);
     }
   }, [userProfileStatus]);
+
+  const onChangeReCaptcha = (value: string | null): void => {
+    void formik.setFieldValue('reCaptcha', value);
+  };
 
   return (
     <Container component='main' maxWidth='xs'>
@@ -107,7 +115,12 @@ export default function ForgotPassword(): React.ReactElement {
               {formik.errors.email}
             </Alert>
           ) : null}
-
+          <ReCAPTCHA
+            sitekey={getEnvConfig('REACT_APP_RECAPTCHA_SITE_KEY')}
+            onChange={onChangeReCaptcha}
+            data-testid='reCaptcha'
+            style={{ alignSelf: 'center', margin: 'normal' }}
+          />
           <Button
             type='submit'
             variant='contained'
