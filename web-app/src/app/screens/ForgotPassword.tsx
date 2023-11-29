@@ -6,7 +6,7 @@ import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-// import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
 import { resetPassword } from '../store/profile-reducer';
 import { useSelector } from 'react-redux';
@@ -15,14 +15,18 @@ import * as Yup from 'yup';
 import { Alert } from '@mui/material';
 import {
   selectResetPasswordError,
-  //   selectUserProfileStatus, TODO uncomment once complete reg is merged
+  selectUserProfileStatus,
   selectisRecoveryEmailSent,
 } from '../store/selectors';
+import {
+  ACCOUNT_TARGET,
+  COMPLETE_REGISTRATION_TARGET,
+} from '../constants/Navigation';
 
 export default function ForgotPassword(): React.ReactElement {
   const dispatch = useAppDispatch();
-  //   const navigateTo = useNavigate();
-  //   const userProfileStatus = useSelector(selectUserProfileStatus);
+  const navigateTo = useNavigate();
+  const userProfileStatus = useSelector(selectUserProfileStatus);
   const resetPasswordError = useSelector(selectResetPasswordError);
   const resetPasswordSuccess = useSelector(selectisRecoveryEmailSent);
 
@@ -40,14 +44,14 @@ export default function ForgotPassword(): React.ReactElement {
     },
   });
 
-  //   React.useEffect(() => {
-  //     if (userProfileStatus === 'registered') {
-  //       navigateTo(ACCOUNT_TARGET);
-  //     }
-  //     if (userProfileStatus === 'authenticated') {
-  //       navigateTo(COMPLETE_REGISTRATION_TARGET);
-  //     }
-  //   }, [userProfileStatus]);
+  React.useEffect(() => {
+    if (userProfileStatus === 'registered') {
+      navigateTo(ACCOUNT_TARGET);
+    }
+    if (userProfileStatus === 'authenticated') {
+      navigateTo(COMPLETE_REGISTRATION_TARGET);
+    }
+  }, [userProfileStatus]);
 
   return (
     <Container component='main' maxWidth='xs'>

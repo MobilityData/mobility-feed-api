@@ -170,15 +170,18 @@ export const userProfileSlice = createSlice({
       if (state.status === 'unauthenticated') {
         state.isRecoveryEmailSent = false;
         state.errors = { ...initialState.errors };
+        state.isAppRefreshing = true;
       }
     },
     resetPasswordFail: (state, action: PayloadAction<AppError>) => {
       state.isRecoveryEmailSent = false;
       state.errors.ResetPassword = action.payload;
+      state.isAppRefreshing = false;
     },
     resetPasswordSuccess: (state) => {
       state.isRecoveryEmailSent = true;
       state.errors.ResetPassword = null;
+      state.isAppRefreshing = false;
     },
   },
 });
