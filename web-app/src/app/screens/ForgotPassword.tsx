@@ -16,7 +16,7 @@ import { Alert } from '@mui/material';
 import {
   selectResetPasswordError,
   selectUserProfileStatus,
-  selectisRecoveryEmailSent,
+  selectIsRecoveryEmailSent,
 } from '../store/selectors';
 import {
   ACCOUNT_TARGET,
@@ -28,7 +28,7 @@ export default function ForgotPassword(): React.ReactElement {
   const navigateTo = useNavigate();
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const resetPasswordError = useSelector(selectResetPasswordError);
-  const resetPasswordSuccess = useSelector(selectisRecoveryEmailSent);
+  const resetPasswordSuccess = useSelector(selectIsRecoveryEmailSent);
 
   const SignInSchema = Yup.object().shape({
     email: Yup.string().email().required('Email is required'),
