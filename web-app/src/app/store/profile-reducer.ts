@@ -20,6 +20,7 @@ interface UserProfileState {
     | 'registered'
     | 'registering';
   isRefreshingAccessToken: boolean;
+  isPasswordChanging: boolean;
   isAppRefreshing: boolean;
   errors: AppErrors;
   user: User | undefined;
@@ -33,9 +34,11 @@ const initialState: UserProfileState = {
     Login: null,
     Logout: null,
     RefreshingAccessToken: null,
+    ChangePassword: null,
     Registration: null,
   },
   isRefreshingAccessToken: false,
+  isPasswordChanging: false,
   isAppRefreshing: false,
 };
 
@@ -141,6 +144,20 @@ export const userProfileSlice = createSlice({
       state.errors.Registration = null;
       state.status = 'registered';
     },
+    changePassword: (state, action: PayloadAction<{ password: string }>) => {
+      if (state.status == 'unauthenticated') {
+        state.isPasswordChanging = false;
+        state.errors = { ...initialState.errors };
+      }
+    },
+    changePasswordSuccess: (state) => {
+      state.isPasswordChanging = true;
+      state.errors.ChangePassword = null;
+    },
+    changePasswordFail: (state, action: PayloadAction<AppError>) => {
+      state.isPasswordChanging = false;
+      state.errors.ChangePassword = action.payload;
+    },
     refreshApp: (state) => {
       state.isAppRefreshing = true;
     },
@@ -168,6 +185,9 @@ export const {
   refreshUserInformation,
   refreshUserInformationFail,
   refreshUserInformationSuccess,
+  changePassword,
+  changePasswordSuccess,
+  changePasswordFail,
   refreshApp,
   refreshAppSuccess,
 } = userProfileSlice.actions;

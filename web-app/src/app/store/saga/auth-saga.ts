@@ -12,6 +12,8 @@ import {
 } from '../../types';
 import 'firebase/compat/auth';
 import {
+  changePasswordFail,
+  changePasswordSuccess,
   loginFail,
   loginSuccess,
   logoutSucess,
@@ -28,6 +30,8 @@ import {
   type AdditionalUserInfo,
   type UserCredential,
   getAdditionalUserInfo,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
 } from 'firebase/auth';
 import { getAppError } from '../../utils/error';
 
@@ -80,6 +84,28 @@ function* signUpSaga({
     navigateTo(redirectScreen);
   } catch (error) {
     yield put(signUpFail(getAppError(error)));
+  }
+}
+
+function* changePasswordSaga({
+  payload: { email, oldPassword, newPassword },
+}: PayloadAction<{
+  email: string;
+  oldPassword: string;
+  newPassword: string;
+}>): Generator {
+  const user = app.auth().currentUser;
+  if (user === null) {
+    throw new Error('User not found');
+  }
+
+  const credential = EmailAuthProvider.credential(email, oldPassword);
+  try {
+    yield reauthenticateWithCredential(user, credential);
+    yield user.updatePassword(newPassword);
+    yield put(changePasswordSuccess());
+  } catch (error) {
+    yield put(changePasswordFail(getAppError(error)));
   }
 }
 

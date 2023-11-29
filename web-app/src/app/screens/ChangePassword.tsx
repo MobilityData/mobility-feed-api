@@ -9,8 +9,18 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { Alert } from '@mui/material';
 import { passwordValidatioError } from '../types';
+import { useAppDispatch } from '../hooks';
+import { changePassword } from '../store/profile-reducer';
+import {
+  selectChangePasswordError,
+  selectIsChangingPassword,
+} from '../store/profile-selectors';
+import { useSelector } from 'react-redux/es/hooks/useSelector';
 
 export default function ChangePassword(): React.ReactElement {
+  const dispatch = useAppDispatch();
+  const changePasswordError = useSelector(selectChangePasswordError);
+  const isChangingPassword = useSelector(selectIsChangingPassword);
   const ChangePasswordSchema = Yup.object().shape({
     currentPassword: Yup.string()
       .required('Password is required')
@@ -34,10 +44,10 @@ export default function ChangePassword(): React.ReactElement {
     },
     validationSchema: ChangePasswordSchema,
     onSubmit: (values) => {
-      // Handle form submission here
-      // You might want to dispatch an action to change the password
+      dispatch(changePassword({ password: formik.values.newPassword }));
     },
   });
+
   return (
     <Container
       component='main'
@@ -117,9 +127,15 @@ export default function ChangePassword(): React.ReactElement {
           variant='contained'
           color='primary'
           sx={{ mt: 3, mb: 2 }}
+          onClick={() => formik.handleSubmit}
         >
           Save Changes
         </Button>
+        {changePasswordError != null ? (
+          <Alert severity='error' data-testid='firebaseError'>
+            {changePasswordError.message}
+          </Alert>
+        ) : null}
       </Box>
     </Container>
   );
