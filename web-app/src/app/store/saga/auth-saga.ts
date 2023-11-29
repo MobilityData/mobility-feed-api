@@ -9,12 +9,13 @@ import {
   USER_PROFILE_SIGNUP_SUCCESS,
   type OauthProvider,
   USER_PROFILE_LOGIN_WITH_PROVIDER,
+  type UserData,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
   loginFail,
   loginSuccess,
-  logoutSucess,
+  logoutSuccess,
   signUpFail,
   signUpSuccess,
 } from '../profile-reducer';
@@ -22,6 +23,7 @@ import { type NavigateFunction } from 'react-router-dom';
 import {
   getUserFromSession,
   populateUserWithAdditionalInfo,
+  retrieveUserInformation,
   sendEmailVerification,
 } from '../../services';
 import {
@@ -41,7 +43,13 @@ function* emailLoginSaga({
   try {
     yield app.auth().signInWithEmailAndPassword(email, password);
     const user = yield call(getUserFromSession);
-    yield put(loginSuccess(user));
+    const userData = (yield call(retrieveUserInformation)) as UserData;
+    const userEnhanced = populateUserWithAdditionalInfo(
+      user,
+      userData,
+      undefined,
+    );
+    yield put(loginSuccess(userEnhanced));
   } catch (error) {
     yield put(loginFail(getAppError(error)));
   }
@@ -55,7 +63,7 @@ function* logoutSaga({
 }>): Generator {
   try {
     yield app.auth().signOut();
-    yield put(logoutSucess());
+    yield put(logoutSuccess());
     navigateTo(redirectScreen);
   } catch (error) {
     yield put(loginFail(getAppError(error)));
@@ -103,12 +111,14 @@ function* loginWithProviderSaga({
       getAdditionalUserInfo,
       userCredential,
     )) as AdditionalUserInfo;
-    const userEnhanched = populateUserWithAdditionalInfo(
+    const userData = (yield call(retrieveUserInformation)) as UserData;
+    const userEnhanced = populateUserWithAdditionalInfo(
       user,
+      userData,
       additionalUserInfo,
-      oauthProvider,
     );
-    yield put(loginSuccess(userEnhanched));
+    console.log(userEnhanced);
+    yield put(loginSuccess(userEnhanced));
   } catch (error) {
     yield put(loginFail(getAppError(error)));
   }

@@ -24,14 +24,18 @@ import { Alert } from '@mui/material';
 import '../styles/SignUp.css';
 import {
   selectEmailLoginError,
-  selectIsAuthenticated,
+  selectUserProfileStatus,
 } from '../store/selectors';
 import { getAuth, signInWithPopup, type UserCredential } from 'firebase/auth';
+import {
+  ACCOUNT_TARGET,
+  COMPLETE_REGISTRATION_TARGET,
+} from '../constants/Navigation';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
-  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const userProfileStatus = useSelector(selectUserProfileStatus);
   const emailLoginError = useSelector(selectEmailLoginError);
 
   const SignInSchema = Yup.object().shape({
@@ -58,10 +62,13 @@ export default function SignIn(): React.ReactElement {
   });
 
   React.useEffect(() => {
-    if (isAuthenticated) {
-      navigateTo('/account');
+    if (userProfileStatus === 'registered') {
+      navigateTo(ACCOUNT_TARGET);
     }
-  }, [isAuthenticated]);
+    if (userProfileStatus === 'authenticated') {
+      navigateTo(COMPLETE_REGISTRATION_TARGET);
+    }
+  }, [userProfileStatus]);
 
   const signInWithProvider = (oauthProvider: OauthProvider): void => {
     const auth = getAuth();

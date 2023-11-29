@@ -8,8 +8,8 @@ export const selectIsAuthenticated = (state: RootState): boolean =>
   state.userProfile.status === 'authenticated' ||
   state.userProfile.status === 'registered';
 
-export const selectIsRegistered = (state: RootState): boolean =>
-  state.userProfile.status === 'registered';
+export const selectUserProfileStatus = (state: RootState): string =>
+  state.userProfile.status;
 
 export const selectErrorBySource = (
   state: RootState,

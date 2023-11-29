@@ -3,6 +3,7 @@ import type NavigationItem from '../interface/Navigation';
 export const SIGN_OUT_TARGET = '/sign-out';
 export const SIGN_IN_TARGET = '/sign-in';
 export const ACCOUNT_TARGET = '/account';
+export const COMPLETE_REGISTRATION_TARGET = '/complete-registration';
 
 export const MOBILITY_DATA_LINKS = {
   twitter: 'https://twitter.com/mobilitydataio',
