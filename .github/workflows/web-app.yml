@@ -196,6 +196,10 @@ jobs:
         working-directory: functions
         run: yarn test
 
+      - name: Set Firebase Password Policy
+        working-directory: functions/packages/firebase-password-policy
+        run: node lib/index.js
+
       - name: Deploy Firebase Functions
         working-directory: functions
         run: npx firebase deploy --only functions
