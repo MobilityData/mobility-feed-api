@@ -64,7 +64,7 @@ export type AppErrors = {
 };
 
 export const passwordValidatioError =
-  'Password must contain at least one uppercase letter, one lowercase letter, one digit, one special char(!@#$%^&*) and be at least 12 chars long';
+  'Password must contain at least one uppercase letter, one lowercase letter, one digit, one special char(^ $ * . [ ] { } ( ) ? " ! @ # % & / \\ , > < \' : ; | _ ~ `) and be at least 12 chars long';
 
 export enum OauthProvider {
   Google = 'Google',
