@@ -121,6 +121,11 @@ export default function ForgotPassword(): React.ReactElement {
             data-testid='reCaptcha'
             style={{ alignSelf: 'center', margin: 'normal' }}
           />
+          {formik.errors.reCaptcha != null ? (
+            <Alert severity='error' data-testid='reCaptchaError' sx={{ mt: 1 }}>
+              {formik.errors.reCaptcha}
+            </Alert>
+          ) : null}
           <Button
             type='submit'
             variant='contained'
