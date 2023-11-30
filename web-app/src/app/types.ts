@@ -42,6 +42,7 @@ export const USER_REQUEST_REFRESH_ACCESS_TOKEN = `${USER_PROFILE}/requestRefresh
 export const USER_PROFILE_LOAD_ORGANIZATION_FAIL = `${USER_PROFILE}/loadOrganizationFail`;
 export const USER_PROFILE_LOGIN_WITH_PROVIDER = `${USER_PROFILE}/loginWithProvider`;
 export const USER_PROFILE_REFRESH_INFORMATION = `${USER_PROFILE}/refreshUserInformation`;
+export const USER_PROFILE_RESET_PASSWORD = `${USER_PROFILE}/resetPassword`;
 
 export enum ErrorSource {
   SignUp = 'SignUp',
@@ -49,6 +50,7 @@ export enum ErrorSource {
   Logout = 'Logout',
   RefreshingAccessToken = 'RefreshingAccessToken',
   Registration = 'Registration',
+  ResetPassword = 'ResetPassword',
 }
 
 export interface AppError {
