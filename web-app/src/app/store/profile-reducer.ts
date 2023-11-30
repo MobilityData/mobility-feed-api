@@ -20,10 +20,10 @@ interface UserProfileState {
     | 'registered'
     | 'registering';
   isRefreshingAccessToken: boolean;
-  isPasswordChanging: boolean;
   isAppRefreshing: boolean;
   errors: AppErrors;
   user: User | undefined;
+  changePasswordStatus: 'idle' | 'loading' | 'success' | 'fail';
 }
 
 const initialState: UserProfileState = {
@@ -38,8 +38,8 @@ const initialState: UserProfileState = {
     Registration: null,
   },
   isRefreshingAccessToken: false,
-  isPasswordChanging: false,
   isAppRefreshing: false,
+  changePasswordStatus: 'idle',
 };
 
 export const userProfileSlice = createSlice({
@@ -144,19 +144,24 @@ export const userProfileSlice = createSlice({
       state.errors.Registration = null;
       state.status = 'registered';
     },
+    changePasswordInit: (state) => {
+      state.errors.ChangePassword = null;
+      state.changePasswordStatus = 'idle';
+    },
     changePassword: (state, action: PayloadAction<{ password: string }>) => {
-      if (state.status === 'unauthenticated') {
-        state.isPasswordChanging = false;
-        state.errors = { ...initialState.errors };
-      }
+      state.isAppRefreshing = true;
+      state.errors.ChangePassword = null;
+      state.changePasswordStatus = 'loading';
     },
     changePasswordSuccess: (state) => {
-      state.isPasswordChanging = true;
+      state.isAppRefreshing = false;
       state.errors.ChangePassword = null;
+      state.changePasswordStatus = 'success';
     },
     changePasswordFail: (state, action: PayloadAction<AppError>) => {
-      state.isPasswordChanging = false;
+      state.isAppRefreshing = false;
       state.errors.ChangePassword = action.payload;
+      state.changePasswordStatus = 'fail';
     },
     refreshApp: (state) => {
       state.isAppRefreshing = true;
@@ -186,6 +191,7 @@ export const {
   refreshUserInformationFail,
   refreshUserInformationSuccess,
   changePassword,
+  changePasswordInit,
   changePasswordSuccess,
   changePasswordFail,
   refreshApp,

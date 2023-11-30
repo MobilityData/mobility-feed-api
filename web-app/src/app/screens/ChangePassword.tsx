@@ -10,17 +10,19 @@ import * as Yup from 'yup';
 import { Alert } from '@mui/material';
 import { passwordValidatioError } from '../types';
 import { useAppDispatch } from '../hooks';
-import { changePassword } from '../store/profile-reducer';
+import { changePassword, changePasswordInit } from '../store/profile-reducer';
 import {
   selectChangePasswordError,
-  selectIsChangingPassword,
+  selectChangePasswordStatus,
 } from '../store/profile-selectors';
 import { useSelector } from 'react-redux/es/hooks/useSelector';
+import { useNavigate } from 'react-router-dom';
 
 export default function ChangePassword(): React.ReactElement {
   const dispatch = useAppDispatch();
+  const navigateTo = useNavigate();
   const changePasswordError = useSelector(selectChangePasswordError);
-  const isChangingPassword = useSelector(selectIsChangingPassword);
+  const changePasswordStatus = useSelector(selectChangePasswordStatus);
   const ChangePasswordSchema = Yup.object().shape({
     currentPassword: Yup.string().required('Password is required'),
     newPassword: Yup.string()
@@ -51,7 +53,15 @@ export default function ChangePassword(): React.ReactElement {
     },
   });
 
+  if (changePasswordStatus === 'success') {
+    // Or display a popup message first,
+    // naviagte to account page when user clicks ok
+    dispatch(changePasswordInit());
+    navigateTo('/account');
+  }
+
   return (
+    // Redirect to account page if password change is successful
     <Container
       component='main'
       sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
@@ -137,11 +147,6 @@ export default function ChangePassword(): React.ReactElement {
         {changePasswordError != null ? (
           <Alert severity='error' data-testid='firebaseError'>
             {changePasswordError.message}
-          </Alert>
-        ) : null}
-        {isChangingPassword ? (
-          <Alert severity='info' data-testid='firebaseInfo'>
-            Changing Password...
           </Alert>
         ) : null}
       </Box>

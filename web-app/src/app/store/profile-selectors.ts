@@ -33,8 +33,8 @@ export const selectIsRefreshingAccessToken = (state: RootState): boolean =>
 export const selectChangePasswordError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.ChangePassword);
 
-export const selectIsChangingPassword = (state: RootState): boolean =>
-  state.userProfile.isPasswordChanging;
+export const selectChangePasswordStatus = (state: RootState): string =>
+  state.userProfile.changePasswordStatus;
 
 export const selectRegistrationError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.Registration);
