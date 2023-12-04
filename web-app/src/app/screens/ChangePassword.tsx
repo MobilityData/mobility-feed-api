@@ -7,7 +7,7 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Alert } from '@mui/material';
+import { Alert, IconButton, InputAdornment, Tooltip } from '@mui/material';
 import { passwordValidatioError } from '../types';
 import { useAppDispatch } from '../hooks';
 import { changePassword, changePasswordInit } from '../store/profile-reducer';
@@ -17,6 +17,7 @@ import {
 } from '../store/profile-selectors';
 import { useSelector } from 'react-redux/es/hooks/useSelector';
 import { useNavigate } from 'react-router-dom';
+import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 
 export default function ChangePassword(): React.ReactElement {
   const dispatch = useAppDispatch();
@@ -59,6 +60,10 @@ export default function ChangePassword(): React.ReactElement {
     dispatch(changePasswordInit());
     navigateTo('/account');
   }
+
+  const [showNewPassword, setShowNewPassword] = React.useState(true);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] =
+    React.useState(true);
 
   return (
     // Redirect to account page if password change is successful
@@ -113,9 +118,30 @@ export default function ChangePassword(): React.ReactElement {
             id='newPassword'
             label='New Password'
             name='newPassword'
-            type='password'
+            type={showNewPassword ? 'text' : 'password'}
             value={formik.values.newPassword}
             onChange={formik.handleChange}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position='end'>
+                  <Tooltip title='Toggle NewPassword Visibility'>
+                    <IconButton
+                      color='primary'
+                      aria-label='toggle NewPassword visibility'
+                      onClick={() => {
+                        setShowNewPassword(!showNewPassword);
+                      }}
+                    >
+                      {showNewPassword ? (
+                        <VisibilityOffOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOutlined fontSize='small' />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
           {formik.errors.newPassword != null ? (
             <Alert severity='error'>{formik.errors.newPassword}</Alert>
@@ -128,9 +154,30 @@ export default function ChangePassword(): React.ReactElement {
             id='confirmNewPassword'
             label='Confirm New Password'
             name='confirmNewPassword'
-            type='password'
+            type={showConfirmNewPassword ? 'text' : 'password'}
             value={formik.values.confirmNewPassword}
             onChange={formik.handleChange}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position='end'>
+                  <Tooltip title='Toggle Confirm New Password Visibility'>
+                    <IconButton
+                      color='primary'
+                      aria-label='toggle confirm New Password visibility'
+                      onClick={() => {
+                        setShowConfirmNewPassword(!showConfirmNewPassword);
+                      }}
+                    >
+                      {showConfirmNewPassword ? (
+                        <VisibilityOffOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOutlined fontSize='small' />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
           {formik.errors.confirmNewPassword != null ? (
             <Alert severity='error'>{formik.errors.confirmNewPassword}</Alert>
