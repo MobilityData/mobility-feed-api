@@ -62,93 +62,97 @@ export default function ChangePassword(): React.ReactElement {
 
   return (
     // Redirect to account page if password change is successful
-    <Container
-      component='main'
-      sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
-    >
+    <Container component='main' maxWidth='sm'>
       <CssBaseline />
-      <Typography
-        component='h1'
-        variant='h5'
-        color='secondary'
-        sx={{ fontWeight: 'bold', textAlign: 'left' }}
-      >
-        Change Password
-      </Typography>
       <Box
-        component='form'
-        onSubmit={formik.handleSubmit}
-        noValidate
         sx={{
-          mt: 1,
+          mt: 12,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'left',
         }}
       >
-        <TextField
-          variant='outlined'
-          margin='normal'
-          required
-          id='currentPassword'
-          label='Current Password'
-          name='currentPassword'
-          type='password'
-          autoFocus
-          value={formik.values.currentPassword}
-          onChange={formik.handleChange}
-          sx={{ width: '50%' }}
-        />
-        {formik.errors.currentPassword != null ? (
-          <Alert severity='error'>{formik.errors.currentPassword}</Alert>
-        ) : null}
-        <TextField
-          variant='outlined'
-          margin='normal'
-          required
-          id='newPassword'
-          label='New Password'
-          name='newPassword'
-          type='password'
-          value={formik.values.newPassword}
-          onChange={formik.handleChange}
-          sx={{ width: '50%' }}
-        />
-        {formik.errors.newPassword != null ? (
-          <Alert severity='error'>{formik.errors.newPassword}</Alert>
-        ) : null}
-        <TextField
-          variant='outlined'
-          margin='normal'
-          required
-          id='confirmNewPassword'
-          label='Confirm New Password'
-          name='confirmNewPassword'
-          type='password'
-          value={formik.values.confirmNewPassword}
-          onChange={formik.handleChange}
-          sx={{ width: '50%' }}
-        />
-        {formik.errors.confirmNewPassword != null ? (
-          <Alert severity='error'>{formik.errors.confirmNewPassword}</Alert>
-        ) : null}
-      </Box>
-
-      <Box sx={{ display: 'flex', justifyContent: 'left' }}>
-        <Button
-          type='submit'
-          variant='contained'
-          color='primary'
-          sx={{ mt: 3, mb: 2 }}
-          onClick={() => formik.handleSubmit}
+        <Typography
+          component='h1'
+          variant='h5'
+          color='secondary'
+          sx={{ fontWeight: 'bold', textAlign: 'left' }}
         >
-          Save Changes
-        </Button>
-        {changePasswordError != null ? (
-          <Alert severity='error' data-testid='firebaseError'>
-            {changePasswordError.message}
-          </Alert>
-        ) : null}
+          Change Password
+        </Typography>
+        <Box
+          component='form'
+          onSubmit={formik.handleSubmit}
+          noValidate
+          sx={{
+            mt: 1,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <TextField
+            variant='outlined'
+            margin='normal'
+            required
+            fullWidth
+            id='currentPassword'
+            label='Current Password'
+            name='currentPassword'
+            type='password'
+            autoFocus
+            value={formik.values.currentPassword}
+            onChange={formik.handleChange}
+          />
+          {formik.errors.currentPassword != null ? (
+            <Alert severity='error'>{formik.errors.currentPassword}</Alert>
+          ) : null}
+          <TextField
+            variant='outlined'
+            margin='normal'
+            required
+            fullWidth
+            id='newPassword'
+            label='New Password'
+            name='newPassword'
+            type='password'
+            value={formik.values.newPassword}
+            onChange={formik.handleChange}
+          />
+          {formik.errors.newPassword != null ? (
+            <Alert severity='error'>{formik.errors.newPassword}</Alert>
+          ) : null}
+          <TextField
+            variant='outlined'
+            margin='normal'
+            required
+            fullWidth
+            id='confirmNewPassword'
+            label='Confirm New Password'
+            name='confirmNewPassword'
+            type='password'
+            value={formik.values.confirmNewPassword}
+            onChange={formik.handleChange}
+          />
+          {formik.errors.confirmNewPassword != null ? (
+            <Alert severity='error'>{formik.errors.confirmNewPassword}</Alert>
+          ) : null}
+        </Box>
+
+        <Box sx={{ display: 'flex', justifyContent: 'left' }}>
+          <Button
+            type='submit'
+            variant='contained'
+            color='primary'
+            sx={{ mt: 3, mb: 2 }}
+            onClick={() => formik.handleSubmit}
+          >
+            Save Changes
+          </Button>
+          {changePasswordError != null ? (
+            <Alert severity='error' data-testid='firebaseError'>
+              {changePasswordError.message}
+            </Alert>
+          ) : null}
+        </Box>
       </Box>
     </Container>
   );
