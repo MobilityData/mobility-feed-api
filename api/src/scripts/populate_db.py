@@ -107,7 +107,7 @@ class DatabasePopulateHelper:
         """
         entities = []  # entities to add to the database
         entities_index = PriorityQueue()  # prioritization of the entities to avoid FK violation
-        entity_types = {} # gtfs-rt entity types mapping
+        entity_types = {}  # gtfs-rt entity types mapping
 
         def add_entity(entity, priority):
             # validate that entity is not already added
