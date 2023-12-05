@@ -8,17 +8,11 @@
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "serve": "yarn build && firebase emulators:start --only functions",
-    "shell": "yarn build && firebase functions:shell",
-    "start": "yarn shell",
-    "test": "jest",
-    "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "test": "jest"
   },
   "dependencies": {
     "firebase": "^10.6.0",
-    "firebase-admin": "^11.11.1",
-    "firebase-functions": "^4.3.1"
+    "firebase-admin": "^11.11.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
