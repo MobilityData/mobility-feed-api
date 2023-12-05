@@ -7,7 +7,17 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Alert, IconButton, InputAdornment, Tooltip } from '@mui/material';
+import {
+  Alert,
+  IconButton,
+  InputAdornment,
+  Tooltip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+} from '@mui/material';
 import { passwordValidatioError } from '../types';
 import { useAppDispatch } from '../hooks';
 import { changePassword, changePasswordInit } from '../store/profile-reducer';
@@ -50,15 +60,14 @@ export default function ChangePassword(): React.ReactElement {
     },
     validationSchema: ChangePasswordSchema,
     onSubmit: (values) => {
-      dispatch(changePassword({ password: formik.values.newPassword }));
+      dispatch(changePassword({ password: values.newPassword }));
     },
   });
 
+  const [open, setDialogOpen] = React.useState(false);
+
   if (changePasswordStatus === 'success') {
-    // Or display a popup message first,
-    // naviagte to account page when user clicks ok
-    dispatch(changePasswordInit());
-    navigateTo('/account');
+    setDialogOpen(true);
   }
 
   const [showNewPassword, setShowNewPassword] = React.useState(true);
@@ -182,15 +191,12 @@ export default function ChangePassword(): React.ReactElement {
           {formik.errors.confirmNewPassword != null ? (
             <Alert severity='error'>{formik.errors.confirmNewPassword}</Alert>
           ) : null}
-        </Box>
-
-        <Box sx={{ display: 'flex', justifyContent: 'left' }}>
           <Button
             type='submit'
             variant='contained'
             color='primary'
             sx={{ mt: 3, mb: 2 }}
-            onClick={() => formik.handleSubmit}
+            onClick={() => formik.handleChange}
           >
             Save Changes
           </Button>
@@ -201,6 +207,42 @@ export default function ChangePassword(): React.ReactElement {
           ) : null}
         </Box>
       </Box>
+      <Dialog
+        open={open}
+        onClick={() => {
+          setDialogOpen(false);
+        }}
+        aria-labelledby='Change Password Alert'
+        aria-describedby='alert-dialog-description'
+      >
+        <DialogTitle id='alert-dialog-title'>{'Change Password'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id='alert-dialog-description'>
+            Password change succeeded. Do you want to go to the account page?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setDialogOpen(false);
+            }}
+            color='primary'
+          >
+            No
+          </Button>
+          <Button
+            onClick={() => {
+              setDialogOpen(false);
+              dispatch(changePasswordInit());
+              navigateTo('/account');
+            }}
+            color='primary'
+            autoFocus
+          >
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

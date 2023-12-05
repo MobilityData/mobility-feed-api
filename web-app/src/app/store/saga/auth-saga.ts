@@ -9,6 +9,7 @@ import {
   USER_PROFILE_SIGNUP_SUCCESS,
   type OauthProvider,
   USER_PROFILE_LOGIN_WITH_PROVIDER,
+  USER_PROFILE_CHANGE_PASSWORD,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -146,4 +147,5 @@ export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_SIGNUP, signUpSaga);
   yield takeLatest(USER_PROFILE_SIGNUP_SUCCESS, sendEmailVerificationSaga);
   yield takeLatest(USER_PROFILE_LOGIN_WITH_PROVIDER, loginWithProviderSaga);
+  yield takeLatest(USER_PROFILE_CHANGE_PASSWORD, changePasswordSaga);
 }
