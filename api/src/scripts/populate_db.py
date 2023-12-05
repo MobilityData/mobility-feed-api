@@ -107,6 +107,7 @@ class DatabasePopulateHelper:
         """
         entities = []  # entities to add to the database
         entities_index = PriorityQueue()  # prioritization of the entities to avoid FK violation
+        entity_types = {} # gtfs-rt entity types mapping
 
         def add_entity(entity, priority):
             # validate that entity is not already added
@@ -212,9 +213,10 @@ class DatabasePopulateHelper:
                 for entity_type_name in row["entity_type"].replace("|", "-").split("-"):
                     if len(entity_type_name) == 0:
                         continue
-                    entity_type = Entitytype(name=entity_type_name)
+                    if entity_type_name not in entity_types:
+                        entity_types[entity_type_name] = Entitytype(name=entity_type_name)
+                    entity_type = entity_types[entity_type_name]
                     entity_type.feeds.append(feed)
-                    add_entity(entity_type, 4)
 
             # External ID
             mdb_external_id = Externalid(
@@ -223,6 +225,8 @@ class DatabasePopulateHelper:
                 source="mdb",
             )
             add_entity(mdb_external_id, 4)
+
+        [add_entity(entity_type, 4) for entity_type in entity_types.values()]
 
         # Iterate again over the contents of the csv files to process the feed references.
         for index, row in self.df.iterrows():
