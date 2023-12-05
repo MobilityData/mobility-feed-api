@@ -60,15 +60,22 @@ export default function ChangePassword(): React.ReactElement {
     },
     validationSchema: ChangePasswordSchema,
     onSubmit: (values) => {
-      dispatch(changePassword({ password: values.newPassword }));
+      dispatch(
+        changePassword({
+          oldPassword: values.currentPassword,
+          newPassword: values.newPassword,
+        }),
+      );
     },
   });
 
-  const [open, setDialogOpen] = React.useState(false);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
 
-  if (changePasswordStatus === 'success') {
-    setDialogOpen(true);
-  }
+  React.useEffect(() => {
+    if (changePasswordStatus === 'success') {
+      setDialogOpen(true);
+    }
+  }, [changePasswordStatus]);
 
   const [showNewPassword, setShowNewPassword] = React.useState(true);
   const [showConfirmNewPassword, setShowConfirmNewPassword] =
@@ -208,14 +215,17 @@ export default function ChangePassword(): React.ReactElement {
         </Box>
       </Box>
       <Dialog
-        open={open}
+        open={dialogOpen}
         onClick={() => {
           setDialogOpen(false);
         }}
         aria-labelledby='Change Password Alert'
         aria-describedby='alert-dialog-description'
+        maxWidth='sm'
       >
-        <DialogTitle id='alert-dialog-title'>{'Change Password'}</DialogTitle>
+        <DialogTitle id='alert-dialog-title'>
+          {'Change Password Succeeded'}
+        </DialogTitle>
         <DialogContent>
           <DialogContentText id='alert-dialog-description'>
             Password change succeeded. Do you want to go to the account page?

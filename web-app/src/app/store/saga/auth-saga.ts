@@ -89,9 +89,8 @@ function* signUpSaga({
 }
 
 function* changePasswordSaga({
-  payload: { email, oldPassword, newPassword },
+  payload: { oldPassword, newPassword },
 }: PayloadAction<{
-  email: string;
   oldPassword: string;
   newPassword: string;
 }>): Generator {
@@ -99,8 +98,10 @@ function* changePasswordSaga({
   if (user === null) {
     throw new Error('User not found');
   }
-
-  const credential = EmailAuthProvider.credential(email, oldPassword);
+  if (user.email === null) {
+    throw new Error('User email not found');
+  }
+  const credential = EmailAuthProvider.credential(user.email, oldPassword);
   try {
     yield reauthenticateWithCredential(user, credential);
     yield user.updatePassword(newPassword);

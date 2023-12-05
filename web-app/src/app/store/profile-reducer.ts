@@ -148,7 +148,13 @@ export const userProfileSlice = createSlice({
       state.errors.ChangePassword = null;
       state.changePasswordStatus = 'idle';
     },
-    changePassword: (state, action: PayloadAction<{ password: string }>) => {
+    changePassword: (
+      state,
+      action: PayloadAction<{
+        oldPassword: string;
+        newPassword: string;
+      }>,
+    ) => {
       state.isAppRefreshing = true;
       state.errors.ChangePassword = null;
       state.changePasswordStatus = 'loading';
