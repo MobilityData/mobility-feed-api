@@ -17,9 +17,13 @@ import { useAppDispatch } from '../hooks';
 import { loginFail, loginWithProvider, signUp } from '../store/profile-reducer';
 import { Alert } from '@mui/material';
 import { useSelector } from 'react-redux';
-import { ACCOUNT_TARGET, SIGN_IN_TARGET } from '../constants/Navigation';
+import {
+  ACCOUNT_TARGET,
+  COMPLETE_REGISTRATION_TARGET,
+  SIGN_IN_TARGET,
+} from '../constants/Navigation';
 import '../styles/SignUp.css';
-import { selectIsAuthenticated, selectSignUpError } from '../store/selectors';
+import { selectSignUpError, selectUserProfileStatus } from '../store/selectors';
 import {
   ErrorSource,
   OauthProvider,
@@ -34,7 +38,7 @@ export default function SignUp(): React.ReactElement {
   const navigateTo = useNavigate();
   const dispatch = useAppDispatch();
   const signUpError = useSelector(selectSignUpError);
-  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const userProfileStatus = useSelector(selectUserProfileStatus);
   const SignUpSchema = Yup.object().shape({
     email: Yup.string().email().required('Email is required'),
     confirmEmail: Yup.string().oneOf(
@@ -44,7 +48,7 @@ export default function SignUp(): React.ReactElement {
     password: Yup.string()
       .required('Password is required')
       .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^$*.[\]{}()?"!@#%&/\\,><':;|_~`])(?=.{12,})/,
         passwordValidatioError,
       ),
     confirmPassword: Yup.string().oneOf(
@@ -80,10 +84,13 @@ export default function SignUp(): React.ReactElement {
   });
 
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (userProfileStatus === 'registered') {
       navigateTo(ACCOUNT_TARGET);
     }
-  }, [isAuthenticated]);
+    if (userProfileStatus === 'authenticated') {
+      navigateTo(COMPLETE_REGISTRATION_TARGET);
+    }
+  }, [userProfileStatus]);
 
   const signInWithProvider = (oauthProvider: OauthProvider): void => {
     const auth = getAuth();

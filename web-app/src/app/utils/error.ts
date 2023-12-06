@@ -14,7 +14,7 @@ export const getAppError = (error: unknown): AppError => {
     }
     appError.message = message;
   } else {
-    appError.message = error as string;
+    appError.message = `${error as string}`;
   }
   return appError;
 };

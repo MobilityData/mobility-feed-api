@@ -22,7 +22,8 @@ import { selectUserProfile } from '../profile-selectors';
 
 function* refreshAccessTokenSaga(): Generator<StrictEffect, void, User> {
   try {
-    const user = yield call(generateUserAccessToken);
+    const currentUser = yield select(selectUserProfile);
+    const user = yield call(generateUserAccessToken, currentUser);
     if (user !== null) {
       yield put(refreshAccessToken(user));
     }
@@ -34,8 +35,15 @@ function* refreshAccessTokenSaga(): Generator<StrictEffect, void, User> {
 function* refreshUserInformation(): Generator<StrictEffect, void, User> {
   try {
     const user = yield select(selectUserProfile);
-    if (user?.fullname !== undefined) {
-      yield call(updateUserInformation, { fullname: user.fullname });
+    if (user?.fullName !== undefined) {
+      yield call(async () => {
+        await updateUserInformation({
+          fullName: user.fullName,
+          organization: user.organization,
+          isRegisteredToReceiveAPIAnnouncements:
+            user.isRegisteredToReceiveAPIAnnouncements,
+        });
+      });
       yield put(refreshUserInformationSuccess());
     }
   } catch (error) {

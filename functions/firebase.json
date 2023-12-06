@@ -1,0 +1,24 @@
+{
+  "functions": [
+    {
+      "source": "packages/user-api",
+      "codebase": "user-api",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "__tests__",
+        "firebase-debug.log",
+        "firebase-debug.*.log"
+      ],
+      "predeploy": [
+        "yarn --cwd \"$RESOURCE_DIR\" install",
+        "yarn --cwd \"$RESOURCE_DIR\" build"
+      ]
+    }
+  ],
+  "emulators": {
+    "functions": {
+      "port": 5030
+    }
+  }
+}

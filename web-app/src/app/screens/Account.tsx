@@ -14,9 +14,11 @@ import {
   Alert,
   CircularProgress,
   Snackbar,
+  Chip,
 } from '@mui/material';
 import {
   AccountCircleOutlined,
+  Check,
   ContentCopyOutlined,
   ExitToAppOutlined,
   RefreshOutlined,
@@ -283,17 +285,29 @@ export default function APIAccount(): React.ReactElement {
             User Details
           </Typography>
           <Typography variant='body1'>
-            <b>Name:</b>{' '}
-            {user?.fullname !== undefined ? user?.fullname : 'Unknown'}
+            <b>Name:</b>
+            {' ' + user?.fullName ?? 'Unknown'}
           </Typography>
           <Typography variant='body1'>
-            <b>Email:</b> {user?.email !== undefined ? user?.email : 'Unknown'}
+            {user?.email !== undefined && user?.email !== '' ? (
+              <Typography variant='body1'>
+                <b>Email:</b> {' ' + user?.email ?? 'Unknown'}
+              </Typography>
+            ) : null}
           </Typography>
           <Typography variant='body1'>
-            <b>Organization:</b>{' '}
-            {user?.organization !== undefined ? user?.organization : 'Unknown'}
+            <b>Organization:</b> {' ' + user?.organization ?? 'Unknown'}
           </Typography>
-          <Box sx={{ mt: 4 }} />
+          {user?.isRegisteredToReceiveAPIAnnouncements === true ? (
+            <Chip
+              label='Registered to API Announcements'
+              color='primary'
+              variant='outlined'
+              sx={{ mt: 1 }}
+              icon={<Check />}
+            />
+          ) : null}
+          <Box sx={{ mt: 2 }} />
           <Box sx={{ display: 'flex', justifyContent: 'space-evenly' }}>
             {!signedInWithProvider && (
               <Button

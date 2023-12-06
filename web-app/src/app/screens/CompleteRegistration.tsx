@@ -17,12 +17,12 @@ import {
 import { useAppDispatch } from '../hooks';
 import { refreshUserInformation } from '../store/profile-reducer';
 import { useNavigate } from 'react-router-dom';
-import { ACCOUNT_TARGET } from '../constants/Navigation';
 import {
-  selectIsRegistered,
+  selectUserProfileStatus,
   selectRegistrationError,
 } from '../store/profile-selectors';
 import { useSelector } from 'react-redux';
+import { ACCOUNT_TARGET } from '../constants/Navigation';
 
 export default function CompleteRegistration(): React.ReactElement {
   const auth = getAuth();
@@ -30,17 +30,17 @@ export default function CompleteRegistration(): React.ReactElement {
   const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
 
-  const isRegistered = useSelector(selectIsRegistered);
+  const userProfileStatus = useSelector(selectUserProfileStatus);
   const registrationError = useSelector(selectRegistrationError);
 
   React.useEffect(() => {
-    if (isRegistered) {
+    if (userProfileStatus === 'registered') {
       navigateTo(ACCOUNT_TARGET);
     }
-  }, [isRegistered]);
+  }, [userProfileStatus]);
 
   const CompleteRegistrationSchema = Yup.object().shape({
-    fullname: Yup.string().required('Your full name is required.'),
+    fullName: Yup.string().required('Your full name is required.'),
     requiredCheck: Yup.boolean().oneOf([true], 'This field must be checked'),
     agreeToTerms: Yup.boolean()
       .required('You must accept the terms and conditions.')
@@ -52,9 +52,9 @@ export default function CompleteRegistration(): React.ReactElement {
 
   const formik = useFormik({
     initialValues: {
-      fullname: '',
+      fullName: '',
       organizationName: '',
-      receiveAPIannouncements: false,
+      receiveAPIAnnouncements: false,
       agreeToTerms: false,
       agreeToPrivacyPolicy: false,
     },
@@ -63,8 +63,10 @@ export default function CompleteRegistration(): React.ReactElement {
       if (user != null) {
         dispatch(
           refreshUserInformation({
-            fullname: values?.fullname,
+            fullName: values?.fullName,
             organization: values?.organizationName,
+            isRegisteredToReceiveAPIAnnouncements:
+              values?.receiveAPIAnnouncements,
           }),
         );
       }
@@ -97,16 +99,16 @@ export default function CompleteRegistration(): React.ReactElement {
             margin='normal'
             required
             fullWidth
-            id='fullname'
+            id='fullName'
             label='Full Name'
-            name='fullname'
+            name='fullName'
             autoFocus
             onChange={formik.handleChange}
-            value={formik.values.fullname}
-            error={formik.errors.fullname != null}
+            value={formik.values.fullName}
+            error={formik.errors.fullName != null}
           />
-          {formik.errors.fullname != null ? (
-            <Alert severity='error'>{formik.errors.fullname}</Alert>
+          {formik.errors.fullName != null ? (
+            <Alert severity='error'>{formik.errors.fullName}</Alert>
           ) : null}
           <TextField
             margin='normal'
@@ -117,18 +119,22 @@ export default function CompleteRegistration(): React.ReactElement {
             onChange={formik.handleChange}
             value={formik.values.organizationName}
           />
-          <FormControlLabel
-            control={
-              <Checkbox
-                id='receiveAPIannouncements'
-                value={formik.values.receiveAPIannouncements}
-                onChange={formik.handleChange}
-                color='primary'
-              />
-            }
-            label='I would like to receive new API release announcements via email.'
-            sx={{ width: '100%' }}
-          />
+          {user?.email !== null &&
+          user?.email !== undefined &&
+          user?.email !== '' ? (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  id='receiveAPIAnnouncements'
+                  value={formik.values.receiveAPIAnnouncements}
+                  onChange={formik.handleChange}
+                  color='primary'
+                />
+              }
+              label='I would like to receive new API release announcements via email.'
+              sx={{ width: '100%' }}
+            />
+          ) : null}
           <FormControlLabel
             control={
               <Checkbox
@@ -161,8 +167,6 @@ export default function CompleteRegistration(): React.ReactElement {
           {formik.errors.agreeToPrivacyPolicy != null ? (
             <Alert severity='error'>{formik.errors.agreeToPrivacyPolicy}</Alert>
           ) : null}
-
-          {/* TODO: Add Captcha Here */}
           <Box
             width={'100%'}
             sx={{
@@ -174,11 +178,13 @@ export default function CompleteRegistration(): React.ReactElement {
             <Button type='submit' variant='contained'>
               Finish Account Setup
             </Button>
-            {registrationError != null ? (
-              <Alert severity='error'>{registrationError.message}</Alert>
-            ) : null}
           </Box>
         </form>
+        {registrationError !== null ? (
+          <Alert severity='error' sx={{ mt: 2 }}>
+            {registrationError.message}
+          </Alert>
+        ) : null}
       </Box>
     </Container>
   );

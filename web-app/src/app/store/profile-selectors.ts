@@ -8,8 +8,8 @@ export const selectIsAuthenticated = (state: RootState): boolean =>
   state.userProfile.status === 'authenticated' ||
   state.userProfile.status === 'registered';
 
-export const selectIsRegistered = (state: RootState): boolean =>
-  state.userProfile.status === 'registered';
+export const selectUserProfileStatus = (state: RootState): string =>
+  state.userProfile.status;
 
 export const selectErrorBySource = (
   state: RootState,
@@ -18,6 +18,12 @@ export const selectErrorBySource = (
 
 export const selectEmailLoginError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.Login);
+
+export const selectResetPasswordError = (state: RootState): AppError | null =>
+  selectErrorBySource(state, ErrorSource.ResetPassword);
+
+export const selectIsRecoveryEmailSent = (state: RootState): boolean =>
+  state.userProfile.isRecoveryEmailSent;
 
 export const selectSignUpError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.SignUp);

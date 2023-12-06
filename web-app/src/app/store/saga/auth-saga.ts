@@ -10,6 +10,8 @@ import {
   type OauthProvider,
   USER_PROFILE_LOGIN_WITH_PROVIDER,
   USER_PROFILE_CHANGE_PASSWORD,
+  USER_PROFILE_RESET_PASSWORD,
+  type UserData,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -17,14 +19,17 @@ import {
   changePasswordSuccess,
   loginFail,
   loginSuccess,
-  logoutSucess,
+  logoutSuccess,
   signUpFail,
   signUpSuccess,
+  resetPasswordFail,
+  resetPasswordSuccess,
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
 import {
   getUserFromSession,
   populateUserWithAdditionalInfo,
+  retrieveUserInformation,
   sendEmailVerification,
 } from '../../services';
 import {
@@ -33,6 +38,8 @@ import {
   getAdditionalUserInfo,
   reauthenticateWithCredential,
   EmailAuthProvider,
+  getAuth,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { getAppError } from '../../utils/error';
 
@@ -46,7 +53,13 @@ function* emailLoginSaga({
   try {
     yield app.auth().signInWithEmailAndPassword(email, password);
     const user = yield call(getUserFromSession);
-    yield put(loginSuccess(user));
+    const userData = (yield call(retrieveUserInformation)) as UserData;
+    const userEnhanced = populateUserWithAdditionalInfo(
+      user,
+      userData,
+      undefined,
+    );
+    yield put(loginSuccess(userEnhanced));
   } catch (error) {
     yield put(loginFail(getAppError(error)));
   }
@@ -60,7 +73,7 @@ function* logoutSaga({
 }>): Generator {
   try {
     yield app.auth().signOut();
-    yield put(logoutSucess());
+    yield put(logoutSuccess());
     navigateTo(redirectScreen);
   } catch (error) {
     yield put(loginFail(getAppError(error)));
@@ -131,14 +144,29 @@ function* loginWithProviderSaga({
       getAdditionalUserInfo,
       userCredential,
     )) as AdditionalUserInfo;
-    const userEnhanched = populateUserWithAdditionalInfo(
+    const userData = (yield call(retrieveUserInformation)) as UserData;
+    const userEnhanced = populateUserWithAdditionalInfo(
       user,
+      userData,
       additionalUserInfo,
-      oauthProvider,
     );
-    yield put(loginSuccess(userEnhanched));
+    yield put(loginSuccess(userEnhanced));
   } catch (error) {
     yield put(loginFail(getAppError(error)));
+  }
+}
+
+function* resetPasswordSaga({
+  payload: email,
+}: PayloadAction<string>): Generator {
+  try {
+    const auth = getAuth();
+    yield call(async () => {
+      await sendPasswordResetEmail(auth, email);
+    });
+    yield put(resetPasswordSuccess());
+  } catch (error) {
+    yield put(resetPasswordFail(getAppError(error)));
   }
 }
 
@@ -149,4 +177,5 @@ export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_SIGNUP_SUCCESS, sendEmailVerificationSaga);
   yield takeLatest(USER_PROFILE_LOGIN_WITH_PROVIDER, loginWithProviderSaga);
   yield takeLatest(USER_PROFILE_CHANGE_PASSWORD, changePasswordSaga);
+  yield takeLatest(USER_PROFILE_RESET_PASSWORD, resetPasswordSaga);
 }
