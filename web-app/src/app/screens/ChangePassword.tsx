@@ -82,7 +82,6 @@ export default function ChangePassword(): React.ReactElement {
     React.useState(true);
 
   return (
-    // Redirect to account page if password change is successful
     <Container component='main' maxWidth='sm'>
       <CssBaseline />
       <Box
