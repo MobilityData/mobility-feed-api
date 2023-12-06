@@ -6,6 +6,7 @@ from queue import PriorityQueue
 
 import numpy as np
 import pandas
+import sqlalchemy
 from dotenv import load_dotenv
 from geoalchemy2 import WKTElement
 from sqlalchemy import inspect
@@ -124,39 +125,47 @@ class DatabasePopulateHelper:
         if self.df is None:
             return
 
-        # Keep a dict (map) of stable_id -> feed so we can reference the feeds when processing the static_reference
+        # Gather all stable IDs
+        stable_ids = [f"mdb-{int(row['mdb_source_id'])}" for index, row in self.df.iterrows()]
+
+        # Query once to get all feeds
+        gtfs_feeds = self.db.session.query(Gtfsfeed).filter(Gtfsfeed.stable_id.in_(stable_ids)).all()
+        gtfs_rt_feeds = self.db.session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.stable_id.in_(stable_ids)).all()
+
+        # Keep a dict (map) of stable_id -> feed, so we can reference the feeds when processing the static_reference
         # and the redirects.
-        feed_map = {}
+        feed_map = {feed.stable_id: feed for feed in gtfs_feeds + gtfs_rt_feeds}
+
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
             self.logger.debug(f"Populating Database for with Feed [stable_id = {mdb_id}]")
 
             # Feed
             feed_class = Gtfsfeed if row["data_type"] == "gtfs" else Gtfsrealtimefeed
-            feed = feed_class(
+            feed = feed_map[mdb_id] if mdb_id in feed_map else feed_class(
                 id=generate_unique_id(),
-                data_type=row["data_type"],
-                feed_name=row["name"],
-                note=row["note"],
-                producer_url=row["urls.direct_download"],
-                authentication_type=str(int(row.get("urls.authentication_type", "0") or "0")),
-                authentication_info_url=row["urls.authentication_info"],
-                api_key_parameter_name=row["urls.api_key_parameter_name"],
-                license_url=row["urls.license"],
                 stable_id=mdb_id,
-                status=row["status"],
-                provider=row["provider"],
             )
-
             feed_map[mdb_id] = feed
+            feed.data_type = row["data_type"]
+            feed.feed_name = row["name"]
+            feed.note = row["note"]
+            feed.producer_url = row["urls.direct_download"]
+            feed.authentication_type = str(int(row.get("urls.authentication_type", "0") or "0"))
+            feed.authentication_info_url = row["urls.authentication_info"]
+            feed.api_key_parameter_name = row["urls.api_key_parameter_name"]
+            feed.license_url = row["urls.license"]
+            feed.status = row["status"]
+            feed.provider = row["provider"]
 
             # Location
             country_code = row["location.country_code"]
             subdivision_name = row["location.subdivision_name"]
             municipality = row["location.municipality"]
             composite_id = f"{country_code}-{subdivision_name}-{municipality}".replace(" ", "_")
+            location_id = composite_id if len(composite_id) > 0 else "unknown"
             location = Location(
-                id=composite_id if len(composite_id) > 0 else "unknown",
+                id=location_id,
                 country_code=country_code if country_code != "" else None,
                 subdivision_name=subdivision_name if subdivision_name != "" else None,
                 municipality=municipality if municipality != "" else None,
@@ -164,49 +173,6 @@ class DatabasePopulateHelper:
             location = add_entity(location, 1)
             feed.locations.append(location)
             add_entity(feed, 1 if isinstance(feed, Gtfsfeed) else 3)
-
-            if feed.data_type == "gtfs":
-                # GTFS Dataset
-                min_lat = row["location.bounding_box.minimum_latitude"]
-                max_lat = row["location.bounding_box.maximum_latitude"]
-                min_lon = row["location.bounding_box.minimum_longitude"]
-                max_lon = row["location.bounding_box.maximum_longitude"]
-                bbox = None
-                if min_lon is not None and min_lat is not None and max_lon is not None and max_lat is not None:
-                    polygon = "POLYGON(({} {}, {} {}, {} {}, {} {}, {} {}))".format(
-                        min_lon,
-                        min_lat,
-                        min_lon,
-                        max_lat,
-                        max_lon,
-                        max_lat,
-                        max_lon,
-                        min_lat,
-                        min_lon,
-                        min_lat,
-                    )
-                    bbox = WKTElement(polygon, srid=4326)
-                gtfs_dataset = Gtfsdataset(
-                    id=generate_unique_id(),
-                    feed_id=feed.id,
-                    latest=True,
-                    bounding_box=bbox,
-                    hosted_url=row["urls.latest"],
-                    note=row["note"],
-                    download_date=datetime.fromisoformat(
-                        row["location.bounding_box.extracted_on"].replace("Z", "+00:00")
-                    ),
-                    stable_id=mdb_id,
-                )
-                add_entity(gtfs_dataset, 3)
-
-                # GTFS Component
-                for component_name in row["features"].replace("|", "-").split("-"):
-                    if len(component_name) == 0:
-                        continue
-                    component = Component(name=component_name)
-                    component.datasets.append(gtfs_dataset)
-                    add_entity(component, 4)
 
             if feed.data_type == "gtfs_rt":
                 # Entity Type and Entity Type x GTFSRealtimeFeed relationship
