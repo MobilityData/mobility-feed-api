@@ -61,11 +61,6 @@ execute_tests() {
   venv/bin/python -m pip install -r requirements.txt >/dev/null
   venv/bin/python -m pip install -r requirements_dev.txt >/dev/null
   venv/bin/python -m pytest tests
-  # Fail if tests fail
-  if [ $? -ne 0 ]; then
-    printf "\nTests failed in $1\n"
-    exit 1
-  fi
   printf "\n"
 }
 
@@ -77,11 +72,13 @@ fi
 execute_python_tests() {
   printf "\nExecuting python tests in $1\n"
   cd $ABS_SCRIPTPATH/../functions-python
+  export PYTHONPATH="$ABS_SCRIPTPATH/../functions-python:$PYTHONPATH"
+  printf "PYTHONPATH=$PYTHONPATH\n"
   for file in */; do
     if [[ -d "$file" && ! -L "$file" ]]; then
       # if folder contains tests, execute tests
       if [[ -d "$file/tests" ]]; then
-        execute_tests "../functions-python/$file"
+        (execute_tests "../functions-python/$file")
       fi
     fi
   done

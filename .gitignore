@@ -29,6 +29,7 @@ replay_pid*
 
 # Ignore the local instance of the data
 data/
+data-test/
 
 # IDE files
 .idea
