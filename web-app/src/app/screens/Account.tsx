@@ -29,6 +29,7 @@ import {
   selectIsRefreshingAccessToken,
   selectRefreshingAccessTokenError,
   selectUserProfile,
+  selectSignedInWithProvider,
 } from '../store/selectors';
 import LogoutConfirmModal from '../components/LogoutConfirmModal';
 import { useAppDispatch } from '../hooks';
@@ -70,7 +71,7 @@ export default function APIAccount(): React.ReactElement {
     selectRefreshingAccessTokenError,
   );
   const isRefreshingAccessToken = useSelector(selectIsRefreshingAccessToken);
-
+  const signedInWithProvider = useSelector(selectSignedInWithProvider);
   const [accountState, setAccountState] = React.useState<APIAccountState>({
     showRefreshToken: false,
     showAccessToken: false,
@@ -294,14 +295,16 @@ export default function APIAccount(): React.ReactElement {
           </Typography>
           <Box sx={{ mt: 4 }} />
           <Box sx={{ display: 'flex', justifyContent: 'space-evenly' }}>
-            <Button
-              variant='contained'
-              color='primary'
-              sx={{ mt: 1, ml: 1 }}
-              onClick={handleChangePasswordClick}
-            >
-              Change Password
-            </Button>
+            {!signedInWithProvider && (
+              <Button
+                variant='contained'
+                color='primary'
+                sx={{ mt: 1, ml: 1 }}
+                onClick={handleChangePasswordClick}
+              >
+                Change Password
+              </Button>
+            )}
             <Button
               variant='contained'
               color='primary'

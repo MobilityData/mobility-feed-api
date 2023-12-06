@@ -24,6 +24,7 @@ interface UserProfileState {
   errors: AppErrors;
   user: User | undefined;
   changePasswordStatus: 'idle' | 'loading' | 'success' | 'fail';
+  isSignedInWithProvider: boolean;
 }
 
 const initialState: UserProfileState = {
@@ -40,6 +41,7 @@ const initialState: UserProfileState = {
   isRefreshingAccessToken: false,
   isAppRefreshing: false,
   changePasswordStatus: 'idle',
+  isSignedInWithProvider: false,
 };
 
 export const userProfileSlice = createSlice({
@@ -71,6 +73,7 @@ export const userProfileSlice = createSlice({
     },
     logoutSucess: (state) => {
       state.status = 'unauthenticated';
+      state.isSignedInWithProvider = false;
     },
     logoutFail: (state) => {
       state.status = 'unauthenticated';
@@ -125,6 +128,11 @@ export const userProfileSlice = createSlice({
       state.status = 'authenticated';
       state.errors = { ...initialState.errors };
     },
+
+    setSignedInWithProvider: (state, action: PayloadAction<boolean>) => {
+      state.isSignedInWithProvider = action.payload;
+    },
+
     refreshUserInformation: (
       state,
       action: PayloadAction<{ fullname: string; organization: string }>,
@@ -193,6 +201,7 @@ export const {
   refreshAccessTokenFail,
   requestRefreshAccessToken,
   loginWithProvider,
+  setSignedInWithProvider,
   refreshUserInformation,
   refreshUserInformationFail,
   refreshUserInformationSuccess,

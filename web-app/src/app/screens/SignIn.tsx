@@ -10,7 +10,12 @@ import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
-import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
+import {
+  login,
+  loginFail,
+  loginWithProvider,
+  setSignedInWithProvider,
+} from '../store/profile-reducer';
 import {
   OauthProvider,
   type EmailLogin,
@@ -69,6 +74,7 @@ export default function SignIn(): React.ReactElement {
     signInWithPopup(auth, provider)
       .then((userCredential: UserCredential) => {
         dispatch(loginWithProvider({ oauthProvider, userCredential }));
+        dispatch(setSignedInWithProvider(true));
       })
       .catch((error) => {
         dispatch(
