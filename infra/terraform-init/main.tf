@@ -61,6 +61,13 @@ resource "google_project_iam_member" "ci_impersonator_binding" {
   member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
 }
 
+
+resource "google_project_iam_member" "ci_impersonator_security_binding" {
+  project = var.project_id
+  role    = "roles/iam.securityAdmin"
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
+
 resource "google_project_iam_member" "ci_impersonator_binding_artifactory" {
   project = var.project_id
   role    = "roles/artifactregistry.createOnPushWriter"
@@ -79,6 +86,11 @@ resource "google_project_iam_member" "service_account_act_as_binding" {
   member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
 }
 
+resource "google_project_iam_member" "service_account_pub_sub_binding" {
+  project = var.project_id
+  role    = "roles/pubsub.editor"
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
 
 resource "google_service_account" "ci_service_account" {
   account_id   = "ci-service-account"
