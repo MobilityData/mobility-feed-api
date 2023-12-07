@@ -61,6 +61,7 @@ class FeedsApiImpl(BaseFeedsApi):
             "feed_name": database_feed.feed_name,
             "note": database_feed.note,
             "provider": database_feed.provider,
+            "feed_contact_email": database_feed.feed_contact_email,
             "source_info": SourceInfo(
                 producer_url=database_feed.producer_url,
                 authentication_type=database_feed.authentication_type,

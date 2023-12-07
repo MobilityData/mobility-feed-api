@@ -48,7 +48,7 @@ export default function SignUp(): React.ReactElement {
     password: Yup.string()
       .required('Password is required')
       .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^$*.[\]{}()?"!@#%&/\\,><':;|_~`])(?=.{12,})/,
         passwordValidatioError,
       ),
     confirmPassword: Yup.string().oneOf(

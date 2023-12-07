@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths:
       - "web-app/**"
-      - "functions"
+      - "functions/**"
   push:
     branches: [main]
   workflow_dispatch:
@@ -195,6 +195,12 @@ jobs:
       - name: Run Tests for Functions
         working-directory: functions
         run: yarn test
+
+      - name: Set Firebase Password Policy
+        working-directory: functions/packages/firebase-password-policy
+        run: |
+          yarn build
+          node lib/index.js
 
       - name: Deploy Firebase Functions
         working-directory: functions

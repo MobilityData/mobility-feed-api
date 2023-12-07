@@ -125,10 +125,10 @@ class DatabasePopulateHelper:
         if self.df is None:
             return
 
-        # Gather all stable IDs
+        # Gather all stable IDs from csv
         stable_ids = [f"mdb-{int(row['mdb_source_id'])}" for index, row in self.df.iterrows()]
 
-        # Query once to get all feeds
+        # Query once to get all existing feeds
         gtfs_feeds = self.db.session.query(Gtfsfeed).filter(Gtfsfeed.stable_id.in_(stable_ids)).all()
         gtfs_rt_feeds = self.db.session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.stable_id.in_(stable_ids)).all()
 
@@ -157,6 +157,7 @@ class DatabasePopulateHelper:
             feed.license_url = row["urls.license"]
             feed.status = row["status"]
             feed.provider = row["provider"]
+            feed.feed_contact_email = row["feed_contact_email"]
 
             # Location
             country_code = row["location.country_code"]
