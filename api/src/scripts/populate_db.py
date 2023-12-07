@@ -137,6 +137,7 @@ class DatabasePopulateHelper:
                 data_type=row["data_type"],
                 feed_name=row["name"],
                 note=row["note"],
+                feed_contact_email=row["feed_contact_email"],
                 producer_url=row["urls.direct_download"],
                 authentication_type=str(int(row.get("urls.authentication_type", "0") or "0")),
                 authentication_info_url=row["urls.authentication_info"],
