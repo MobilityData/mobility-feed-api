@@ -294,6 +294,9 @@ components:
         note:
          description: A note to clarify complex use cases for consumers.
          type: string
+        feed_contact_email:
+          description: Use to contact the feed producer.
+          type: string
         source_info:
           $ref: "#/components/schemas/SourceInfo"
         redirects:
