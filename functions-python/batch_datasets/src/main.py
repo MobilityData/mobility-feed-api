@@ -17,6 +17,7 @@
 import json
 import os
 import uuid
+from datetime import datetime
 
 import functions_framework
 from google.cloud import pubsub_v1
@@ -24,6 +25,7 @@ from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
+from dataset_service.main import BatchExecutionService, BatchExecution
 from helpers.database import start_db_session, close_db_session
 
 publisher = pubsub_v1.PublisherClient()
@@ -106,9 +108,11 @@ def batch_datasets(request):
     print(f"Retrieved {len(active_feeds)} active feeds.")
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
     trace_id = request.headers.get('X-Cloud-Trace-Context')
+    execution_id = f'batch-trace-{trace_id}' if trace_id else f'batch-uuid-{uuid.uuid4()}'
+    timestamp = datetime.now()
     for active_feed in active_feeds:
         payload = {
-            "execution_id": f'batch-trace-{trace_id}' if trace_id else f'batch-uuid-{uuid.uuid4()}',
+            "execution_id": execution_id,
             "producer_url": active_feed['producer_url'],
             "feed_stable_id": active_feed['stable_id'],
             "feed_id": active_feed['feed_id'],
@@ -122,4 +126,5 @@ def batch_datasets(request):
         print(f"Publishing {data_str} to {topic_path}.")
         future = publish(topic_path, data_str.encode('utf-8'))
         future.add_done_callback(lambda _: publish_callback(future, active_feed['stable_id'], topic_path))
+    BatchExecutionService().save(BatchExecution(execution_id=execution_id, feeds_total=len(active_feeds), timestamp=timestamp))
     return f'Publish completed. Published {len(active_feeds)} feeds to {pubsub_topic_name}.'

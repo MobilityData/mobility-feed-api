@@ -104,7 +104,8 @@ build_function() {
     printf "\nINFO: function_config.json file contains a property called include_folders"
   fi
   for folder in $include_folders; do
-    cp -R "$FX_PATH/$folder" "$FX_DIST_BUILD"
+    printf "INFO: including folder $FX_PATH/../$folder\n"
+    cp -R "$FX_PATH/../$folder" "$FX_DIST_BUILD"
   done
 
   (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
