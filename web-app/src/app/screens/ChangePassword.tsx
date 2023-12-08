@@ -121,6 +121,7 @@ export default function ChangePassword(): React.ReactElement {
             autoFocus
             value={formik.values.currentPassword}
             onChange={formik.handleChange}
+            data-testid='currentPassword' // Add this line
           />
           {formik.errors.currentPassword != null ? (
             <Alert severity='error'>{formik.errors.currentPassword}</Alert>
@@ -201,7 +202,14 @@ export default function ChangePassword(): React.ReactElement {
             type='submit'
             variant='contained'
             color='primary'
-            sx={{ mt: 3, mb: 2 }}
+            sx={{
+              mt: 3,
+              mb: 2,
+              width: '30%',
+              display: 'block',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+            }}
             onClick={() => formik.handleChange}
           >
             Save Changes
@@ -247,6 +255,7 @@ export default function ChangePassword(): React.ReactElement {
             }}
             color='primary'
             autoFocus
+            cy-data='goToAccount'
           >
             Yes
           </Button>
