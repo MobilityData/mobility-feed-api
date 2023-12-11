@@ -26,8 +26,12 @@ on:
         description: Schedule for the GCP scheduler
         required: true
         type: string
-      DATASETS_BUCKET:
+      DATASETS_BUCKET_NAME:
         description: Bucket name containing the historical datasets
+        required: true
+        type: string
+      ENVIRONMENT:
+        description: Environment name
         required: true
         type: string
     secrets:
@@ -60,13 +64,15 @@ jobs:
           echo "OBJECT_PREFIX=${{ inputs.OBJECT_PREFIX }}" >> $GITHUB_ENV
           echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
+          echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
           echo "JOB_SCHEDULE=${{ inputs.JOB_SCHEDULE }}" >> $GITHUB_ENV
+          echo "DATASETS_BUCKET_NAME=${{ inputs.DATASETS_BUCKET_NAME }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,JOB_SCHEDULE
+          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,JOB_SCHEDULE,ENVIRONMENT,DATASETS_BUCKET_NAME
           cat infra/batch/vars.tfvars
 
       - name: Docker Compose DB/Liquibase for db-gen.sh
