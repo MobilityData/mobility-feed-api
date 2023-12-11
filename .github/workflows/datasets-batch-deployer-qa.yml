@@ -18,6 +18,6 @@ jobs:
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.QA_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
       # every week on monday at 00:00
       JOB_SCHEDULE: '0 0 * * 1'
-      DATASETS_BUCKET_NAME: 'mobility-datasets-qa'
+      DATASETS_BUCKET_NAME: 'mobilitydata-datasets-qa'
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}

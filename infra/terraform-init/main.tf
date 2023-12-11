@@ -89,7 +89,13 @@ resource "google_project_iam_member" "service_account_act_as_binding" {
 resource "google_project_iam_member" "service_account_pub_sub_binding" {
   project = var.project_id
   role    = "roles/pubsub.editor"
-  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
+resource "google_project_iam_member" "service_account_pub_sub_admin_binding" {
+  project = var.project_id
+  role    = "roles/pubsub.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
 resource "google_service_account" "ci_service_account" {
@@ -176,6 +182,12 @@ resource "google_project_iam_member" "ci_binding_servicemanagement_admin" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "ci_binding_scheduler_admin" {
+  project = var.project_id
+  role    = "roles/cloudscheduler.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_project_iam_member" "ci_binding_firebase_admin" {
   project = var.project_id
   role    = "roles/firebase.admin"
@@ -187,6 +199,7 @@ resource "google_project_iam_member" "ci_binding_secret_manager_admin" {
   role    = "roles/secretmanager.admin"
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
+
 
 resource "google_storage_bucket" "tf_state_bucket" {
   name          = "${var.terraform_state_bucket_name_prefix}-${var.environment}"
