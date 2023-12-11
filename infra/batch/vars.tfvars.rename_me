@@ -9,4 +9,4 @@ project_id={{PROJECT_ID}}
 environment={{ENVIRONMENT}}
 deployer_service_account={{DEPLOYER_SERVICE_ACCOUNT}}
 job_schedule={{JOB_SCHEDULE}}
-datasets_bucket_name{{DATASETS_BUCKET_NAME}}
+datasets_bucket_name={{DATASETS_BUCKET_NAME}}
