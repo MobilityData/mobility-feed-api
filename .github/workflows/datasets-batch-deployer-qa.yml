@@ -1,0 +1,23 @@
+name: Deploy Historical Batch Processing - QA
+
+on:
+  workflow_dispatch:  # Supports manual deployment
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/datasets-batch-deployer.yml
+    with:
+      STATE_BUCKET_NAME: 'mobility-feeds-terraform-qa'
+      OBJECT_PREFIX: 'terraform-state-datasets-batch'
+      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.QA_MOBILITY_FEEDS_REGION }}
+      ENVIRONMENT: 'qa'
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.QA_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
+      # every week on monday at 00:00
+      JOB_SCHEDULE: '0 0 * * 1'
+      DATASETS_BUCKET_NAME: 'mobility-datasets-qa'
+    secrets:
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}

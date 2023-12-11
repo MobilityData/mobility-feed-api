@@ -43,11 +43,13 @@ resource "google_service_account" "functions_service_account" {
   display_name = "Batch Functions Service Account"
 }
 
+# Cloud storage bucket to store the datasets
 resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
   location = "us"
 }
 
+# Grant permissions to the service account to access the datasets bucket
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
   bucket = google_storage_bucket.datasets_bucket.name
   role   = "roles/storage.admin"
@@ -65,12 +67,14 @@ resource "google_storage_bucket" "functions_bucket" {
   location = "us"
 }
 
+# Function's zip files with sile sha256 as part of the name to force redeploy
 resource "google_storage_bucket_object" "batch_datasets_zip" {
   name   = "batch_datasets-${substr(filebase64sha256(local.function_batch_datasets_zip),0,10)}.zip"
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_batch_datasets_zip
 }
 
+# Function's zip files with sile sha256 as part of the name to force redeploy
 resource "google_storage_bucket_object" "batch_process_dataset_zip" {
   name   = "batch_process_dataset-${substr(filebase64sha256(local.function_batch_process_dataset_zip),0,10)}.zip"
   bucket = google_storage_bucket.functions_bucket.name
@@ -86,6 +90,7 @@ data "google_iam_policy" "secret_access_function_batch_datasets" {
   }
 }
 
+# Grant permissions to the service account to access the secrets based on the function config
 resource "google_secret_manager_secret_iam_policy" "policy_function_batch_datasets" {
   for_each = { for x in local.function_batch_datasets_config.secret_environment_variables: x.key => x}
 
@@ -94,6 +99,7 @@ resource "google_secret_manager_secret_iam_policy" "policy_function_batch_datase
   policy_data = data.google_iam_policy.secret_access_function_batch_datasets.policy_data
 }
 
+# Grant permissions to the service account to publish to the pubsub topic
 resource "google_pubsub_topic_iam_binding" "functions_publisher" {
   project = var.project_id
   role    = "roles/pubsub.publisher"
@@ -101,6 +107,7 @@ resource "google_pubsub_topic_iam_binding" "functions_publisher" {
   members  = ["serviceAccount:${google_service_account.functions_service_account.email}"]
 }
 
+# Grant permissions to the service account to subscribe to the pubsub topic
 resource "google_pubsub_topic_iam_binding" "functions_subscriber" {
   project = var.project_id
   role    = "roles/pubsub.subscriber"
@@ -108,6 +115,7 @@ resource "google_pubsub_topic_iam_binding" "functions_subscriber" {
   members  = ["serviceAccount:${google_service_account.functions_service_account.email}"]
 }
 
+# Batch datasets function
 resource "google_cloudfunctions2_function" "batch_datasets" {
   name        = "${local.function_batch_datasets_config.name}-${var.environment}"
   description = local.function_batch_datasets_config.description
@@ -200,6 +208,7 @@ resource "google_pubsub_topic" "pubsub_topic" {
   name  = "datasets-batch-topic-${var.environment}"
 }
 
+# Batch process dataset function
 resource "google_cloudfunctions2_function" "pubsub_function" {
   name        = "${local.function_batch_process_dataset_config.name}-${var.environment}"
   description = local.function_batch_process_dataset_config.description
@@ -264,16 +273,18 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker" {
   member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# Scheduler job to trigger the batch job only on Mondays
+# Paused for non-prod environments
 resource "google_cloud_scheduler_job" "job" {
   name             = "${var.job_name}-${var.environment}"
   description      = "Batch job to process datasets"
   schedule         = var.job_schedule
   time_zone        = "Etc/UTC"
   attempt_deadline = var.job_attempt_deadline
-
+  paused          = var.environment == "prod" ? false : true
   http_target {
     http_method = "POST"
-    uri         = "https://${var.gcp_region}-${var.project_id}.cloudfunctions.net/${google_cloudfunctions2_function.http_function.name}"
+    uri         = google_cloudfunctions2_function.pubsub_function.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
