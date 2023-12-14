@@ -1,6 +1,6 @@
 const email = Cypress.env('email');
 const currentPassword = Cypress.env('currentPassword');
-const newPassword = Cypress.env('newPassword');
+const newPassword = Cypress.env('currentPassword') + 'TEST';
 
 describe('Change Password Screen', () => {
   before(() => {});
