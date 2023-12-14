@@ -38,13 +38,13 @@ jobs:
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
-            - name: Cache Cypress binary
-            uses: actions/cache@v2
-            with:
-              path: ~/.cache/Cypress
-              key: cypress-${{ runner.os }}-binary-${{ hashFiles('**/package-lock.json') }}
-              restore-keys: |
-                cypress-${{ runner.os }}-binary-
+      - name: Cache Cypress binary
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-binary-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-binary-
 
       - name: Install dependencies
         working-directory: web-app
