@@ -36,5 +36,14 @@ export const selectRefreshingAccessTokenError = (
 export const selectIsRefreshingAccessToken = (state: RootState): boolean =>
   state.userProfile.isRefreshingAccessToken;
 
+export const selectSignedInWithProvider = (state: RootState): boolean =>
+  state.userProfile.isSignedInWithProvider;
+
+export const selectChangePasswordError = (state: RootState): AppError | null =>
+  selectErrorBySource(state, ErrorSource.ChangePassword);
+
+export const selectChangePasswordStatus = (state: RootState): string =>
+  state.userProfile.changePasswordStatus;
+
 export const selectRegistrationError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.Registration);

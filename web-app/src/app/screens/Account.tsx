@@ -1,6 +1,7 @@
 import * as React from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import '../styles/Account.css';
+import { useNavigate } from 'react-router-dom';
 import {
   Typography,
   Container,
@@ -30,6 +31,7 @@ import {
   selectIsRefreshingAccessToken,
   selectRefreshingAccessTokenError,
   selectUserProfile,
+  selectSignedInWithProvider,
 } from '../store/selectors';
 import LogoutConfirmModal from '../components/LogoutConfirmModal';
 import { useAppDispatch } from '../hooks';
@@ -66,11 +68,12 @@ const texts = {
 export default function APIAccount(): React.ReactElement {
   const dispatch = useAppDispatch();
   const user = useSelector(selectUserProfile);
+  const navigateTo = useNavigate();
   const refreshingAccessTokenError = useSelector(
     selectRefreshingAccessTokenError,
   );
   const isRefreshingAccessToken = useSelector(selectIsRefreshingAccessToken);
-
+  const signedInWithProvider = useSelector(selectSignedInWithProvider);
   const [accountState, setAccountState] = React.useState<APIAccountState>({
     showRefreshToken: false,
     showAccessToken: false,
@@ -201,13 +204,16 @@ export default function APIAccount(): React.ReactElement {
         }, 1000);
       })
       .catch((error) => {
-        // TODO display error message
         console.log('Could not copy text: ', error);
       });
   };
 
   function handleSignOutClick(): void {
     setOpenDialog(true);
+  }
+
+  function handleChangePasswordClick(): void {
+    navigateTo('/change-password');
   }
 
   const refreshAccessTokenButtonText = isRefreshingAccessToken
@@ -303,9 +309,16 @@ export default function APIAccount(): React.ReactElement {
           ) : null}
           <Box sx={{ mt: 2 }} />
           <Box sx={{ display: 'flex', justifyContent: 'space-evenly' }}>
-            <Button variant='contained' color='primary' sx={{ mt: 1, ml: 1 }}>
-              Change Password
-            </Button>
+            {!signedInWithProvider && (
+              <Button
+                variant='contained'
+                color='primary'
+                sx={{ mt: 1, ml: 1 }}
+                onClick={handleChangePasswordClick}
+              >
+                Change Password
+              </Button>
+            )}
             <Button
               variant='contained'
               color='primary'

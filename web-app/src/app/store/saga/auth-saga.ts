@@ -9,11 +9,14 @@ import {
   USER_PROFILE_SIGNUP_SUCCESS,
   type OauthProvider,
   USER_PROFILE_LOGIN_WITH_PROVIDER,
+  USER_PROFILE_CHANGE_PASSWORD,
   USER_PROFILE_RESET_PASSWORD,
   type UserData,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
+  changePasswordFail,
+  changePasswordSuccess,
   loginFail,
   loginSuccess,
   logoutSuccess,
@@ -33,6 +36,8 @@ import {
   type AdditionalUserInfo,
   type UserCredential,
   getAdditionalUserInfo,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   getAuth,
   sendPasswordResetEmail,
 } from 'firebase/auth';
@@ -96,6 +101,29 @@ function* signUpSaga({
   }
 }
 
+function* changePasswordSaga({
+  payload: { oldPassword, newPassword },
+}: PayloadAction<{
+  oldPassword: string;
+  newPassword: string;
+}>): Generator {
+  const user = app.auth().currentUser;
+  if (user === null) {
+    throw new Error('User not found');
+  }
+  if (user.email === null) {
+    throw new Error('User email not found');
+  }
+  const credential = EmailAuthProvider.credential(user.email, oldPassword);
+  try {
+    yield reauthenticateWithCredential(user, credential);
+    yield user.updatePassword(newPassword);
+    yield put(changePasswordSuccess());
+  } catch (error) {
+    yield put(changePasswordFail(getAppError(error)));
+  }
+}
+
 function* sendEmailVerificationSaga(): Generator {
   try {
     yield call(sendEmailVerification);
@@ -148,5 +176,6 @@ export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_SIGNUP, signUpSaga);
   yield takeLatest(USER_PROFILE_SIGNUP_SUCCESS, sendEmailVerificationSaga);
   yield takeLatest(USER_PROFILE_LOGIN_WITH_PROVIDER, loginWithProviderSaga);
+  yield takeLatest(USER_PROFILE_CHANGE_PASSWORD, changePasswordSaga);
   yield takeLatest(USER_PROFILE_RESET_PASSWORD, resetPasswordSaga);
 }

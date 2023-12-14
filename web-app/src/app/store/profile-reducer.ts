@@ -24,6 +24,8 @@ interface UserProfileState {
   isRecoveryEmailSent: boolean;
   errors: AppErrors;
   user: User | undefined;
+  changePasswordStatus: 'idle' | 'loading' | 'success' | 'fail';
+  isSignedInWithProvider: boolean;
 }
 
 const initialState: UserProfileState = {
@@ -34,11 +36,14 @@ const initialState: UserProfileState = {
     Login: null,
     Logout: null,
     RefreshingAccessToken: null,
+    ChangePassword: null,
     Registration: null,
     ResetPassword: null,
   },
   isRefreshingAccessToken: false,
   isAppRefreshing: false,
+  changePasswordStatus: 'idle',
+  isSignedInWithProvider: false,
   isRecoveryEmailSent: false,
 };
 
@@ -80,6 +85,7 @@ export const userProfileSlice = createSlice({
     },
     logoutSuccess: (state) => {
       state.status = 'unauthenticated';
+      state.isSignedInWithProvider = false;
     },
     logoutFail: (state) => {
       state.status = 'unauthenticated';
@@ -134,7 +140,9 @@ export const userProfileSlice = createSlice({
       }>,
     ) => {
       state.errors = { ...initialState.errors };
+      state.isSignedInWithProvider = true;
     },
+
     refreshUserInformation: (
       state,
       action: PayloadAction<{
@@ -159,6 +167,31 @@ export const userProfileSlice = createSlice({
     refreshUserInformationSuccess: (state) => {
       state.errors.Registration = null;
       state.status = 'registered';
+    },
+    changePasswordInit: (state) => {
+      state.errors.ChangePassword = null;
+      state.changePasswordStatus = 'idle';
+    },
+    changePassword: (
+      state,
+      action: PayloadAction<{
+        oldPassword: string;
+        newPassword: string;
+      }>,
+    ) => {
+      state.isAppRefreshing = true;
+      state.errors.ChangePassword = null;
+      state.changePasswordStatus = 'loading';
+    },
+    changePasswordSuccess: (state) => {
+      state.isAppRefreshing = false;
+      state.errors.ChangePassword = null;
+      state.changePasswordStatus = 'success';
+    },
+    changePasswordFail: (state, action: PayloadAction<AppError>) => {
+      state.isAppRefreshing = false;
+      state.errors.ChangePassword = action.payload;
+      state.changePasswordStatus = 'fail';
     },
     refreshApp: (state) => {
       state.isAppRefreshing = true;
@@ -204,6 +237,10 @@ export const {
   refreshUserInformation,
   refreshUserInformationFail,
   refreshUserInformationSuccess,
+  changePassword,
+  changePasswordInit,
+  changePasswordSuccess,
+  changePasswordFail,
   refreshApp,
   refreshAppSuccess,
   resetPassword,

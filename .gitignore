@@ -58,6 +58,7 @@ vars-*.env
 
 config/.env.dev
 venv
+cypress.env.json
 
 __pycache__
 /functions-python/*/.env.local
