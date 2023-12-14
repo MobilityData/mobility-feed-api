@@ -140,10 +140,7 @@ export const userProfileSlice = createSlice({
       }>,
     ) => {
       state.errors = { ...initialState.errors };
-    },
-
-    setSignedInWithProvider: (state, action: PayloadAction<boolean>) => {
-      state.isSignedInWithProvider = action.payload;
+      state.isSignedInWithProvider = true;
     },
 
     refreshUserInformation: (
@@ -237,7 +234,6 @@ export const {
   refreshAccessTokenFail,
   requestRefreshAccessToken,
   loginWithProvider,
-  setSignedInWithProvider,
   refreshUserInformation,
   refreshUserInformationFail,
   refreshUserInformationSuccess,
