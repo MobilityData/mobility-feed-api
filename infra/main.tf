@@ -48,7 +48,8 @@ locals {
     "iap.googleapis.com",
     "identitytoolkit.googleapis.com",
     "secretmanager.googleapis.com",
-    "iamcredentials.googleapis.com"
+    "iamcredentials.googleapis.com",
+    "cloudbuild.googleapis.com"
   ]
 }
 
