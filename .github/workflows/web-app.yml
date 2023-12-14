@@ -26,6 +26,10 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile
+
       - name: Cache node modules
         id: cache-npm
         uses: actions/cache@v3
@@ -38,6 +42,7 @@ jobs:
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+
       - name: Cache Cypress binary
         uses: actions/cache@v2
         with:
@@ -45,10 +50,6 @@ jobs:
           key: cypress-${{ runner.os }}-binary-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             cypress-${{ runner.os }}-binary-
-
-      - name: Install dependencies
-        working-directory: web-app
-        run: yarn install --frozen-lockfile
 
       - name: Lint
         working-directory: web-app
@@ -129,19 +130,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Cache node modules
-        id: cache-npm
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-node-modules
-        with:
-          path: |
-            **/node_modules
-            **/.eslintcache
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
 
       - name: Install dependencies
         working-directory: web-app
