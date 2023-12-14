@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ env.NODE_VERSION }}        
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Cache node modules
         id: cache-npm
@@ -54,15 +54,15 @@ jobs:
       - name: Set Firebase project properties
         working-directory: web-app
         run: |
-            echo "Setting FIREBASE_PROJECT to 'dev'"
-            echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
-            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
-            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+          echo "Setting FIREBASE_PROJECT to 'dev'"
+          echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+          echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         working-directory: web-app
@@ -73,7 +73,7 @@ jobs:
         uses: cypress-io/github-action@v6
         with:
           start: yarn start:test
-          wait-on: 'npx wait-on --timeout 120000 http://127.0.0.1:3000'
+          wait-on: "npx wait-on --timeout 120000 http://127.0.0.1:3000"
           working-directory: web-app
 
       - uses: actions/upload-artifact@v3
@@ -153,6 +153,8 @@ jobs:
               echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.QA_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
               echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.QA_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
               echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.QA_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+              echo "CYPRESS_EMAIL=${{ secrets.DEV_CYPRESS_EMAIL }}" >> $GITHUB_ENV
+              echo "CYPRESS_PWD=${{ secrets.DEV_CYPRESS_PWD }}" >> $GITHUB_ENV
           elif [[ $GITHUB_EVENT_NAME == 'release' ]]; then
             echo "Setting FIREBASE_PROJECT to 'prod'"
             echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
@@ -163,6 +165,8 @@ jobs:
             echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.PROD_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
             echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.PROD_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
             echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.PROD_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+            echo "CYPRESS_EMAIL=${{ secrets.DEV_CYPRESS_EMAIL }}" >> $GITHUB_ENV
+            echo "CYPRESS_PWD=${{ secrets.DEV_CYPRESS_PWD }}" >> $GITHUB_ENV            
           else
             echo "Setting FIREBASE_PROJECT to 'dev'"
             echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
@@ -173,12 +177,15 @@ jobs:
             echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
             echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
             echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+            echo "CYPRESS_EMAIL=${{ secrets.DEV_CYPRESS_EMAIL }}" >> $GITHUB_ENV
+            echo "CYPRESS_PWD=${{ secrets.DEV_CYPRESS_PWD }}" >> $GITHUB_ENV
           fi
 
       - name: Populate Variables
         working-directory: web-app
         run: |
           ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  env.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+          ../scripts/replace-variables.sh -in_file cypress.env.json.rename_me -out_file cypress.env.json -variables CYPRESS_EMAIL,CYPRESS_PWD
 
       - name: Run Install for Functions
         working-directory: functions
@@ -242,10 +249,10 @@ jobs:
           else
             echo "Comment already exists."
             echo "comment_exists=true" >> $GITHUB_OUTPUT
-          fi          
+          fi
         env:
           PR_ID: ${{ github.event.number }}
-          
+
       - name: Comment on PR with Hosting URL (PR Preview)
         if: ${{ github.event_name == 'pull_request' && steps.check-comment.outputs.comment_exists == 'false' }}
         working-directory: web-app
