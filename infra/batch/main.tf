@@ -284,7 +284,7 @@ resource "google_cloud_scheduler_job" "job" {
   paused          = var.environment == "prod" ? false : true
   http_target {
     http_method = "POST"
-    uri         = google_cloudfunctions2_function.pubsub_function.url
+    uri         = google_cloudfunctions2_function.batch_datasets.url
     oidc_token {
       service_account_email = google_service_account.functions_service_account.email
     }
