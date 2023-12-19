@@ -54,7 +54,8 @@ def download_url_content(url, with_retry=False):
         # no pyopenssl support used / needed / available
         pass
     headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
     }
     http_session = requests.Session()
     retry = Retry(
