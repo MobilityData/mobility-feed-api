@@ -1,4 +1,5 @@
 # Class to maintain the status of the dataset
+import logging
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -62,7 +63,7 @@ class DatasetTraceService:
         results = list(query.fetch())
 
         if results:
-            return self._entity_to_dataset_trace(results)
+            return [self._entity_to_dataset_trace(result) for result in results]
         else:
             return []
 

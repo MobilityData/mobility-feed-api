@@ -33,13 +33,13 @@ pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
 
 
-def publish_callback(future: Future, stable_id: str, pubsub_topic_name: str):
+def publish_callback(future: Future, stable_id: str, topic_path: str):
     """
     Callback function for when the message is published to Pub/Sub.
     This function logs the result of the publishing operation.
     """
     if future.exception():
-        print(f"Error publishing feed {stable_id} to Pub/Sub topic {pubsub_topic_name}: {future.exception()}")
+        print(f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}")
     else:
         print(f"Published stable_id={stable_id}.")
 

@@ -4,6 +4,9 @@ from google.cloud import storage
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import requests
+import hashlib
+import urllib3
+from urllib3.util.ssl_ import create_urllib3_context
 
 
 def create_bucket(bucket_name):
@@ -52,4 +55,36 @@ def download_url_content(url, with_retry=False):
         return response.content
     except Exception as e:
         print(e)
-        raise Exception("Exception -- Connection timeout error")
+        raise e
+
+
+def download_and_get_hash(url, file_path, hash_algorithm='sha256', chunk_size=8192):
+    """
+    Downloads the content of a URL and stores it in a file and returns the hash of the file
+    """
+    try:
+        hash_object = hashlib.new(hash_algorithm)
+
+        # This the only way to make urllib3 work with legacy servers
+        # More information: https://github.com/urllib3/urllib3/issues/2653#issuecomment-1165418616
+        ctx = create_urllib3_context()
+        ctx.load_default_certs()
+        ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
+        with urllib3.PoolManager(ssl_context=ctx) as http:
+            http.mount('http://', HTTPAdapter())
+            http.mount('https://', HTTPAdapter())
+            with http.request('GET', url, preload_content=False) as r, open(file_path, 'wb') as out_file:
+                while True:
+                    data = r.read(chunk_size)
+                    if not data:
+                        break
+                    hash_object.update(data)
+                    out_file.write(data)
+                r.release_conn()
+        return hash_object.hexdigest()
+    except Exception as e:
+        print(e)
+        # Delete file if it exists
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise e
