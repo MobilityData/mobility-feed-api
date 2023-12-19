@@ -5,7 +5,6 @@ import random
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from hashlib import sha256
 from typing import Optional
 
 import functions_framework
@@ -19,7 +18,7 @@ from helpers.database import start_db_session, close_db_session
 import logging
 
 from helpers.logger import Logger
-from helpers.utils import download_url_content, download_and_get_hash
+from helpers.utils import download_and_get_hash
 
 
 @dataclass
@@ -221,7 +220,7 @@ def process_dataset(cloud_event: CloudEvent):
         executions = len(trace) if trace else 0
         logging.info(f'[{stable_id}] Dataset executed times={executions}/{maximum_executions} '
                      f'in execution=[{execution_id}] ')
-        
+
         if executions > 0:
             if executions >= maximum_executions:
                 error_message = f'[{stable_id}] Function already executed maximum times in execution: [{execution_id}]'
