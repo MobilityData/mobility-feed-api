@@ -44,6 +44,10 @@ or
 ```
 ./scripts/function-python-build.sh --all
 ```
+- Start local and test database
+```
+docker-compose --env-file ./config/.env.local up -d liquibase-test
+```
 
 # Local variables
 To be able to set environment variables, add a file `.env.local` file to a function's folder and provide the name-value pair as follows:
@@ -53,3 +57,11 @@ export MY_AWESOME_KEY=MY_AWESOME_VALUE
 
 # Unit tests
 If a folder `tests` is added to a function's folder, the script `api-test.sh` will execute the tests without any further configuration.
+Make sure the testing database is running before executing the tests.
+```
+docker-compose --env-file ./config/.env.local up -d liquibase-test
+```
+execute the tests
+```
+./scripts/api-test.sh --folder functions-python 
+```

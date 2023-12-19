@@ -20,6 +20,7 @@ from typing import Final
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from database_gen.sqlacodegen_models import Base
 from helpers.database import get_db_engine
@@ -58,6 +59,6 @@ def clean_testing_db():
         query = 'TRUNCATE {} RESTART IDENTITY;'.format(
             ','.join(table.name
                      for table in filter(lambda t: t.name not in excluded_tables, Base.metadata.sorted_tables)))
-        con.execute(query)
+        con.execute(text(query))
         trans.commit()
 
