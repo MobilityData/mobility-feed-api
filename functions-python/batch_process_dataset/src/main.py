@@ -96,8 +96,8 @@ class DatasetProcessor:
         """
         try:
             logging.info(f"[{self.feed_stable_id}] - Accessing URL {self.producer_url}")
-            temporary_file_path = f"/tmp/{self.feed_stable_id}-{random.randint(0, 1000000)}.zip"
-            file_sha256_hash = self.download_content(temporary_file_path)
+            temp_file_path = self.generate_temp_filename()
+            file_sha256_hash = self.download_content(temp_file_path)
             logging.info(f"[{self.feed_stable_id}] File hash is {file_sha256_hash}.")
 
             if self.latest_hash != file_sha256_hash:
@@ -105,14 +105,14 @@ class DatasetProcessor:
                     f"[{self.feed_stable_id}] Dataset has changed (hash {self.latest_hash}"
                     f"-> {file_sha256_hash}). Uploading new version.")
                 logging.info(f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}")
-                self.upload_file_to_storage(temporary_file_path, f"{self.feed_stable_id}/latest.zip")
+                self.upload_file_to_storage(temp_file_path, f"{self.feed_stable_id}/latest.zip")
 
                 dataset_stable_id = self.create_dataset_stable_id(self.feed_stable_id, self.date)
 
                 logging.info(f"Creating file: {self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
                              f" in bucket{self.bucket_name}")
                 timestamp_blob = self.upload_file_to_storage(
-                    temporary_file_path,
+                    temp_file_path,
                     f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip")
 
                 return DatasetFile(stable_id=dataset_stable_id, file_sha256_hash=file_sha256_hash,
@@ -122,9 +122,16 @@ class DatasetProcessor:
                 f"[{self.feed_stable_id}] Datasets hash has not changed (hash {self.latest_hash} "
                 f"-> {file_sha256_hash}). Not uploading it.")
         finally:
-            if os.path.exists(temporary_file_path):
-                os.remove(temporary_file_path)
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
         return None
+
+    def generate_temp_filename(self):
+        """
+        Generates a temporary filename
+        """
+        temporary_file_path = f"/tmp/{self.feed_stable_id}-{random.randint(0, 1000000)}.zip"
+        return temporary_file_path
 
     def create_dataset(self, dataset_file: DatasetFile):
         """

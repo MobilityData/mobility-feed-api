@@ -60,7 +60,7 @@ execute_tests() {
   python -m virtualenv venv >/dev/null
   venv/bin/python -m pip install -r requirements.txt >/dev/null
   venv/bin/python -m pip install -r requirements_dev.txt >/dev/null
-  venv/bin/python -m pytest tests
+  venv/bin/python -m pytest  -W 'ignore::DeprecationWarning'  tests
   printf "\n"
 }
 
@@ -71,20 +71,23 @@ fi
 
 execute_python_tests() {
   printf "\nExecuting python tests in $1\n"
-  cd $ABS_SCRIPTPATH/../functions-python
+  cd $ABS_SCRIPTPATH/../$1
   export PYTHONPATH="$ABS_SCRIPTPATH/../functions-python:$PYTHONPATH"
   printf "PYTHONPATH=$PYTHONPATH\n"
   for file in */; do
     if [[ -d "$file" && ! -L "$file" ]]; then
-      # if folder contains tests, execute tests
       if [[ -d "$file/tests" ]]; then
         (execute_tests "../functions-python/$file")
       fi
+      if [[ "$file" == "tests/" ]]; then
+        (execute_tests "../$1")
+      fi
+
     fi
   done
 }
 
-# if no parameters is passed, execute all tests
+# if no parameters is passed, execute all API tests
 if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
   execute_tests "../api"
   exit 0
@@ -96,8 +99,9 @@ if [[ ! -z "${TEST_FILE}" ]]; then
 fi
 
 if [[ ! -z "${FOLDER}" ]]; then
-  if [[ "${FOLDER}" == "functions-python" ]]; then
-    execute_python_tests
+  # if folder starts with functions-python, execute python tests
+  if [[ "${FOLDER}" == "functions-python"* ]]; then
+    execute_python_tests "$FOLDER"
   else
     execute_tests "../$FOLDER"
   fi
