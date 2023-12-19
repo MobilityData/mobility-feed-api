@@ -61,7 +61,11 @@ Make sure the testing database is running before executing the tests.
 ```
 docker-compose --env-file ./config/.env.local up -d liquibase-test
 ```
-execute the tests
+Execute the tests
 ```
 ./scripts/api-test.sh --folder functions-python 
+```
+Execute individual function
+```
+./scripts/api-test.sh --folder functions-python/batch_datasets
 ```
