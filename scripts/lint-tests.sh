@@ -17,6 +17,10 @@ execute_lint() {
     python -m virtualenv venv > /dev/null
     venv/bin/python -m pip install -r requirements_dev.txt > /dev/null
     venv/bin/python -m flake8 && venv/bin/python -m black . --check
+    if [ $? -ne 0 ]; then
+        printf "\nError running lint\n"
+        exit 1
+    fi
     printf "\n"
 }
 
