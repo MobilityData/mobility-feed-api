@@ -67,4 +67,3 @@ jobs:
         shell: bash
         run: |
           scripts/api-tests.sh --folder functions-python
-          echo $?
