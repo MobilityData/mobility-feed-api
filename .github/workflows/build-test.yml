@@ -51,10 +51,8 @@ jobs:
 
       - name: Unit tests - API
         shell: bash
-        run: |
-          scripts/api-tests.sh --folder api
+        run: scripts/api-tests.sh --folder api
 
       - name: Unit tests - Python Functions
         shell: bash
-        run: |
-          scripts/api-tests.sh --folder functions-python
+        run: scripts/api-tests.sh --folder functions-python
