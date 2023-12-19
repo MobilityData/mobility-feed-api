@@ -18,6 +18,8 @@ ABS_SCRIPTPATH="$(
 TEST_FILE=""
 FOLDER=""
 
+exit_code=0
+
 # funtion to display usage
 display_usage() {
   printf "\nThis script executes all project tests.\n"
@@ -64,7 +66,7 @@ execute_tests() {
   # Fail if tests fail
   if [ $? -ne 0 ]; then
     printf "\nTests failed in $1\n"
-    exit 1
+    exit_code=1
   fi  
   printf "\n"
 }
@@ -95,12 +97,12 @@ execute_python_tests() {
 # if no parameters is passed, execute all API tests
 if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
   execute_tests "../api"
-  exit 0
+  exit $exit_code
 fi
 
 if [[ ! -z "${TEST_FILE}" ]]; then
   execute_tests "../$TEST_FILE"
-  exit 0
+  exit $exit_code
 fi
 
 if [[ ! -z "${FOLDER}" ]]; then
@@ -111,3 +113,5 @@ if [[ ! -z "${FOLDER}" ]]; then
     execute_tests "../$FOLDER"
   fi
 fi
+
+exit $exit_code
