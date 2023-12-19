@@ -37,16 +37,16 @@ def populate_database():
     for i in range(10):
         feed = Gtfsfeed(
             id=fake.uuid4(),
-            data_type='gtfs',
+            data_type="gtfs",
             feed_name=fake.name(),
             note=fake.sentence(),
             producer_url=fake.url(),
-            authentication_type='0' if (i in [0, 1, 2]) else '1',
+            authentication_type="0" if (i in [0, 1, 2]) else "1",
             authentication_info_url=None,
             api_key_parameter_name=None,
             license_url=fake.url(),
             stable_id=fake.uuid4(),
-            status='active' if (i in [0, 1, 2]) else 'inactive',
+            status="active" if (i in [0, 1, 2]) else "inactive",
             feed_contact_email=fake.email(),
             provider=fake.company(),
         )
@@ -59,7 +59,7 @@ def populate_database():
             id=fake.uuid4(),
             feed_id=active_gtfs_feeds[i].id,
             latest=True,
-            bounding_box='POLYGON((-180 -90, -180 90, 180 90, 180 -90, -180 -90))',
+            bounding_box="POLYGON((-180 -90, -180 90, 180 90, 180 -90, -180 -90))",
             hosted_url=fake.url(),
             note=fake.sentence(),
             hash=fake.sha256(),
@@ -72,16 +72,16 @@ def populate_database():
     for _ in range(5):
         gtfs_rt_feed = Gtfsrealtimefeed(
             id=fake.uuid4(),
-            data_type='gtfs_rt',
+            data_type="gtfs_rt",
             feed_name=fake.company(),
             note=fake.sentence(),
             producer_url=fake.url(),
-            authentication_type=random.choice(['0', '1', '2']),
+            authentication_type=random.choice(["0", "1", "2"]),
             authentication_info_url=fake.url(),
             api_key_parameter_name=fake.word(),
             license_url=fake.url(),
             stable_id=fake.uuid4(),
-            status=random.choice(['active', 'inactive']),
+            status=random.choice(["active", "inactive"]),
             feed_contact_email=fake.email(),
             provider=fake.company(),
         )

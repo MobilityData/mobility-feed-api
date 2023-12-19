@@ -16,7 +16,7 @@
 import json
 import os
 from unittest import mock
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from batch_datasets.src.main import get_active_feeds, batch_datasets
 from test_utils.database_utils import get_testing_session, default_db_url
 
@@ -25,23 +25,33 @@ def test_get_active_feeds():
     with get_testing_session() as session:
         active_feeds = get_active_feeds(session)
         assert len(active_feeds) == 3
-#         assert all active feeds has authentication_type == '0'
+        #         assert all active feeds has authentication_type == '0'
         for feed in active_feeds:
-            assert feed.authentication_type == '0'
+            assert feed.authentication_type == "0"
 
 
-@mock.patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url, "FEEDS_PUBSUB_TOPIC_NAME": "test_topic"})
-@patch('batch_datasets.src.main.publish')
+@mock.patch.dict(
+    os.environ,
+    {"FEEDS_DATABASE_URL": default_db_url, "FEEDS_PUBSUB_TOPIC_NAME": "test_topic"},
+)
+@patch("batch_datasets.src.main.publish")
 def test_batch_datasets(mock_publish):
     with get_testing_session() as session:
         active_feeds = get_active_feeds(session)
-        with patch('dataset_service.main.BatchExecutionService.__init__', return_value=None):
-            with patch('dataset_service.main.BatchExecutionService.save', return_value=None):
+        with patch(
+            "dataset_service.main.BatchExecutionService.__init__", return_value=None
+        ):
+            with patch(
+                "dataset_service.main.BatchExecutionService.save", return_value=None
+            ):
                 batch_datasets(Mock())
                 assert mock_publish.call_count == 3
                 # loop over mock_publish.call_args_list and check that the stable_id of the feed is in the list of
                 # active feeds
                 for i in range(3):
-                    message = json.loads(mock_publish.call_args_list[i][0][1].decode('utf-8'))
-                    assert message['feed_stable_id']\
-                           in [feed.stable_id for feed in active_feeds]
+                    message = json.loads(
+                        mock_publish.call_args_list[i][0][1].decode("utf-8")
+                    )
+                    assert message["feed_stable_id"] in [
+                        feed.stable_id for feed in active_feeds
+                    ]

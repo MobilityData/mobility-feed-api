@@ -86,7 +86,7 @@ def close_db_session(session, raise_exception: bool = False):
     """
     try:
         session_reusable = is_session_reusable()
-        logging.info(f'Closing session with DB_REUSE_SESSION={session_reusable}')
+        logging.info(f"Closing session with DB_REUSE_SESSION={session_reusable}")
         if session_reusable and session == global_session:
             logging.info("Skipping database session closing.")
             return

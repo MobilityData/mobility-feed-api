@@ -39,7 +39,9 @@ def publish_callback(future: Future, stable_id: str, topic_path: str):
     This function logs the result of the publishing operation.
     """
     if future.exception():
-        print(f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}")
+        print(
+            f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}"
+        )
     else:
         print(f"Published stable_id={stable_id}.")
 
@@ -62,16 +64,16 @@ def get_active_feeds(session: Session):
         session.query(
             Gtfsfeed.stable_id,
             Gtfsfeed.producer_url,
-            Gtfsfeed.id.label('feed_id'),
+            Gtfsfeed.id.label("feed_id"),
             Gtfsfeed.authentication_type,
             Gtfsfeed.authentication_info_url,
             Gtfsfeed.api_key_parameter_name,
-            Gtfsdataset.id.label('dataset_id'),
-            Gtfsdataset.hash.label('dataset_hash')
+            Gtfsdataset.id.label("dataset_id"),
+            Gtfsdataset.hash.label("dataset_hash"),
         )
         .select_from(Gtfsfeed)
         .outerjoin(Gtfsdataset, (Gtfsdataset.feed_id == Gtfsfeed.id))
-        .filter(Gtfsfeed.status == 'active', Gtfsfeed.authentication_type == '0')
+        .filter(Gtfsfeed.status == "active", Gtfsfeed.authentication_type == "0")
         .filter(or_(Gtfsdataset.id.is_(None), Gtfsdataset.latest.is_(True)))
     )
     # Limit the query to 10 feeds (or FEEDS_LIMIT param) for testing purposes and lower environments
@@ -107,24 +109,34 @@ def batch_datasets(request):
 
     print(f"Retrieved {len(active_feeds)} active feeds.")
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
-    trace_id = request.headers.get('X-Cloud-Trace-Context')
-    execution_id = f'batch-trace-{trace_id}' if trace_id else f'batch-uuid-{uuid.uuid4()}'
+    trace_id = request.headers.get("X-Cloud-Trace-Context")
+    execution_id = (
+        f"batch-trace-{trace_id}" if trace_id else f"batch-uuid-{uuid.uuid4()}"
+    )
     timestamp = datetime.now()
     for active_feed in active_feeds:
         payload = {
             "execution_id": execution_id,
-            "producer_url": active_feed['producer_url'],
-            "feed_stable_id": active_feed['stable_id'],
-            "feed_id": active_feed['feed_id'],
-            "dataset_id": active_feed['dataset_id'],
-            "dataset_hash": active_feed['dataset_hash'],
-            "authentication_type": active_feed['authentication_type'],
-            "authentication_info_url": active_feed['authentication_info_url'],
-            "api_key_parameter_name": active_feed['api_key_parameter_name']
+            "producer_url": active_feed["producer_url"],
+            "feed_stable_id": active_feed["stable_id"],
+            "feed_id": active_feed["feed_id"],
+            "dataset_id": active_feed["dataset_id"],
+            "dataset_hash": active_feed["dataset_hash"],
+            "authentication_type": active_feed["authentication_type"],
+            "authentication_info_url": active_feed["authentication_info_url"],
+            "api_key_parameter_name": active_feed["api_key_parameter_name"],
         }
         data_str = json.dumps(payload)
         print(f"Publishing {data_str} to {topic_path}.")
-        future = publish(topic_path, data_str.encode('utf-8'))
-        future.add_done_callback(lambda _: publish_callback(future, active_feed['stable_id'], topic_path))
-    BatchExecutionService().save(BatchExecution(execution_id=execution_id, feeds_total=len(active_feeds), timestamp=timestamp))
-    return f'Publish completed. Published {len(active_feeds)} feeds to {pubsub_topic_name}.'
+        future = publish(topic_path, data_str.encode("utf-8"))
+        future.add_done_callback(
+            lambda _: publish_callback(future, active_feed["stable_id"], topic_path)
+        )
+    BatchExecutionService().save(
+        BatchExecution(
+            execution_id=execution_id,
+            feeds_total=len(active_feeds),
+            timestamp=timestamp,
+        )
+    )
+    return f"Publish completed. Published {len(active_feeds)} feeds to {pubsub_topic_name}."

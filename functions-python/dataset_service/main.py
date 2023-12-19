@@ -48,8 +48,8 @@ class BatchExecution:
     feeds_total: int
 
 
-dataset_trace_collection: Final[str] = 'dataset_trace'
-batch_execution_collection: Final[str] = 'batch_execution'
+dataset_trace_collection: Final[str] = "dataset_trace"
+batch_execution_collection: Final[str] = "batch_execution"
 
 
 class DatasetTraceService:
@@ -69,10 +69,12 @@ class DatasetTraceService:
         else:
             return []
 
-    def get_by_execution_and_stable_ids(self, execution_id: str, stable_id: str) -> [DatasetTrace]:
+    def get_by_execution_and_stable_ids(
+        self, execution_id: str, stable_id: str
+    ) -> [DatasetTrace]:
         query = self.client.query(kind=dataset_trace_collection)
-        query.add_filter('execution_id', '=', execution_id)
-        query.add_filter('stable_id', '=', stable_id)
+        query.add_filter("execution_id", "=", execution_id)
+        query.add_filter("stable_id", "=", stable_id)
 
         results = list(query.fetch())
 
@@ -87,22 +89,22 @@ class DatasetTraceService:
         entity = datastore.Entity(key=key)
 
         entity.update(asdict(dataset_trace))
-        entity['trace_id'] = trace_id
-        entity['status'] = dataset_trace.status.value
+        entity["trace_id"] = trace_id
+        entity["status"] = dataset_trace.status.value
 
         return entity
 
     @staticmethod
     def _entity_to_dataset_trace(entity: datastore.Entity) -> DatasetTrace:
         return DatasetTrace(
-            trace_id=entity['trace_id'],
-            stable_id=entity['stable_id'],
-            status=Status(entity['status']),
-            timestamp=entity['timestamp'],
-            execution_id=entity.get('execution_id'),
-            file_sha256_hash=entity.get('file_sha256_hash'),
-            hosted_url=entity.get('hosted_url'),
-            error_message=entity.get('error_message')
+            trace_id=entity["trace_id"],
+            stable_id=entity["stable_id"],
+            status=Status(entity["status"]),
+            timestamp=entity["timestamp"],
+            execution_id=entity.get("execution_id"),
+            file_sha256_hash=entity.get("file_sha256_hash"),
+            hosted_url=entity.get("hosted_url"),
+            error_message=entity.get("error_message"),
         )
 
 
@@ -116,7 +118,7 @@ class BatchExecutionService:
 
     def get_by_id(self, execution_id: str) -> [BatchExecution]:
         query = self.client.query(kind=batch_execution_collection)
-        query.add_filter('execution_id', '=', execution_id)
+        query.add_filter("execution_id", "=", execution_id)
 
         results = list(query.fetch())
 

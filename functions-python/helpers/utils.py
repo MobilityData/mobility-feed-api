@@ -34,9 +34,9 @@ def create_bucket(bucket_name):
     bucket = storage_client.lookup_bucket(bucket_name)
     if bucket is None:
         bucket = storage_client.create_bucket(bucket_name)
-        print(f'Bucket {bucket} created.')
+        print(f"Bucket {bucket} created.")
     else:
-        print(f'Bucket {bucket_name} already exists.')
+        print(f"Bucket {bucket_name} already exists.")
 
 
 def download_url_content(url, with_retry=False):
@@ -46,27 +46,30 @@ def download_url_content(url, with_retry=False):
     # Fix DH Key issues in server side
     try:
         requests.packages.urllib3.disable_warnings()
-        requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
-        requests.packages.urllib3.contrib.pyopenssl.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
+        requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += ":HIGH:!DH:!aNULL"
+        requests.packages.urllib3.contrib.pyopenssl.util.ssl_.DEFAULT_CIPHERS += (
+            ":HIGH:!DH:!aNULL"
+        )
     except AttributeError:
         # no pyopenssl support used / needed / available
         pass
     headers = {
-        'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36'
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
     }
     http_session = requests.Session()
     retry = Retry(
         total=1,
         backoff_factor=0.1,
         status_forcelist=[500, 502, 503, 504],
-        raise_on_status=False
+        raise_on_status=False,
     )
     adapter = HTTPAdapter(max_retries=retry) if not with_retry else HTTPAdapter()
-    http_session.mount('http://', adapter)
-    http_session.mount('https://', adapter)
+    http_session.mount("http://", adapter)
+    http_session.mount("https://", adapter)
     try:
-        response = http_session.get(url, headers=headers, verify=False, timeout=120, stream=True)
+        response = http_session.get(
+            url, headers=headers, verify=False, timeout=120, stream=True
+        )
         response.raise_for_status()
         return response.content
     except Exception as e:
@@ -74,7 +77,7 @@ def download_url_content(url, with_retry=False):
         raise e
 
 
-def download_and_get_hash(url, file_path, hash_algorithm='sha256', chunk_size=8192):
+def download_and_get_hash(url, file_path, hash_algorithm="sha256", chunk_size=8192):
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
@@ -87,9 +90,11 @@ def download_and_get_hash(url, file_path, hash_algorithm='sha256', chunk_size=81
         ctx.load_default_certs()
         ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
         with urllib3.PoolManager(ssl_context=ctx) as http:
-            http.mount('http://', HTTPAdapter())
-            http.mount('https://', HTTPAdapter())
-            with http.request('GET', url, preload_content=False) as r, open(file_path, 'wb') as out_file:
+            http.mount("http://", HTTPAdapter())
+            http.mount("https://", HTTPAdapter())
+            with http.request("GET", url, preload_content=False) as r, open(
+                file_path, "wb"
+            ) as out_file:
                 while True:
                     data = r.read(chunk_size)
                     if not data:
