@@ -107,8 +107,8 @@ class DatasetTraceService:
 
 
 class BatchExecutionService:
-    def __init__(self, client: Client = None):
-        self.client = datastore.Client() if client is None else client
+    def __init__(self):
+        self.client = datastore.Client()
 
     def save(self, execution: BatchExecution):
         entity = self._execution_to_entity(execution)

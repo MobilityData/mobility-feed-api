@@ -13,17 +13,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-import warnings
 
 from faker import Faker
 from faker.generator import random
 from datetime import datetime
 from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Gtfsdataset
 from test_utils.database_utils import clean_testing_db, get_testing_session
-from sqlalchemy import exc as sa_exc
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", category=sa_exc.SAWarning)
 
 def populate_database():
     """
