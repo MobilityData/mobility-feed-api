@@ -4,6 +4,27 @@ The function download the dataset from the source and compares the previous file
 If the hash are different, the function will create a new dataset making it the latest dataset for the related feed.
 If the hash is the same, the function will not do anything.
 
+# Message format
+The function expects a Pub/Sub message with the following format:
+```json
+    {
+        "message": {
+            "data": 
+            {
+                "execution_id":  "execution_id",
+                "producer_url":  "producer_url",
+                "feed_stable_id":  "feed_stable_id",
+                "feed_id":  "feed_id",
+                "dataset_id":  "dataset_id",
+                "dataset_hash":  "dataset_hash",
+                "authentication_type":  "authentication_type",
+                "authentication_info_url":  "authentication_info_url",
+                "api_key_parameter_name": "api_key_parameter_name"
+            }            
+        }
+    }
+```
+
 # Function configuration
 The function is configured using the following environment variables:
 - `DATASETS_BUCKET_NANE`: The name of the bucket where the datasets are stored.

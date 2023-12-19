@@ -1,6 +1,6 @@
 # Batch Datasets
-This directory GCP serverless function that enqueue datasets all active datasets.
-The function is triggered by a Pub/Sub message with the following format:
+This directory contains the GCP serverless function that enqueue all active feeds to download datasets.
+The function publish one Pub/Sub message per active feed with the following format:
 ```json
     {
         "message": {
