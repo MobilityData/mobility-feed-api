@@ -221,8 +221,8 @@ export default function Contribute(): React.ReactElement {
           <Typography className='answer'>
             Feeds are only removed in instances when it is requested by the
             producer of the data because of licensing issues. In all other
-            cases, feeds are set to a status of deprecated so it's possible to
-            include their historical data within the Mobility Database.
+            cases, feeds are set to a status of deprecated so it&apos;s possible
+            to include their historical data within the Mobility Database.
           </Typography>
           <iframe
             src='https://docs.google.com/forms/d/e/1FAIpQLSfPL2jq2blA1TtZVQNtqGmMS4Jiu4XxElC12VNrlBwbO-5mUQ/viewform?embedded=true'

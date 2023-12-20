@@ -36,7 +36,7 @@ export default function FAQ(): React.ReactElement {
           </Typography>
           <Typography className='answer'>
             The Mobility Database catalogs has over 100 feeds that were
-            inaccurate on TransitFeeds, and over 150 new feeds. It's a more
+            inaccurate on TransitFeeds, and over 150 new feeds. It&apos;s a more
             accurate and comprehensive resource for ensuring your data is
             discoverable and for scraping the data you need. The community
             regularly adds and updates feeds using Github.
@@ -49,13 +49,14 @@ export default function FAQ(): React.ReactElement {
             GTFS feeds over the years (including the GTFS Data Exchange and
             legacy TransitFeeds site). There have been consistent issues with
             sustaining these platforms in the long term, and creating community
-            processes so it's clear how decisions are made and how stakeholders
-            across the mobility industry can contribute to the platform.
+            processes so it&apos;s clear how decisions are made and how
+            stakeholders across the mobility industry can contribute to the
+            platform.
             <br /> <br />
-            That's the need we're working to meet with the Mobility Database, so
-            more stakeholders can trust the longevity of this platform and it
-            can become an increasingly valuable source for creating and
-            improving mobility data as a community.
+            That&apos;s the need we&apos;re working to meet with the Mobility
+            Database, so more stakeholders can trust the longevity of this
+            platform and it can become an increasingly valuable source for
+            creating and improving mobility data as a community.
             <br /> <br />
             As TransitFeeds becomes increasingly stale and difficult to
             maintain, it becomes more critical that the consumers have
@@ -100,8 +101,8 @@ export default function FAQ(): React.ReactElement {
             improvements.
             <br /> <br />
             In order to ensure the community has access to more up-to-date data
-            as soon as possible, we've focused on providing a catalog of data
-            without an interface as a first step. How quickly we scale the
+            as soon as possible, we&apos;ve focused on providing a catalog of
+            data without an interface as a first step. How quickly we scale the
             architecture to build the user interface depends on how much
             engagement and contribution we get from the community in this phase.
           </Typography>
