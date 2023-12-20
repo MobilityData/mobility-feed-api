@@ -15,7 +15,7 @@ export const MOBILITY_DATA_LINKS = {
 
 export const navigationItems: NavigationItem[] = [
   { title: 'About', target: 'about', color: 'inherit', variant: 'text' },
-  { title: 'API Docs', target: 'api', color: 'inherit', variant: 'text' },
+  { title: 'FAQ', target: 'faq', color: 'inherit', variant: 'text' },
   {
     title: 'Contribute',
     target: 'contribute',
@@ -23,10 +23,18 @@ export const navigationItems: NavigationItem[] = [
     variant: 'text',
   },
   {
+    title: 'API Docs',
+    target: 'api',
+    color: 'inherit',
+    variant: 'text',
+    external: true,
+  },
+  {
     title: 'Contact Us',
     target: 'contact-us',
     color: 'inherit',
     variant: 'text',
+    external: true,
   },
 ];
 
