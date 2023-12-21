@@ -597,7 +597,7 @@ export default function APIAccount(): React.ReactElement {
               <span style={{ color: '#f1fa8c' }}>\</span>
               <br />
               <span style={{ color: '#f1fa8c' }}>--header</span>
-              &apos;Authorization: Bearer [Your Access Token] &apos;
+              &apos;Authorization: Bearer [Your Access Token]&apos;
             </Typography>
           </Paper>
         </Box>
