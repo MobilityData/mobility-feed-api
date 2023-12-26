@@ -1,3 +1,4 @@
+import json
 from typing import List, Type, Set, Union
 
 from fastapi import HTTPException
@@ -26,6 +27,7 @@ from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
+from feeds_gen.models.bounding_box import BoundingBox
 from feeds_gen.models.external_id import ExternalId
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
@@ -159,6 +161,7 @@ class FeedsApiImpl(BaseFeedsApi):
             FeedsApiImpl._create_feeds_query(Gtfsfeed)
             .join(Gtfsdataset, Gtfsfeed.id == Gtfsdataset.feed_id, isouter=True)
             .add_entity(Gtfsdataset)
+            .add_column(Gtfsdataset.bounding_box.ST_AsGeoJSON())
             .join(t_locationfeed, t_locationfeed.c.feed_id == Gtfsfeed.id, isouter=True)
             .join(Location, t_locationfeed.c.location_id == Location.id, isouter=True)
             .add_entity(Location)
@@ -177,7 +180,8 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         gtfs_feeds = []
         for feed_group in feed_groups:
-            feed_objects, redirect_ids, external_ids, redirect_comments, latest_datasets, locations = zip(*feed_group)
+            feed_objects, redirect_ids, external_ids, redirect_comments, datasets, bounding_boxes, locations \
+                = zip(*feed_group)
 
             # We use a set to eliminate duplicate in the Redirects.
             # But we can't use the Redirect object directly since they are not hashable and making them
@@ -202,11 +206,20 @@ class FeedsApiImpl(BaseFeedsApi):
                 for location in locations
                 if location is not None
             ]
-            if latest_dataset := next(filter(lambda x: x is not None and x.latest, latest_datasets), None):
-                # better check if there are more than one latest dataset
-                gtfs_feed.latest_dataset = LatestDataset(
-                    id=latest_dataset.stable_id, hosted_url=latest_dataset.hosted_url
-                )
+            latest_dataset, bounding_box = next(filter(
+                lambda dataset: dataset[0] is not None and dataset[1] is not None and dataset[0].latest,
+                zip(datasets, bounding_boxes)), None)
+            if latest_dataset:
+                api_dataset = LatestDataset(id=latest_dataset.stable_id, hosted_url=latest_dataset.hosted_url)
+                if bounding_box:
+                    coordinates = json.loads(bounding_box)["coordinates"][0]
+                    api_dataset.bounding_box = BoundingBox(
+                        minimum_latitude=coordinates[0][1],
+                        maximum_latitude=coordinates[2][1],
+                        minimum_longitude=coordinates[0][0],
+                        maximum_longitude=coordinates[2][0],
+                    )
+                gtfs_feed.latest_dataset = api_dataset
 
             gtfs_feeds.append(gtfs_feed)
 
@@ -304,10 +317,7 @@ class FeedsApiImpl(BaseFeedsApi):
         offset: int,
         downloaded_date_gte: str,
         downloaded_date_lte: str,
-        sort: str,
-        bounding_latitudes: str,
-        bounding_longitudes: str,
-        bounding_filter_method: str,
+        sort: str
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         # getting the bounding box as JSON to make it easier to process
@@ -315,9 +325,6 @@ class FeedsApiImpl(BaseFeedsApi):
             download_date__lte=downloaded_date_lte,
             download_date__gte=downloaded_date_gte,
         ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id))
-        query = DatasetsApiImpl.apply_bounding_filtering(
-            query, bounding_latitudes, bounding_longitudes, bounding_filter_method
-        )
 
         if latest:
             query = query.filter(Gtfsdataset.latest)
@@ -334,8 +341,8 @@ class FeedsApiImpl(BaseFeedsApi):
         subdivision_name: str,
         municipality: str,
         sort: str,
-        bounding_latitudes: str,
-        bounding_longitudes: str,
+        dataset_latitudes: str,
+        dataset_longitudes: str,
         bounding_filter_method: str,
         order_by: list[str],
     ) -> List[GtfsFeed]:
@@ -354,8 +361,8 @@ class FeedsApiImpl(BaseFeedsApi):
             feed_filter,
             limit=limit,
             offset=offset,
-            bounding_latitudes=bounding_latitudes,
-            bounding_longitudes=bounding_longitudes,
+            bounding_latitudes=dataset_latitudes,
+            bounding_longitudes=dataset_longitudes,
             bounding_filter_method=bounding_filter_method,
             order_by=order_by,
         )

@@ -93,8 +93,8 @@ paths:
         - $ref: "#/components/parameters/subdivision_name"
         - $ref: "#/components/parameters/municipality"
         - $ref: "#/components/parameters/sort"
-        - $ref: "#/components/parameters/boundingLatitudes"
-        - $ref: "#/components/parameters/boundingLongitudes"
+        - $ref: "#/components/parameters/datasetLatitudes"
+        - $ref: "#/components/parameters/datasetLongitudes"
         - $ref: "#/components/parameters/boundingFilterMethod"
         - $ref: "#/components/parameters/order_by"
 
@@ -185,9 +185,6 @@ paths:
         - $ref: "#/components/parameters/downloaded_date_gte"
         - $ref: "#/components/parameters/downloaded_date_lte"
         - $ref: "#/components/parameters/sort"
-        - $ref: "#/components/parameters/boundingLatitudes"
-        - $ref: "#/components/parameters/boundingLongitudes"
-        - $ref: "#/components/parameters/boundingFilterMethod"
 
       security:
         -  Authentication: []
@@ -375,6 +372,8 @@ components:
           type: string
           format: url
           example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+        bounding_box:
+          $ref: "#/components/schemas/BoundingBox"
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    EntityTypes:
@@ -672,23 +671,25 @@ components:
         type: string
         example: +status
 
-    boundingLatitudes:
-      name: boundingLatitudes
+    datasetLatitudes:
+      name: datasetLatitudes
       in: query
       description: >
-        Specify the minimum and maximum latitudes of the bounding box to use for filtering.<br>
-        Must be specified alongside `boundingLongitudes`.
+        Specify the minimum and maximum latitudes of the bounding box to use for filtering.
+        <br>Filters by the bounding box of the `LatestDataset` for a feed.
+        <br>Must be specified alongside `datasetLongitudes`.
       required: False
       schema:
         type: string
         example: 41.46,42.67
 
-    boundingLongitudes:
-      name: boundingLongitudes
+    datasetLongitudes:
+      name: datasetLongitudes
       in: query
       description: >
-        Specify the minimum and maximum longitudes of the bounding box to use for filtering.<br>
-        Must be specified alongside `boundingLatitudes`.
+        Specify the minimum and maximum longitudes of the bounding box to use for filtering.
+        <br>Filters by the bounding box of the `LatestDataset` for a feed.
+        <br>Must be specified alongside `datasetLatitudes`.
       required: False
       schema:
         type: string
@@ -706,7 +707,7 @@ components:
           - disjoint
         default: completely_enclosed
       description: >
-        Specify the filtering method to use with the boundingLatitudes and boundingLongitudes parameters.
+        Specify the filtering method to use with the datasetLatitudes and datasetLongitudes parameters.
          * `completely_enclosed` - Get resources that are completely enclosed in the specified bounding box.
          * `partially_enclosed` - Get resources that are partially enclosed in the specified bounding box.
          * `disjoint` - Get resources that are completely outside the specified bounding box.
