@@ -208,7 +208,7 @@ class FeedsApiImpl(BaseFeedsApi):
             ]
             latest_dataset, bounding_box = next(filter(
                 lambda dataset: dataset[0] is not None and dataset[1] is not None and dataset[0].latest,
-                zip(datasets, bounding_boxes)), None)
+                zip(datasets, bounding_boxes)), (None, None))
             if latest_dataset:
                 api_dataset = LatestDataset(id=latest_dataset.stable_id, hosted_url=latest_dataset.hosted_url)
                 if bounding_box:
