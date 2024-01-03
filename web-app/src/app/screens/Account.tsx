@@ -613,7 +613,11 @@ export default function APIAccount(): React.ReactElement {
             </Typography>
             <Typography sx={{ mb: 2 }}>
               Follow{' '}
-              <Link href='mailto:api@mobilitydata.org' color={'inherit'}>
+              <Link
+                href='https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html'
+                color={'inherit'}
+                target='_blank'
+              >
                 our Swagger documentation
               </Link>{' '}
               to authenticate your account with the refresh token.
