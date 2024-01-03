@@ -66,6 +66,7 @@ const texts = {
 };
 
 export default function APIAccount(): React.ReactElement {
+  const apiURL = 'https://api.mobilitydatabase.org/api/v1/metadata';
   const dispatch = useAppDispatch();
   const user = useSelector(selectUserProfile);
   const navigateTo = useNavigate();
@@ -188,7 +189,7 @@ export default function APIAccount(): React.ReactElement {
       user?.accessToken !== undefined
         ? user?.accessToken
         : '[Your Access Token]';
-    const codeBlock = `curl --location 'https://api.mobilitydatabase.org/api/v1/metadata' --header 'Accept: application/json' --header 'Authorization: Bearer ${accessToken}'`;
+    const codeBlock = `curl --location '${apiURL}' --header 'Accept: application/json' --header 'Authorization: Bearer ${accessToken}'`;
     navigator.clipboard
       .writeText(codeBlock)
       .then(() => {
@@ -588,8 +589,7 @@ export default function APIAccount(): React.ReactElement {
             </div>
             <Typography id='code-block-content'>
               <span style={{ color: '#ff79c6', fontWeight: 'bold' }}>curl</span>{' '}
-              --location
-              &apos;https://api-dev.mobilitydatabase.org/api/v1/metadata&apos;
+              --location &apos;{apiURL}&apos;
               <span style={{ color: '#f1fa8c' }}>\</span>
               <br />
               <span style={{ color: '#f1fa8c' }}>--header</span> &apos;Accept:
@@ -597,9 +597,7 @@ export default function APIAccount(): React.ReactElement {
               <span style={{ color: '#f1fa8c' }}>\</span>
               <br />
               <span style={{ color: '#f1fa8c' }}>--header</span>
-              &apos;Authorization: Bearer{' '}
-              {user?.accessToken ?? '[Your Access Token]'}
-              &apos;
+              &apos;Authorization: Bearer [Your Access Token]&apos;
             </Typography>
           </Paper>
         </Box>
