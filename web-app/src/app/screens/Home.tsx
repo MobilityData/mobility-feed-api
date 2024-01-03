@@ -30,6 +30,7 @@ export default function Home(): React.ReactElement {
               ml: 2,
             }}
             color='primary'
+            data-testid='home-title'
           >
             The Mobility Database
           </Typography>
