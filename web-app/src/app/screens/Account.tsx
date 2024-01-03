@@ -2,6 +2,7 @@ import * as React from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import '../styles/Account.css';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
 import {
   Typography,
   Container,
@@ -66,8 +67,9 @@ const texts = {
 };
 
 export default function APIAccount(): React.ReactElement {
-  const apiURL = 'https://api.mobilitydatabase.org/api/v1/metadata';
+  const apiURL = 'https://api.mobilitydatabase.org/v1';
   const dispatch = useAppDispatch();
+  const theme = useTheme();
   const user = useSelector(selectUserProfile);
   const navigateTo = useNavigate();
   const refreshingAccessTokenError = useSelector(
@@ -184,12 +186,23 @@ export default function APIAccount(): React.ReactElement {
     dispatch(requestRefreshAccessToken());
   };
 
-  const handleCopyCodeBlock = (): void => {
+  const getCurlAccessTokenCommand = (): string => {
+    const refreshToken =
+      user?.refreshToken !== undefined
+        ? user?.refreshToken
+        : '[Your Refresh Token]';
+    return `curl --location '${apiURL}/tokens' --header 'Content-Type: application/json' --data '{ "refresh_token": "${refreshToken}" }'`;
+  };
+
+  const getCurlApiTestCommand = (): string => {
     const accessToken =
       user?.accessToken !== undefined
         ? user?.accessToken
         : '[Your Access Token]';
-    const codeBlock = `curl --location '${apiURL}' --header 'Accept: application/json' --header 'Authorization: Bearer ${accessToken}'`;
+    return `curl --location '${apiURL}/metadata' --header 'Accept: application/json' --header 'Authorization: Bearer ${accessToken}'`;
+  };
+
+  const handleCopyCodeBlock = (codeBlock: string): void => {
     navigator.clipboard
       .writeText(codeBlock)
       .then(() => {
@@ -345,14 +358,7 @@ export default function APIAccount(): React.ReactElement {
         </Paper>
         <Box sx={{ ml: 10 }}>
           <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
-            <Typography
-              component='h5'
-              variant='h5'
-              color='primary'
-              sx={{ fontWeight: 'bold', mb: 1 }}
-            >
-              Refresh Token
-            </Typography>
+            <Typography variant='sectionTitle'>Refresh Token</Typography>
             <Typography sx={{ mb: 2 }}>
               Use your refresh token to connect to the API in your app.
             </Typography>
@@ -416,13 +422,8 @@ export default function APIAccount(): React.ReactElement {
               </Box>
             </Box>
           </Box>
-          <Box sx={{ mb: 2 }}>
-            <Typography
-              component='h5'
-              variant='h5'
-              color='primary'
-              sx={{ fontWeight: 'bold' }}
-            >
+          <Box sx={{ mb: 1 }}>
+            <Typography variant='sectionTitle'>
               Access Token for Testing
             </Typography>
             <Typography sx={{ mb: 2 }}>
@@ -580,7 +581,9 @@ export default function APIAccount(): React.ReactElement {
                   color='inherit'
                   aria-label='Copy access token to clipboard'
                   edge='end'
-                  onClick={handleCopyCodeBlock}
+                  onClick={() => {
+                    handleCopyCodeBlock(getCurlApiTestCommand());
+                  }}
                   sx={{ display: 'inline-block', verticalAlign: 'middle' }}
                 >
                   <ContentCopyOutlined fontSize='small' />
@@ -589,17 +592,91 @@ export default function APIAccount(): React.ReactElement {
             </div>
             <Typography id='code-block-content'>
               <span style={{ color: '#ff79c6', fontWeight: 'bold' }}>curl</span>{' '}
-              --location &apos;{apiURL}&apos;
-              <span style={{ color: '#f1fa8c' }}>\</span>
+              --location &apos;{apiURL}/metadata&apos;
+              <span style={{ color: theme.mixins.code?.contrastText }}>\</span>
               <br />
-              <span style={{ color: '#f1fa8c' }}>--header</span> &apos;Accept:
-              application/json&apos;
-              <span style={{ color: '#f1fa8c' }}>\</span>
+              <span style={{ color: theme.mixins.code?.contrastText }}>
+                --header
+              </span>{' '}
+              &apos;Accept: application/json&apos;
+              <span style={{ color: theme.mixins.code?.contrastText }}>\</span>
               <br />
-              <span style={{ color: '#f1fa8c' }}>--header</span>
+              <span style={{ color: theme.mixins.code?.contrastText }}>
+                --header
+              </span>
               &apos;Authorization: Bearer [Your Access Token]&apos;
             </Typography>
           </Paper>
+          <Box sx={{ p: 1, mt: 5 }}>
+            <Typography variant='sectionTitle'>
+              How to Get the Access Token in Your App
+            </Typography>
+            <Typography sx={{ mb: 2 }}>
+              Follow{' '}
+              <Link href='mailto:api@mobilitydata.org' color={'inherit'}>
+                our Swagger documentation
+              </Link>{' '}
+              to authenticate your account with the refresh token.
+            </Typography>
+            <Paper elevation={3} id='code-block'>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '10px',
+                }}
+              >
+                <div>
+                  <Typography variant='h6'>Generate Access Token</Typography>
+
+                  <Typography>
+                    Copy the CLI command to generate an access token.
+                  </Typography>
+                </div>
+                <Tooltip title={accountState.codeBlockTooltip}>
+                  <IconButton
+                    color='inherit'
+                    aria-label='Copy access token to clipboard'
+                    edge='end'
+                    onClick={() => {
+                      handleCopyCodeBlock(getCurlAccessTokenCommand());
+                    }}
+                    sx={{ display: 'inline-block', verticalAlign: 'middle' }}
+                  >
+                    <ContentCopyOutlined fontSize='small' />
+                  </IconButton>
+                </Tooltip>
+              </div>
+              <Typography id='code-block-content'>
+                <span style={{ ...theme.mixins.code.command }}>curl</span>{' '}
+                --location &apos;{apiURL}/tokens&apos;
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  \
+                </span>
+                <br />
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  --header
+                </span>{' '}
+                &apos;Content-Type: application/json&apos;
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  \
+                </span>
+                <br />
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  --data &apos;&#123;
+                </span>
+                <span>
+                  {' '}
+                  &quot;refresh_token&quot;: &quot;[Your Refresh Token]&quot;
+                </span>
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  {' '}
+                  &#125;&apos;
+                </span>
+              </Typography>
+            </Paper>
+          </Box>
         </Box>
       </Box>
       <LogoutConfirmModal
