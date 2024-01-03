@@ -32,6 +32,7 @@ import {
   selectRefreshingAccessTokenError,
   selectUserProfile,
   selectSignedInWithProvider,
+  selectIsTokenRefreshed,
 } from '../store/selectors';
 import LogoutConfirmModal from '../components/LogoutConfirmModal';
 import { useAppDispatch } from '../hooks';
@@ -73,13 +74,17 @@ export default function APIAccount(): React.ReactElement {
     selectRefreshingAccessTokenError,
   );
   const isRefreshingAccessToken = useSelector(selectIsRefreshingAccessToken);
+  const isAccessTokenRefreshed = useSelector(selectIsTokenRefreshed);
   const signedInWithProvider = useSelector(selectSignedInWithProvider);
+
   const [accountState, setAccountState] = React.useState<APIAccountState>({
     showRefreshToken: false,
     showAccessToken: false,
     codeBlockTooltip: texts.copyToClipboard,
     tokenExpired: false,
   });
+  const [refreshTokenSuccess, setRefreshTokenSuccess] =
+    React.useState<boolean>(false);
 
   const [timeLeftForTokenExpiration, setTimeLeftForTokenExpiration] =
     React.useState<string>('');
@@ -130,6 +135,15 @@ export default function APIAccount(): React.ReactElement {
   React.useEffect(() => {
     setShowAccessTokenSnackbar(refreshingAccessTokenError !== null);
   }, [refreshingAccessTokenError]);
+
+  React.useEffect(() => {
+    if (isAccessTokenRefreshed) {
+      setRefreshTokenSuccess(true);
+      setTimeout(() => {
+        setRefreshTokenSuccess(false);
+      }, 1000);
+    }
+  }, [isAccessTokenRefreshed]);
 
   const handleClickShowToken = React.useCallback(
     (tokenType: TokenTypes): void => {
@@ -248,6 +262,23 @@ export default function APIAccount(): React.ReactElement {
           {refreshingAccessTokenError?.message ?? ''}
         </Alert>
       </Snackbar>
+      <Snackbar
+        open={refreshTokenSuccess}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        autoHideDuration={6000}
+        onClose={() => {
+          setRefreshTokenSuccess(false);
+        }}
+      >
+        <Alert
+          severity='success'
+          onClose={() => {
+            setRefreshTokenSuccess(false);
+          }}
+        >
+          Your access token has been refreshed successfully!
+        </Alert>
+      </Snackbar>
       <CssBaseline />
       <Typography
         component='h1'
@@ -313,7 +344,7 @@ export default function APIAccount(): React.ReactElement {
               <Button
                 variant='contained'
                 color='primary'
-                sx={{ mt: 1, ml: 1 }}
+                sx={{ m: 1, mb: 0 }}
                 onClick={handleChangePasswordClick}
               >
                 Change Password
@@ -322,7 +353,7 @@ export default function APIAccount(): React.ReactElement {
             <Button
               variant='contained'
               color='primary'
-              sx={{ mt: 1 }}
+              sx={{ m: 1, mb: 0 }}
               startIcon={<ExitToAppOutlined />}
               onClick={handleSignOutClick}
             >
@@ -335,6 +366,7 @@ export default function APIAccount(): React.ReactElement {
             <Link
               href='mailto:api@mobilitydata.org'
               color={'inherit'}
+              target={'_blank'}
               fontWeight={'bold'}
             >
               api@mobilitydata.org
@@ -426,7 +458,14 @@ export default function APIAccount(): React.ReactElement {
             </Typography>
             <Typography sx={{ mb: 2 }}>
               Want some quick testing? Copy the access token bellow to test
-              endpoints in our Swagger documentation.
+              endpoints in our{' '}
+              <Link
+                href='https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html#/'
+                target={'_blank'}
+              >
+                Swagger documentation
+              </Link>
+              .
               <br />
               The access token updates regularly.
             </Typography>

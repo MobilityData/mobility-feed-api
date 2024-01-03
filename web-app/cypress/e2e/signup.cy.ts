@@ -1,4 +1,4 @@
-import { passwordValidatioError } from '../../src/app/types';
+import { passwordValidationError } from '../../src/app/types';
 
 describe('Sign up screen', () => {
   beforeEach(() => {
@@ -19,7 +19,7 @@ describe('Sign up screen', () => {
 
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains(passwordValidationError);
   });
 
   it('should show the password error when password do not contain lowercase', () => {
@@ -27,7 +27,7 @@ describe('Sign up screen', () => {
 
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains(passwordValidationError);
   });
 
   it('should show the password error when password do not contain uppercase', () => {
@@ -35,7 +35,7 @@ describe('Sign up screen', () => {
 
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains(passwordValidationError);
   });
 
   it('should not show the password error when password is valid', () => {
