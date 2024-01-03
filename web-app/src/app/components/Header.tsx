@@ -86,7 +86,9 @@ export default function DrawerAppBar(): React.ReactElement {
   };
 
   const handleNavigation = (navigationItem: NavigationItem): void => {
-    navigateTo(navigationItem.target);
+    if (navigationItem.external === true)
+      window.open(navigationItem.target, '_blank', 'noopener noreferrer');
+    else navigateTo(navigationItem.target);
   };
 
   const handleLogoutClick = (): void => {

@@ -34,11 +34,18 @@ export default function Contribute(): React.ReactElement {
             Sharing GTFS and GTFS Realtime feeds means that more journey
             planning apps can discover the data and share it with travelers.{' '}
             <br />
-            <br />
             Service planning tools and researchers also rely on data aggregators
             like the Mobility Database catalogs to evaluate services and plan
             future ones.{' '}
           </Typography>
+          <br />
+          <iframe
+            src='https://docs.google.com/forms/d/e/1FAIpQLSfPL2jq2blA1TtZVQNtqGmMS4Jiu4XxElC12VNrlBwbO-5mUQ/viewform?embedded=true'
+            title='contribute-a-feed-form'
+            width='100%'
+            height='500'
+            style={{ border: 0 }}
+          ></iframe>
           <Typography className='question' sx={{ mt: 5 }}>
             What is a GTFS feed?
           </Typography>
@@ -224,12 +231,6 @@ export default function Contribute(): React.ReactElement {
             cases, feeds are set to a status of deprecated so it&apos;s possible
             to include their historical data within the Mobility Database.
           </Typography>
-          <iframe
-            src='https://docs.google.com/forms/d/e/1FAIpQLSfPL2jq2blA1TtZVQNtqGmMS4Jiu4XxElC12VNrlBwbO-5mUQ/viewform?embedded=true'
-            title='contribute-a-feed-form'
-            width='100%'
-            height='500'
-          ></iframe>
           <Typography className='question' sx={{ mt: 5 }}>
             Shoutout to our incredible contributors
           </Typography>

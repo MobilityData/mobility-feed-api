@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
-import { Button } from '@mui/material';
+import { Button, Grid } from '@mui/material';
 import { Download, Login } from '@mui/icons-material';
 
 export default function Home(): React.ReactElement {
@@ -19,45 +19,47 @@ export default function Home(): React.ReactElement {
           width: '100vw',
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography
-            sx={{
-              width: '50vw',
-              fontSize: 96,
-              fontStyle: 'normal',
-              fontWeight: 700,
-              lineHeight: 'normal',
-              ml: 2,
-            }}
-            color='primary'
-            data-testid='home-title'
-          >
-            The Mobility Database
-          </Typography>
-          <Box
-            sx={{
-              width: '50vw',
-              background: '#F8F5F5',
-              borderRadius: '6px 0px 0px 6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyItems: 'center',
-              p: 5,
-              color: 'black',
-              fontSize: '18px',
-              fontWeight: 700,
-              mr: 0,
-            }}
-          >
-            The Mobility Database catalogs is a repository of 1800+ mobility
-            feeds across the world. It has over 150 updated feeds previously
-            unavailable on TransitFeeds (OpenMobilityData).
-            <br />
-            <br />
-            We’re in the first phase of building a sustainable, central hub for
-            mobility data internationally.
-          </Box>
-        </Box>
+        <Grid container spacing={0}>
+          <Grid sm={12} md={7}>
+            <Typography
+              sx={{
+                fontSize: 96,
+                fontStyle: 'normal',
+                fontWeight: 700,
+                lineHeight: 'normal',
+                ml: 8,
+              }}
+              color='primary'
+              data-testid='home-title'
+            >
+              The Mobility Database
+            </Typography>
+          </Grid>
+          <Grid sm={12} md={5}>
+            <Box
+              sx={{
+                background: '#F8F5F5',
+                borderRadius: '6px 0px 0px 6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyItems: 'center',
+                p: 5,
+                color: 'black',
+                fontSize: '18px',
+                fontWeight: 700,
+                mr: 0,
+              }}
+            >
+              The Mobility Database catalogs is a repository of 1800+ mobility
+              feeds across the world. It has over 150 updated feeds previously
+              unavailable on TransitFeeds (OpenMobilityData).
+              <br />
+              <br />
+              We’re in the first phase of building a sustainable, central hub
+              for mobility data internationally.
+            </Box>
+          </Grid>
+        </Grid>
         <Typography
           component='h1'
           variant='h5'
