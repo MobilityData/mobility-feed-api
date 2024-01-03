@@ -24,12 +24,11 @@ import {
 } from '../constants/Navigation';
 import '../styles/SignUp.css';
 import { selectSignUpError, selectUserProfileStatus } from '../store/selectors';
+import { ErrorSource, OauthProvider, oathProviders } from '../types';
 import {
-  ErrorSource,
-  OauthProvider,
-  oathProviders,
   passwordValidationError,
-} from '../types';
+  passwordValidationRegex,
+} from '../constants/Validation';
 import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { getEnvConfig } from '../utils/config';
@@ -51,10 +50,7 @@ export default function SignUp(): React.ReactElement {
     ),
     password: Yup.string()
       .required('Password is required')
-      .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[$*.\[\]{}()?"!@#%&/\\,><':;|_~`-])(?=.{12,})/,
-        'Password error',
-      ),
+      .matches(passwordValidationRegex, 'Password error'),
     confirmPassword: Yup.string().oneOf(
       [Yup.ref('password'), ''],
       'Passwords do not match',

@@ -18,7 +18,10 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { passwordValidationError } from '../types';
+import {
+  passwordValidationRegex,
+  passwordValidationError,
+} from '../constants/Validation';
 import { useAppDispatch } from '../hooks';
 import { changePassword, changePasswordInit } from '../store/profile-reducer';
 import {
@@ -39,16 +42,10 @@ export default function ChangePassword(): React.ReactElement {
     newPassword: Yup.string()
       .required('New Password is required')
       .min(12, 'Password is too short - should be 12 chars minimum')
-      .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
-        'Password error',
-      ),
+      .matches(passwordValidationRegex, 'Password error'),
     confirmNewPassword: Yup.string()
       .required('Confirm New Password is required')
-      .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
-        'Password error',
-      )
+      .matches(passwordValidationRegex, 'Password error')
       .oneOf([Yup.ref('newPassword')], 'Passwords must match'),
   });
 
