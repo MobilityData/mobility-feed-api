@@ -372,6 +372,8 @@ components:
           type: string
           format: url
           example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+        bounding_box:
+          $ref: "#/components/schemas/BoundingBox"
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    EntityTypes:
