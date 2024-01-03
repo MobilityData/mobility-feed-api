@@ -14,7 +14,7 @@ const Footer: React.FC = () => {
 
   return (
     <footer className='footer'>
-      <p style={{ margin: 0 }}>Maintained with &#128156; by MobilityData. .</p>
+      <p style={{ margin: 0 }}>Maintained with &#128156; by MobilityData.</p>
       <div style={{ margin: 0, display: 'flex', justifyContent: 'center' }}>
         <IconButton
           className='link-button'

@@ -75,6 +75,7 @@ export default function ChangePassword(): React.ReactElement {
   }, [changePasswordStatus]);
 
   const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] =
     React.useState(false);
 
@@ -114,11 +115,32 @@ export default function ChangePassword(): React.ReactElement {
             id='currentPassword'
             label='Current Password'
             name='currentPassword'
-            type='password'
+            type={showPassword ? 'text' : 'password'}
             autoFocus
             value={formik.values.currentPassword}
             onChange={formik.handleChange}
             data-testid='currentPassword'
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position='end'>
+                  <Tooltip title='Toggle Password Visibility'>
+                    <IconButton
+                      color='primary'
+                      aria-label='Toggle Password Visibility'
+                      onClick={() => {
+                        setShowPassword(!showPassword);
+                      }}
+                    >
+                      {showPassword ? (
+                        <VisibilityOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOffOutlined fontSize='small' />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
           {formik.errors.currentPassword != null ? (
             <Alert severity='error'>{passwordValidationError}</Alert>
