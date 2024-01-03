@@ -758,6 +758,7 @@ components:
       required: False
       schema:
         type: integer
+        minimum: 0
         example: 10
     offset:
       name: offset
