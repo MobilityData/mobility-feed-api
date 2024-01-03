@@ -239,77 +239,85 @@ export default function Contribute(): React.ReactElement {
             updated data, or contributed code since 2021.
             <br />
             <br />
-            <b>Organisations:</b>
+            <b>Organizations:</b>
             <ul style={{ marginTop: 0 }}>
-              <li>Golden Gate Bridge Highway Transit District</li>
-              <li>DART Delaware</li>
-              <li>Commerce Municipal Bus Lines</li>
-              <li>Metro Christchurch</li>
-              <li>High Valley Transit</li>
-              <li>Entur AS</li>
-              <li>Kitsap Transit</li>
               <li>Adelaide Metro</li>
-              <li>Port Phillip Ferries</li>
-              <li>Rochester-Genesee Regional Transportation Authority</li>
-              <li>Transcollines</li>
-              <li>Unobus</li>
-              <li>San Luis Obispo Regional Transit Authority</li>
-              <li>ECO Transit</li>
-              <li>Roma Mobilita</li>
+              <li>Bettendorf Transit</li>
+              <li>Bi-State Regional Commission</li>
+              <li>BreizhGo</li>
               <li>Cal-ITP</li>
+              <li>Commerce Municipal Bus Lines</li>
               <li>Corpus Christi Regional Transportation Authority</li>
               <li>County of Hawai’i Mass Transit Agency</li>
-              <li>Springfield Mass Transit District (SMTD)</li>
-              <li>Eismo Info</li>
-              <li>Metro de Málaga</li>
-              <li>Santiago Directorio de Transporte Público Metropolitano</li>
+              <li>DART Delaware</li>
               <li>
                 Department of Municipalities and Transport, Abu Dhabi, United
                 Arab Emirates
               </li>
-              <li>Société nationale des chemins de fer français (SNCF)</li>
+              <li>Development Bank of Latin America (CAF)</li>
+              <li>Digital Transport for Africa (DT4A)</li>
+              <li>ECO Transit</li>
+              <li>Eismo Info</li>
+              <li>Entur AS</li>
+              <li>GTFS.be</li>
+              <li>Garnet Consultants</li>
+              <li>Golden Gate Bridge Highway Transit District</li>
+              <li>High Valley Transit</li>
+              <li>Kitsap Transit</li>
+              <li>Kuzzle</li>
+              <li>Metro Christchurch</li>
+              <li>Metro de Málaga</li>
               <li>Passio Technologies</li>
+              <li>Pinpoint AVL</li>
+              <li>Port Phillip Ferries</li>
               <li>Redmon Group</li>
               <li>Rhode Island Public Transit Authority (RIPTA)</li>
-              <li>Rio de Janeiro City Hall</li>
-              <li>Walker Consultants</li>
-              <li>Garnet Consultants</li>
               <li>Rhode Island Public Transit Authority (RIPTA)</li>
-              <li>Bi-State Regional Commission</li>
-              <li>Digital Transport for Africa (DT4A)</li>
-              <li>Development Bank of Latin America (CAF)</li>
-              <li>Transport for Cairo</li>
-              <li>Skedgo</li>
-              <li>San Francisco Municipal Transportation Agency (SFMTA)</li>
-              <li>UCSC Transporation and Parking Services</li>
-              <li>BreizhGo</li>
-              <li>Volánbusz</li>
-              <li>Bettendorf Transit</li>
-              <li>Kuzzle</li>
-              <li>Sound Transit</li>
-              <li>Pinpoint AVL</li>
+              <li>Rio de Janeiro City Hall</li>
+              <li>Rochester-Genesee Regional Transportation Authority</li>
+              <li>Roma Mobilita</li>
               <li>SFMTA</li>
-              <li>GTFS.be</li>
               <li>SMMAG</li>
+              <li>San Francisco Municipal Transportation Agency (SFMTA)</li>
+              <li>San Luis Obispo Regional Transit Authority</li>
+              <li>Santiago Directorio de Transporte Público Metropolitano</li>
+              <li>Skedgo</li>
+              <li>Société nationale des chemins de fer français (SNCF)</li>
+              <li>Sound Transit</li>
+              <li>Springfield Mass Transit District (SMTD)</li>
               <li>Ticpoi</li>
+              <li>Transcollines</li>
+              <li>Transport for Cairo</li>
+              <li>Two Sigma Data Clinic</li>
+              <li>UCSC Transporation and Parking Services</li>
+              <li>Unobus</li>
+              <li>Volánbusz</li>
+              <li>Walker Consultants</li>
             </ul>
-            <br />
+            <br /> <br />
             <b>Individuals:</b> <br />
-            If you are listed here and would like to add your organization, let
-            MobilityData know.
+            If you are listed here and would like to add your organization,{' '}
+            <a
+              href='mailto:emma@mobilitydata.org'
+              target='_blank'
+              rel='noreferrer'
+            >
+              let MobilityData know
+            </a>
+            .
             <ul style={{ marginTop: 0 }}>
-              <li>Jessica Rapson</li>
-              <li>Gábor Kovács</li>
+              <li>@1-Byte on GitHub</li>
+              <li>Allan Fernando</li>
+              <li>Eloi Torrents</li>
               <li>Florian Maunier</li>
+              <li>Gábor Kovács</li>
+              <li>Jessica Rapson</li>
+              <li>Joop Kiefte</li>
+              <li>Justin Brooks</li>
+              <li>Kevin Butler</li>
               <li>Kovács Áron</li>
               <li>Oliver Hattshire</li>
-              <li>@1-Byte on GitHub</li>
-              <li>Kevin Butler</li>
-              <li>Allan Fernando</li>
               <li>Saipraneeth Devunuri</li>
-              <li>Eloi Torrents</li>
-              <li>Justin Brooks</li>
-              <li>Joop Kiefte</li>
             </ul>
           </Typography>
         </Box>
