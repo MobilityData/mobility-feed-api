@@ -2,10 +2,6 @@ name: GCP Batch Processing Deployer
 on:
   workflow_call:
     inputs:
-      FUNCTION_BUCKET_NAME:
-        description: Bucket name containing the GCP functions
-        required: true
-        type: string
       STATE_BUCKET_NAME:
         description: Bucket name for the terraform state
         required: true
@@ -26,107 +22,21 @@ on:
         description: Deployer service account
         required: true
         type: string
-      SOURCE_ZIP_PATH:
-        description: Source code zip path
-        required: true
-        type: string
-      SOURCE_CODE_ZIP_FILE:
-        description: Source code zip file name
-        required: true
-        type: string
-      HTTP_FUNCTION_NAME:
-        description: HTTP function name
-        required: true
-        type: string
-      PUBSUB_FUNCTION_NAME:
-        description: PubSub function name
-        required: true
-        type: string
-      RUNTIME:
-        description: Runtime environment
-        required: true
-        type: string
-      HTTP_ENTRY_POINT:
-        description: HTTP entry point
-        required: true
-        type: string
-      PUBSUB_ENTRY_POINT:
-        description: PubSub entry point
-        required: true
-        type: string
-      AVAILABLE_MEMORY:
-        description: Available memory for the cloud functions
-        required: true
-        type: string
-      AVAILABLE_CPU:
-        description: Available CPU for the cloud functions
-        required: true
-        type: string
-      PUBSUB_TIMEOUT_SECONDS:
-        description: PubSub function timeout in seconds
-        required: true
-        type: string
-      HTTP_TIMEOUT_SECONDS:
-        description: HTTP function timeout in seconds
-        required: true
-        type: string
-      MAX_INSTANCE_COUNT:
-        description: Max instance count for the pubsub function
-        required: true
-        type: string
-      JOB_NAME:
-        description: Job name for the GCP scheduler
-        required: true
-        type: string
-      JOB_DESCRIPTION:
-        description: Job description for the GCP scheduler
-        required: true
-        type: string
       JOB_SCHEDULE:
         description: Schedule for the GCP scheduler
         required: true
         type: string
-      JOB_HTTP_METHOD:
-        description: GCP Scheduler HTTP method for call
-        required: true
-        type: string
-      JOB_ATTEMPT_DEADLINE:
-        description: Job attempt deadline
-        required: true
-        type: string
-      PUBSUB_TOPIC_NAME:
-        description: PubSub topic name
-        required: true
-        type: string
-      CREATE_PUBSUB_FUNCTION:
-        description: Flag to create PubSub function
-        required: false
-        default: true
-        type: boolean
-      DATASETS_BUCKET:
+      DATASETS_BUCKET_NAME:
         description: Bucket name containing the historical datasets
         required: true
         type: string
-      POSTGRES_DB:
-        description: PostgreSQL database name
-        required: true
-        type: string
-      POSTGRES_PORT:
-        description: PostgreSQL database port number
+      ENVIRONMENT:
+        description: Environment name
         required: true
         type: string
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
-        required: true
-      POSTGRES_USER:
-        description: PostgreSQL username
-        required: true
-      POSTGRES_PASSWORD:
-        description: PostgreSQL password
-        required: true
-      POSTGRES_HOST:
-        description: PostgreSQL database host
         required: true
 
 jobs:
@@ -150,66 +60,32 @@ jobs:
       - name: Set Variables
         run: |
           echo "Setting variables"
-          echo "FUNCTION_BUCKET_NAME=${{ inputs.FUNCTION_BUCKET_NAME }}" >> $GITHUB_ENV
           echo "BUCKET_NAME=${{ inputs.STATE_BUCKET_NAME }}" >> $GITHUB_ENV
           echo "OBJECT_PREFIX=${{ inputs.OBJECT_PREFIX }}" >> $GITHUB_ENV
           echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
+          echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
-          echo "SOURCE_ZIP_PATH=${{ inputs.SOURCE_ZIP_PATH }}" >> $GITHUB_ENV
-          echo "SOURCE_CODE_ZIP_FILE=${{ inputs.SOURCE_CODE_ZIP_FILE }}" >> $GITHUB_ENV
-          echo "HTTP_FUNCTION_NAME=${{ inputs.HTTP_FUNCTION_NAME }}" >> $GITHUB_ENV
-          echo "PUBSUB_FUNCTION_NAME=${{ inputs.PUBSUB_FUNCTION_NAME }}" >> $GITHUB_ENV
-          echo "RUNTIME=${{ inputs.RUNTIME }}" >> $GITHUB_ENV
-          echo "HTTP_ENTRY_POINT=${{ inputs.HTTP_ENTRY_POINT }}" >> $GITHUB_ENV
-          echo "PUBSUB_ENTRY_POINT=${{ inputs.PUBSUB_ENTRY_POINT }}" >> $GITHUB_ENV
-          echo "AVAILABLE_MEMORY=${{ inputs.AVAILABLE_MEMORY }}" >> $GITHUB_ENV
-          echo "AVAILABLE_CPU=${{ inputs.AVAILABLE_CPU }}" >> $GITHUB_ENV
-          echo "PUBSUB_TIMEOUT_SECONDS=${{ inputs.PUBSUB_TIMEOUT_SECONDS }}" >> $GITHUB_ENV
-          echo "HTTP_TIMEOUT_SECONDS=${{ inputs.HTTP_TIMEOUT_SECONDS }}" >> $GITHUB_ENV
-          echo "MAX_INSTANCE_COUNT=${{ inputs.MAX_INSTANCE_COUNT }}" >> $GITHUB_ENV
-          echo "JOB_NAME=${{ inputs.JOB_NAME }}" >> $GITHUB_ENV
-          echo "JOB_DESCRIPTION=${{ inputs.JOB_DESCRIPTION }}" >> $GITHUB_ENV
           echo "JOB_SCHEDULE=${{ inputs.JOB_SCHEDULE }}" >> $GITHUB_ENV
-          echo "JOB_HTTP_METHOD=${{ inputs.JOB_HTTP_METHOD }}" >> $GITHUB_ENV
-          echo "JOB_ATTEMPT_DEADLINE=${{ inputs.JOB_ATTEMPT_DEADLINE }}" >> $GITHUB_ENV
-          echo "PUBSUB_TOPIC_NAME=${{ inputs.PUBSUB_TOPIC_NAME }}" >> $GITHUB_ENV
-          echo "CREATE_PUBSUB_FUNCTION=${{ inputs.CREATE_PUBSUB_FUNCTION }}" >> $GITHUB_ENV
+          echo "DATASETS_BUCKET_NAME=${{ inputs.DATASETS_BUCKET_NAME }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/batch/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/pre-vars.tfvars -variables FUNCTION_BUCKET_NAME,REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,SOURCE_ZIP_PATH,SOURCE_CODE_ZIP_FILE,HTTP_FUNCTION_NAME,PUBSUB_FUNCTION_NAME,RUNTIME,HTTP_ENTRY_POINT,PUBSUB_ENTRY_POINT,AVAILABLE_MEMORY,AVAILABLE_CPU,HTTP_TIMEOUT_SECONDS,PUBSUB_TIMEOUT_SECONDS,MAX_INSTANCE_COUNT,JOB_NAME,JOB_DESCRIPTION,JOB_SCHEDULE,JOB_ATTEMPT_DEADLINE,JOB_HTTP_METHOD,PUBSUB_TOPIC_NAME,CREATE_PUBSUB_FUNCTION  
-          scripts/replace-variables.sh -in_file infra/batch/pre-vars.tfvars -out_file infra/batch/vars.tfvars -variables FUNCTION_ENV_VARIABLE -no_quotes
+          scripts/replace-variables.sh -in_file infra/batch/vars.tfvars.rename_me -out_file infra/batch/vars.tfvars -variables REGION,PROJECT_ID,DEPLOYER_SERVICE_ACCOUNT,JOB_SCHEDULE,ENVIRONMENT,DATASETS_BUCKET_NAME
           cat infra/batch/vars.tfvars
-        env:
-          FUNCTION_ENV_VARIABLE: '"BUCKET_NAME"="${{  inputs.DATASETS_BUCKET }}", "POSTGRES_USER"="${{ secrets.POSTGRES_USER }}", "POSTGRES_PASSWORD"="${{ secrets.POSTGRES_PASSWORD }}", "POSTGRES_DB"="${{ inputs.POSTGRES_DB }}", "POSTGRES_PORT"="${{ inputs.POSTGRES_PORT }}", "POSTGRES_HOST"="${{ secrets.POSTGRES_HOST }}", "PUBSUB_TOPIC_NAME"="${{ inputs.PUBSUB_TOPIC_NAME }}", "PROJECT_ID"="${{ inputs.PROJECT_ID }}"'
 
       - name: Docker Compose DB/Liquibase for db-gen.sh
         run: docker-compose --env-file ./config/.env.local up -d liquibase
         working-directory: ${{ github.workspace }}
-
-      - name: Generate DB models
+  
+      - name: Generate DB code
         run: |
-          mkdir batch/database_gen/
-          scripts/db-gen.sh batch/database_gen/sqlacodegen_models.py
+          scripts/db-gen.sh
 
-      - name: Zip source code
+      - name: Build python functions
         run: |
-          cd batch
-          mkdir temp_zip_folder
-          rsync -av --exclude '__init__.py' ${{ inputs.SOURCE_ZIP_PATH }}* temp_zip_folder/
-          cp -R helpers temp_zip_folder
-          cp -R database_gen temp_zip_folder
-          cd temp_zip_folder
-          zip -r ../${{ inputs.SOURCE_CODE_ZIP_FILE }} *
-          cd ..
-          cp ${{ inputs.SOURCE_CODE_ZIP_FILE }} ../infra/batch/${{ inputs.SOURCE_CODE_ZIP_FILE }}
-
-      # Clearing previous versions of the source code
-      - name: Clear Folder in GCP Bucket
-        continue-on-error: true # In case the bucket is not yet created
-        run: gsutil rm gs://${{inputs.FUNCTION_BUCKET_NAME}}/${{inputs.SOURCE_ZIP_PATH}}*
+          scripts/function-python-build.sh --all
 
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v1

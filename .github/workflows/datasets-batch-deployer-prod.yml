@@ -1,0 +1,21 @@
+name: Deploy Historical Batch Processing - PROD
+
+on:
+  workflow_dispatch:  # Supports manual deployment
+  release:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/datasets-batch-deployer.yml
+    with:
+      STATE_BUCKET_NAME: 'mobility-feeds-terraform-prod'
+      OBJECT_PREFIX: 'terraform-state-batch'
+      PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.PROD_MOBILITY_FEEDS_REGION }}
+      ENVIRONMENT: 'prod'
+      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.PROD_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
+      # every week on monday at 00:00
+      JOB_SCHEDULE: '0 0 * * 1'
+      DATASETS_BUCKET_NAME: 'mobilitydata-datasets'
+    secrets:
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}

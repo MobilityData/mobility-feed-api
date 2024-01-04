@@ -23,8 +23,8 @@ locals {
 }
 
 # Service account to execute the cloud functions
-resource "google_service_account" "containers_service_account" {
-  account_id   = "functions-service-account"
+resource "google_service_account" "functions_service_account" {
+  account_id   = "containers-service-account"
   display_name = "Functions Service Account"
 }
 
