@@ -20,7 +20,7 @@ import {
 import { useSelector } from 'react-redux';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Alert } from '@mui/material';
+import { Alert, IconButton, InputAdornment, Tooltip } from '@mui/material';
 import '../styles/SignUp.css';
 import {
   selectEmailLoginError,
@@ -31,12 +31,14 @@ import {
   ACCOUNT_TARGET,
   COMPLETE_REGISTRATION_TARGET,
 } from '../constants/Navigation';
+import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const emailLoginError = useSelector(selectEmailLoginError);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const SignInSchema = Yup.object().shape({
     email: Yup.string().email().required('Email is required'),
@@ -146,12 +148,33 @@ export default function SignIn(): React.ReactElement {
             fullWidth
             name='password'
             label='Password'
-            type='password'
+            type={showPassword ? 'text' : 'password'}
             id='password'
             autoComplete='new-password'
             onChange={formik.handleChange}
             value={formik.values.password}
             error={formik.errors.password != null}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position='end'>
+                  <Tooltip title='Toggle Password Visibility'>
+                    <IconButton
+                      color='primary'
+                      aria-label='toggle password visibility'
+                      onClick={() => {
+                        setShowPassword(!showPassword);
+                      }}
+                    >
+                      {showPassword ? (
+                        <VisibilityOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOffOutlined fontSize='small' />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
           {formik.errors.password != null ? (
             <Alert severity='error'>{formik.errors.password}</Alert>
@@ -162,7 +185,7 @@ export default function SignIn(): React.ReactElement {
             label='Remember me'
             sx={{ width: '100%' }}
           /> */}
-          <Typography component='h5'>
+          <Typography component='h5' sx={{ textAlign: 'left', width: '100%' }}>
             Forgot your password?{' '}
             <Link href='/forgot-password' color={'inherit'} fontWeight='bold'>
               Reset Here
