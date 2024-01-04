@@ -28,6 +28,7 @@ from google.cloud.datastore import Client
 # Each dataset trace represents the resulting log of the dataset processing.
 # The persistent layer used is Google Cloud Datastore.
 
+
 # Status of the dataset trace
 class Status(Enum):
     FAILED = "FAILED"
