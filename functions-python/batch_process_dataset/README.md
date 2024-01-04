@@ -29,7 +29,7 @@ The function expects a Pub/Sub message with the following format:
 The function is configured using the following environment variables:
 - `DATASETS_BUCKET_NANE`: The name of the bucket where the datasets are stored.
 - `FEEDS_DATABASE_URL`: The URL of the feeds database.
-- `MAXIMUM_EXECUTIONS`: [Optional] The maximum number of executions per datasets. This controls the number of times a dataset can be processed per execution id. By default, is 2.
+- `MAXIMUM_EXECUTIONS`: [Optional] The maximum number of executions per datasets. This controls the number of times a dataset can be processed per execution id. By default, is 1.
 
 
 # Local development

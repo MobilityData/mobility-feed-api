@@ -268,7 +268,7 @@ def process_dataset(cloud_event: CloudEvent):
     execution_id = "UNKNOWN"
     bucket_name = os.getenv("DATASETS_BUCKET_NANE")
     start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-    maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 2)
+    maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 1)
     trace_service = None
     dataset_file: DatasetFile = None
     error_message = None
