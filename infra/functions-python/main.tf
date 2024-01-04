@@ -24,7 +24,7 @@ locals {
 
 # Service account to execute the cloud functions
 resource "google_service_account" "functions_service_account" {
-  account_id   = "containers-service-account"
+  account_id   = "functions-service-account"
   display_name = "Functions Service Account"
 }
 
@@ -43,7 +43,7 @@ data "google_iam_policy" "secret_access" {
   binding {
     role = "roles/secretmanager.secretAccessor"
     members = [
-      "serviceAccount:${google_service_account.containers_service_account.email}"
+      "serviceAccount:${google_service_account.functions_service_account.email}"
     ]
   }
 }
@@ -86,7 +86,7 @@ resource "google_cloudfunctions2_function" "tokens" {
         version    = "latest"
       }
     }
-    service_account_email = google_service_account.containers_service_account.email
+    service_account_email = google_service_account.functions_service_account.email
     ingress_settings = local.function_tokens_config.ingress_settings
   }
 }
