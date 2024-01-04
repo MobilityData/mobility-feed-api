@@ -15,7 +15,7 @@ import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useAppDispatch } from '../hooks';
 import { loginFail, loginWithProvider, signUp } from '../store/profile-reducer';
-import { Alert } from '@mui/material';
+import { Alert, IconButton, InputAdornment, Tooltip } from '@mui/material';
 import { useSelector } from 'react-redux';
 import {
   ACCOUNT_TARGET,
@@ -24,17 +24,20 @@ import {
 } from '../constants/Navigation';
 import '../styles/SignUp.css';
 import { selectSignUpError, selectUserProfileStatus } from '../store/selectors';
+import { ErrorSource, OauthProvider, oathProviders } from '../types';
 import {
-  ErrorSource,
-  OauthProvider,
-  oathProviders,
-  passwordValidatioError,
-} from '../types';
+  passwordValidationError,
+  passwordValidationRegex,
+} from '../constants/Validation';
 import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { getEnvConfig } from '../utils/config';
+import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 
 export default function SignUp(): React.ReactElement {
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+
   const navigateTo = useNavigate();
   const dispatch = useAppDispatch();
   const signUpError = useSelector(selectSignUpError);
@@ -47,10 +50,7 @@ export default function SignUp(): React.ReactElement {
     ),
     password: Yup.string()
       .required('Password is required')
-      .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^$*.[\]{}()?"!@#%&/\\,><':;|_~`])(?=.{12,})/,
-        passwordValidatioError,
-      ),
+      .matches(passwordValidationRegex, 'Password error'),
     confirmPassword: Yup.string().oneOf(
       [Yup.ref('password'), ''],
       'Passwords do not match',
@@ -174,7 +174,6 @@ export default function SignUp(): React.ReactElement {
             label='Confirm Email'
             name='confirmEmail'
             autoComplete='email'
-            autoFocus
             onChange={formik.handleChange}
             value={formik.values.confirmEmail}
             error={formik.errors.confirmEmail != null}
@@ -188,16 +187,37 @@ export default function SignUp(): React.ReactElement {
             fullWidth
             name='password'
             label='Password'
-            type='password'
+            type={showPassword ? 'text' : 'password'}
             id='password'
             autoComplete='current-password'
             onChange={formik.handleChange}
             value={formik.values.password}
             error={formik.errors.password != null}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position='end'>
+                  <Tooltip title='Toggle Password Visibility'>
+                    <IconButton
+                      color='primary'
+                      aria-label='toggle password visibility'
+                      onClick={() => {
+                        setShowPassword(!showPassword);
+                      }}
+                    >
+                      {showPassword ? (
+                        <VisibilityOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOffOutlined fontSize='small' />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
           {formik.errors.password != null ? (
             <Alert severity='error' data-testid='passwordError'>
-              {formik.errors.password}
+              {passwordValidationError}
             </Alert>
           ) : null}
           <TextField
@@ -206,12 +226,33 @@ export default function SignUp(): React.ReactElement {
             fullWidth
             name='confirmPassword'
             label='Confirm Password'
-            type='password'
+            type={showConfirmPassword ? 'text' : 'password'}
             id='confirmPassword'
             autoComplete='new-password'
             onChange={formik.handleChange}
             value={formik.values.confirmPassword}
             error={formik.errors.confirmPassword != null}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position='end'>
+                  <Tooltip title='Toggle Password Visibility'>
+                    <IconButton
+                      color='primary'
+                      aria-label='toggle Password visibility'
+                      onClick={() => {
+                        setShowConfirmPassword(!showConfirmPassword);
+                      }}
+                    >
+                      {showConfirmPassword ? (
+                        <VisibilityOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOffOutlined fontSize='small' />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
           {formik.errors.confirmPassword != null ? (
             <Alert severity='error' data-testid='confirmPasswordError'>

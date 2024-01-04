@@ -1,6 +1,5 @@
 import React from 'react';
 import '../styles/Footer.css';
-import Link from '@mui/material/Link';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import { IconButton } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -15,10 +14,7 @@ const Footer: React.FC = () => {
 
   return (
     <footer className='footer'>
-      <p style={{ margin: 0 }}>
-        Maintained with &#128156; by MobilityData.{' '}
-        <Link>Add or update a feed</Link> or <Link>help improve the API</Link>.
-      </p>
+      <p style={{ margin: 0 }}>Maintained with &#128156; by MobilityData.</p>
       <div style={{ margin: 0, display: 'flex', justifyContent: 'center' }}>
         <IconButton
           className='link-button'

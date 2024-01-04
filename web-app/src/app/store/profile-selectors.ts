@@ -11,6 +11,10 @@ export const selectIsAuthenticated = (state: RootState): boolean =>
 export const selectUserProfileStatus = (state: RootState): string =>
   state.userProfile.status;
 
+export const selectIsTokenRefreshed = (state: RootState): boolean =>
+  !state.userProfile.isRefreshingAccessToken &&
+  state.userProfile.errors.RefreshingAccessToken === null;
+
 export const selectErrorBySource = (
   state: RootState,
   source: ErrorSource,

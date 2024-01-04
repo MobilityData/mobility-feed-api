@@ -1,5 +1,3 @@
-import { passwordValidatioError } from '../../src/app/types';
-
 describe('Sign up screen', () => {
   beforeEach(() => {
     cy.visit('/sign-up');
@@ -19,7 +17,7 @@ describe('Sign up screen', () => {
 
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains('Password must');
   });
 
   it('should show the password error when password do not contain lowercase', () => {
@@ -27,7 +25,7 @@ describe('Sign up screen', () => {
 
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains('Password must');
   });
 
   it('should show the password error when password do not contain uppercase', () => {
@@ -35,7 +33,7 @@ describe('Sign up screen', () => {
 
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains('Password must');
   });
 
   it('should not show the password error when password is valid', () => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import SignIn from '../screens/SignIn';
-import SignUp from '../screens/SingUp';
+import SignUp from '../screens/SignUp';
 import Account from '../screens/Account';
 import ContactInformation from '../screens/ContactInformation';
 import { ProtectedRoute } from './ProtectedRoute';
