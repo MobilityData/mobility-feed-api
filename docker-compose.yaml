@@ -2,6 +2,8 @@ services:
   postgres:
     container_name: database
     image: postgis/postgis
+    # Fix warning message on arm64 machines
+    platform: linux/amd64
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready" ]
       interval: 20s
@@ -21,6 +23,30 @@ services:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
     networks:
       - local
+  postgres-test:
+    container_name: database_test
+    image: postgis/postgis
+    # Fix warning message on arm64 machines
+    platform: linux/amd64
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}Test
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - PGUSER=${PGUSER}
+    volumes:
+      - ./data-test:/var/lib/postgresql/data
+    expose:
+      - ${POSTGRES_PORT}0
+    ports:
+      - ${POSTGRES_PORT}0:${POSTGRES_PORT}
+    networks:
+      - local      
   liquibase:
     container_name: liquibase_update
     image: liquibase/liquibase
@@ -38,6 +64,23 @@ services:
         condition: service_healthy
     networks:
       - local
+  liquibase-test:
+    container_name: liquibase_update_test
+    image: liquibase/liquibase
+    volumes:
+      - ./liquibase:/liquibase/changelog
+    command:
+      - --url=jdbc:postgresql://postgres-test:${POSTGRES_PORT}/${POSTGRES_DB}Test
+      - --changeLogFile=changelog.xml
+      - --username=${POSTGRES_USER}
+      - --password=${POSTGRES_PASSWORD}
+      - --log-level=1
+      - update
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    networks:
+      - local      
   schemaspy:
     image: andrewjones/schemaspy-postgres:latest
     container_name: schema_generation

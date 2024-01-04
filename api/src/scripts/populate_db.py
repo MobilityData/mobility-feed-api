@@ -1,22 +1,17 @@
 import argparse
 import os
-from datetime import datetime
 from pathlib import Path
 from queue import PriorityQueue
 
 import numpy as np
 import pandas
-import sqlalchemy
 from dotenv import load_dotenv
-from geoalchemy2 import WKTElement
 from sqlalchemy import inspect
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import (
-    Component,
     Entitytype,
     Externalid,
-    Gtfsdataset,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Location,
@@ -142,9 +137,13 @@ class DatabasePopulateHelper:
 
             # Feed
             feed_class = Gtfsfeed if row["data_type"] == "gtfs" else Gtfsrealtimefeed
-            feed = feed_map[mdb_id] if mdb_id in feed_map else feed_class(
-                id=generate_unique_id(),
-                stable_id=mdb_id,
+            feed = (
+                feed_map[mdb_id]
+                if mdb_id in feed_map
+                else feed_class(
+                    id=generate_unique_id(),
+                    stable_id=mdb_id,
+                )
             )
             feed_map[mdb_id] = feed
             feed.data_type = row["data_type"]

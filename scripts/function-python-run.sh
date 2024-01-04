@@ -62,6 +62,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+export PYTHONPATH="$FUNCTIONS_PATH:$PYTHONPATH"
 FX_PATH="$FUNCTIONS_PATH/$function_name/src"
 
 if [ ! -d "$FX_PATH" ]; then
