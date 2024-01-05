@@ -117,7 +117,7 @@ jobs:
           cd infra/postgresql
           terraform import google_sql_database_instance.db ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
         env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
 
       - name: Terraform Plan
         run: |
