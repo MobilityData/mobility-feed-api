@@ -103,14 +103,6 @@ jobs:
           terraform_version: 1.5.3
           terraform_wrapper: false
 
-      - name: Conditional Terraform Import for Dev Environment
-        if: ${{ inputs.ENVIRONMENT == 'dev' }}
-        run: |
-          cd infra/postgresql
-          terraform import google_sql_database_instance.db ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
-        env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
       - name: Terraform Init
         run: |
           cd infra/postgresql
@@ -118,6 +110,14 @@ jobs:
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Conditional Terraform Import for Dev Environment
+        if: ${{ inputs.ENVIRONMENT == 'dev' }}
+        run: |
+          cd infra/postgresql
+          terraform import google_sql_database_instance.db ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Terraform Plan
         run: |
