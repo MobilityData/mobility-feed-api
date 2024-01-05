@@ -70,7 +70,7 @@ execute_tests() {
 }
 
 if [[ ! -z "${TEST_FILE}" && ! -z "${FOLDER}" ]]; then
-  echo "The parameters -test_file and -folder are mutualy exclusive."
+  echo "The parameters -test_file and -folder are mutually exclusive."
   exit 1
 fi
 
