@@ -65,6 +65,8 @@ jobs:
     name: 'Deploy Database'
     permissions: write-all
     runs-on: ubuntu-latest
+    outputs:
+      db_instance_host: ${{ steps.get_outputs.outputs.db_instance_host }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -137,37 +139,12 @@ jobs:
         run: |
           DB_INSTANCE_HOST_RAW=$(terraform output -json instance_address)
           DB_INSTANCE_HOST=$(echo $DB_INSTANCE_HOST_RAW | jq -r .)
-          echo "DB_INSTANCE_HOST=$DB_INSTANCE_HOST" >> $GITHUB_ENV
-          echo "$DB_INSTANCE_HOST"
+          echo "db_instance_host=$DB_INSTANCE_HOST" >> $GITHUB_OUTPUT
         working-directory: infra/postgresql
-  get-secret-from-qa:
-    name: Get DB Secret
-    needs: terraform
-    if: ${{ inputs.ENVIRONMENT == 'dev' }}
-    runs-on: ubuntu-latest
-    outputs:
-      secret_value: ${{ steps.get_secret.outputs.secret_value }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Authenticate to Google Cloud QA
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: Google Cloud Setup QA
-        uses: google-github-actions/setup-gcloud@v1
-
-      - name: Get QA Secret
-        id: get_secret
-        run: |
-          SECRET_VALUE=$(gcloud secrets versions access latest --secret="DEV_FEEDS_DATABASE_URL" --project=${{ inputs.PROJECT_ID }})
-          echo "secret_value=$SECRET_VALUE" >> $GITHUB_OUTPUT
 
   update-secret-in-dev:
     name: Copy DB Secret
-    needs: get-secret-from-qa
+    needs: terraform
     if: ${{ inputs.ENVIRONMENT == 'dev' }}
     runs-on: ubuntu-latest
     steps:
@@ -182,7 +159,7 @@ jobs:
       - name: Create or Update Secret in DEV
         run: |
           SECRET_NAME="DEV_FEEDS_DATABASE_URL"
-          SECRET_VALUE="${{ needs.get-secret-from-qa.outputs.secret_value }}"
+          SECRET_VALUE="postgresql://${secrets.POSTGRE_USER_NAME}:${secrets.POSTGRE_USER_PASSWORD}@${needs.terraform.outputs.db_instance_host}/${inputs.POSTGRE_SQL_DB_NAME}"
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
             echo "Secret $SECRET_NAME already exists, updating..."
             echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
