@@ -111,6 +111,14 @@ jobs:
           GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
           PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
 
+      - name: Conditional Terraform Import for Dev Environment
+        if: ${{ inputs.ENVIRONMENT == 'dev' }}
+        run: |
+          cd infra/postgresql
+          terraform import -var-file=vars.tfvars google_sql_database_instance.db ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
       - name: Terraform Plan
         run: |
           cd infra/postgresql
@@ -119,14 +127,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
-
-      - name: Conditional Terraform Import for Dev Environment
-        if: ${{ inputs.ENVIRONMENT == 'dev' }}
-        run: |
-          cd infra/postgresql
-          terraform import google_sql_database_instance.db ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
-        env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
 
       - name: Terraform Apply
         if: ${{ inputs.TF_APPLY }}
