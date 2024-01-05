@@ -165,12 +165,14 @@ jobs:
         run: |
           SECRET_NAME="DEV_FEEDS_DATABASE_URL"
           SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/${{ env.POSTGRE_SQL_DB_NAME }}"
+          echo $SECRET_VALUE
+          
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
             echo "Secret $SECRET_NAME already exists, updating..."
             echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
           else
             echo "Secret $SECRET_NAME does not exist, creating..."
             echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=mobility-feeds-dev
-
+          fi
       
 
