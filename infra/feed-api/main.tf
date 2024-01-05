@@ -40,6 +40,13 @@ resource "google_service_account" "containers_service_account" {
   display_name = "Containers Service Account"
 }
 
+resource "google_project_iam_member" "secret_manager_admin" {
+  for_each  = local.env
+  project   = try(each.value.project_id[var.project_id], var.project_id)
+  role      = "roles/secretmanager.admin"
+  member    = "serviceAccount:${google_service_account.containers_service_account.email}"
+}
+
 # Mobility Feed API cloud run service instance.
 resource "google_cloud_run_v2_service" "mobility-feed-api" {
   name     = "mobility-feed-api-${var.environment}"
