@@ -141,6 +141,7 @@ jobs:
           echo "$DB_INSTANCE_HOST"
         working-directory: infra/postgresql
   get-secret-from-qa:
+    name: Get DB Secret
     needs: terraform
     if: ${{ inputs.ENVIRONMENT == 'dev' }}
     runs-on: ubuntu-latest
@@ -162,9 +163,10 @@ jobs:
         id: get_secret
         run: |
           SECRET_VALUE=$(gcloud secrets versions access latest --secret="DEV_FEEDS_DATABASE_URL" --project=${{ inputs.PROJECT_ID }})
-          echo "::set-output name=secret_value::$SECRET_VALUE"
+          echo "secret_value=$SECRET_VALUE" >> $GITHUB_OUTPUT
 
   update-secret-in-dev:
+    name: Copy DB Secret
     needs: get-secret-from-qa
     if: ${{ inputs.ENVIRONMENT == 'dev' }}
     runs-on: ubuntu-latest
