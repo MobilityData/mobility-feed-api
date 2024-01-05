@@ -162,6 +162,7 @@ jobs:
       - name: Get QA Secret
         run: |
           SECRET_VALUE=$(gcloud secrets versions access latest --secret="DEV_FEEDS_DATABASE_URL" --project=${{ inputs.PROJECT_ID }})
+          echo "SECRET_ENV_VAR=$SECRET_VALUE" >> $GITHUB_ENV
 
 #      - name: Authenticate to Google Cloud DEV
 #        id: gcloud_auth
@@ -172,14 +173,24 @@ jobs:
 #      - name: Google Cloud Setup DEV
 #        uses: google-github-actions/setup-gcloud@v1
 
+#      - name: Create or Update Secret in DEV
+#        run: |
+#          SECRET_NAME="DEV_FEEDS_DATABASE_URL"
+#          if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
+#            echo "Secret $SECRET_NAME already exists, updating..."
+#            echo -n $SECRET_VALUE | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
+#          else
+#            echo "Secret $SECRET_NAME does not exist, creating..."
+#            echo -n $SECRET_VALUE | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=${{ inputs.PROJECT_ID }}
+#          fi
+
       - name: Create or Update Secret in DEV
         run: |
           SECRET_NAME="DEV_FEEDS_DATABASE_URL"
-          if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
-            echo "Secret $SECRET_NAME already exists, updating..."
-            echo -n $SECRET_VALUE | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
-          else
-            echo "Secret $SECRET_NAME does not exist, creating..."
-            echo -n $SECRET_VALUE | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=${{ inputs.PROJECT_ID }}
-          fi
+          echo "Updating Secret $SECRET_NAME..."
+          echo -n $SECRET_VALUE | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
+        env:
+          SECRET_VALUE: ${{ env.SECRET_ENV_VAR }}
+
+      
 
