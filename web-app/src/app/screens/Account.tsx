@@ -98,7 +98,7 @@ export default function APIAccount(): React.ReactElement {
     React.useState(false);
   const [accessTokenCopyResult, setAccessTokenCopyResult] =
     React.useState<string>('');
-  const [showRefreshTokenCopiedTooltip, setShowRefreshTokenCopiedTooltip] =
+  const [showRefreshTokenCopied, setShowRefreshTokenCopied] =
     React.useState(false);
   const [refreshTokenCopyResult, setRefreshTokenCopyResult] =
     React.useState<string>('');
@@ -340,9 +340,11 @@ export default function APIAccount(): React.ReactElement {
               </Typography>
             ) : null}
           </Typography>
-          <Typography variant='body1'>
-            <b>Organization:</b> {' ' + user?.organization ?? 'Unknown'}
-          </Typography>
+          {user?.organization !== undefined && (
+            <Typography variant='body1'>
+              <b>Organization:</b> {' ' + user?.organization}
+            </Typography>
+          )}
           {user?.isRegisteredToReceiveAPIAnnouncements === true ? (
             <Chip
               label='Registered to API Announcements'
@@ -378,7 +380,7 @@ export default function APIAccount(): React.ReactElement {
           <Typography>
             Want your account removed? Send us an email at{' '}
             <Link
-              href='mailto:api@mobilitydata.org'
+              href='mailto:api@mobilitydata.org?subject=Remove Mobility Database account'
               color={'inherit'}
               target={'_blank'}
               fontWeight={'bold'}
@@ -396,16 +398,18 @@ export default function APIAccount(): React.ReactElement {
             </Typography>
             <Box className='token-display-element'>
               <Typography width={500} variant='body1'>
-                {accountState.showRefreshToken
-                  ? user?.refreshToken !== undefined
-                    ? user?.refreshToken
-                    : texts.tokenUnavailable
-                  : texts.refreshTokenHidden}
+                {showRefreshTokenCopied
+                  ? refreshTokenCopyResult
+                  : accountState.showRefreshToken
+                    ? user?.refreshToken !== undefined
+                      ? user?.refreshToken
+                      : texts.tokenUnavailable
+                    : texts.refreshTokenHidden}
               </Typography>
               <Box className='token-action-buttons'>
                 <Tooltip
                   title={
-                    showRefreshTokenCopiedTooltip
+                    showRefreshTokenCopied
                       ? refreshTokenCopyResult
                       : texts.copyRefreshToken
                   }
@@ -421,7 +425,7 @@ export default function APIAccount(): React.ReactElement {
                           handleCopyTokenToClipboard(
                             user.refreshToken,
                             setRefreshTokenCopyResult,
-                            setShowRefreshTokenCopiedTooltip,
+                            setShowRefreshTokenCopied,
                           );
                         }
                       }}

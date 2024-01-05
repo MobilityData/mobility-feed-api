@@ -298,6 +298,7 @@ export default function SignUp(): React.ReactElement {
           <Button
             type='submit'
             variant='contained'
+            disabled={!formik.values.agreeToTerms}
             sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
             onClick={() => {
               setIsSubmitted(true);
