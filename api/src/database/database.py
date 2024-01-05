@@ -4,8 +4,6 @@ import threading
 import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
-
-from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session, load_only, Query
 
@@ -44,7 +42,7 @@ class Database:
         self.engine = None
         self.session = None
         self.connection_attempts = 0
-        self.SQLALCHEMY_DATABASE_URL = os.getenv('FEEDS_DATABASE_URL')
+        self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
         self.start_session()
 
     def is_connected(self):
