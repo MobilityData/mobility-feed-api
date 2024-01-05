@@ -147,6 +147,11 @@ jobs:
     needs: terraform
     if: ${{ inputs.ENVIRONMENT == 'dev' }}
     runs-on: ubuntu-latest
+    env:
+      POSTGRE_USER_NAME: ${{ secrets.POSTGRE_USER_NAME }}
+      POSTGRE_USER_PASSWORD: ${{ secrets.POSTGRE_USER_PASSWORD }}
+      POSTGRE_SQL_DB_NAME: ${{ inputs.POSTGRE_SQL_DB_NAME }}
+      DB_INSTANCE_HOST: ${{ needs.terraform.outputs.db_instance_host }}
     steps:
       - name: Authenticate to Google Cloud DEV
         uses: google-github-actions/auth@v1
@@ -159,7 +164,7 @@ jobs:
       - name: Create or Update Secret in DEV
         run: |
           SECRET_NAME="DEV_FEEDS_DATABASE_URL"
-          SECRET_VALUE="postgresql://${secrets.POSTGRE_USER_NAME}:${secrets.POSTGRE_USER_PASSWORD}@${needs.terraform.outputs.db_instance_host}/${inputs.POSTGRE_SQL_DB_NAME}"
+          SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/${{ env.POSTGRE_SQL_DB_NAME }}"
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
             echo "Secret $SECRET_NAME already exists, updating..."
             echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
