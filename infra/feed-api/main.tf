@@ -27,9 +27,6 @@ locals {
   env = {
     "FEEDS_DATABASE_URL" = {
       secret_id = "${var.environment}_FEEDS_DATABASE_URL"
-      project_id = {
-        mobility-feeds-dev = "mobility-feeds-qa"
-      }
     }
   }
 }
@@ -38,13 +35,6 @@ locals {
 resource "google_service_account" "containers_service_account" {
   account_id   = "containers-service-account"
   display_name = "Containers Service Account"
-}
-
-resource "google_project_iam_member" "secret_manager_admin" {
-  for_each  = local.env
-  project   = try(each.value.project_id[var.project_id], var.project_id)
-  role      = "roles/secretmanager.admin"
-  member    = "serviceAccount:${google_service_account.containers_service_account.email}"
 }
 
 # Mobility Feed API cloud run service instance.
@@ -98,7 +88,7 @@ data "google_iam_policy" "secret_access" {
 resource "google_secret_manager_secret_iam_policy" "policy" {
   for_each = local.env
 
-  project = try(each.value.project_id[var.project_id], var.project_id)
+  project = var.project_id
   secret_id = "${upper(var.environment)}_${each.key}"
   policy_data = data.google_iam_policy.secret_access.policy_data
 }

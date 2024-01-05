@@ -8,10 +8,7 @@
   "include_folders": ["database_gen", "helpers", "dataset_service"],
   "secret_environment_variables": [
     {
-      "key": "FEEDS_DATABASE_URL",
-      "project_id": {
-        "mobility-feeds-dev": "mobility-feeds-qa"
-      }
+      "key": "FEEDS_DATABASE_URL"
     }
   ],
   "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",

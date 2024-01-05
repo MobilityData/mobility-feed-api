@@ -94,7 +94,7 @@ data "google_iam_policy" "secret_access_function_batch_datasets" {
 resource "google_secret_manager_secret_iam_policy" "policy_function_batch_datasets" {
   for_each = { for x in local.function_batch_datasets_config.secret_environment_variables : x.key => x }
 
-  project     = try(each.value.project_id[var.project_id], var.project_id)
+  project     = var.project_id
   secret_id   = "${upper(var.environment)}_${each.key}"
   policy_data = data.google_iam_policy.secret_access_function_batch_datasets.policy_data
 }
