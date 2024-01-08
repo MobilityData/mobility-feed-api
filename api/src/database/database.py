@@ -43,9 +43,9 @@ class Database:
         self.session = None
         self.connection_attempts = 0
         self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
-        print(80 * '*')
+        print(80 * "*")
         print(self.SQLALCHEMY_DATABASE_URL)
-        print(80 * '*')
+        print(80 * "*")
         self.start_session()
 
     def is_connected(self):
