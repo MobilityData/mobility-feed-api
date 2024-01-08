@@ -38,14 +38,20 @@ export default function SignIn(): React.ReactElement {
   const navigateTo = useNavigate();
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const emailLoginError = useSelector(selectEmailLoginError);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
   const SignInSchema = Yup.object().shape({
-    email: Yup.string().email().required('Email is required'),
+    email: Yup.string()
+      .email('Email format is invalid.')
+      .required('Email is required'),
 
     password: Yup.string()
       .required('Password is required')
-      .min(12, 'Password is too short - should be 12 chars minimum'),
+      .min(
+        12,
+        'Password is too short. Your password should be 12 characters minimum',
+      ),
   });
 
   const formik = useFormik({
@@ -54,6 +60,8 @@ export default function SignIn(): React.ReactElement {
       password: '',
     },
     validationSchema: SignInSchema,
+    validateOnChange: isSubmitted,
+    validateOnBlur: true,
     onSubmit: (values) => {
       const emailLogin: EmailLogin = {
         email: values.email,
@@ -196,7 +204,9 @@ export default function SignIn(): React.ReactElement {
             type='submit'
             variant='contained'
             sx={{ mt: 3, mb: 2 }}
-            onClick={() => formik.handleChange}
+            onClick={() => {
+              setIsSubmitted(true);
+            }}
             data-testid='signin'
           >
             Sign In

@@ -33,6 +33,8 @@ export default function CompleteRegistration(): React.ReactElement {
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const registrationError = useSelector(selectRegistrationError);
 
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
+
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
       navigateTo(ACCOUNT_TARGET);
@@ -59,6 +61,8 @@ export default function CompleteRegistration(): React.ReactElement {
       agreeToPrivacyPolicy: false,
     },
     validationSchema: CompleteRegistrationSchema,
+    validateOnChange: isSubmitted,
+    validateOnBlur: true,
     onSubmit: async (values) => {
       if (user != null) {
         dispatch(
@@ -175,7 +179,13 @@ export default function CompleteRegistration(): React.ReactElement {
               justifyContent: 'center',
             }}
           >
-            <Button type='submit' variant='contained'>
+            <Button
+              type='submit'
+              variant='contained'
+              onClick={() => {
+                setIsSubmitted(true);
+              }}
+            >
               Finish Account Setup
             </Button>
           </Box>

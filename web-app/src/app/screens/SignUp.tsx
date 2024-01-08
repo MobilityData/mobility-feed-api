@@ -42,8 +42,12 @@ export default function SignUp(): React.ReactElement {
   const dispatch = useAppDispatch();
   const signUpError = useSelector(selectSignUpError);
   const userProfileStatus = useSelector(selectUserProfileStatus);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
+
   const SignUpSchema = Yup.object().shape({
-    email: Yup.string().email().required('Email is required'),
+    email: Yup.string()
+      .email('Email format is invalid.')
+      .required('Email is required'),
     confirmEmail: Yup.string().oneOf(
       [Yup.ref('email'), ''],
       'Emails do not match',
@@ -71,6 +75,8 @@ export default function SignUp(): React.ReactElement {
       reCaptcha: null,
     },
     validationSchema: SignUpSchema,
+    validateOnChange: isSubmitted,
+    validateOnBlur: true,
     onSubmit: (values) => {
       dispatch(
         signUp({
@@ -293,7 +299,9 @@ export default function SignUp(): React.ReactElement {
             type='submit'
             variant='contained'
             sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
-            onClick={formik.handleChange}
+            onClick={() => {
+              setIsSubmitted(true);
+            }}
             id='sign-up-button'
           >
             Sign Up

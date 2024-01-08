@@ -37,11 +37,16 @@ export default function ChangePassword(): React.ReactElement {
   const navigateTo = useNavigate();
   const changePasswordError = useSelector(selectChangePasswordError);
   const changePasswordStatus = useSelector(selectChangePasswordStatus);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
+
   const ChangePasswordSchema = Yup.object().shape({
     currentPassword: Yup.string().required('Password is required'),
     newPassword: Yup.string()
       .required('New Password is required')
-      .min(12, 'Password is too short - should be 12 chars minimum')
+      .min(
+        12,
+        'Password is too short. Password should be 12 characters minimum',
+      )
       .matches(passwordValidationRegex, 'Password error'),
     confirmNewPassword: Yup.string()
       .required('Confirm New Password is required')
@@ -56,6 +61,8 @@ export default function ChangePassword(): React.ReactElement {
       confirmNewPassword: '',
     },
     validationSchema: ChangePasswordSchema,
+    validateOnChange: isSubmitted,
+    validateOnBlur: true,
     onSubmit: (values) => {
       dispatch(
         changePassword({
@@ -229,7 +236,9 @@ export default function ChangePassword(): React.ReactElement {
               marginLeft: 'auto',
               marginRight: 'auto',
             }}
-            onClick={() => formik.handleChange}
+            onClick={() => {
+              setIsSubmitted(true);
+            }}
           >
             Save Changes
           </Button>
