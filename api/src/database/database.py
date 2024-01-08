@@ -43,6 +43,11 @@ class Database:
         self.session = None
         self.connection_attempts = 0
         self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
+        env_vars = os.environ
+
+        # Iterate and print each environment variable
+        for key, value in env_vars.items():
+            print(f"{key}={value}")
         print(80 * "*")
         print(self.SQLALCHEMY_DATABASE_URL)
         print(80 * "*")
