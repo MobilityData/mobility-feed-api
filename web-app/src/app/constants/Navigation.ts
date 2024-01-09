@@ -10,12 +10,12 @@ export const MOBILITY_DATA_LINKS = {
   slack:
     'https://share.mobilitydata.org/slack?_gl=1*vdltzn*_ga*MTg3NTkzMjk0MS4xNjg1NDA4NDQ5*_ga_55GPMF0W9Z*MTY5NzIxNDMzMS4xNy4wLjE2OTcyMTQzMzIuMC4wLjA.*_ga_38D0062PPR*MTY5NzIxNDMzMS43LjAuMTY5NzIxNDMzMS4wLjAuMA..&_ga=2.58702697.2112403184.1697214331-1875932941.1685408449',
   linkedin: 'https://www.linkedin.com/company/mobilitydata/',
-  github: 'https://github.com/MobilityData',
+  github: 'https://github.com/MobilityData/mobility-database-catalogs',
 };
 
 export const navigationItems: NavigationItem[] = [
   { title: 'About', target: 'about', color: 'inherit', variant: 'text' },
-  { title: 'API Docs', target: 'api', color: 'inherit', variant: 'text' },
+  { title: 'FAQ', target: 'faq', color: 'inherit', variant: 'text' },
   {
     title: 'Contribute',
     target: 'contribute',
@@ -23,19 +23,21 @@ export const navigationItems: NavigationItem[] = [
     variant: 'text',
   },
   {
-    title: 'Contact Us',
-    target: 'contact-us',
+    title: 'API Docs',
+    target:
+      'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html',
     color: 'inherit',
     variant: 'text',
+    external: true,
+  },
+  {
+    title: 'Contact Us',
+    target: 'mailto:api@mobilitydata.org',
+    color: 'inherit',
+    variant: 'text',
+    external: true,
   },
 ];
-
-export const navigationSignoutItem: NavigationItem = {
-  title: 'Sign Out',
-  target: SIGN_OUT_TARGET,
-  color: 'inherit',
-  variant: 'text',
-};
 export const navigationHelpItem: NavigationItem = {
   title: 'Help',
   target: 'help', // TODO generate help page

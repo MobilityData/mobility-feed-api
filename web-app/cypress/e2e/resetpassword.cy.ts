@@ -9,7 +9,7 @@ describe('Reset Password Screen', () => {
 
   it('should show error when email no email is provided', () => {
     cy.get('input[id="email"]').type('not an email', { force: true });
-
+    cy.get('[type="submit"]').click();
     cy.get('[data-testid=emailError]').should('exist');
   });
 

@@ -1,5 +1,3 @@
-import { passwordValidatioError } from '../../src/app/types';
-
 describe('Sign up screen', () => {
   beforeEach(() => {
     cy.visit('/sign-up');
@@ -16,37 +14,36 @@ describe('Sign up screen', () => {
 
   it('should show the password error when password length is less than 12', () => {
     cy.get('input[id="password"]').type('short', { force: true });
-
+    cy.get('button[id="sign-up-button"]').click();
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains('Password must');
   });
 
   it('should show the password error when password do not contain lowercase', () => {
     cy.get('input[id="password"]').type('UPPERCASE_10_!', { force: true });
-
+    cy.get('button[id="sign-up-button"]').click();
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains('Password must');
   });
 
   it('should show the password error when password do not contain uppercase', () => {
     cy.get('input[id="password"]').type('lowercase_10_!', { force: true });
-
+    cy.get('button[id="sign-up-button"]').click();
     cy.get('[data-testid=passwordError]')
       .should('exist')
-      .contains(passwordValidatioError);
+      .contains('Password must');
   });
 
   it('should not show the password error when password is valid', () => {
     cy.get('input[id="password"]').type('UP_lowercase_10_!', { force: true });
-
     cy.get('[data-testid=passwordError]').should('not.exist');
   });
 
   it('should show the password error when password do not match', () => {
     cy.get('input[id="password"]').type('UP_lowercase_10_!', { force: true });
-
+    cy.get('button[id="sign-up-button"]').click();
     cy.get('input[id="confirmPassword"]').type('UP_lowercase_11_!', {
       force: true,
     });

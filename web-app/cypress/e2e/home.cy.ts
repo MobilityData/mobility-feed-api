@@ -9,7 +9,7 @@ describe('Home page', () => {
       .contains('Mobility Database');
   });
 
-  it('should render signin', () => {
-    cy.get('[data-testid=signin]').should('exist');
+  it('should render home page title', () => {
+    cy.get('[data-testid=home-title]').should('exist');
   });
 });

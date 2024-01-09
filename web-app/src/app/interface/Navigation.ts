@@ -3,4 +3,5 @@ export default interface NavigationItem {
   color: string;
   target: string;
   variant: 'text' | 'outlined' | 'contained' | undefined;
+  external?: boolean;
 }

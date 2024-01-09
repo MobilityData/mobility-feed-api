@@ -29,6 +29,7 @@ replay_pid*
 
 # Ignore the local instance of the data
 data/
+data-test/
 
 # IDE files
 .idea
@@ -64,3 +65,6 @@ __pycache__
 /functions-python/*/.env.local
 
 **/node_modules
+
+# Environment file
+.env

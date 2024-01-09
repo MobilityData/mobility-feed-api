@@ -93,12 +93,6 @@ module "feed-api" {
   feed_api_service       = "feed-api"
   feed_api_image_version = var.feed_api_image_version
 
-  feed_api_postgres_db       = var.feed_api_postgres_db
-  feed_api_postgres_host     = var.feed_api_postgres_host
-  feed_api_postgres_password = var.feed_api_postgres_password
-  feed_api_postgres_port     = var.feed_api_postgres_port
-  feed_api_postgres_user     = var.feed_api_postgres_user
-
   source = "./feed-api"
 }
 

@@ -180,8 +180,9 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         gtfs_feeds = []
         for feed_group in feed_groups:
-            feed_objects, redirect_ids, external_ids, redirect_comments, datasets, bounding_boxes, locations \
-                = zip(*feed_group)
+            feed_objects, redirect_ids, external_ids, redirect_comments, datasets, bounding_boxes, locations = zip(
+                *feed_group
+            )
 
             # We use a set to eliminate duplicate in the Redirects.
             # But we can't use the Redirect object directly since they are not hashable and making them
@@ -206,9 +207,13 @@ class FeedsApiImpl(BaseFeedsApi):
                 for location in locations
                 if location is not None
             ]
-            latest_dataset, bounding_box = next(filter(
-                lambda dataset: dataset[0] is not None and dataset[1] is not None and dataset[0].latest,
-                zip(datasets, bounding_boxes)), (None, None))
+            latest_dataset, bounding_box = next(
+                filter(
+                    lambda dataset: dataset[0] is not None and dataset[1] is not None and dataset[0].latest,
+                    zip(datasets, bounding_boxes),
+                ),
+                (None, None),
+            )
             if latest_dataset:
                 api_dataset = LatestDataset(id=latest_dataset.stable_id, hosted_url=latest_dataset.hosted_url)
                 if bounding_box:
@@ -317,7 +322,7 @@ class FeedsApiImpl(BaseFeedsApi):
         offset: int,
         downloaded_date_gte: str,
         downloaded_date_lte: str,
-        sort: str
+        sort: str,
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         # getting the bounding box as JSON to make it easier to process

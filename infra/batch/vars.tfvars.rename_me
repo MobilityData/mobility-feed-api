@@ -4,27 +4,9 @@
 # - Replace variable values.
 # - Execute your terraform script passing this file as a parameter, example: terraform plan -var-file=vars.tfvars
 
-bucket_name={{FUNCTION_BUCKET_NAME}}
 gcp_region={{REGION}}
 project_id={{PROJECT_ID}}
+environment={{ENVIRONMENT}}
 deployer_service_account={{DEPLOYER_SERVICE_ACCOUNT}}
-function_env_variables={{{FUNCTION_ENV_VARIABLE}}}
-source_code_path={{SOURCE_ZIP_PATH}}
-source_code_zip_file={{SOURCE_CODE_ZIP_FILE}}
-http_function_name={{HTTP_FUNCTION_NAME}}
-pubsub_function_name={{PUBSUB_FUNCTION_NAME}}
-runtime={{RUNTIME}}
-http_entry_point={{HTTP_ENTRY_POINT}}
-pubsub_entry_point={{PUBSUB_ENTRY_POINT}}
-available_memory={{AVAILABLE_MEMORY}}
-available_cpu={{AVAILABLE_CPU}}
-http_timeout_seconds={{HTTP_TIMEOUT_SECONDS}}
-pubsub_timeout_seconds={{PUBSUB_TIMEOUT_SECONDS}}
-max_instance_count={{MAX_INSTANCE_COUNT}}
-job_name={{JOB_NAME}}
-job_description={{JOB_DESCRIPTION}}
 job_schedule={{JOB_SCHEDULE}}
-job_attempt_deadline={{JOB_ATTEMPT_DEADLINE}}
-http_method={{JOB_HTTP_METHOD}}
-pubsub_topic_name={{PUBSUB_TOPIC_NAME}}
-create_pubsub_function={{CREATE_PUBSUB_FUNCTION}}
+datasets_bucket_name={{DATASETS_BUCKET_NAME}}

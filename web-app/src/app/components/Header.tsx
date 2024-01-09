@@ -34,6 +34,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
+import { OpenInNew } from '@mui/icons-material';
+import '../styles/Header.css';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -44,7 +46,12 @@ const DrawerContent: React.FC<{
 }> = ({ onClick, onNavigationClick }) => {
   return (
     <Box onClick={onClick} sx={{ textAlign: 'center' }}>
-      <Typography variant='h6' sx={{ my: 2 }} data-testid='websiteTile'>
+      <Typography
+        variant='h6'
+        sx={{ my: 2 }}
+        data-testid='websiteTile'
+        className='website-title'
+      >
         {websiteTile}
       </Typography>
       <Divider />
@@ -79,7 +86,9 @@ export default function DrawerAppBar(): React.ReactElement {
   };
 
   const handleNavigation = (navigationItem: NavigationItem): void => {
-    navigateTo(navigationItem.target);
+    if (navigationItem.external === true)
+      window.open(navigationItem.target, '_blank', 'noopener noreferrer');
+    else navigateTo(navigationItem.target);
   };
 
   const handleLogoutClick = (): void => {
@@ -113,24 +122,40 @@ export default function DrawerAppBar(): React.ReactElement {
         elevation={0}
         sx={{ background: 'white' }}
       >
-        <Toolbar>
-          <IconButton
-            color='inherit'
-            aria-label='open drawer'
-            edge='start'
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+        <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <a
+            href={'/'}
+            style={{
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+            className='btn-link'
           >
-            <MenuIcon />
-          </IconButton>
-          <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
-          <Typography
-            variant='h5'
-            component='div'
-            sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }}
-          >
-            {websiteTile}
-          </Typography>
+            <IconButton
+              color='inherit'
+              aria-label='open drawer'
+              edge='start'
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { md: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
+
+            <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
+            <Typography
+              variant='h5'
+              component='div'
+              className='website-title'
+              sx={{
+                flexGrow: 1,
+                display: { xs: 'none', md: 'block' },
+              }}
+            >
+              {websiteTile}
+            </Typography>
+          </a>
+
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
               <Button
@@ -140,6 +165,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   handleNavigation(item);
                 }}
                 variant={item.variant}
+                endIcon={item.external === true ? <OpenInNew /> : null}
               >
                 {item.title}
               </Button>

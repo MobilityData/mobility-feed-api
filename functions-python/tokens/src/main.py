@@ -35,7 +35,7 @@ HEADERS: Final[dict[str, str]] = {
 
 class TokenPostResponse:
     def __init__(
-            self, access_token: str, expiration_datetime_utc: str, token_type: str
+        self, access_token: str, expiration_datetime_utc: str, token_type: str
     ):
         self.access_token = access_token
         self.expiration_datetime_utc = expiration_datetime_utc

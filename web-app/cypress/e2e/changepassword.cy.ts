@@ -12,7 +12,7 @@ describe('Change Password Screen', () => {
     cy.get('input[id="password"]').clear().type(currentPassword);
     cy.get('button[type="submit"]').click();
     // Wait for the user to be redirected to the home page
-    cy.location('pathname').should('eq', '/account');
+    cy.location('pathname').should('eq', '/account', { timeout: 30000 });
     // Visit the change password page
     cy.visit('/change-password');
   });

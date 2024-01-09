@@ -18,7 +18,10 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { passwordValidatioError } from '../types';
+import {
+  passwordValidationRegex,
+  passwordValidationError,
+} from '../constants/Validation';
 import { useAppDispatch } from '../hooks';
 import { changePassword, changePasswordInit } from '../store/profile-reducer';
 import {
@@ -34,21 +37,20 @@ export default function ChangePassword(): React.ReactElement {
   const navigateTo = useNavigate();
   const changePasswordError = useSelector(selectChangePasswordError);
   const changePasswordStatus = useSelector(selectChangePasswordStatus);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
+
   const ChangePasswordSchema = Yup.object().shape({
     currentPassword: Yup.string().required('Password is required'),
     newPassword: Yup.string()
       .required('New Password is required')
-      .min(12, 'Password is too short - should be 12 chars minimum')
-      .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
-        passwordValidatioError,
-      ),
+      .min(
+        12,
+        'Password is too short. Password should be 12 characters minimum',
+      )
+      .matches(passwordValidationRegex, 'Password error'),
     confirmNewPassword: Yup.string()
       .required('Confirm New Password is required')
-      .matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.;!@#$%^&*])(?=.{12,})/,
-        passwordValidatioError,
-      )
+      .matches(passwordValidationRegex, 'Password error')
       .oneOf([Yup.ref('newPassword')], 'Passwords must match'),
   });
 
@@ -59,6 +61,8 @@ export default function ChangePassword(): React.ReactElement {
       confirmNewPassword: '',
     },
     validationSchema: ChangePasswordSchema,
+    validateOnChange: isSubmitted,
+    validateOnBlur: true,
     onSubmit: (values) => {
       dispatch(
         changePassword({
@@ -77,9 +81,10 @@ export default function ChangePassword(): React.ReactElement {
     }
   }, [changePasswordStatus]);
 
-  const [showNewPassword, setShowNewPassword] = React.useState(true);
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] =
-    React.useState(true);
+    React.useState(false);
 
   return (
     <Container component='main' maxWidth='sm'>
@@ -117,14 +122,35 @@ export default function ChangePassword(): React.ReactElement {
             id='currentPassword'
             label='Current Password'
             name='currentPassword'
-            type='password'
+            type={showPassword ? 'text' : 'password'}
             autoFocus
             value={formik.values.currentPassword}
             onChange={formik.handleChange}
-            data-testid='currentPassword' // Add this line
+            data-testid='currentPassword'
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position='end'>
+                  <Tooltip title='Toggle Password Visibility'>
+                    <IconButton
+                      color='primary'
+                      aria-label='Toggle Password Visibility'
+                      onClick={() => {
+                        setShowPassword(!showPassword);
+                      }}
+                    >
+                      {showPassword ? (
+                        <VisibilityOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOffOutlined fontSize='small' />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </InputAdornment>
+              ),
+            }}
           />
           {formik.errors.currentPassword != null ? (
-            <Alert severity='error'>{formik.errors.currentPassword}</Alert>
+            <Alert severity='error'>{passwordValidationError}</Alert>
           ) : null}
           <TextField
             variant='outlined'
@@ -140,18 +166,18 @@ export default function ChangePassword(): React.ReactElement {
             InputProps={{
               endAdornment: (
                 <InputAdornment position='end'>
-                  <Tooltip title='Toggle NewPassword Visibility'>
+                  <Tooltip title='Toggle Password Visibility'>
                     <IconButton
                       color='primary'
-                      aria-label='toggle NewPassword visibility'
+                      aria-label='toggle password visibility'
                       onClick={() => {
                         setShowNewPassword(!showNewPassword);
                       }}
                     >
                       {showNewPassword ? (
-                        <VisibilityOffOutlined fontSize='small' />
-                      ) : (
                         <VisibilityOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOffOutlined fontSize='small' />
                       )}
                     </IconButton>
                   </Tooltip>
@@ -160,7 +186,7 @@ export default function ChangePassword(): React.ReactElement {
             }}
           />
           {formik.errors.newPassword != null ? (
-            <Alert severity='error'>{formik.errors.newPassword}</Alert>
+            <Alert severity='error'>{passwordValidationError}</Alert>
           ) : null}
           <TextField
             variant='outlined'
@@ -176,18 +202,18 @@ export default function ChangePassword(): React.ReactElement {
             InputProps={{
               endAdornment: (
                 <InputAdornment position='end'>
-                  <Tooltip title='Toggle Confirm New Password Visibility'>
+                  <Tooltip title='Toggle Password Visibility'>
                     <IconButton
                       color='primary'
-                      aria-label='toggle confirm New Password visibility'
+                      aria-label='Toggle Password Visibility'
                       onClick={() => {
                         setShowConfirmNewPassword(!showConfirmNewPassword);
                       }}
                     >
                       {showConfirmNewPassword ? (
-                        <VisibilityOffOutlined fontSize='small' />
-                      ) : (
                         <VisibilityOutlined fontSize='small' />
+                      ) : (
+                        <VisibilityOffOutlined fontSize='small' />
                       )}
                     </IconButton>
                   </Tooltip>
@@ -196,7 +222,7 @@ export default function ChangePassword(): React.ReactElement {
             }}
           />
           {formik.errors.confirmNewPassword != null ? (
-            <Alert severity='error'>{formik.errors.confirmNewPassword}</Alert>
+            <Alert severity='error'>{passwordValidationError}</Alert>
           ) : null}
           <Button
             type='submit'
@@ -210,7 +236,9 @@ export default function ChangePassword(): React.ReactElement {
               marginLeft: 'auto',
               marginRight: 'auto',
             }}
-            onClick={() => formik.handleChange}
+            onClick={() => {
+              setIsSubmitted(true);
+            }}
           >
             Save Changes
           </Button>
