@@ -76,7 +76,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
                 )
             )
         elif bounding_filter_method == "completely_enclosed":
-            return query.filter(Gtfsdataset.bounding_box.ST_Covers(bounding_box))
+            return query.filter(bounding_box.ST_Covers(Gtfsdataset.bounding_box))
         elif bounding_filter_method == "disjoint":
             return query.filter(Gtfsdataset.bounding_box.ST_Disjoint(bounding_box))
         else:

@@ -29,11 +29,11 @@ def assert_bounding_box_found(latitudes, longitudes, method, expected_found, tes
 @pytest.mark.parametrize(
     "latitudes,longitudes,method,expected_found",
     [
-        ("37.7, 38", "-84.7,-84.6", "completely_enclosed", True),
-        ("37, 38", "-84.7,-84.6", "completely_enclosed", False),  # min latitude is too low
-        ("37.7, 39", "-84.7,-84.6", "completely_enclosed", False),  # max latitude is too high
-        ("37.7, 38", "-85,-84.6", "completely_enclosed", False),  # min longitude is too low
-        ("37.7, 38", "-84.7,-83", "completely_enclosed", False),  # max longitude is too high
+        ("37, 39", "-85,-84", "completely_enclosed", True),  # completely enclosed
+        ("37.7, 39", "-85,-84", "completely_enclosed", False),  # min latitude is too high
+        ("37, 38", "-85,-84", "completely_enclosed", False),  # max latitude is too low
+        ("37, 39", "-84.7,-84", "completely_enclosed", False),  # min longitude is too low
+        ("37, 39", "-85,-84.5", "completely_enclosed", False),  # max longitude is too high
     ],
 )
 def test_bounding_box_completed_closed(latitudes, longitudes, method, expected_found, test_database):
