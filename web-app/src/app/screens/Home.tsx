@@ -23,11 +23,17 @@ export default function Home(): React.ReactElement {
           <Grid sm={12} md={7}>
             <Typography
               sx={{
-                fontSize: 96,
+                fontSize: {
+                  xs: '48px',
+                  sm: '60px',
+                  md: '72px',
+                  lg: '96px',
+                  xl: '96px',
+                },
                 fontStyle: 'normal',
                 fontWeight: 700,
                 lineHeight: 'normal',
-                ml: 8,
+                ml: { xs: 2, sm: 4, md: 8 },
               }}
               color='primary'
               data-testid='home-title'
