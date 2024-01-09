@@ -1,3 +1,5 @@
+import json
+
 from fastapi.testclient import TestClient
 
 from tests.test_utils.token import authHeaders
@@ -86,8 +88,32 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         subdivision_name="test_subdivision_name",
         municipality="test_municipality",
     )
+    mock_bounding_box = json.dumps(
+        {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-70.248666, 43.655373],
+                    [-70.248666, 43.71619],
+                    [-70.11018, 43.71619],
+                    [-70.11018, 43.655373],
+                    [-70.248666, 43.655373],
+                ]
+            ],
+        }
+    )
     mock_select.return_value = [
-        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]
+        [
+            (
+                mock_feed,
+                redirect_target_id,
+                mock_external_id,
+                redirect_comment,
+                mock_latest_datasets,
+                mock_bounding_box,
+                mock_locations,
+            )
+        ]
     ]
 
     response = client.request(
@@ -146,8 +172,32 @@ def test_gtfs_feed_get(client: TestClient, mocker):
         subdivision_name="test_subdivision_name",
         municipality="test_municipality",
     )
+    mock_bounding_box = json.dumps(
+        {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [-70.248666, 43.655373],
+                    [-70.248666, 43.71619],
+                    [-70.11018, 43.71619],
+                    [-70.11018, 43.655373],
+                    [-70.248666, 43.655373],
+                ]
+            ],
+        }
+    )
     mock_select.return_value = [
-        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_latest_datasets, mock_locations)]
+        [
+            (
+                mock_feed,
+                redirect_target_id,
+                mock_external_id,
+                redirect_comment,
+                mock_latest_datasets,
+                mock_bounding_box,
+                mock_locations,
+            )
+        ]
     ]
 
     response = client.request(
