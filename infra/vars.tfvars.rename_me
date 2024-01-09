@@ -1,4 +1,4 @@
-# This file is a template for populating the terraform-init module variables
+# This file is a template for populating the feed-api module variables
 # To set variables:
 # - Rename this file to vars.tfvars.
 # - Replace variable values.
@@ -14,9 +14,3 @@ feed_api_image_version      = {{FEED_API_IMAGE_VERSION}}
 oauth2_client_id = {{OAUTH2_CLIENT_ID}}
 oauth2_client_secret = {{OAUTH2_CLIENT_SECRET}}
 global_rate_limit_req_per_minute = {{GLOBAL_RATE_LIMIT_REQ_PER_MINUTE}}
-
-feed_api_postgres_db       = {{POSTGRES_DB}}
-feed_api_postgres_host     = {{POSTGRES_HOST}}
-feed_api_postgres_password = {{POSTGRES_PASSWORD}}
-feed_api_postgres_port     = {{POSTGRES_PORT}}
-feed_api_postgres_user     = {{POSTGRES_USER}}

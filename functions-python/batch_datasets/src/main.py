@@ -21,6 +21,7 @@ from datetime import datetime
 
 import functions_framework
 from google.cloud import pubsub_v1
+from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -28,9 +29,15 @@ from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 from dataset_service.main import BatchExecutionService, BatchExecution
 from helpers.database import start_db_session, close_db_session
 
-publisher = pubsub_v1.PublisherClient()
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
+
+
+def get_pubsub_client():
+    """
+    Returns a Pub/Sub client.
+    """
+    return pubsub_v1.PublisherClient()
 
 
 def publish_callback(future: Future, stable_id: str, topic_path: str):
@@ -46,7 +53,7 @@ def publish_callback(future: Future, stable_id: str, topic_path: str):
         print(f"Published stable_id={stable_id}.")
 
 
-def publish(topic_path: str, data_bytes: bytes) -> Future:
+def publish(publisher: PublisherClient, topic_path: str, data_bytes: bytes) -> Future:
     """
     Publishes the given data to the Pub/Sub topic.
     """
@@ -108,6 +115,7 @@ def batch_datasets(request):
         close_db_session(session)
 
     print(f"Retrieved {len(active_feeds)} active feeds.")
+    publisher = get_pubsub_client()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
     trace_id = request.headers.get("X-Cloud-Trace-Context")
     execution_id = (
@@ -128,7 +136,7 @@ def batch_datasets(request):
         }
         data_str = json.dumps(payload)
         print(f"Publishing {data_str} to {topic_path}.")
-        future = publish(topic_path, data_str.encode("utf-8"))
+        future = publish(publisher, topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
             lambda _: publish_callback(future, active_feed["stable_id"], topic_path)
         )
