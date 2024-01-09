@@ -35,7 +35,8 @@ def test_get_active_feeds():
     {"FEEDS_DATABASE_URL": default_db_url, "FEEDS_PUBSUB_TOPIC_NAME": "test_topic"},
 )
 @patch("batch_datasets.src.main.publish")
-def test_batch_datasets(mock_publish):
+@patch("google.cloud.pubsub_v1.PublisherClient")
+def test_batch_datasets(mock_client, mock_publish):
     with get_testing_session() as session:
         active_feeds = get_active_feeds(session)
         with patch(
