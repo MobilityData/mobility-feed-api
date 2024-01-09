@@ -27,15 +27,6 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
-      - name: Authenticate to Google Cloud
-        id: gcloud_auth
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: GCloud Setup
-        uses: google-github-actions/setup-gcloud@v1
-
       - name: Docker Compose DB/Liquibase for db-gen.sh
         run: docker-compose --env-file ./config/.env.local up -d liquibase
         working-directory: ${{ github.workspace }}

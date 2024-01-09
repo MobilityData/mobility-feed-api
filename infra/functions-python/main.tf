@@ -49,7 +49,7 @@ data "google_iam_policy" "secret_access" {
 }
 
 resource "google_secret_manager_secret_iam_policy" "policy" {
-  for_each = { for x in local.function_tokens_config.secret_environment_variables: x.key => x}
+  for_each = { for x in local.function_tokens_config.secret_environment_variables: x.key => x }
 
   project = var.project_id
   secret_id = "${upper(var.environment)}_${each.key}"
