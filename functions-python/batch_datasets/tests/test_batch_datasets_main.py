@@ -16,7 +16,7 @@
 import json
 import os
 from unittest import mock
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 from batch_datasets.src.main import get_active_feeds, batch_datasets
 from test_utils.database_utils import get_testing_session, default_db_url
 
@@ -35,8 +35,9 @@ def test_get_active_feeds():
     {"FEEDS_DATABASE_URL": default_db_url, "FEEDS_PUBSUB_TOPIC_NAME": "test_topic"},
 )
 @patch("batch_datasets.src.main.publish")
-@patch("google.cloud.pubsub_v1.PublisherClient")
+@patch("batch_datasets.src.main.get_pubsub_client")
 def test_batch_datasets(mock_client, mock_publish):
+    mock_client.return_value = MagicMock()
     with get_testing_session() as session:
         active_feeds = get_active_feeds(session)
         with patch(
@@ -51,7 +52,7 @@ def test_batch_datasets(mock_client, mock_publish):
                 # active feeds
                 for i in range(3):
                     message = json.loads(
-                        mock_publish.call_args_list[i][0][1].decode("utf-8")
+                        mock_publish.call_args_list[i][0][2].decode("utf-8")
                     )
                     assert message["feed_stable_id"] in [
                         feed.stable_id for feed in active_feeds
