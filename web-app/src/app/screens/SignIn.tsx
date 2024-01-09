@@ -30,6 +30,7 @@ import { getAuth, signInWithPopup, type UserCredential } from 'firebase/auth';
 import {
   ACCOUNT_TARGET,
   COMPLETE_REGISTRATION_TARGET,
+  POST_REGISTRATION_TARGET,
 } from '../constants/Navigation';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 
@@ -77,6 +78,9 @@ export default function SignIn(): React.ReactElement {
     }
     if (userProfileStatus === 'authenticated') {
       navigateTo(COMPLETE_REGISTRATION_TARGET);
+    }
+    if (userProfileStatus === 'unverified') {
+      navigateTo(POST_REGISTRATION_TARGET);
     }
   }, [userProfileStatus]);
 
