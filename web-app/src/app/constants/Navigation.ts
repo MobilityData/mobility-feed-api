@@ -15,7 +15,7 @@ export const MOBILITY_DATA_LINKS = {
 
 export const navigationItems: NavigationItem[] = [
   { title: 'About', target: 'about', color: 'inherit', variant: 'text' },
-  { title: 'API Docs', target: 'api', color: 'inherit', variant: 'text' },
+  { title: 'FAQ', target: 'faq', color: 'inherit', variant: 'text' },
   {
     title: 'Contribute',
     target: 'contribute',
@@ -23,19 +23,21 @@ export const navigationItems: NavigationItem[] = [
     variant: 'text',
   },
   {
-    title: 'Contact Us',
-    target: 'contact-us',
+    title: 'API Docs',
+    target:
+      'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html',
     color: 'inherit',
     variant: 'text',
+    external: true,
+  },
+  {
+    title: 'Contact Us',
+    target: 'mailto:api@mobilitydata.org',
+    color: 'inherit',
+    variant: 'text',
+    external: true,
   },
 ];
-
-export const navigationSignoutItem: NavigationItem = {
-  title: 'Sign Out',
-  target: SIGN_OUT_TARGET,
-  color: 'inherit',
-  variant: 'text',
-};
 export const navigationHelpItem: NavigationItem = {
   title: 'Help',
   target: 'help', // TODO generate help page

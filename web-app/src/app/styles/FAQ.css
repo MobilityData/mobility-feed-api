@@ -1,0 +1,32 @@
+.question {
+    color: #000;
+    font-size: 25px !important;
+    font-style: normal;
+    font-weight: 700 !important;
+    line-height: normal;
+    text-decoration-line: underline;
+    margin-bottom: 5px;
+}
+
+.answer {
+    color: #000;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    margin-bottom: 40px !important;
+}
+
+a:not(.btn-link) {
+    color: #000;
+    padding: 2px;
+}
+
+a:hover:not(.btn-link) {
+    background-color: #3959fa21 !important;
+    border-radius: 5px;
+}
+
+.btn-link {
+    color: inherit !important;
+    text-decoration: none;
+}
