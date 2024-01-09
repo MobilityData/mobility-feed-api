@@ -65,3 +65,6 @@ __pycache__
 /functions-python/*/.env.local
 
 **/node_modules
+
+# Environment file
+.env

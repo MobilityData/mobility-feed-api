@@ -53,28 +53,3 @@ variable "global_rate_limit_req_per_minute" {
   type        = string
   description = "Global load balancer rate limit"
 }
-
-variable "feed_api_postgres_db" {
-  type        = string
-  description = "Feed API DB"
-}
-
-variable "feed_api_postgres_host" {
-  type        = string
-  description = "Feed API DB host"
-}
-
-variable "feed_api_postgres_password" {
-  type        = string
-  description = "Feed API DB password"
-}
-
-variable "feed_api_postgres_port" {
-  type        = string
-  description = "Feed API DB port"
-}
-
-variable "feed_api_postgres_user" {
-  type        = string
-  description = "Feed API DB user"
-}

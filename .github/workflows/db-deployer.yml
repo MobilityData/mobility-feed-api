@@ -6,6 +6,9 @@ on:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
         required: true
+      DEV_GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for dev
+        required: false
       POSTGRE_USER_NAME:
         description: PostgreSQL User Name
         required: true
@@ -59,9 +62,11 @@ on:
 
 jobs:
   terraform:
-    name: 'Terraform'
+    name: 'Deploy Database'
     permissions: write-all
     runs-on: ubuntu-latest
+    outputs:
+      db_instance_host: ${{ steps.get_outputs.outputs.db_instance_host }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -134,6 +139,40 @@ jobs:
         run: |
           DB_INSTANCE_HOST_RAW=$(terraform output -json instance_address)
           DB_INSTANCE_HOST=$(echo $DB_INSTANCE_HOST_RAW | jq -r .)
-          echo "DB_INSTANCE_HOST=$DB_INSTANCE_HOST" >> $GITHUB_ENV
-          echo "$DB_INSTANCE_HOST"
+          echo "db_instance_host=$DB_INSTANCE_HOST" >> $GITHUB_OUTPUT
         working-directory: infra/postgresql
+
+  update-secret-in-dev:
+    name: Copy DB Secret
+    needs: terraform
+    if: ${{ inputs.ENVIRONMENT == 'dev' }}
+    runs-on: ubuntu-latest
+    env:
+      POSTGRE_USER_NAME: ${{ secrets.POSTGRE_USER_NAME }}
+      POSTGRE_USER_PASSWORD: ${{ secrets.POSTGRE_USER_PASSWORD }}
+      POSTGRE_SQL_DB_NAME: ${{ inputs.POSTGRE_SQL_DB_NAME }}
+      DB_INSTANCE_HOST: ${{ needs.terraform.outputs.db_instance_host }}
+    steps:
+      - name: Authenticate to Google Cloud DEV
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup DEV
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Create or Update Secret in DEV
+        run: |
+          SECRET_NAME="DEV_FEEDS_DATABASE_URL"
+          SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/${{ env.POSTGRE_SQL_DB_NAME }}"
+          echo $SECRET_VALUE
+          
+          if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then
+            echo "Secret $SECRET_NAME already exists, updating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=mobility-feeds-dev
+          else
+            echo "Secret $SECRET_NAME does not exist, creating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=mobility-feeds-dev
+          fi
+      
+

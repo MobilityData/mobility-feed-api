@@ -12,12 +12,12 @@ on:
       RUN_POPULATE_SCRIPT:
         description: 'Run populate script (true/false)'
         required: false
-        default: true
+        default: 'true'
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
     with:
-      PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
+      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
       REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
       RUN_POPULATE_SCRIPT: ${{ github.event.inputs.RUN_POPULATE_SCRIPT || 'true' }}
@@ -25,4 +25,4 @@ jobs:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
       DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
