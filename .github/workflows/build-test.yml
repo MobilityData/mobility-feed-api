@@ -27,6 +27,9 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
+      - name: GCloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
       - name: Docker Compose DB/Liquibase for db-gen.sh
         run: docker-compose --env-file ./config/.env.local up -d liquibase
         working-directory: ${{ github.workspace }}
