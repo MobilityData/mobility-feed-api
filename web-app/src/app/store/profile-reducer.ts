@@ -237,6 +237,14 @@ export const userProfileSlice = createSlice({
       state.isAppRefreshing = false;
       state.isVerificationEmailSent = false;
     },
+    emailVerified: (state) => {
+      if (state.user !== undefined) {
+        state.user.isEmailVerified = true;
+        state.status = state.user.isRegistered ? 'registered' : 'authenticated';
+        state.errors = { ...initialState.errors };
+      }
+      state.isAppRefreshing = false;
+    },
   },
 });
 
@@ -270,6 +278,7 @@ export const {
   verifyEmail,
   verifySuccess,
   verifyFail,
+  emailVerified,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;

@@ -5,7 +5,6 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 /**
  * Send an email verification to the current user.
- * This function does nothing if the user is not logged in or if the email is already verified.
  */
 export const sendEmailVerification = async (): Promise<void> => {
   const user = app.auth().currentUser;
