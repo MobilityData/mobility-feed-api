@@ -21,7 +21,7 @@ Each cloud function encapsulates a specific part of the workflow:
 - `batch-process-dataset`: Pub/Sub-triggered function that performs the actual data processing. It downloads the feed data, compares it to the previous version, and, if necessary, updates the dataset information in the system. This function is crucial for maintaining the latest data within our storage and ensuring that users have access to the most current datasets.
 
 #### HTTP Cloud Function: `batch-datasets`
-<img src="batch_datasets.png" alt="Workflow Schema" width="500" height="auto">
+<img src="batch_datasets.png" alt="batch-datasets Workflow Schema" width="500" height="auto">
 
 This function serves as the starting point for the batch processing workflow. It queries for active feeds and publishes their information to a specified Pub/Sub topic. The messages contain details necessary to process each feed, including URLs, feed IDs, and authentication details if applicable. The structure of the message it sends is detailed as follows:
 
@@ -40,7 +40,7 @@ This function serves as the starting point for the batch processing workflow. It
 ```
 
 #### Pub/Sub Cloud Function: `batch-process-dataset`
-<img src="batch_process_dataset.png" alt="Workflow Schema" width="500" height="auto">
+<img src="batch_process_dataset.png" alt="batch-process-dataset Workflow Schema" width="500" height="auto">
 
 Subscribed to the topic set in the `batch-datasets` function, `batch-process-dataset` is triggered for each message published. It handles the processing of each feed individually, ensuring data consistency and integrity. The function performs the following operations:
 
