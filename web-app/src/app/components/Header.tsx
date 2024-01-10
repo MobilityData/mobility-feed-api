@@ -83,7 +83,12 @@ const DrawerContent: React.FC<{
                 pl: '16px',
               }}
             >
-              <ListItemText>{item.title}</ListItemText>
+              <ListItemText>
+                {item.title}{' '}
+                {item.external === true ? (
+                  <OpenInNew sx={{ verticalAlign: 'middle' }} />
+                ) : null}
+              </ListItemText>
             </ListItemButton>
           </ListItem>
         ))}
@@ -145,7 +150,7 @@ const DrawerContent: React.FC<{
 };
 
 export default function DrawerAppBar(): React.ReactElement {
-  const [mobileOpen, setMobileOpen] = React.useState(true);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openDialog, setOpenDialog] = React.useState(false);
 
   const navigateTo = useNavigate();
