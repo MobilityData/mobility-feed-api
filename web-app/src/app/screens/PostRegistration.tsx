@@ -46,7 +46,7 @@ export default function PostRegistration(): React.ReactElement {
             clearInterval(intervalId);
           }
         });
-    }, 1000);
+    }, 5000);
 
     return () => {
       clearInterval(intervalId);
