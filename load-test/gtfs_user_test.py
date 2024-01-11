@@ -26,9 +26,9 @@ class gtfs_user(HttpUser):
     def gtfs_realtime_feeds(self):
         self.client.get("/v1/gtfs_rt_feeds")
 
-    # @task
-    # def gtfs_realtime_feed_byId(self):
-    #     self.client.get("/v1/gtfs_rt_feeds/mdb-5")
+    @task
+    def gtfs_realtime_feed_byId(self):
+        self.client.get("/v1/gtfs_rt_feeds/mdb-1852")
     
     @task
     def gtfs_feeds_datasets(self):

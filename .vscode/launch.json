@@ -1,0 +1,40 @@
+{
+  "configurations": [
+    {
+      "type": "chrome",
+      "name": "http://localhost:3001/",
+      "request": "launch",
+      "url": "http://localhost:3001/"
+    },
+    {
+      "type": "chrome",
+      "name": "https://localhost:3001",
+      "request": "launch",
+      "url": "https://localhost:3001"
+    },
+    {
+      "type": "chrome",
+      "name": "http://localhost:3000/",
+      "request": "launch",
+      "url": "http://localhost:3000/"
+    },
+    {
+      "type": "chrome",
+      "name": "http://localhost:3001",
+      "request": "launch",
+      "url": "http://localhost:3001"
+    },
+    {
+      "type": "chrome",
+      "name": "http://localhost:3000",
+      "request": "launch",
+      "url": "http://localhost:3000"
+    },
+    {
+      "type": "chrome",
+      "name": "http://localhost:3000/change-password",
+      "request": "launch",
+      "url": "http://localhost:3000/change-password"
+    }
+  ]
+}
