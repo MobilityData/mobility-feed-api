@@ -20,4 +20,5 @@ src/feeds_gen/models/location.py
 src/feeds_gen/models/metadata.py
 src/feeds_gen/models/redirect.py
 src/feeds_gen/models/source_info.py
+src/feeds_gen/models/validation_report.py
 src/feeds_gen/security_api.py
