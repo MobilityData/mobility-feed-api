@@ -601,7 +601,7 @@ components:
               - Translations
               - Wheelchair_Accessibility
               - Zone-Based_Fares
-            example: fares-v2
+            example: Fares_V1
         validator_version:
           type: string
           example: 4.2.0
