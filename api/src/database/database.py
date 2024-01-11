@@ -4,8 +4,6 @@ import threading
 import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
-
-from google.cloud.sql.connector import Connector
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session, load_only, Query
 
@@ -41,28 +39,10 @@ class Database:
 
     def __init__(self):
         load_dotenv()
-        username = os.getenv("POSTGRES_USER")
-        password = os.getenv("POSTGRES_PASSWORD")
-        schema = os.getenv("POSTGRES_DB")
-        port = os.getenv("POSTGRES_PORT")
-        host = os.getenv("POSTGRES_HOST")
         self.logger = Logger(Database.__module__).get_logger()
         self.engine = None
         self.connection_attempts = 0
-        self.SQLALCHEMY_DATABASE_URL = f"postgresql://{username}:{password}@{host}:{port}/{schema}"
-
-        # set up GCP SQL Connector
-        connector = Connector()
-        instance_name = os.getenv("INSTANCE_NAME")
-        self.get_connection = None
-        if instance_name is not None:
-            self.get_connection = lambda: connector.connect(
-                instance_name,
-                "pg8000",
-                user=username,
-                password=password,
-                db=schema,
-            )
+        self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
         self.start_session()
 
     def is_connected(self):
@@ -82,10 +62,7 @@ class Database:
             if self.engine is None:
                 self.connection_attempts += 1
                 self.logger.debug(f"Database connection attempt #{self.connection_attempts}.")
-                if self.get_connection is not None:
-                    self.engine = create_engine("postgresql+pg8000://", creator=self.get_connection)
-                else:
-                    self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
+                self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
                 self.logger.debug("Database connected.")
             if global_session is not None and global_session.is_active:
                 self.logger.info("Database session reused.")

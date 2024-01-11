@@ -31,9 +31,12 @@ export default function ForgotPassword(): React.ReactElement {
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const resetPasswordError = useSelector(selectResetPasswordError);
   const resetPasswordSuccess = useSelector(selectIsRecoveryEmailSent);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
 
   const ForgotPasswordScheme = Yup.object().shape({
-    email: Yup.string().email().required('Email is required'),
+    email: Yup.string()
+      .email('Email format is invalid.')
+      .required('Email is required'),
     reCaptcha: Yup.string().required('You must verify you are not a robot.'),
   });
 
@@ -42,6 +45,8 @@ export default function ForgotPassword(): React.ReactElement {
       email: '',
       reCaptcha: null,
     },
+    validateOnChange: isSubmitted,
+    validateOnBlur: true,
     validationSchema: ForgotPasswordScheme,
     onSubmit: (values) => {
       dispatch(resetPassword(values.email));
@@ -130,7 +135,9 @@ export default function ForgotPassword(): React.ReactElement {
             type='submit'
             variant='contained'
             sx={{ mt: 3, mb: 2 }}
-            onClick={() => formik.handleChange}
+            onClick={() => {
+              setIsSubmitted(true);
+            }}
             data-testid='signin'
           >
             Send Recovery Email

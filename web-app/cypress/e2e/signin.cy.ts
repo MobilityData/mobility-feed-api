@@ -1,6 +1,6 @@
-describe('Home page', () => {
+describe('Sign In page', () => {
   beforeEach(() => {
-    cy.visit('/');
+    cy.visit('/sign-in');
   });
 
   it('should render page header', () => {
@@ -9,7 +9,7 @@ describe('Home page', () => {
       .contains('Mobility Database');
   });
 
-  it('should render home page title', () => {
-    cy.get('[data-testid=home-title]').should('exist');
+  it('should render signin', () => {
+    cy.get('[data-testid=signin]').should('exist');
   });
 });

@@ -7,12 +7,16 @@ import ContactInformation from '../screens/ContactInformation';
 import { ProtectedRoute } from './ProtectedRoute';
 import CompleteRegistration from '../screens/CompleteRegistration';
 import ChangePassword from '../screens/ChangePassword';
+import Home from '../screens/Home';
 import ForgotPassword from '../screens/ForgotPassword';
+import FAQ from '../screens/FAQ';
+import About from '../screens/About';
+import Contribute from '../screens/Contribute';
 
 export const AppRouter: React.FC = () => {
   return (
     <Routes>
-      <Route path='/' element={<SignIn />} />
+      <Route path='/' element={<Home />} />
       <Route path='sign-in' element={<SignIn />} />
       <Route path='sign-up' element={<SignUp />} />
       <Route element={<ProtectedRoute />}>
@@ -29,6 +33,9 @@ export const AppRouter: React.FC = () => {
         <Route path='change-password' element={<ChangePassword />} />
       </Route>
       <Route path='forgot-password' element={<ForgotPassword />} />
+      <Route path='faq' element={<FAQ />} />
+      <Route path='about' element={<About />} />
+      <Route path='contribute' element={<Contribute />} />
     </Routes>
   );
 };
