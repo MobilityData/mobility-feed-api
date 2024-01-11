@@ -90,10 +90,13 @@ class Database:
             if global_session is not None and global_session.is_active:
                 self.logger.info("Database session reused.")
                 return global_session
+            lock.acquire()
             global_session = Session(self.engine, autoflush=False)
             self.logger.info("Singleton Database session started.")
         except Exception as error:
             raise Exception(f"Error creating database session: {error}")
+        finally:
+            lock.release()
         return self.is_connected()
 
 
