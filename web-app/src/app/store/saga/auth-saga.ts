@@ -6,12 +6,12 @@ import {
   USER_PROFILE_LOGOUT,
   USER_PROFILE_SIGNUP,
   type User,
-  USER_PROFILE_SIGNUP_SUCCESS,
   type OauthProvider,
   USER_PROFILE_LOGIN_WITH_PROVIDER,
   USER_PROFILE_CHANGE_PASSWORD,
   USER_PROFILE_RESET_PASSWORD,
   type UserData,
+  USER_PROFILE_SEND_VERIFICATION_EMAIL,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -24,6 +24,8 @@ import {
   signUpSuccess,
   resetPasswordFail,
   resetPasswordSuccess,
+  verifyFail,
+  verifySuccess,
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
 import {
@@ -81,21 +83,19 @@ function* logoutSaga({
 }
 
 function* signUpSaga({
-  payload: { email, password, redirectScreen, navigateTo },
+  payload: { email, password },
 }: PayloadAction<{
   email: string;
   password: string;
-  redirectScreen: string;
-  navigateTo: NavigateFunction;
 }>): Generator {
   try {
     yield app.auth().createUserWithEmailAndPassword(email, password);
+    yield call(sendEmailVerification);
     const user = yield call(getUserFromSession);
     if (user === null) {
       throw new Error('User not found');
     }
     yield put(signUpSuccess(user as User));
-    navigateTo(redirectScreen);
   } catch (error) {
     yield put(signUpFail(getAppError(error)));
   }
@@ -127,8 +127,9 @@ function* changePasswordSaga({
 function* sendEmailVerificationSaga(): Generator {
   try {
     yield call(sendEmailVerification);
+    yield put(verifySuccess());
   } catch (error) {
-    yield put(signUpFail(getAppError(error)));
+    yield put(verifyFail(getAppError(error)));
   }
 }
 
@@ -174,7 +175,10 @@ export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_LOGIN, emailLoginSaga);
   yield takeLatest(USER_PROFILE_LOGOUT, logoutSaga);
   yield takeLatest(USER_PROFILE_SIGNUP, signUpSaga);
-  yield takeLatest(USER_PROFILE_SIGNUP_SUCCESS, sendEmailVerificationSaga);
+  yield takeLatest(
+    USER_PROFILE_SEND_VERIFICATION_EMAIL,
+    sendEmailVerificationSaga,
+  );
   yield takeLatest(USER_PROFILE_LOGIN_WITH_PROVIDER, loginWithProviderSaga);
   yield takeLatest(USER_PROFILE_CHANGE_PASSWORD, changePasswordSaga);
   yield takeLatest(USER_PROFILE_RESET_PASSWORD, resetPasswordSaga);

@@ -12,6 +12,7 @@ import ForgotPassword from '../screens/ForgotPassword';
 import FAQ from '../screens/FAQ';
 import About from '../screens/About';
 import Contribute from '../screens/Contribute';
+import PostRegistration from '../screens/PostRegistration';
 
 export const AppRouter: React.FC = () => {
   return (
@@ -19,7 +20,7 @@ export const AppRouter: React.FC = () => {
       <Route path='/' element={<Home />} />
       <Route path='sign-in' element={<SignIn />} />
       <Route path='sign-up' element={<SignUp />} />
-      <Route element={<ProtectedRoute />}>
+      <Route element={<ProtectedRoute targetStatus='authenticated' />}>
         <Route
           path='complete-registration'
           element={<CompleteRegistration />}
@@ -31,6 +32,9 @@ export const AppRouter: React.FC = () => {
       <Route path='contact-info' element={<ContactInformation />} />
       <Route element={<ProtectedRoute />}>
         <Route path='change-password' element={<ChangePassword />} />
+      </Route>
+      <Route element={<ProtectedRoute targetStatus='unverified' />}>
+        <Route path='verify-email' element={<PostRegistration />} />
       </Route>
       <Route path='forgot-password' element={<ForgotPassword />} />
       <Route path='faq' element={<FAQ />} />

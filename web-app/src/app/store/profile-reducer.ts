@@ -14,6 +14,7 @@ interface UserProfileState {
     | 'unauthenticated'
     | 'login_in'
     | 'authenticated'
+    | 'unverified'
     | 'login_out'
     | 'sign_up'
     | 'loading_organization'
@@ -22,6 +23,7 @@ interface UserProfileState {
   isRefreshingAccessToken: boolean;
   isAppRefreshing: boolean;
   isRecoveryEmailSent: boolean;
+  isVerificationEmailSent: boolean;
   errors: AppErrors;
   user: User | undefined;
   changePasswordStatus: 'idle' | 'loading' | 'success' | 'fail';
@@ -39,8 +41,10 @@ const initialState: UserProfileState = {
     ChangePassword: null,
     Registration: null,
     ResetPassword: null,
+    VerifyEmail: null,
   },
   isRefreshingAccessToken: false,
+  isVerificationEmailSent: false,
   isAppRefreshing: false,
   changePasswordStatus: 'idle',
   isSignedInWithProvider: false,
@@ -54,24 +58,22 @@ export const userProfileSlice = createSlice({
     login: (state, action: PayloadAction<EmailLogin>) => {
       state.status = 'login_in';
       state.errors = { ...initialState.errors };
+      state.isAppRefreshing = true;
     },
     loginSuccess: (state, action: PayloadAction<User>) => {
       state.status = action.payload?.isRegistered
         ? 'registered'
-        : 'authenticated';
+        : action.payload?.isEmailVerified
+          ? 'authenticated'
+          : 'unverified';
       state.errors = { ...initialState.errors };
       state.user = action.payload;
-    },
-    authenticated: (state, action: PayloadAction<User>) => {
-      state.status = action.payload?.isRegistered
-        ? 'registered'
-        : 'authenticated';
-      state.errors = { ...initialState.errors };
-      state.user = action.payload;
+      state.isAppRefreshing = false;
     },
     loginFail: (state, action: PayloadAction<AppError>) => {
       state.errors = { ...initialState.errors, Login: action.payload };
       state.status = 'unauthenticated';
+      state.isAppRefreshing = false;
     },
     logout: (
       state,
@@ -82,36 +84,40 @@ export const userProfileSlice = createSlice({
     ) => {
       state.status = 'login_out';
       state.errors = { ...initialState.errors };
+      state.isAppRefreshing = true;
     },
     logoutSuccess: (state) => {
       state.status = 'unauthenticated';
       state.isSignedInWithProvider = false;
+      state.isAppRefreshing = false;
     },
     logoutFail: (state) => {
       state.status = 'unauthenticated';
+      state.isAppRefreshing = false;
     },
     signUp: (
       state,
       action: PayloadAction<{
         email: string;
         password: string;
-        redirectScreen: string;
-        navigateTo: NavigateFunction;
       }>,
     ) => {
       state.status = 'sign_up';
       state.errors = { ...initialState.errors };
+      state.isAppRefreshing = true;
     },
     signUpSuccess: (state, action: PayloadAction<User>) => {
-      state.status = state.status = action.payload?.isRegistered
-        ? 'registered'
-        : 'authenticated';
+      state.status = state.status = action.payload?.isEmailVerified
+        ? 'authenticated'
+        : 'unverified';
       state.user = action.payload;
       state.errors = { ...initialState.errors };
+      state.isAppRefreshing = false;
     },
     signUpFail: (state, action: PayloadAction<AppError>) => {
       state.status = 'unauthenticated';
       state.errors = { ...initialState.errors, SignUp: action.payload };
+      state.isAppRefreshing = false;
     },
     resetProfileErrors: (state) => {
       state.errors = { ...initialState.errors };
@@ -216,6 +222,29 @@ export const userProfileSlice = createSlice({
       state.errors.ResetPassword = null;
       state.isAppRefreshing = false;
     },
+    verifyEmail: (state) => {
+      state.isAppRefreshing = true;
+      state.isVerificationEmailSent = false;
+      state.errors = { ...initialState.errors };
+    },
+    verifySuccess: (state) => {
+      state.isAppRefreshing = false;
+      state.isVerificationEmailSent = true;
+      state.errors = { ...initialState.errors };
+    },
+    verifyFail: (state, action: PayloadAction<AppError>) => {
+      state.errors.VerifyEmail = action.payload;
+      state.isAppRefreshing = false;
+      state.isVerificationEmailSent = false;
+    },
+    emailVerified: (state) => {
+      if (state.user !== undefined) {
+        state.user.isEmailVerified = true;
+        state.status = state.user.isRegistered ? 'registered' : 'authenticated';
+        state.errors = { ...initialState.errors };
+      }
+      state.isAppRefreshing = false;
+    },
   },
 });
 
@@ -246,6 +275,10 @@ export const {
   resetPassword,
   resetPasswordFail,
   resetPasswordSuccess,
+  verifyEmail,
+  verifySuccess,
+  verifyFail,
+  emailVerified,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
