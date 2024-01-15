@@ -39,12 +39,6 @@ export const navigationItems: NavigationItem[] = [
     external: true,
   },
 ];
-export const navigationHelpItem: NavigationItem = {
-  title: 'Help',
-  target: 'help', // TODO generate help page
-  color: 'inherit',
-  variant: 'text',
-};
 
 export const navigationAccountItem: NavigationItem = {
   title: 'Account',

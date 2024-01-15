@@ -21,11 +21,9 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import HelpIcon from '@mui/icons-material/Help';
 import {
   navigationItems,
   navigationAccountItem,
-  navigationHelpItem,
   SIGN_IN_TARGET,
   ACCOUNT_TARGET,
 } from '../constants/Navigation';
@@ -108,12 +106,6 @@ const DrawerContent: React.FC<{
                   onNavigationClick(ACCOUNT_TARGET);
                 }}
                 icon={<AccountCircleIcon fontSize='small' />}
-              />
-              <TreeItem
-                nodeId='3'
-                label='Help'
-                sx={{ color: '#7c7c7c' }}
-                icon={<HelpIcon fontSize='small' />}
               />
               <TreeItem
                 nodeId='4'
@@ -273,16 +265,6 @@ export default function DrawerAppBar(): React.ReactElement {
                       <AccountCircleIcon fontSize='small' />
                     </ListItemIcon>
                     Account Details
-                  </MenuItem>
-                  <MenuItem
-                    onClick={() => {
-                      handleMenuItemClick(navigationHelpItem);
-                    }}
-                  >
-                    <ListItemIcon>
-                      <HelpIcon fontSize='small' />
-                    </ListItemIcon>
-                    Help
                   </MenuItem>
                   <MenuItem onClick={handleLogoutClick}>
                     <ListItemIcon>
