@@ -223,7 +223,7 @@ class DatabasePopulateHelper:
             comments = raw_comments.split("|") if raw_comments is not None else []
 
             if len(redirects_ids) != len(comments):
-                self.logger.warn(f"Number of redirect ids and redirect comments differ for feed {mdb_id}")
+                self.logger.warning(f"Number of redirect ids and redirect comments differ for feed {mdb_id}")
 
             for mdb_source_id in redirects_ids:
                 if len(mdb_source_id) == 0:
@@ -245,7 +245,7 @@ class DatabasePopulateHelper:
                     else:
                         self.logger.error(f"Feed has redirect pointing to itself {mdb_id}")
                 else:
-                    self.logger.warn(f"Could not find redirect target feed {target_stable_id} for feed {mdb_id}")
+                    self.logger.warning(f"Could not find redirect target feed {target_stable_id} for feed {mdb_id}")
 
         priority = 1
         while not entities_index.empty():
