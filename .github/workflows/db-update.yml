@@ -18,6 +18,9 @@ on:
       OP_SERVICE_ACCOUNT_TOKEN:
         description: OnePassword Service Account Token
         required: true
+      DEV_GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key for dev
+        required: false
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -103,32 +106,57 @@ jobs:
         name: populate.log
         path: populate.log
 
-    - name: Load secrets from 1Password
-      id: onepw_secrets
-      uses: 1password/load-secrets-action@v1.3.1
-      with:
-        export-env: true # Export loaded secrets as environment variables
-      env:
-        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-        CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
+  update-secret-in-dev:
+    name: Update/Set DB Secret DEV
+    needs: db-update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud DEV
+        if: ${{ inputs.ENVIRONMENT == 'dev' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-    - name: Create or Update Auth Secret
-      env:
-        PROJECT_ID: ${{ inputs.PROJECT_ID }}
-        ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-        SECRET_VALUE: ${{ secrets.CREDENTIALS }}
-      run: |
-        UPPER_ENVIRONMENT=$(echo "$ENVIRONMENT" | tr '[:lower:]' '[:upper:]')
-        SECRET_NAME="${UPPER_ENVIRONMENT}_FEEDS_CREDENTIALS"
-        echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
+      - name: Authenticate to Google Cloud QA/PROD
+        if: ${{ inputs.ENVIRONMENT != 'dev' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
-        if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
-          echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
-          echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
-        else
-          echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
-          echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
-        fi
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Load secrets from 1Password
+        id: onepw_secrets
+        uses: 1password/load-secrets-action@v1.3.1
+        with:
+          export-env: true # Export loaded secrets as environment variables
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
+
+      - name: Create or Update Auth Secret
+        env:
+          PROJECT_ID: ${{ inputs.PROJECT_ID }}
+          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+          SECRET_VALUE: ${{ secrets.CREDENTIALS }}
+        run: |
+          UPPER_ENVIRONMENT=$(echo "$ENVIRONMENT" | tr '[:lower:]' '[:upper:]')
+          SECRET_NAME="${UPPER_ENVIRONMENT}_FEEDS_CREDENTIALS"
+          
+          # Set PROJECT_ID to 'mobility-feeds-dev' if ENVIRONMENT is 'dev'
+          if [ "$ENVIRONMENT" = "dev" ]; then
+            PROJECT_ID="mobility-feeds-dev"
+          fi
+          echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
+
+          if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
+            echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
+          else
+            echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
+          fi
     
       
 
