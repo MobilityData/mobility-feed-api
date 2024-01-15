@@ -107,7 +107,7 @@ jobs:
         path: populate.log
 
   update-secret-in-dev:
-    name: Update/Set DB Secret DEV
+    name: Update GH Secrets
     needs: db-update
     runs-on: ubuntu-latest
     steps:
@@ -139,7 +139,7 @@ jobs:
         env:
           PROJECT_ID: ${{ inputs.PROJECT_ID }}
           ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-          SECRET_VALUE: ${{ secrets.CREDENTIALS }}
+          SECRET_VALUE: ${{ env.CREDENTIALS }}
         run: |
           UPPER_ENVIRONMENT=$(echo "$ENVIRONMENT" | tr '[:lower:]' '[:upper:]')
           SECRET_NAME="${UPPER_ENVIRONMENT}_FEEDS_CREDENTIALS"
