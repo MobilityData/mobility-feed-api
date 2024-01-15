@@ -9,9 +9,41 @@ The Mobility Feed API service a list of open mobility data sources from across t
 
 Mobility Feed API is not released yet; any code or service hosted is considered as **Work in Progress**. For more information regarding the current Mobility Database Catalog, go to [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs).
 
-# Viewing the API with Swagger. 
+# Authentication
 
-Follow this [link](https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html).
+To access the Mobility Feed API, users need to authenticate using an access token. Here is the step-by-step process to obtain and use an access token:
+
+## Registering for an Account
+1. **Sign up** at [mobilitydatabase.org](https://mobilitydatabase.org) to create an account.
+2. Once registered, you will receive a **refresh token**. This token is used to generate your access token.
+
+## Generating an Access Token
+You can generate an access token either via the UI on the website or using a `curl` command:
+
+- **Via UI**: After logging in, navigate to the account page to generate or obtain your access token.
+- **Via Command Line**:
+  ```bash
+  curl --location 'https://api.mobilitydatabase.org/v1/tokens' \
+  --header 'Content-Type: application/json' \
+  --data '{ "refresh_token": "[Your Refresh Token]" }'
+Replace `[Your Refresh Token]` with the refresh token obtained after registration.
+
+## Using the Access Token
+Once you have the access token, you can use it to make authenticated requests to the API.
+For Testing Access:
+```bash
+curl --location 'https://api.mobilitydatabase.org/v1/metadata' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer [Your Access Token]'
+```
+Replace `[Your Access Token]` with your actual access token.
+
+### Via Swagger UI
+You can also use the [Swagger UI](https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html) to make requests. Input your access token in the required field in the Swagger interface.
+
+## Refreshing the Access Token
+Access tokens are subject to expiration. Use your refresh token to generate a new access token when necessary.
+
 
 # Local development
 
