@@ -105,20 +105,21 @@ jobs:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
 
-
     - name: Create or Update Auth Secret
-      run: |
-        SECRET_NAME="OP_SERVICE_ACCOUNT_TOKEN"
-        SECRET_VALUE=env.OP_SERVICE_ACCOUNT_TOKEN
-        echo $SECRET_VALUE
-
-        if gcloud secrets describe $SECRET_NAME --project=${{env.PROJECT_ID}}; then
-          echo "Secret $SECRET_NAME already exists, updating..."
-          echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=${{env.PROJECT_ID}}
-        else
-          echo "Secret $SECRET_NAME does not exist, creating..."
-          echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=${{env.PROJECT_ID}}
-        fi
       env:
-        PROJECT_ID: {{inputs.PROJECT_ID}}
+        PROJECT_ID: ${{ inputs.PROJECT_ID }}
+        SECRET_NAME: OP_SERVICE_ACCOUNT_TOKEN
+        SECRET_VALUE: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      run: |
+        echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
+
+        if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
+          echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
+          echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
+        else
+          echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
+          echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
+        fi
+    
+      
 
