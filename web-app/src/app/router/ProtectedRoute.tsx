@@ -1,23 +1,30 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated } from '../store/selectors';
+import { selectUserProfileStatus } from '../store/selectors';
 import { useEffect } from 'react';
 import { app } from '../../firebase';
 import { useAppDispatch } from '../hooks';
 import { refreshApp, refreshAppSuccess } from '../store/profile-reducer';
 
 /**
- * This component is used to protect routes that require authentication.
+ * Guards routes based on user profile status. Redirects to a specified route if status doesn't match `targetStatus` (default: 'registered').
+ * Redirect route is configurable via the `redirect` prop (default: '/sign-in').
  */
-export const ProtectedRoute = (): JSX.Element => {
-  const isAuthenticated = useSelector(selectIsAuthenticated);
+export const ProtectedRoute = ({
+  targetStatus = 'registered',
+  redirect = '/sign-in',
+}: {
+  targetStatus?: string;
+  redirect?: string;
+}): JSX.Element => {
+  const userProfileStatus = useSelector(selectUserProfileStatus);
   useEffect(() => {
     app.auth();
   });
   const dispatch = useAppDispatch();
 
-  if (!isAuthenticated) {
-    return <Navigate to='/' />;
+  if (userProfileStatus !== targetStatus) {
+    return <Navigate to={redirect} />;
   }
 
   app.auth().onAuthStateChanged((user) => {

@@ -20,6 +20,7 @@ export interface User {
   refreshToken?: string;
   isRegistered: boolean;
   isRegisteredToReceiveAPIAnnouncements: boolean;
+  isEmailVerified: boolean;
 }
 
 export interface UserData {
@@ -36,8 +37,7 @@ export const USER_PROFILE_LOGIN_FAIL = `${USER_PROFILE}/loginFail`;
 export const USER_PROFILE_LOGOUT = `${USER_PROFILE}/logout`;
 export const USER_PROFILE_LOGOUT_SUCCESS = `${USER_PROFILE}/logoutSuccess`;
 export const USER_PROFILE_SIGNUP = `${USER_PROFILE}/signUp`;
-export const USER_PROFILE_SIGNUP_SUCCESS = `${USER_PROFILE}/signUpSuccess`;
-export const USER_PROFILE_SIGNUP_FAIL = `${USER_PROFILE}/signUpFail`;
+export const USER_PROFILE_SEND_VERIFICATION_EMAIL = `${USER_PROFILE}/verifyEmail`;
 export const USER_REQUEST_REFRESH_ACCESS_TOKEN = `${USER_PROFILE}/requestRefreshAccessToken`;
 export const USER_PROFILE_LOAD_ORGANIZATION_FAIL = `${USER_PROFILE}/loadOrganizationFail`;
 export const USER_PROFILE_LOGIN_WITH_PROVIDER = `${USER_PROFILE}/loginWithProvider`;
@@ -53,6 +53,7 @@ export enum ErrorSource {
   ChangePassword = 'ChangePassword',
   Registration = 'Registration',
   ResetPassword = 'ResetPassword',
+  VerifyEmail = 'VerifyEmail',
 }
 
 export interface AppError {

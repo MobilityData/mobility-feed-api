@@ -6,7 +6,8 @@ export const selectUserProfile = (state: RootState): User | undefined =>
 
 export const selectIsAuthenticated = (state: RootState): boolean =>
   state.userProfile.status === 'authenticated' ||
-  state.userProfile.status === 'registered';
+  state.userProfile.status === 'registered' ||
+  state.userProfile.status === 'unverified';
 
 export const selectUserProfileStatus = (state: RootState): string =>
   state.userProfile.status;
@@ -15,6 +16,9 @@ export const selectIsTokenRefreshed = (state: RootState): boolean =>
   !state.userProfile.isRefreshingAccessToken &&
   state.userProfile.errors.RefreshingAccessToken === null;
 
+export const selectIsVerificationEmailSent = (state: RootState): boolean =>
+  state.userProfile.isVerificationEmailSent;
+
 export const selectErrorBySource = (
   state: RootState,
   source: ErrorSource,
@@ -22,6 +26,10 @@ export const selectErrorBySource = (
 
 export const selectEmailLoginError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.Login);
+
+export const selectEmailVerificationError = (
+  state: RootState,
+): AppError | null => selectErrorBySource(state, ErrorSource.VerifyEmail);
 
 export const selectResetPasswordError = (state: RootState): AppError | null =>
   selectErrorBySource(state, ErrorSource.ResetPassword);

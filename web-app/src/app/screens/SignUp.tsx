@@ -20,6 +20,7 @@ import { useSelector } from 'react-redux';
 import {
   ACCOUNT_TARGET,
   COMPLETE_REGISTRATION_TARGET,
+  POST_REGISTRATION_TARGET,
   SIGN_IN_TARGET,
 } from '../constants/Navigation';
 import '../styles/SignUp.css';
@@ -82,8 +83,6 @@ export default function SignUp(): React.ReactElement {
         signUp({
           email: values.email,
           password: values.password,
-          redirectScreen: ACCOUNT_TARGET,
-          navigateTo,
         }),
       );
     },
@@ -95,6 +94,9 @@ export default function SignUp(): React.ReactElement {
     }
     if (userProfileStatus === 'authenticated') {
       navigateTo(COMPLETE_REGISTRATION_TARGET);
+    }
+    if (userProfileStatus === 'unverified') {
+      navigateTo(POST_REGISTRATION_TARGET);
     }
   }, [userProfileStatus]);
 
@@ -298,6 +300,7 @@ export default function SignUp(): React.ReactElement {
           <Button
             type='submit'
             variant='contained'
+            disabled={!formik.values.agreeToTerms}
             sx={{ mt: 3, mb: 2, alignSelf: 'center' }}
             onClick={() => {
               setIsSubmitted(true);

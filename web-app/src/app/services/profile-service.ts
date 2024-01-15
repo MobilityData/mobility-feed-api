@@ -5,18 +5,11 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 /**
  * Send an email verification to the current user.
- * This function does nothing if the user is not logged in or if the email is already verified.
  */
 export const sendEmailVerification = async (): Promise<void> => {
-  try {
-    const user = app.auth().currentUser;
-    if (user !== null && !user.emailVerified) {
-      await user.sendEmailVerification();
-    }
-  } catch (error) {
-    // Nothing to do if the email verification fails
-    // eslint-disable-next-line no-console
-    console.log(error);
+  const user = app.auth().currentUser;
+  if (user !== null && !user.emailVerified) {
+    await user.sendEmailVerification();
   }
 };
 
@@ -33,6 +26,7 @@ export const getUserFromSession = async (): Promise<User | null> => {
     fullName: currentUser?.displayName ?? undefined,
     email: currentUser?.email ?? '',
     isRegistered: false,
+    isEmailVerified: currentUser?.emailVerified ?? false,
     // Organization cannot be retrieved from the current user
     organization: undefined,
     isRegisteredToReceiveAPIAnnouncements: false,
