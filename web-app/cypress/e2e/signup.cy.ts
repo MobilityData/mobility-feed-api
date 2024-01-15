@@ -14,6 +14,7 @@ describe('Sign up screen', () => {
 
   it('should show the password error when password length is less than 12', () => {
     cy.get('input[id="password"]').type('short', { force: true });
+    cy.get('input[id="agreeToTerms"]').check();
     cy.get('button[id="sign-up-button"]').click();
     cy.get('[data-testid=passwordError]')
       .should('exist')
@@ -22,6 +23,7 @@ describe('Sign up screen', () => {
 
   it('should show the password error when password do not contain lowercase', () => {
     cy.get('input[id="password"]').type('UPPERCASE_10_!', { force: true });
+    cy.get('input[id="agreeToTerms"]').check();
     cy.get('button[id="sign-up-button"]').click();
     cy.get('[data-testid=passwordError]')
       .should('exist')
@@ -30,6 +32,7 @@ describe('Sign up screen', () => {
 
   it('should show the password error when password do not contain uppercase', () => {
     cy.get('input[id="password"]').type('lowercase_10_!', { force: true });
+    cy.get('input[id="agreeToTerms"]').check();
     cy.get('button[id="sign-up-button"]').click();
     cy.get('[data-testid=passwordError]')
       .should('exist')
@@ -43,6 +46,7 @@ describe('Sign up screen', () => {
 
   it('should show the password error when password do not match', () => {
     cy.get('input[id="password"]').type('UP_lowercase_10_!', { force: true });
+    cy.get('input[id="agreeToTerms"]').check();
     cy.get('button[id="sign-up-button"]').click();
     cy.get('input[id="confirmPassword"]').type('UP_lowercase_11_!', {
       force: true,
@@ -53,16 +57,13 @@ describe('Sign up screen', () => {
       .contains('Passwords do not match');
   });
 
-  it('should show the terms and condition error when terms are not accepted', () => {
+  it('should disable sign up button when the terms and condition not accepted', () => {
     cy.get('input[id="agreeToTerms"]').should('exist');
-    cy.get('button[id="sign-up-button"]').click();
-
-    cy.get('[data-testid=agreeToTermsError]')
-      .should('exist')
-      .contains('You must accept the terms and conditions.');
+    cy.get('button[id="sign-up-button"]').should('be.disabled');
   });
 
   it('should show the captcha error when is not accepted', () => {
+    cy.get('input[id="agreeToTerms"]').check();
     cy.get('iframe[title="reCAPTCHA"]').should('exist');
     cy.get('button[id="sign-up-button"]').click();
 
