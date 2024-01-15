@@ -133,7 +133,7 @@ jobs:
           export-env: true # Export loaded secrets as environment variables
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          CREDENTIALS: "op://TECHNOLOGIES/API Key — API_SOURCE_SECRETS/notes"
+          CREDENTIALS: "op://ebc5cc7az22qugnxvgmtaqjjiu/credentials"
 
       - name: Create or Update Auth Secret
         env:
