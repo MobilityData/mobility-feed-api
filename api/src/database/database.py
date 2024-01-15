@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, load_only, Query
 
 from database_gen.sqlacodegen_models import Base
 from utils.logger import Logger
+from sqlalchemy.orm import sessionmaker
 
 
 lock = threading.Lock()
@@ -52,31 +53,44 @@ class Database:
         """
         return self.engine is not None and global_session is not None
 
+
+
     def start_session(self):
         """
-        Starts a singleton session
-        :return: True if the session was started, False otherwise
+        :return: Database singleton session
         """
         global global_session
         try:
-            if self.engine is None:
-                self.connection_attempts += 1
-                self.logger.debug(f"Database connection attempt #{self.connection_attempts}.")
-                self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
-                self.logger.debug("Database connected.")
-            if global_session is not None and global_session.is_active:
+            if global_session is not None:
                 self.logger.info("Database session reused.")
                 return global_session
-            lock.acquire()
-            global_session = Session(self.engine, autoflush=False)
-            self.logger.info("Singleton Database session started.")
+            if global_session is None or not global_session.is_active:
+                global_session = self.start_new_db_session()
+                self.logger.info("Global Singleton Database session started.")
+                return global_session
+        except Exception as error:
+            raise Exception(f"Error creating database session: {error}")
+        
+    def start_new_db_session(self):
+        global global_session
+        lock_acquired = False
+        try:
+            if self.SQLALCHEMY_DATABASE_URL is None:
+                raise Exception("Database URL is not set")
+            else:
+                lock.acquire()
+                lock_acquired = True
+                self.logger.info("Starting new global database session.")
+                self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
+                global_session = sessionmaker(bind=self.engine)()
+                self.session = global_session
+                return global_session
         except Exception as error:
             raise Exception(f"Error creating database session: {error}")
         finally:
-            lock.release()
-        return self.is_connected()
-
-
+            if lock_acquired:
+                lock.release()
+    
     def close_session(self):
         """
         Closes a session
