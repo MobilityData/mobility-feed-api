@@ -15,7 +15,7 @@ To access the Mobility Feed API, users need to authenticate using an access toke
 
 ## Registering for an Account
 1. **Sign up** at [mobilitydatabase.org](https://mobilitydatabase.org) to create an account.
-2. Once registered, you will receive a **refresh token**. This token is used to generate your access token.
+2. Once registered, you can view your  **refresh token** on the Account Details screen. This token is used to generate your access token.
 
 ## Generating an Access Token
 You can generate an access token either via the UI on the website or using a `curl` command:
