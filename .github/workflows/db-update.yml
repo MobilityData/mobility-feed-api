@@ -115,9 +115,11 @@ jobs:
     - name: Create or Update Auth Secret
       env:
         PROJECT_ID: ${{ inputs.PROJECT_ID }}
-        SECRET_NAME: ${{inputs.ENVIRONMENT}}_FEEDS_CREDENTIALS
+        ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
         SECRET_VALUE: ${{ secrets.CREDENTIALS }}
       run: |
+        UPPER_ENVIRONMENT=$(echo "$ENVIRONMENT" | tr '[:lower:]' '[:upper:]')
+        SECRET_NAME="${UPPER_ENVIRONMENT}_FEEDS_CREDENTIALS"
         echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
 
         if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
