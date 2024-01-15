@@ -24,12 +24,6 @@ on:
         description: PostgreSQL Database Name
         required: true
         type: string
-#        TODO: remove this parameter once the populate script is no longer needed
-      RUN_POPULATE_SCRIPT:
-        description: Option to run the script that populates the database
-        required: false
-        default: 'false'
-        type: string
       REGION:
         description: GCP region
         required: true
@@ -67,21 +61,10 @@ jobs:
         password: ${{ secrets.DB_USER_PASSWORD }}
         url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
 
-    - name: Clear content of the database
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
-      uses: liquibase-github-actions/update@v4.23.0
-      with:
-        classpath: 'liquibase'
-        changeLogFile: 'population_prep_tables.xml'
-        username: ${{ secrets.DB_USER_NAME }}
-        password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
-
     - name: Setup python
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.10'
 
     - name: Update .env file
       run: |
@@ -95,26 +78,19 @@ jobs:
         cat config/.env.local
 
     - name: Install requirements and generate db model
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       run: scripts/db-gen.sh
 
     - name: Download csv version of the database
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       run: wget -O sources.csv https://bit.ly/catalogs-csv
-
-    - name: Validate file download
-      run: ls -la
 
     - name: Get full path of sources.csv
       id: getpath
       run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
 
-    - name: Populate Database
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
+    - name: Update Database Content
       run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
     - name: Upload log file for verification
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       uses: actions/upload-artifact@v3
       with:
         name: populate.log

@@ -103,7 +103,6 @@ class DatabasePopulateHelper:
         """
         entities = []  # entities to add to the database
         entities_index = PriorityQueue()  # prioritization of the entities to avoid FK violation
-        entity_types = {}  # gtfs-rt entity types mapping
 
         def add_entity(entity, priority):
             # validate that entity is not already added
@@ -123,17 +122,22 @@ class DatabasePopulateHelper:
         # Gather all stable IDs from csv
         stable_ids = [f"mdb-{int(row['mdb_source_id'])}" for index, row in self.df.iterrows()]
 
-        # Query once to get all existing feeds
+        # Query once to get all existing feeds information
         gtfs_feeds = self.db.session.query(Gtfsfeed).filter(Gtfsfeed.stable_id.in_(stable_ids)).all()
         gtfs_rt_feeds = self.db.session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.stable_id.in_(stable_ids)).all()
+        locations = self.db.session.query(Location)
+        entity_types = self.db.session.query(Entitytype)
 
-        # Keep a dict (map) of stable_id -> feed, so we can reference the feeds when processing the static_reference
-        # and the redirects.
+        # Keep dicts (maps) of id -> entity, so we can reference the feed information when processing
         feed_map = {feed.stable_id: feed for feed in gtfs_feeds + gtfs_rt_feeds}
+        locations_map = {location.id: location for location in locations}
+        entity_types_map = {entity_type.name: entity_type for entity_type in entity_types}
 
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
             self.logger.debug(f"Populating Database for with Feed [stable_id = {mdb_id}]")
+
+            feed_exists = mdb_id in feed_map
 
             # Feed
             feed_class = Gtfsfeed if row["data_type"] == "gtfs" else Gtfsrealtimefeed
@@ -164,11 +168,15 @@ class DatabasePopulateHelper:
             municipality = row["location.municipality"]
             composite_id = f"{country_code}-{subdivision_name}-{municipality}".replace(" ", "_")
             location_id = composite_id if len(composite_id) > 0 else "unknown"
-            location = Location(
-                id=location_id,
-                country_code=country_code if country_code != "" else None,
-                subdivision_name=subdivision_name if subdivision_name != "" else None,
-                municipality=municipality if municipality != "" else None,
+            location = (
+                locations_map[location_id]
+                if location_id in locations_map
+                else Location(
+                    id=location_id,
+                    country_code=country_code if country_code != "" else None,
+                    subdivision_name=subdivision_name if subdivision_name != "" else None,
+                    municipality=municipality if municipality != "" else None,
+                )
             )
             location = add_entity(location, 1)
             feed.locations.append(location)
@@ -179,20 +187,21 @@ class DatabasePopulateHelper:
                 for entity_type_name in row["entity_type"].replace("|", "-").split("-"):
                     if len(entity_type_name) == 0:
                         continue
-                    if entity_type_name not in entity_types:
-                        entity_types[entity_type_name] = Entitytype(name=entity_type_name)
-                    entity_type = entity_types[entity_type_name]
+                    if entity_type_name not in entity_types_map:
+                        entity_types_map[entity_type_name] = Entitytype(name=entity_type_name)
+                    entity_type = entity_types_map[entity_type_name]
                     entity_type.feeds.append(feed)
 
             # External ID
-            mdb_external_id = Externalid(
-                feed_id=feed.id,
-                associated_id=str(int(row["mdb_source_id"])),
-                source="mdb",
-            )
-            add_entity(mdb_external_id, 4)
+            if not feed_exists:
+                mdb_external_id = Externalid(
+                    feed_id=feed.id,
+                    associated_id=str(int(row["mdb_source_id"])),
+                    source="mdb",
+                )
+                add_entity(mdb_external_id, 4)
 
-        [add_entity(entity_type, 4) for entity_type in entity_types.values()]
+        [add_entity(entity_type, 4) for entity_type in entity_types_map.values()]
 
         # Iterate again over the contents of the csv files to process the feed references.
         for index, row in self.df.iterrows():
@@ -203,12 +212,13 @@ class DatabasePopulateHelper:
                 if row["static_reference"] is not None:
                     static_reference_mdb_id = f"mdb-{int(row['static_reference'])}"
                     referenced_feed = feed_map.get(static_reference_mdb_id, None)
-                    if referenced_feed:
+                    already_referenced_ids = {ref.id for ref in referenced_feed.gtfs_rt_feeds}
+                    if referenced_feed and feed.id not in already_referenced_ids:
                         referenced_feed.gtfs_rt_feeds.append(feed)
 
             # Process redirects
             raw_redirects = row.get("redirect.id", None)
-            redirects_ids = raw_redirects.split("|") if raw_redirects is not None else []
+            redirects_ids = str(raw_redirects).split("|") if raw_redirects is not None else []
             raw_comments = row.get("redirect.comment", None)
             comments = raw_comments.split("|") if raw_comments is not None else []
 
