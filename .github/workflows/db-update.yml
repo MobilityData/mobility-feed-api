@@ -111,7 +111,7 @@ jobs:
     - name: Create or Update Auth Secret
       env:
         PROJECT_ID: ${{ inputs.PROJECT_ID }}
-        SECRET_NAME: FEEDS_CREDENTIALS
+        SECRET_NAME: ${{inputs.PROJECT_ID}}_FEEDS_CREDENTIALS
         SECRET_VALUE: ${{ secrets.CREDENTIALS }}
       run: |
         echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
