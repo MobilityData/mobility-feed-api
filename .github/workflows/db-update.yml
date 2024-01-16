@@ -166,10 +166,8 @@ jobs:
           PROJECT_ID: ${{ inputs.PROJECT_ID }}
           ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
           SECRET_VALUE: ${{ env.CREDENTIALS }}
+          SECRET_NAME: FEEDS_CREDENTIALS
         run: |
-          UPPER_ENVIRONMENT=$(echo "$ENVIRONMENT" | tr '[:lower:]' '[:upper:]')
-          SECRET_NAME="${UPPER_ENVIRONMENT}_FEEDS_CREDENTIALS"
-          
           # Set PROJECT_ID to 'mobility-feeds-dev' if ENVIRONMENT is 'dev'
           if [ "$ENVIRONMENT" = "dev" ]; then
             PROJECT_ID="mobility-feeds-dev"

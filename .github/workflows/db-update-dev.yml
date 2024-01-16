@@ -4,9 +4,10 @@ on:
   push: # Update on merge on master if the changelog file or populate script have been updated
     branches:
       - main
-    paths:
-      - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db.py'
+      - 'feat/16'
+#    paths:
+#      - 'liquibase/changelog.xml'
+#      - 'api/src/scripts/populate_db.py'
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated ]
   workflow_dispatch:
