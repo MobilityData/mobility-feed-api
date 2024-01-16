@@ -106,7 +106,7 @@ jobs:
         name: populate.log
         path: populate.log
 
-  update-secret-in-dev:
+  update-gcp-secret:
     name: Update GH Secrets
     needs: db-update
     runs-on: ubuntu-latest
