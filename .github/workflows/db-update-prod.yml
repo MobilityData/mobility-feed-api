@@ -5,8 +5,8 @@ on:
     paths:
       - "liquibase/changelog.xml"
   workflow_dispatch:
-#  repository_dispatch: # Update on mobility-database-catalog repo dispatch
-#    types: [ catalog-sources-updated ]
+  repository_dispatch: # Update on mobility-database-catalog repo dispatch
+    types: [ catalog-sources-updated ]
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
