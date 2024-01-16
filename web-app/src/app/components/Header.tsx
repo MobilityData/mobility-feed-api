@@ -21,39 +21,49 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import HelpIcon from '@mui/icons-material/Help';
 import {
-  type NavigationHandler,
   navigationItems,
   navigationAccountItem,
-  navigationHelpItem,
   SIGN_IN_TARGET,
+  ACCOUNT_TARGET,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { TreeView } from '@mui/x-tree-view/TreeView';
+import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { OpenInNew } from '@mui/icons-material';
 import '../styles/Header.css';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
-
 const DrawerContent: React.FC<{
-  onClick: React.MouseEventHandler;
-  onNavigationClick: NavigationHandler;
-}> = ({ onClick, onNavigationClick }) => {
+  onLogoutClick: React.MouseEventHandler;
+  onNavigationClick: (target: NavigationItem | string) => void;
+}> = ({ onLogoutClick, onNavigationClick }) => {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const navigateTo = useNavigate();
   return (
-    <Box onClick={onClick} sx={{ textAlign: 'center' }}>
-      <Typography
-        variant='h6'
-        sx={{ my: 2 }}
-        data-testid='websiteTile'
-        className='website-title'
+    <Box>
+      <Box
+        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+        onClick={() => {
+          navigateTo('/');
+        }}
       >
-        {websiteTile}
-      </Typography>
+        <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
+        <Typography
+          variant='h6'
+          sx={{ my: 2, cursor: 'pointer' }}
+          data-testid='websiteTile'
+        >
+          {websiteTile}
+        </Typography>
+      </Box>
       <Divider />
       <List>
         {navigationItems.map((item) => (
@@ -64,11 +74,68 @@ const DrawerContent: React.FC<{
               onNavigationClick(item);
             }}
           >
-            <ListItemButton sx={{ textAlign: 'center' }}>
-              <ListItemText>{item.title}</ListItemText>
+            <ListItemButton
+              sx={{
+                textAlign: 'left',
+                p: 0,
+                pl: '16px',
+              }}
+            >
+              <ListItemText>
+                {item.title}{' '}
+                {item.external === true ? (
+                  <OpenInNew sx={{ verticalAlign: 'middle' }} />
+                ) : null}
+              </ListItemText>
             </ListItemButton>
           </ListItem>
         ))}
+        <Divider sx={{ mt: 2, mb: 2 }} />
+        {isAuthenticated ? (
+          <TreeView
+            defaultCollapseIcon={<ExpandMoreIcon />}
+            defaultExpandIcon={<ChevronRightIcon />}
+            sx={{ textAlign: 'left' }}
+          >
+            <TreeItem nodeId='1' label='Account' sx={{ color: '#3959fa' }}>
+              <TreeItem
+                nodeId='2'
+                label='Account Details'
+                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
+                onClick={() => {
+                  onNavigationClick(ACCOUNT_TARGET);
+                }}
+                icon={<AccountCircleIcon fontSize='small' />}
+              />
+              <TreeItem
+                nodeId='4'
+                label='Sign Out'
+                sx={{ color: '#7c7c7c' }}
+                onClick={onLogoutClick}
+                icon={<LogoutIcon fontSize='small' />}
+              />
+            </TreeItem>
+          </TreeView>
+        ) : (
+          <ListItem
+            sx={{ color: '#3959fa' }}
+            onClick={() => {
+              onNavigationClick(SIGN_IN_TARGET);
+            }}
+            key={'Login'}
+            disablePadding
+          >
+            <ListItemButton
+              sx={{
+                textAlign: 'left',
+                p: 0,
+                pl: '16px',
+              }}
+            >
+              <ListItemText>Login</ListItemText>
+            </ListItemButton>
+          </ListItem>
+        )}
       </List>
     </Box>
   );
@@ -85,10 +152,14 @@ export default function DrawerAppBar(): React.ReactElement {
     setMobileOpen((prevState) => !prevState);
   };
 
-  const handleNavigation = (navigationItem: NavigationItem): void => {
-    if (navigationItem.external === true)
-      window.open(navigationItem.target, '_blank', 'noopener noreferrer');
-    else navigateTo(navigationItem.target);
+  const handleNavigation = (navigationItem: NavigationItem | string): void => {
+    if (typeof navigationItem === 'string') navigateTo(navigationItem);
+    else {
+      if (navigationItem.external === true)
+        window.open(navigationItem.target, '_blank', 'noopener noreferrer');
+      else navigateTo(navigationItem.target);
+    }
+    setMobileOpen(false);
   };
 
   const handleLogoutClick = (): void => {
@@ -123,15 +194,7 @@ export default function DrawerAppBar(): React.ReactElement {
         sx={{ background: 'white' }}
       >
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <a
-            href={'/'}
-            style={{
-              textDecoration: 'none',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-            className='btn-link'
-          >
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <IconButton
               color='inherit'
               aria-label='open drawer'
@@ -141,20 +204,27 @@ export default function DrawerAppBar(): React.ReactElement {
             >
               <MenuIcon />
             </IconButton>
-
-            <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
-            <Typography
-              variant='h5'
-              component='div'
-              className='website-title'
-              sx={{
-                flexGrow: 1,
-                display: { xs: 'none', md: 'block' },
+            <a
+              href={'/'}
+              style={{
+                textDecoration: 'none',
               }}
+              className='btn-link'
             >
-              {websiteTile}
-            </Typography>
-          </a>
+              <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
+              <Typography
+                variant='h5'
+                component='div'
+                className='website-title'
+                sx={{
+                  flexGrow: 1,
+                  display: { xs: 'none', md: 'block' },
+                }}
+              >
+                {websiteTile}
+              </Typography>
+            </a>
+          </Box>
 
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
@@ -196,16 +266,6 @@ export default function DrawerAppBar(): React.ReactElement {
                     </ListItemIcon>
                     Account Details
                   </MenuItem>
-                  <MenuItem
-                    onClick={() => {
-                      handleMenuItemClick(navigationHelpItem);
-                    }}
-                  >
-                    <ListItemIcon>
-                      <HelpIcon fontSize='small' />
-                    </ListItemIcon>
-                    Help
-                  </MenuItem>
                   <MenuItem onClick={handleLogoutClick}>
                     <ListItemIcon>
                       <LogoutIcon fontSize='small' />
@@ -236,7 +296,7 @@ export default function DrawerAppBar(): React.ReactElement {
           }}
         >
           <DrawerContent
-            onClick={handleDrawerToggle}
+            onLogoutClick={handleLogoutClick}
             onNavigationClick={handleNavigation}
           />
         </Drawer>
