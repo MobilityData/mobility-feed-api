@@ -1,5 +1,4 @@
 # Mobility Feed API
-
 ![Deploy Feeds API - QA](https://github.com/MobilityData/mobility-feed-api/workflows/Deploy%20Feeds%20API%20-%20QA/badge.svg?branch=main)
 ![Deploy Web App - QA](https://github.com/MobilityData/mobility-feed-api/actions/workflows/web-app.yml/badge.svg?branch=main)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -10,9 +9,41 @@ The Mobility Feed API service a list of open mobility data sources from across t
 
 Mobility Feed API is not released yet; any code or service hosted is considered as **Work in Progress**. For more information regarding the current Mobility Database Catalog, go to [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs).
 
-# Viewing the API with Swagger.
+# Authentication
 
-Follow this [link](https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html).
+To access the Mobility Feed API, users need to authenticate using an access token. Here is the step-by-step process to obtain and use an access token:
+
+## Registering for an Account
+1. **Sign up** at [mobilitydatabase.org](https://mobilitydatabase.org) to create an account.
+2. Once registered, you can view your  **refresh token** on the Account Details screen. This token is used to generate your access token.
+
+## Generating an Access Token
+You can generate an access token either via the UI on the website or using a `curl` command:
+
+- **Via UI**: After logging in, navigate to the account page to generate or obtain your access token.
+- **Via Command Line**:
+  ```bash
+  curl --location 'https://api.mobilitydatabase.org/v1/tokens' \
+  --header 'Content-Type: application/json' \
+  --data '{ "refresh_token": "[Your Refresh Token]" }'
+Replace `[Your Refresh Token]` with the refresh token obtained after registration.
+
+## Using the Access Token
+Once you have the access token, you can use it to make authenticated requests to the API.
+For Testing Access:
+```bash
+curl --location 'https://api.mobilitydatabase.org/v1/metadata' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer [Your Access Token]'
+```
+Replace `[Your Access Token]` with your actual access token.
+
+### Via Swagger UI
+You can also use the [Swagger UI](https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html) to make requests. Input your access token in the required field in the Swagger interface.
+
+## Refreshing the Access Token
+Access tokens are subject to expiration. Use your refresh token to generate a new access token when necessary.
+
 
 # Local development
 
@@ -23,11 +54,9 @@ Folder `api` contains source code of the API implementation. This repository rel
 Python <= 3.10
 
 ### Python 3.11 incompatibility notice
-
-This project uses [sqlacodegen](https://github.com/agronholm/sqlacodegen) to generate ORM models. This project is also depending on [SqlAlchemy]https://www.sqlalchemy.org/. This combination od dependencies doesn't support **yet**(August 2023) Python 3.11 due to [bpo-45320](https://github.com/python/cpython/issues/89483).
+This project uses [sqlacodegen](https://github.com/agronholm/sqlacodegen) to generate ORM models. This project is also depending on [SqlAlchemy]https://www.sqlalchemy.org/. This combination od dependencies doesn't support __yet__(August 2023) Python 3.11 due to [bpo-45320](https://github.com/python/cpython/issues/89483).
 
 Related issues:
-
 - [bpo-45320](https://github.com/python/cpython/issues/89483)
 - [sqlacodegen failing with Error: import name 'ArgSpec' from 'inspect'](https://github.com/agronholm/sqlacodegen/issues/239)
 - [fix function name in codegen.py for python v3.11](https://github.com/agronholm/sqlacodegen/issues/274)
@@ -35,43 +64,34 @@ Related issues:
 ## Installation & Usage
 
 - As a one time step, download the `openapi-generator-cli.sh` script using:
-
 ```bash
 scripts/setup-openapi-generator.sh
 ```
-
 - Install dependencies
-
 ```bash
 cd api
 pip3 install -r requirements.txt
 pip3 install -r requirements_dev.txt
 ```
-
 - Generates an instance of the database locally using docker-compose
-
 ```bash
-docker-compose --env-file ./config/.env.local up -d --force-recreate
+docker-compose --env-file ./config/.env.local  up -d --force-recreate
 ```
-
 - Generates the api and database stubs on first run and everytime the schema changes
-
 ```bash
 scripts/api-gen.sh
 scripts/db-gen.sh
 ```
-
-In case you modify the database schema, you can run
-`docker-compose --env-file ./config/.env.local  up schemaspy -d --force-recreate` which will update your local instance of the database and the related schema documentation located in `docs/schemapy-dev/index.html`.
-
-- Run local API
-
+In case you modify the database schema, you can run 
+`
+docker-compose --env-file ./config/.env.local  up schemaspy -d --force-recreate
+` which will update your local instance of the database and the related schema documentation located in `docs/schemapy-dev/index.html`.
+- Run local API 
 ```bash
 scripts/api-start.sh
 ```
 
 ## Linter
-
 This repository uses Flak8 and Black for code styling
 
 To run linter checks:
@@ -81,25 +101,23 @@ scripts/lint-tests.sh
 ```
 
 You can also use the pre-commit installed through [requirements_dev.txt](api%2Frequirements_dev.txt) with
-
 ```bash
 pre-commit install
 pre-commit run --all-files
 ```
 
+
 ## Local swagger documentation
 
 To have access to the API's produced swagger documentation:
-
 ```bash
 scripts/api-start.sh
 ```
-
 and open your browser at `http://localhost:8080/docs/` to see the docs.
 
 ## IDE Python modules
 
-If your Python's IDE is not able to resolve the python module; make sure the api/src folder is marked as `source` directory.
+If your Python's IDE is not able to resolve the python module; make sure the api/src folder is marked as `source` directory. 
 
 ## Tests
 
@@ -110,19 +128,15 @@ scripts/api-tests.sh
 ```
 
 To run a single test file:
-
 ```bash
 scripts/api-tests.sh <my_test_filename>.py
 ```
 
 ## Running with Docker
-
 Before starting the docker container make sure the OpenApi generated files are present by running:
-
 ```bash
 scripts/api-gen.sh
 ```
-
 To run the server on a Docker container, please execute the following from the root directory:
 
 ```bash
