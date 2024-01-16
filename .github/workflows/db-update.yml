@@ -133,7 +133,7 @@ jobs:
           export-env: true # Export loaded secrets as environment variables
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          CREDENTIALS: "op://ebc5cc7az22qugnxvgmtaqjjiu/credential"
+          CREDENTIALS: "op://2mtq7eqbhxv3o25yerdbz4scse/credential"
 
       - name: Create or Update Auth Secret
         env:
