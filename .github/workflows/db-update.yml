@@ -110,7 +110,7 @@ jobs:
   update-gcp-secret:
     name: Update GH Secrets
     if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch' }}
-    needs: db-update
+    needs: db-schema-update
     runs-on: ubuntu-latest
     steps:
       - name: Authenticate to Google Cloud DEV
