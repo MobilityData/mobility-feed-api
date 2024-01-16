@@ -252,7 +252,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       ENVIRONMENT         = var.environment
     }
     dynamic "secret_environment_variables" {
-      for_each = local.function_batch_datasets_config.secret_environment_variables
+      for_each = local.function_batch_process_dataset_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
