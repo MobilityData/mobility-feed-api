@@ -138,6 +138,8 @@ class DatabasePopulateHelper:
             self.logger.debug(f"Populating Database for with Feed [stable_id = {mdb_id}]")
 
             feed_exists = mdb_id in feed_map
+            if not feed_exists:
+                self.logger.info(f"New {row['data_type']} feed with stable_id = {mdb_id} has been added.")
 
             # Feed
             feed_class = Gtfsfeed if row["data_type"] == "gtfs" else Gtfsrealtimefeed
