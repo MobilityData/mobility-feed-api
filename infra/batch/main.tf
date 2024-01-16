@@ -147,7 +147,7 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
         version    = "latest"
       }
     }
@@ -256,7 +256,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
         version    = "latest"
       }
     }
