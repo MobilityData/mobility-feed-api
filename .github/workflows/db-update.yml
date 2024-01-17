@@ -1,4 +1,23 @@
-# Update the Mobility Database Schema
+# Mobility Database Update
+#
+# This GitHub Action manages the Mobility Database by handling both schema and content updates in different scenarios.
+# It's designed to operate under the following conditions:
+#
+# 1. Database Schema Update (Job: db-schema-update):
+#    - Triggered by either a 'push' to the main branch or a 'workflow_dispatch' event.
+#    - Responsible for updating the database schema using Liquibase.
+#
+# 2. Database Content Update (Job: db-content-update):
+#    - Executed on 'repository_dispatch' or 'workflow_dispatch' events.
+#    - Focuses on updating the content of the database.
+#    - Dependent on the completion of the Database Schema Update job.
+#    - Utilizes scripts to install requirements, generate the database model, and populate the database with new content.
+#
+# 3. Update GCP Secrets (Job: update-gcp-secret):
+#    - Runs on 'repository_dispatch' or 'workflow_dispatch' events.
+#    - Loads secrets from OnePassword.
+#    - Dynamically updates GCP secrets based on the environment (dev, qa, prod).
+
 name: Database Update
 on:
   workflow_call:
@@ -15,6 +34,9 @@ on:
       DB_INSTANCE_NAME:
         description: PostgreSQL Database Instance Name
         required: true
+      OP_SERVICE_ACCOUNT_TOKEN:
+        description: OnePassword Service Account Token
+        required: true
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -24,64 +46,51 @@ on:
         description: PostgreSQL Database Name
         required: true
         type: string
-#        TODO: remove this parameter once the populate script is no longer needed
-      RUN_POPULATE_SCRIPT:
-        description: Option to run the script that populates the database
-        required: false
-        default: 'false'
-        type: string
       REGION:
         description: GCP region
         required: true
         type: string
+      ENVIRONMENT:
+        description: GCP ENVIRONMENT
+        required: true
+        type: string
+      DB_IP:
+        description: Database IP Address
+        required: true
+        type: string
 jobs:
-  liquibase:
-    name: 'Liquibase Update'
+  db-schema-update:
+    name: 'Database Schema Update'
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Authenticate to Google Cloud
-      id: gcloud_auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-    - name: Google Cloud Setup
-      uses: google-github-actions/setup-gcloud@v1
-
-    - name: Get Database Instance IP
-      run: |
-        gcloud config set project ${{ inputs.PROJECT_ID }}
-        DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
-        echo "DB_IP=$DB_IP" >> $GITHUB_ENV
-
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
+      if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
       with:
         classpath: 'liquibase'
         changeLogFile: 'changelog.xml'
         username: ${{ secrets.DB_USER_NAME }}
         password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
+        url: 'jdbc:postgresql://${{ inputs.DB_IP }}:5432/${{ inputs.DB_NAME }}'
 
-    - name: Clear content of the database
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
-      uses: liquibase-github-actions/update@v4.23.0
-      with:
-        classpath: 'liquibase'
-        changeLogFile: 'population_prep_tables.xml'
-        username: ${{ secrets.DB_USER_NAME }}
-        password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
+  db-content-update:
+    name: 'Database Content Update'
+    permissions: write-all
+    runs-on: ubuntu-latest
+    needs: db-schema-update
+    if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch' }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
 
     - name: Setup python
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.10'
 
     - name: Update .env file
       run: |
@@ -89,34 +98,68 @@ jobs:
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
         echo "POSTGRES_PORT=5432" >> config/.env.local
-        echo "POSTGRES_HOST=${{ env.DB_IP }}" >> config/.env.local
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
-        echo "ENV=dev" >> config/.env.local
+        echo "POSTGRES_HOST=${{ inputs.DB_IP }}" >> config/.env.local
+        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ inputs.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
+        echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
         cat config/.env.local
 
     - name: Install requirements and generate db model
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       run: scripts/db-gen.sh
 
     - name: Download csv version of the database
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       run: wget -O sources.csv https://bit.ly/catalogs-csv
-
-    - name: Validate file download
-      run: ls -la
 
     - name: Get full path of sources.csv
       id: getpath
       run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
 
-    - name: Populate Database
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
+    - name: Update Database Content
       run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
     - name: Upload log file for verification
-      if: inputs.RUN_POPULATE_SCRIPT == 'true'
       uses: actions/upload-artifact@v3
       with:
         name: populate.log
         path: populate.log
+
+  update-gcp-secret:
+    name: Update GCP Secrets
+    if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud QA/PROD
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Load secrets from 1Password
+        id: onepw_secrets
+        uses: 1password/load-secrets-action@v1.3.1
+        with:
+          export-env: true # Export loaded secrets as environment variables
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/2mtq7eqbhxv3o25yerdbz4scse/credential"
+
+      - name: Create or Update Auth Secret
+        env:
+          PROJECT_ID: ${{ inputs.PROJECT_ID }}
+          ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
+          SECRET_VALUE: ${{ env.CREDENTIALS }}
+          SECRET_NAME: FEEDS_CREDENTIALS
+        run: |
+          echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
+
+          if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
+            echo "Secret $SECRET_NAME already exists in project $PROJECT_ID, updating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets versions add $SECRET_NAME --data-file=- --project=$PROJECT_ID
+          else
+            echo "Secret $SECRET_NAME does not exist in project $PROJECT_ID, creating..."
+            echo -n "$SECRET_VALUE" | gcloud secrets create $SECRET_NAME --data-file=- --replication-policy="automatic" --project=$PROJECT_ID
+          fi
+    
+      
 
