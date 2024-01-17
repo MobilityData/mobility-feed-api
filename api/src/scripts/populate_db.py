@@ -237,7 +237,7 @@ class DatabasePopulateHelper:
                 else:
                     comment = ""
 
-                target_stable_id = f"mdb-{int(mdb_source_id)}"
+                target_stable_id = f"mdb-{int(float(mdb_source_id))}"
                 target_feed = feed_map.get(target_stable_id, None)
 
                 if target_feed:
