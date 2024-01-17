@@ -37,9 +37,6 @@ on:
       OP_SERVICE_ACCOUNT_TOKEN:
         description: OnePassword Service Account Token
         required: true
-      DEV_GCP_MOBILITY_FEEDS_SA_KEY:
-        description: Service account key for dev
-        required: false
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -70,15 +67,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-#    - name: Authenticate to Google Cloud
-#      id: gcloud_auth
-#      uses: google-github-actions/auth@v1
-#      with:
-#        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#    - name: Google Cloud Setup
-#      uses: google-github-actions/setup-gcloud@v1
-
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
       if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
@@ -99,15 +87,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-#    - name: Authenticate to Google Cloud
-#      id: gcloud_auth
-#      uses: google-github-actions/auth@v1
-#      with:
-#        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#    - name: Google Cloud Setup
-#      uses: google-github-actions/setup-gcloud@v1
-
     - name: Setup python
       uses: actions/setup-python@v4
       with:
@@ -121,7 +100,7 @@ jobs:
         echo "POSTGRES_PORT=5432" >> config/.env.local
         echo "POSTGRES_HOST=${{ inputs.DB_IP }}" >> config/.env.local
         echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ inputs.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
-        echo "ENV=dev" >> config/.env.local
+        echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
         cat config/.env.local
 
     - name: Install requirements and generate db model
@@ -148,14 +127,7 @@ jobs:
     if: ${{ github.event_name == 'repository_dispatch' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Authenticate to Google Cloud DEV
-        if: ${{ inputs.ENVIRONMENT == 'dev' }}
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-
       - name: Authenticate to Google Cloud QA/PROD
-        if: ${{ inputs.ENVIRONMENT != 'dev' }}
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
@@ -179,10 +151,6 @@ jobs:
           SECRET_VALUE: ${{ env.CREDENTIALS }}
           SECRET_NAME: FEEDS_CREDENTIALS
         run: |
-          # Set PROJECT_ID to 'mobility-feeds-dev' if ENVIRONMENT is 'dev'
-          if [ "$ENVIRONMENT" = "dev" ]; then
-            PROJECT_ID="mobility-feeds-dev"
-          fi
           echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
 
           if gcloud secrets describe $SECRET_NAME --project=$PROJECT_ID; then
