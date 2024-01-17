@@ -1,4 +1,4 @@
-# GitHub Action: Update Mobility Database
+# Mobility Database Update
 #
 # This GitHub Action manages the Mobility Database by handling both schema and content updates in different scenarios.
 # It's designed to operate under the following conditions:
