@@ -5,7 +5,7 @@ import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import Session, load_only, Query
+from sqlalchemy.orm import load_only, Query
 
 from database_gen.sqlacodegen_models import Base
 from utils.logger import Logger
@@ -53,8 +53,6 @@ class Database:
         """
         return self.engine is not None and global_session is not None
 
-
-
     def start_session(self):
         """
         :return: Database singleton session
@@ -70,7 +68,7 @@ class Database:
                 return global_session
         except Exception as error:
             raise Exception(f"Error creating database session: {error}")
-        
+
     def start_new_db_session(self):
         global global_session
         lock_acquired = False
@@ -90,7 +88,7 @@ class Database:
         finally:
             if lock_acquired:
                 lock.release()
-    
+
     def close_session(self):
         """
         Closes a session
