@@ -8,6 +8,31 @@ on:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated ]
 jobs:
+  get_database_ip:
+    name: 'Retrieve DB IP'
+    permissions: write-all
+    runs-on: ubuntu-latest
+    outputs:
+      db_ip: ${{ steps.get_ip.outputs.DB_IP }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Get Database Instance IP
+        id: get_ip
+        run: |
+          gcloud config set project ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+          DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
+          echo "DB_IP=$DB_IP" >> "$GITHUB_OUTPUT"
+
   update:
     uses: ./.github/workflows/db-update.yml
     with:

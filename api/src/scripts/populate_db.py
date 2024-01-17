@@ -126,12 +126,14 @@ class DatabasePopulateHelper:
         gtfs_feeds = self.db.session.query(Gtfsfeed).filter(Gtfsfeed.stable_id.in_(stable_ids)).all()
         gtfs_rt_feeds = self.db.session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.stable_id.in_(stable_ids)).all()
         locations = self.db.session.query(Location)
+        redirects = self.db.session.query(Redirectingid)
         entity_types = self.db.session.query(Entitytype)
 
         # Keep dicts (maps) of id -> entity, so we can reference the feed information when processing
         feed_map = {feed.stable_id: feed for feed in gtfs_feeds + gtfs_rt_feeds}
         locations_map = {location.id: location for location in locations}
         entity_types_map = {entity_type.name: entity_type for entity_type in entity_types}
+        redirects_set = {(redirect_entity.source_id, redirect_entity.target_id) for redirect_entity in redirects}
 
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
@@ -241,7 +243,7 @@ class DatabasePopulateHelper:
                 target_feed = feed_map.get(target_stable_id, None)
 
                 if target_feed:
-                    if target_feed.id != feed.id:
+                    if target_feed.id != feed.id and (feed.id, target_feed.id) not in redirects_set:
                         redirect = Redirectingid(source_id=feed.id, target_id=target_feed.id, redirect_comment=comment)
                         add_entity(redirect, 5)
                     else:
