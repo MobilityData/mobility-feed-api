@@ -109,8 +109,8 @@ def download_and_get_hash(
             url += f"?{api_key_parameter_name}={credentials}"
 
         with urllib3.PoolManager(ssl_context=ctx) as http:
-            http.mount("http://", HTTPAdapter())
-            http.mount("https://", HTTPAdapter())
+            # http.mount("http://", HTTPAdapter())
+            # http.mount("https://", HTTPAdapter())
             with http.request(
                 "GET", url, preload_content=False, headers=headers
             ) as r, open(file_path, "wb") as out_file:
