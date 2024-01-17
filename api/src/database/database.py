@@ -71,13 +71,14 @@ class Database:
 
     def start_new_db_session(self):
         global global_session
-        lock_acquired = False
         try:
+            lock.acquire()
+            if global_session is not None and global_session.is_active:
+                self.logger.info("Database session reused.")
+                return global_session
             if self.SQLALCHEMY_DATABASE_URL is None:
                 raise Exception("Database URL is not set")
             else:
-                lock.acquire()
-                lock_acquired = True
                 self.logger.info("Starting new global database session.")
                 self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
                 global_session = sessionmaker(bind=self.engine)()
@@ -86,8 +87,7 @@ class Database:
         except Exception as error:
             raise Exception(f"Error creating database session: {error}")
         finally:
-            if lock_acquired:
-                lock.release()
+            lock.release()
 
     def close_session(self):
         """
@@ -147,7 +147,7 @@ class Database:
             self.logger.error(f"SELECT query failed with exception: \n{e}")
             return None
         finally:
-            if not update_session:
+            if update_session:
                 self.close_session()
 
     def select_from_active_session(self, model: Base, conditions: list = None, attributes: list = None):
@@ -199,9 +199,9 @@ class Database:
         except Exception as e:
             self.logger.error(f"Merge query failed with exception: \n{e}")
             return False
-        finally:
-            if not update_session:
-                self.close_session()
+        # finally:
+        #     if not update_session:
+        #         self.close_session()
 
     def commit(self):
         """
