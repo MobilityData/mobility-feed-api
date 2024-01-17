@@ -7,22 +7,47 @@ on:
     paths:
       - 'liquibase/changelog.xml'
       - 'api/src/scripts/populate_db.py'
+  repository_dispatch: # Update on mobility-database-catalog repo dispatch
+    types: [ catalog-sources-updated ]
   workflow_dispatch:
-    inputs:
-      RUN_POPULATE_SCRIPT:
-        description: 'Run populate script (true/false)'
-        required: false
-        default: 'true'
 jobs:
+  get_database_ip:
+    name: 'Retrieve DB IP'
+    permissions: write-all
+    runs-on: ubuntu-latest
+    outputs:
+      db_ip: ${{ steps.get_ip.outputs.DB_IP }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Get Database Instance IP
+      id: get_ip
+      run: |
+        gcloud config set project ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+        DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
+        echo "DB_IP=$DB_IP" >> "$GITHUB_OUTPUT"
+
   update:
+    needs: get_database_ip
     uses: ./.github/workflows/db-update.yml
     with:
-      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
       REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
-      RUN_POPULATE_SCRIPT: ${{ github.event.inputs.RUN_POPULATE_SCRIPT || 'true' }}
+      ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_IP: ${{needs.get_database_ip.outputs.db_ip}}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.DEV_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.DEV_POSTGRE_USER_NAME }}
       DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
