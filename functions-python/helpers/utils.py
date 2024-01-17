@@ -78,7 +78,15 @@ def download_url_content(url, with_retry=False):
         raise e
 
 
-def download_and_get_hash(url, file_path, hash_algorithm="sha256", chunk_size=8192):
+def download_and_get_hash(
+    url,
+    file_path,
+    hash_algorithm="sha256",
+    chunk_size=8192,
+    authentication_type=0,
+    api_key_parameter_name=None,
+    credentials=None,
+):
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
@@ -90,12 +98,22 @@ def download_and_get_hash(url, file_path, hash_algorithm="sha256", chunk_size=81
         ctx = create_urllib3_context()
         ctx.load_default_certs()
         ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
+
+        # authentication_type == 1 -> the credentials are passed in the header
+        headers = {}
+        if authentication_type == 1 and api_key_parameter_name and credentials:
+            headers[api_key_parameter_name] = credentials
+
+        # authentication_type == 2 -> the credentials are passed in the url
+        if authentication_type == 2 and api_key_parameter_name and credentials:
+            url += f"?{api_key_parameter_name}={credentials}"
+
         with urllib3.PoolManager(ssl_context=ctx) as http:
             http.mount("http://", HTTPAdapter())
             http.mount("https://", HTTPAdapter())
-            with http.request("GET", url, preload_content=False) as r, open(
-                file_path, "wb"
-            ) as out_file:
+            with http.request(
+                "GET", url, preload_content=False, headers=headers
+            ) as r, open(file_path, "wb") as out_file:
                 while True:
                     data = r.read(chunk_size)
                     if not data:
