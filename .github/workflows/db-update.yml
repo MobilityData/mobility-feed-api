@@ -57,6 +57,10 @@ on:
         description: GCP ENVIRONMENT
         required: true
         type: string
+      DB_IP:
+        description: Database IP Address
+        required: true
+        type: string
 jobs:
   db-schema-update:
     name: 'Database Schema Update'
@@ -66,20 +70,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Authenticate to Google Cloud
-      id: gcloud_auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-    - name: Google Cloud Setup
-      uses: google-github-actions/setup-gcloud@v1
-
-    - name: Get Database Instance IP
-      run: |
-        gcloud config set project ${{ inputs.PROJECT_ID }}
-        DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
-        echo "DB_IP=$DB_IP" >> $GITHUB_ENV
+#    - name: Authenticate to Google Cloud
+#      id: gcloud_auth
+#      uses: google-github-actions/auth@v1
+#      with:
+#        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#    - name: Google Cloud Setup
+#      uses: google-github-actions/setup-gcloud@v1
 
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
@@ -89,7 +87,7 @@ jobs:
         changeLogFile: 'changelog.xml'
         username: ${{ secrets.DB_USER_NAME }}
         password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}'
+        url: 'jdbc:postgresql://${{ vars.DB_IP }}:5432/${{ inputs.DB_NAME }}'
 
   db-content-update:
     name: 'Database Content Update'
@@ -101,20 +99,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Authenticate to Google Cloud
-      id: gcloud_auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-    - name: Google Cloud Setup
-      uses: google-github-actions/setup-gcloud@v1
-
-    - name: Get Database Instance IP
-      run: |
-        gcloud config set project ${{ inputs.PROJECT_ID }}
-        DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
-        echo "DB_IP=$DB_IP" >> $GITHUB_ENV
+#    - name: Authenticate to Google Cloud
+#      id: gcloud_auth
+#      uses: google-github-actions/auth@v1
+#      with:
+#        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#    - name: Google Cloud Setup
+#      uses: google-github-actions/setup-gcloud@v1
 
     - name: Setup python
       uses: actions/setup-python@v4
@@ -127,8 +119,8 @@ jobs:
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
         echo "POSTGRES_PORT=5432" >> config/.env.local
-        echo "POSTGRES_HOST=${{ env.DB_IP }}" >> config/.env.local
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ env.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
+        echo "POSTGRES_HOST=${{ vars.DB_IP }}" >> config/.env.local
+        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ vars.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
         echo "ENV=dev" >> config/.env.local
         cat config/.env.local
 
