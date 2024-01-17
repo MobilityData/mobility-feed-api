@@ -33,6 +33,8 @@ class TestDatasetProcessor(unittest.TestCase):
             "execution_id",
             "different_hash",
             "bucket_name",
+            0,
+            None
         )
         with patch.object(processor, "date", "mocked_timestamp"):
             result = processor.upload_dataset()
@@ -65,6 +67,8 @@ class TestDatasetProcessor(unittest.TestCase):
             "execution_id",
             file_hash,
             "bucket_name",
+            0,
+            None
         )
 
         result = processor.upload_dataset()
@@ -94,6 +98,8 @@ class TestDatasetProcessor(unittest.TestCase):
             "execution_id",
             "latest_hash",
             "bucket_name",
+            0,
+            None
         )
 
         with self.assertRaises(Exception):
