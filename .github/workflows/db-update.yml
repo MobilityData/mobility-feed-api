@@ -1,4 +1,23 @@
-# Update the Mobility Database
+# GitHub Action: Update Mobility Database
+#
+# This GitHub Action manages the Mobility Database by handling both schema and content updates in different scenarios.
+# It's designed to operate under the following conditions:
+#
+# 1. Database Schema Update (Job: db-schema-update):
+#    - Triggered by either a 'push' to the main branch or a 'workflow_dispatch' event.
+#    - Responsible for updating the database schema using Liquibase.
+#
+# 2. Database Content Update (Job: db-content-update):
+#    - Executed on 'repository_dispatch' or 'workflow_dispatch' events.
+#    - Focuses on updating the content of the database.
+#    - Dependent on the completion of the Database Schema Update job.
+#    - Utilizes scripts to install requirements, generate the database model, and populate the database with new content.
+#
+# 3. Update GCP Secrets (Job: update-gcp-secret):
+#    - Runs on 'repository_dispatch' or 'workflow_dispatch' events.
+#    - Loads secrets from OnePassword.
+#    - Dynamically updates GCP secrets based on the environment (dev, qa, prod).
+
 name: Database Update
 on:
   workflow_call:
