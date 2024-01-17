@@ -87,7 +87,7 @@ jobs:
         changeLogFile: 'changelog.xml'
         username: ${{ secrets.DB_USER_NAME }}
         password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://${{ vars.DB_IP }}:5432/${{ inputs.DB_NAME }}'
+        url: 'jdbc:postgresql://${{ inputs.DB_IP }}:5432/${{ inputs.DB_NAME }}'
 
   db-content-update:
     name: 'Database Content Update'
@@ -119,8 +119,8 @@ jobs:
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
         echo "POSTGRES_PORT=5432" >> config/.env.local
-        echo "POSTGRES_HOST=${{ vars.DB_IP }}" >> config/.env.local
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ vars.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
+        echo "POSTGRES_HOST=${{ inputs.DB_IP }}" >> config/.env.local
+        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ inputs.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
         echo "ENV=dev" >> config/.env.local
         cat config/.env.local
 
