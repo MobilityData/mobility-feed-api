@@ -5,9 +5,9 @@ on:
     branches:
       - main
       - 'feat/16' # TODO remove before merge
-    paths:
-      - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db.py'
+#    paths:
+#      - 'liquibase/changelog.xml'
+#      - 'api/src/scripts/populate_db.py'
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated ]
   workflow_dispatch:
