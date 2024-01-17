@@ -80,9 +80,6 @@ def get_active_feeds(session: Session):
         )
         .select_from(Gtfsfeed)
         .outerjoin(Gtfsdataset, (Gtfsdataset.feed_id == Gtfsfeed.id))
-        .filter(
-            Gtfsfeed.status == "active", Gtfsfeed.authentication_type == "1"
-        )  # TODO remove auth before merge
         .filter(or_(Gtfsdataset.id.is_(None), Gtfsdataset.latest.is_(True)))
     )
     # Limit the query to 10 feeds (or FEEDS_LIMIT param) for testing purposes and lower environments
