@@ -214,11 +214,11 @@ export default function Contribute(): React.ReactElement {
             If you have any questions or concerns about this process, you can
             email{' '}
             <a
-              href='mailto:emma@mobilitydata.org'
+              href='mailto:api@mobilitydata.org'
               target='_blank'
               rel='noreferrer'
             >
-              emma@mobilitydata.org
+              api@mobilitydata.org
             </a>{' '}
             for support in getting your feed added.{' '}
           </Typography>
@@ -299,7 +299,7 @@ export default function Contribute(): React.ReactElement {
             <b>Individuals:</b> <br />
             If you are listed here and would like to add your organization,{' '}
             <a
-              href='mailto:emma@mobilitydata.org'
+              href='mailto:api@mobilitydata.org'
               target='_blank'
               rel='noreferrer'
             >
