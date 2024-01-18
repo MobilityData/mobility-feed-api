@@ -23,7 +23,9 @@ The function configuration file contains the following properties:
 - `memory`: The memory of the function in MB. The default value is 128 MB.
 - `trigger_http`: A boolean value that indicates if the function is triggered by an HTTP request. The default value is `false`.
 - `include_folders`: A list of folders to be included in the function zip. By default, the function zip will include all the files in the function folder.
-- `secret_environment_variables`: A list of environment variables that should be stored as secrets.
+- `secret_environment_variables`: A list of objects, each representing a secret environment variable. These are securely used within the function. Each object should include:
+  - `key`: The name of the environment variable as used in the function, acting as the secret's identifier.
+  - `secret` [Optional]: The specific GCP secret to be used. If omitted, a default secret name is generated using the environment prefix (`DEV`, `QA`, or `PROD`) followed by an underscore and the `key` value. For example, if `key` is `api_key` in the `DEV` environment, the default secret name is `DEV_api_key`.
 - `ingress_settings`: The ingress settings of the function.
 - `max_instance_request_concurrency`: The maximum number of concurrent requests allowed for a function instance.
 - `max_instance_count`: The maximum number of function instances that can be created in response to a load.

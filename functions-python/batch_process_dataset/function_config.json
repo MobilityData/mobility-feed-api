@@ -9,6 +9,10 @@
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"
+    },
+    {
+      "key": "FEEDS_CREDENTIALS",
+      "secret": "FEEDS_CREDENTIALS"
     }
   ],
   "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
