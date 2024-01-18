@@ -1,7 +1,7 @@
 -- 1. Add Table ValidationReport
 CREATE TABLE ValidationReport (
     id VARCHAR(255) PRIMARY KEY,
-    version VARCHAR(255)
+    validator_version VARCHAR(255)
 );
 
 -- 2. Adding a table linking GTFSDataset to the validation report to avoid circular dependency warning from sqlacodegen
