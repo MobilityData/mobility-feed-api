@@ -37,6 +37,7 @@ jobs:
 
   update:
     uses: ./.github/workflows/db-update.yml
+    needs: get_database_ip
     with:
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
