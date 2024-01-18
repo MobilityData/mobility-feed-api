@@ -35,11 +35,13 @@ jobs:
 
   update:
     uses: ./.github/workflows/db-update.yml
+    needs: get_database_ip
     with:
       PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
       REGION: ${{ vars.PROD_MOBILITY_FEEDS_REGION }}
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_IP: ${{needs.get_database_ip.outputs.db_ip}}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
