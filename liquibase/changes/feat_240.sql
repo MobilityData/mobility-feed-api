@@ -20,6 +20,7 @@ CREATE TABLE Notice (
     validation_report_id VARCHAR(255) REFERENCES ValidationReport(id),
     notice_code VARCHAR(255),
     severity severity_type,
+    total_notices INT NOT NULL CHECK (total_notices > 0),
     PRIMARY KEY (dataset_id, validation_report_id, notice_code)
 );
 
