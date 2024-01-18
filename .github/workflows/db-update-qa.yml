@@ -42,6 +42,7 @@ jobs:
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
       REGION: ${{ vars.QA_MOBILITY_FEEDS_REGION }}
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_IP: ${{needs.get_database_ip.outputs.db_ip}}
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
