@@ -1,13 +1,15 @@
 -- 1. Add Table ValidationReport
 CREATE TABLE ValidationReport (
     id VARCHAR(255) PRIMARY KEY,
-    dataset_id VARCHAR(255) REFERENCES GTFSDataset(id),
     version VARCHAR(255)
 );
 
--- 2. Modify Table GTFSDataset to add FK to ValidationReport
-ALTER TABLE GTFSDataset
-ADD COLUMN latest_validation_report VARCHAR(255) REFERENCES ValidationReport(id);
+-- 2. Adding a table linking GTFSDataset to the validation report to avoid circular dependency warning from sqlacodegen
+CREATE TABLE ValidationReportGTFSDataset (
+    dataset_id VARCHAR(255) REFERENCES GTFSDataset(id),
+    validation_report_id VARCHAR(255) REFERENCES ValidationReport UNIQUE,
+    PRIMARY KEY (validation_report_id, dataset_id)
+);
 
 -- 3. Create custom type for severity
 CREATE TYPE severity_type AS ENUM ('ERROR', 'WARNING', 'INFO');
