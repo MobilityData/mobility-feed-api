@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import Optional
 
 import functions_framework
+import ast
 from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
@@ -57,6 +58,8 @@ class DatasetProcessor:
         execution_id,
         latest_hash,
         bucket_name,
+        authentication_type,
+        api_key_parameter_name,
     ):
         self.producer_url = producer_url
         self.bucket_name = bucket_name
@@ -64,7 +67,11 @@ class DatasetProcessor:
         self.feed_id = feed_id
         self.feed_stable_id = feed_stable_id
         self.execution_id = execution_id
+        self.authentication_type = authentication_type
+        self.api_key_parameter_name = api_key_parameter_name
         self.date = datetime.now().strftime("%Y%m%d%H%S")
+        feeds_credentials = ast.literal_eval(os.getenv("FEED_CREDENTIALS", "{}"))
+        self.feed_credentials = feeds_credentials.get(self.feed_stable_id, None)
 
         self.init_status = None
         self.init_status_additional_data = None
@@ -83,7 +90,13 @@ class DatasetProcessor:
         """
         Downloads the content of a URL and return the hash of the file
         """
-        return download_and_get_hash(self.producer_url, temporary_file_path)
+        return download_and_get_hash(
+            self.producer_url,
+            temporary_file_path,
+            authentication_type=self.authentication_type,
+            api_key_parameter_name=self.api_key_parameter_name,
+            credentials=self.feed_credentials,
+        )
 
     def upload_file_to_storage(self, source_file_path, target_path):
         """
@@ -304,6 +317,8 @@ def process_dataset(cloud_event: CloudEvent):
             execution_id,
             json_payload["dataset_hash"],
             bucket_name,
+            int(json_payload["authentication_type"]),
+            json_payload["api_key_parameter_name"],
         )
         dataset_file = processor.process()
     except Exception as e:

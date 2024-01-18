@@ -92,10 +92,10 @@ data "google_iam_policy" "secret_access_function_batch_datasets" {
 
 # Grant permissions to the service account to access the secrets based on the function config
 resource "google_secret_manager_secret_iam_policy" "policy_function_batch_datasets" {
-  for_each = { for x in local.function_batch_datasets_config.secret_environment_variables : x.key => x }
+  for_each = { for x in local.function_batch_process_dataset_config.secret_environment_variables : x.key => x }
 
   project     = var.project_id
-  secret_id   = "${upper(var.environment)}_${each.key}"
+  secret_id   = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
   policy_data = data.google_iam_policy.secret_access_function_batch_datasets.policy_data
 }
 
@@ -147,7 +147,7 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
         version    = "latest"
       }
     }
@@ -252,11 +252,11 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       ENVIRONMENT         = var.environment
     }
     dynamic "secret_environment_variables" {
-      for_each = local.function_batch_datasets_config.secret_environment_variables
+      for_each = local.function_batch_process_dataset_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
         version    = "latest"
       }
     }
