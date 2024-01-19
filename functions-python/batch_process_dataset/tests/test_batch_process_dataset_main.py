@@ -6,7 +6,11 @@ import unittest
 from hashlib import sha256
 from typing import Final
 from unittest.mock import patch, MagicMock, Mock, mock_open
-from batch_process_dataset.src.main import DatasetProcessor, DatasetFile, process_dataset
+from batch_process_dataset.src.main import (
+    DatasetProcessor,
+    DatasetFile,
+    process_dataset,
+)
 from database_gen.sqlacodegen_models import Gtfsfeed
 from test_utils.database_utils import get_testing_session, default_db_url
 from cloudevents.http import CloudEvent
@@ -22,20 +26,23 @@ def create_cloud_event(mock_data):
     # Helper function to create a mock CloudEvent
     # Convert data to JSON and then to base64
     encoded_data = base64.b64encode(json.dumps(mock_data).encode()).decode()
-    return CloudEvent({
-        "type": "event.type",
-        "source": "event.source",
-        "id": "event-id",
-        "time": "2021-08-19T12:34:56Z",
-        "subject": "event/subject"
-    }, {'message': {'data': encoded_data}})
+    return CloudEvent(
+        {
+            "type": "event.type",
+            "source": "event.source",
+            "id": "event-id",
+            "time": "2021-08-19T12:34:56Z",
+            "subject": "event/subject",
+        },
+        {"message": {"data": encoded_data}},
+    )
 
 
 class TestDatasetProcessor(unittest.TestCase):
     @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
     @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
     def test_upload_dataset_diff_hash(
-            self, mock_download_url_content, upload_file_to_storage
+        self, mock_download_url_content, upload_file_to_storage
     ):
         """
         Test upload_dataset method of DatasetProcessor class with different hash from the latest one
@@ -69,7 +76,7 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
     @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
     def test_upload_dataset_same_hash(
-            self, mock_download_url_content, upload_file_to_storage
+        self, mock_download_url_content, upload_file_to_storage
     ):
         """
         Test upload_dataset method of DatasetProcessor class with the hash from the latest one
@@ -100,7 +107,7 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
     @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
     def test_upload_dataset_download_exception(
-            self, mock_download_url_content, upload_file_to_storage
+        self, mock_download_url_content, upload_file_to_storage
     ):
         """
         Test upload_dataset method of DatasetProcessor class with the hash from the latest one
@@ -139,15 +146,19 @@ class TestDatasetProcessor(unittest.TestCase):
         # Mock open function
         mock_file = mock_open()
 
-        with patch('google.cloud.storage.Client', return_value=mock_client), patch('builtins.open', mock_file):
-            processor = DatasetProcessor(public_url,
-                                         "feed_id",
-                                         "feed_stable_id",
-                                         "execution_id",
-                                         "latest_hash",
-                                         bucket_name,
-                                         0,
-                                         None, )
+        with patch("google.cloud.storage.Client", return_value=mock_client), patch(
+            "builtins.open", mock_file
+        ):
+            processor = DatasetProcessor(
+                public_url,
+                "feed_id",
+                "feed_stable_id",
+                "execution_id",
+                "latest_hash",
+                bucket_name,
+                0,
+                None,
+            )
             result = processor.upload_file_to_storage(source_file_path, target_path)
 
             self.assertEqual(result.public_url, public_url)
@@ -180,14 +191,16 @@ class TestDatasetProcessor(unittest.TestCase):
             latest_hash,
             bucket_name,
             authentication_type,
-            api_key_parameter_name
+            api_key_parameter_name,
         )
 
-        processor.upload_dataset = MagicMock(return_value=DatasetFile(
-            stable_id="test_stable_id",
-            file_sha256_hash=new_hash,
-            hosted_url="https://example.com/new_data"
-        ))
+        processor.upload_dataset = MagicMock(
+            return_value=DatasetFile(
+                stable_id="test_stable_id",
+                file_sha256_hash=new_hash,
+                hosted_url="https://example.com/new_data",
+            )
+        )
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
         result = processor.process()
@@ -214,7 +227,7 @@ class TestDatasetProcessor(unittest.TestCase):
             latest_hash,
             bucket_name,
             authentication_type,
-            api_key_parameter_name
+            api_key_parameter_name,
         )
 
         processor.upload_dataset = MagicMock(return_value=None)
@@ -224,24 +237,26 @@ class TestDatasetProcessor(unittest.TestCase):
         self.assertIsNone(result)
         processor.create_dataset.assert_not_called()
 
-    @patch('batch_process_dataset.src.main.Logger')
-    @patch('batch_process_dataset.src.main.DatasetTraceService')
-    @patch('batch_process_dataset.src.main.DatasetProcessor')
-    def test_process_dataset_normal_execution(self, mock_dataset_processor, mock_dataset_trace, _):
+    @patch("batch_process_dataset.src.main.Logger")
+    @patch("batch_process_dataset.src.main.DatasetTraceService")
+    @patch("batch_process_dataset.src.main.DatasetProcessor")
+    def test_process_dataset_normal_execution(
+        self, mock_dataset_processor, mock_dataset_trace, _
+    ):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
 
         # Mock data for the CloudEvent
         mock_data = {
-                    "execution_id": "test_execution_id",
-                    "producer_url": "https://testproducer.com/data",
-                    "feed_stable_id": "test_stable_id",
-                    "feed_id": "test_feed_id",
-                    "dataset_id": "test_dataset_id",
-                    "dataset_hash": "test_dataset_hash",
-                    "authentication_type": 0,
-                    "api_key_parameter_name": None,
-                }
+            "execution_id": "test_execution_id",
+            "producer_url": "https://testproducer.com/data",
+            "feed_stable_id": "test_stable_id",
+            "feed_id": "test_feed_id",
+            "dataset_id": "test_dataset_id",
+            "dataset_hash": "test_dataset_hash",
+            "authentication_type": 0,
+            "api_key_parameter_name": None,
+        }
 
         cloud_event = create_cloud_event(mock_data)
 
