@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# This script executes all project tests.
+# This script executes all project tests and generates coverage reports.
 # By default all tests are executed, if you need to execute a single test file, pass the test file name as a parameter.
 # All test are expected to be inside the directory <project_folder>/tests.
 # Usage:
@@ -62,7 +62,18 @@ execute_tests() {
   python -m virtualenv venv >/dev/null
   venv/bin/python -m pip install -r requirements.txt >/dev/null
   venv/bin/python -m pip install -r requirements_dev.txt >/dev/null
-  venv/bin/python -m pytest  -W 'ignore::DeprecationWarning'  tests
+  venv/bin/python -m pip install coverage >/dev/null  # Install coverage if not already installed
+
+  # Run tests with coverage
+  venv/bin/coverage run -m pytest -W 'ignore::DeprecationWarning' tests
+
+  # Generate coverage report
+  current_dir_name=$(basename "$(pwd)")
+  mkdir $ABS_SCRIPTPATH/coverage_reports/$current_dir_name
+  venv/bin/coverage report > $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/report.txt
+  echo "** COVERAGE REPORT FOR $1 **"
+  cat $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/report.txt
+
   # Fail if tests fail
   if [ $? -ne 0 ]; then
     printf "\nTests failed in $1\n"
