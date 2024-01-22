@@ -1,14 +1,14 @@
 import hashlib
 import os
 import unittest
-from unittest.mock import Mock, ANY, MagicMock
+from unittest.mock import Mock, MagicMock
 from unittest.mock import patch
-import pytest
 
+import pytest
 import urllib3_mock
 
 from helpers.logger import Logger
-from helpers.utils import create_bucket, download_url_content, download_and_get_hash
+from helpers.utils import create_bucket, download_and_get_hash
 
 responses = urllib3_mock.Responses("requests.packages.urllib3")
 
@@ -41,21 +41,6 @@ class TestHelpers(unittest.TestCase):
             "test-bucket"
         )
         mock_storage_client.return_value.create_bucket.assert_not_called()
-
-    # @patch("requests.Session")
-    # def test_download_url_content(self, mock_session):
-    #     mock_response = Mock()
-    #     mock_response.raise_for_status.return_value = None
-    #     mock_response.content = b"test content"
-    #     mock_session.return_value.get.return_value = mock_response
-    #
-    #     url = "https://test.com"
-    #     result = download_url_content(url)
-    #
-    #     assert result == b"test content"
-    #     mock_session.return_value.get.assert_called_with(
-    #         url, headers=ANY, verify=False, timeout=120, stream=True
-    #     )
 
     def test_download_and_get_hash(self):
         mock_binary_data = b"file content data"
