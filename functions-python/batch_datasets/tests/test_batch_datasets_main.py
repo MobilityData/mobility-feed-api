@@ -37,7 +37,7 @@ def test_get_active_feeds():
         "FEEDS_DATABASE_URL": default_db_url,
         "FEEDS_PUBSUB_TOPIC_NAME": "test_topic",
         "ENVIRONMENT": "test",
-        "FEEDS_LIMIT": "5"
+        "FEEDS_LIMIT": "5",
     },
 )
 @patch("batch_datasets.src.main.publish")
@@ -47,10 +47,10 @@ def test_batch_datasets(mock_client, mock_publish):
     with get_testing_session() as session:
         active_feeds = get_active_feeds(session)
         with patch(
-                "dataset_service.main.BatchExecutionService.__init__", return_value=None
+            "dataset_service.main.BatchExecutionService.__init__", return_value=None
         ):
             with patch(
-                    "dataset_service.main.BatchExecutionService.save", return_value=None
+                "dataset_service.main.BatchExecutionService.save", return_value=None
             ):
                 batch_datasets(Mock())
                 assert mock_publish.call_count == 3

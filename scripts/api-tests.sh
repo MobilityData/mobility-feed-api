@@ -37,6 +37,7 @@ ABS_SCRIPTPATH="$(
 TEST_FILE=""
 FOLDER=""
 HTML_REPORT=false
+COVERAGE_THRESHOLD=85
 
 # color codes for easier reading
 RED='\033[0;31m'
@@ -99,6 +100,12 @@ execute_tests() {
   # Run tests with coverage
   venv/bin/coverage run --branch -m pytest -W 'ignore::DeprecationWarning' tests
 
+  # Fail if tests fail
+  if [ $? -ne 0 ]; then
+    printf "\n${RED}Tests failed in $1${NC}\n"
+    exit 1
+  fi
+
   # Generate coverage report
   current_dir_name=$(basename "$(pwd)")
   mkdir $ABS_SCRIPTPATH/coverage_reports
@@ -112,23 +119,16 @@ execute_tests() {
     venv/bin/coverage html -d $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/html
   fi
 
-  # Fail if tests fail
-  if [ $? -ne 0 ]; then
-    printf "\n${RED}Tests failed in $1${NC}\n"
-    exit 1
-  fi
-  printf "${GREEN}All tests passed${NC}\n"
-
   # Extract the total coverage percentage
   coverage_percentage=$(venv/bin/coverage report | grep 'TOTAL' | awk '{print $NF}' | sed 's/%//')
   printf "Current branch coverage is $coverage_percentage%%\n"
 
-  # Fail if branch coverage is under 80%
-  if [ "$coverage_percentage" -lt 80 ]; then
-    printf "\n${RED}Branch coverage of $coverage_percentage%% is below the 80%% threshold${NC}\n"
+  # Fail if branch coverage is under the threshold
+  if [ "$coverage_percentage" -lt "$COVERAGE_THRESHOLD" ]; then
+    printf "\n${RED}Branch coverage of $coverage_percentage%% is below the $COVERAGE_THRESHOLD%% threshold${NC}\n"
     exit 1
   fi
-  printf "\n${GREEN}Branch coverage of $coverage_percentage%% is above or equal to the 80%% threshold${NC}\n"
+  printf "\n${GREEN}Branch coverage of $coverage_percentage%% is above or equal to the $COVERAGE_THRESHOLD%% threshold${NC}\n"
 }
 
 if [[ ! -z "${TEST_FILE}" && ! -z "${FOLDER}" ]]; then
@@ -166,16 +166,13 @@ execute_python_tests() {
 # if no parameters is passed, execute all API tests
 if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
   execute_tests "../api"
-  exit 1
 fi
 
 if [[ ! -z "${TEST_FILE}" ]]; then
   execute_tests "../$TEST_FILE"
-  exit 0
 fi
 
 if [[ ! -z "${FOLDER}" ]]; then
-  # if folder starts with functions-python, execute python tests
   if [[ "${FOLDER}" == "functions-python"* ]]; then
     execute_python_tests "$FOLDER"
   else
@@ -183,3 +180,5 @@ if [[ ! -z "${FOLDER}" ]]; then
   fi
 fi
 
+printf "\n${GREEN}All tests passed successfully.${NC}\n"
+exit 0
