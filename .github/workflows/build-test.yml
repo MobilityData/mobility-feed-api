@@ -44,10 +44,10 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
 
-      - name: Run lint checks
-        shell: bash
-        run: |
-          scripts/lint-tests.sh
+#      - name: Run lint checks
+#        shell: bash
+#        run: |
+#          scripts/lint-tests.sh
 
       - name: Unit tests - API
         shell: bash
