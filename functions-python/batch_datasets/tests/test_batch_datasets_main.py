@@ -16,6 +16,7 @@
 import json
 import os
 from unittest import mock
+import pytest
 from unittest.mock import Mock, patch, MagicMock
 from batch_datasets.src.main import get_active_feeds, batch_datasets
 from test_utils.database_utils import get_testing_session, default_db_url
@@ -32,7 +33,12 @@ def test_get_active_feeds():
 
 @mock.patch.dict(
     os.environ,
-    {"FEEDS_DATABASE_URL": default_db_url, "FEEDS_PUBSUB_TOPIC_NAME": "test_topic"},
+    {
+        "FEEDS_DATABASE_URL": default_db_url,
+        "FEEDS_PUBSUB_TOPIC_NAME": "test_topic",
+        "ENVIRONMENT": "test",
+        "FEEDS_LIMIT": "5"
+    },
 )
 @patch("batch_datasets.src.main.publish")
 @patch("batch_datasets.src.main.get_pubsub_client")
@@ -41,10 +47,10 @@ def test_batch_datasets(mock_client, mock_publish):
     with get_testing_session() as session:
         active_feeds = get_active_feeds(session)
         with patch(
-            "dataset_service.main.BatchExecutionService.__init__", return_value=None
+                "dataset_service.main.BatchExecutionService.__init__", return_value=None
         ):
             with patch(
-                "dataset_service.main.BatchExecutionService.save", return_value=None
+                    "dataset_service.main.BatchExecutionService.save", return_value=None
             ):
                 batch_datasets(Mock())
                 assert mock_publish.call_count == 3
@@ -57,3 +63,13 @@ def test_batch_datasets(mock_client, mock_publish):
                     assert message["feed_stable_id"] in [
                         feed.stable_id for feed in active_feeds
                     ]
+
+
+@patch("batch_datasets.src.main.start_db_session")
+def test_batch_datasets_exception(start_db_session_mock):
+    exception_message = "Failure occurred"
+    start_db_session_mock.side_effect = Exception(exception_message)
+    with pytest.raises(Exception) as exec_info:
+        batch_datasets(Mock())
+
+        assert str(exec_info.value) == exception_message

@@ -149,8 +149,8 @@ class TestHelpers(unittest.TestCase):
                 "GET", modified_url, preload_content=False, headers={}
             )
 
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
     def test_download_and_get_hash_exception(self):
         file_path = "test_file.txt"
@@ -161,8 +161,7 @@ class TestHelpers(unittest.TestCase):
         ):
             with pytest.raises(Exception) as exec_info:
                 download_and_get_hash(url, file_path, "sha256", 8192)
+                self.assertEqual("Network error", str(exec_info.value))
 
-            self.assertEqual("Network error", str(exec_info.value))
-
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
