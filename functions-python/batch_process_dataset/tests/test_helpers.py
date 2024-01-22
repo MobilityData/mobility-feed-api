@@ -3,6 +3,7 @@ import os
 import unittest
 from unittest.mock import Mock, ANY, MagicMock
 from unittest.mock import patch
+import pytest
 
 import urllib3_mock
 
@@ -152,19 +153,19 @@ class TestHelpers(unittest.TestCase):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-    # def test_download_and_get_hash_exception(self):
-    #     file_path = "test_file.txt"
-    #     url = "https://test.com/"
-    #
-    #     with patch(
-    #         "urllib3.PoolManager.request", side_effect=Exception("Network error")
-    #     ):
-    #         with pytest.raises(Exception) as exec_info:
-    #             download_and_get_hash(url, file_path, "sha256", 8192)
-    #             self.assertEqual("Network error", str(exec_info.value))
-    #
-    #     if os.path.exists(file_path):
-    #         os.remove(file_path)
+    def test_download_and_get_hash_exception(self):
+        file_path = "test_file.txt"
+        url = "https://test.com/"
+
+        with patch(
+            "urllib3.PoolManager.request", side_effect=Exception("Network error")
+        ):
+            with pytest.raises(Exception) as exec_info:
+                download_and_get_hash(url, file_path, "sha256", 8192)
+                self.assertEqual("Network error", str(exec_info.value))
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
     @patch("google.cloud.logging.Client")
     def test_logger_initialization(self, mock_client):
