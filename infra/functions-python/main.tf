@@ -164,17 +164,17 @@ resource "google_cloud_run_service_iam_member" "tokens_cloud_run_invoker" {
 }
 
 # Permissions on the service account used by the function and Eventarc trigger
-resource "google_project_iam_member" "invoking" {
-  project = var.project_id
-  role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
-}
+#resource "google_project_iam_member" "invoking" {
+#  project = var.project_id
+#  role    = "roles/run.invoker"
+#  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+#}
 
 resource "google_project_iam_member" "event-receiving" {
   project = var.project_id
   role    = "roles/eventarc.eventReceiver"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
-  depends_on = [google_project_iam_member.invoking]
+#  depends_on = [google_project_iam_member.invoking]
 }
 
 resource "google_project_iam_member" "artifactregistry-reader" {
