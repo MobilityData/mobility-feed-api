@@ -111,6 +111,7 @@ resource "google_cloudfunctions2_function" "extract_bb" {
 
   event_trigger {
     event_type = "google.cloud.audit.log.v1.written"
+    service_account_email = google_service_account.functions_service_account.email
     event_filters {
       attribute = "serviceName"
       value = "storage.googleapis.com"
