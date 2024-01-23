@@ -107,6 +107,7 @@ resource "google_cloudfunctions2_function" "extract_bb" {
   name        = local.function_extract_bb_config.name
   description = local.function_extract_bb_config.description
   location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving]
 
   event_trigger {
     event_type = "google.cloud.audit.log.v1.written"
