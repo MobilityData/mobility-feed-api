@@ -109,7 +109,6 @@ resource "google_cloudfunctions2_function" "extract_bb" {
   location    = var.gcp_region
 
   event_trigger {
-    event_type = "google.cloud.storage.object.v1.finalized"
     event_filters {
       attribute = "resourceName"
       value     = "/projects/_/buckets/${var.datasets_bucket_name}-${var.environment}/**/{filename=mdb-*.zip}"

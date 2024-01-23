@@ -66,64 +66,64 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
-      - name: Authenticate to Google Cloud
-        id: gcloud_auth
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: Login to Google Artifact Registry
-        uses: docker/login-action@v2
-        with:
-          registry: us-central1-docker.pkg.dev
-          username: _json_key_base64
-          password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: Set up JDK ${{ env.java_version }}
-        uses: actions/setup-java@v3
-        with:
-          java-version: ${{ env.java_version }}
-          distribution: 'temurin'
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.python_version }}
-
-      - name: Update .env file
-        run: |
-          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
-          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
-          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
-          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
-          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
-          echo "POSTGRES_HOST=localhost" >> config/.env.local
-          echo "ENV=dev" >> config/.env.local
-
-      - name: Docker Compose DB/Liquibase for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local up -d liquibase
-        working-directory: ${{ github.workspace }}
-
-      - name: Generate DB code
-        run: |
-          scripts/db-gen.sh
-
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
-
-      - name: Set Variables
-        run: |
-          echo "Setting variables"
-          echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
-          echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
-          echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
-          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV        
-
-      - name: Build & Publish Docker Image
-        run: |
-          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION     
+# TODO: uncomment before merge
+#      - name: Authenticate to Google Cloud
+#        id: gcloud_auth
+#        uses: google-github-actions/auth@v1
+#        with:
+#          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#      - name: Login to Google Artifact Registry
+#        uses: docker/login-action@v2
+#        with:
+#          registry: us-central1-docker.pkg.dev
+#          username: _json_key_base64
+#          password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#      - name: Set up JDK ${{ env.java_version }}
+#        uses: actions/setup-java@v3
+#        with:
+#          java-version: ${{ env.java_version }}
+#          distribution: 'temurin'
+#
+#      - uses: actions/setup-python@v4
+#        with:
+#          python-version: ${{ env.python_version }}
+#
+#      - name: Update .env file
+#        run: |
+#          echo "POSTGRES_USER=${{ env.local_postgres_user }}" > config/.env.local
+#          echo "PGUSER=${{ env.local_postgres_user }}" >> config/.env.local
+#          echo "POSTGRES_PASSWORD=${{ env.local_postgres_pwd }}" >> config/.env.local
+#          echo "POSTGRES_DB=${{ env.local_postgres_db }}" >> config/.env.local
+#          echo "POSTGRES_PORT=${{ env.local_postgres_port }}" >> config/.env.local
+#          echo "POSTGRES_HOST=localhost" >> config/.env.local
+#          echo "ENV=dev" >> config/.env.local
+#
+#      - name: Docker Compose DB/Liquibase for db-gen.sh
+#        run: docker-compose --env-file ./config/.env.local up -d liquibase
+#        working-directory: ${{ github.workspace }}
+#
+#      - name: Generate DB code
+#        run: |
+#          scripts/db-gen.sh
+#
+#      - name: Generate API code
+#        run: |
+#          scripts/setup-openapi-generator.sh
+#          scripts/api-gen.sh
+#
+#      - name: Set Variables
+#        run: |
+#          echo "Setting variables"
+#          echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
+#          echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
+#          echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
+#          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV
+#
+#      - name: Build & Publish Docker Image
+#        run: |
+#          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
 
   terraform-deploy:
     runs-on: ubuntu-latest
