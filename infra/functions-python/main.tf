@@ -122,7 +122,7 @@ resource "google_cloudfunctions2_function" "extract_bb" {
     }
     event_filters {
       attribute = "resourceName"
-      value     = "/projects/${var.project_id}/buckets/${var.datasets_bucket_name}-${var.environment}/mdb-*/mdb-*/mdb-*.zip"
+      value     = "/projects/_/buckets/${var.datasets_bucket_name}-${var.environment}/objects/mdb-*.zip"
       operator = "match-path-pattern"
     }
   }
