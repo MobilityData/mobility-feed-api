@@ -1,0 +1,16 @@
+{
+  "name": "extract-bounding-box",
+  "description": "Retrieve all feeds and publish them to Pub/Sub for processing the datasets",
+  "entry_point": "hello_gcs",
+  "timeout": 20,
+  "memory": "256Mi",
+  "trigger_http": true,
+  "include_folders": ["database_gen", "helpers", "dataset_service"],
+  "environment_variables": [],
+  "secret_environment_variables": [],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 20,
+  "max_instance_count": 10,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}
