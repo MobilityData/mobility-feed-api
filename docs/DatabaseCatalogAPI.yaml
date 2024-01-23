@@ -93,9 +93,9 @@ paths:
         - $ref: "#/components/parameters/subdivision_name"
         - $ref: "#/components/parameters/municipality"
         - $ref: "#/components/parameters/sort"
-        - $ref: "#/components/parameters/datasetLatitudes"
-        - $ref: "#/components/parameters/datasetLongitudes"
-        - $ref: "#/components/parameters/boundingFilterMethod"
+        - $ref: "#/components/parameters/dataset_latitudes"
+        - $ref: "#/components/parameters/dataset_longitudes"
+        - $ref: "#/components/parameters/bounding_filter_method"
         - $ref: "#/components/parameters/order_by"
 
       security:
@@ -732,32 +732,32 @@ components:
         type: string
         example: +status
 
-    datasetLatitudes:
-      name: datasetLatitudes
+    dataset_latitudes:
+      name: dataset_latitudes
       in: query
       description: >
        Specify the minimum and maximum latitudes of the bounding box to use for filtering.
         <br>Filters by the bounding box of the `LatestDataset` for a feed.
-        <br>Must be specified alongside `datasetLongitudes`.
+        <br>Must be specified alongside `dataset_longitudes`.
       required: False
       schema:
         type: string
         example: 41.46,42.67
 
-    datasetLongitudes:
-      name: datasetLongitudes
+    dataset_longitudes:
+      name: dataset_longitudes
       in: query
       description: >
         Specify the minimum and maximum longitudes of the bounding box to use for filtering.
         <br>Filters by the bounding box of the `LatestDataset` for a feed.
-        <br>Must be specified alongside `datasetLatitudes`.
+        <br>Must be specified alongside `dataset_latitudes`.
       required: False
       schema:
         type: string
         example: -78.58,-87-29
 
-    boundingFilterMethod:
-      name: boundingFilterMethod
+    bounding_filter_method:
+      name: bounding_filter_method
       in: query
       required: False
       schema:
@@ -768,7 +768,7 @@ components:
           - disjoint
         default: completely_enclosed
       description: >
-        Specify the filtering method to use with the datasetLatitudes and datasetLongitudes parameters.
+        Specify the filtering method to use with the dataset_latitudes and dataset_longitudes parameters.
          * `completely_enclosed` - Get resources that are completely enclosed in the specified bounding box.
          * `partially_enclosed` - Get resources that are partially enclosed in the specified bounding box.
          * `disjoint` - Get resources that are completely outside the specified bounding box.
@@ -794,15 +794,6 @@ components:
       description: >
         Specify the optional field to sort records by.
       example: external_id
-
-    insideBoundingBox:
-      name: insideBoundingBox
-      in: query
-      description: Only include datasets where the specified geographical point is inside the bounding box
-      required: False
-      schema:
-        type: string
-        example: 43.71,-70.24
 
     latestQueryParam:
       name: latest
