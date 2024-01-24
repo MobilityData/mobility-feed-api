@@ -213,3 +213,10 @@ resource "google_project_iam_audit_config" "all-services" {
 output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
+
+resource "google_cloudfunctions2_function_iam_member" "extract_bb_invoker" {
+  cloud_function = google_cloudfunctions2_function.extract_bb.name
+  project        = var.project_id
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
