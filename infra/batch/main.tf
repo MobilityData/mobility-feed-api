@@ -121,6 +121,7 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
   name        = "${local.function_batch_datasets_config.name}-${var.environment}"
   description = local.function_batch_datasets_config.description
   location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_policy.policy_function_batch_datasets]
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_datasets_config.entry_point
@@ -230,6 +231,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
   name        = "${local.function_batch_process_dataset_config.name}-${var.environment}"
   description = local.function_batch_process_dataset_config.description
   location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_policy.policy_function_batch_datasets]
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_process_dataset_config.entry_point
