@@ -1,7 +1,7 @@
 {
   "name": "extract-bounding-box",
   "description": "Retrieve all feeds and publish them to Pub/Sub for processing the datasets",
-  "entry_point": "hello_gcs",
+  "entry_point": "extract_bounding_box",
   "timeout": 20,
   "memory": "256Mi",
   "trigger_http": true,
