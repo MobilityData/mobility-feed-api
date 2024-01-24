@@ -215,8 +215,17 @@ output "function_tokens_name" {
 }
 
 resource "google_cloudfunctions2_function_iam_member" "extract_bb_invoker" {
-  cloud_function = google_cloudfunctions2_function.extract_bb.name
   project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.extract_bb.name
   role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloud_run_service_iam_member" "extract_bb_cloud_run_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  service        = google_cloudfunctions2_function.extract_bb.name
+  role           = "roles/run.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
