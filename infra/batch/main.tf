@@ -92,12 +92,15 @@ data "google_iam_policy" "secret_access_function_batch_datasets" {
 }
 
 # Grant permissions to the service account to access the secrets based on the function config
-resource "google_secret_manager_secret_iam_policy" "policy_function_batch_datasets" {
-  for_each = { for x in local.function_batch_process_dataset_config.secret_environment_variables : x.key => x }
+resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
+  for_each = {
+    for x in local.function_batch_process_dataset_config.secret_environment_variables : x.key => x
+  }
 
-  project     = var.project_id
-  secret_id   = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
-  policy_data = data.google_iam_policy.secret_access_function_batch_datasets.policy_data
+  project    = var.project_id
+  secret_id  = "${upper(var.environment)}_${each.value.secret_id}"
+  role       = "roles/secretmanager.secretAccessor"
+  member     = "serviceAccount:${each.value.email}"
 }
 
 # Grant permissions to the service account to publish to the pubsub topic
@@ -121,7 +124,7 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
   name        = "${local.function_batch_datasets_config.name}-${var.environment}"
   description = local.function_batch_datasets_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_policy.policy_function_batch_datasets]
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_datasets_config.entry_point
@@ -231,7 +234,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
   name        = "${local.function_batch_process_dataset_config.name}-${var.environment}"
   description = local.function_batch_process_dataset_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_policy.policy_function_batch_datasets]
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_process_dataset_config.entry_point

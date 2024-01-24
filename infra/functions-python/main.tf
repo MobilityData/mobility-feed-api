@@ -57,14 +57,18 @@ data "google_iam_policy" "secret_access" {
   }
 }
 
-resource "google_secret_manager_secret_iam_policy" "policy" {
+resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   for_each = {
-    for x in concat(local.function_tokens_config.secret_environment_variables, local.function_extract_bb_config.secret_environment_variables) : x.key => x
+    for x in concat(local.function_tokens_config.secret_environment_variables, local.function_extract_bb_config.secret_environment_variables) : "${x.key}-${google_service_account.functions_service_account.email}" => {
+      secret_id = x.key
+      email = google_service_account.functions_service_account.email
+    }
   }
 
-  project = var.project_id
-  secret_id = "${upper(var.environment)}_${each.key}"
-  policy_data = data.google_iam_policy.secret_access.policy_data
+  project    = var.project_id
+  secret_id  = "${upper(var.environment)}_${each.value.secret_id}"
+  role       = "roles/secretmanager.secretAccessor"
+  member     = "serviceAccount:${each.value.email}"
 }
 
 # Cloud function definitions
@@ -109,7 +113,7 @@ resource "google_cloudfunctions2_function" "extract_bb" {
   name        = local.function_extract_bb_config.name
   description = local.function_extract_bb_config.description
   location    = var.gcp_region
-  depends_on = [google_project_iam_member.event-receiving]
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
 
   event_trigger {
     event_type = "google.cloud.audit.log.v1.written"
