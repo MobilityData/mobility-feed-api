@@ -14,7 +14,9 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
         The event ID, event type, bucket, name, metageneration, and timeCreated.
     """
     data = cloud_event.data
-
     print(f"data: {data}")
+    resource_name = data["resourceName"]
+    project_id = data["resource"]["labels"]["project_id"]
+    bucket_name = data["resource"]["labels"]["bucket_name"]
 
     return 'Yup'
