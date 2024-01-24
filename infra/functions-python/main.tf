@@ -66,7 +66,7 @@ resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   }
 
   project    = var.project_id
-  secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
+  secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.key}")
   role       = "roles/secretmanager.secretAccessor"
   member     = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
