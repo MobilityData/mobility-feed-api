@@ -58,7 +58,9 @@ data "google_iam_policy" "secret_access" {
 }
 
 resource "google_secret_manager_secret_iam_policy" "policy" {
-  for_each = { for x in local.function_tokens_config.secret_environment_variables: x.key => x }
+  for_each = {
+    for x in concat(local.function_tokens_config.secret_environment_variables, local.function_extract_bb_config.secret_environment_variables) : x.key => x
+  }
 
   project = var.project_id
   secret_id = "${upper(var.environment)}_${each.key}"
@@ -146,6 +148,15 @@ resource "google_cloudfunctions2_function" "extract_bb" {
     min_instance_count = local.function_extract_bb_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
     ingress_settings = local.function_extract_bb_config.ingress_settings
+    dynamic "secret_environment_variables" {
+      for_each = local.function_extract_bb_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
   }
 }
 
