@@ -2,7 +2,7 @@
   "name": "batch-process-dataset",
   "description": "Process datasets from the feed passed in the Pub/Sub event",
   "entry_point": "process_dataset",
-  "timeout": 900,
+  "timeout": 540,
   "memory": "2Gi",
   "trigger_http": true,
   "include_folders": ["database_gen", "helpers", "dataset_service"],
