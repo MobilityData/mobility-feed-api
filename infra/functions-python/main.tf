@@ -106,7 +106,7 @@ resource "google_cloudfunctions2_function" "tokens" {
 resource "google_cloudfunctions2_function" "extract_bb" {
   name        = local.function_extract_bb_config.name
   description = local.function_extract_bb_config.description
-  location    = var.gcp_region
+  location    = "us"
   depends_on = [google_project_iam_member.event-receiving]
 
   event_trigger {
