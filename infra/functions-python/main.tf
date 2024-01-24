@@ -59,10 +59,8 @@ data "google_iam_policy" "secret_access" {
 
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   for_each = {
-    for x in concat(local.function_tokens_config.secret_environment_variables, local.function_extract_bb_config.secret_environment_variables) : "${x.key}-${google_service_account.functions_service_account.email}" => {
-      secret_id = x.key
-      email = google_service_account.functions_service_account.email
-    }
+    for x in concat(local.function_tokens_config.secret_environment_variables, local.function_extract_bb_config.secret_environment_variables) :
+    x.key => x
   }
 
   project    = var.project_id
