@@ -3,7 +3,7 @@
   "description": "Retrieve all feeds and publish them to Pub/Sub for processing the datasets",
   "entry_point": "extract_bounding_box",
   "timeout": 20,
-  "memory": "256Mi",
+  "memory": "2Gi",
   "trigger_http": true,
   "include_folders": ["database_gen", "helpers", "dataset_service"],
   "environment_variables": [],
