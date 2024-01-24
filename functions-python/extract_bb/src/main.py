@@ -19,11 +19,9 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
     stable_id = resource_name.split('/')[-3]
     folder_id = resource_name.split('/')[-2]
     file_name = resource_name.split('/')[-1]
-    url = f"https://storage.googleapis.com/{stable_id}/{folder_id}/{file_name}"
-
-    print(f"url: {url}")
-    project_id = data["resource"]["labels"]["project_id"]
     bucket_name = data["resource"]["labels"]["bucket_name"]
+    url = f"https://storage.googleapis.com/{bucket_name}/{stable_id}/{folder_id}/{file_name}"
+    print(f"url: {url}")
 
     feed = gtfs_kit.read_feed(url, 'km')
     min_longitude, min_latitude, max_longitude, max_latitude = feed.compute_bounds()
