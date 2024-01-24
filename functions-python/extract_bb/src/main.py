@@ -15,8 +15,8 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
     """
     data = cloud_event.data
     print(f"data: {data}")
-    resource_name = data["resourceName"]
-    project_id = data["resource"]["labels"]["project_id"]
-    bucket_name = data["resource"]["labels"]["bucket_name"]
+    resource_name = data["protoPayload"]["resourceName"]
+    project_id = data["protoPayload"]["resource"]["labels"]["project_id"]
+    bucket_name = data["protoPayload"]["resource"]["labels"]["bucket_name"]
 
     return 'Yup'

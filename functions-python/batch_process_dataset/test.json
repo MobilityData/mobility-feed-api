@@ -1,0 +1,73 @@
+{
+  "@type": "type.googleapis.com/google.events.cloud.audit.v1.LogEntryData",
+  "protoPayload": {
+    "status": {},
+    "authenticationInfo": {
+      "principalEmail": "batchfunctions-service-account@mobility-feeds-dev.iam.gserviceaccount.com",
+      "serviceAccountDelegationInfo": [
+        {
+          "firstPartyPrincipal": {
+            "principalEmail": "service-978785769226@serverless-robot-prod.iam.gserviceaccount.com",
+            "serviceMetadata": {}
+          }
+        }
+      ]
+    },
+    "requestMetadata": {
+      "callerIp": "2600:1900:2000:a4::1:1e01",
+      "callerSuppliedUserAgent": "gcloud-python/2.14.0  gl-python/3.10.13 grpc/1.60.0 gax/2.15.0 gccl/2.14.0,gzip(gfe)",
+      "requestAttributes": {
+        "time": "2024-01-24T18:00:09.619375706Z",
+        "auth": {}
+      },
+      "destinationAttributes": {}
+    },
+    "serviceName": "storage.googleapis.com",
+    "methodName": "storage.objects.create",
+    "authorizationInfo": [
+      {
+        "resource": "projects/_/buckets/mobilitydata-datasets-dev/objects/mdb-9/mdb-9-202401241808/mdb-9-202401241808.zip",
+        "permission": "storage.objects.delete",
+        "granted": True,
+        "resourceAttributes": {}
+      },
+      {
+        "resource": "projects/_/buckets/mobilitydata-datasets-dev/objects/mdb-9/mdb-9-202401241808/mdb-9-202401241808.zip",
+        "permission": "storage.objects.create",
+        "granted": True,
+        "resourceAttributes": {}
+      }
+    ],
+    "resourceName": "projects/_/buckets/mobilitydata-datasets-dev/objects/mdb-9/mdb-9-202401241808/mdb-9-202401241808.zip",
+    "serviceData": {
+      "policyDelta": {
+        "bindingDeltas": [
+          {
+            "role": "roles/storage.legacyObjectOwner",
+            "action": "ADD",
+            "member": "serviceAccount:batchfunctions-service-account@mobility-feeds-dev.iam.gserviceaccount.com"
+          }
+        ]
+      },
+      ""@type"": "type.googleapis.com/google.iam.v1.logging.AuditData"
+    },
+    "resourceLocation": {
+      "currentLocations": [
+        "us-central1"
+      ]
+    }
+  },
+  "insertId": "1l5xfj6e1da3h",
+  "resource": {
+    "type": "gcs_bucket",
+    "labels": {
+      "location": "us-central1",
+      "project_id": "mobility-feeds-dev",
+      "bucket_name": "mobilitydata-datasets-dev"
+    }
+  },
+  "timestamp": "2024-01-24T18:00:09.609739308Z",
+  "severity": "INFO",
+  "logName": "projects/mobility-feeds-dev/logs/cloudaudit.googleapis.com%2Fdata_access",
+  "receiveTimestamp": "2024-01-24T18:00:10.203162143Z"
+}
