@@ -46,7 +46,8 @@ resource "google_service_account" "functions_service_account" {
 # Cloud storage bucket to store the datasets
 resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
-  location = "us"
+  location = "us-central1"
+  uniform_bucket_level_access = true
 }
 
 # Grant permissions to the service account to access the datasets bucket
