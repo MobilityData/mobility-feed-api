@@ -48,7 +48,7 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         dataset: Gtfsdataset | None = (
             session.query(Gtfsdataset)
-            .filter_by(Gtfsdataset.stable_id == dataset_id)
+            .filter(Gtfsdataset.stable_id == dataset_id)
             .one_or_none()
         )
         if dataset is None:
