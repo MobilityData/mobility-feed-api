@@ -135,7 +135,15 @@ jobs:
 
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.python_version }} 
+          python-version: ${{ env.python_version }}
+
+      - name: Docker Compose DB/Liquibase for db-gen.sh
+        run: docker-compose --env-file ./config/.env.local up -d liquibase
+        working-directory: ${{ github.workspace }}
+
+      - name: Generate DB code
+        run: |
+          scripts/db-gen.sh
 
       - name: Build python functions
         run: |
