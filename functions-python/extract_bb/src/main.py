@@ -94,7 +94,7 @@ def extract_bounding_box(cloud_event: CloudEvent) -> None:
     stable_id, dataset_id, url = parse_resource_data(data)
     logging.info(f"[{dataset_id}] accessing url: {url}")
 
-    bounds = get_gtfs_feed_bounds(url)
+    bounds = get_gtfs_feed_bounds(url, dataset_id)
     logging.info(f"[{dataset_id}] extracted bounding = {bounds}")
 
     geometry_polygon = create_polygon_wkt_element(bounds)
