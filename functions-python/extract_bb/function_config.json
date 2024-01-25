@@ -1,11 +1,11 @@
 {
   "name": "extract-bounding-box",
-  "description": "Retrieve all feeds and publish them to Pub/Sub for processing the datasets",
+  "description": "Extracts the bounding box from a dataset",
   "entry_point": "extract_bounding_box",
-  "timeout": 20,
+  "timeout": 540,
   "memory": "2Gi",
-  "trigger_http": true,
-  "include_folders": ["database_gen", "helpers", "dataset_service"],
+  "trigger_http": false,
+  "include_folders": ["database_gen", "helpers"],
   "environment_variables": [],
   "secret_environment_variables": [
     {
