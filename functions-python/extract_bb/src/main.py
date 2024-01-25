@@ -40,7 +40,7 @@ def get_gtfs_feed_bounds(url: str, dataset_id: str) -> numpy.ndarray:
         feed = gtfs_kit.read_feed(url, "km")
         return feed.compute_bounds()
     except Exception as e:
-        print(f"[{dataset_id}] Error retrieving GTFS feed from {url}:\n {str(e)}")
+        print(f"[{dataset_id}] Error retrieving GTFS feed from {url}: {e}")
         raise Exception(e)
 
 
@@ -104,7 +104,7 @@ def extract_bounding_box(cloud_event: CloudEvent) -> None:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         update_dataset_bounding_box(session, dataset_id, geometry_polygon)
     except Exception as e:
-        logging.error(f"{dataset_id}] Error while processing: \n{e}")
+        logging.error(f"{dataset_id}] Error while processing: {e}")
         if session is not None:
             session.rollback()
         raise e
