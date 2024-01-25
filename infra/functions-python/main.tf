@@ -48,14 +48,14 @@ resource "google_storage_bucket_object" "function_extract_bb_zip_object" {
 }
 
 # Secrets
-data "google_iam_policy" "secret_access" {
-  binding {
-    role = "roles/secretmanager.secretAccessor"
-    members = [
-      "serviceAccount:${google_service_account.functions_service_account.email}"
-    ]
-  }
-}
+#data "google_iam_policy" "secret_access" {
+#  binding {
+#    role = "roles/secretmanager.secretAccessor"
+#    members = [
+#      "serviceAccount:${google_service_account.functions_service_account.email}"
+#    ]
+#  }
+#}
 
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   for_each = {

@@ -75,26 +75,26 @@ provider "google-beta" {
 
 provider "external" {}
 
-module "artifact-registry" {
-  project_id  = var.project_id
-  gcp_region  = var.gcp_region
-  environment = var.environment
+#module "artifact-registry" {
+#  project_id  = var.project_id
+#  gcp_region  = var.gcp_region
+#  environment = var.environment
+#
+#  source = "./artifact-registry"
+#}
 
-  source = "./artifact-registry"
-}
-
-module "feed-api" {
-  depends_on  = [module.artifact-registry]
-  project_id  = var.project_id
-  gcp_region  = var.gcp_region
-  environment = var.environment
-
-  docker_repository_name = module.artifact-registry.feed_repository_name
-  feed_api_service       = "feed-api"
-  feed_api_image_version = var.feed_api_image_version
-
-  source = "./feed-api"
-}
+#module "feed-api" {
+#  depends_on  = [module.artifact-registry]
+#  project_id  = var.project_id
+#  gcp_region  = var.gcp_region
+#  environment = var.environment
+#
+#  docker_repository_name = module.artifact-registry.feed_repository_name
+#  feed_api_service       = "feed-api"
+#  feed_api_image_version = var.feed_api_image_version
+#
+#  source = "./feed-api"
+#}
 
 module "functions-python" {
   source = "./functions-python"
@@ -104,18 +104,18 @@ module "functions-python" {
 
 }
 
-module "feed-api-load-balancer" {
-  depends_on  = [module.feed-api, module.functions-python]
-  project_id  = var.project_id
-  gcp_region  = var.gcp_region
-  environment = var.environment
-
-  feed_api_name                    = module.feed-api.feed_api_name
-  oauth2_client_id                 = var.oauth2_client_id
-  oauth2_client_secret             = var.oauth2_client_secret
-  global_rate_limit_req_per_minute = var.global_rate_limit_req_per_minute
-
-  function_tokens_name = module.functions-python.function_tokens_name
-
-  source = "./load-balancer"
-}
+#module "feed-api-load-balancer" {
+#  depends_on  = [module.feed-api, module.functions-python]
+#  project_id  = var.project_id
+#  gcp_region  = var.gcp_region
+#  environment = var.environment
+#
+#  feed_api_name                    = module.feed-api.feed_api_name
+#  oauth2_client_id                 = var.oauth2_client_id
+#  oauth2_client_secret             = var.oauth2_client_secret
+#  global_rate_limit_req_per_minute = var.global_rate_limit_req_per_minute
+#
+#  function_tokens_name = module.functions-python.function_tokens_name
+#
+#  source = "./load-balancer"
+#}
