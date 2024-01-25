@@ -1,7 +1,7 @@
 [run]
 omit =
     */test*/*
-    */helpers/*
+    database.py
     */database_gen/*
     */dataset_service/*
 

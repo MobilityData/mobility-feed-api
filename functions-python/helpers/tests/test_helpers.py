@@ -8,7 +8,7 @@ import pytest
 import urllib3_mock
 
 from helpers.logger import Logger
-from helpers.utils import create_bucket, download_and_get_hash
+from helpers.utils import create_bucket, download_and_get_hash, download_url_content
 
 responses = urllib3_mock.Responses("requests.packages.urllib3")
 
@@ -160,3 +160,25 @@ class TestHelpers(unittest.TestCase):
         mock_client.assert_called()
         mock_client.return_value.logger.assert_called_with("test_logger")
         self.assertIsNotNone(logger.get_logger())
+
+    @patch("requests.Session.get")
+    def test_download_url_content_success(self, mock_get):
+        expected_content = b"test content"
+        mock_get.return_value = MagicMock(status_code=200, content=expected_content)
+
+        result = download_url_content("https://example.com")
+        self.assertEqual(
+            result, expected_content, "Content should match the expected content"
+        )
+
+    @patch("requests.Session.get")
+    def test_download_url_content_failure(self, mock_get):
+        mock_get.side_effect = Exception("Failed to download")
+
+        with self.assertRaises(Exception) as context:
+            download_url_content("https://example.com")
+        self.assertEqual(
+            str(context.exception),
+            "Failed to download",
+            "Should raise the correct exception",
+        )
