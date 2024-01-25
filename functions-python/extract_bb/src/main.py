@@ -22,14 +22,14 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
     data = cloud_event.data
     print(f"data: {data}")
     resource_name = data["protoPayload"]["resourceName"]
-    stable_id = resource_name.split('/')[-3]
-    dataset_id = resource_name.split('/')[-2]
-    file_name = resource_name.split('/')[-1]
+    stable_id = resource_name.split("/")[-3]
+    dataset_id = resource_name.split("/")[-2]
+    file_name = resource_name.split("/")[-1]
     bucket_name = data["resource"]["labels"]["bucket_name"]
     url = f"https://storage.googleapis.com/{bucket_name}/{stable_id}/{dataset_id}/{file_name}"
     print(f"url: {url}")
 
-    feed = gtfs_kit.read_feed(url, 'km')
+    feed = gtfs_kit.read_feed(url, "km")
     min_longitude, min_latitude, max_longitude, max_latitude = feed.compute_bounds()
 
     points = [
@@ -37,7 +37,7 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
         (min_longitude, max_latitude),  # Top-left
         (max_longitude, max_latitude),  # Top-right
         (max_longitude, min_latitude),  # Bottom-right
-        (min_longitude, min_latitude)  # Back to Bottom-left
+        (min_longitude, min_latitude),  # Back to Bottom-left
     ]
     wkt_polygon = f"POLYGON(({', '.join(f'{lon} {lat}' for lon, lat in points)}))"
     geometry_polygon = WKTElement(wkt_polygon, srid=4326)
@@ -45,7 +45,6 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
     print(f"min_longitude: {min_longitude}, min_latitude: {min_latitude}")
     session = None
     try:
-
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         dataset: Gtfsdataset | None = (
             session.query(Gtfsdataset)
@@ -64,4 +63,4 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
     finally:
         if session is not None:
             session.close()
-    return 'Yup'
+    return "Yup"

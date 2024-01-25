@@ -82,14 +82,14 @@ resource "google_storage_bucket_object" "batch_process_dataset_zip" {
   source = local.function_batch_process_dataset_zip
 }
 
-data "google_iam_policy" "secret_access_function_batch_datasets" {
-  binding {
-    role = "roles/secretmanager.secretAccessor"
-    members = [
-      "serviceAccount:${google_service_account.functions_service_account.email}"
-    ]
-  }
-}
+#data "google_iam_policy" "secret_access_function_batch_datasets" {
+#  binding {
+#    role = "roles/secretmanager.secretAccessor"
+#    members = [
+#      "serviceAccount:${google_service_account.functions_service_account.email}"
+#    ]
+#  }
+#}
 
 # Grant permissions to the service account to access the secrets based on the function config
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
