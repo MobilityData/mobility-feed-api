@@ -82,7 +82,6 @@ class Database:
                 self.logger.info("Starting new global database session.")
                 self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
                 global_session = sessionmaker(bind=self.engine)()
-                self.session = global_session
                 return global_session
         except Exception as error:
             raise Exception(f"Error creating database session: {error}")
