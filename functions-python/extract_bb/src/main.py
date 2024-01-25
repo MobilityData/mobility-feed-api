@@ -4,7 +4,7 @@ import functions_framework
 import gtfs_kit
 from cloudevents.http import CloudEvent
 
-from database_gen.sqlacodegen_models import Gtfsdataset
+# from database_gen.sqlacodegen_models import Gtfsdataset
 from helpers.database import start_db_session
 from geoalchemy2 import WKTElement
 
@@ -44,24 +44,24 @@ def extract_bounding_box(cloud_event: CloudEvent) -> str:
 
     print(f"min_longitude: {min_longitude}, min_latitude: {min_latitude}")
     session = None
-    try:
-
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        dataset: Gtfsdataset | None = (
-            session.query(Gtfsdataset)
-            .filter_by(Gtfsdataset.stable_id == dataset_id)
-            .one_or_none()
-        )
-        if dataset is None:
-            raise Exception(f"Dataset {dataset_id} does not exist in the database.")
-        dataset.bounding_box = geometry_polygon
-        session.add(dataset)
-        session.commit()
-    except Exception as e:
-        if session is not None:
-            session.rollback()
-        raise e
-    finally:
-        if session is not None:
-            session.close()
+    # try:
+    #
+    #     session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+    #     dataset: Gtfsdataset | None = (
+    #         session.query(Gtfsdataset)
+    #         .filter_by(Gtfsdataset.stable_id == dataset_id)
+    #         .one_or_none()
+    #     )
+    #     if dataset is None:
+    #         raise Exception(f"Dataset {dataset_id} does not exist in the database.")
+    #     dataset.bounding_box = geometry_polygon
+    #     session.add(dataset)
+    #     session.commit()
+    # except Exception as e:
+    #     if session is not None:
+    #         session.rollback()
+    #     raise e
+    # finally:
+    #     if session is not None:
+    #         session.close()
     return 'Yup'
