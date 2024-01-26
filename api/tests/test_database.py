@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy.orm import Query
+import os
 
 from database.database import Database
 from database_gen.sqlacodegen_models import Gtfsdataset
@@ -11,6 +12,7 @@ BASE_QUERY = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filte
     Gtfsdataset.stable_id == TEST_DATASET_STABLE_IDS[0]
 )
 
+os.environ["IS_UNIT_TEST_CLOSE_SESSION"] = "True"
 
 def test_database_singleton(test_database):
     assert test_database is Database()
@@ -98,3 +100,7 @@ def test_merge_gtfs_feed(test_database):
         TEST_GTFS_FEED_STABLE_IDS[2],
         TEST_GTFS_FEED_STABLE_IDS[3],
     ]
+
+if __name__ == '__main__':
+    pytest.main()
+    os.environ['IS_UNIT_TEST_CLOSE_SESSION'] = 'False'

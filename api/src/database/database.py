@@ -95,7 +95,8 @@ class Database:
         :return: True if the session was started, False otherwise
         """
         try:
-            if global_session is not None and global_session.is_active:
+            should_close = os.getenv("SHOULD_CLOSE_DB_GLOBAL_SESSION")
+            if should_close == 'True' and global_session is not None and global_session.is_active:
                 global_session.close()
         except Exception as e:
             self.logger.error(f"Session closing failed with exception: \n {e}")
