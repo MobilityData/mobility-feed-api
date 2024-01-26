@@ -121,6 +121,16 @@ jobs:
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV
 
+      - name: Check and Create Artifact Registry Repository
+        run: |
+          REPO_EXISTS=$(gcloud artifacts repositories list --location=YOUR_LOCATION --filter="name:YOUR_REPOSITORY_NAME" --format="value(name)")
+          if [ -z "$REPO_EXISTS" ]; then
+            echo "Repository does not exist. Creating repository."
+            gcloud artifacts repositories create "feeds-${ENVIRONMENT}" --repository-format=docker --location=$REGION --description="Docker repository for feeds-${ENVIRONMENT}"
+          else
+            echo "Repository already exists."
+          fi
+
       - name: Build & Publish Docker Image
         run: |
           scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
