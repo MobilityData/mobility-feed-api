@@ -93,6 +93,7 @@ jobs:
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/artifact-registry/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/artifact-registry/vars.tfvars.rename_me -out_file infra/artifact-registry/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,ARTIFACT_REPO_NAME
+          cp infra/provider.tf infra/artifact-registry/provider.tf
 
       - uses: hashicorp/setup-terraform@v2
         with:
