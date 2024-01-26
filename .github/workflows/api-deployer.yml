@@ -60,6 +60,10 @@ env:
   ARTIFACT_REPO_NAME: feeds
 
 jobs:
+  api-build-test:
+    uses: ./github/workflows/build-test.yml
+    name: Build & Test
+
   create-artifact-repo:
     runs-on: ubuntu-latest
     permissions: write-all
@@ -131,7 +135,7 @@ jobs:
     # Add docker healthy test
     runs-on: ubuntu-latest
     permissions: write-all
-    needs: create-artifact-repo
+    needs: [create-artifact-repo, api-build-test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
