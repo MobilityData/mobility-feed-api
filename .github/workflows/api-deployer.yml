@@ -102,6 +102,7 @@ jobs:
       - name: Terraform Init
         run: |
           cd infra/artifact-registry
+          cat backend.conf
           terraform init -backend-config=backend.conf
 
       - name: Terraform Plan

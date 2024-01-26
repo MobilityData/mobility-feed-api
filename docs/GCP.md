@@ -92,7 +92,7 @@ terraform apply -var-file=vars-<environment>.tfvars -target=module.artifact-regi
 - You need at least one docker image published to be able to deploy the cloud run service. Execute the following script,
 
 ```shell
-<project_dir>/scripts/docker-build-push.sh -project_id mobility-feeds-<environment> -service feed-api -repo_name feeds-<environment> -region us-central1 -version <version_number>
+<project_dir>/scripts/docker-build-push.sh -project_id mobility-feeds-<environment> -service feed-api -repo_name feeds-<environment> -region northamerica-northeast1 -version <version_number>
 ```
 
 - Set the version number on the `infra/vars-<environment>.tfvars` file.
