@@ -61,7 +61,7 @@ env:
 
 jobs:
   api-build-test:
-    uses: ./github/workflows/build-test.yml
+    uses: ./.github/workflows/build-test.yml
     name: Build & Test
 
   create-artifact-repo:
