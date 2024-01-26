@@ -19,6 +19,10 @@
 # The Artifactory repository is created with name: feeds-${var.environment}.
 # Module output:
 #   feed_repository_name: Name of the created artifact registry repository.
+terraform {
+  backend "gcs" {
+  }
+}
 
 locals {
   services = [
