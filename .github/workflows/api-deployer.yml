@@ -83,7 +83,7 @@ jobs:
       - name: Set Variables
         run: |
           echo "Setting variables"
-          echo "BUCKET_NAME=${{ inputs.BUCKET_NAME }}-artifact" >> $GITHUB_ENV
+          echo "BUCKET_NAME=${{ inputs.BUCKET_NAME }}" >> $GITHUB_ENV
           echo "OBJECT_PREFIX=${{ inputs.OBJECT_PREFIX }}-artifact" >> $GITHUB_ENV
           echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
