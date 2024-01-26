@@ -47,16 +47,7 @@ resource "google_storage_bucket_object" "function_extract_bb_zip_object" {
   source = local.function_extract_bb_zip
 }
 
-# Secrets
-#data "google_iam_policy" "secret_access" {
-#  binding {
-#    role = "roles/secretmanager.secretAccessor"
-#    members = [
-#      "serviceAccount:${google_service_account.functions_service_account.email}"
-#    ]
-#  }
-#}
-
+# Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   for_each = {
     for x in concat(local.function_tokens_config.secret_environment_variables, local.function_extract_bb_config.secret_environment_variables) :

@@ -46,7 +46,7 @@ resource "google_service_account" "functions_service_account" {
 # Cloud storage bucket to store the datasets
 resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
-  location = "us-central1"
+  location = var.gcp_region
   uniform_bucket_level_access = false
 }
 
@@ -65,7 +65,7 @@ resource "google_project_iam_member" "datasets_bucket_functions_service_account"
 
 resource "google_storage_bucket" "functions_bucket" {
   name     = "mobility-feeds-bacth-python-${var.environment}"
-  location = "us"
+  location = var.gcp_region
 }
 
 # Function's zip files with sile sha256 as part of the name to force redeploy
@@ -81,15 +81,6 @@ resource "google_storage_bucket_object" "batch_process_dataset_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_batch_process_dataset_zip
 }
-
-#data "google_iam_policy" "secret_access_function_batch_datasets" {
-#  binding {
-#    role = "roles/secretmanager.secretAccessor"
-#    members = [
-#      "serviceAccount:${google_service_account.functions_service_account.email}"
-#    ]
-#  }
-#}
 
 # Grant permissions to the service account to access the secrets based on the function config
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {

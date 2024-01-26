@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - 'feat/173'
 
 jobs:
   deploy:
@@ -13,7 +14,7 @@ jobs:
       STATE_BUCKET_NAME: 'mobility-feeds-terraform-dev'
       OBJECT_PREFIX: 'terraform-state-batch'
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
-      REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
+      REGION: 'northamerica-northeast1'
       ENVIRONMENT: 'dev'
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
       # every week on monday at 00:00
