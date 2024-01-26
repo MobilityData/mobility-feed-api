@@ -123,7 +123,7 @@ jobs:
 
       - name: Check and Create Artifact Registry Repository
         run: |
-          REPO_EXISTS=$(gcloud artifacts repositories list --location=YOUR_LOCATION --filter="name:YOUR_REPOSITORY_NAME" --format="value(name)")
+          REPO_EXISTS=$(gcloud artifacts repositories list --location=$REGION --filter="name:feeds-${ENVIRONMENT}E" --format="value(name)")
           if [ -z "$REPO_EXISTS" ]; then
             echo "Repository does not exist. Creating repository."
             gcloud artifacts repositories create "feeds-${ENVIRONMENT}" --repository-format=docker --location=$REGION --description="Docker repository for feeds-${ENVIRONMENT}"
