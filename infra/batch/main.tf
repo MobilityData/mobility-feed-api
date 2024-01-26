@@ -64,7 +64,7 @@ resource "google_project_iam_member" "datasets_bucket_functions_service_account"
 }
 
 resource "google_storage_bucket" "functions_bucket" {
-  name     = "mobility-feeds-bacth-python-${var.environment}"
+  name     = "mobility-feeds-batch-python-${var.environment}"
   location = var.gcp_region
 }
 
