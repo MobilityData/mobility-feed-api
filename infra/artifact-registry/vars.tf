@@ -28,3 +28,8 @@ variable "environment" {
   type = string
   description = "API environment. Possible values: prod, staging and dev"
 }
+
+variable "artifact_repo_name" {
+  type = string
+  description = "Name of the artifact repository"
+}

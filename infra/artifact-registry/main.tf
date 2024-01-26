@@ -40,7 +40,7 @@ resource "google_project_service" "services" {
 }
 
 resource "google_artifact_registry_repository" "feed_repository" {
-  repository_id = "feeds-${var.environment}"
+  repository_id = "${var.artifact_repo_name}-${var.environment}"
   location      = var.gcp_region
   project       = var.project_id
   format        = "DOCKER"

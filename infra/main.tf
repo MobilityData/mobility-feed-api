@@ -75,21 +75,12 @@ provider "google-beta" {
 
 provider "external" {}
 
-module "artifact-registry" {
-  project_id  = var.project_id
-  gcp_region  = var.gcp_region
-  environment = var.environment
-
-  source = "./artifact-registry"
-}
-
 module "feed-api" {
-  depends_on  = [module.artifact-registry]
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
 
-  docker_repository_name = module.artifact-registry.feed_repository_name
+  docker_repository_name = "${var.artifact_repo_name}-${var.environment}"
   feed_api_service       = "feed-api"
   feed_api_image_version = var.feed_api_image_version
 

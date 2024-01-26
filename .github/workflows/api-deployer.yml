@@ -57,12 +57,81 @@ env:
   local_postgres_user: postgres_user
   local_postgres_pwd: postgres_password
   local_postgres_port: 5432
+  ARTIFACT_REPO_NAME: feeds
 
 jobs:
+  create-artifact-repo:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.python_version }}
+
+      - name: Authenticate to Google Cloud
+        id: gcloud_auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Set Variables
+        run: |
+          echo "Setting variables"
+          echo "BUCKET_NAME=${{ inputs.BUCKET_NAME }}" >> $GITHUB_ENV
+          echo "OBJECT_PREFIX=${{ inputs.OBJECT_PREFIX }}-artifact" >> $GITHUB_ENV
+          echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
+          echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
+
+      - name: Populate Variables
+        run: |
+          scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/artifact-registry/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
+          scripts/replace-variables.sh -in_file infra/artifact-registry/vars.tfvars.rename_me -out_file infra/artifact-registry/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,ARTIFACT_REPO_NAME
+
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.3
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: |
+          cd infra/artifact-registry
+          terraform init -backend-config=backend.conf
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          cd infra/artifact-registry
+          terraform plan -var-file=vars.tfvars -out=tf.plan
+          terraform show -no-color tf.plan > terraform-plan.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Terraform Apply
+        if: ${{ inputs.TF_APPLY }}
+        run: |
+          cd infra
+          terraform apply -auto-approve tf.plan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Persist TF plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-artifact-plan.txt
+          path: infra/artifact-registry/terraform-plan.txt
+
   docker-build-publish:
     # Add docker healthy test
     runs-on: ubuntu-latest
     permissions: write-all
+    needs: create-artifact-repo
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -175,7 +244,7 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME
 
       - uses: hashicorp/setup-terraform@v2
         with:
