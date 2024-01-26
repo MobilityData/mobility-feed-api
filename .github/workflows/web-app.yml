@@ -6,7 +6,7 @@ on:
       - "web-app/**"
       - "functions/**"
   push:
-    branches: [main, 'feat/173']
+    branches: [main]
   workflow_dispatch:
 
 env:
