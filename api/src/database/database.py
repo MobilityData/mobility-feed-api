@@ -11,6 +11,8 @@ from database_gen.sqlacodegen_models import Base
 from utils.logger import Logger
 from sqlalchemy.orm import sessionmaker
 import logging
+from typing import Final
+
 
 SHOULD_CLOSE_DB_SESSION: Final[str] = "SHOULD_CLOSE_DB_SESSION"
 lock = threading.Lock()
@@ -98,7 +100,7 @@ class Database:
         :return: True if the session was started, False otherwise
         """
         try:
-            should_close = should_close_db_session()
+            should_close = self.should_close_db_session()
             if should_close == 'true' and global_session is not None and global_session.is_active:
                 global_session.close()
         except Exception as e:
