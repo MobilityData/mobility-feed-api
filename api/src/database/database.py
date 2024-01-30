@@ -8,7 +8,6 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import load_only, Query
 
 from database_gen.sqlacodegen_models import Base
-from utils.logger import Logger
 from sqlalchemy.orm import sessionmaker
 import logging
 from typing import Final
@@ -92,7 +91,7 @@ class Database:
             lock.release()
 
     def should_close_db_session(self):
-            return os.getenv("%s" % SHOULD_CLOSE_DB_SESSION, "false").lower() == "true"
+        return os.getenv("%s" % SHOULD_CLOSE_DB_SESSION, "false").lower() == "true"
 
     def close_session(self):
         """
