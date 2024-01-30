@@ -9,6 +9,7 @@ from geoalchemy2 import WKTElement
 
 from database_gen.sqlacodegen_models import Gtfsdataset
 from helpers.database import start_db_session
+from helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
 
@@ -88,6 +89,7 @@ def extract_bounding_box(cloud_event: CloudEvent) -> None:
     Main function triggered by a GTFS dataset upload to extract and update the bounding box in the database.
     @:param cloud_event (CloudEvent): The CloudEvent that triggered this function.
     """
+    Logger.init_logger()
     data = cloud_event.data
     logging.info(f"Function Triggered with event data: {data}")
 

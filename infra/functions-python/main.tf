@@ -184,13 +184,6 @@ resource "google_project_iam_member" "event-receiving" {
   depends_on = [google_project_iam_member.invoking]
 }
 
-resource "google_project_iam_member" "artifactregistry-reader" {
-  project = var.project_id
-  role     = "roles/artifactregistry.reader"
-  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
-  depends_on = [google_project_iam_member.event-receiving]
-}
-
 # Grant read access to the datasets bucket for the service account
 resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
   bucket = "${var.datasets_bucket_name}-${var.environment}"
