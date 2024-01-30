@@ -51,7 +51,7 @@ class Database:
         Checks the connection status
         :return: True if the database is accessible False otherwise
         """
-        return self.engine is not None and global_session is not None
+        return self.engine is not None or global_session is not None
 
     def start_session(self):
         """

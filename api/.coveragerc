@@ -1,6 +1,7 @@
 [run]
 omit =
     */test*/*
+    src/feeds_gen/*
 
 [report]
 exclude_lines =
