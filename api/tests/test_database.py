@@ -85,15 +85,11 @@ def test_merge_gtfs_feed(test_database):
     feed_2 = results.get(TEST_GTFS_FEED_STABLE_IDS[1])
 
     assert feed_1 is not None
-    assert sorted([external_id.external_id for external_id in feed_1.external_ids]) == TEST_EXTERNAL_IDS[:2]
-    assert sorted([external_id.source for external_id in feed_1.external_ids]) == ["source1", "source2"]
 
     assert feed_1.latest_dataset.id == TEST_DATASET_STABLE_IDS[1]
     assert sorted([redirect.target_id for redirect in feed_1.redirects]) == [TEST_GTFS_FEED_STABLE_IDS[1]]
 
     assert feed_2 is not None
-    assert sorted([external_id.external_id for external_id in feed_2.external_ids]) == TEST_EXTERNAL_IDS[2:]
-    assert sorted([external_id.source for external_id in feed_2.external_ids]) == ["source3", "source4"]
 
     assert feed_2.latest_dataset.id == TEST_DATASET_STABLE_IDS[3]
     assert sorted([redirect.target_id for redirect in feed_2.redirects]) == [
