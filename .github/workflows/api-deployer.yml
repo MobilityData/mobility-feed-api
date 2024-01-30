@@ -258,7 +258,7 @@ jobs:
       - name: Terraform Init
         run: |
           cd infra
-          terraform init -backend-config=backend.conf
+          terraform init -backend-config=backend.conf -migrate-state
 
       - name: Terraform Plan
         id: plan
