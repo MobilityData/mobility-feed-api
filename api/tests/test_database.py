@@ -6,7 +6,7 @@ from database_gen.sqlacodegen_models import Gtfsdataset, Component
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker
-from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS, TEST_EXTERNAL_IDS
+from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
 
 BASE_QUERY = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
     Gtfsdataset.stable_id == TEST_DATASET_STABLE_IDS[0]
@@ -153,32 +153,37 @@ def test_select_from_active_session_success():
 
 
 def test_merge_relationship_w_uncommitted_changed():
-    db = Database()
-    db.start_session()
+    db = None
+    try:
+        db = Database()
+        db.start_session()
 
-    # Create and add a new Component object (parent) to the session
-    component_name = fake.name()
-    new_component = Component(name=component_name)
-    db.merge(new_component)
+        # Create and add a new Component object (parent) to the session
+        component_name = fake.name()
+        new_component = Component(name=component_name)
+        db.merge(new_component)
 
-    # Create a new GtfsDataset object (child)
-    gtfs_dataset_id = fake.uuid4()
-    new_gtfs_dataset = Gtfsdataset(id=gtfs_dataset_id)
+        # Create a new GtfsDataset object (child)
+        gtfs_dataset_id = fake.uuid4()
+        new_gtfs_dataset = Gtfsdataset(id=gtfs_dataset_id)
 
-    # Merge this GtfsDataset into the Component's datasets relationship
-    db.merge_relationship(
-        parent_model=Component,
-        parent_key_values={"name": component_name},
-        child=new_gtfs_dataset,
-        relationship_name="datasets",
-        auto_commit=False,
-        uncommitted=True,
-    )
+        # Merge this GtfsDataset into the Component's datasets relationship
+        db.merge_relationship(
+            parent_model=Component,
+            parent_key_values={"name": component_name},
+            child=new_gtfs_dataset,
+            relationship_name="datasets",
+            auto_commit=False,
+            uncommitted=True,
+        )
 
-    # Retrieve the component and check if the GtfsDataset was added
-    retrieved_component = db.select_from_active_session(Component, conditions=[Component.name == component_name])[0]
-    dataset_ids = [dataset.id for dataset in retrieved_component.datasets]
-    assert gtfs_dataset_id in dataset_ids
-
-    # Clean up
-    db.session.rollback()
+        # Retrieve the component and check if the GtfsDataset was added
+        retrieved_component = db.select_from_active_session(Component, conditions=[Component.name == component_name])[0]
+        dataset_ids = [dataset.id for dataset in retrieved_component.datasets]
+        assert gtfs_dataset_id in dataset_ids
+    except Exception as e:
+        raise e
+    finally:
+        if db is not None:
+            # Clean up
+            db.session.rollback()
