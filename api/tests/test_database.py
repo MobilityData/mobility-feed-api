@@ -24,7 +24,8 @@ def test_bounding_box_dateset_exists(test_database):
 
 
 def assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database):
-    query = DatasetsApiImpl.apply_bounding_filtering(BASE_QUERY, latitudes, longitudes, method)
+    query = DatasetsApiImpl.apply_bounding_filtering(
+        BASE_QUERY, latitudes, longitudes, method)
     result = test_database.select(query=query)
     assert (len(result) > 0) is expected_found
 
@@ -44,7 +45,8 @@ def assert_bounding_box_found(latitudes, longitudes, method, expected_found, tes
     ],
 )
 def test_bounding_box_completed_closed(latitudes, longitudes, method, expected_found, test_database):
-    assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database)
+    assert_bounding_box_found(latitudes, longitudes,
+                              method, expected_found, test_database)
 
 
 @pytest.mark.parametrize(
@@ -65,7 +67,8 @@ def test_bounding_box_completed_closed(latitudes, longitudes, method, expected_f
     ],
 )
 def test_bounding_box_partial_closed(latitudes, longitudes, method, expected_found, test_database):
-    assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database)
+    assert_bounding_box_found(latitudes, longitudes,
+                              method, expected_found, test_database)
 
 
 @pytest.mark.parametrize(
@@ -78,7 +81,8 @@ def test_bounding_box_partial_closed(latitudes, longitudes, method, expected_fou
     ],
 )
 def test_bounding_box_disjoint(latitudes, longitudes, method, expected_found, test_database):
-    assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database)
+    assert_bounding_box_found(latitudes, longitudes,
+                              method, expected_found, test_database)
 
 
 def test_merge_gtfs_feed(test_database):
@@ -96,7 +100,8 @@ def test_merge_gtfs_feed(test_database):
     assert feed_1 is not None
 
     assert feed_1.latest_dataset.id == TEST_DATASET_STABLE_IDS[1]
-    assert sorted([redirect.target_id for redirect in feed_1.redirects]) == [TEST_GTFS_FEED_STABLE_IDS[1]]
+    assert sorted([redirect.target_id for redirect in feed_1.redirects]) == [
+        TEST_GTFS_FEED_STABLE_IDS[1]]
 
     assert feed_2 is not None
 
@@ -127,7 +132,8 @@ def test_insert_and_select():
     component_name = fake.name()
     new_component = Component(name=component_name)
     db.merge(new_component, auto_commit=True)
-    retrieved_components = db.select(Component, conditions=[Component.name == component_name])
+    retrieved_components = db.select(
+        Component, conditions=[Component.name == component_name])
     assert len(retrieved_components) == 1
     assert retrieved_components[0][0].name == component_name
 
@@ -148,7 +154,8 @@ def test_select_from_active_session_success():
 
     # The active session should have one instance of the component
     conditions = [Component.name == component_name]
-    selected_components = db.select_from_active_session(Component, conditions=conditions, attributes=["name"])
+    selected_components = db.select_from_active_session(
+        Component, conditions=conditions, attributes=["name"])
     all_components = db.select(Component)
     assert len(all_components) >= 1
     assert len(selected_components) == 1
@@ -157,7 +164,8 @@ def test_select_from_active_session_success():
     db.session.rollback()
 
     # The database should have no instance of the component
-    retrieved_components = db.select(Component, conditions=[Component.name == component_name])
+    retrieved_components = db.select(
+        Component, conditions=[Component.name == component_name])
     assert len(retrieved_components) == 0
 
 
@@ -187,7 +195,8 @@ def test_merge_relationship_w_uncommitted_changed():
         )
 
         # Retrieve the component and check if the GtfsDataset was added
-        retrieved_component = db.select_from_active_session(Component, conditions=[Component.name == component_name])[0]
+        retrieved_component = db.select_from_active_session(
+            Component, conditions=[Component.name == component_name])[0]
         dataset_ids = [dataset.id for dataset in retrieved_component.datasets]
         assert gtfs_dataset_id in dataset_ids
     except Exception as e:
@@ -201,4 +210,3 @@ def test_merge_relationship_w_uncommitted_changed():
 if __name__ == "__main__":
     os.environ["SHOULD_CLOSE_DB_SESSION"] = "true"
     pytest.main()
-    os.environ["SHOULD_CLOSE_DB_SESSION"] = "false"
