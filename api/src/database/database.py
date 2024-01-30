@@ -100,7 +100,7 @@ class Database:
         """
         try:
             should_close = self.should_close_db_session()
-            if should_close == "true" and global_session is not None and global_session.is_active:
+            if should_close and global_session is not None and global_session.is_active:
                 global_session.close()
                 logging.info("Database session closed.")
         except Exception as e:
