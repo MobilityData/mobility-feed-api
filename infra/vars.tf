@@ -53,3 +53,8 @@ variable "global_rate_limit_req_per_minute" {
   type        = string
   description = "Global load balancer rate limit"
 }
+
+variable "artifact_repo_name" {
+  type = string
+  description = "Name of the artifact repository"
+}

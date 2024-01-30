@@ -13,7 +13,7 @@ jobs:
       STATE_BUCKET_NAME: 'mobility-feeds-terraform-qa'
       OBJECT_PREFIX: 'terraform-state-batch'
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-      REGION: ${{ vars.QA_MOBILITY_FEEDS_REGION }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       ENVIRONMENT: 'qa'
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.QA_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
       # every week on monday at 00:00

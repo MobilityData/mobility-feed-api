@@ -42,7 +42,6 @@ jobs:
     with:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
       DB_NAME: ${{ vars.DEV_POSTGRE_SQL_DB_NAME }}
-      REGION: ${{ vars.DEV_MOBILITY_FEEDS_REGION }}
       ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_IP: ${{needs.get_database_ip.outputs.db_ip}}
     secrets:

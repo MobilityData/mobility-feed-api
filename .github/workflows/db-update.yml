@@ -46,10 +46,6 @@ on:
         description: PostgreSQL Database Name
         required: true
         type: string
-      REGION:
-        description: GCP region
-        required: true
-        type: string
       ENVIRONMENT:
         description: GCP ENVIRONMENT
         required: true

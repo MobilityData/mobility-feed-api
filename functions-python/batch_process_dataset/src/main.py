@@ -140,7 +140,7 @@ class DatasetProcessor:
 
                 logging.info(
                     f"Creating file: {self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
-                    f" in bucket{self.bucket_name}"
+                    f" in bucket {self.bucket_name}"
                 )
                 timestamp_blob = self.upload_file_to_storage(
                     temp_file_path,

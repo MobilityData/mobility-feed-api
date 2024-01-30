@@ -80,21 +80,13 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
   policy_data = data.google_iam_policy.noauth.policy_data
 }
 
-data "google_iam_policy" "secret_access" {
-  binding {
-    role = "roles/secretmanager.secretAccessor"
-    members = [
-      "serviceAccount:${google_service_account.containers_service_account.email}"
-    ]
-  }
-}
-
-resource "google_secret_manager_secret_iam_policy" "policy" {
+resource "google_secret_manager_secret_iam_member" "policy" {
   for_each = local.env
 
   project = var.project_id
   secret_id = "${upper(var.environment)}_${each.key}"
-  policy_data = data.google_iam_policy.secret_access.policy_data
+  role = "roles/secretmanager.secretAccessor"
+  member =  "serviceAccount:${google_service_account.containers_service_account.email}"
 }
 
 output "feed_api_uri" {

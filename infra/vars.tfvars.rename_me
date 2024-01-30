@@ -1,4 +1,4 @@
-# This file is a template for populating the feed-api module variables
+# This file is a template for populating the variables
 # To set variables:
 # - Rename this file to vars.tfvars.
 # - Replace variable values.
@@ -7,6 +7,7 @@
 project_id  = {{PROJECT_ID}}
 gcp_region  = {{REGION}}
 environment = {{ENVIRONMENT}}
+artifact_repo_name = {{ARTIFACT_REPO_NAME}}
 
 deployer_service_account = {{DEPLOYER_SERVICE_ACCOUNT}}
 feed_api_image_version      = {{FEED_API_IMAGE_VERSION}}

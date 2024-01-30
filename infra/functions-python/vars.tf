@@ -34,3 +34,9 @@ variable "python_runtime" {
   description = "Python runtime version"
   default = "python310"
 }
+
+variable "datasets_bucket_name" {
+  type        = string
+  description = "Name of the bucket where the datasets are stored"
+  default = "mobilitydata-datasets"
+}
