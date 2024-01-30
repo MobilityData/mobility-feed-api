@@ -14,6 +14,7 @@ BASE_QUERY = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filte
 )
 fake = Faker()
 
+
 def test_database_singleton(test_database):
     assert test_database is Database()
 
@@ -96,6 +97,7 @@ def test_merge_gtfs_feed(test_database):
         TEST_GTFS_FEED_STABLE_IDS[2],
         TEST_GTFS_FEED_STABLE_IDS[3],
     ]
+
 
 def test_generate_unique_id():
     unique_id = generate_unique_id()
