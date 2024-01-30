@@ -100,7 +100,7 @@ class Database:
         """
         try:
             should_close = self.should_close_db_session()
-            if should_close == 'true' and global_session is not None and global_session.is_active:
+            if should_close == "true" and global_session is not None and global_session.is_active:
                 global_session.close()
         except Exception as e:
             logging.error(f"Session closing failed with exception: \n {e}")
@@ -283,7 +283,5 @@ class Database:
                 return self.merge(parent, update_session=update_session, auto_commit=auto_commit)
             return True
         except Exception as e:
-            logging.error(
-                f"Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}"
-            )
+            logging.error(f"Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}")
             return False
