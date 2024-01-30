@@ -109,7 +109,8 @@ class TestExtractBoundingBox(unittest.TestCase):
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
     @patch("extract_bb.src.main.update_dataset_bounding_box")
-    def test_extract_bb(self, update_bb_mock, get_gtfs_feed_bounds_mock):
+    @patch("extract_bb.src.main.Logger")
+    def test_extract_bb(self, _, update_bb_mock, get_gtfs_feed_bounds_mock):
         get_gtfs_feed_bounds_mock.return_value = np.array(
             [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
         )
@@ -137,7 +138,8 @@ class TestExtractBoundingBox(unittest.TestCase):
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
     @patch("extract_bb.src.main.update_dataset_bounding_box")
-    def test_extract_bb_exception_2(self, update_bb_mock, get_gtfs_feed_bounds_mock):
+    @patch("extract_bb.src.main.Logger")
+    def test_extract_bb_exception_2(self, _, update_bb_mock, get_gtfs_feed_bounds_mock):
         get_gtfs_feed_bounds_mock.return_value = np.array(
             [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
         )
