@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy.orm import Query
+import os
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import Gtfsdataset, Component
@@ -12,7 +13,6 @@ BASE_QUERY = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filte
     Gtfsdataset.stable_id == TEST_DATASET_STABLE_IDS[0]
 )
 fake = Faker()
-
 
 def test_database_singleton(test_database):
     assert test_database is Database()
@@ -96,7 +96,6 @@ def test_merge_gtfs_feed(test_database):
         TEST_GTFS_FEED_STABLE_IDS[2],
         TEST_GTFS_FEED_STABLE_IDS[3],
     ]
-
 
 def test_generate_unique_id():
     unique_id = generate_unique_id()
@@ -187,3 +186,9 @@ def test_merge_relationship_w_uncommitted_changed():
         if db is not None:
             # Clean up
             db.session.rollback()
+
+if __name__ == '__main__':
+    os.environ['SHOULD_CLOSE_DB_SESSION'] = 'true'
+    pytest.main()
+    os.environ['SHOULD_CLOSE_DB_SESSION'] = 'false'
+    
