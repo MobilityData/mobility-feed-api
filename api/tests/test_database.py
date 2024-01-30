@@ -103,4 +103,5 @@ def test_merge_gtfs_feed(test_database):
 
 if __name__ == '__main__':
     pytest.main()
-    os.environ['IS_UNIT_TEST_CLOSE_SESSION'] = 'False'
+    os.environ['SHOULD_CLOSE_DB_SESSION'] = 'false'
+    
