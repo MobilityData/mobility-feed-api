@@ -60,7 +60,7 @@ export const updateUserInformation = async (data: {
   organization: string | undefined;
   isRegisteredToReceiveAPIAnnouncements: boolean;
 }): Promise<void> => {
-  const functions = getFunctions(app, 'us-central1');
+  const functions = getFunctions(app, 'northamerica-northeast1');
   const updateUserInformation = httpsCallable(
     functions,
     'updateUserInformation',
@@ -76,7 +76,7 @@ export const updateUserInformation = async (data: {
 export const retrieveUserInformation = async (): Promise<
   UserData | undefined
 > => {
-  const functions = getFunctions(app, 'us-central1');
+  const functions = getFunctions(app, 'northamerica-northeast1');
   const retrieveUserInformation = httpsCallable(
     functions,
     'retrieveUserInformation',

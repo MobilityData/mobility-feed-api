@@ -18,7 +18,7 @@ The function configuration file contains the following properties:
 - `name`: The name of the function.
 - `description`: The description of the function.
 - `entry_point`: The name of the function to be executed.
-- `runtime`: The runtime of the function. Currently, only `python37` is supported.
+- `runtime`: The runtime of the function. Currently, only `python310` is supported.
 - `timeout`: The timeout of the function in seconds. The default value is 60 seconds.
 - `memory`: The memory of the function in MB. The default value is 128 MB.
 - `trigger_http`: A boolean value that indicates if the function is triggered by an HTTP request. The default value is `false`.

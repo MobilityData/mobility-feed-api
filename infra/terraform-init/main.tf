@@ -98,6 +98,12 @@ resource "google_project_iam_member" "service_account_pub_sub_admin_binding" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "service_account_project_iam_admin" {
+  project = var.project_id
+  role    = "roles/resourcemanager.projectIamAdmin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_service_account" "ci_service_account" {
   account_id   = "ci-service-account"
   project      = var.project_id

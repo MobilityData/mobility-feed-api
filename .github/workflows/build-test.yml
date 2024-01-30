@@ -4,6 +4,8 @@ on:
     branches: [ main ]
     paths-ignore:
       - '**.md'
+  workflow_call:
+
 env:
   python_version: '3.10'
   java_version: '11' # needed by setup-openapi-generator.sh
