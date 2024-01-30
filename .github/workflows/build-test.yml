@@ -35,7 +35,7 @@ jobs:
         run: |
           scripts/db-gen.sh
 
-      - name: Docker Compose DB/Liquibase for db-gen.sh
+      - name: Docker Compose DB/Liquibase for unit tests
         run: docker-compose --env-file ./config/.env.local up -d liquibase-test
         working-directory: ${{ github.workspace }}
             
@@ -52,9 +52,15 @@ jobs:
       - name: Unit tests - API
         shell: bash
         run: |
-          scripts/api-tests.sh --folder api
+          scripts/api-tests.sh --folder api --html_report
 
       - name: Unit tests - Python Functions
         shell: bash
         run: |
-          scripts/api-tests.sh --folder functions-python
+          scripts/api-tests.sh --folder functions-python --html_report
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage_report
+          path: scripts/coverage_reports/

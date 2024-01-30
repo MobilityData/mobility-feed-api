@@ -576,31 +576,6 @@ components:
           type: array
           items:
             type: string
-            enum:
-              - Agency_Information
-              - Attributions
-              - Bikes_Allowance
-              - Blocks
-              - Continuous_Stops
-              - Fare_Media
-              - Fare_Products
-              - Fares_V1
-              - Feed_Information
-              - Frequency-Based_Trip
-              - Headsigns
-              - Location_Types
-              - Pathway_Directions
-              - Pathways
-              - Route_Colors
-              - Route_Names
-              - Route-Based_Fares
-              - Shapes
-              - Text-To-Speech
-              - Transfers
-              - Traversal_Time
-              - Translations
-              - Wheelchair_Accessibility
-              - Zone-Based_Fares
             example: Fares_V1
         validator_version:
           type: string

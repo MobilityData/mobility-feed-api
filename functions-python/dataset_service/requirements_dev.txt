@@ -1,0 +1,9 @@
+Faker
+pytest~=7.4.3
+urllib3-mock
+requests-mock
+functions-framework==3.*
+google-cloud-logging
+google-api-core
+google-cloud-datastore
+psycopg2-binary==2.9.6

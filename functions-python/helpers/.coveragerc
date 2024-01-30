@@ -1,0 +1,10 @@
+[run]
+omit =
+    */test*/*
+    database.py
+    */database_gen/*
+    */dataset_service/*
+
+[report]
+exclude_lines =
+    if __name__ == .__main__.:
