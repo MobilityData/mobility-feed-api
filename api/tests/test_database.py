@@ -33,10 +33,14 @@ def assert_bounding_box_found(latitudes, longitudes, method, expected_found, tes
     "latitudes,longitudes,method,expected_found",
     [
         ("37, 39", "-85,-84", "completely_enclosed", True),  # completely enclosed
-        ("37.7, 39", "-85,-84", "completely_enclosed", False),  # min latitude is too high
-        ("37, 38", "-85,-84", "completely_enclosed", False),  # max latitude is too low
-        ("37, 39", "-84.7,-84", "completely_enclosed", False),  # min longitude is too low
-        ("37, 39", "-85,-84.5", "completely_enclosed", False),  # max longitude is too high
+        # min latitude is too high
+        ("37.7, 39", "-85,-84", "completely_enclosed", False),
+        # max latitude is too low
+        ("37, 38", "-85,-84", "completely_enclosed", False),
+        # min longitude is too low
+        ("37, 39", "-84.7,-84", "completely_enclosed", False),
+        # max longitude is too high
+        ("37, 39", "-85,-84.5", "completely_enclosed", False),
     ],
 )
 def test_bounding_box_completed_closed(latitudes, longitudes, method, expected_found, test_database):
@@ -48,10 +52,14 @@ def test_bounding_box_completed_closed(latitudes, longitudes, method, expected_f
     [
         # completely enclosed, still considered as partially enclosed
         ("37.7, 38", "-84.7,-84.6", "partially_enclosed", True),
-        ("37, 38", "-84.7,-84.6", "partially_enclosed", True),  # min latitude is too low
-        ("37.7, 39", "-84.7,-84.6", "partially_enclosed", True),  # max latitude is too high
-        ("37.7, 38", "-85,-84.6", "partially_enclosed", True),  # min longitude is too low
-        ("37.7, 38", "-84.7,-83", "partially_enclosed", True),  # max longitude is too high
+        # min latitude is too low
+        ("37, 38", "-84.7,-84.6", "partially_enclosed", True),
+        # max latitude is too high
+        ("37.7, 39", "-84.7,-84.6", "partially_enclosed", True),
+        # min longitude is too low
+        ("37.7, 38", "-85,-84.6", "partially_enclosed", True),
+        # max longitude is too high
+        ("37.7, 38", "-84.7,-83", "partially_enclosed", True),
         ("1, 2", "3, 4", "partially_enclosed", False),  # disjoint
         ("37, 39", "-85,-83", "partially_enclosed", False),  # contained
     ],
@@ -189,8 +197,8 @@ def test_merge_relationship_w_uncommitted_changed():
             # Clean up
             db.session.rollback()
 
-if __name__ == '__main__':
-    os.environ['SHOULD_CLOSE_DB_SESSION'] = 'true'
+
+if __name__ == "__main__":
+    os.environ["SHOULD_CLOSE_DB_SESSION"] = "true"
     pytest.main()
-    os.environ['SHOULD_CLOSE_DB_SESSION'] = 'false'
-    
+    os.environ["SHOULD_CLOSE_DB_SESSION"] = "false"
