@@ -2,7 +2,7 @@
 name: Deploy Feeds API - QA
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch: # Supports manual deployment
 
 jobs:
@@ -41,4 +41,4 @@ jobs:
           pip install locust
 
       - name: Run load test
-        run: locust -f gtfs_user_test.py --host=https://api-qa.mobilitydatabase.org -u 100 -r 10
+        run: locust -f ./load-test/gtfs_user_test.py --host=https://api-qa.mobilitydatabase.org -u 100 -r 10
