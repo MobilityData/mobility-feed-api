@@ -23,4 +23,6 @@ jobs:
           pip install locust
 
       - name: Run load test
+        env:
+          FEEDS_AUTH_TOKEN: ${{ secrets.FEEDS_AUTH_TOKEN }}
         run: locust -f ./load-test/gtfs_user_test.py --host=https://api-qa.mobilitydatabase.org -u 100 -r 10

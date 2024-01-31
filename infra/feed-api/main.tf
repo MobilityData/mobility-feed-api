@@ -89,6 +89,12 @@ resource "google_secret_manager_secret_iam_member" "policy" {
   member =  "serviceAccount:${google_service_account.containers_service_account.email}"
 }
 
+resource "github_actions_secret" "feeds_auth_token" {
+  repository       = "mobility-feed-api"
+  secret_name      = "FEEDS_AUTH_TOKEN"
+  plaintext_value  = "your-auth-token"
+}
+
 output "feed_api_uri" {
   value       = google_cloud_run_v2_service.mobility-feed-api.uri
   description = "Main URI of the Feed API"
