@@ -11,12 +11,13 @@ Locust is a Python library, so you can install it with pip. Run the following co
 ```bash
 pip install locust
 
-### Start a Load Test
+## Start a Load Test
 
-To start a load test, run the following command in your terminal:
+To start a load test on QA environment, run the following command in your terminal:
 locust -f gtfs_user_test.py --host=https://api-qa.mobilitydatabase.org -u 100 -r 10
+The -u option specifies the total number of users to simulate, and the -r option specifies the hatch rate (number of users to start per second)
 
-## Tasks
+### Tasks
 
 ### `feeds`
 
