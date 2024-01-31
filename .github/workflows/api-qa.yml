@@ -17,8 +17,28 @@ jobs:
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.QA_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
       FEED_API_IMAGE_VERSION: ${{ github.sha }}
       TF_APPLY: true
-      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}   
+      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+
+  load-test:
+    needs: api-build-deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install locust
+
+      - name: Run load test
+        run: locust -f gtfs_user_test.py --host=https://api-qa.mobilitydatabase.org -u 100 -r 10
