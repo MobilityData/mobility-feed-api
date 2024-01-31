@@ -150,7 +150,7 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: ${{inputs.REGION}}-docker.pkg.dev
-          username: _json_key_base64
+          username: _json_key
           password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Set up JDK ${{ env.java_version }}
@@ -258,7 +258,7 @@ jobs:
       - name: Terraform Init
         run: |
           cd infra
-          terraform init -backend-config=backend.conf -reconfigure
+          terraform init -backend-config=backend.conf
 
       - name: Terraform Plan
         id: plan
