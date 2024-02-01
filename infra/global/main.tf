@@ -14,10 +14,11 @@
 # limitations under the License.
 #
 
-# This script deploys the Feed API cloud run service.
-# The cloud run service is created with name: mobility-feed-api-${var.environment}
+# This script is part of the main terraform execution.
+# Resources added here are shared across multiple modules.
 # Module output:
-#   feed_api_uri: Main URI of the Feed API
+#   vpc_connector_id: Name of the VPC connector in the form of projects/{{project}}/locations/{{region}}/connectors/{{name}}
+#   vpc_connector_network: Network the VPC connector
 
 # This make the google project information accessible only keeping the project_id as a parameter in the previous provider resource
 data "google_project" "project" {
