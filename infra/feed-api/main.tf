@@ -45,6 +45,10 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
 
   template {
     service_account = google_service_account.containers_service_account.email
+    vpc_access {
+      connector = var.vpc_connector_id
+      egress = "PRIVATE_RANGES_ONLY"
+    }
     containers {
       image = "${var.gcp_region}-docker.pkg.dev/${var.project_id}/${var.docker_repository_name}/${var.feed_api_service}:${var.feed_api_image_version}"
       env {

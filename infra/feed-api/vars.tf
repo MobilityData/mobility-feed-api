@@ -44,3 +44,7 @@ variable "feed_api_image_version" {
   description = "Docker image version"
 }
 
+variable "vpc_connector_id" {
+  type        = string
+  description = "Name of the VPC connector in the form of projects/{{project}}/locations/{{region}}/connectors/{{name}}"
+}

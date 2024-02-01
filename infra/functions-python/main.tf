@@ -141,6 +141,8 @@ resource "google_cloudfunctions2_function" "extract_bb" {
     min_instance_count = local.function_extract_bb_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
     ingress_settings = local.function_extract_bb_config.ingress_settings
+    vpc_connector = var.vpc_connector_id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_extract_bb_config.secret_environment_variables
       content {

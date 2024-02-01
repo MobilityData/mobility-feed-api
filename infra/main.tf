@@ -50,7 +50,8 @@ locals {
     "secretmanager.googleapis.com",
     "iamcredentials.googleapis.com",
     "cloudbuild.googleapis.com",
-    "artifactregistry.googleapis.com"
+    "artifactregistry.googleapis.com",
+    "vpcaccess.googleapis.com"
   ]
 }
 
@@ -76,6 +77,14 @@ provider "google-beta" {
 
 provider "external" {}
 
+module "global" {
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
+
+  source = "./global"
+}
+
 module "feed-api" {
   project_id  = var.project_id
   gcp_region  = var.gcp_region
@@ -84,6 +93,7 @@ module "feed-api" {
   docker_repository_name = "${var.artifact_repo_name}-${var.environment}"
   feed_api_service       = "feed-api"
   feed_api_image_version = var.feed_api_image_version
+  vpc_connector_id    = module.global.vpc_connector_id
 
   source = "./feed-api"
 }
@@ -94,6 +104,7 @@ module "functions-python" {
   gcp_region  = var.gcp_region
   environment = var.environment
 
+  vpc_connector_id    = module.global.vpc_connector_id
 }
 
 module "feed-api-load-balancer" {
