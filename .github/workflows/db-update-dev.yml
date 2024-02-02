@@ -33,7 +33,7 @@ jobs:
       id: get_ip
       run: |
         gcloud config set project ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-        DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIMARY") | .ipAddress')
+        DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIVATE") | .ipAddress')
         echo "DB_IP=$DB_IP" >> "$GITHUB_OUTPUT"
 
   update:

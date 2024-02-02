@@ -61,12 +61,6 @@ resource "google_project_iam_member" "ci_impersonator_binding" {
   member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
 }
 
-resource "google_project_iam_member" "ci_impersonator_vpc_access_admin_binding" {
-  project = var.project_id
-  role    = "roles/vpcaccess.admin"
-  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
-}
-
 resource "google_project_iam_member" "ci_impersonator_security_binding" {
   project = var.project_id
   role    = "roles/iam.securityAdmin"
@@ -88,12 +82,6 @@ resource "google_project_iam_member" "ci_impersonator_binding_storage" {
 resource "google_project_iam_member" "service_account_act_as_binding" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
-  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
-}
-
-resource "google_project_iam_member" "ci_impersonator_binding_secret_manager_admin" {
-  project = var.project_id
-  role    = "roles/secretmanager.admin"
   member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
 }
 
@@ -220,6 +208,12 @@ resource "google_project_iam_member" "ci_binding_firebase_admin" {
 resource "google_project_iam_member" "ci_binding_secret_manager_admin" {
   project = var.project_id
   role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
+resource "google_project_iam_member" "ci_binding_network_admin" {
+  project = var.project_id
+  role    = "roles/servicenetworking.networksAdmin"
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
