@@ -29,6 +29,23 @@ provider "google-beta" {
 
 provider "external" {}
 
+# This need to be created before the database instance
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "google-managed-services-default"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = "projects/${var.project_id}/global/networks/default"
+}
+
+# This need to be created before the database instance
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network       = "projects/${var.project_id}/global/networks/default"
+  service       = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+  depends_on = [google_compute_global_address.private_ip_address]
+}
+
 resource "google_sql_database_instance" "db" {
   name             = var.postgresql_instance_name
   database_version = "POSTGRES_12"
@@ -45,6 +62,7 @@ resource "google_sql_database_instance" "db" {
       private_network = "projects/${var.project_id}/global/networks/default"
     }
   }
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 }
 
 resource "google_sql_database" "default" {
