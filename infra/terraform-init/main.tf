@@ -91,6 +91,12 @@ resource "google_project_iam_member" "service_account_act_as_binding" {
   member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
 }
 
+resource "google_project_iam_member" "ci_impersonator_binding_secret_manager_admin" {
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+  member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
+}
+  
 resource "google_project_iam_member" "service_account_pub_sub_binding" {
   project = var.project_id
   role    = "roles/pubsub.editor"
