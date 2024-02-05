@@ -54,6 +54,14 @@ on:
         description: Database IP Address
         required: true
         type: string
+      ZEROTIER_NETWORK_ID:
+        description: ZeroTier Network ID
+        required: true
+        type: string
+      ZEROTIER_TOKEN:
+        description: ZeroTier Central Token
+        type: string
+        required: true
 jobs:
   db-schema-update:
     name: 'Database Schema Update'
@@ -62,6 +70,12 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: ZeroTier
+      uses: zerotier/github-action@v1
+      with:
+        network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
+        auth_token: ${{ secrets.ZEROTIER_TOKEN }}
 
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
@@ -98,6 +112,12 @@ jobs:
         echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@${{ inputs.DB_IP }}:5432/${{ inputs.DB_NAME }}" >> config/.env.local
         echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
         cat config/.env.local
+
+    - name: ZeroTier
+      uses: zerotier/github-action@v1
+      with:
+        network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
+        auth_token: ${{ secrets.ZEROTIER_TOKEN }}
 
     - name: Install requirements and generate db model
       run: scripts/db-gen.sh
