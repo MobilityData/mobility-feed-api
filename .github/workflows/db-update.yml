@@ -37,6 +37,14 @@ on:
       OP_SERVICE_ACCOUNT_TOKEN:
         description: OnePassword Service Account Token
         required: true
+      ZEROTIER_NETWORK_ID:
+        description: ZeroTier Network ID
+        required: true
+        type: string
+      ZEROTIER_TOKEN:
+        description: ZeroTier Central Token
+        type: string
+        required: true
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -54,14 +62,6 @@ on:
         description: Database IP Address
         required: true
         type: string
-      ZEROTIER_NETWORK_ID:
-        description: ZeroTier Network ID
-        required: true
-        type: string
-      ZEROTIER_TOKEN:
-        description: ZeroTier Central Token
-        type: string
-        required: true
 jobs:
   db-schema-update:
     name: 'Database Schema Update'
