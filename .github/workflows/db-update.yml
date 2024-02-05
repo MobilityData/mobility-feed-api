@@ -96,7 +96,7 @@ jobs:
         changeLogFile: 'changelog.xml'
         username: ${{ secrets.DB_USER_NAME }}
         password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://127.0.0.1:8888/${{ inputs.DB_NAME }}'
+        url: 'jdbc:postgresql://localhost:8888/${{ inputs.DB_NAME }}'
 
   db-content-update:
     name: 'Database Content Update'
@@ -129,7 +129,7 @@ jobs:
       with:
         network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
         auth_token: ${{ secrets.ZEROTIER_TOKEN }}
-        
+
     - name: Tunnel
       run: |
         mkdir -p ~/.ssh
