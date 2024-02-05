@@ -1,9 +1,8 @@
 from locust import HttpUser, TaskSet, task, between
 import os
 
-
 class gtfs_user(HttpUser):
-    wait_time = between(0, 1)
+    wait_time = between(5, 15)
 
     def on_start(self):
         # put the refresh token as github action secret
