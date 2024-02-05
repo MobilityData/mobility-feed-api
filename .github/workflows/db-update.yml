@@ -131,6 +131,7 @@ jobs:
     - name: Update .env file
       run: |
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
+        echo "POSTGRES_USER=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
         echo "POSTGRES_PORT=5432" >> config/.env.local
