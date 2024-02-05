@@ -94,15 +94,31 @@ jobs:
         sudo apt-get update && sudo apt-get install -y postgresql-client
         PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 8888 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
 
-    - name: Liquibase Update
-      uses: liquibase-github-actions/update@v4.23.0
-      if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-      with:
-        classpath: 'liquibase'
-        changeLogFile: 'changelog.xml'
-        username: ${{ secrets.DB_USER_NAME }}
-        password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://localhost:8888/${{ inputs.DB_NAME }}'
+    - name: Run Liquibase
+      run: |    
+        wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
+        cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
+        echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
+    
+        sudo apt-get update
+        sudo apt-get install liquibase
+    
+        export LIQUIBASE_COMMAND_CHANGELOG_FILE="./liquibase/changelog.xml"
+        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:8888/${{ inputs.DB_NAME }}
+        export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
+        export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
+        export LIQUIBASE_LOG_LEVEL=FINE
+    
+        liquibase update
+#    - name: Liquibase Update
+#      uses: liquibase-github-actions/update@v4.23.0
+#      if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+#      with:
+#        classpath: 'liquibase'
+#        changeLogFile: 'changelog.xml'
+#        username: ${{ secrets.DB_USER_NAME }}
+#        password: ${{ secrets.DB_USER_PASSWORD }}
+#        url: 'jdbc:postgresql://localhost:8888/${{ inputs.DB_NAME }}'
 
   db-content-update:
     name: 'Database Content Update'
