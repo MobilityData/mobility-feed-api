@@ -43,7 +43,7 @@ jobs:
 
     - name: Run Integration Tests
       env:
-        REFRESH_TOKEN: ${{ if eq(inputs.environment, 'qa') }}${{ secrets.QA_REFRESH_TOKEN }}${{ else }}${{ secrets.PROD_REFRESH_TOKEN }}${{ endif }}
+        REFRESH_TOKEN: ${{ if eq(inputs.environment, 'qa') }}${{ secrets.QA_API_TEST_REFRESH_TOKEN }}${{ else }}${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}${{ endif }}
         FILE_PATH: ${{ env.PATH }}
         API_URL: ${{ if eq(inputs.environment, 'qa') }}https://api-qa.mobilitydatabase.org${{ else }}https://api.mobilitydatabase.org${{ endif }}
       run: |

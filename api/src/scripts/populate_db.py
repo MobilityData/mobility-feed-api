@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 from queue import PriorityQueue
 
-import numpy as np
 import pandas
 from dotenv import load_dotenv
 from sqlalchemy import inspect
