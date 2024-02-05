@@ -1,4 +1,4 @@
-# GTFS User Test
+# API load tests
 
 This script `gtfs_user_test.py`, defines a set of tasks for load testing the GTFS API. Each task represents a different API endpoint that will be hit during the load test.
 
