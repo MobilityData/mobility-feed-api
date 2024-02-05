@@ -43,6 +43,12 @@ on:
       ZEROTIER_TOKEN:
         description: ZeroTier Central Token
         required: true
+      ZEROTIER_NETWORK_GW:
+        description: ZeroTier Network Gateway
+        required: true
+      ZEROTIER_SSH_KEY:
+        description: ZeroTier SSH Key
+        required: true
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -75,6 +81,10 @@ jobs:
         network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
         auth_token: ${{ secrets.ZEROTIER_TOKEN }}
 
+    - name: Tunnel
+      run: |
+        ssh -o StrictHostKeyChecking=no -L 8888:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -i ${{ secrets.ZEROTIER_SSH_KEY }} -N &
+
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
       if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
@@ -83,7 +93,7 @@ jobs:
         changeLogFile: 'changelog.xml'
         username: ${{ secrets.DB_USER_NAME }}
         password: ${{ secrets.DB_USER_PASSWORD }}
-        url: 'jdbc:postgresql://${{ inputs.DB_IP }}:5432/${{ inputs.DB_NAME }}'
+        url: 'jdbc:postgresql://127.0.0.1:8888/${{ inputs.DB_NAME }}'
 
   db-content-update:
     name: 'Database Content Update'
