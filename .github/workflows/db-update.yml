@@ -130,7 +130,7 @@ jobs:
 
     - name: Update .env file
       run: |
-        echo "PGUSER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
+        echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
         echo "POSTGRES_PORT=5432" >> config/.env.local
@@ -150,6 +150,12 @@ jobs:
         echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa        
         ssh -o StrictHostKeyChecking=no -L 5432:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &        
+
+#    Uncomment the following block to test the database connection through the tunnel
+    - name: Test Database Connection Through Tunnel
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
 
     - name: Install requirements and generate db model
       run: scripts/db-gen.sh
