@@ -133,9 +133,8 @@ jobs:
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
-        echo "POSTGRES_PORT=5432" >> config/.env.local
+        echo "POSTGRES_PORT=8888" >> config/.env.local
         echo "POSTGRES_HOST=localhost" >> config/.env.local
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.DB_USER_NAME }}:${{ secrets.DB_USER_PASSWORD }}@localhost:5432/${{ inputs.DB_NAME }}" >> config/.env.local
         echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
         cat config/.env.local
 
