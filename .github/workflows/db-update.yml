@@ -83,7 +83,10 @@ jobs:
 
     - name: Tunnel
       run: |
-        ssh -o StrictHostKeyChecking=no -L 8888:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -i ${{ secrets.ZEROTIER_SSH_KEY }} -N &
+        mkdir -p ~/.ssh
+        echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa        
+        ssh -o StrictHostKeyChecking=no -L 8888:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &
 
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
@@ -126,6 +129,13 @@ jobs:
       with:
         network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
         auth_token: ${{ secrets.ZEROTIER_TOKEN }}
+        
+    - name: Tunnel
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa        
+        ssh -o StrictHostKeyChecking=no -L 8888:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &        
 
     - name: Install requirements and generate db model
       run: scripts/db-gen.sh
