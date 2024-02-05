@@ -25,6 +25,8 @@ jobs:
 
   integration-tests:
     uses: ./.github/workflows/integration-tests.yml
+    needs:
+      - api-build-deployment
     with:
       API_URL: 'https://api-qa.mobilitydatabase.org'
     secrets:
