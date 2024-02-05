@@ -21,3 +21,8 @@ jobs:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.PROD_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.PROD_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    with:
+      environment: 'prod'
