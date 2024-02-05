@@ -30,7 +30,7 @@ jobs:
 
     - name: Get full path of sources.csv
       id: getpath
-      run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_ENV
+      run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
 
     - name: Install dependencies
       working-directory: integration-tests
@@ -42,7 +42,7 @@ jobs:
       run: |
         ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -t ${{ secrets.REFRESH_TOKEN }} -f $FILE_PATH
       env:
-        FILE_PATH: ${{ env.PATH }}
+        FILE_PATH: ${{ env.FILE_PATH }}
     
     - name: Upload Test Logs
       uses: actions/upload-artifact@v2
