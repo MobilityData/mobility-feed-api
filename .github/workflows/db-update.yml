@@ -87,6 +87,12 @@ jobs:
         echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa        
         ssh -o StrictHostKeyChecking=no -L 8888:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &
+        sleep 10 # Wait for the tunnel to establish
+
+    - name: Test Database Connection Through Tunnel
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 8888 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
 
     - name: Liquibase Update
       uses: liquibase-github-actions/update@v4.23.0
