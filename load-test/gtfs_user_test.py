@@ -3,12 +3,12 @@ import os
 
 
 class gtfs_user(HttpUser):
-    wait_time = between(5, 15)
+    wait_time = between(0, 1)
 
     def on_start(self):
         # put the refresh token as github action secret
         # get the access token and pass it to the script
-        self.client.headers = {'Authorization': os.environ('FEEDS_AUTH_TOKEN')}
+        self.client.headers = {'Authorization': os.environ.get('FEEDS_AUTH_TOKEN')}
 
     @task
     def feeds(self):

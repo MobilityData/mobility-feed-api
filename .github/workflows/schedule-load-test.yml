@@ -3,6 +3,17 @@ name: Schedule Load Test every other Friday
 on:
   schedule:
     - cron: "0 0 * * 5/2"
+  push:
+    branches: [ 248-add-load-test-to-github-actions ]  # Remove
+  workflow_dispatch: # Supports manual deployment
+
+env:
+  # Written for the qa stage, but could be used for dev or prod (empty string in that case)
+  STAGE: "qa"
+  # locust parameters. Refer to https://docs.locust.io/en/stable/configuration.html for explanation
+  LOCUST_USERS: 100
+  LOCUST_RATE: 10
+  LOCUST_DURATION: 180
 
 jobs:
   load-test:
@@ -22,5 +33,43 @@ jobs:
           python -m pip install --upgrade pip
           pip install locust
 
-      - name: Run load test
-        run: locust -f ./load-test/gtfs_user_test.py --host=https://api-qa.mobilitydatabase.org -u 100 -r 10
+      - name: Get an access token
+        id: getAccessToken
+        run: |
+          set +e  # Do not exit if error. Handle error messages here.
+          REPLY=`curl --location 'https://api-qa.mobilitydatabase.org/v1/tokens' \
+             --header 'Content-Type: application/json' \
+             --data '{ "refresh_token": "${{ secrets.QA_API_TEST_REFRESH_TOKEN }}" }'`
+          if [ $? -ne 0 ]; then
+            echo "Error: Cannot obtain access token Reply = \"$REPLY\""
+            exit 1  # Terminate the workflow
+          fi
+          ACCESS_TOKEN=`echo $REPLY | jq -r .access_token`
+          
+          if [ $? -ne 0 ]; then
+            echo "Error: Cannot extract access token from reply \"$REPLY\""
+            exit 1
+          fi
+          
+          if [ -z "ACCESS_TOKEN" ]; then
+            echo "Error: Access token is empty extracted from $REPLY"
+            exit 1
+          fi
+          
+          echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_ENV
+
+      - name: Run the load tests
+        run: |
+          # For the URL, we want to use the STAGE variable to create api.mobilitydatabase.org, 
+          # api-qa.mobilitydatabase.org or api-dev.mobilitydatabase.org. If the STAGE var is empty, don't add '-' prefix
+          [ -n "$STAGE" ] && STAGE="-${STAGE}"   
+          
+          FEEDS_AUTH_TOKEN="${{ env.ACCESS_TOKEN }}"    # The locust script uses this variable
+          locust -f ./load-test/gtfs_user_test.py --host=https://api${STAGE}.mobilitydatabase.org \
+            -u ${LOCUST_USERS} -r ${LOCUST_RATE} --headless -t ${LOCUST_DURATION} --only-summary --csv locust_results
+          
+      - name: Upload load test results as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: load_test_results
+          path: locust_results_*
