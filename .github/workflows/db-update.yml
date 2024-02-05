@@ -86,14 +86,14 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa        
-        ssh -o StrictHostKeyChecking=no -L 8888:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &
+        ssh -o StrictHostKeyChecking=no -L 5432:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &
         sleep 10 # Wait for the tunnel to establish
 
 #    Uncomment the following block to test the database connection through the tunnel
 #    - name: Test Database Connection Through Tunnel
 #      run: |
 #        sudo apt-get update && sudo apt-get install -y postgresql-client
-#        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 8888 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
+#        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
 
     - name: Run Liquibase
       run: |    
@@ -106,7 +106,7 @@ jobs:
     
         export LIQUIBASE_CLASSPATH="liquibase"
         export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
-        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:8888/${{ inputs.DB_NAME }}
+        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/${{ inputs.DB_NAME }}
         export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
         export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
         export LIQUIBASE_LOG_LEVEL=FINE
@@ -133,7 +133,7 @@ jobs:
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" >> config/.env.local
         echo "POSTGRES_PASSWORD=${{ secrets.DB_USER_PASSWORD }}" >> config/.env.local
         echo "POSTGRES_DB=${{ inputs.DB_NAME }}" >> config/.env.local
-        echo "POSTGRES_PORT=8888" >> config/.env.local
+        echo "POSTGRES_PORT=5432" >> config/.env.local
         echo "POSTGRES_HOST=localhost" >> config/.env.local
         echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
         cat config/.env.local
@@ -149,7 +149,7 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa        
-        ssh -o StrictHostKeyChecking=no -L 8888:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &        
+        ssh -o StrictHostKeyChecking=no -L 5432:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &        
 
     - name: Install requirements and generate db model
       run: scripts/db-gen.sh
