@@ -15,6 +15,7 @@ on:
 
 jobs:
   integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -48,10 +49,9 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: integration-tests-results
-        working-directory: integration-tests
         path: |
-          src/integration_tests_log.html
-          src/datasets_validation.csv
+          integration-tests/src/integration_tests_log.html
+          integration-tests/src/datasets_validation.csv
           
           
           
