@@ -40,10 +40,8 @@ on:
       ZEROTIER_NETWORK_ID:
         description: ZeroTier Network ID
         required: true
-        type: string
       ZEROTIER_TOKEN:
         description: ZeroTier Central Token
-        type: string
         required: true
     inputs:
       PROJECT_ID:
