@@ -8,13 +8,16 @@ This script `gtfs_user_test.py`, defines a set of tasks for load testing the GTF
 
 Locust is a Python library, so you can install it with pip. Run the following command in your terminal:
 
-```bash
+```
 pip install locust
+```
 
 ## Start a Load Test
 
 To start a load test on QA environment, run the following command in your terminal:
+```
 locust -f gtfs_user_test.py --host=https://api-qa.mobilitydatabase.org -u 100 -r 10
+```
 The -u option specifies the total number of users to simulate, and the -r option specifies the hatch rate (number of users to start per second)
 
 ### Tasks
@@ -57,5 +60,5 @@ The `wait_time` is set to a random duration between 5 and 15 seconds. This means
 
 ## Authorization
 
-The `on_start` method sets the 'Authorization' header to the value of the 'FEEDS_AUTH_TOKEN' environment variable. This means that all requests sent during the load test will include this authorization token.
-```
+The `on_start` method sets the 'Authorization' header to the value of the `FEEDS_AUTH_TOKEN` environment variable. This means that all requests sent during the load test will include this authorization token.
+
