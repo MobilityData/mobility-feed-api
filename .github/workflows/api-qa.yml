@@ -26,4 +26,7 @@ jobs:
   integration-tests:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      environment: 'qa'
+      API_URL: 'https://api-qa.mobilitydatabase.org'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
+

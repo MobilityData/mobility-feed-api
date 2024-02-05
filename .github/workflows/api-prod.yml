@@ -25,4 +25,6 @@ jobs:
   integration-tests:
     uses: ./.github/workflows/integration-tests.yml
     with:
-      environment: 'prod'
+      API_URL: 'https://api.mobilitydatabase.org'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}

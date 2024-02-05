@@ -3,18 +3,15 @@ name: Run Integration Tests
 on:
   workflow_call:
     inputs:
-      environment:
+      API_URL:
         required: true
         type: string
-        description: 'The environment to run the tests in (qa|prod)'
-        default: 'qa'
-  workflow_dispatch:
-    inputs:
-      environment:
+        description: 'API URL to be used for tests'
+    secrets:
+      REFRESH_TOKEN:
         required: true
-        type: string
-        description: 'The environment to run the tests in (qa|prod)'
-        default: 'qa'
+        description: 'Refresh token for API authentication'
+
 
 jobs:
   integration-tests:
@@ -42,12 +39,10 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run Integration Tests
-      env:
-        REFRESH_TOKEN: ${{ if eq(inputs.environment, 'qa') }}${{ secrets.QA_API_TEST_REFRESH_TOKEN }}${{ else }}${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}${{ endif }}
-        FILE_PATH: ${{ env.PATH }}
-        API_URL: ${{ if eq(inputs.environment, 'qa') }}https://api-qa.mobilitydatabase.org${{ else }}https://api.mobilitydatabase.org${{ endif }}
       run: |
-        ./scripts/integration-tests.sh -u $API_URL -t $REFRESH_TOKEN -f $FILE_PATH
+        ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -t ${{ secrets.REFRESH_TOKEN }} -f $FILE_PATH
+      env:
+        FILE_PATH: ${{ env.PATH }}
     
     - name: Upload Test Logs
       uses: actions/upload-artifact@v2
