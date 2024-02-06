@@ -11,6 +11,10 @@ Locust is a Python library, so you can install it with pip. Run the following co
 ```
 pip install locust
 ```
+## Authorization
+
+Set the `FEEDS_AUTH_TOKEN` environment variable to the access token you wish to use for connecting to the rest API. 
+All requests sent during the load test will include this token.
 
 ## Start a Load Test
 
@@ -57,8 +61,3 @@ This task hits the `/v1/datasets/gtfs/mdb-10` endpoint, which returns the datase
 ## Wait Time
 
 The `wait_time` is set to a random duration between 5 and 15 seconds. This means that after each task is executed, the script will wait for a duration between 5 and 15 seconds before executing the next task.
-
-## Authorization
-
-The `on_start` method sets the 'Authorization' header to the value of the `FEEDS_AUTH_TOKEN` environment variable. This means that all requests sent during the load test will include this authorization token.
-

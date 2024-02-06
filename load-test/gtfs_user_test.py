@@ -1,3 +1,5 @@
+import sys
+
 from locust import HttpUser, TaskSet, task, between
 import os
 
@@ -5,9 +7,9 @@ class gtfs_user(HttpUser):
     wait_time = between(5, 15)
 
     def on_start(self):
-        # put the refresh token as github action secret
-        # get the access token and pass it to the script
-        self.client.headers = {'Authorization': os.environ.get('FEEDS_AUTH_TOKEN')}
+        # get the access token for the API
+        token = os.environ.get('FEEDS_AUTH_TOKEN') or sys.exit("Error: FEEDS_AUTH_TOKEN environment variable is not defined or empty")
+        self.client.headers = {'Authorization': token}
 
     @task
     def feeds(self):

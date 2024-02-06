@@ -6,8 +6,7 @@ on:
   workflow_dispatch: # Supports manual triggering
 
 env:
-  # Written for the qa stage, but could be used for dev or prod (empty string in that case)
-  STAGE: "qa"
+  API_BASE_URL: "api-qa.mobilitydatabase.org"
   # locust parameters. Refer to https://docs.locust.io/en/stable/configuration.html for explanation
   LOCUST_USERS: 100
   LOCUST_RATE: 10
@@ -35,7 +34,7 @@ jobs:
         id: getAccessToken
         run: |
           set +e  # Do not exit if error. Handle error messages here.
-          REPLY=`curl --location 'https://api-qa.mobilitydatabase.org/v1/tokens' \
+          REPLY=`curl --location 'https://${API_BASE_URL}/v1/tokens' \
              --header 'Content-Type: application/json' \
              --data '{ "refresh_token": "${{ secrets.QA_API_TEST_REFRESH_TOKEN }}" }'`
           if [ $? -ne 0 ]; then
@@ -57,13 +56,9 @@ jobs:
           echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_ENV
 
       - name: Run the load tests
-        run: |
-          # For the URL, we want to use the STAGE variable to create api.mobilitydatabase.org, 
-          # api-qa.mobilitydatabase.org or api-dev.mobilitydatabase.org. If the STAGE var is empty, don't add '-' prefix
-          [ -n "$STAGE" ] && STAGE="-${STAGE}"   
-          
+        run: |         
           FEEDS_AUTH_TOKEN="${{ env.ACCESS_TOKEN }}"    # The locust script uses this variable
-          locust -f ./load-test/gtfs_user_test.py --host=https://api${STAGE}.mobilitydatabase.org \
+          locust -f ./load-test/gtfs_user_test.py --host=https://${API_BASE_URL} \
             -u ${LOCUST_USERS} -r ${LOCUST_RATE} --headless -t ${LOCUST_DURATION} --only-summary --csv locust_results
           
       - name: Upload load test results as artifacts
