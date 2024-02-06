@@ -61,7 +61,6 @@ on:
       REGION:
         description: GCP region
         required: true
-        default: 'northamerica-northeast1'
         type: string
 jobs:
   db-schema-update:

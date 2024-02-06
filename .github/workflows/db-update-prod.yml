@@ -38,6 +38,7 @@ jobs:
     needs: get_database_ip
     with:
       PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_IP: ${{needs.get_database_ip.outputs.db_ip}}
