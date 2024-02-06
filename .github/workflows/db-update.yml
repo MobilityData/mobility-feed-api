@@ -96,14 +96,14 @@ jobs:
         gcloud config set component_manager/disable_update_check true
         STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
         echo "Instance status: $STATUS"
-        echo "Instance status is $STATUS" >> $GITHUB_OUTPUT
+        echo "status=$STATUS" >> $GITHUB_OUTPUT
       env:
         GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
         INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
         ZONE: ${{ inputs.REGION }}-a
 
     - name: Start GCP Machine if Not Running
-      if: steps.check_status.outputs.status != 'RUNNING'
+      if: steps.check_gw_status.outputs.status != 'RUNNING'
       run: |
         echo "Instance is not running. Starting instance..."
         gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
@@ -204,14 +204,14 @@ jobs:
         gcloud config set component_manager/disable_update_check true
         STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
         echo "Instance status: $STATUS"
-        echo "Instance status is $STATUS" >> $GITHUB_OUTPUT
+        echo "status=$STATUS" >> $GITHUB_OUTPUT
       env:
         GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
         INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
         ZONE: ${{ inputs.REGION }}-a
 
     - name: Start GCP Machine if Not Running
-      if: steps.check_status.outputs.status != 'RUNNING'
+      if: steps.check_gw_status.outputs.status != 'RUNNING'
       run: |
         echo "Instance is not running. Starting instance..."
         gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
