@@ -48,7 +48,7 @@ jobs:
 
     - name: Google Cloud Setup
       uses: google-github-actions/setup-gcloud@v2
-      
+
     - name: Check GCP Machine Status
       id: check_gw_status
       run: |        
@@ -74,7 +74,7 @@ jobs:
         GCP_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
 
   update:
-    needs: get_database_ip
+    needs: [get_database_ip, gw_status]
     uses: ./.github/workflows/db-update.yml
     with:
       PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
