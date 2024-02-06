@@ -3,9 +3,7 @@ name: Schedule Load Test every other Friday
 on:
   schedule:
     - cron: "0 0 * * 5/2"
-  push:
-    branches: [ 248-add-load-test-to-github-actions ]  # Remove
-  workflow_dispatch: # Supports manual deployment
+  workflow_dispatch: # Supports manual triggering
 
 env:
   # Written for the qa stage, but could be used for dev or prod (empty string in that case)
