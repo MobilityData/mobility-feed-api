@@ -16,7 +16,7 @@ jobs:
       db_ip: ${{ steps.get_ip.outputs.DB_IP }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
