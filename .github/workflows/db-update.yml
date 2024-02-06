@@ -95,18 +95,20 @@ jobs:
       run: |
         if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
           ENVIRONMENT="qa"
+          PROJECT_ID="mobility-feeds-qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
+          PROJECT_ID=${{ inputs.PROJECT_ID }}
         fi
+        export GCP_PROJECT_ID=$PROJECT_ID
         INSTANCE_NAME="zerotier-instance-$ENVIRONMENT"
-        echo "Using instance: $INSTANCE_NAME"
+        echo "Using instance: $INSTANCE_NAME on project $GCP_PROJECT_ID"
         
         gcloud config set component_manager/disable_update_check true
         STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
         echo "Instance status: $STATUS"
         echo "status=$STATUS" >> $GITHUB_OUTPUT
       env:
-        GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
         ZONE: ${{ inputs.REGION }}-a
 
     - name: Start GCP Machine if Not Running
@@ -114,18 +116,20 @@ jobs:
       run: |
         if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
           ENVIRONMENT="qa"
+          PROJECT_ID="mobility-feeds-qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
+          PROJECT_ID=${{ inputs.PROJECT_ID }}
         fi
+        export GCP_PROJECT_ID=$PROJECT_ID
         INSTANCE_NAME="zerotier-instance-$ENVIRONMENT"
-        echo "Using instance: $INSTANCE_NAME"
+        echo "Using instance: $INSTANCE_NAME on project $GCP_PROJECT_ID"
         
         echo "Instance is not running. Starting instance..."
         gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
         echo "Instance is starting. Please wait..."
         sleep 60
       env:
-        GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
         ZONE: ${{ inputs.REGION }}-a
 
     - name: ZeroTier
@@ -217,11 +221,14 @@ jobs:
       run: |
         if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
           ENVIRONMENT="qa"
+          PROJECT_ID="mobility-feeds-qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
+          PROJECT_ID=${{ inputs.PROJECT_ID }}
         fi
+        export GCP_PROJECT_ID=$PROJECT_ID
         INSTANCE_NAME="zerotier-instance-$ENVIRONMENT"
-        echo "Using instance: $INSTANCE_NAME"
+        echo "Using instance: $INSTANCE_NAME on project $GCP_PROJECT_ID"
         
         gcloud config set component_manager/disable_update_check true
         STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
@@ -236,11 +243,14 @@ jobs:
       run: |
         if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
           ENVIRONMENT="qa"
+          PROJECT_ID="mobility-feeds-qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
+          PROJECT_ID=${{ inputs.PROJECT_ID }}
         fi
+        export GCP_PROJECT_ID=$PROJECT_ID
         INSTANCE_NAME="zerotier-instance-$ENVIRONMENT"
-        echo "Using instance: $INSTANCE_NAME"
+        echo "Using instance: $INSTANCE_NAME on project $GCP_PROJECT_ID"
         
         echo "Instance is not running. Starting instance..."
         gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
