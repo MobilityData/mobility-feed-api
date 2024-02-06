@@ -4,7 +4,8 @@ locals {
   services = [
     "sqladmin.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "networkmanagement.googleapis.com"
+    "networkmanagement.googleapis.com",
+    "servicenetworking.googleapis.com"
   ]
 }
 
