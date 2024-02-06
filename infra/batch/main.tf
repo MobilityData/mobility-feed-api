@@ -232,6 +232,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
   description = local.function_batch_process_dataset_config.description
   location    = var.gcp_region
   depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  vpc_connector = data.google_vpc_access_connector.vpc_connector.id
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_process_dataset_config.entry_point
