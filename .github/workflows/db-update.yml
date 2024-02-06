@@ -93,13 +93,20 @@ jobs:
     - name: Check GCP Machine Status
       id: check_gw_status
       run: |
+        if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
+          ENVIRONMENT="dev"
+        else
+          ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
+        fi
+        INSTANCE_NAME="zerotier-instance-$ENVIRONMENT"
+        echo "Using instance: $INSTANCE_NAME"
+        
         gcloud config set component_manager/disable_update_check true
         STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
         echo "Instance status: $STATUS"
         echo "status=$STATUS" >> $GITHUB_OUTPUT
       env:
         GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
-        INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
         ZONE: ${{ inputs.REGION }}-a
 
     - name: Start GCP Machine if Not Running
@@ -210,16 +217,23 @@ jobs:
         INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
         ZONE: ${{ inputs.REGION }}-a
 
-    - name: Start GCP Machine if Not Running
-      if: steps.check_gw_status.outputs.status != 'RUNNING'
+    - name: Check GCP Machine Status
+      id: check_gw_status
       run: |
-        echo "Instance is not running. Starting instance..."
-        gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
-        echo "Instance is starting. Please wait..."
-        sleep 60
+        if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
+          ENVIRONMENT="dev"
+        else
+          ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
+        fi
+        INSTANCE_NAME="zerotier-instance-$ENVIRONMENT"
+        echo "Using instance: $INSTANCE_NAME"
+        
+        gcloud config set component_manager/disable_update_check true
+        STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
+        echo "Instance status: $STATUS"
+        echo "status=$STATUS" >> $GITHUB_OUTPUT
       env:
         GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
-        INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
         ZONE: ${{ inputs.REGION }}-a
 
     - name: ZeroTier
