@@ -34,6 +34,9 @@ on:
       DB_INSTANCE_NAME:
         description: PostgreSQL Database Instance Name
         required: true
+      OP_SERVICE_ACCOUNT_TOKEN:
+        description: OnePassword Service Account Token
+        required: true
     inputs:
       PROJECT_ID:
         description: GCP Project ID
