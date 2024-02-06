@@ -215,7 +215,12 @@ class FeedsApiImpl(BaseFeedsApi):
                 (None, None),
             )
             if latest_dataset:
-                api_dataset = LatestDataset(id=latest_dataset.stable_id, hosted_url=latest_dataset.hosted_url)
+                api_dataset = LatestDataset(
+                    id=latest_dataset.stable_id,
+                    downloaded_at=latest_dataset.download_date.isoformat() if latest_dataset.download_date else None,
+                    hash=latest_dataset.hash,
+                    hosted_url=latest_dataset.hosted_url,
+                )
                 if bounding_box:
                     coordinates = json.loads(bounding_box)["coordinates"][0]
                     api_dataset.bounding_box = BoundingBox(

@@ -374,6 +374,15 @@ components:
           example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
         bounding_box:
           $ref: "#/components/schemas/BoundingBox"
+        downloaded_at:
+          description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: datetime
+        hash:
+          description: A MD5 hash of the dataset.
+          type: string
+          example: a_long_sha1_hash
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    EntityTypes:
