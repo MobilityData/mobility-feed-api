@@ -27,8 +27,6 @@ provider "google-beta" {
   request_timeout = "60s"
 }
 
-provider "external" {}
-
 # This need to be created before the database instance
 resource "google_compute_global_address" "private_ip_address" {
   name          = "google-managed-services-default"
