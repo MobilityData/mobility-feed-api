@@ -118,6 +118,16 @@ export default function SignUp(): React.ReactElement {
       });
   };
 
+  const termsAndConditionsElement = (
+    <span>
+      I have read and I agree to the{' '}
+      <a href={'/terms-and-conditions'} target={'_blank'} rel={'noreferrer'}>
+        terms and conditions
+      </a>
+      .
+    </span>
+  );
+
   const onChangeReCaptcha = (value: string | null): void => {
     void formik.setFieldValue('reCaptcha', value);
   };
@@ -276,7 +286,7 @@ export default function SignUp(): React.ReactElement {
                 color='primary'
               />
             }
-            label='I agree to the terms and conditions'
+            label={termsAndConditionsElement}
             sx={{ width: '100%' }}
           />
           {formik.errors.agreeToTerms != null ? (
