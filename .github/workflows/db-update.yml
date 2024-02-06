@@ -75,7 +75,7 @@ jobs:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         GCP_FEED_ZEROTIER_NETWORK_ID: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4c7ut35delweauflq7g2kphl5u/credential"
         GCP_FEED_ZEROTIER_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4lsfgxbtegqicjj2fz6skkj2pm/credential"
-        GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_ZEROTIER_SSH_KEY/private key"
+        GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/h4zgaa7wyk3ml3mrggedezyxkm/private key"
         GCP_FEED_ZEROTIER_NETWORK_GW: ${{ inputs.ZEROTIER_NETWORK_GW_KEY }}
 
     - name: ZeroTier
@@ -93,10 +93,10 @@ jobs:
         sleep 10 # Wait for the tunnel to establish
 
 #    Uncomment the following block to test the database connection through the tunnel
-#    - name: Test Database Connection Through Tunnel
-#      run: |
-#        sudo apt-get update && sudo apt-get install -y postgresql-client
-#        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
+    - name: Test Database Connection Through Tunnel
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
 
     - name: Run Liquibase
       run: |    
@@ -151,7 +151,7 @@ jobs:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
         GCP_FEED_ZEROTIER_NETWORK_ID: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4c7ut35delweauflq7g2kphl5u/credential"
         GCP_FEED_ZEROTIER_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4lsfgxbtegqicjj2fz6skkj2pm/credential"
-        GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_ZEROTIER_SSH_KEY/private key"
+        GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/h4zgaa7wyk3ml3mrggedezyxkm/private key"
         GCP_FEED_ZEROTIER_NETWORK_GW: ${{ inputs.ZEROTIER_NETWORK_GW_KEY }}
 
     - name: ZeroTier
@@ -193,12 +193,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Authenticate to Google Cloud QA/PROD
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Load secrets from 1Password
         id: onepw_secrets
