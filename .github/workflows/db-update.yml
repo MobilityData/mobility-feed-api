@@ -34,21 +34,6 @@ on:
       DB_INSTANCE_NAME:
         description: PostgreSQL Database Instance Name
         required: true
-      OP_SERVICE_ACCOUNT_TOKEN:
-        description: OnePassword Service Account Token
-        required: true
-      ZEROTIER_NETWORK_ID:
-        description: ZeroTier Network ID
-        required: true
-      ZEROTIER_TOKEN:
-        description: ZeroTier Central Token
-        required: true
-      ZEROTIER_NETWORK_GW:
-        description: ZeroTier Network Gateway
-        required: true
-      ZEROTIER_SSH_KEY:
-        description: ZeroTier SSH Key
-        required: true
     inputs:
       PROJECT_ID:
         description: GCP Project ID
@@ -66,6 +51,10 @@ on:
         description: Database IP Address
         required: true
         type: string
+      ZEROTIER_NETWORK_GW_KEY:
+        description: ZeroTier Network Gateway
+        type: string
+        required: true
 jobs:
   db-schema-update:
     name: 'Database Schema Update'
@@ -75,18 +64,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Load secrets from 1Password
+      uses: 1password/load-secrets-action@v1.3.1
+      with:
+        export-env: true # Export loaded secrets as environment variables
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        GCP_FEED_ZEROTIER_NETWORK_ID: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4c7ut35delweauflq7g2kphl5u/credential"
+        GCP_FEED_ZEROTIER_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4lsfgxbtegqicjj2fz6skkj2pm/credential"
+        GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_ZEROTIER_SSH_KEY/private key"
+        GCP_FEED_ZEROTIER_NETWORK_GW: ${{ inputs.ZEROTIER_NETWORK_GW_KEY }}
+
     - name: ZeroTier
       uses: zerotier/github-action@v1
       with:
-        network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
-        auth_token: ${{ secrets.ZEROTIER_TOKEN }}
+        network_id: ${{ env.GCP_FEED_ZEROTIER_NETWORK_ID }}
+        auth_token: ${{ env.GCP_FEED_ZEROTIER_TOKEN }}
 
     - name: Tunnel
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
+        echo "${{ env.GCP_FEED_ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa        
-        ssh -o StrictHostKeyChecking=no -L 5432:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &
+        ssh -o StrictHostKeyChecking=no -L 5432:${{ inputs.DB_IP }}:5432 it@${{ env.GCP_FEED_ZEROTIER_NETWORK_GW }} -N &
         sleep 10 # Wait for the tunnel to establish
 
 #    Uncomment the following block to test the database connection through the tunnel
@@ -140,18 +140,30 @@ jobs:
         echo "ENV=${{ inputs.ENVIRONMENT }}" >> config/.env.local
         cat config/.env.local
 
+    - name: Load secrets from 1Password
+      uses: 1password/load-secrets-action@v1.3.1
+      with:
+        export-env: true # Export loaded secrets as environment variables
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        GCP_FEED_ZEROTIER_NETWORK_ID: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4c7ut35delweauflq7g2kphl5u/credential"
+        GCP_FEED_ZEROTIER_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4lsfgxbtegqicjj2fz6skkj2pm/credential"
+        GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_ZEROTIER_SSH_KEY/private key"
+        GCP_FEED_ZEROTIER_NETWORK_GW: ${{ inputs.ZEROTIER_NETWORK_GW_KEY }}
+
     - name: ZeroTier
       uses: zerotier/github-action@v1
       with:
-        network_id: ${{ secrets.ZEROTIER_NETWORK_ID }}
-        auth_token: ${{ secrets.ZEROTIER_TOKEN }}
+        network_id: ${{ env.GCP_FEED_ZEROTIER_NETWORK_ID }}
+        auth_token: ${{ env.GCP_FEED_ZEROTIER_TOKEN }}
 
     - name: Tunnel
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
+        echo "${{ env.GCP_FEED_ZEROTIER_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa        
-        ssh -o StrictHostKeyChecking=no -L 5432:${{ inputs.DB_IP }}:5432 it@${{ secrets.ZEROTIER_NETWORK_GW }} -N &        
+        ssh -o StrictHostKeyChecking=no -L 5432:${{ inputs.DB_IP }}:5432 it@${{ env.GCP_FEED_ZEROTIER_NETWORK_GW }} -N &
+        sleep 10 # Wait for the tunnel to establish      
 
     - name: Install requirements and generate db model
       run: scripts/db-gen.sh

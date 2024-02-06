@@ -43,13 +43,10 @@ jobs:
       DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
       ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
       DB_IP: ${{needs.get_database_ip.outputs.db_ip}}
+      ZEROTIER_NETWORK_GW_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_QA_ZEROTIER_NETWORK_GW/credential"
     secrets:
       DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
       DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      ZEROTIER_NETWORK_ID: ${{ secrets.QA_ZEROTIER_NETWORK_ID }}
-      ZEROTIER_TOKEN: ${{ secrets.QA_ZEROTIER_TOKEN }}
-      ZEROTIER_NETWORK_GW: ${{ secrets.QA_ZEROTIER_NETWORK_GW }}
-      ZEROTIER_SSH_KEY: ${{ secrets.QA_ZEROTIER_SSH_KEY }}
