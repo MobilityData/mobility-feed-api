@@ -93,8 +93,8 @@ jobs:
     - name: Check GCP Machine Status
       id: check_gw_status
       run: |
-        if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
-          ENVIRONMENT="dev"
+        if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
+          ENVIRONMENT="qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
         fi
@@ -112,8 +112,8 @@ jobs:
     - name: Start GCP Machine if Not Running
       if: steps.check_gw_status.outputs.status != 'RUNNING'
       run: |
-        if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
-          ENVIRONMENT="dev"
+        if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
+          ENVIRONMENT="qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
         fi
@@ -215,8 +215,8 @@ jobs:
     - name: Check GCP Machine Status
       id: check_gw_status
       run: |
-        if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
-          ENVIRONMENT="dev"
+        if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
+          ENVIRONMENT="qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
         fi
@@ -234,8 +234,8 @@ jobs:
     - name: Start GCP Machine if Not Running
       if: steps.check_gw_status.outputs.status != 'RUNNING'
       run: |
-        if [[ "${{ inputs.ENVIRONMENT }}" == "qa" ]]; then
-          ENVIRONMENT="dev"
+        if [[ "${{ inputs.ENVIRONMENT }}" == "dev" ]]; then
+          ENVIRONMENT="qa"
         else
           ENVIRONMENT="${{ inputs.ENVIRONMENT }}"
         fi
