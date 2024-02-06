@@ -37,6 +37,10 @@ resource "google_project_service" "services" {
   disable_dependent_services = true
 }
 
+data "google_vpc_access_connector" "vpc_connector" {
+  name = "vpc-connector-${lower(var.environment)}"
+}
+
 # Service account to execute the cloud functions
 resource "google_service_account" "functions_service_account" {
   account_id   = "batchfunctions-service-account"
@@ -116,6 +120,8 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
   description = local.function_batch_datasets_config.description
   location    = var.gcp_region
   depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+  vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_datasets_config.entry_point
