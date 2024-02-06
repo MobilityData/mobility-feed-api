@@ -17,7 +17,7 @@
 # The app created here is intended to replace the generated feeds_gen.main:app variable.
 
 from fastapi import FastAPI
-
+import subprocess
 from feeds_gen.apis.datasets_api import router as DatasetsApiRouter
 from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
@@ -35,6 +35,20 @@ app = FastAPI(
     "Database_",
     version="0.1.0",
 )
+
+
+def get_git_revision_hash():
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
+
+
+def get_git_revision_short_hash():
+    return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
+
+
+@app.get("/version")
+def version():
+    return {"version": '1.0.' + get_git_revision_short_hash(), "commit_hash": get_git_revision_hash()}
+
 
 app.add_middleware(
     CORSMiddleware,
