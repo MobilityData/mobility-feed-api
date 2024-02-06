@@ -58,6 +58,11 @@ on:
         description: ZeroTier Network Gateway
         type: string
         required: true
+      REGION:
+        description: GCP region
+        required: true
+        default: 'northamerica-northeast1'
+        type: string
 jobs:
   db-schema-update:
     name: 'Database Schema Update'
@@ -77,6 +82,38 @@ jobs:
         GCP_FEED_ZEROTIER_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4lsfgxbtegqicjj2fz6skkj2pm/credential"
         GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/h4zgaa7wyk3ml3mrggedezyxkm/private key"
         GCP_FEED_ZEROTIER_NETWORK_GW: ${{ inputs.ZEROTIER_NETWORK_GW_KEY }}
+
+    - name: Authenticate to Google Cloud QA/PROD
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v2
+      
+    - name: Check GCP Machine Status
+      id: check_gw_status
+      run: |
+        gcloud config set component_manager/disable_update_check true
+        STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
+        echo "Instance status: $STATUS"
+        echo "Instance status is $STATUS" >> $GITHUB_OUTPUT
+      env:
+        GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
+        INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
+        ZONE: ${{ inputs.REGION }}-a
+
+    - name: Start GCP Machine if Not Running
+      if: steps.check_status.outputs.status != 'RUNNING'
+      run: |
+        echo "Instance is not running. Starting instance..."
+        gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
+        echo "Instance is starting. Please wait..."
+        sleep 60
+      env:
+        GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
+        INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
+        ZONE: ${{ inputs.REGION }}-a
 
     - name: ZeroTier
       uses: zerotier/github-action@v1
@@ -153,6 +190,38 @@ jobs:
         GCP_FEED_ZEROTIER_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/4lsfgxbtegqicjj2fz6skkj2pm/credential"
         GCP_FEED_ZEROTIER_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/h4zgaa7wyk3ml3mrggedezyxkm/private key"
         GCP_FEED_ZEROTIER_NETWORK_GW: ${{ inputs.ZEROTIER_NETWORK_GW_KEY }}
+
+    - name: Authenticate to Google Cloud QA/PROD
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Check GCP Machine Status
+      id: check_gw_status
+      run: |
+        gcloud config set component_manager/disable_update_check true
+        STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
+        echo "Instance status: $STATUS"
+        echo "Instance status is $STATUS" >> $GITHUB_OUTPUT
+      env:
+        GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
+        INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
+        ZONE: ${{ inputs.REGION }}-a
+
+    - name: Start GCP Machine if Not Running
+      if: steps.check_status.outputs.status != 'RUNNING'
+      run: |
+        echo "Instance is not running. Starting instance..."
+        gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
+        echo "Instance is starting. Please wait..."
+        sleep 60
+      env:
+        GCP_PROJECT_ID: ${{ inputs.PROJECT_ID }}
+        INSTANCE_NAME: zerotier-instance-${{ inputs.ENVIRONMENT }}
+        ZONE: ${{ inputs.REGION }}-a
 
     - name: ZeroTier
       uses: zerotier/github-action@v1
