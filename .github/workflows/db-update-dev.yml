@@ -36,6 +36,43 @@ jobs:
         DB_IP=$(gcloud sql instances describe ${{ secrets.DB_INSTANCE_NAME }} --format=json | jq -r '.ipAddresses[] | select(.type=="PRIVATE") | .ipAddress')
         echo "DB_IP=$DB_IP" >> "$GITHUB_OUTPUT"
 
+  gw_status:
+    name: 'Check GCP GW Machine Status'
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v2
+      
+    - name: Check GCP Machine Status
+      id: check_gw_status
+      run: |        
+        gcloud config set component_manager/disable_update_check true
+        STATUS=$(gcloud compute instances describe $INSTANCE_NAME --zone=$ZONE --format='get(status)')
+        echo "Instance status: $STATUS"
+        echo "status=$STATUS" >> $GITHUB_OUTPUT
+      env:
+        ZONE: ${{ vars.MOBILITY_FEEDS_REGION }}-a
+        INSTANCE_NAME: 'zerotier-instance-qa'
+        GCP_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+
+    - name: Start GCP Machine if Not Running
+      if: steps.check_gw_status.outputs.status != 'RUNNING'
+      run: |
+        echo "Instance is not running. Starting instance..."
+        gcloud compute instances start $INSTANCE_NAME --zone=$ZONE
+        echo "Instance is starting. Please wait..."
+        sleep 60
+      env:
+        ZONE: ${{ vars.MOBILITY_FEEDS_REGION }}-a
+        INSTANCE_NAME: 'zerotier-instance-qa'
+        GCP_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+
   update:
     needs: get_database_ip
     uses: ./.github/workflows/db-update.yml
