@@ -60,6 +60,10 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
           }
         }
       }
+      env {
+        name = "SHOULD_CLOSE_DB_SESSION"
+        value = "false"
+      }
     }
   }
 }
