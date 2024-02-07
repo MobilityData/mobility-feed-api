@@ -28,6 +28,15 @@ locals {
 
   function_batch_process_dataset_config = jsondecode(file("${path.module}/../../functions-python/batch_process_dataset/function_config.json"))
   function_batch_process_dataset_zip    = "${path.module}/../../functions-python/batch_process_dataset/.dist/batch_process_dataset.zip"
+  #  DEV and QA use the vpc connector
+  vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+  vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+}
+
+data "google_vpc_access_connector" "vpc_connector" {
+  name    = local.vpc_connector_name
+  region  = var.gcp_region
+  project = local.vpc_connector_project
 }
 
 resource "google_project_service" "services" {
@@ -46,7 +55,8 @@ resource "google_service_account" "functions_service_account" {
 # Cloud storage bucket to store the datasets
 resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
-  location = "us"
+  location = var.gcp_region
+  uniform_bucket_level_access = false
 }
 
 # Grant permissions to the service account to access the datasets bucket
@@ -63,8 +73,8 @@ resource "google_project_iam_member" "datasets_bucket_functions_service_account"
 }
 
 resource "google_storage_bucket" "functions_bucket" {
-  name     = "mobility-feeds-bacth-python-${var.environment}"
-  location = "us"
+  name     = "mobility-feeds-batch-python-${var.environment}"
+  location = var.gcp_region
 }
 
 # Function's zip files with sile sha256 as part of the name to force redeploy
@@ -81,22 +91,16 @@ resource "google_storage_bucket_object" "batch_process_dataset_zip" {
   source = local.function_batch_process_dataset_zip
 }
 
-data "google_iam_policy" "secret_access_function_batch_datasets" {
-  binding {
-    role = "roles/secretmanager.secretAccessor"
-    members = [
-      "serviceAccount:${google_service_account.functions_service_account.email}"
-    ]
-  }
-}
-
 # Grant permissions to the service account to access the secrets based on the function config
-resource "google_secret_manager_secret_iam_policy" "policy_function_batch_datasets" {
-  for_each = { for x in local.function_batch_process_dataset_config.secret_environment_variables : x.key => x }
+resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
+  for_each = {
+    for x in local.function_batch_process_dataset_config.secret_environment_variables : x.key => x
+  }
 
-  project     = var.project_id
-  secret_id   = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
-  policy_data = data.google_iam_policy.secret_access_function_batch_datasets.policy_data
+  project    = var.project_id
+  secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
+  role       = "roles/secretmanager.secretAccessor"
+  member     = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # Grant permissions to the service account to publish to the pubsub topic
@@ -120,6 +124,7 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
   name        = "${local.function_batch_datasets_config.name}-${var.environment}"
   description = local.function_batch_datasets_config.description
   location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_datasets_config.entry_point
@@ -134,6 +139,8 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
     available_memory = local.function_batch_datasets_config.memory
     available_cpu    = local.function_batch_datasets_config.available_cpu
     timeout_seconds  = local.function_batch_datasets_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
       PUBSUB_TOPIC_NAME = google_pubsub_topic.pubsub_topic.name
@@ -229,6 +236,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
   name        = "${local.function_batch_process_dataset_config.name}-${var.environment}"
   description = local.function_batch_process_dataset_config.description
   location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_process_dataset_config.entry_point
@@ -243,6 +252,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     available_memory = local.function_batch_process_dataset_config.memory
     available_cpu    = local.function_batch_process_dataset_config.available_cpu
     timeout_seconds  = local.function_batch_process_dataset_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
       DATASETS_BUCKET_NANE = google_storage_bucket.datasets_bucket.name

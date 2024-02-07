@@ -6,7 +6,13 @@ import * as userAPI from "./impl/user-api-impl";
 initializeApp();
 
 export const updateUserInformation = onCall(
-  {minInstances: 0, maxInstances: 100, invoker: "public", cors: "*"},
+  {
+    minInstances: 0,
+    maxInstances: 100,
+    invoker: "public",
+    cors: "*",
+    region: "northamerica-northeast1",
+  },
   /**
      * Updates or creates instance of user's information in Datastore
      * @param {CallableRequest} request
@@ -19,7 +25,13 @@ export const updateUserInformation = onCall(
   });
 
 export const retrieveUserInformation = onCall(
-  {minInstances: 0, maxInstances: 100, invoker: "public", cors: "*"},
+  {
+    minInstances: 0,
+    maxInstances: 100,
+    invoker: "public",
+    cors: "*",
+    region: "northamerica-northeast1",
+  },
   /**
      * Validates if the user is registered in the datastore
      * @param {CallableRequest} request - The callable request containing the

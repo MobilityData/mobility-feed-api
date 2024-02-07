@@ -50,6 +50,7 @@ services:
   liquibase:
     container_name: liquibase_update
     image: liquibase/liquibase
+    restart: on-failure
     volumes:
       - ./liquibase:/liquibase/changelog
     command:
@@ -67,6 +68,7 @@ services:
   liquibase-test:
     container_name: liquibase_update_test
     image: liquibase/liquibase
+    restart: on-failure
     volumes:
       - ./liquibase:/liquibase/changelog
     command:

@@ -29,6 +29,15 @@ locals {
       secret_id = "${var.environment}_FEEDS_DATABASE_URL"
     }
   }
+  #  DEV and QA use the vpc connector
+  vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+  vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+}
+
+data "google_vpc_access_connector" "vpc_connector" {
+  name = local.vpc_connector_name
+  region = var.gcp_region
+  project = local.vpc_connector_project
 }
 
 # Service account to execute the cloud run service
@@ -45,6 +54,10 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
 
   template {
     service_account = google_service_account.containers_service_account.email
+    vpc_access {
+      connector = data.google_vpc_access_connector.vpc_connector.id
+      egress = "PRIVATE_RANGES_ONLY"
+    }
     containers {
       image = "${var.gcp_region}-docker.pkg.dev/${var.project_id}/${var.docker_repository_name}/${var.feed_api_service}:${var.feed_api_image_version}"
       env {
@@ -55,6 +68,10 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
             version = "latest"
           }
         }
+      }
+      env {
+        name = "SHOULD_CLOSE_DB_SESSION"
+        value = "false"
       }
     }
   }
@@ -76,21 +93,13 @@ resource "google_cloud_run_service_iam_policy" "noauth" {
   policy_data = data.google_iam_policy.noauth.policy_data
 }
 
-data "google_iam_policy" "secret_access" {
-  binding {
-    role = "roles/secretmanager.secretAccessor"
-    members = [
-      "serviceAccount:${google_service_account.containers_service_account.email}"
-    ]
-  }
-}
-
-resource "google_secret_manager_secret_iam_policy" "policy" {
+resource "google_secret_manager_secret_iam_member" "policy" {
   for_each = local.env
 
   project = var.project_id
   secret_id = "${upper(var.environment)}_${each.key}"
-  policy_data = data.google_iam_policy.secret_access.policy_data
+  role = "roles/secretmanager.secretAccessor"
+  member =  "serviceAccount:${google_service_account.containers_service_account.email}"
 }
 
 output "feed_api_uri" {

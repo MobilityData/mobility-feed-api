@@ -6,7 +6,6 @@ on:
   workflow_dispatch: # Supports manual deployment
 
 jobs:
-  # TODO add API tests execution
   api-build-deployment:
     uses: ./.github/workflows/api-deployer.yml
     with:
@@ -14,7 +13,7 @@ jobs:
       BUCKET_NAME: ${{ vars.QA_MOBILITY_FEEDS_TF_STATE_BUCKET }}
       OBJECT_PREFIX: ${{ vars.QA_MOBILITY_FEEDS_TF_STATE_OBJECT_PREFIX }}
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-      REGION: ${{ vars.QA_MOBILITY_FEEDS_REGION }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.QA_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
       FEED_API_IMAGE_VERSION: ${{ github.sha }}
       TF_APPLY: true
@@ -23,3 +22,13 @@ jobs:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    needs:
+      - api-build-deployment
+    with:
+      API_URL: 'https://api-qa.mobilitydatabase.org'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
+

@@ -5,13 +5,17 @@ import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import Session, load_only, Query
+from sqlalchemy.orm import load_only, Query
 
 from database_gen.sqlacodegen_models import Base
-from utils.logger import Logger
+from sqlalchemy.orm import sessionmaker
+import logging
+from typing import Final
 
 
+SHOULD_CLOSE_DB_SESSION: Final[str] = "SHOULD_CLOSE_DB_SESSION"
 lock = threading.Lock()
+global_session = None
 
 
 def generate_unique_id() -> str:
@@ -38,9 +42,7 @@ class Database:
 
     def __init__(self):
         load_dotenv()
-        self.logger = Logger(Database.__module__).get_logger()
         self.engine = None
-        self.session = None
         self.connection_attempts = 0
         self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
         self.start_session()
@@ -50,36 +52,59 @@ class Database:
         Checks the connection status
         :return: True if the database is accessible False otherwise
         """
-        return self.engine is not None and self.session is not None
+        return self.engine is not None or global_session is not None
 
     def start_session(self):
         """
-        Starts a session
-        :return: True if the session was started, False otherwise
+        :return: Database singleton session
         """
+        global global_session
         try:
-            if self.engine is None:
-                self.connection_attempts += 1
-                self.logger.debug(f"Database connection attempt #{self.connection_attempts}.")
+            if global_session is not None:
+                logging.info("Database session reused.")
+                return global_session
+            if global_session is None or not global_session.is_active:
+                global_session = self.start_new_db_session()
+                logging.info("Global Singleton Database session started.")
+                return global_session
+        except Exception as error:
+            raise Exception(f"Error creating database session: {error}")
+
+    def start_new_db_session(self):
+        global global_session
+        try:
+            lock.acquire()
+            if global_session is not None and global_session.is_active:
+                logging.info("Database session reused.")
+                return global_session
+            if self.SQLALCHEMY_DATABASE_URL is None:
+                raise Exception("Database URL is not set")
+            else:
+                logging.info("Starting new global database session.")
                 self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
-                self.logger.debug("Database connected.")
-            if self.session is not None and self.session.is_active:
-                self.session.close()
-            self.session = Session(self.engine, autoflush=False)
-        except Exception as e:
-            self.logger.error(f"Database new session creation failed with exception: \n {e}")
-        return self.is_connected()
+                global_session = sessionmaker(bind=self.engine)()
+                self.session = global_session
+                return global_session
+        except Exception as error:
+            raise Exception(f"Error creating database session: {error}")
+        finally:
+            lock.release()
+
+    def should_close_db_session(self):
+        return os.getenv("%s" % SHOULD_CLOSE_DB_SESSION, "false").lower() == "true"
 
     def close_session(self):
         """
-        Starts a session
+        Closes a session
         :return: True if the session was started, False otherwise
         """
         try:
-            if self.session is not None and self.session.is_active:
-                self.session.close()
+            should_close = self.should_close_db_session()
+            if should_close and global_session is not None and global_session.is_active:
+                global_session.close()
+                logging.info("Database session closed.")
         except Exception as e:
-            self.logger.error(f"Session closing failed with exception: \n {e}")
+            logging.error(f"Session closing failed with exception: \n {e}")
         return self.is_connected()
 
     def select(
@@ -110,7 +135,7 @@ class Database:
             if update_session:
                 self.start_session()
             if query is None:
-                query = self.session.query(model)
+                query = global_session.query(model)
             if conditions:
                 for condition in conditions:
                     query = query.filter(condition)
@@ -120,13 +145,16 @@ class Database:
                 query = query.limit(limit)
             if offset is not None:
                 query = query.offset(offset)
-            results = self.session.execute(query).all()
+            results = global_session.execute(query).all()
             if group_by:
                 return [list(group) for _, group in itertools.groupby(results, group_by)]
             return results
         except Exception as e:
-            self.logger.error(f"SELECT query failed with exception: \n{e}")
+            logging.error(f"SELECT query failed with exception: \n{e}")
             return None
+        finally:
+            if update_session:
+                self.close_session()
 
     def select_from_active_session(self, model: Base, conditions: list = None, attributes: list = None):
         """
@@ -137,9 +165,9 @@ class Database:
         :return: Empty list if database is inaccessible, the results of the query otherwise
         """
         try:
-            if not self.session or not self.session.is_active:
+            if not global_session or not global_session.is_active:
                 raise Exception("Inactive session")
-            results = [obj for obj in self.session.new if isinstance(obj, model)]
+            results = [obj for obj in global_session.new if isinstance(obj, model)]
             if conditions:
                 for condition in conditions:
                     attribute_name = condition.left.name
@@ -149,7 +177,7 @@ class Database:
                 results = [{attr: getattr(obj, attr) for attr in attributes} for obj in results]
             return results
         except Exception as e:
-            self.logger.error(f"Object selection within the uncommitted session objects failed with exception: \n{e}")
+            logging.error(f"Object selection within the uncommitted session objects failed with exception: \n{e}")
             return []
 
     def merge(
@@ -170,13 +198,16 @@ class Database:
         try:
             if update_session:
                 self.start_session()
-            self.session.merge(orm_object, load=load)
+            global_session.merge(orm_object, load=load)
             if auto_commit:
-                self.session.commit()
+                global_session.commit()
             return True
         except Exception as e:
-            self.logger.error(f"Merge query failed with exception: \n{e}")
+            logging.error(f"Merge query failed with exception: \n{e}")
             return False
+        # finally:
+        #     if not update_session:
+        #         self.close_session()
 
     def commit(self):
         """
@@ -185,16 +216,16 @@ class Database:
         :return: True if commit was successful, False otherwise
         """
         try:
-            if self.session is not None and self.session.is_active:
-                self.session.commit()
+            if global_session is not None and global_session.is_active:
+                global_session.commit()
                 return True
             return False
         except Exception as e:
-            self.logger.error(f"Commit failed with exception: \n{e}")
+            logging.error(f"Commit failed with exception: \n{e}")
             return False
         finally:
-            if self.session is not None:
-                self.session.close()
+            if global_session is not None:
+                global_session.close()
 
     def flush(self):
         """
@@ -203,12 +234,12 @@ class Database:
         :return: True if flush was successful, False otherwise
         """
         try:
-            if self.session is not None and self.session.is_active:
-                self.session.flush()
+            if global_session is not None and global_session.is_active:
+                global_session.flush()
                 return True
             return False
         except Exception as e:
-            self.logger.error(f"Flush failed with exception: \n{e}")
+            logging.error(f"Flush failed with exception: \n{e}")
             return False
 
     def merge_relationship(
@@ -253,7 +284,5 @@ class Database:
                 return self.merge(parent, update_session=update_session, auto_commit=auto_commit)
             return True
         except Exception as e:
-            self.logger.error(
-                f"Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}"
-            )
+            logging.error(f"Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}")
             return False

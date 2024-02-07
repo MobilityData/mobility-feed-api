@@ -61,7 +61,6 @@ resource "google_project_iam_member" "ci_impersonator_binding" {
   member  = "serviceAccount:${google_service_account.ci_impersonator_service_account.email}"
 }
 
-
 resource "google_project_iam_member" "ci_impersonator_security_binding" {
   project = var.project_id
   role    = "roles/iam.securityAdmin"
@@ -92,9 +91,21 @@ resource "google_project_iam_member" "service_account_pub_sub_binding" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "service_account_vpc_access_admin_binding" {
+  project = var.project_id
+  role    = "roles/vpcaccess.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_project_iam_member" "service_account_pub_sub_admin_binding" {
   project = var.project_id
   role    = "roles/pubsub.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
+resource "google_project_iam_member" "service_account_project_iam_admin" {
+  project = var.project_id
+  role    = "roles/resourcemanager.projectIamAdmin"
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
@@ -200,6 +211,17 @@ resource "google_project_iam_member" "ci_binding_secret_manager_admin" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "ci_binding_network_admin" {
+  project = var.project_id
+  role    = "roles/servicenetworking.networksAdmin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
+resource "google_project_iam_member" "ci_binding_compute_storage_admin" {
+  project = var.project_id
+  role    = "roles/compute.storageAdmin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
 
 resource "google_storage_bucket" "tf_state_bucket" {
   name          = "${var.terraform_state_bucket_name_prefix}-${var.environment}"
