@@ -93,7 +93,6 @@ module "feed-api" {
   docker_repository_name = "${var.artifact_repo_name}-${var.environment}"
   feed_api_service       = "feed-api"
   feed_api_image_version = var.feed_api_image_version
-  vpc_connector_id    = module.global.vpc_connector_id
 
   source = "./feed-api"
 }
@@ -104,7 +103,6 @@ module "functions-python" {
   gcp_region  = var.gcp_region
   environment = var.environment
 
-  vpc_connector_id    = module.global.vpc_connector_id
 }
 
 module "feed-api-load-balancer" {

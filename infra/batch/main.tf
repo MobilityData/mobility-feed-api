@@ -28,6 +28,15 @@ locals {
 
   function_batch_process_dataset_config = jsondecode(file("${path.module}/../../functions-python/batch_process_dataset/function_config.json"))
   function_batch_process_dataset_zip    = "${path.module}/../../functions-python/batch_process_dataset/.dist/batch_process_dataset.zip"
+  #  DEV and QA use the vpc connector
+  vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+  vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+}
+
+data "google_vpc_access_connector" "vpc_connector" {
+  name    = local.vpc_connector_name
+  region  = var.gcp_region
+  project = local.vpc_connector_project
 }
 
 resource "google_project_service" "services" {
@@ -35,10 +44,6 @@ resource "google_project_service" "services" {
   service                    = each.value
   project                    = var.project_id
   disable_dependent_services = true
-}
-
-data "google_vpc_access_connector" "vpc_connector" {
-  name = "vpc-connector-${lower(var.environment)}"
 }
 
 # Service account to execute the cloud functions

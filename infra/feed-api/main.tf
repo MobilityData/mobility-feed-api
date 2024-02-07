@@ -29,6 +29,15 @@ locals {
       secret_id = "${var.environment}_FEEDS_DATABASE_URL"
     }
   }
+  #  DEV and QA use the vpc connector
+  vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+  vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+}
+
+data "google_vpc_access_connector" "vpc_connector" {
+  name = local.vpc_connector_name
+  region = var.gcp_region
+  project = local.vpc_connector_project
 }
 
 # Service account to execute the cloud run service
@@ -46,7 +55,7 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
   template {
     service_account = google_service_account.containers_service_account.email
     vpc_access {
-      connector = var.vpc_connector_id
+      connector = data.google_vpc_access_connector.vpc_connector.id
       egress = "PRIVATE_RANGES_ONLY"
     }
     containers {

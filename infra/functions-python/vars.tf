@@ -41,7 +41,3 @@ variable "datasets_bucket_name" {
   default = "mobilitydata-datasets"
 }
 
-variable "vpc_connector_id" {
-  type        = string
-  description = "Name of the VPC connector in the form of projects/{{project}}/locations/{{region}}/connectors/{{name}}"
-}
