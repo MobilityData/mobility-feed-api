@@ -145,7 +145,7 @@ jobs:
   update-secret-in-dev:
     name: Copy DB Secret
     needs: terraform
-    if: ${{ inputs.ENVIRONMENT == 'dev' }}
+    if: ${{ inputs.ENVIRONMENT == 'qa' }}
     runs-on: ubuntu-latest
     env:
       POSTGRE_USER_NAME: ${{ secrets.POSTGRE_USER_NAME }}

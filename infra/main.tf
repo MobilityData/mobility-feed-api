@@ -50,7 +50,8 @@ locals {
     "secretmanager.googleapis.com",
     "iamcredentials.googleapis.com",
     "cloudbuild.googleapis.com",
-    "artifactregistry.googleapis.com"
+    "artifactregistry.googleapis.com",
+    "vpcaccess.googleapis.com"
   ]
 }
 
@@ -75,6 +76,14 @@ provider "google-beta" {
 }
 
 provider "external" {}
+
+module "global" {
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
+
+  source = "./global"
+}
 
 module "feed-api" {
   project_id  = var.project_id

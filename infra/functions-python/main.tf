@@ -20,7 +20,17 @@ locals {
 
   function_extract_bb_config = jsondecode(file("${path.module}../../../functions-python/extract_bb/function_config.json"))
   function_extract_bb_zip    = "${path.module}/../../functions-python/extract_bb/.dist/extract_bb.zip"
+  #  DEV and QA use the vpc connector
+  vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+  vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
 }
+
+data "google_vpc_access_connector" "vpc_connector" {
+  name    = local.vpc_connector_name
+  region  = var.gcp_region
+  project = local.vpc_connector_project
+}
+
 
 # Service account to execute the cloud functions
 resource "google_service_account" "functions_service_account" {
@@ -117,7 +127,7 @@ resource "google_cloudfunctions2_function" "extract_bb" {
     }
     event_filters {
       attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-datasets-dev/objects/mdb-*/mdb-*/mdb-*.zip"
+      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
       operator = "match-path-pattern"
     }
   }
@@ -141,6 +151,8 @@ resource "google_cloudfunctions2_function" "extract_bb" {
     min_instance_count = local.function_extract_bb_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
     ingress_settings = local.function_extract_bb_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_extract_bb_config.secret_environment_variables
       content {

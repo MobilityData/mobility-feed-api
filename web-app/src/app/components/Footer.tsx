@@ -14,7 +14,6 @@ const Footer: React.FC = () => {
 
   return (
     <footer className='footer'>
-      <p style={{ margin: 0 }}>Maintained with &#128156; by MobilityData.</p>
       <div style={{ margin: 0, display: 'flex', justifyContent: 'center' }}>
         <IconButton
           className='link-button'
@@ -53,6 +52,21 @@ const Footer: React.FC = () => {
           <GitHub />
         </IconButton>
       </div>
+      <p style={{ margin: 0 }}>Maintained with &#128156; by MobilityData.</p>
+      <p style={{ margin: 0 }}>
+        <a
+          href={'https://mobilitydata.org/privacy-policy/'}
+          target={'_blank'}
+          rel={'noreferrer'}
+        >
+          Privacy Policy
+        </a>
+      </p>
+      <p style={{ margin: 0 }}>
+        <a href={'/terms-and-conditions'} target={'_blank'} rel={'noreferrer'}>
+          Terms and Conditions
+        </a>
+      </p>
     </footer>
   );
 };

@@ -13,6 +13,7 @@ import FAQ from '../screens/FAQ';
 import About from '../screens/About';
 import Contribute from '../screens/Contribute';
 import PostRegistration from '../screens/PostRegistration';
+import TermsAndConditions from '../screens/TermsAndConditions';
 
 export const AppRouter: React.FC = () => {
   return (
@@ -40,6 +41,7 @@ export const AppRouter: React.FC = () => {
       <Route path='faq' element={<FAQ />} />
       <Route path='about' element={<About />} />
       <Route path='contribute' element={<Contribute />} />
+      <Route path='terms-and-conditions' element={<TermsAndConditions />} />
     </Routes>
   );
 };
