@@ -260,6 +260,19 @@ jobs:
           cd infra
           terraform init -backend-config=backend.conf
 
+      - run: |
+          cd infra
+          terraform plan -target=module.global -var-file=vars.tfvars -out=tf-global.plan
+          terraform show -no-color tf-global.plan > terraform-global-plan.txt
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: |
+          cd infra
+          terraform apply -auto-approve tf-global.plan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Terraform Plan
         id: plan
         run: |
