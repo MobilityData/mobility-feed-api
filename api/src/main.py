@@ -17,7 +17,6 @@
 # The app created here is intended to replace the generated feeds_gen.main:app variable.
 
 from fastapi import FastAPI
-import subprocess
 from feeds_gen.apis.datasets_api import router as DatasetsApiRouter
 from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
