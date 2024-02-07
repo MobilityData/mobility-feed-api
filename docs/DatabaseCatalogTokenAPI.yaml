@@ -7,10 +7,10 @@ info:
   contact:
     name: MobilityData
     url: https://mobilitydata.org/
-    email: it@mobilitydata.org
+    email: api@mobilitydata.org
   license:
     name: MobilityData License
-    url: https://mobilitydata.org/license
+    url: https://www.apache.org/licenses/LICENSE-2.0
 
 servers:
 # Replace beta address with prod address when ready
