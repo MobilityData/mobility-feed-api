@@ -66,6 +66,44 @@ class FeedsEndpointTests(IntegrationTests):
                 feed["id"] not in prev_feeds_ids
             ), f"Feed ID '{feed['id']}' should not appear in previous set."
 
+    def test_feeds_pagination_simple_offset_limit(self):
+        """Test feed retrieval with simple offset and limit for precise pagination."""
+        # First retrieval with limit=2
+        response_initial = self.get_response("v1/feeds", {"limit": 2})
+        assert response_initial.status_code == 200, "Expected 200 status code for initial request."
+        feeds_initial = response_initial.json()
+        assert len(feeds_initial) == 2, "Expected 2 feeds in the initial retrieval."
+
+        # Second retrieval with offset=1 and limit=1
+        response_offset = self.get_response("v1/feeds", {"offset": 1, "limit": 1})
+        assert response_offset.status_code == 200, "Expected 200 status code for offset request."
+        feeds_offset = response_offset.json()
+        assert len(feeds_offset) == 1, "Expected 1 feed in the offset retrieval."
+
+        # Check if the second item of the first list matches the sole item of the second list
+        assert feeds_initial[1]["id"] == feeds_offset[0]["id"], \
+            "The item from the offset list should match the second item of the initial list."
+
+    def test_feeds_pagination_incremental_offset(self):
+        """Test feed retrieval with incremental offset to ensure precise item skipping."""
+        # Initial retrieval with limit=10
+        response_initial = self.get_response("v1/feeds", {"limit": 10})
+        assert response_initial.status_code == 200, "Expected 200 status code for initial request."
+        feeds_initial = response_initial.json()
+        assert len(feeds_initial) == 10, "Expected 10 feeds in the initial retrieval."
+
+        # Retrieval with offset=1 and limit=9
+        response_offset = self.get_response("v1/feeds", {"offset": 1, "limit": 9})
+        assert response_offset.status_code == 200, "Expected 200 status code for offset request."
+        feeds_offset = response_offset.json()
+        assert len(feeds_offset) == 9, "Expected 9 feeds in the offset retrieval."
+
+        # Check if all items in the offset list match the last 9 items of the initial list
+        initial_ids = [feed["id"] for feed in feeds_initial[1:]]  # Skipping the first item of the initial list
+        offset_ids = [feed["id"] for feed in feeds_offset]
+        assert initial_ids == offset_ids, \
+            "The offset list should match the last 9 items of the initial list, ensuring correct offset handling."
+
     def test_feeds_with_status(self):
         """Test feed retrieval by status"""
         for status in ["active", "inactive", "deprecated", "development"]:

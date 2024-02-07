@@ -50,8 +50,7 @@ PARENT_DIR=$(dirname "$SCRIPT_DIR")
 # Setup virtual environment without printing to console
 VENV_PATH="$PARENT_DIR"/venv
 python3 -m venv "$VENV_PATH" &> /dev/null
-# shellcheck disable=SC2086
-source $VENV_PATH/bin/activate
+source "$VENV_PATH"/bin/activate
 pip install -r "$PARENT_DIR"/integration-tests/requirements.txt &> /dev/null
 
 export PYTHONPATH="${PARENT_DIR}:${PARENT_DIR}/integration-tests/src:${PARENT_DIR}/api/src"
