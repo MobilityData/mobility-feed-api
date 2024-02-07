@@ -117,7 +117,7 @@ resource "google_cloudfunctions2_function" "extract_bb" {
     }
     event_filters {
       attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-datasets-dev/objects/mdb-*/mdb-*/mdb-*.zip"
+      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
       operator = "match-path-pattern"
     }
   }
