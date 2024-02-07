@@ -72,7 +72,9 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
                 status_code = response.status_code
 
             # Instead of re-raising the exception, return the warning entry directly
-            return self._create_validation_report_entry(stable_id, warning_detail, status_code)
+            return self._create_validation_report_entry(
+                stable_id, warning_detail, status_code
+            )
 
         # If the try block completes without exceptions, return None to indicate no warning
         return None
@@ -132,7 +134,9 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
         table.add_column("Warning Details", overflow="fold")
         for warning in warnings:
             table.add_row(
-                warning["stable_id"], warning["Warning Code"], warning["Warning Details"]
+                warning["stable_id"],
+                warning["Warning Code"],
+                warning["Warning Details"],
             )
         self.console.print(table)
         pandas.DataFrame(warnings).to_csv("datasets_validation.csv")
