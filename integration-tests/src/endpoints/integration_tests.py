@@ -17,7 +17,7 @@ from rich.table import Table
 from api.src.utils.data_utils import set_up_defaults
 
 
-class FeedError(Enum):
+class DatasetValidationWarning(Enum):
     NOT_FOUND = "Feed not returned from the API"
     API_ERROR = "API returned an error code"
     NO_DATASET = "No dataset found for feed"

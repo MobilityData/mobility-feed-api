@@ -4,7 +4,7 @@ import gtfs_kit
 import pandas
 from rich.table import Table
 
-from endpoints.integration_tests import IntegrationTests, FeedError
+from endpoints.integration_tests import IntegrationTests, DatasetValidationWarning
 
 
 class GTFSDatasetsEndpointTests(IntegrationTests):
@@ -12,7 +12,7 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
         super().__init__(file_path, access_token, url, progress, console)
 
     def test_all_datasets(self):
-        errors = []
+        warnings = []
         with ThreadPoolExecutor(max_workers=3) as executor:
             # Prepare a list of feed IDs to process
             feed_ids = self.gtfs_feeds.mdb_source_id.values
@@ -31,12 +31,12 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
 
             for future in as_completed(future_to_feed_id):
                 feed_id = future_to_feed_id[future]
-                error_entry = future.result()
-                if error_entry is not None:
-                    errors.append(error_entry)
+                warning_entry = future.result()
+                if warning_entry is not None:
+                    warnings.append(warning_entry)
                     self.console.log(
-                        f"Feed '{error_entry['stable_id']}' has a related [red]error[/red]: "
-                        f"{error_entry['Error Details']}"
+                        f"Feed '{warning_entry['stable_id']}' has a related [yellow]warning[/yellow]: "
+                        f"{warning_entry['Warning Details']}"
                     )
                 else:
                     self.console.log(
@@ -46,13 +46,13 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
                 # Update the progress bar
                 self.progress.update(task, advance=1)
 
-        if errors:
-            # If there were errors, log them as before
-            self._log_errors(errors)
+        if warnings:
+            # If there were warning, log them as before
+            self._log_warnings(warnings)
 
     def validate_feed(self, feed_id):
         stable_id = f"mdb-{feed_id}"
-        error_detail = None
+        warning_detail = None
         status_code = None
         response = None
         try:
@@ -67,74 +67,74 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             datasets = response.json()
             self._validate_dataset(datasets, response.status_code)
         except Exception as e:
-            error_detail = str(e)
+            warning_detail = str(e)
             if "response" in locals():
                 status_code = response.status_code
 
-            # Instead of re-raising the exception, return the error entry directly
-            return self._create_error_entry(stable_id, error_detail, status_code)
+            # Instead of re-raising the exception, return the warning entry directly
+            return self._create_validation_report_entry(stable_id, warning_detail, status_code)
 
-        # If the try block completes without exceptions, return None to indicate no error
+        # If the try block completes without exceptions, return None to indicate no warning
         return None
 
     @staticmethod
     def _validate_feed_response(response):
         if response.status_code != 200:
-            error_code = (
-                FeedError.NOT_FOUND.name
+            warning_code = (
+                DatasetValidationWarning.NOT_FOUND.name
                 if response.status_code == 404
-                else FeedError.API_ERROR.name
+                else DatasetValidationWarning.API_ERROR.name
             )
-            error_detail = (
-                FeedError.NOT_FOUND.value
+            warning_details = (
+                DatasetValidationWarning.NOT_FOUND.value
                 if response.status_code == 404
-                else FeedError.API_ERROR.value
+                else DatasetValidationWarning.API_ERROR.value
             )
-            raise Exception(f"{error_code}: {error_detail}")
+            raise Exception(f"{warning_code}: {warning_details}")
 
     @staticmethod
     def _validate_dataset(datasets, status_code):
         if status_code != 200 or not datasets:
-            error_code = FeedError.NO_DATASET.name
-            error_detail = FeedError.NO_DATASET.value
-            raise Exception(f"{error_code}: {error_detail}")
+            warning_code = DatasetValidationWarning.NO_DATASET.name
+            warning_detail = DatasetValidationWarning.NO_DATASET.value
+            raise Exception(f"{warning_code}: {warning_detail}")
         latest_dataset = datasets[0]
         try:
             gtfs_kit.read_feed(latest_dataset["hosted_url"], "km")
         except Exception as e:
             raise Exception(
-                f"{FeedError.INVALID_DATASET.name}: {FeedError.INVALID_DATASET.value} -- {e}"
+                f"{DatasetValidationWarning.INVALID_DATASET.name}: {DatasetValidationWarning.INVALID_DATASET.value} -- {e}"
             )
 
     @staticmethod
-    def _create_error_entry(stable_id, error_details, status_code=None):
-        if error_details is None:
+    def _create_validation_report_entry(stable_id, warning_details, status_code=None):
+        if warning_details is None:
             return None
         return {
             "stable_id": stable_id,
             "API Endpoint": f"v1/gtfs_feeds/{stable_id}/datasets",
-            "API Error Code": status_code,
-            "Error Code": error_details.split(": ")[0],
-            "Error Details": error_details.split(": ")[1],
+            "API Response Status Code": status_code,
+            "Warning Code": warning_details.split(": ")[0],
+            "Warning Details": warning_details.split(": ")[1],
         }
 
-    def _log_errors(self, errors):
+    def _log_warnings(self, warnings):
         table = Table(
-            title="Test Errors",
+            title="Test Warnings",
             show_header=True,
             header_style="bold magenta",
             show_lines=True,
             expand=True,
         )
         table.add_column("Stable ID", style="dim")
-        table.add_column("Error Code", style="red")
-        table.add_column("Error Details", overflow="fold")
-        for error in errors:
+        table.add_column("Warning Code", style="red")
+        table.add_column("Warning Details", overflow="fold")
+        for warning in warnings:
             table.add_row(
-                error["stable_id"], error["Error Code"], error["Error Details"]
+                warning["stable_id"], warning["Warning Code"], warning["Warning Details"]
             )
         self.console.print(table)
-        pandas.DataFrame(errors).to_csv("datasets_validation.csv")
+        pandas.DataFrame(warnings).to_csv("datasets_validation.csv")
         self.console.log(
             'Datasets validation report saved to "datasets_validation.csv"'
         )
