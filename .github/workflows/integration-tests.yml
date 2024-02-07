@@ -1,0 +1,58 @@
+name: Run Integration Tests
+
+on:
+  workflow_call:
+    inputs:
+      API_URL:
+        required: true
+        type: string
+        description: 'API URL to be used for tests'
+    secrets:
+      REFRESH_TOKEN:
+        required: true
+        description: 'Refresh token for API authentication'
+
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+
+    - name: Download csv version of the database
+      run: wget -O sources.csv https://bit.ly/catalogs-csv
+
+    - name: Get full path of sources.csv
+      id: getpath
+      run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      working-directory: integration-tests
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Integration Tests
+      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH
+      env:
+        FILE_PATH: ${{ env.FILE_PATH }}
+        REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+
+    - name: Upload Test Logs
+      uses: actions/upload-artifact@v2
+      with:
+        name: integration-tests-results
+        path: |
+          integration-tests/src/integration_tests_log.html
+          integration-tests/src/datasets_validation.csv
+          
+          
+          
+
