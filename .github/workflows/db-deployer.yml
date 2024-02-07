@@ -65,6 +65,8 @@ jobs:
     name: 'Deploy Database'
     permissions: write-all
     runs-on: ubuntu-latest
+#    only runs if the environment is not dev
+    if: ${{ inputs.ENVIRONMENT != 'dev' }}
     outputs:
       db_instance_host: ${{ steps.get_outputs.outputs.db_instance_host }}
     steps:
