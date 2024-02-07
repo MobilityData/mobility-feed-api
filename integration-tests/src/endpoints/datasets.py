@@ -103,7 +103,8 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             gtfs_kit.read_feed(latest_dataset["hosted_url"], "km")
         except Exception as e:
             raise Exception(
-                f"{DatasetValidationWarning.INVALID_DATASET.name}: {DatasetValidationWarning.INVALID_DATASET.value} -- {e}"
+                f"{DatasetValidationWarning.INVALID_DATASET.name}: {DatasetValidationWarning.INVALID_DATASET.value} -- "
+                f"{e}"
             )
 
     @staticmethod
