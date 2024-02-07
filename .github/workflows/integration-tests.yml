@@ -40,11 +40,11 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run Integration Tests
-      run: |
-        ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -t ${{ secrets.REFRESH_TOKEN }} -f $FILE_PATH
+      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
-    
+        REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+
     - name: Upload Test Logs
       uses: actions/upload-artifact@v2
       with:

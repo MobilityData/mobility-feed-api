@@ -30,12 +30,17 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             }
 
             for future in as_completed(future_to_feed_id):
+                feed_id = future_to_feed_id[future]
                 error_entry = future.result()
                 if error_entry is not None:
                     errors.append(error_entry)
                     self.console.log(
                         f"Feed '{error_entry['stable_id']}' has a related [red]error[/red]: "
                         f"{error_entry['Error Details']}"
+                    )
+                else:
+                    self.console.log(
+                        f"Feed 'mdb-{feed_id}' has a valid latest dataset :white_check_mark:"
                     )
 
                 # Update the progress bar
@@ -61,9 +66,6 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             )
             datasets = response.json()
             self._validate_dataset(datasets, response.status_code)
-            self.console.log(
-                f"Feed '{stable_id}' has a valid latest dataset with id '{datasets['id']}' :white_check_mark:"
-            )
         except Exception as e:
             error_detail = str(e)
             if "response" in locals():

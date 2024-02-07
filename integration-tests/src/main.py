@@ -1,5 +1,6 @@
 import argparse
 import importlib
+import os
 import pkgutil
 
 from endpoints.integration_tests import IntegrationTests
@@ -31,9 +32,6 @@ def set_up_configs():
         description="Run integration tests with optional filtering of test classes."
     )
     parser.add_argument(
-        "--access_token", help="Access token for API requests", default="local"
-    )
-    parser.add_argument(
         "--file_path", help="CSV version of the database", required=True
     )
     parser.add_argument("--url", help="API URL", default="http://0.0.0.0:8080")
@@ -46,7 +44,10 @@ def set_up_configs():
         type=parse_class_list,
     )
     args = parser.parse_args()
-    return args.file_path, args.access_token, args.url, args.include_classes
+    access_token = os.getenv("ACCESS_TOKEN", None)
+    if access_token is None:
+        raise ValueError("ACCESS_TOKEN environment variable is not set.")
+    return args.file_path, access_token, args.url, args.include_classes
 
 
 if __name__ == "__main__":
