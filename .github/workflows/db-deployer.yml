@@ -65,8 +65,6 @@ jobs:
     name: 'Deploy Database'
     permissions: write-all
     runs-on: ubuntu-latest
-#    only runs if the environment is not dev
-    if: ${{ inputs.ENVIRONMENT != 'dev' }}
     outputs:
       db_instance_host: ${{ steps.get_outputs.outputs.db_instance_host }}
     steps:
@@ -145,8 +143,8 @@ jobs:
         working-directory: infra/postgresql
 
   update-secret-in-dev:
-    name: Copy DB Secret
-    if: ${{ inputs.ENVIRONMENT == 'dev' }}
+    name: Copy DB Secret to DEV from QA
+    if: ${{ inputs.ENVIRONMENT == 'qa' }}
     runs-on: ubuntu-latest
     env:
       POSTGRE_USER_NAME: ${{ secrets.POSTGRE_USER_NAME }}
