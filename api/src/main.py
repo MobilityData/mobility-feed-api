@@ -37,19 +37,6 @@ app = FastAPI(
 )
 
 
-def get_git_revision_hash():
-    return subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
-
-
-def get_git_revision_short_hash():
-    return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
-
-
-@app.get("/version")
-def version():
-    return {"version": '1.0.' + get_git_revision_short_hash(), "commit_hash": get_git_revision_hash()}
-
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
