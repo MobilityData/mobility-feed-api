@@ -146,7 +146,6 @@ jobs:
 
   update-secret-in-dev:
     name: Copy DB Secret
-    needs: terraform
     if: ${{ inputs.ENVIRONMENT == 'dev' }}
     runs-on: ubuntu-latest
     env:
