@@ -32,7 +32,7 @@ variable "environment" {
 variable "vpc_ip_cidr_range" {
   type        = string
   description = "VPC network name. Defaulted to Montreal region default range"
-  default = "10.8.0.0/28"
+  default = "10.8.0.16/28"
 }
 
 variable "vpc_machine_type" {
