@@ -278,6 +278,8 @@ class IntegrationTests:
         console.log(table)
         console.save_html("integration_tests_log.html")
         console.log('Test report saved to "integration_tests_log.html"')
+        if len(failed_tests) or len(skipped_tests):
+            raise AssertionError("Some tests failed or were skipped.")
 
     @staticmethod
     def clear_tasks(test_task, progress):
