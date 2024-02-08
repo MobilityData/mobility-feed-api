@@ -186,6 +186,21 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
 
+      - name: Get commit hash
+        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+  
+      - name: Write commit hash to JSON file
+        run: echo "{ \"commit_hash\": \"$COMMIT_HASH\" }" > api/src/version.json
+  
+      - name: Update version during release
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            jq '.version = env.VERSION' version.json > temp.json && mv temp.json version.json
+          fi
+        env:
+          VERSION: ${{ github.ref }}
+  
       - name: Set Variables
         run: |
           echo "Setting variables"
