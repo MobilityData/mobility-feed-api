@@ -208,6 +208,7 @@ export default function DrawerAppBar(): React.ReactElement {
               href={'/'}
               style={{
                 textDecoration: 'none',
+                display: 'flex',
               }}
               className='btn-link'
             >

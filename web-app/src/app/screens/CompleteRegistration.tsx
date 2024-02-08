@@ -35,6 +35,28 @@ export default function CompleteRegistration(): React.ReactElement {
 
   const [isSubmitted, setIsSubmitted] = React.useState(false);
 
+  const termsAndConditionsElement = (
+    <span>
+      I have read and I agree to the{' '}
+      <a href={'/terms-and-conditions'} target={'_blank'} rel={'noreferrer'}>
+        terms and conditions
+      </a>
+    </span>
+  );
+
+  const privacyPolicyElement = (
+    <span>
+      I have read and I agree to the{' '}
+      <a
+        href={'https://mobilitydata.org/privacy-policy/'}
+        target={'_blank'}
+        rel={'noreferrer'}
+      >
+        privacy policy
+      </a>
+    </span>
+  );
+
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
       navigateTo(ACCOUNT_TARGET);
@@ -149,7 +171,7 @@ export default function CompleteRegistration(): React.ReactElement {
                 color='primary'
               />
             }
-            label='I agree to the terms and conditions'
+            label={termsAndConditionsElement}
             sx={{ width: '100%' }}
           />
           {formik.errors.agreeToTerms != null ? (
@@ -165,7 +187,7 @@ export default function CompleteRegistration(): React.ReactElement {
                 color='primary'
               />
             }
-            label='I have read and agree to the privacy policy.'
+            label={privacyPolicyElement}
             sx={{ width: '100%' }}
           />
           {formik.errors.agreeToPrivacyPolicy != null ? (

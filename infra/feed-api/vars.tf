@@ -43,4 +43,3 @@ variable "feed_api_image_version" {
   type        = string
   description = "Docker image version"
 }
-

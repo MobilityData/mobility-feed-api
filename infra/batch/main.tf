@@ -28,6 +28,15 @@ locals {
 
   function_batch_process_dataset_config = jsondecode(file("${path.module}/../../functions-python/batch_process_dataset/function_config.json"))
   function_batch_process_dataset_zip    = "${path.module}/../../functions-python/batch_process_dataset/.dist/batch_process_dataset.zip"
+  #  DEV and QA use the vpc connector
+  vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+  vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+}
+
+data "google_vpc_access_connector" "vpc_connector" {
+  name    = local.vpc_connector_name
+  region  = var.gcp_region
+  project = local.vpc_connector_project
 }
 
 resource "google_project_service" "services" {
@@ -130,6 +139,8 @@ resource "google_cloudfunctions2_function" "batch_datasets" {
     available_memory = local.function_batch_datasets_config.memory
     available_cpu    = local.function_batch_datasets_config.available_cpu
     timeout_seconds  = local.function_batch_datasets_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
       PUBSUB_TOPIC_NAME = google_pubsub_topic.pubsub_topic.name
@@ -226,6 +237,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
   description = local.function_batch_process_dataset_config.description
   location    = var.gcp_region
   depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_batch_process_dataset_config.entry_point
@@ -240,6 +252,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     available_memory = local.function_batch_process_dataset_config.memory
     available_cpu    = local.function_batch_process_dataset_config.available_cpu
     timeout_seconds  = local.function_batch_process_dataset_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
       DATASETS_BUCKET_NANE = google_storage_bucket.datasets_bucket.name

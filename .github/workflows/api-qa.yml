@@ -23,3 +23,12 @@ jobs:
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
 
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    needs:
+      - api-build-deployment
+    with:
+      API_URL: 'https://api-qa.mobilitydatabase.org'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
+
