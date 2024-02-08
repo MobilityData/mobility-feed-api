@@ -33,7 +33,6 @@ jobs:
       - name: Get an access token
         id: getAccessToken
         run: |
-          set -x
           set +e  # Do not exit if error. Handle error messages here.
           REPLY=`curl --location "https://${API_BASE_URL}/v1/tokens" \
              --header 'Content-Type: application/json' \
