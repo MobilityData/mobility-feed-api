@@ -142,37 +142,15 @@ jobs:
       - name: Set Firebase project properties
         working-directory: web-app
         run: |
-#          if [[ $GITHUB_EVENT_NAME == 'push' && $GITHUB_REF == 'refs/heads/main' ]]; then
-#              echo "Setting FIREBASE_PROJECT to 'pushed to main branch'"
-#              echo "FIREBASE_PROJECT=qa" >> $GITHUB_ENV
-#              echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.QA_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
-#              echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.QA_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
-#              echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.QA_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
-#              echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.QA_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
-#              echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.QA_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
-#              echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.QA_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
-#              echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.QA_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
-#          elif [[ $GITHUB_EVENT_NAME == 'release' ]]; then
-            echo "Setting FIREBASE_PROJECT to 'prod'"
-            echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.PROD_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.PROD_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.PROD_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.PROD_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.PROD_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
-            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.PROD_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
-            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.PROD_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV        
-#          else
-#            echo "Setting FIREBASE_PROJECT to 'dev'"
-#            echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
-#            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
-#            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
-#            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
-#            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
-#            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
-#            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
-#            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
-#          fi
+          echo "Setting FIREBASE_PROJECT to 'prod'"
+          echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.PROD_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.PROD_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.PROD_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.PROD_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.PROD_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+          echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.PROD_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.PROD_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV        
 
       - name: Populate Variables
         working-directory: web-app
