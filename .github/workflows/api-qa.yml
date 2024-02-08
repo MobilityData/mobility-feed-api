@@ -2,7 +2,7 @@
 name: Deploy Feeds API - QA
 on:
   push:
-    branches: [50-create-api-version-in-openapi]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
