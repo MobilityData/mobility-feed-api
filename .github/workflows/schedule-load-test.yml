@@ -34,7 +34,7 @@ jobs:
         id: getAccessToken
         run: |
           set +e  # Do not exit if error. Handle error messages here.
-          REPLY=`curl --location 'https://${API_BASE_URL}/v1/tokens' \
+          REPLY=`curl --location "https://${API_BASE_URL}/v1/tokens" \
              --header 'Content-Type: application/json' \
              --data '{ "refresh_token": "${{ secrets.QA_API_TEST_REFRESH_TOKEN }}" }'`
           if [ $? -ne 0 ]; then
@@ -57,7 +57,7 @@ jobs:
 
       - name: Run the load tests
         run: |         
-          FEEDS_AUTH_TOKEN="${{ env.ACCESS_TOKEN }}"    # The locust script uses this variable
+          export FEEDS_AUTH_TOKEN="${{ env.ACCESS_TOKEN }}"    # The locust script uses this variable
           locust -f ./load-test/gtfs_user_test.py --host=https://${API_BASE_URL} \
             -u ${LOCUST_USERS} -r ${LOCUST_RATE} --headless -t ${LOCUST_DURATION} --only-summary --csv locust_results
           
