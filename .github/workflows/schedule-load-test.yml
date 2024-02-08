@@ -33,25 +33,16 @@ jobs:
       - name: Get an access token
         id: getAccessToken
         run: |
+          set -x
           set +e  # Do not exit if error. Handle error messages here.
           REPLY=`curl --location "https://${API_BASE_URL}/v1/tokens" \
              --header 'Content-Type: application/json' \
              --data '{ "refresh_token": "${{ secrets.QA_API_TEST_REFRESH_TOKEN }}" }'`
-          if [ $? -ne 0 ]; then
-            echo "Error: Cannot obtain access token Reply = \"$REPLY\""
-            exit 1  # Terminate the workflow
-          fi
+          [ $? -ne 0 ] && { echo "Error: Cannot obtain access token Reply = \"$REPLY\""; exit 1; }
+          
           ACCESS_TOKEN=`echo $REPLY | jq -r .access_token`
-          
-          if [ $? -ne 0 ]; then
-            echo "Error: Cannot extract access token from reply \"$REPLY\""
-            exit 1
-          fi
-          
-          if [ -z "ACCESS_TOKEN" ]; then
-            echo "Error: Access token is empty extracted from $REPLY"
-            exit 1
-          fi
+          [ $? -ne 0 ] && { echo "Error: Cannot extract access token from reply \"$REPLY\""; exit 1; }
+          [ -z "$ACCESS_TOKEN" ] && { echo "Error: Access token is empty extracted from $REPLY"; exit 1; }
           
           echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_ENV
 
