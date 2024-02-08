@@ -182,7 +182,6 @@ paths:
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/downloaded_at_gte"
         - $ref: "#/components/parameters/downloaded_at_lte"
-        - $ref: "#/components/parameters/sort"
 
       security:
         -  Authentication: []
