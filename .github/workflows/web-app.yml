@@ -7,8 +7,8 @@ on:
       - "functions/**"
   push:
     branches: [main]
-  release:
   workflow_dispatch:
+  release:
 
 env:
   NODE_VERSION: "18"
