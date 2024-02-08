@@ -15,7 +15,7 @@ const Footer: React.FC = () => {
   return (
     <footer className='footer'>
       <a
-        href={'https://share.mobilitydata.org/validator-feedback'}
+        href={'https://share.mobilitydata.org/mobility-database-feedback'}
         target={'_blank'}
         rel='noreferrer'
         className={'btn-link'}
