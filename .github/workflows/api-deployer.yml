@@ -51,8 +51,8 @@ on:
         type: string
 
 env:
-  python_version: '3.10'
-  java_version: '11' # needed by setup-openapi-generator.sh
+  python_version: "3.10"
+  java_version: "11" # needed by setup-openapi-generator.sh
   local_postgres_db: postgres_db
   local_postgres_user: postgres_user
   local_postgres_pwd: postgres_password
@@ -157,7 +157,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: ${{ env.java_version }}
-          distribution: 'temurin'
+          distribution: "temurin"
 
       - uses: actions/setup-python@v4
         with:
@@ -186,21 +186,20 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
 
-      - name: Get commit hash
-        run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-  
-      - name: Write commit hash to JSON file
-        run: echo "{ \"commit_hash\": \"$COMMIT_HASH\" }" > api/src/version.json
-  
-      - name: Update version during release
+      - name: Retrieve and Store Commit Hash
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-            jq '.version = env.VERSION' version.json > temp.json && mv temp.json version.json
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+          echo "$COMMIT_HASH" > api/src/commit_hash
+
+      - name: Extract Version and Write to File on Release
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${{ github.ref }} 
+            VERSION=${VERSION#refs/tags/}
+            echo "$VERSION" > api/src/version
           fi
-        env:
-          VERSION: ${{ github.ref }}
-  
+
       - name: Set Variables
         run: |
           echo "Setting variables"
