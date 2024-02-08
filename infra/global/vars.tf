@@ -29,15 +29,26 @@ variable "environment" {
   description = "API environment. Possible values: prod, staging and dev"
 }
 
-variable "python_runtime" {
-  type = string
-  description = "Python runtime version"
-  default = "python310"
-}
-
-variable "datasets_bucket_name" {
+variable "vpc_ip_cidr_range" {
   type        = string
-  description = "Name of the bucket where the datasets are stored"
-  default = "mobilitydata-datasets"
+  description = "VPC network name. Defaulted to Montreal region default range"
+  default = "10.8.0.0/28"
 }
 
+variable "vpc_machine_type" {
+  type        = string
+  description = "Machine type for the VPC access connector. Defaulted to f1-micro"
+  default = "f1-micro"
+}
+
+variable "vpc_min_instances" {
+    type        = number
+    description = "Minimum number of instances for the VPC access connector. Defaulted to 2"
+    default = 2
+}
+
+variable "vpc_max_instances" {
+    type        = number
+    description = "Maximum number of instances for the VPC access connector. Defaulted to 3"
+    default = 3
+}

@@ -4,7 +4,8 @@ locals {
   services = [
     "sqladmin.googleapis.com",
     "cloudresourcemanager.googleapis.com",
-    "networkmanagement.googleapis.com"
+    "networkmanagement.googleapis.com",
+    "servicenetworking.googleapis.com"
   ]
 }
 
@@ -16,8 +17,32 @@ resource "google_project_service" "services" {
 }
 
 provider "google" {
-  project = var.project_id
-  region  = var.gcp_region
+  project         = var.project_id
+  access_token    = data.google_service_account_access_token.default.access_token
+  request_timeout = "60s"
+}
+
+provider "google-beta" {
+  project         = var.project_id
+  access_token    = data.google_service_account_access_token.default.access_token
+  request_timeout = "60s"
+}
+
+# This need to be created before the database instance
+resource "google_compute_global_address" "private_ip_address" {
+  name          = "google-managed-services-default"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = "projects/${var.project_id}/global/networks/default"
+}
+
+# This need to be created before the database instance
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network       = "projects/${var.project_id}/global/networks/default"
+  service       = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_address.name]
+  depends_on = [google_compute_global_address.private_ip_address]
 }
 
 resource "google_sql_database_instance" "db" {
@@ -32,14 +57,11 @@ resource "google_sql_database_instance" "db" {
       value = var.max_db_connections
     }
     ip_configuration {
-      ipv4_enabled = true
-
-      authorized_networks {
-        name  = "all-ips"
-        value = "0.0.0.0/0"
-      }
+      ipv4_enabled = false
+      private_network = "projects/${var.project_id}/global/networks/default"
     }
   }
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 }
 
 resource "google_sql_database" "default" {
@@ -64,12 +86,12 @@ resource "google_secret_manager_secret" "secret_db_url" {
 
 resource "google_secret_manager_secret_version" "secret_version" {
   secret = google_secret_manager_secret.secret_db_url.id
-  secret_data = "postgresql://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.ip_address[0].ip_address}/${var.postgresql_database_name}"
+  secret_data = "postgresql://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
 }
 
 output "instance_address" {
   description = "The first public IPv4 address of the SQL instance"
-  value       = google_sql_database_instance.db.ip_address[0].ip_address
+  value       = google_sql_database_instance.db.private_ip_address
 }
 
 output "instance_connection_name" {

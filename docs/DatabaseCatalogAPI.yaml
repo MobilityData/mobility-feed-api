@@ -7,13 +7,15 @@ info:
   contact:
     name: MobilityData
     url: https://mobilitydata.org/
-    email: it@mobilitydata.org
+    email: api@mobilitydata.org
   license:
     name: MobilityData License
-    url: https://mobilitydata.org/license
+    url: https://www.apache.org/licenses/LICENSE-2.0
 
 servers:
 # Replace beta address with prod address when ready
+  - url: https://database.mobilitydata.org/
+    description: Prod environment
   - url: https://beta.mobilitydatabase.org/
     description: Beta release environment
   - url: https://api-qa.mobilitydatabase.org/
@@ -44,7 +46,6 @@ paths:
         - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
-        - $ref: "#/components/parameters/sort"
 
       security:
         - Authentication: [ ]
@@ -92,7 +93,6 @@ paths:
         - $ref: "#/components/parameters/country_code"
         - $ref: "#/components/parameters/subdivision_name"
         - $ref: "#/components/parameters/municipality"
-        - $ref: "#/components/parameters/sort"
         - $ref: "#/components/parameters/dataset_latitudes"
         - $ref: "#/components/parameters/dataset_longitudes"
         - $ref: "#/components/parameters/bounding_filter_method"
@@ -120,7 +120,6 @@ paths:
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/entity_types"
-        - $ref: "#/components/parameters/sort"
       security:
         - Authentication: []
       responses:
@@ -168,7 +167,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GtfsRTFeed"
-
 
   /v1/gtfs_feeds/{id}/datasets:
     parameters:
@@ -472,7 +470,7 @@ components:
             ISO 3166-1 alpha-2 code designating the country where the system is located. 
             For a list of valid codes [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
           type: string
-          example: USA
+          example: US
         subdivision_name:
           description: >
             ISO 3166-2 subdivision name designating the subdivision (e.g province, state, region) where the system is located. 
@@ -649,7 +647,7 @@ components:
     provider:
       name: provider
       in: query
-      description: Filter feeds by provider name. Phrase is matched case insensitively to actual provider names.
+      description: Filter feeds by provider name using the LIKE operation. Phrase is matched case insensitively to actual provider names.
       required: false
       schema:
         type: string
@@ -678,7 +676,7 @@ components:
       description: Filter feeds by their exact country code.
       schema:
         type: string
-        example: USA
+        example: US
     subdivision_name:
       name: subdivision_name
       in: query
@@ -707,14 +705,6 @@ components:
       schema:
         type: string
         example: 2023-07-20T22:06:00Z
-    sort:
-      name: sort
-      in: query
-      description: A specification of the sort order of the returned data. Exact syntax to be designed
-      required: False
-      schema:
-        type: string
-        example: +status
 
     dataset_latitudes:
       name: dataset_latitudes
@@ -767,10 +757,8 @@ components:
         items:
           type: string
           enum:
-            - external_id
             - +external_id
             - -external_id
-            - country_code
             - +country_code
             - -country_code
         default:
@@ -806,7 +794,7 @@ components:
         type: integer
         minimum: 0
         default: 0
-        example: 10
+        example: 0
 
     feedIdPathParam:
       name: id
