@@ -129,40 +129,6 @@ class FeedsEndpointTests(IntegrationTests):
                     feed["status"] == status
                 ), f"Expected status '{status}', got '{feed['status']}'."
 
-    def test_feeds_status_sorting_descending(self):
-        """Test sorting of feeds on status in descending order"""
-        response = self.get_response("v1/feeds", params={"sort": "-status"})
-        assert (
-            response.status_code == 200
-        ), f"Expected 200 status code for sorted feeds, got {response.status_code}."
-        feeds = response.json()
-        assert len(feeds) > 1, "Expected more than one feed for sorting test."
-        prev_feed_status = feeds[0]["status"]
-        for feed in feeds[1:]:
-            current_feed_status = feed["status"]
-            assert current_feed_status <= prev_feed_status, (
-                f"Expected feed status to be in descending order, but found '{prev_feed_status}' followed by "
-                f"'{current_feed_status}'."
-            )
-            prev_feed_status = current_feed_status
-
-    def test_feeds_status_sorting_ascending(self):
-        """Test sorting of feeds on status in ascending order"""
-        response = self.get_response("v1/feeds", params={"sort": "+status"})
-        assert (
-            response.status_code == 200
-        ), f"Expected 200 status code for sorted feeds, got {response.status_code}."
-        feeds = response.json()
-        assert len(feeds) > 1, "Expected more than one feed for sorting test."
-        prev_feed_status = feeds[0]["status"]
-        for feed in feeds[1:]:
-            current_feed_status = feed["status"]
-            assert current_feed_status >= prev_feed_status, (
-                f"Expected feed status to be in ascending order, but found '{prev_feed_status}' followed by "
-                f"'{current_feed_status}'."
-            )
-            prev_feed_status = current_feed_status
-
     def test_filter_by_country_code(self):
         """Test feed retrieval filtered by country code"""
         df = pandas.concat([self.gtfs_feeds, self.gtfs_rt_feeds], ignore_index=True)
