@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 from queue import PriorityQueue
 
-import numpy as np
 import pandas
 from dotenv import load_dotenv
 from sqlalchemy import inspect
@@ -18,6 +17,7 @@ from database_gen.sqlacodegen_models import (
     Redirectingid,
     Base,
 )
+from utils.data_utils import set_up_defaults
 from utils.logger import Logger
 
 
@@ -47,25 +47,8 @@ class DatabasePopulateHelper:
 
         # Filter unsupported data types
         self.df = self.df[(self.df.data_type == "gtfs") | (self.df.data_type == "gtfs-rt")]
-        self.set_up_defaults()
+        self.df = set_up_defaults(self.df)
         self.logger.info(self.df)
-
-    def set_up_defaults(self):
-        """
-        Updates the dataframe to match types defined in the database
-        """
-        self.df.status.fillna("active", inplace=True)
-        self.df["urls.authentication_type"].fillna(0, inplace=True)
-        self.df["features"].fillna("", inplace=True)
-        self.df["entity_type"].fillna("", inplace=True)
-        self.df["location.country_code"].fillna("", inplace=True)
-        self.df["location.subdivision_name"].fillna("", inplace=True)
-        self.df["location.municipality"].fillna("", inplace=True)
-        self.df.replace(np.nan, None, inplace=True)
-        self.df.replace("gtfs-rt", "gtfs_rt", inplace=True)
-        self.df["location.country_code"].replace("unknown", "", inplace=True)
-        self.df["location.subdivision_name"].replace("unknown", "", inplace=True)
-        self.df["location.municipality"].replace("unknown", "", inplace=True)
 
     def fast_merge(self, orm_object: Base):
         """

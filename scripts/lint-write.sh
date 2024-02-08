@@ -25,4 +25,5 @@ execute_lint() {
 
 execute_lint "../api/"
 execute_lint "../functions-python/"
+execute_lint "../integration-tests/"
 

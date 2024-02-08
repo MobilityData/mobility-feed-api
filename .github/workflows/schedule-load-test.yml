@@ -1,0 +1,58 @@
+name: Schedule Load Test every other Friday
+
+on:
+  schedule:
+    - cron: "0 0 * * 5/2"
+  workflow_dispatch: # Supports manual triggering
+
+env:
+  API_BASE_URL: "api-qa.mobilitydatabase.org"
+  # locust parameters. Refer to https://docs.locust.io/en/stable/configuration.html for explanation
+  LOCUST_USERS: 100
+  LOCUST_RATE: 10
+  LOCUST_DURATION: 180
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install locust
+
+      - name: Get an access token
+        id: getAccessToken
+        run: |
+          set +e  # Do not exit if error. Handle error messages here.
+          REPLY=`curl --location "https://${API_BASE_URL}/v1/tokens" \
+             --header 'Content-Type: application/json' \
+             --data '{ "refresh_token": "${{ secrets.QA_API_TEST_REFRESH_TOKEN }}" }'`
+          [ $? -ne 0 ] && { echo "Error: Cannot obtain access token Reply = \"$REPLY\""; exit 1; }
+          
+          ACCESS_TOKEN=`echo $REPLY | jq -r .access_token`
+          [ $? -ne 0 ] && { echo "Error: Cannot extract access token from reply \"$REPLY\""; exit 1; }
+          [ -z "$ACCESS_TOKEN" ] && { echo "Error: Access token is empty extracted from $REPLY"; exit 1; }
+          
+          echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_ENV
+
+      - name: Run the load tests
+        run: |         
+          export FEEDS_AUTH_TOKEN="${{ env.ACCESS_TOKEN }}"    # The locust script uses this variable
+          locust -f ./load-test/gtfs_user_test.py --host=https://${API_BASE_URL} \
+            -u ${LOCUST_USERS} -r ${LOCUST_RATE} --headless -t ${LOCUST_DURATION} --only-summary --csv locust_results
+          
+      - name: Upload load test results as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: load_test_results
+          path: locust_results_*

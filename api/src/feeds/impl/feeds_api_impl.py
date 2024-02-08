@@ -298,7 +298,6 @@ class FeedsApiImpl(BaseFeedsApi):
         status: str,
         provider: str,
         producer_url: str,
-        sort: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
         feed_filter = FeedFilter(status=status, provider__ilike=provider, producer_url__ilike=producer_url)
@@ -322,7 +321,6 @@ class FeedsApiImpl(BaseFeedsApi):
         offset: int,
         downloaded_date_gte: str,
         downloaded_date_lte: str,
-        sort: str,
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         # getting the bounding box as JSON to make it easier to process
@@ -345,7 +343,6 @@ class FeedsApiImpl(BaseFeedsApi):
         country_code: str,
         subdivision_name: str,
         municipality: str,
-        sort: str,
         dataset_latitudes: str,
         dataset_longitudes: str,
         bounding_filter_method: str,
@@ -389,7 +386,6 @@ class FeedsApiImpl(BaseFeedsApi):
         provider: str,
         producer_url: str,
         entity_types: str,
-        sort: str,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         return self._get_gtfs_rt_feeds(
