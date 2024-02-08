@@ -199,7 +199,7 @@ class DatasetProcessor:
                 bounding_box=None,
                 note=None,
                 hash=dataset_file.file_sha256_hash,
-                download_date=func.now(),
+                downloaded_at=func.now(),
                 hosted_url=dataset_file.hosted_url,
             )
             if latest_dataset:

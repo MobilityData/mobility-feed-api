@@ -182,8 +182,8 @@ paths:
         - $ref: "#/components/parameters/latestQueryParam"
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/downloaded_date_gte"
-        - $ref: "#/components/parameters/downloaded_date_lte"
+        - $ref: "#/components/parameters/downloaded_at_gte"
+        - $ref: "#/components/parameters/downloaded_at_lte"
         - $ref: "#/components/parameters/sort"
 
       security:
@@ -693,15 +693,15 @@ components:
       schema:
         type: string
         example: Los Angeles
-    downloaded_date_gte:
-      name: downloaded_date_gte
+    downloaded_at_gte:
+      name: downloaded_at_gte
       in: query
       description: Filter feed datasets with downloaded date greater or equal to given date.
       schema:
         type: string
         example: 2023-07-00T22:06:00Z
-    downloaded_date_lte:
-      name: downloaded_date_lte
+    downloaded_at_lte:
+      name: downloaded_at_lte
       in: query
       description: Filter feed datasets with downloaded date less or equal to given date.
       schema:
