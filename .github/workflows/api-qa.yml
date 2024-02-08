@@ -2,7 +2,7 @@
 name: Deploy Feeds API - QA
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch: # Supports manual deployment
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.QA_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
       FEED_API_IMAGE_VERSION: ${{ github.sha }}
       TF_APPLY: true
-      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}   
+      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
