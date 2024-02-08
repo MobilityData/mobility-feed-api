@@ -131,11 +131,11 @@ class IntegrationTests:
         num_samples = min(len(unique_country_codes), n)
         return pandas.Series(unique_country_codes).sample(n=num_samples, random_state=1)
 
-    def get_response(self, url_suffix, params=None):
+    def get_response(self, url_suffix, params=None, timeout=10):
         """Helper function to get response from the API."""
         url = self.base_url + "/" + url_suffix
         headers = {"Authorization": "Bearer " + self.access_token}
-        return requests.get(url, params=params, headers=headers)
+        return requests.get(url, params=params, headers=headers, timeout=timeout)
 
     @staticmethod
     def get_test_methods_for_class(cls):
