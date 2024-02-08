@@ -56,7 +56,7 @@ export default function Home(): React.ReactElement {
                 mr: 0,
               }}
             >
-              The Mobility Database catalogs is a repository of 1800+ mobility
+              The Mobility Database catalogs is a repository of 2000+ mobility
               feeds across the world. It has over 150 updated feeds previously
               unavailable on TransitFeeds (OpenMobilityData).
               <br />
