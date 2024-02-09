@@ -29,6 +29,16 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
+      - name: Docker Compose DB
+        run: |
+          docker-compose --env-file ./config/.env.local up -d postgres postgres-test
+        working-directory: ${{ github.workspace }}
+
+      - name: Run lint checks
+        shell: bash
+        run: |
+          scripts/lint-tests.sh
+
       - name: Install Liquibase
         run: |    
           wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
@@ -37,12 +47,6 @@ jobs:
       
           sudo apt-get update
           sudo apt-get install liquibase
-
-      - name: Docker Compose DB
-        run: |
-          docker-compose --env-file ./config/.env.local up -d postgres postgres-test
-          sleep 10 # Wait for the containers to start
-        working-directory: ${{ github.workspace }}
 
 #      Uncomment the following block to test the database connection through the tunnel
 #      - name: Test Database Connection
@@ -88,11 +92,6 @@ jobs:
         run: |
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
-
-      - name: Run lint checks
-        shell: bash
-        run: |
-          scripts/lint-tests.sh
 
       - name: Unit tests - API
         shell: bash
