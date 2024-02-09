@@ -29,6 +29,26 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
+
+      - name: Docker Compose DB for python function tests
+        run: docker-compose --env-file ./config/.env.local up -d postgres-test
+        working-directory: ${{ github.workspace }}
+
+      - name: Test Database Connection Through Tunnel
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
+
+      - name: Run Liquibase on Python functions test DB
+        run: |
+          export LIQUIBASE_CLASSPATH="liquibase"
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          liquibase update
+
+
       - name: Docker Compose DB for db-gen.sh
         run: docker-compose --env-file ./config/.env.local up -d postgres
         working-directory: ${{ github.workspace }}
@@ -76,6 +96,11 @@ jobs:
         run: docker-compose --env-file ./config/.env.local up -d postgres-test
         working-directory: ${{ github.workspace }}
 
+      - name: Test Database Connection Through Tunnel
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
+
       - name: Run Liquibase on Python functions test DB
         run: |
           export LIQUIBASE_CLASSPATH="liquibase"
@@ -83,9 +108,9 @@ jobs:
           export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
           export LIQUIBASE_COMMAND_USERNAME=postgres
           export LIQUIBASE_COMMAND_PASSWORD=postgres
-          export LIQUIBASE_LOG_LEVEL=FINE
-      
           liquibase update
+      
+          export LIQUIBASE_LOG_LEVEL=FINE
 
       - name: Unit tests - Python Functions
         shell: bash
