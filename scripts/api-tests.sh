@@ -90,6 +90,7 @@ cat $ABS_SCRIPTPATH/../config/.env.local > $ABS_SCRIPTPATH/../.env
 
 execute_tests() {
   printf "\nExecuting tests in $1\n"
+  printf "PYTHONPATH=$PYTHONPATH\n"
   cd $ABS_SCRIPTPATH/$1/ || exit 1
   pip3 install --disable-pip-version-check virtualenv >/dev/null
   python3 -m virtualenv venv >/dev/null
@@ -140,7 +141,6 @@ execute_python_tests() {
   printf "\nExecuting python tests in $1\n"
   cd $ABS_SCRIPTPATH/../$1
   export PYTHONPATH="$ABS_SCRIPTPATH/../functions-python:$PYTHONPATH"
-  printf "PYTHONPATH=$PYTHONPATH\n"
   for file in */; do
     if [[ -d "$file" && ! -L "$file" ]]; then
       if [[ -d "$file/tests" ]]; then
