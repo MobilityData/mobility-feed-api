@@ -38,14 +38,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install liquibase
 
-      - name: Docker Compose DB for python function tests
+      - name: Docker Compose DB
         run: docker-compose --env-file ./config/.env.local up -d postgres postgres-test
         working-directory: ${{ github.workspace }}
 
-      - name: Test Database Connection Through Tunnel
-        run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
+#      Uncomment the following block to test the database connection through the tunnel
+#      - name: Test Database Connection
+#        run: |
+#          sudo apt-get update && sudo apt-get install -y postgresql-client
+#          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d MobilityDatabase -c "SELECT version();"
+#          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
 
       - name: Run Liquibase on Python functions test DB
         run: |
@@ -55,20 +57,6 @@ jobs:
           export LIQUIBASE_COMMAND_USERNAME=postgres
           export LIQUIBASE_COMMAND_PASSWORD=postgres
           liquibase update
-
-
-      - name: Docker Compose DB for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local up -d postgres
-        working-directory: ${{ github.workspace }}
-
-#      - name: Install Liquibase
-#        run: |
-#          wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
-#          cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
-#          echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
-#
-#          sudo apt-get update
-#          sudo apt-get install liquibase
 
       - name: Run Liquibase on API test DB
         run: |      
@@ -80,6 +68,15 @@ jobs:
           export LIQUIBASE_LOG_LEVEL=FINE
       
           liquibase update
+
+#      - name: Install Liquibase
+#        run: |
+#          wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
+#          cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
+#          echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
+#
+#          sudo apt-get update
+#          sudo apt-get install liquibase
 
       - name: Generate DB code
         run: |
@@ -99,26 +96,6 @@ jobs:
         shell: bash
         run: |
           scripts/api-tests.sh --folder api --html_report
-
-      - name: Docker Compose DB for python function tests
-        run: docker-compose --env-file ./config/.env.local up -d postgres-test
-        working-directory: ${{ github.workspace }}
-
-      - name: Test Database Connection Through Tunnel
-        run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
-
-      - name: Run Liquibase on Python functions test DB
-        run: |
-          export LIQUIBASE_CLASSPATH="liquibase"
-          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
-          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
-          export LIQUIBASE_COMMAND_USERNAME=postgres
-          export LIQUIBASE_COMMAND_PASSWORD=postgres
-          liquibase update
-      
-          export LIQUIBASE_LOG_LEVEL=FINE
 
       - name: Unit tests - Python Functions
         shell: bash
