@@ -37,6 +37,13 @@ jobs:
         run: |
           scripts/db-gen.sh
 
+      - name: List generated files
+        run: |
+          ls -lR ./api/src/database_gen/\
+
+      - name: Print PYTHONPATH
+        run: echo $PYTHONPATH
+
       - name: Docker Compose DB/Liquibase for unit tests
         run: docker-compose --env-file ./config/.env.local up -d liquibase-test
         working-directory: ${{ github.workspace }}
