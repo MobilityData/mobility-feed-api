@@ -30,9 +30,26 @@ jobs:
           python-version: ${{ env.python_version }}
 
       - name: Docker Compose DB/Liquibase for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local up -d liquibase
+        run: docker-compose --env-file ./config/.env.local up -d postgres
         working-directory: ${{ github.workspace }}
 
+      - name: Run Liquibase
+        run: |    
+          wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
+          cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
+          echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
+      
+          sudo apt-get update
+          sudo apt-get install liquibase
+      
+          export LIQUIBASE_CLASSPATH="liquibase"
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/MobilityDatabase
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          export LIQUIBASE_LOG_LEVEL=FINE
+      
+          liquibase update
       - name: Generate DB code
         run: |
           scripts/db-gen.sh
