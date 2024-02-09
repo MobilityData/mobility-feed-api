@@ -163,7 +163,9 @@ execute_python_tests() {
   done
 }
 
-export PYTHONPATH="$ABS_SCRIPTPATH/../api/src:$PYTHONPATH"
+SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
+PARENT_DIR=$(dirname "$SCRIPT_DIR")
+export PYTHONPATH="${PARENT_DIR}:${PARENT_DIR}/api/src:${PARENT_DIR}/api/tests:$PYTHONPATH"
 
 # if no parameters is passed, execute all API tests
 if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
