@@ -163,6 +163,8 @@ execute_python_tests() {
   done
 }
 
+export PYTHONPATH="$ABS_SCRIPTPATH/../api/src:$PYTHONPATH"
+
 # if no parameters is passed, execute all API tests
 if [[ -z "${FOLDER}" ]] && [[ -z "${TEST_FILE}" ]]; then
   execute_tests "../api"
