@@ -91,6 +91,7 @@ cat $ABS_SCRIPTPATH/../config/.env.local > $ABS_SCRIPTPATH/../.env
 execute_tests() {
   printf "\nExecuting tests in $1\n"
   cd $ABS_SCRIPTPATH/$1/ || exit 1
+  cp $ABS_SCRIPTPATH/../.env $ABS_SCRIPTPATH/$1/.env
   pip3 install --disable-pip-version-check virtualenv >/dev/null
   python3 -m virtualenv venv >/dev/null
   venv/bin/python -m pip install --disable-pip-version-check -r requirements.txt >/dev/null
