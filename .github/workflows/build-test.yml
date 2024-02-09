@@ -39,15 +39,17 @@ jobs:
           sudo apt-get install liquibase
 
       - name: Docker Compose DB
-        run: docker-compose --env-file ./config/.env.local up -d postgres postgres-test
+        run: |
+          docker-compose --env-file ./config/.env.local up -d postgres postgres-test
+          sleep 10 # Wait for the containers to start
         working-directory: ${{ github.workspace }}
 
 #      Uncomment the following block to test the database connection through the tunnel
-      - name: Test Database Connection
-        run: |
-          sudo apt-get update && sudo apt-get install -y postgresql-client
-          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d MobilityDatabase -c "SELECT version();"
-          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
+#      - name: Test Database Connection
+#        run: |
+#          sudo apt-get update && sudo apt-get install -y postgresql-client
+#          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d MobilityDatabase -c "SELECT version();"
+#          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
 
       - name: Run Liquibase on Python functions test DB
         run: |
