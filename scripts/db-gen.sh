@@ -21,8 +21,7 @@ ENV_PATH=$SCRIPT_PATH/../config/.env.local
 source "$ENV_PATH"
 rm -rf "$SCRIPT_PATH/../api/src/database_gen/"
 mkdir "$SCRIPT_PATH/../api/src/database_gen/"
-pip3 install -r "${SCRIPT_PATH}/../api/requirements.txt"
-#> /dev/null
+pip3 install -r "${SCRIPT_PATH}/../api/requirements.txt" > /dev/null
 
 # removing sqlacodegen.log file
 if [ -s ${SCRIPT_PATH}/sqlacodegen.log ]
@@ -34,7 +33,10 @@ echo "Generating SQLAlchemy models using sqlacodegen..."
 # Running sqlacodegen and capturing errors and warnings in the sqlacodegen.log file
 sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}" --outfile "${OUT_FILE}" &> ${SCRIPT_PATH}/sqlacodegen.log
 echo "Completed SQLAlchemy models generation"
+
+printf "/n--- Generated models ---/n"
 cat ${OUT_FILE}
+echo "/n---End of generated models ---/n"
 
 rm -rf "${COPY_TO_PATH}"
 mkdir -p "${COPY_TO_PATH}"
