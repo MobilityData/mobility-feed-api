@@ -72,3 +72,109 @@ class GTFSFeedsEndpointTests(IntegrationTests):
                 task_id=task_id,
                 index=f"{i + 1}/{len(municipalities)}",
             )
+
+    @staticmethod
+    def _test_order_by_country_code_ascending(response):
+        assert response.status_code == 200, (
+            "Expected 200 status code for GTFS feeds ordered by country code,"
+            " got {response.status_code}."
+        )
+        gtfs_feeds = response.json()
+        assert len(gtfs_feeds) > 1, "Expected more than one GTFS feed for sorting test."
+        prev_country_code = gtfs_feeds[0]["locations"][0]["country_code"]
+        for feed in gtfs_feeds[1:]:
+            current_country_code = feed["locations"][0]["country_code"]
+            assert current_country_code >= prev_country_code, (
+                "Expected GTFS feed country code to be in ascending order, "
+                f"but found '{prev_country_code}' followed by '{current_country_code}'."
+            )
+            prev_country_code = current_country_code
+
+    def test_order_by_country_code_ascending(self):
+        """Test order by country code for GTFS feeds for ascending order."""
+        response = self.get_response(
+            "v1/gtfs_feeds", params={"order_by": "+country_code"}
+        )
+        self._test_order_by_country_code_ascending(response)
+
+    def test_order_by_country_code_descending(self):
+        """Test order by country code for GTFS feeds for descending order."""
+        response = self.get_response(
+            "v1/gtfs_feeds", params={"order_by": "-country_code"}
+        )
+        assert response.status_code == 200, (
+            "Expected 200 status code for GTFS feeds ordered by country code,"
+            " got {response.status_code}."
+        )
+        gtfs_feeds = response.json()
+        assert len(gtfs_feeds) > 1, "Expected more than one GTFS feed for sorting test."
+        prev_country_code = gtfs_feeds[0]["locations"][0]["country_code"]
+        for feed in gtfs_feeds[1:]:
+            current_country_code = feed["locations"][0]["country_code"]
+            assert current_country_code <= prev_country_code, (
+                "Expected GTFS feed country code to be in descending order, "
+                f"but found '{prev_country_code}' followed by '{current_country_code}'."
+            )
+            prev_country_code = current_country_code
+
+    def test_order_by_country_code_default(self):
+        """Test order by country code for GTFS feeds for default order."""
+        response = self.get_response(
+            "v1/gtfs_feeds", params={"order_by": "country_code"}
+        )
+        self._test_order_by_country_code_ascending(response)
+
+    @staticmethod
+    def _test_order_by_external_id_ascending(response):
+        assert response.status_code == 200, (
+            "Expected 200 status code for GTFS feeds ordered by external id,"
+            " got {response.status_code}."
+        )
+        gtfs_feeds = response.json()
+        assert (
+            len(gtfs_feeds) > 1
+        ), "Expected more than one GTFS feed for external id sorting test."
+        prev_external_id = gtfs_feeds[0]["external_ids"][0]["external_id"]
+        for feed in gtfs_feeds[1:]:
+            current_external_id = feed["external_ids"][0]["external_id"]
+            assert current_external_id >= prev_external_id, (
+                "Expected GTFS feed external id to be in ascending order, "
+                f"but found '{prev_external_id}' followed by '{current_external_id}'."
+            )
+            prev_external_id = current_external_id
+
+    def test_order_by_external_id_ascending(self):
+        """Test order by external id for GTFS feeds for ascending order."""
+        response = self.get_response(
+            "v1/gtfs_feeds", params={"order_by": "+external_id"}
+        )
+        self._test_order_by_external_id_ascending(response)
+
+    def test_order_by_external_id_default(self):
+        """Test order by external id for GTFS feeds for default order."""
+        response = self.get_response(
+            "v1/gtfs_feeds", params={"order_by": "external_id"}
+        )
+        self._test_order_by_external_id_ascending(response)
+
+    def test_order_by_external_id_descending(self):
+        """Test order by external id for GTFS feeds for descending order."""
+        response = self.get_response(
+            "v1/gtfs_feeds", params={"order_by": "-external_id"}
+        )
+        assert response.status_code == 200, (
+            "Expected 200 status code for GTFS feeds ordered by external id,"
+            " got {response.status_code}."
+        )
+        gtfs_feeds = response.json()
+        assert (
+            len(gtfs_feeds) > 1
+        ), "Expected more than one GTFS feed for external id sorting test."
+        prev_external_id = gtfs_feeds[0]["external_ids"][0]["external_id"]
+        for feed in gtfs_feeds[1:]:
+            current_external_id = feed["external_ids"][0]["external_id"]
+            assert current_external_id <= prev_external_id, (
+                "Expected GTFS feed external id to be in descending order, "
+                f"but found '{prev_external_id}' followed by '{current_external_id}'."
+            )
+            prev_external_id = current_external_id
