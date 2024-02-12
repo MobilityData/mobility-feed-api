@@ -111,7 +111,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
                 hash=database_gtfs_dataset.hash,
             )
 
-            gtfs_dataset.validation_report = ValidationReport(components=[component for component in components if component is not None])
+            # gtfs_dataset.validation_report = ValidationReport(components=[component for component in components if component is not None])
 
             if bound_box_string := bound_box_strings[0]:
                 coordinates = json.loads(bound_box_string)["coordinates"][0]
