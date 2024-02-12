@@ -95,11 +95,11 @@ jobs:
 #          sudo apt-get update && sudo apt-get install -y postgresql-client
 #          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d MobilityDatabase -c "SELECT version();"
 
-      - name: Run Liquibase on Python functions test DB
+      - name: Run Liquibase on Python functions DB
         run: |
           export LIQUIBASE_CLASSPATH="liquibase"
           export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
-          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabase
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/MobilityDatabase
           export LIQUIBASE_COMMAND_USERNAME=postgres
           export LIQUIBASE_COMMAND_PASSWORD=postgres
           liquibase update
