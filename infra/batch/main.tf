@@ -31,6 +31,8 @@ locals {
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+#  Files DNS name
+  public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -267,6 +269,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION    = "True"
       ENVIRONMENT         = var.environment
+      PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables

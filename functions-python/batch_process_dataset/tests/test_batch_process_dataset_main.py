@@ -20,7 +20,7 @@ public_url = (
 )
 file_content: Final[bytes] = b"Test content"
 file_hash: Final[str] = sha256(file_content).hexdigest()
-
+test_hosted_public_url = "https://example.com"
 
 def create_cloud_event(mock_data):
     # Helper function to create a mock CloudEvent
@@ -49,6 +49,7 @@ class TestDatasetProcessor(unittest.TestCase):
         """
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
+        mock_blob.path = public_url
         upload_file_to_storage.return_value = mock_blob
         mock_download_url_content.return_value = file_hash
 
@@ -61,6 +62,7 @@ class TestDatasetProcessor(unittest.TestCase):
             "bucket_name",
             0,
             None,
+            test_hosted_public_url,
         )
         with patch.object(processor, "date", "mocked_timestamp"):
             result = processor.upload_dataset()
@@ -95,6 +97,7 @@ class TestDatasetProcessor(unittest.TestCase):
             "bucket_name",
             0,
             None,
+            test_hosted_public_url,
         )
 
         result = processor.upload_dataset()
@@ -126,6 +129,7 @@ class TestDatasetProcessor(unittest.TestCase):
             "bucket_name",
             0,
             None,
+            test_hosted_public_url
         )
 
         with self.assertRaises(Exception):
@@ -158,6 +162,7 @@ class TestDatasetProcessor(unittest.TestCase):
                 bucket_name,
                 0,
                 None,
+                test_hosted_public_url
             )
             result = processor.upload_file_to_storage(source_file_path, target_path)
 
@@ -192,6 +197,7 @@ class TestDatasetProcessor(unittest.TestCase):
             bucket_name,
             authentication_type,
             api_key_parameter_name,
+            test_hosted_public_url,
         )
 
         processor.upload_dataset = MagicMock(
@@ -228,6 +234,7 @@ class TestDatasetProcessor(unittest.TestCase):
             bucket_name,
             authentication_type,
             api_key_parameter_name,
+            test_hosted_public_url,
         )
 
         processor.upload_dataset = MagicMock(return_value=None)
