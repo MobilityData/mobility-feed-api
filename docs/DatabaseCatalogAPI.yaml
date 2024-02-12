@@ -180,8 +180,8 @@ paths:
         - $ref: "#/components/parameters/latestQueryParam"
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/downloaded_date_gte"
-        - $ref: "#/components/parameters/downloaded_date_lte"
+        - $ref: "#/components/parameters/downloaded_at_gte"
+        - $ref: "#/components/parameters/downloaded_at_lte"
 
       security:
         -  Authentication: []
@@ -371,6 +371,15 @@ components:
           example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
         bounding_box:
           $ref: "#/components/schemas/BoundingBox"
+        downloaded_at:
+          description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: datetime
+        hash:
+          description: A MD5 hash of the dataset.
+          type: string
+          example: a_long_sha1_hash
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    EntityTypes:
@@ -681,15 +690,15 @@ components:
       schema:
         type: string
         example: Los Angeles
-    downloaded_date_gte:
-      name: downloaded_date_gte
+    downloaded_at_gte:
+      name: downloaded_at_gte
       in: query
       description: Filter feed datasets with downloaded date greater or equal to given date.
       schema:
         type: string
         example: 2023-07-00T22:06:00Z
-    downloaded_date_lte:
-      name: downloaded_date_lte
+    downloaded_at_lte:
+      name: downloaded_at_lte
       in: query
       description: Filter feed datasets with downloaded date less or equal to given date.
       schema:
