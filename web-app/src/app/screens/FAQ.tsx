@@ -68,7 +68,7 @@ export default function FAQ(): React.ReactElement {
           </Typography>
           <Typography className='question'>What’s coming next?</Typography>
           <Typography className='answer'>
-            The MobilityData team is working to add validation info from the
+            The MobilityData team is working to add validation info from the 
             <a
               href='https://gtfs-validator.mobilitydata.org/'
               target='_blank'
