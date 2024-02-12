@@ -29,27 +29,60 @@ jobs:
         with:
           python-version: ${{ env.python_version }}
 
-      - name: Docker Compose DB/Liquibase for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local up -d liquibase
-        working-directory: ${{ github.workspace }}
-
-      - name: Generate DB code
+      - name: Docker Compose DB
         run: |
-          scripts/db-gen.sh
-
-      - name: Docker Compose DB/Liquibase for unit tests
-        run: docker-compose --env-file ./config/.env.local up -d liquibase-test
+          docker-compose --env-file ./config/.env.local up -d postgres postgres-test
         working-directory: ${{ github.workspace }}
-            
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
 
       - name: Run lint checks
         shell: bash
         run: |
           scripts/lint-tests.sh
+
+      - name: Install Liquibase
+        run: |    
+          wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
+          cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
+          echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
+      
+          sudo apt-get update
+          sudo apt-get install liquibase
+
+#      Uncomment the following block to test the loca databases connections
+#      - name: Test Database Connection
+#        run: |
+#          sudo apt-get update && sudo apt-get install -y postgresql-client
+#          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d MobilityDatabase -c "SELECT version();"
+#          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
+
+      - name: Run Liquibase on Python functions test DB
+        run: |
+          export LIQUIBASE_CLASSPATH="liquibase"
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          liquibase update
+
+      - name: Run Liquibase on API test DB
+        run: |      
+          export LIQUIBASE_CLASSPATH="liquibase"
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/MobilityDatabase
+          export LIQUIBASE_COMMAND_USERNAME=postgres
+          export LIQUIBASE_COMMAND_PASSWORD=postgres
+          export LIQUIBASE_LOG_LEVEL=FINE
+      
+          liquibase update
+
+      - name: Generate DB code
+        run: |
+          scripts/db-gen.sh
+
+      - name: Generate API code
+        run: |
+          scripts/setup-openapi-generator.sh
+          scripts/api-gen.sh
 
       - name: Unit tests - API
         shell: bash
