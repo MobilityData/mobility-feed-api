@@ -16,8 +16,6 @@ servers:
 # Replace beta address with prod address when ready
   - url: https://api.mobilitydatabase.org/
     description: Prod environment
-  - url: https://beta.mobilitydatabase.org/
-    description: Beta release environment
   - url: https://api-qa.mobilitydatabase.org/
     description: Pre-prod environment
   - url: https://api-dev.mobilitydatabase.org/
