@@ -532,8 +532,6 @@ components:
               example: a_long_sha1_hash
             bounding_box:
               $ref: "#/components/schemas/BoundingBox"
-            validation_report:
-              $ref: "#/components/schemas/ValidationReport"
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
