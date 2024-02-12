@@ -173,18 +173,21 @@ jobs:
           echo "POSTGRES_HOST=localhost" >> config/.env.local
           echo "ENV=dev" >> config/.env.local
 
-      - name: Docker Compose DB/Liquibase for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local up -d liquibase
-        working-directory: ${{ github.workspace }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: database_gen
+          path: api/src/database_gen/
 
-      - name: Generate DB code
+      - name: Copy to db models to functions directory
         run: |
-          scripts/db-gen.sh
+          cp -R api/src/database_gen/ functions-python/ 
+          ls -R api/src/database_gen/
+          ls -R functions-python
 
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
+      - uses: actions/download-artifact@v4
+        with:
+          name: feeds_gen
+          path: api/src/feeds_gen/
 
       - name: Set Variables
         run: |
