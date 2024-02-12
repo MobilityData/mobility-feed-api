@@ -225,6 +225,10 @@ jobs:
           name: feeds_gen
           path: api/src/feeds_gen/
 
+      - name: Build python functions
+        run: |
+          scripts/function-python-build.sh --all
+          
       - name: Authenticate to Google Cloud
         id: gcloud_auth
         uses: google-github-actions/auth@v1
