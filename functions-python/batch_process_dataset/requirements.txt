@@ -15,3 +15,8 @@ geoalchemy2
 requests~=2.31.0
 cloudevents~=1.10.1
 requests_mock
+
+Faker
+pytest~=7.4.3
+urllib3-mock
+requests-mock

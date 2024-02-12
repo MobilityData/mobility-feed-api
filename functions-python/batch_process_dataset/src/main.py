@@ -139,12 +139,14 @@ class DatasetProcessor:
                 dataset_stable_id = self.create_dataset_stable_id(
                     self.feed_stable_id, self.date
                 )
-                dataset_full_path = f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
+                dataset_full_path = (
+                    f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
+                )
                 logging.info(
                     f"Creating file: {dataset_full_path}"
                     f" in bucket {self.bucket_name}"
                 )
-                timestamp_blob = self.upload_file_to_storage(
+                self.upload_file_to_storage(
                     temp_file_path,
                     f"{dataset_full_path}",
                 )
