@@ -180,7 +180,7 @@ jobs:
 
       - name: Copy to db models to functions directory
         run: |
-          cp -R api/src/database_gen/ functions-python/ 
+          cp -R api/src/database_gen/ functions-python/database_gen
 
       - uses: actions/download-artifact@v4
         with:
@@ -218,7 +218,7 @@ jobs:
 
       - name: Copy to db models to functions directory
         run: |
-          cp -R api/src/database_gen/ functions-python/ 
+          cp -R api/src/database_gen/ functions-python/database_gen
 
       - uses: actions/download-artifact@v4
         with:
