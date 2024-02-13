@@ -4,6 +4,10 @@ from fastapi.testclient import TestClient
 from .test_utils.database import TEST_DATASET_STABLE_IDS
 from .test_utils.token import authHeaders
 
+import os
+
+os.environ["FEEDS_DATABASE_URL"] = "postgresql://postgres:postgres@localhost:5432/MobilityDatabase"
+
 
 def test_datasets_gtfs_id_get(client: TestClient):
     """Test case for datasets_gtfs_id_get"""

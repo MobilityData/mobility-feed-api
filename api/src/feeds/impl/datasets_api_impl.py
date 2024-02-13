@@ -2,11 +2,12 @@ import json
 from typing import List
 
 from geoalchemy2 import WKTElement
-from sqlalchemy import or_
-from sqlalchemy.orm import Query
+from sqlalchemy import or_, select, func, and_
+from sqlalchemy.orm import Query, aliased
 
 from database.database import Database
-from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset, Feed
+from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset, Feed, t_validationreportgtfsdataset, \
+    Validationreport, Notice
 from feeds.impl.error_handling import (
     invalid_bounding_coordinates,
     invalid_bounding_method,
@@ -17,6 +18,7 @@ from feeds.impl.error_handling import (
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.bounding_box import BoundingBox
 from feeds_gen.models.gtfs_dataset import GtfsDataset
+from feeds_gen.models.validation_report import ValidationReport
 
 
 class DatasetsApiImpl(BaseDatasetsApi):
@@ -44,6 +46,35 @@ class DatasetsApiImpl(BaseDatasetsApi):
             )
             .join(Feed, Feed.id == Gtfsdataset.feed_id)
         )
+
+    @staticmethod
+    def _load_validation_report():
+        """
+        This method is for loading validation reports. This could be done as part of loading gtfs dataset
+        but the query for loading gtfs dataset is already complex, and therefore I decided to create a separate method
+        for this.
+        """
+        vrgd = t_validationreportgtfsdataset.alias()
+        max_vr = aliased(Validationreport)
+
+        max_validator_version_subquery = (
+            select(vrgd.c.dataset_id, func.max(max_vr.validator_version).label('max_validator_version'))
+            .join(max_vr, max_vr.id == vrgd.c.validation_report_id)
+            .group_by(vrgd.c.dataset_id)
+            .alias('max_versions')
+        )
+
+        notices_query = (
+            select(Notice)
+            .join(vrgd, Notice.validation_report_id == vrgd.c.validation_report_id)
+            .join(Validationreport, Validationreport.id == Notice.validation_report_id)
+            .join(max_validator_version_subquery, and_(
+                vrgd.c.dataset_id == max_validator_version_subquery.c.dataset_id,
+                Validationreport.validator_version == max_validator_version_subquery.c.max_validator_version
+            ))
+        )
+
+        return Database().session.execute(notices_query).scalars().all()
 
     @staticmethod
     def apply_bounding_filtering(
@@ -108,10 +139,27 @@ class DatasetsApiImpl(BaseDatasetsApi):
             group_by=lambda x: x[0].stable_id,
         )
 
+        notices = DatasetsApiImpl._load_validation_report()
+
         gtfs_datasets = []
         for dataset_group in dataset_groups:
             dataset_objects, components, bound_box_strings, feed_ids = zip(*dataset_group)
             database_gtfs_dataset = dataset_objects[0]
+            notices_for_dataset = [notice for notice in notices if notice.dataset_id == database_gtfs_dataset.id]
+
+            validator_report = None
+            if notices_for_dataset:
+                validator_report = ValidationReport(
+                    components=[component for component in components if component is not None])
+                database_validator_report = notices_for_dataset[0].validation_report
+                validator_report.total_info = len([notice for notice in notices_for_dataset if notice.severity == "INFO"])
+                validator_report.total_warning = len([notice for notice in notices_for_dataset if notice.severity == "WARNING"])
+                validator_report.total_error = len([notice for notice in notices_for_dataset if notice.severity == "ERROR"])
+                validator_report.validated_at = database_validator_report.validated_at
+                validator_report.validator_version = database_validator_report.validator_version
+                validator_report.url_json = database_validator_report.json_report
+                validator_report.url_html = database_validator_report.html_report
+
             gtfs_dataset = GtfsDataset(
                 id=database_gtfs_dataset.stable_id,
                 feed_id=feed_ids[0],
@@ -121,7 +169,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
                 if database_gtfs_dataset.downloaded_at
                 else None,
                 hash=database_gtfs_dataset.hash,
-                components=[component for component in components if component is not None],
+                validation_report=validator_report,
             )
 
             if bound_box_string := bound_box_strings[0]:
