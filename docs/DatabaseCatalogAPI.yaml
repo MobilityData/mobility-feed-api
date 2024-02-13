@@ -38,7 +38,7 @@ paths:
         - "feeds"
       operationId: getFeeds
       parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
@@ -58,7 +58,7 @@ paths:
 
   /v1/feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feedIdPathParam"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified feed from the Mobility Database.
       tags:
@@ -83,7 +83,7 @@ paths:
         - "feeds"
       operationId: getGtfsFeeds
       parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
@@ -112,7 +112,7 @@ paths:
         - "feeds"
       operationId: getGtfsRtFeeds
       parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
@@ -129,7 +129,7 @@ paths:
 
   /v1/gtfs_feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feedIdPathParam"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS feed from the Mobility Database.
       tags:
@@ -148,7 +148,7 @@ paths:
 
   /v1/gtfs_rt_feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feedIdPathParam"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS Realtime feed from the Mobility Database.
       tags:
@@ -167,15 +167,15 @@ paths:
 
   /v1/gtfs_feeds/{id}/datasets:
     parameters:
-      - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
+      - $ref: "#/components/parameters/feed_id_of_datasets_path_param"
     get:
       description: Get a list of datasets related to a GTFS feed.
       tags:
         - "feeds"
       operationId: getGtfsFeedDatasets
       parameters:
-        - $ref: "#/components/parameters/latestQueryParam"
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/latest_query_param"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/downloaded_at_gte"
         - $ref: "#/components/parameters/downloaded_at_lte"
@@ -197,7 +197,7 @@ paths:
         - "datasets"
       operationId: getDatasetGtfs
       parameters:
-        - $ref: "#/components/parameters/datasetIdPathParam"
+        - $ref: "#/components/parameters/dataset_id_path_param"
       security:
         - Authentication: []
       responses:
@@ -620,14 +620,6 @@ components:
 #      example: gtfs
   parameters:
 
-    filter:
-      name: filter
-      in: query
-      description: A filter to apply to the returned data. Exact syntax to be designed
-      required: False
-      schema:
-        type: string
-        example: status=active
     status:
       name: status
       in: query
@@ -763,7 +755,7 @@ components:
         Specify the optional field to sort records by.
       example: external_id
 
-    latestQueryParam:
+    latest_query_param:
       name: latest
       in: query
       description: If true, only return the latest dataset.
@@ -772,7 +764,7 @@ components:
         type: boolean
         default: false
 
-    limitQueryParam:
+    limit_query_param:
       name: limit
       in: query
       description: The number of items to be returned.
@@ -792,7 +784,7 @@ components:
         default: 0
         example: 0
 
-    feedIdPathParam:
+    feed_id_path_param:
       name: id
       in: path
       description: The feed ID of the requested feed.
@@ -801,7 +793,7 @@ components:
         type: string
         example: mdb-10
 
-    feedIdOfDatasetsPathParam:
+    feed_id_of_datasets_path_param:
       name: id
       in: path
       description: The ID of the feed for which to obtain datasets.
@@ -810,7 +802,7 @@ components:
         type: string
         example: mdb-10
 
-    datasetIdPathParam:
+    dataset_id_path_param:
       name: id
       in: path
       description: The ID of the requested dataset.
