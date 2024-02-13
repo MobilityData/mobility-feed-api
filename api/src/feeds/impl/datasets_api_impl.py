@@ -6,14 +6,21 @@ from sqlalchemy import or_, select, func, and_
 from sqlalchemy.orm import Query, aliased
 
 from database.database import Database
-from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset, Feed, t_validationreportgtfsdataset, \
-    Validationreport, Notice
+
 from feeds.impl.error_handling import (
     invalid_bounding_coordinates,
     invalid_bounding_method,
     raise_http_validation_error,
     raise_http_error,
     dataset_not_found,
+)
+from database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    t_componentgtfsdataset,
+    Feed,
+    Validationreport,
+    t_validationreportgtfsdataset,
+    Notice,
 )
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.bounding_box import BoundingBox
@@ -58,20 +65,23 @@ class DatasetsApiImpl(BaseDatasetsApi):
         max_vr = aliased(Validationreport)
 
         max_validator_version_subquery = (
-            select(vrgd.c.dataset_id, func.max(max_vr.validator_version).label('max_validator_version'))
+            select(vrgd.c.dataset_id, func.max(max_vr.validator_version).label("max_validator_version"))
             .join(max_vr, max_vr.id == vrgd.c.validation_report_id)
             .group_by(vrgd.c.dataset_id)
-            .alias('max_versions')
+            .alias("max_versions")
         )
 
         notices_query = (
             select(Notice)
             .join(vrgd, Notice.validation_report_id == vrgd.c.validation_report_id)
             .join(Validationreport, Validationreport.id == Notice.validation_report_id)
-            .join(max_validator_version_subquery, and_(
-                vrgd.c.dataset_id == max_validator_version_subquery.c.dataset_id,
-                Validationreport.validator_version == max_validator_version_subquery.c.max_validator_version
-            ))
+            .join(
+                max_validator_version_subquery,
+                and_(
+                    vrgd.c.dataset_id == max_validator_version_subquery.c.dataset_id,
+                    Validationreport.validator_version == max_validator_version_subquery.c.max_validator_version,
+                ),
+            )
         )
 
         return Database().session.execute(notices_query).scalars().all()
@@ -150,11 +160,18 @@ class DatasetsApiImpl(BaseDatasetsApi):
             validator_report = None
             if notices_for_dataset:
                 validator_report = ValidationReport(
-                    components=[component for component in components if component is not None])
+                    components=[component for component in components if component is not None]
+                )
                 database_validator_report = notices_for_dataset[0].validation_report
-                validator_report.total_info = len([notice for notice in notices_for_dataset if notice.severity == "INFO"])
-                validator_report.total_warning = len([notice for notice in notices_for_dataset if notice.severity == "WARNING"])
-                validator_report.total_error = len([notice for notice in notices_for_dataset if notice.severity == "ERROR"])
+                validator_report.total_info = len(
+                    [notice for notice in notices_for_dataset if notice.severity == "INFO"]
+                )
+                validator_report.total_warning = len(
+                    [notice for notice in notices_for_dataset if notice.severity == "WARNING"]
+                )
+                validator_report.total_error = len(
+                    [notice for notice in notices_for_dataset if notice.severity == "ERROR"]
+                )
                 validator_report.validated_at = database_validator_report.validated_at
                 validator_report.validator_version = database_validator_report.validator_version
                 validator_report.url_json = database_validator_report.json_report
