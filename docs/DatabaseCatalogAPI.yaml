@@ -18,7 +18,7 @@ servers:
   - url: https://api-qa.mobilitydatabase.org/
     description: Pre-prod environment
   - url: https://api-dev.mobilitydatabase.org/
-    description: Development environment    
+    description: Development environment
   - url: http://localhost:8080/
     description: Local development environment
 
@@ -114,8 +114,8 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limitQueryParam"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/provider"
-        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/provider_rt"
+        - $ref: "#/components/parameters/producer_url_rt"
         - $ref: "#/components/parameters/entity_types"
       security:
         - Authentication: []
@@ -148,7 +148,7 @@ paths:
 
   /v1/gtfs_rt_feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feedIdPathParam"
+      - $ref: "#/components/parameters/feedIdPathParam_rt"
     get:
       description: Get the specified GTFS Realtime feed from the Mobility Database.
       tags:
@@ -620,14 +620,6 @@ components:
 #      example: gtfs
   parameters:
 
-    filter:
-      name: filter
-      in: query
-      description: A filter to apply to the returned data. Exact syntax to be designed
-      required: False
-      schema:
-        type: string
-        example: status=active
     status:
       name: status
       in: query
@@ -643,21 +635,43 @@ components:
     provider:
       name: provider
       in: query
-      description: Filter feeds by provider name using the LIKE operation. Phrase is matched case insensitively to actual provider names.
+      description: List only feeds with the specified value. Can be a partial match. Case insensitive.
       required: false
       schema:
         type: string
-        example: London Transit
+        example: Los Angeles Department of Transportation
+
+    # A provider specific to gtfs realtime simply to have a different example
+    provider_rt:
+      name: provider
+      in: query
+      description: List only feeds with the specified value. Can be a partial match. Case insensitive.
+      required: false
+      schema:
+        type: string
+        example: Tri Delta Transit
     producer_url:
       name: producer_url
       in: query
       required: false
       description: >
-        Filter feeds by URL where the producer is providing the dataset.  Phrase is matched case insensitively.
+        List only feeds with the specified value. Can be a partial match. Case insensitive.
       schema:
         type: string
         format: url
-        example: londontransit.ca/gtfsfeed
+        example: https://ladotbus.com
+
+    # A producer_url specific to gtfs realtime simply to have a different example
+    producer_url_rt:
+      name: producer_url
+      in: query
+      required: false
+      description: >
+        List only feeds with the specified value. Can be a partial match. Case insensitive.
+      schema:
+        type: string
+        format: url
+        example: https://api.511.org
     entity_types:
       name: entity_types
       in: query
@@ -665,7 +679,7 @@ components:
       required: false
       schema:
         type: string
-        example: vp,sa
+        example: vp,sa,tu
     country_code:
       name: country_code
       in: query
@@ -676,14 +690,14 @@ components:
     subdivision_name:
       name: subdivision_name
       in: query
-      description: Filter feeds by subdivision name. Phrase is matched case insensitively to actual subdivision names.
+      description: List only feeds with the specified value. Can be a partial match. Case insensitive.
       schema:
         type: string
         example: California
     municipality:
       name: municipality
       in: query
-      description: Filter feeds by municipality name. Phrase is matched case insensitively to actual municipality names.
+      description: List only feeds with the specified value. Can be a partial match. Case insensitive.
       schema:
         type: string
         example: Los Angeles
@@ -693,14 +707,14 @@ components:
       description: Filter feed datasets with downloaded date greater or equal to given date.
       schema:
         type: string
-        example: 2023-07-00T22:06:00Z
+        example: 2024-02-11T18:16:05Z
     downloaded_at_lte:
       name: downloaded_at_lte
       in: query
       description: Filter feed datasets with downloaded date less or equal to given date.
       schema:
         type: string
-        example: 2023-07-20T22:06:00Z
+        example: 2024-02-20T18:16:05Z
 
     dataset_latitudes:
       name: dataset_latitudes
@@ -712,7 +726,7 @@ components:
       required: False
       schema:
         type: string
-        example: 41.46,42.67
+        example: 33.5,34.5
 
     dataset_longitudes:
       name: dataset_longitudes
@@ -724,7 +738,7 @@ components:
       required: False
       schema:
         type: string
-        example: -78.58,-87-29
+        example: -118.0,-119.0
 
     bounding_filter_method:
       name: bounding_filter_method
@@ -799,7 +813,17 @@ components:
       required: True
       schema:
         type: string
-        example: mdb-10
+        example: mdb-1210
+
+    # A feed id specific to gtfs realtime simply to have a different example
+    feedIdPathParam_rt:
+      name: id
+      in: path
+      description: The feed ID of the requested feed.
+      required: True
+      schema:
+        type: string
+        example: mdb-1975
 
     feedIdOfDatasetsPathParam:
       name: id
@@ -817,7 +841,7 @@ components:
       required: True
       schema:
         type: string
-        example: dataset_0
+        example: mdb-1210-202402121801
 
   securitySchemes:
     Authentication:
