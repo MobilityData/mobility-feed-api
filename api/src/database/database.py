@@ -151,6 +151,7 @@ class Database:
             return results
         except Exception as e:
             logging.error(f"SELECT query failed with exception: \n{e}")
+            global_session.rollback()
             return None
         finally:
             if update_session:
