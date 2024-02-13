@@ -69,7 +69,7 @@ jobs:
     permissions: write-all
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - uses: actions/setup-python@v4
         with:
@@ -126,7 +126,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Persist TF plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-artifact-plan.txt
           path: infra/artifact-registry/terraform-plan.txt
@@ -138,7 +138,7 @@ jobs:
     needs: [create-artifact-repo, api-build-test]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         id: gcloud_auth
@@ -154,7 +154,7 @@ jobs:
           password: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Set up JDK ${{ env.java_version }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: ${{ env.java_version }}
           distribution: 'temurin'
@@ -173,18 +173,21 @@ jobs:
           echo "POSTGRES_HOST=localhost" >> config/.env.local
           echo "ENV=dev" >> config/.env.local
 
-      - name: Docker Compose DB/Liquibase for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local up -d liquibase
-        working-directory: ${{ github.workspace }}
+      # db models were generated and uploaded in api-build-test job above.
+      - uses: actions/download-artifact@v4
+        with:
+          name: database_gen
+          path: api/src/database_gen/
 
-      - name: Generate DB code
+      - name: Copy to db models to functions directory
         run: |
-          scripts/db-gen.sh
+          cp -R api/src/database_gen/ functions-python/database_gen
 
-      - name: Generate API code
-        run: |
-          scripts/setup-openapi-generator.sh
-          scripts/api-gen.sh
+      # api schema was generated and uploaded in api-build-test job above.
+      - uses: actions/download-artifact@v4
+        with:
+          name: feeds_gen
+          path: api/src/feeds_gen/
 
       - name: Set Variables
         run: |
@@ -204,19 +207,27 @@ jobs:
     needs: docker-build-publish
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ env.python_version }}
 
-      - name: Docker Compose DB/Liquibase for db-gen.sh
-        run: docker-compose --env-file ./config/.env.local up -d liquibase
-        working-directory: ${{ github.workspace }}
+      # db models were generated and uploaded in api-build-test job above.
+      - uses: actions/download-artifact@v4
+        with:
+          name: database_gen
+          path: api/src/database_gen/
 
-      - name: Generate DB code
+      - name: Copy to db models to functions directory
         run: |
-          scripts/db-gen.sh
+          cp -R api/src/database_gen/ functions-python/database_gen
+
+      # api schema was generated and uploaded in api-build-test job above.
+      - uses: actions/download-artifact@v4
+        with:
+          name: feeds_gen
+          path: api/src/feeds_gen/
 
       - name: Build python functions
         run: |
@@ -280,7 +291,7 @@ jobs:
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
 
       - name: Persist TF plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan.txt
           path: infra/terraform-plan.txt
