@@ -529,6 +529,8 @@ components:
               example: a_long_sha1_hash
             bounding_box:
               $ref: "#/components/schemas/BoundingBox"
+            validation_report:
+              $ref: "#/components/schemas/ValidationReport"
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
@@ -567,12 +569,47 @@ components:
       description: Validation report
       type: object
       properties:
+        validated_at:
+          description: The date and time the report was generated, in ISO 8601 format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: datetime
         components:
           description: An array of components for this dataset.
           type: array
           items:
             type: string
             example: Fares_V1
+        validator_version:
+          type: string
+          example: 4.2.0
+        total_error:
+          type: integer
+          example: 1
+          minimum: 0
+        total_warning:
+          type: integer
+          example: 2
+          minimum: 0
+        total_info:
+          type: integer
+          example: 3
+          minimum: 0
+        url_json:
+          type: string
+          format: url
+          description: JSON validation report URL
+          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.json
+        url_html:
+          type: string
+          format: url
+          description: HTML validation report URL
+          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.html
+        url_system_errors:
+          type: string
+          format: url
+          description: JSON validation system errors URL
+          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-system-errors-4_2_0.json
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    DataType:

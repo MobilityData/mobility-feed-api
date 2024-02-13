@@ -11,7 +11,6 @@ from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset,
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.bounding_box import BoundingBox
 from feeds_gen.models.gtfs_dataset import GtfsDataset
-from feeds_gen.models.validation_report import ValidationReport
 
 
 class DatasetsApiImpl(BaseDatasetsApi):
@@ -109,9 +108,8 @@ class DatasetsApiImpl(BaseDatasetsApi):
                 if database_gtfs_dataset.downloaded_at
                 else None,
                 hash=database_gtfs_dataset.hash,
+                components=[component for component in components if component is not None],
             )
-
-            # gtfs_dataset.validation_report = ValidationReport(components=[component for component in components if component is not None])
 
             if bound_box_string := bound_box_strings[0]:
                 coordinates = json.loads(bound_box_string)["coordinates"][0]
