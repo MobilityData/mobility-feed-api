@@ -358,23 +358,19 @@ resource "google_compute_target_https_proxy" "files_https_proxy" {
   ssl_certificates = [data.google_compute_ssl_certificate.files_ssl_cert.id]
 }
 
-resource "google_compute_global_address" "files_http_lb_ipv4" {
-  name         = "files-http-lb-ipv4-${var.environment}"
-  address_type = "EXTERNAL"
-  ip_version   = "IPV4"
+data "google_compute_global_address" "files_http_lb_ipv4" {
+  name         = "files-http-lb-ipv4-static-${var.environment}"
 }
 
-resource "google_compute_global_address" "files_http_lb_ipv6" {
-  name         = "files-http-lb-ipv6-${var.environment}"
-  address_type = "EXTERNAL"
-  ip_version   = "IPV6"
+data "google_compute_global_address" "files_http_lb_ipv6" {
+  name         = "files-http-lb-ipv6-static-${var.environment}"
 }
 
 resource "google_compute_global_forwarding_rule" "files_http_lb_rule" {
   name                  = "files-http-lb-rule-${var.environment}"
   target                = google_compute_target_https_proxy.files_https_proxy.self_link
   port_range            = "443"
-  ip_address            = google_compute_global_address.files_http_lb_ipv6.address
+  ip_address            = data.google_compute_global_address.files_http_lb_ipv6.address
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
@@ -382,6 +378,6 @@ resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
   name                  = "files-http-lb-rule-v4-${var.environment}"
   target                = google_compute_target_https_proxy.files_https_proxy.self_link
   port_range            = "443"
-  ip_address            = google_compute_global_address.files_http_lb_ipv4.address
+  ip_address            = data.google_compute_global_address.files_http_lb_ipv4.address
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
