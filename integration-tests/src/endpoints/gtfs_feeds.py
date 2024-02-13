@@ -49,21 +49,21 @@ class GTFSFeedsEndpointTests(IntegrationTests):
         # Sending a request with invalid bounding box parameters
         wrong_bounding_lon_lat = "-12,-"
         response = self.get_response(
-            "v1/gtfs_feeds", params={
+            "v1/gtfs_feeds",
+            params={
                 "dataset_longitudes": wrong_bounding_lon_lat,
                 "dataset_latitudes": wrong_bounding_lon_lat,
-                "bounding_filter_method": "completely_enclosed"
-            }
+                "bounding_filter_method": "completely_enclosed",
+            },
         )
 
         # Expecting an error due to invalid input, but specific status code check is pending implementation
-        assert response.status_code != 200, (
-            f"Expected an error status code for GTFS feeds request with invalid input, got {response.status_code}."
-        )
+        assert (
+            response.status_code != 200
+        ), f"Expected an error status code for GTFS feeds request with invalid input, got {response.status_code}."
 
         # Sending a subsequent valid request to ensure APIs proper handling of sequences
         response = self.get_response("v1/gtfs_feeds", params={"limit": 10})
         assert (
-                response.status_code == 200
+            response.status_code == 200
         ), f"Expected a 200 status code for subsequent valid GTFS feeds request, got {response.status_code}."
-
