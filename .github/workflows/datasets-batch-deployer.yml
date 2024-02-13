@@ -89,7 +89,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install liquibase
 
-#      Uncomment the following block to test the loca databases connections
+#      Uncomment the following block to test the local databases connections
 #      - name: Test Database Connection
 #        run: |
 #          sudo apt-get update && sudo apt-get install -y postgresql-client
