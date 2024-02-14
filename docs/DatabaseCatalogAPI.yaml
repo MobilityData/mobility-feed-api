@@ -696,7 +696,7 @@ components:
       description: Filter feed datasets with downloaded date less or equal to given date. Date should be in ISO 8601 format.
       schema:
         type: string
-        format: datetime
+        format: date-time
         example: 2023-07-20T22:06:00Z
 
     dataset_latitudes:
