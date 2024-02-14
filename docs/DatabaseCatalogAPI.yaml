@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   version: 1.0.0
   title: Mobility Database Catalog
-  description: API for the Mobility Database Catalog. See https://mobilitydatabase.org/.
+  description: https://mobilitydatabase.org/
   termsOfService: https://mobilitydatabase.org/terms-and-conditions
   contact:
     name: MobilityData
