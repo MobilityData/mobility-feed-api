@@ -6,12 +6,14 @@ from fastapi import HTTPException
 @dataclass
 class HttpError:
     """A generic HTTP error."""
+
     message: str
 
 
 @dataclass
 class ValidationError(HttpError):
     """A validation error."""
+
     field: str
     message: str
 
