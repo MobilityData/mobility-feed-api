@@ -127,7 +127,7 @@ def test_fetch_gtfs_feeds_with_incorrect_latitude_for_bounding_box(client: TestC
         headers=authHeaders,
         params=params,
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_fetch_gtfs_feeds_with_malformed_bounding_box_coordinates(client: TestClient):
@@ -149,7 +149,7 @@ def test_fetch_gtfs_feeds_with_malformed_bounding_box_coordinates(client: TestCl
         headers=authHeaders,
         params=params,
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_fetch_gtfs_feeds_with_incomplete_latitude_in_bounding_box(client: TestClient):
@@ -171,7 +171,7 @@ def test_fetch_gtfs_feeds_with_incomplete_latitude_in_bounding_box(client: TestC
         headers=authHeaders,
         params=params,
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_feeds_gtfs_rt_id_get(client: TestClient):
