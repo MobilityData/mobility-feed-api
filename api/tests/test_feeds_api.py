@@ -186,11 +186,11 @@ def test_get_gtfs_feed_datasets_with_download_at_before_before(client: TestClien
     """Test case for get_gtfs_feed_datasets with a download_at filter by date before all downloads
     Expected result: empty list
     """
-    before_all_downloads = datasets_download_first_date - timedelta(days=10)
+    date = datasets_download_first_date - timedelta(days=10)
     response = client.request(
         "GET",
         "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
-            id=TEST_GTFS_FEED_STABLE_IDS[0], date=before_all_downloads
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
         ),
         headers=authHeaders,
     )
@@ -207,7 +207,9 @@ def test_get_gtfs_feed_datasets_with_download_at_before_after(client: TestClient
     date = datasets_download_first_date + timedelta(days=10)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
         headers=authHeaders,
     )
 
@@ -229,13 +231,13 @@ def get_all_datasets(client):
 
 
 def test_get_gtfs_feed_datasets_with_download_at_before_the_first_dataset(client: TestClient):
-    """Test case for get_gtfs_feed_datasets with a download_at filter by the date before of the first dataset
+    """Test case for get_gtfs_feed_datasets filter by downloaded_before with date before of the first dataset
     Expected result: the first dataset
     """
     response = client.request(
         "GET",
         "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
-            id=TEST_GTFS_FEED_STABLE_IDS[0], date=datasets_download_first_date
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=datasets_download_first_date.isoformat()
         ),
         headers=authHeaders,
     )
@@ -247,13 +249,15 @@ def test_get_gtfs_feed_datasets_with_download_at_before_the_first_dataset(client
 
 
 def test_get_gtfs_feed_datasets_with_download_at_after_after(client: TestClient):
-    """Test case for get_gtfs_feed_datasets with a download_at filter that is after all downloads
+    """Test case for get_gtfs_feed_datasets filter downloaded_after with date after all downloads
     Expected result: empty list
     """
     date = datasets_download_first_date + timedelta(days=10)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
         headers=authHeaders,
     )
 
@@ -262,7 +266,7 @@ def test_get_gtfs_feed_datasets_with_download_at_after_after(client: TestClient)
 
 
 def test_get_gtfs_feed_datasets_with_download_at_after_before(client: TestClient):
-    """Test case for get_gtfs_feed_datasets with a download_at filter by the after operation with date before
+    """Test case for get_gtfs_feed_datasets filter by downloaded_after with date before
      all downloads
     Expected result: the full list of datasets
     """
@@ -270,7 +274,9 @@ def test_get_gtfs_feed_datasets_with_download_at_after_before(client: TestClient
     date = datasets_download_first_date - timedelta(days=1)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
         headers=authHeaders,
     )
 
@@ -279,8 +285,7 @@ def test_get_gtfs_feed_datasets_with_download_at_after_before(client: TestClient
 
 
 def test_get_gtfs_feed_datasets_with_download_at_after_first(client: TestClient):
-    """Test case for get_gtfs_feed_datasets with a download_at
-    filter by the after operation with date after the first dataset
+    """Test case for get_gtfs_feed_datasets filter by downloaded_after date after the first dataset
     Expected result: the full list of datasets
     """
     datasets = get_all_datasets(client)
@@ -288,10 +293,49 @@ def test_get_gtfs_feed_datasets_with_download_at_after_first(client: TestClient)
     date = datasets_download_first_date + timedelta(days=1)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
         headers=authHeaders,
     )
 
     assert response.status_code == 200
     assert len(response.json()) == len(datasets)
     assert response.json() == datasets
+
+
+def test_get_gtfs_feed_datasets_with_download_before_invalid_date(client: TestClient):
+    """Test case for get_gtfs_feed_datasets with an invalid date in download_before
+    Expected result: the full list of datasets
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date="invalid_date"
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [{"field": "downloaded_before", "message": "Invalid date format. Expected ISO 8601 format."}]
+    }
+
+
+def test_get_gtfs_feed_datasets_with_download_after_invalid_date(client: TestClient):
+    """Test case for get_gtfs_feed_datasets with an invalid date in download_after
+    filter by the after operation with date after the first dataset
+    Expected result: the full list of datasets
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date="invalid_date"
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [{"field": "downloaded_after", "message": "Invalid date format. Expected ISO 8601 format."}]
+    }

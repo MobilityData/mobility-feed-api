@@ -25,6 +25,7 @@ from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
 from feeds.filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
+from feeds.impl.error_handling import raise_http_errors, ValidationError
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
@@ -36,6 +37,7 @@ from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.location import Location as ApiLocation
 from feeds_gen.models.source_info import SourceInfo
 from feeds_gen.models.redirect import Redirect
+from utils.date_utils import valid_iso_date
 
 
 class FeedsApiImpl(BaseFeedsApi):
@@ -305,14 +307,22 @@ class FeedsApiImpl(BaseFeedsApi):
         latest: bool,
         limit: int,
         offset: int,
-        downloaded_at_gte: str,
-        downloaded_at_lte: str,
+        downloaded_after: str,
+        downloaded_before: str,
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
-        # getting the bounding box as JSON to make it easier to process
+        if downloaded_before and not valid_iso_date(downloaded_before):
+            raise_http_errors(
+                [ValidationError(field="downloaded_before", message="Invalid date format. Expected ISO 8601 format.")]
+            )
+
+        if downloaded_after and not valid_iso_date(downloaded_after):
+            raise_http_errors(
+                [ValidationError(field="downloaded_after", message="Invalid date format. Expected ISO 8601 format.")]
+            )
         query = GtfsDatasetFilter(
-            downloaded_at__lte=datetime.fromisoformat(downloaded_at_lte) if downloaded_at_lte else None,
-            downloaded_at__gte=datetime.fromisoformat(downloaded_at_gte) if downloaded_at_gte else None,
+            downloaded_at__lte=datetime.fromisoformat(downloaded_before) if downloaded_before else None,
+            downloaded_at__gte=datetime.fromisoformat(downloaded_after) if downloaded_after else None,
         ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id))
 
         if latest:
