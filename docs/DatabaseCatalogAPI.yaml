@@ -244,7 +244,7 @@ components:
         id:
           description: Unique identifier used as a key for the feeds table.
           type: string
-          example: mdb-10
+          example: mdb-1210
         data_type:
           type: string
           enum:
@@ -266,7 +266,7 @@ components:
             - deprecated
             - inactive
             - development
-          example: active
+          example: deprecated
 #           Have to put the enum inline because of a bug in openapi-generator
 #          $ref: "#/components/schemas/FeedStatus"
 
@@ -275,19 +275,20 @@ components:
         provider:
           description: A commonly used name for the transit provider included in the feed.
           type: string
-          example: London Transit Commission
+          example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
         feed_name:
           description: >
             An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
             multiple providers, or which network is represented by the feed.
           type: string
-          example: Atlantic Station Shuttle (FREE RIDE)
+          example: Bus
         note:
          description: A note to clarify complex use cases for consumers.
          type: string
         feed_contact_email:
           description: Use to contact the feed producer.
           type: string
+          example: someEmail@ladotbus.com
         source_info:
           $ref: "#/components/schemas/SourceInfo"
         redirects:
@@ -357,7 +358,7 @@ components:
         id:
           description: Identifier of the latest dataset for this feed.
           type: string
-          example: dataset_0
+          example: mdb-1210-202402121801
         hosted_url:
           description: >
             As a convenience, the URL of the latest uploaded dataset hosted by MobilityData. 
@@ -365,7 +366,7 @@ components:
             An alternative way to find this is to use the latest dataset id to obtain the dataset and then use its hosted_url.
           type: string
           format: url
-          example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+          example: https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1210/mdb-1210-202402121801/mdb-1210-202402121801.zip
         bounding_box:
           $ref: "#/components/schemas/BoundingBox"
         downloaded_at:
@@ -374,9 +375,9 @@ components:
           example: 2023-07-10T22:06:00Z
           format: datetime
         hash:
-          description: A MD5 hash of the dataset.
+          description: A hash of the dataset.
           type: string
-          example: a_long_sha1_hash
+          example: ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    EntityTypes:
@@ -408,11 +409,11 @@ components:
         external_id:
           description: The ID that can be use to find the feed data in an external or legacy database.
           type: string
-          example: 411
+          example: 1210
         source:
           description: The source of the external ID, e.g. the name of the database where the external ID can be used.
           type: string
-          example: MobilityDataSpreadsheetCatalog
+          example: mdb
 
     SourceInfo:
       type: object
@@ -423,7 +424,7 @@ components:
             Refer to the authentication information to know how to access this URL.
           type: string
           format: url
-          example: http://www.londontransit.ca/gtfsfeed/google_transit.zip
+          example: https://ladotbus.com/gtfs
         authentication_type:
           description: >
             Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
@@ -436,22 +437,25 @@ components:
             - 0
             - 1
             - 2
+          example: 2
         authentication_info_url:
           description: >
             Contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created. 
             This field is required for `authentication_type=1` and `authentication_type=2`.
           type: string
           format: url
+          example: https://apidevelopers.ladottransit.com
         api_key_parameter_name:
           type: string
           description: >
             Defines the name of the parameter to pass in the URL to provide the API key.
             This field is required for `authentication_type=1` and `authentication_type=2`.
+          example: Ocp-Apim-Subscription-Key
         license_url:
           description: A URL where to find the license for the feed.
           type: string
           format: url
-          example: https://www.londontransit.ca/open-data/ltcs-open-data-terms-of-use/
+          example: https://www.ladottransit.com/dla.html
 
     Locations:
       type: array
@@ -500,11 +504,11 @@ components:
         id:
           description: Unique identifier used as a key for the datasets table.
           type: string
-          example: dataset_0
+          example: mdb-10-202402080058
         feed_id:
           description: ID of the feed related to this dataset.
           type: string
-          example: mdb-99
+          example: mdb-10
 
     GtfsDataset:
       allOf:
@@ -524,9 +528,9 @@ components:
               example: 2023-07-10T22:06:00Z
               format: datetime
             hash:
-              description: A MD5 hash of the dataset.
+              description: A hash of the dataset.
               type: string
-              example: a_long_sha1_hash
+              example: 6497e85e34390b8b377130881f2f10ec29c18a80dd6005d504a2038cdd00aa71
             bounding_box:
               $ref: "#/components/schemas/BoundingBox"
             validation_report:
@@ -539,19 +543,19 @@ components:
         minimum_latitude:
           description: The minimum latitude for the dataset bounding box.
           type: number
-          example: 43.655373
+          example: 33.721601
         maximum_latitude:
           description: The maximum latitude for the dataset bounding box.
           type: number
-          example: 43.71619
+          example: 34.323077
         minimum_longitude:
           description: The minimum longitude for the dataset bounding box.
           type: number
-          example: -70.248666
+          example: -118.882829
         maximum_longitude:
           description: The maximum longitude for the dataset bounding box.
           type: number
-          example: -70.11018
+          example: -118.131748
 
     GtfsDatasets:
       type: array
@@ -566,7 +570,7 @@ components:
           example: 1.0.0
 
     ValidationReport:
-      description: Validation report
+      description: Validation report - Not yet supported. Can change in the future.
       type: object
       properties:
         validated_at:
@@ -623,7 +627,7 @@ components:
     status:
       name: status
       in: query
-      description: Filter feeds by their status
+      description: Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema)
       required: false
       schema:
         type: string
@@ -639,7 +643,7 @@ components:
       required: false
       schema:
         type: string
-        example: Los Angeles Department of Transportation
+        example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
     producer_url:
       name: producer_url
       in: query
