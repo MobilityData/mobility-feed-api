@@ -2,6 +2,7 @@
 omit =
     */test*/*
     src/feeds_gen/*
+    src/database_gen/*
 
 [report]
 exclude_lines =
