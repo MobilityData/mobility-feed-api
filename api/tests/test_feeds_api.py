@@ -189,7 +189,7 @@ def test_get_gtfs_feed_datasets_with_download_at_before_before(client: TestClien
     before_all_downloads = datasets_download_first_date - timedelta(days=10)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_at_lte={date}".format(
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
             id=TEST_GTFS_FEED_STABLE_IDS[0], date=before_all_downloads
         ),
         headers=authHeaders,
@@ -207,7 +207,7 @@ def test_get_gtfs_feed_datasets_with_download_at_before_after(client: TestClient
     date = datasets_download_first_date + timedelta(days=10)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_at_lte={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
         headers=authHeaders,
     )
 
@@ -234,7 +234,7 @@ def test_get_gtfs_feed_datasets_with_download_at_before_the_first_dataset(client
     """
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_at_lte={date}".format(
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
             id=TEST_GTFS_FEED_STABLE_IDS[0], date=datasets_download_first_date
         ),
         headers=authHeaders,
@@ -253,7 +253,7 @@ def test_get_gtfs_feed_datasets_with_download_at_after_after(client: TestClient)
     date = datasets_download_first_date + timedelta(days=10)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_at_gte={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
         headers=authHeaders,
     )
 
@@ -270,7 +270,7 @@ def test_get_gtfs_feed_datasets_with_download_at_after_before(client: TestClient
     date = datasets_download_first_date - timedelta(days=1)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_at_gte={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
         headers=authHeaders,
     )
 
@@ -288,7 +288,7 @@ def test_get_gtfs_feed_datasets_with_download_at_after_first(client: TestClient)
     date = datasets_download_first_date + timedelta(days=1)
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?downloaded_at_gte={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], date=date),
         headers=authHeaders,
     )
 
