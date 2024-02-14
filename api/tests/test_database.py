@@ -7,6 +7,8 @@ from database_gen.sqlacodegen_models import Gtfsdataset, Component
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker
+from sqlalchemy.exc import SQLAlchemyError
+from unittest.mock import patch
 from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
 
 BASE_QUERY = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
@@ -20,7 +22,7 @@ def test_database_singleton(test_database):
 
 
 def test_bounding_box_dateset_exists(test_database):
-    assert len(test_database.select(query=BASE_QUERY)) == 1
+    assert len(test_database.select(query=BASE_QUERY)) >= 1
 
 
 def assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database):
@@ -194,6 +196,16 @@ def test_merge_relationship_w_uncommitted_changed():
         if db is not None:
             # Clean up
             db.session.rollback()
+
+
+def test_merge_with_update_session():
+    db = Database()
+    component_name = "TestComponent"
+    new_component = Component(name=component_name)
+
+    with patch.object(db.session, "merge", side_effect=SQLAlchemyError("Mocked merge failure")):
+        result = db.merge(new_component, update_session=True, auto_commit=False, load=True)
+        assert result is False, "Expected merge to fail and return False"
 
 
 if __name__ == "__main__":

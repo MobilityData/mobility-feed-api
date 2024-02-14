@@ -10,7 +10,7 @@
 #   -c  Optional, comma-separated list of test class names to include
 
 function print_help() {
-  echo "Usage: $0 -u <API URL> -t <REFRESH TOKEN> -f <FILE PATH> [-c <CLASS NAMES>]"
+  echo "Usage: $0 -u <API URL> -f <FILE PATH> [-c <CLASS NAMES>]"
   echo ""
   echo "Options:"
   echo "  -u  URL of the API to test against"

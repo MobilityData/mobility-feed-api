@@ -31,12 +31,20 @@ locals {
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+#  Files DNS name
+  public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
   name    = local.vpc_connector_name
   region  = var.gcp_region
   project = local.vpc_connector_project
+}
+
+# This resource maps an already created SSL certificate to a terraform state resource.
+# The SSL setup is done outside terraform for security reasons.
+data "google_compute_ssl_certificate" "files_ssl_cert" {
+  name = "files-${var.environment}-mobilitydatabase"
 }
 
 resource "google_project_service" "services" {
@@ -261,6 +269,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION    = "True"
       ENVIRONMENT         = var.environment
+      PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables
@@ -320,4 +329,55 @@ resource "google_cloud_scheduler_job" "job" {
       "Content-Type" = "application/json"
     }
   }
+}
+
+resource "google_compute_backend_bucket" "files_backend" {
+  name       = "datasets-backend-${var.environment}"
+  bucket_name = google_storage_bucket.datasets_bucket.name
+  enable_cdn  = false
+}
+
+resource "google_compute_url_map" "files_url_map" {
+  name            = "files-url-map-${var.environment}"
+  default_service = google_compute_backend_bucket.files_backend.id
+  host_rule {
+    hosts        = ["*"]
+    path_matcher = "allpaths"
+
+  }
+
+  path_matcher {
+    name            = "allpaths"
+    default_service = google_compute_backend_bucket.files_backend.id
+  }
+}
+
+resource "google_compute_target_https_proxy" "files_https_proxy" {
+  name             = "files-proxy-${var.environment}"
+  url_map          = google_compute_url_map.files_url_map.id
+  ssl_certificates = [data.google_compute_ssl_certificate.files_ssl_cert.id]
+}
+
+data "google_compute_global_address" "files_http_lb_ipv4" {
+  name         = "files-http-lb-ipv4-static-${var.environment}"
+}
+
+data "google_compute_global_address" "files_http_lb_ipv6" {
+  name         = "files-http-lb-ipv6-static-${var.environment}"
+}
+
+resource "google_compute_global_forwarding_rule" "files_http_lb_rule" {
+  name                  = "files-http-lb-rule-${var.environment}"
+  target                = google_compute_target_https_proxy.files_https_proxy.self_link
+  port_range            = "443"
+  ip_address            = data.google_compute_global_address.files_http_lb_ipv6.address
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+}
+
+resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
+  name                  = "files-http-lb-rule-v4-${var.environment}"
+  target                = google_compute_target_https_proxy.files_https_proxy.self_link
+  port_range            = "443"
+  ip_address            = data.google_compute_global_address.files_http_lb_ipv4.address
+  load_balancing_scheme = "EXTERNAL_MANAGED"
 }

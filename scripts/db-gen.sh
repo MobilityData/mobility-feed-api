@@ -29,8 +29,15 @@ then
   rm ${SCRIPT_PATH}/sqlacodegen.log
 fi
 
+echo "Generating SQLAlchemy models using sqlacodegen..."
 # Running sqlacodegen and capturing errors and warnings in the sqlacodegen.log file
 sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}" --outfile "${OUT_FILE}" &> ${SCRIPT_PATH}/sqlacodegen.log
+echo "Completed SQLAlchemy models generation"
+
+printf "/n--- Generated models ---/n"
+cat ${OUT_FILE}
+echo "/n---End of generated models ---/n"
+
 rm -rf "${COPY_TO_PATH}"
 mkdir -p "${COPY_TO_PATH}"
 cp "${OUT_FILE}" "${COPY_TO_PATH}"

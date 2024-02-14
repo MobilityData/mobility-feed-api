@@ -56,15 +56,31 @@ class DatasetsApiImpl(BaseDatasetsApi):
             or len(bounding_longitudes_tokens := bounding_longitudes.split(",")) != 2
         ):
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
             )
         min_latitude, max_latitude = bounding_latitudes_tokens
         min_longitude, max_longitude = bounding_longitudes_tokens
-
+        try:
+            min_latitude = float(min_latitude)
+            max_latitude = float(max_latitude)
+            min_longitude = float(min_longitude)
+            max_longitude = float(max_longitude)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
+            )
+        points = [
+            (min_longitude, min_latitude),
+            (min_longitude, max_latitude),
+            (max_longitude, max_latitude),
+            (max_longitude, min_latitude),
+            (min_longitude, min_latitude),
+        ]
+        wkt_polygon = f"POLYGON(({', '.join(f'{lon} {lat}' for lon, lat in points)}))"
         bounding_box = WKTElement(
-            f"POLYGON(({min_longitude} {min_latitude}, {max_longitude} {min_latitude}, {max_longitude} {max_latitude}, "
-            f"{min_longitude} {max_latitude}, {min_longitude} {min_latitude}))",
+            wkt_polygon,
             srid=Gtfsdataset.bounding_box.type.srid,
         )
 
@@ -104,8 +120,8 @@ class DatasetsApiImpl(BaseDatasetsApi):
                 feed_id=feed_ids[0],
                 hosted_url=database_gtfs_dataset.hosted_url,
                 note=database_gtfs_dataset.note,
-                downloaded_at=database_gtfs_dataset.download_date.isoformat()
-                if database_gtfs_dataset.download_date
+                downloaded_at=database_gtfs_dataset.downloaded_at.isoformat()
+                if database_gtfs_dataset.downloaded_at
                 else None,
                 hash=database_gtfs_dataset.hash,
                 components=[component for component in components if component is not None],

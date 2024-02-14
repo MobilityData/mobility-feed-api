@@ -63,7 +63,7 @@ def populate_database():
             hosted_url=fake.url(),
             note=fake.sentence(),
             hash=fake.sha256(),
-            download_date=datetime.utcnow(),
+            downloaded_at=datetime.utcnow(),
             stable_id=fake.uuid4(),
         )
         session.add(gtfs_dataset)

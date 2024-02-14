@@ -1,6 +1,6 @@
 import json
 from typing import List, Type, Set, Union
-
+from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Query, aliased
 
@@ -215,7 +215,12 @@ class FeedsApiImpl(BaseFeedsApi):
                 (None, None),
             )
             if latest_dataset:
-                api_dataset = LatestDataset(id=latest_dataset.stable_id, hosted_url=latest_dataset.hosted_url)
+                api_dataset = LatestDataset(
+                    id=latest_dataset.stable_id,
+                    downloaded_at=latest_dataset.downloaded_at.isoformat() if latest_dataset.downloaded_at else None,
+                    hash=latest_dataset.hash,
+                    hosted_url=latest_dataset.hosted_url,
+                )
                 if bounding_box:
                     coordinates = json.loads(bounding_box)["coordinates"][0]
                     api_dataset.bounding_box = BoundingBox(
@@ -319,14 +324,14 @@ class FeedsApiImpl(BaseFeedsApi):
         latest: bool,
         limit: int,
         offset: int,
-        downloaded_date_gte: str,
-        downloaded_date_lte: str,
+        downloaded_at_gte: str,
+        downloaded_at_lte: str,
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         # getting the bounding box as JSON to make it easier to process
         query = GtfsDatasetFilter(
-            download_date__lte=downloaded_date_lte,
-            download_date__gte=downloaded_date_gte,
+            downloaded_at__lte=datetime.fromisoformat(downloaded_at_lte) if downloaded_at_lte else None,
+            downloaded_at__gte=datetime.fromisoformat(downloaded_at_gte) if downloaded_at_gte else None,
         ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id))
 
         if latest:

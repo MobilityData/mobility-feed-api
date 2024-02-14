@@ -6,8 +6,8 @@ from database_gen.sqlacodegen_models import Gtfsdataset
 
 
 class GtfsDatasetFilter(Filter):
-    download_date__lte: Optional[datetime]
-    download_date__gte: Optional[datetime]
+    downloaded_at__lte: Optional[datetime]
+    downloaded_at__gte: Optional[datetime]
 
     class Constants(Filter.Constants):
         model = Gtfsdataset

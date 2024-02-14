@@ -20,6 +20,7 @@ public_url = (
 )
 file_content: Final[bytes] = b"Test content"
 file_hash: Final[str] = sha256(file_content).hexdigest()
+test_hosted_public_url = "https://the-no-existent-url.com"
 
 
 def create_cloud_event(mock_data):
@@ -49,6 +50,7 @@ class TestDatasetProcessor(unittest.TestCase):
         """
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
+        mock_blob.path = public_url
         upload_file_to_storage.return_value = mock_blob
         mock_download_url_content.return_value = file_hash
 
@@ -61,6 +63,7 @@ class TestDatasetProcessor(unittest.TestCase):
             "bucket_name",
             0,
             None,
+            test_hosted_public_url,
         )
         with patch.object(processor, "date", "mocked_timestamp"):
             result = processor.upload_dataset()
@@ -68,7 +71,11 @@ class TestDatasetProcessor(unittest.TestCase):
         self.assertIsNotNone(result)
         mock_download_url_content.assert_called_once()
         self.assertIsInstance(result, DatasetFile)
-        self.assertEqual(result.hosted_url, public_url)
+        self.assertEqual(
+            result.hosted_url,
+            f"{test_hosted_public_url}/feed_stable_id/feed_stable_id-mocked_timestamp"
+            f"/feed_stable_id-mocked_timestamp.zip",
+        )
         self.assertEqual(result.file_sha256_hash, file_hash)
         # Upload to storage is called twice, one for the latest and one for the timestamped one
         self.assertEqual(upload_file_to_storage.call_count, 2)
@@ -95,6 +102,7 @@ class TestDatasetProcessor(unittest.TestCase):
             "bucket_name",
             0,
             None,
+            test_hosted_public_url,
         )
 
         result = processor.upload_dataset()
@@ -126,6 +134,7 @@ class TestDatasetProcessor(unittest.TestCase):
             "bucket_name",
             0,
             None,
+            test_hosted_public_url,
         )
 
         with self.assertRaises(Exception):
@@ -158,6 +167,7 @@ class TestDatasetProcessor(unittest.TestCase):
                 bucket_name,
                 0,
                 None,
+                test_hosted_public_url,
             )
             result = processor.upload_file_to_storage(source_file_path, target_path)
 
@@ -192,6 +202,7 @@ class TestDatasetProcessor(unittest.TestCase):
             bucket_name,
             authentication_type,
             api_key_parameter_name,
+            test_hosted_public_url,
         )
 
         processor.upload_dataset = MagicMock(
@@ -228,6 +239,7 @@ class TestDatasetProcessor(unittest.TestCase):
             bucket_name,
             authentication_type,
             api_key_parameter_name,
+            test_hosted_public_url,
         )
 
         processor.upload_dataset = MagicMock(return_value=None)
