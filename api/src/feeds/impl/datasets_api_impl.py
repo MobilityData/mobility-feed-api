@@ -11,6 +11,7 @@ from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset,
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.bounding_box import BoundingBox
 from feeds_gen.models.gtfs_dataset import GtfsDataset
+from shapely.geometry import Polygon
 
 
 class DatasetsApiImpl(BaseDatasetsApi):
@@ -61,10 +62,38 @@ class DatasetsApiImpl(BaseDatasetsApi):
             )
         min_latitude, max_latitude = bounding_latitudes_tokens
         min_longitude, max_longitude = bounding_longitudes_tokens
-
+        try:
+            min_latitude = float(min_latitude)
+            max_latitude = float(max_latitude)
+            min_longitude = float(min_longitude)
+            max_longitude = float(max_longitude)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
+            )
+        points = [
+            (min_longitude, min_latitude),
+            (min_longitude, max_latitude),
+            (max_longitude, max_latitude),
+            (max_longitude, min_latitude),
+            (min_longitude, min_latitude),
+        ]
+        try:
+            polygon = Polygon(points)
+            if not polygon.is_valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
+                )
+        except Exception:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
+            )
+        wkt_polygon = f"POLYGON(({', '.join(f'{lon} {lat}' for lon, lat in points)}))"
         bounding_box = WKTElement(
-            f"POLYGON(({min_longitude} {min_latitude}, {max_longitude} {min_latitude}, {max_longitude} {max_latitude}, "
-            f"{min_longitude} {max_latitude}, {min_longitude} {min_latitude}))",
+            wkt_polygon,
             srid=Gtfsdataset.bounding_box.type.srid,
         )
 
