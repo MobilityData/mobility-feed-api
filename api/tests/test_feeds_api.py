@@ -72,7 +72,7 @@ def test_fetch_gtfs_feeds_with_complete_bounding_box_enclosure(client: TestClien
         ("offset", 0),
         ("filter", "status=active"),
         ("sort", "+provider"),
-        ("dataset_latitudes", "37.6, 38.24"),
+        ("dataset_latitudes", "37.6,38.24"),
         ("dataset_longitudes", "-84.9,-84.47"),
         ("bounding_filter_method", "completely_enclosed"),
     ]
