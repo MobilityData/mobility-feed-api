@@ -56,7 +56,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             or len(bounding_longitudes_tokens := bounding_longitudes.split(",")) != 2
         ):
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
             )
         min_latitude, max_latitude = bounding_latitudes_tokens
@@ -68,7 +68,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             max_longitude = float(max_longitude)
         except ValueError:
             raise HTTPException(
-                status_code=400,
+                status_code=422,
                 detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
             )
         points = [
