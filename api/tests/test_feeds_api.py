@@ -318,7 +318,7 @@ def test_get_gtfs_feed_datasets_with_download_before_invalid_date(client: TestCl
 
     assert response.status_code == 422
     assert response.json() == {
-        "detail": [{"field": "downloaded_before", "message": "Invalid date format. Expected ISO 8601 format."}]
+        "detail": {"field": "downloaded_before", "message": "Invalid date format. Expected ISO 8601 format."}
     }
 
 
@@ -337,5 +337,25 @@ def test_get_gtfs_feed_datasets_with_download_after_invalid_date(client: TestCli
 
     assert response.status_code == 422
     assert response.json() == {
-        "detail": [{"field": "downloaded_after", "message": "Invalid date format. Expected ISO 8601 format."}]
+        "detail": {"field": "downloaded_after", "message": "Invalid date format. Expected ISO 8601 format."}
     }
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_date_between(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter by downloaded_before and downloaded_after containing
+     all downloads
+    Expected result: the full list of datasets
+    """
+    datasets = get_all_datasets(client)
+    date = datasets_download_first_date - timedelta(days=1)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={first}&downloaded_before={last}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], first=datasets_download_first_date.isoformat(),
+            last=(datasets_download_first_date + timedelta(days=len(datasets) - 1)).isoformat()
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == datasets

@@ -313,12 +313,12 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get a list of datasets related to a feed."""
         if downloaded_before and not valid_iso_date(downloaded_before):
             raise_http_errors(
-                [ValidationError(field="downloaded_before", message="Invalid date format. Expected ISO 8601 format.")]
+                ValidationError(field="downloaded_before", message="Invalid date format. Expected ISO 8601 format.")
             )
 
         if downloaded_after and not valid_iso_date(downloaded_after):
             raise_http_errors(
-                [ValidationError(field="downloaded_after", message="Invalid date format. Expected ISO 8601 format.")]
+                ValidationError(field="downloaded_after", message="Invalid date format. Expected ISO 8601 format.")
             )
         query = GtfsDatasetFilter(
             downloaded_at__lte=datetime.fromisoformat(downloaded_before) if downloaded_before else None,

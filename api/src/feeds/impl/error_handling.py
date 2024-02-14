@@ -16,10 +16,9 @@ class ValidationError(HttpError):
     message: str
 
 
-def raise_http_errors(errors: [HttpError]):
+def raise_http_errors(errors: HttpError):
     """Raise a HTTPException with a list of errors."""
-    errors = [asdict(error) for error in errors]
     raise HTTPException(
         status_code=422,
-        detail=errors,
+        detail=asdict(errors),
     )
