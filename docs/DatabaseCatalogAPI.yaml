@@ -38,7 +38,7 @@ paths:
         - "feeds"
       operationId: getFeeds
       parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
@@ -58,7 +58,7 @@ paths:
 
   /v1/feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feedIdPathParam"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified feed from the Mobility Database.
       tags:
@@ -83,7 +83,7 @@ paths:
         - "feeds"
       operationId: getGtfsFeeds
       parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
@@ -112,10 +112,10 @@ paths:
         - "feeds"
       operationId: getGtfsRtFeeds
       parameters:
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/provider_rt"
-        - $ref: "#/components/parameters/producer_url_rt"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/entity_types"
       security:
         - Authentication: []
@@ -129,7 +129,7 @@ paths:
 
   /v1/gtfs_feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feedIdPathParam"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS feed from the Mobility Database.
       tags:
@@ -148,7 +148,7 @@ paths:
 
   /v1/gtfs_rt_feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feedIdPathParam_rt"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS Realtime feed from the Mobility Database.
       tags:
@@ -167,15 +167,15 @@ paths:
 
   /v1/gtfs_feeds/{id}/datasets:
     parameters:
-      - $ref: "#/components/parameters/feedIdOfDatasetsPathParam"
+      - $ref: "#/components/parameters/feed_id_of_datasets_path_param"
     get:
       description: Get a list of datasets related to a GTFS feed.
       tags:
         - "feeds"
       operationId: getGtfsFeedDatasets
       parameters:
-        - $ref: "#/components/parameters/latestQueryParam"
-        - $ref: "#/components/parameters/limitQueryParam"
+        - $ref: "#/components/parameters/latest_query_param"
+        - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/downloaded_at_gte"
         - $ref: "#/components/parameters/downloaded_at_lte"
@@ -197,7 +197,7 @@ paths:
         - "datasets"
       operationId: getDatasetGtfs
       parameters:
-        - $ref: "#/components/parameters/datasetIdPathParam"
+        - $ref: "#/components/parameters/dataset_id_path_param"
       security:
         - Authentication: []
       responses:
@@ -640,16 +640,6 @@ components:
       schema:
         type: string
         example: Los Angeles Department of Transportation
-
-    # A provider specific to gtfs realtime simply to have a different example
-    provider_rt:
-      name: provider
-      in: query
-      description: List only feeds with the specified value. Can be a partial match. Case insensitive.
-      required: false
-      schema:
-        type: string
-        example: Tri Delta Transit
     producer_url:
       name: producer_url
       in: query
@@ -660,18 +650,6 @@ components:
         type: string
         format: url
         example: https://ladotbus.com
-
-    # A producer_url specific to gtfs realtime simply to have a different example
-    producer_url_rt:
-      name: producer_url
-      in: query
-      required: false
-      description: >
-        List only feeds with the specified value. Can be a partial match. Case insensitive.
-      schema:
-        type: string
-        format: url
-        example: https://api.511.org
     entity_types:
       name: entity_types
       in: query
@@ -777,7 +755,7 @@ components:
         Specify the optional field to sort records by.
       example: external_id
 
-    latestQueryParam:
+    latest_query_param:
       name: latest
       in: query
       description: If true, only return the latest dataset.
@@ -786,7 +764,7 @@ components:
         type: boolean
         default: false
 
-    limitQueryParam:
+    limit_query_param:
       name: limit
       in: query
       description: The number of items to be returned.
@@ -806,7 +784,7 @@ components:
         default: 0
         example: 0
 
-    feedIdPathParam:
+    feed_id_path_param:
       name: id
       in: path
       description: The feed ID of the requested feed.
@@ -815,17 +793,7 @@ components:
         type: string
         example: mdb-1210
 
-    # A feed id specific to gtfs realtime simply to have a different example
-    feedIdPathParam_rt:
-      name: id
-      in: path
-      description: The feed ID of the requested feed.
-      required: True
-      schema:
-        type: string
-        example: mdb-1975
-
-    feedIdOfDatasetsPathParam:
+    feed_id_of_datasets_path_param:
       name: id
       in: path
       description: The ID of the feed for which to obtain datasets.
@@ -834,7 +802,7 @@ components:
         type: string
         example: mdb-10
 
-    datasetIdPathParam:
+    dataset_id_path_param:
       name: id
       in: path
       description: The ID of the requested dataset.

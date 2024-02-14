@@ -47,3 +47,9 @@ variable "python_runtime" {
   description = "Python runtime version"
   default = "python310"
 }
+
+variable "public_hosted_datasets_dns" {
+  type = string
+  description = "Public hosted DNS for datasets"
+  default = "files.mobilitydatabase.com"
+}

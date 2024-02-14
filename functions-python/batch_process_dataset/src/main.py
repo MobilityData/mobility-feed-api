@@ -60,6 +60,7 @@ class DatasetProcessor:
         bucket_name,
         authentication_type,
         api_key_parameter_name,
+        public_hosted_datasets_url,
     ):
         self.producer_url = producer_url
         self.bucket_name = bucket_name
@@ -72,6 +73,7 @@ class DatasetProcessor:
         self.date = datetime.now().strftime("%Y%m%d%H%S")
         feeds_credentials = ast.literal_eval(os.getenv("FEED_CREDENTIALS", "{}"))
         self.feed_credentials = feeds_credentials.get(self.feed_stable_id, None)
+        self.public_hosted_datasets_url = public_hosted_datasets_url
 
         self.init_status = None
         self.init_status_additional_data = None
@@ -137,20 +139,22 @@ class DatasetProcessor:
                 dataset_stable_id = self.create_dataset_stable_id(
                     self.feed_stable_id, self.date
                 )
-
+                dataset_full_path = (
+                    f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
+                )
                 logging.info(
-                    f"Creating file: {self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
+                    f"Creating file: {dataset_full_path}"
                     f" in bucket {self.bucket_name}"
                 )
-                timestamp_blob = self.upload_file_to_storage(
+                self.upload_file_to_storage(
                     temp_file_path,
-                    f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
+                    f"{dataset_full_path}",
                 )
 
                 return DatasetFile(
                     stable_id=dataset_stable_id,
                     file_sha256_hash=file_sha256_hash,
-                    hosted_url=timestamp_blob.public_url,
+                    hosted_url=f"{self.public_hosted_datasets_url}/{dataset_full_path}",
                 )
 
             logging.info(
@@ -282,6 +286,7 @@ def process_dataset(cloud_event: CloudEvent):
     bucket_name = os.getenv("DATASETS_BUCKET_NANE")
     start_db_session(os.getenv("FEEDS_DATABASE_URL"))
     maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 1)
+    public_hosted_datasets_url = os.getenv("PUBLIC_HOSTED_DATASETS_URL")
     trace_service = None
     dataset_file: DatasetFile = None
     error_message = None
@@ -319,6 +324,7 @@ def process_dataset(cloud_event: CloudEvent):
             bucket_name,
             int(json_payload["authentication_type"]),
             json_payload["api_key_parameter_name"],
+            public_hosted_datasets_url,
         )
         dataset_file = processor.process()
     except Exception as e:
