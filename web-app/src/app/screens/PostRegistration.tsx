@@ -60,7 +60,7 @@ export default function PostRegistration(): React.ReactElement {
     ) {
       navigateTo(ACCOUNT_TARGET);
     }
-  }, []);
+  }, [userProfileStatus]);
 
   return (
     <Container component='main' maxWidth='sm'>

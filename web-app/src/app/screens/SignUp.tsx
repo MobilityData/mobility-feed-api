@@ -14,7 +14,12 @@ import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useAppDispatch } from '../hooks';
-import { loginFail, loginWithProvider, signUp } from '../store/profile-reducer';
+import {
+  loginFail,
+  loginWithProvider,
+  signUp,
+  verifyEmail,
+} from '../store/profile-reducer';
 import { Alert, IconButton, InputAdornment, Tooltip } from '@mui/material';
 import { useSelector } from 'react-redux';
 import {
@@ -105,7 +110,16 @@ export default function SignUp(): React.ReactElement {
     const provider = oathProviders[oauthProvider];
     signInWithPopup(auth, provider)
       .then((userCredential: UserCredential) => {
-        dispatch(loginWithProvider({ oauthProvider, userCredential }));
+        if (!userCredential.user.emailVerified) {
+          dispatch(verifyEmail());
+        }
+        if (userCredential.user.email == null) {
+          alert(
+            'No public email provided in Github account. Please use a different registration method.',
+          );
+        } else {
+          dispatch(loginWithProvider({ oauthProvider, userCredential }));
+        }
       })
       .catch((error) => {
         dispatch(
