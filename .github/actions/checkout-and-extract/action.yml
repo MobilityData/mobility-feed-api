@@ -1,5 +1,6 @@
 
-name: 'Extract hash and version '
+name: 'Extract hash and version'
+shell: bash
 runs:
   using: "composite"
   steps:
