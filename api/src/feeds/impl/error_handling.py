@@ -1,26 +1,39 @@
-from dataclasses import dataclass, asdict
+from typing import Final
 
 from fastapi import HTTPException
 
-
-@dataclass
-class HttpError:
-    """A generic HTTP error."""
-
-    message: str
-
-
-@dataclass
-class ValidationError(HttpError):
-    """A validation error."""
-
-    field: str
-    message: str
+invalid_date_message: Final[
+    str
+] = "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
+invalid_bounding_coordinates: Final[str] = "Invalid bounding coordinates {} {}"
+invalid_bounding_method: Final[str] = "Invalid bounding_filter_method {}"
+feed_not_found: Final[str] = "Feed '{}' not found"
+gtfs_feed_not_found: Final[str] = "GTFS feed '{}' not found"
+gtfs_rt_feed_not_found: Final[str] = "GTFS realtime Feed '{}' not found"
+dataset_not_found: Final[str] = "Dataset '{}' not found"
 
 
-def raise_http_errors(errors: HttpError):
-    """Raise a HTTPException with a list of errors."""
+def raise_http_error(status_code: int, error: str):
+    """Raise a HTTPException.
+    :param status_code: The status code of the error.
+    :param error: The error message to be raised.
+    example of output:
+    {
+        "detail": "Invalid date format for 'field_name'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
+    }
+    """
     raise HTTPException(
-        status_code=422,
-        detail=asdict(errors),
+        status_code=status_code,
+        detail=error,
     )
+
+
+def raise_http_validation_error(error: str):
+    """Raise a HTTPException with status code 422 and the error message.
+    :param error: The error message to be raised.
+    example of output:
+    {
+        "detail": "Invalid date format for 'field_name'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
+    }
+    """
+    raise_http_error(422, error)

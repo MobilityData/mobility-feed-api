@@ -1,7 +1,6 @@
 import json
 from typing import List, Type, Set, Union
 from datetime import datetime
-from fastapi import HTTPException
 from sqlalchemy.orm import Query, aliased
 
 from database.database import Database
@@ -25,7 +24,14 @@ from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
 from feeds.filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
-from feeds.impl.error_handling import raise_http_errors, ValidationError
+from feeds.impl.error_handling import (
+    raise_http_validation_error,
+    invalid_date_message,
+    raise_http_error,
+    feed_not_found,
+    gtfs_feed_not_found,
+    gtfs_rt_feed_not_found,
+)
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
@@ -277,7 +283,7 @@ class FeedsApiImpl(BaseFeedsApi):
         if (ret := self._get_basic_feeds(FeedFilter(stable_id=id))) and len(ret) == 1:
             return ret[0]
         else:
-            raise HTTPException(status_code=404, detail=f"Feed {id} not found")
+            raise_http_error(404, feed_not_found.format(id))
 
     def get_feeds(
         self,
@@ -299,7 +305,7 @@ class FeedsApiImpl(BaseFeedsApi):
         if (ret := self._get_gtfs_feeds(GtfsFeedFilter(stable_id=id))) and len(ret) == 1:
             return ret[0]
         else:
-            raise HTTPException(status_code=404, detail=f"GTFS feed {id} not found")
+            raise_http_error(404, gtfs_feed_not_found.format(id))
 
     def get_gtfs_feed_datasets(
         self,
@@ -312,14 +318,10 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         if downloaded_before and not valid_iso_date(downloaded_before):
-            raise_http_errors(
-                ValidationError(field="downloaded_before", message="Invalid date format. Expected ISO 8601 format.")
-            )
-
+            raise_http_validation_error(invalid_date_message.format("downloaded_before"))
         if downloaded_after and not valid_iso_date(downloaded_after):
-            raise_http_errors(
-                ValidationError(field="downloaded_after", message="Invalid date format. Expected ISO 8601 format.")
-            )
+            raise_http_validation_error(invalid_date_message.format("downloaded_after"))
+
         query = GtfsDatasetFilter(
             downloaded_at__lte=datetime.fromisoformat(downloaded_before) if downloaded_before else None,
             downloaded_at__gte=datetime.fromisoformat(downloaded_after) if downloaded_after else None,
@@ -371,7 +373,7 @@ class FeedsApiImpl(BaseFeedsApi):
         if (ret := self._get_gtfs_rt_feeds(GtfsRtFeedFilter(stable_id=id))) and len(ret) == 1:
             return ret[0]
         else:
-            raise HTTPException(status_code=404, detail=f"GTFS realtime feed {id} not found")
+            raise_http_error(404, gtfs_rt_feed_not_found.format(id))
 
     def get_gtfs_rt_feeds(
         self,

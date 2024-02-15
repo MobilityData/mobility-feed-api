@@ -29,7 +29,7 @@ def test_valid_iso_date_valid_format():
     assert valid_iso_date("2021-01-01T00:00:00.000000000-00:00")
 
 
-def test_valid_iso_date_valid_format():
+def test_invalid_iso_date_valid_format():
     """Test valid_iso_date function with invalids ISO 8601 date formats."""
     assert not valid_iso_date("2021-01-01")
     assert not valid_iso_date("June 2021")

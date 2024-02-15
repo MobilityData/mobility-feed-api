@@ -1,13 +1,19 @@
 import json
 from typing import List
 
-from fastapi import HTTPException
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
 from sqlalchemy.orm import Query
 
 from database.database import Database
 from database_gen.sqlacodegen_models import Gtfsdataset, t_componentgtfsdataset, Feed
+from feeds.impl.error_handling import (
+    invalid_bounding_coordinates,
+    invalid_bounding_method,
+    raise_http_validation_error,
+    raise_http_error,
+    dataset_not_found,
+)
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.bounding_box import BoundingBox
 from feeds_gen.models.gtfs_dataset import GtfsDataset
@@ -55,10 +61,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             len(bounding_latitudes_tokens := bounding_latitudes.split(",")) != 2
             or len(bounding_longitudes_tokens := bounding_longitudes.split(",")) != 2
         ):
-            raise HTTPException(
-                status_code=422,
-                detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
-            )
+            raise_http_validation_error(invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes))
         min_latitude, max_latitude = bounding_latitudes_tokens
         min_longitude, max_longitude = bounding_longitudes_tokens
         try:
@@ -67,10 +70,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             min_longitude = float(min_longitude)
             max_longitude = float(max_longitude)
         except ValueError:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Invalid bounding coordinates {bounding_latitudes} {bounding_longitudes}",
-            )
+            raise_http_validation_error(invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes))
         points = [
             (min_longitude, min_latitude),
             (min_longitude, max_latitude),
@@ -96,10 +96,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
         elif bounding_filter_method == "disjoint":
             return query.filter(Gtfsdataset.bounding_box.ST_Disjoint(bounding_box))
         else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid bounding_filter_method {bounding_filter_method}",
-            )
+            raise_http_validation_error(invalid_bounding_method.format(bounding_filter_method))
 
     @staticmethod
     def get_datasets_gtfs(query: Query, limit: int = None, offset: int = None) -> List[GtfsDataset]:
@@ -149,4 +146,4 @@ class DatasetsApiImpl(BaseDatasetsApi):
         if (ret := DatasetsApiImpl.get_datasets_gtfs(query)) and len(ret) == 1:
             return ret[0]
         else:
-            raise HTTPException(status_code=404, detail=f"Dataset {id} not found")
+            raise_http_error(404, dataset_not_found.format(id))
