@@ -1,18 +1,24 @@
 # checkout-and-extract.yaml
-steps:
-  - name: Retrieve and Store Commit Hash
-    run: |
-      COMMIT_HASH=$(git rev-parse --short HEAD)
-      echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
-      echo "$COMMIT_HASH" > api/src/commit_hash
+on:
+  workflow_call:
 
-  - name: Write commit hash to file
-    run: echo $commit_hash > commit_hash.txt
+jobs:
+  checkout_and_extract_job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Retrieve and Store Commit Hash
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
+          echo "$COMMIT_HASH" > api/src/commit_hash
 
-  - name: Extract Version and Write to File on Release
-    run: |
-      if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-        VERSION=${{ github.ref }} 
-        VERSION=${VERSION#refs/tags/}
-        echo "$VERSION" > api/src/version
-      fi
+      - name: Write commit hash to file
+        run: echo $commit_hash > commit_hash.txt
+
+      - name: Extract Version and Write to File on Release
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${{ github.ref }} 
+            VERSION=${VERSION#refs/tags/}
+            echo "$VERSION" > api/src/version
+          fi
