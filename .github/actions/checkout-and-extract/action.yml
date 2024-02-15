@@ -17,9 +17,12 @@ runs:
     - name: Extract Version and Write to File on Release
       shell: bash
       run: |
-        echo "git = `git tag --sort=-creatordate `"
-        echo "git + grep = `git tag --sort=-creatordate  | egrep  '^v\d+\.\d+\.\d+'`"
-        VERSION=`git tag --sort=-creatordate  2>/dev/null | egrep  '^v\d+\.\d+\.\d+' | head -1`
+        echo "git tag"
+        git tag
+        echo "git tag 2"
+        git tag --sort=-creatordate
+
+#        VERSION=`git tag --sort=-creatordate  2>/dev/null | egrep  '^v\d+\.\d+\.\d+' | head -1`
         # Get all the tags. Then accept only tags with vX.X.X pattern. sort -V is great! It sorts with versions, so
         # v10.1.1 will come after v2.1.1. The last one after that should be the latest version
         if [ ! -z "$VERSION" ]; then
