@@ -4,18 +4,18 @@ on:
     branches: [testJC2]
   workflow_dispatch: # Supports manual deployment
 
-  jobs:
-    extract_commit_hash:
-      name: Extract Commit Hash
-      runs-on: ubuntu-latest
-      steps:
-        - name: Invoke checkout-and-extract.yaml
-          uses: ./.github/workflows/checkout-and-extract.yaml
-          id: extract_hash
+jobs:
+  extract_commit_hash:
+    name: Extract Commit Hash
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke checkout-and-extract.yaml
+        uses: ./.github/workflows/checkout-and-extract.yaml
+        id: extract_hash
 
-        - name: Display Commit Hash and version
-          run: |
-            echo "Commit Hash: `cat api/src/commit_hash`"
-            echo "Version: `cat api/src/version`"
+      - name: Display Commit Hash and version
+        run: |
+          echo "Commit Hash: `cat api/src/commit_hash`"
+          echo "Version: `cat api/src/version`"
 
 
