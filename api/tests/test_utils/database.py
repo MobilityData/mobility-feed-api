@@ -48,6 +48,7 @@ def populate_database(db: Database):
                 feed_id=gtfs_feed_ids[idx // 2],
                 latest=idx % 2 == 1,
                 bounding_box=WKTElement(polygon, srid=4326),
+                # This makes downloaded_at predictable and unique for each dataset
                 downloaded_at=(datasets_download_first_date + idx * one_day),
             ),
             auto_commit=True,
