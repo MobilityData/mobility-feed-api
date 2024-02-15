@@ -12,13 +12,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Invoke checkout-and-extract.yaml
-        uses: ./.github/actions/checkout-and-extract
-        id: extract_hash
-
-      - name: Display Commit Hash and version
+      - name: test
         run: |
-          echo "Commit Hash: `cat api/src/commit_hash`"
-          echo "Version: `cat api/src/version`"
+          pwd
+          ls -l .
+#      - name: Invoke checkout-and-extract.yaml
+#        uses: ./.github/actions/checkout-and-extract
+#        id: extract_hash
+#
+#      - name: Display Commit Hash and version
+#        run: |
+#          echo "Commit Hash: `cat api/src/commit_hash`"
+#          echo "Version: `cat api/src/version`"
 
 
