@@ -19,3 +19,4 @@ runs:
           VERSION=${VERSION#refs/tags/}
           echo "$VERSION" > api/src/version
         fi
+    - uses: actions/checkout@v4
