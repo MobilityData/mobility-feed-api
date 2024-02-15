@@ -104,7 +104,7 @@ def test_fetch_gtfs_feeds_with_incorrect_filter_method(client: TestClient):
         headers=authHeaders,
         params=params,
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_fetch_gtfs_feeds_with_incorrect_latitude_for_bounding_box(client: TestClient):
@@ -318,7 +318,8 @@ def test_get_gtfs_feed_datasets_with_downloaded_before_invalid_date(client: Test
 
     assert response.status_code == 422
     assert response.json() == {
-        "detail": {"field": "downloaded_before", "message": "Invalid date format. Expected ISO 8601 format."}
+        "detail": "Invalid date format for 'downloaded_before'. Expected ISO 8601 format, example: "
+        "'2021-01-01T00:00:00Z'"
     }
 
 
@@ -337,7 +338,8 @@ def test_get_gtfs_feed_datasets_with_downloaded_after_invalid_date(client: TestC
 
     assert response.status_code == 422
     assert response.json() == {
-        "detail": {"field": "downloaded_after", "message": "Invalid date format. Expected ISO 8601 format."}
+        "detail": "Invalid date format for 'downloaded_after'. Expected ISO 8601 format, example: "
+        "'2021-01-01T00:00:00Z'"
     }
 
 
