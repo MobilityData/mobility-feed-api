@@ -3,6 +3,8 @@ name: 'Extract hash and version'
 runs:
   using: "composite"
   steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Retrieve and Store Commit Hash
       shell: bash
       run: |
