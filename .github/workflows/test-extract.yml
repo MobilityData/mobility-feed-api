@@ -9,13 +9,8 @@ jobs:
     name: Extract Commit Hash
     runs-on: ubuntu-latest
     steps:
-#      - name: Checkout code
-#        uses: actions/checkout@v4
-
-      - name: test
-        run: |
-          pwd
-          ls -la .
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Invoke checkout-and-extract.yaml
         uses: ./.github/actions/checkout-and-extract

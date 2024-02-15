@@ -3,8 +3,6 @@ name: 'Extract hash and version'
 runs:
   using: "composite"
   steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
     - name: Retrieve and Store Commit Hash
       shell: bash
       run: |
@@ -19,6 +17,7 @@ runs:
     - name: Extract Version and Write to File on Release
       shell: bash
       run: |
+        echo "github.ref = ${{ github.ref }}"
         if [[ "${{ github.ref }}" == refs/tags/* ]]; then
           VERSION=${{ github.ref }} 
           VERSION=${VERSION#refs/tags/}
