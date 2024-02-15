@@ -1,4 +1,4 @@
-name: Deploy Feeds API - QA
+name: Test JC
 on:
   push:
     branches: [testJC2]
@@ -9,13 +9,5 @@ jobs:
     name: Extract Commit Hash
     runs-on: ubuntu-latest
     steps:
-      - name: Invoke checkout-and-extract.yaml
-        uses: ./.github/workflows/checkout-and-extract.yaml
-        id: extract_hash
-
-      - name: Display Commit Hash and version
-        run: |
-          echo "Commit Hash: `cat api/src/commit_hash`"
-          echo "Version: `cat api/src/version`"
-
-
+      - name: Checkout and Extract
+        uses: ./.github/actions/checkout-and-extract
