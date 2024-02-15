@@ -9,5 +9,15 @@ jobs:
     name: Extract Commit Hash
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout and Extract
-        uses: ./.github/actions/checkout-and-extract
+      - - name: Checkout code
+          uses: actions/checkout@v4
+      - name: Invoke checkout-and-extract.yaml
+        uses: ./.github/workflows/checkout-and-extract.yaml
+        id: extract_hash
+
+      - name: Display Commit Hash and version
+        run: |
+          echo "Commit Hash: `cat api/src/commit_hash`"
+          echo "Version: `cat api/src/version`"
+
+
