@@ -1,6 +1,5 @@
 
 name: 'Extract hash and version'
-shell: bash
 runs:
   using: "composite"
   steps:
@@ -13,7 +12,7 @@ runs:
 
     - name: Write commit hash to file
       shell: bash
-      run: echo $commit_hash > commit_hash.txt
+      run: ls -l api/src
 
     - name: Extract Version and Write to File on Release
       shell: bash
@@ -23,4 +22,3 @@ runs:
           VERSION=${VERSION#refs/tags/}
           echo "$VERSION" > api/src/version
         fi
-    - uses: actions/checkout@v4
