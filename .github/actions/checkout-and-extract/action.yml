@@ -6,7 +6,7 @@ runs:
     - name: Retrieve and Store Commit Hash
       shell: bash
       run: |
-        COMMIT_HASH=$(git rev-parse --short HEAD)
+        COMMIT_HASH=$(git rev-parse HEAD)
         echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
         echo "$COMMIT_HASH" > api/src/commit_hash
 
@@ -21,4 +21,6 @@ runs:
           VERSION=${{ github.ref }} 
           VERSION=${VERSION#refs/tags/}
           echo "$VERSION" > api/src/version
+        else
+          echo "N/A" > api/src/version
         fi
