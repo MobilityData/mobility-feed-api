@@ -1,5 +1,5 @@
 
-name: 'Extract hash and version'
+name: 'Extract hash and version '
 runs:
   using: "composite"
   steps:
