@@ -17,11 +17,11 @@ runs:
     - name: Extract Version and Write to File on Release
       shell: bash
       run: |
-        echo "github.ref = ${{ github.ref }}"
-        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          VERSION=${{ github.ref }} 
-          VERSION=${VERSION#refs/tags/}
-          echo "$VERSION" > api/src/version
-        else
-          echo "N/A" > api/src/version
+        # Get all the tags. Then accept only tags with vX.X.X pattern. sort -V is great! It sorts with versions, so
+        # v10.1.1 will come after v2.1.1. The last one after that should be the latest version
+        VERSION=`git tag --sort=-creatordate  2>/dev/null | egrep  '^v\d+\.\d+\.\d+' | sort -V | tail -1`
+        if [ ! -z "$VERSION" ]; then
+          VERSION="N/A"
         fi
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "$VERSION" > api/src/version

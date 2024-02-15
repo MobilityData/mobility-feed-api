@@ -18,7 +18,10 @@ jobs:
 
       - name: Display Commit Hash and version
         run: |
-          echo "Commit Hash: `cat api/src/commit_hash`"
-          echo "Version: `cat api/src/version`"
+          echo "Commit Hash from file: `cat api/src/commit_hash`"
+          echo "Version from file: `cat api/src/version`"
+          echo "Commit Hash from var: $COMMIT_HASH"
+          echo "Version from var: $VERSION"
+          
 
 
