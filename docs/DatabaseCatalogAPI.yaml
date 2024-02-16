@@ -93,7 +93,6 @@ paths:
         - $ref: "#/components/parameters/dataset_latitudes"
         - $ref: "#/components/parameters/dataset_longitudes"
         - $ref: "#/components/parameters/bounding_filter_method"
-        - $ref: "#/components/parameters/order_by"
 
       security:
         - Authentication: []
@@ -739,25 +738,6 @@ components:
          * `partially_enclosed` - Get resources that are partially enclosed in the specified bounding box.
          * `disjoint` - Get resources that are completely outside the specified bounding box.
       example: completely_enclosed
-
-    order_by:
-      name: order_by
-      in: query
-      required: False
-      schema:
-        type: array
-        items:
-          type: string
-          enum:
-            - +external_id
-            - -external_id
-            - +country_code
-            - -country_code
-        default:
-          - "external_id"
-      description: >
-        Specify the optional field to sort records by.
-      example: external_id
 
     latest_query_param:
       name: latest
