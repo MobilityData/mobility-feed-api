@@ -369,7 +369,7 @@ components:
         bounding_box:
           $ref: "#/components/schemas/BoundingBox"
         downloaded_at:
-          description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
+          description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
@@ -522,7 +522,7 @@ components:
               description: A note to clarify complex use cases for consumers.
               type: string
             downloaded_at:
-              description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
+              description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
               type: string
               example: 2023-07-10T22:06:00Z
               format: date-time
@@ -573,7 +573,7 @@ components:
       type: object
       properties:
         validated_at:
-          description: The date and time the report was generated, in ISO 8601 format.
+          description: The date and time the report was generated, in ISO 8601 date-time format.
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
@@ -685,7 +685,7 @@ components:
     downloaded_after:
       name: downloaded_after
       in: query
-      description: Filter feed datasets with downloaded date greater or equal to given date. Date should be in ISO 8601 format.
+      description: Filter feed datasets with downloaded date greater or equal to given date. Date should be in ISO 8601 date-time format.
       schema:
         type: string
         format: date-time
@@ -693,7 +693,7 @@ components:
     downloaded_before:
       name: downloaded_before
       in: query
-      description: Filter feed datasets with downloaded date less or equal to given date. Date should be in ISO 8601 format.
+      description: Filter feed datasets with downloaded date less or equal to given date. Date should be in ISO 8601 date-time format.
       schema:
         type: string
         format: date-time
