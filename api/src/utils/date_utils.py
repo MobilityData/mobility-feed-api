@@ -1,4 +1,4 @@
-from typing import Final
+from typing import Final, Optional
 import re
 
 iso_pattern: Final[str] = (
@@ -8,9 +8,9 @@ iso_pattern: Final[str] = (
 )
 
 
-def valid_iso_date(date_string: str):
+def valid_iso_date(date_string: Optional[str]) -> bool:
     """Check if a date string is a valid ISO 8601 date format."""
     # Validators are not required to check for None or empty strings
     if date_string is None or date_string.strip() == "":
         return True
-    return re.match(iso_pattern, date_string)
+    return re.match(iso_pattern, date_string) is not None
