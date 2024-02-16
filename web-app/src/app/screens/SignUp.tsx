@@ -20,7 +20,13 @@ import {
   signUp,
   verifyEmail,
 } from '../store/profile-reducer';
-import { Alert, IconButton, InputAdornment, Tooltip } from '@mui/material';
+import {
+  Alert,
+  IconButton,
+  InputAdornment,
+  Snackbar,
+  Tooltip,
+} from '@mui/material';
 import { useSelector } from 'react-redux';
 import {
   ACCOUNT_TARGET,
@@ -43,6 +49,7 @@ import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 export default function SignUp(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [showNoEmailSnackbar, setShowNoEmailSnackbar] = React.useState(false);
 
   const navigateTo = useNavigate();
   const dispatch = useAppDispatch();
@@ -114,9 +121,7 @@ export default function SignUp(): React.ReactElement {
           dispatch(verifyEmail());
         }
         if (userCredential.user.email == null) {
-          alert(
-            'No public email provided in Github account. Please use a different registration method.',
-          );
+          setShowNoEmailSnackbar(true);
         } else {
           dispatch(loginWithProvider({ oauthProvider, userCredential }));
         }
@@ -148,6 +153,23 @@ export default function SignUp(): React.ReactElement {
 
   return (
     <Container component='main' maxWidth='xs'>
+      <Snackbar
+        open={showNoEmailSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        onClose={() => {
+          setShowNoEmailSnackbar(false);
+        }}
+      >
+        <Alert
+          severity='error'
+          onClose={() => {
+            setShowNoEmailSnackbar(false);
+          }}
+        >
+          No public email provided in Github account. Please use a different
+          registration method.
+        </Alert>
+      </Snackbar>
       <CssBaseline />
       <Box
         sx={{
