@@ -1,3 +1,5 @@
+import os
+
 from feeds_gen.apis.metadata_api_base import BaseMetadataApi
 from feeds_gen.models.metadata import Metadata
 
@@ -13,4 +15,19 @@ class MetadataApiImpl(BaseMetadataApi):
         self,
     ) -> Metadata:
         """Get metadata about this API."""
-        return Metadata(version="1.0.0")
+
+        try:
+            # This file should be created by the github action right after checkout
+            with open('version', 'r') as file:
+                version = file.read().strip()
+        except Exception as e:
+            version = "N/A"
+
+        try:
+            # This file should be created by the github action right after checkout
+            with open('commit_hash', 'r') as file:
+                commit_hash = file.read().strip()
+        except Exception as e:
+            commit_hash = "N/A"
+
+        return Metadata(version=version, commit_hash=commit_hash)

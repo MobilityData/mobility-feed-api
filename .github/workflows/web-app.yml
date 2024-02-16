@@ -22,6 +22,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Invoke extract-hash-and-version action
+        uses: ./.github/actions/extract-hash-and-version
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -108,6 +111,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Invoke extract-hash-and-version action
+        uses: ./.github/actions/extract-hash-and-version
 
       - name: Authenticate to Google Cloud DEV
         if: ${{ github.event_name == 'pull_request' }}

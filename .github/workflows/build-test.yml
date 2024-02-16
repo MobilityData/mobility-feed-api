@@ -19,6 +19,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Invoke extract-hash-and-version action
+        uses: ./.github/actions/extract-hash-and-version
+
       - name: Set up JDK ${{ env.java_version }}
         uses: actions/setup-java@v4
         with:

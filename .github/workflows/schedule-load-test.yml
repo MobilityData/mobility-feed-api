@@ -20,6 +20,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Invoke extract-hash-and-version action
+        uses: ./.github/actions/extract-hash-and-version
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:

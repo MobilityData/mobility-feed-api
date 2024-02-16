@@ -71,6 +71,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Invoke extract-hash-and-version action
+        uses: ./.github/actions/extract-hash-and-version
+
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ env.python_version }}
@@ -140,6 +143,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Invoke extract-hash-and-version action
+        uses: ./.github/actions/extract-hash-and-version
+
       - name: Authenticate to Google Cloud
         id: gcloud_auth
         uses: google-github-actions/auth@v1
@@ -208,6 +214,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Invoke extract-hash-and-version action
+        uses: ./.github/actions/extract-hash-and-version
 
       - uses: actions/setup-python@v4
         with:
