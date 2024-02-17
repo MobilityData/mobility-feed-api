@@ -28,6 +28,9 @@ from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.validation_report import ValidationReport
 
 
+DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
+
 class DatasetsApiImpl(BaseDatasetsApi):
     """
     This class represents the implementation of the `/datasets` endpoints.
@@ -163,16 +166,17 @@ class DatasetsApiImpl(BaseDatasetsApi):
                     components=[component for component in components if component is not None]
                 )
                 database_validator_report = notices_for_dataset[0].validation_report
-                validator_report.total_info = len(
-                    [notice for notice in notices_for_dataset if notice.severity == "INFO"]
+                validator_report.total_info = sum(
+                    [notice.total_notices for notice in notices_for_dataset if notice.severity == "INFO"]
                 )
-                validator_report.total_warning = len(
-                    [notice for notice in notices_for_dataset if notice.severity == "WARNING"]
+                validator_report.total_warning = sum(
+                    [notice.total_notices for notice in notices_for_dataset if notice.severity == "WARNING"]
                 )
-                validator_report.total_error = len(
-                    [notice for notice in notices_for_dataset if notice.severity == "ERROR"]
+                validator_report.total_error = sum(
+                    [notice.total_notices for notice in notices_for_dataset if notice.severity == "ERROR"]
                 )
-                validator_report.validated_at = database_validator_report.validated_at
+                validator_report.validated_at = database_validator_report.validated_at.strftime(DATETIME_FORMAT) \
+                    if database_validator_report.validated_at else None
                 validator_report.validator_version = database_validator_report.validator_version
                 validator_report.url_json = database_validator_report.json_report
                 validator_report.url_html = database_validator_report.html_report
