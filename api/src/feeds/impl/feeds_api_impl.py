@@ -322,9 +322,15 @@ class FeedsApiImpl(BaseFeedsApi):
         if downloaded_after and not valid_iso_date(downloaded_after):
             raise_http_validation_error(invalid_date_message.format("downloaded_after"))
 
+        # Replace Z with +00:00 to make the datetime object timezone aware
+        # Due to https://github.com/python/cpython/issues/80010, once migrate to Python 3.11, we can use fromisoformat
         query = GtfsDatasetFilter(
-            downloaded_at__lte=datetime.fromisoformat(downloaded_before) if downloaded_before else None,
-            downloaded_at__gte=datetime.fromisoformat(downloaded_after) if downloaded_after else None,
+            downloaded_at__lte=datetime.fromisoformat(downloaded_before.replace("Z", "+00:00"))
+            if downloaded_before
+            else None,
+            downloaded_at__gte=datetime.fromisoformat(downloaded_after.replace("Z", "+00:00"))
+            if downloaded_after
+            else None,
         ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id))
 
         if latest:
