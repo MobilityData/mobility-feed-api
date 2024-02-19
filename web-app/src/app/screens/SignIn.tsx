@@ -130,7 +130,7 @@ export default function SignIn(): React.ReactElement {
           }}
         >
           No public email provided in Github account. Please use a different
-          registration method.
+          login method.
         </Alert>
       </Snackbar>
       <CssBaseline />
