@@ -1,4 +1,5 @@
-import os
+import configparser
+import logging
 
 from feeds_gen.apis.metadata_api_base import BaseMetadataApi
 from feeds_gen.models.metadata import Metadata
@@ -15,19 +16,20 @@ class MetadataApiImpl(BaseMetadataApi):
         self,
     ) -> Metadata:
         """Get metadata about this API."""
-
+        version = None
+        long_commit_hash = None
         try:
-            # This file should be created by the github action right after checkout
-            with open('version', 'r') as file:
-                version = file.read().strip()
-        except Exception as e:
-            version = "N/A"
+            # Create a configparser object
+            config = configparser.ConfigParser()
 
-        try:
-            # This file should be created by the github action right after checkout
-            with open('commit_hash', 'r') as file:
-                commit_hash = file.read().strip()
-        except Exception as e:
-            commit_hash = "N/A"
+            # Read the properties file. This file should have been filled as part of the build.
+            config.read('version_info')
 
-        return Metadata(version=version, commit_hash=commit_hash)
+            # Access the values using the get() method
+            long_commit_hash = config.get('DEFAULT', 'LONG_COMMIT_HASH')
+            short_commit_hash = config.get('DEFAULT', 'SHORT_COMMIT_HASH')
+            version = config.get('DEFAULT', 'EXTRACTED_VERSION')
+        except Exception as e:
+            logging.error(f"Cannot read version_info file: \n {e}")
+
+        return Metadata(version=version, commit_hash=long_commit_hash)

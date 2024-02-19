@@ -71,9 +71,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Invoke extract-hash-and-version action
-      uses: ./.github/actions/extract-hash-and-version
-
     - name: Load secrets from 1Password
       uses: 1password/load-secrets-action@v1.3.1
       with:
@@ -132,9 +129,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-
-    - name: Invoke extract-hash-and-version action
-      uses: ./.github/actions/extract-hash-and-version
 
     - name: Setup python
       uses: actions/setup-python@v4

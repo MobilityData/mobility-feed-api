@@ -1,7 +1,7 @@
 name: Test JC
 on:
   push:
-    branches: [50-create-api-version-in-openapi2]
+    branches: [testJC]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch: # Supports manual deployment
@@ -14,16 +14,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Invoke extract-hash-and-version action
-        uses: ./.github/actions/extract-hash-and-version
+      - name: Extract commit hash and version from git
+        run: ./scripts/extract-hash-and-version.sh
 
       - name: Display Commit Hash and version
         run: |
-          echo "Commit Hash from file: `cat api/src/commit_hash`"
-          echo "Version from file: `cat api/src/version`"
-          echo "Commit Hash from var: $LONG_COMMIT_HASH"
-          echo "Version from var: $VERSION"
-          echo "Short commit hash: $SHORT_COMMIT_HASH"
-          
-
-
+          echo "version_info file:"
+          cat api/src/version_info
