@@ -48,8 +48,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Invoke extract-hash-and-version action
-        uses: ./.github/actions/extract-hash-and-version
+      - name: Extract commit hash and version from git
+        run: ./scripts/extract-hash-and-version.sh
 
       - name: Authenticate to Google Cloud
         id: gcloud_auth

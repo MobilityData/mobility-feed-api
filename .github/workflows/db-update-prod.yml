@@ -18,9 +18,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Invoke extract-hash-and-version action
-        uses: ./.github/actions/extract-hash-and-version
-
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
