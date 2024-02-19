@@ -20,7 +20,13 @@ import {
 import { useSelector } from 'react-redux';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { Alert, IconButton, InputAdornment, Tooltip } from '@mui/material';
+import {
+  Alert,
+  IconButton,
+  InputAdornment,
+  Snackbar,
+  Tooltip,
+} from '@mui/material';
 import '../styles/SignUp.css';
 import {
   selectEmailLoginError,
@@ -41,6 +47,7 @@ export default function SignIn(): React.ReactElement {
   const emailLoginError = useSelector(selectEmailLoginError);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [showNoEmailSnackbar, setShowNoEmailSnackbar] = React.useState(false);
 
   const SignInSchema = Yup.object().shape({
     email: Yup.string()
@@ -89,7 +96,12 @@ export default function SignIn(): React.ReactElement {
     const provider = oathProviders[oauthProvider];
     signInWithPopup(auth, provider)
       .then((userCredential: UserCredential) => {
-        dispatch(loginWithProvider({ oauthProvider, userCredential }));
+        console.log(userCredential.user);
+        if (userCredential.user.email == null) {
+          setShowNoEmailSnackbar(true);
+        } else {
+          dispatch(loginWithProvider({ oauthProvider, userCredential }));
+        }
       })
       .catch((error) => {
         dispatch(
@@ -104,6 +116,23 @@ export default function SignIn(): React.ReactElement {
 
   return (
     <Container component='main' maxWidth='xs'>
+      <Snackbar
+        open={showNoEmailSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        onClose={() => {
+          setShowNoEmailSnackbar(false);
+        }}
+      >
+        <Alert
+          severity='error'
+          onClose={() => {
+            setShowNoEmailSnackbar(false);
+          }}
+        >
+          No public email provided in Github account. Please use a different
+          registration method.
+        </Alert>
+      </Snackbar>
       <CssBaseline />
       <Box
         sx={{
