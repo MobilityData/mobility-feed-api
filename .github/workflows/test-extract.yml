@@ -14,7 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Invoke extract-hash-and-version action
+      - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
       - name: Display Commit Hash and version
