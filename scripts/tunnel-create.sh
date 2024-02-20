@@ -21,7 +21,7 @@
 #
 # This script creates a SSH tunnel between the local machine and a GCP database using a SSH on a GCP instance.
 # Usage:
-#  ./scripts/create-tunnel.sh -project_id mobility-feeds-qa -zone northamerica-northeast1-a -instance vm-name -target_account user -db_instance dn-instance-name
+#  ./scripts/tunnel-create.sh -project_id mobility-feeds-qa -zone northamerica-northeast1-a -instance vm-name -target_account user -db_instance dn-instance-name
 # Parameters:
 # -project_id <PROJECT_ID>          The GCP project id
 # -zone <ZONE>                      The GCP zone network.
