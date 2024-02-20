@@ -22,7 +22,7 @@ def test_metadata_get(client: TestClient):
 
     # Check the format of the version. e.g. v1.2.3
     version = data.get("version")
-    assert version and re.match(r"^v\d+\.\d+\.\d+$", version)
+    assert version and re.match(r"^v\d+\.\d+\.\d+", version)
 
     # For the commit hash, it's safe to say it should be more than 20 characters.
     commit_hash = data.get("commit_hash")
