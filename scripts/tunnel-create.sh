@@ -99,18 +99,43 @@ if [[ -z "${PROJECT_ID}" || -z "${ZONE}" || -z "${INSTANCE}" || -z "${TARGET_ACC
     display_usage
 fi
 
+# Making sure this script is not executed on DEV 
+if [[ "${PROJECT_ID}" == "mobility-feeds-dev" ]]; then
+    echo "DEV shares the DB instance with QA. Replacing DEV by QA."
+    PROJECT_ID="mobility-feeds-qa"
+fi
+
 # Making sure the machine is up
-gcloud compute instances start ${INSTANCE} --zone=${ZONE} --project=${PROJECT_ID} >/dev/null
+gcloud compute instances start ${INSTANCE} --zone=${ZONE} --project=${PROJECT_ID}
+
+if [ $? -ne 0 ]; then
+    printf "\nError starting machine\n"
+    exit 1
+fi
 
 # Get the public IPs associated with the instance.
 ips=$(gcloud compute instances describe ${INSTANCE} --zone=${ZONE} --project=${PROJECT_ID} --format='get(networkInterfaces.accessConfigs.natIP)')
 
+if [ $? -ne 0 ]; then
+    printf "\nError getting machine IP\n"
+    exit 1
+fi
+
 # Get the DB internal IP address
 target_ip=$(gcloud sql instances describe ${DB_INSTANCE} --project=${PROJECT_ID} --format='get(ipAddresses[0].ipAddress)')
 
+if [ $? -ne 0 ]; then
+    printf "\nError getting DB IP\n"
+    exit 1
+fi
 
 # Getting the first IP
 ip=$(echo $ips | sed "s/\['\([^']*\)'.*/\1/")
 
 # Creating SSH tunnel
-ssh -fN -L ${PORT}:${target_ip}:${TARGET_PORT} ${TARGET_ACCOUNT}@${ip}
+ssh -o StrictHostKeyChecking=no -fN -L ${PORT}:${target_ip}:${TARGET_PORT} ${TARGET_ACCOUNT}@${ip}
+
+if [ $? -ne 0 ]; then
+    printf "\nError creating SSH tunnel\n"
+    exit 1
+fi
