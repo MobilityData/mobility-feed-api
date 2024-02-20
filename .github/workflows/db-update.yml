@@ -49,10 +49,6 @@ on:
         description: PostgreSQL Database Name
         required: true
         type: string
-      DB_INSTANCE_NAME:
-        description: PostgreSQL Database Instance Name
-        required: true
-        type: string
       ENVIRONMENT:
         description: GCP ENVIRONMENT
         required: true
