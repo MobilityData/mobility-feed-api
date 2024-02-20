@@ -28,6 +28,7 @@ class MetadataApiImpl(BaseMetadataApi):
             # Access the values using the get() method
             long_commit_hash = config.get("DEFAULT", "LONG_COMMIT_HASH")
             version = config.get("DEFAULT", "EXTRACTED_VERSION")
+
         except Exception as e:
             logging.error(f"Cannot read version_info file: \n {e}")
 
