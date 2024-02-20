@@ -25,6 +25,9 @@ on:
       GCP_MOBILITY_FEEDS_SA_KEY:
         description: Service account key
         required: true
+      DB_GCP_MOBILITY_FEEDS_SA_KEY:
+        description: Service account key where the DB in deployed
+        required: true
       DB_USER_NAME:
         description: PostgreSQL User Name
         required: true
@@ -73,7 +76,7 @@ jobs:
     - name: Authenticate to Google Cloud QA/PROD
       uses: google-github-actions/auth@v2
       with:
-        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+        credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
 
     - name: Google Cloud Setup
       uses: google-github-actions/setup-gcloud@v2
@@ -138,7 +141,7 @@ jobs:
     - name: Authenticate to Google Cloud QA/PROD
       uses: google-github-actions/auth@v2
       with:
-        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+        credentials_json: ${{ secrets.DB_GCP_MOBILITY_FEEDS_SA_KEY }}
   
     - name: Google Cloud Setup
       uses: google-github-actions/setup-gcloud@v2
