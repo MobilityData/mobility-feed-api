@@ -1,4 +1,6 @@
 import contextlib
+from datetime import datetime, timedelta
+from typing import Final
 
 from geoalchemy2 import WKTElement
 
@@ -9,6 +11,11 @@ TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
 TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
 TEST_EXTERNAL_IDS = ["external_id_1", "external_id_2", "external_id_3", "external_id_4"]
+
+date_string: Final[str] = "2024-01-31 00:00:00"
+date_format: Final[str] = "%Y-%m-%d %H:%M:%S"
+one_day: Final[timedelta] = timedelta(days=1)
+datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, date_format)
 
 
 @contextlib.contextmanager
@@ -41,6 +48,8 @@ def populate_database(db: Database):
                 feed_id=gtfs_feed_ids[idx // 2],
                 latest=idx % 2 == 1,
                 bounding_box=WKTElement(polygon, srid=4326),
+                # This makes downloaded_at predictable and unique for each dataset
+                downloaded_at=(datasets_download_first_date + idx * one_day),
             ),
             auto_commit=True,
         )

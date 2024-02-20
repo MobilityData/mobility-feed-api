@@ -176,8 +176,8 @@ paths:
         - $ref: "#/components/parameters/latest_query_param"
         - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/downloaded_at_gte"
-        - $ref: "#/components/parameters/downloaded_at_lte"
+        - $ref: "#/components/parameters/downloaded_after"
+        - $ref: "#/components/parameters/downloaded_before"
 
       security:
         -  Authentication: []
@@ -369,10 +369,10 @@ components:
         bounding_box:
           $ref: "#/components/schemas/BoundingBox"
         downloaded_at:
-          description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
+          description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
           type: string
           example: 2023-07-10T22:06:00Z
-          format: datetime
+          format: date-time
         hash:
           description: A hash of the dataset.
           type: string
@@ -522,10 +522,10 @@ components:
               description: A note to clarify complex use cases for consumers.
               type: string
             downloaded_at:
-              description: The date and time the dataset was downloaded from the producer, in ISO 8601 format.
+              description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
               type: string
               example: 2023-07-10T22:06:00Z
-              format: datetime
+              format: date-time
             hash:
               description: A hash of the dataset.
               type: string
@@ -573,10 +573,10 @@ components:
       type: object
       properties:
         validated_at:
-          description: The date and time the report was generated, in ISO 8601 format.
+          description: The date and time the report was generated, in ISO 8601 date-time format.
           type: string
           example: 2023-07-10T22:06:00Z
-          format: datetime
+          format: date-time
         components:
           description: An array of components for this dataset.
           type: array
@@ -682,20 +682,22 @@ components:
       schema:
         type: string
         example: Los Angeles
-    downloaded_at_gte:
-      name: downloaded_at_gte
+    downloaded_after:
+      name: downloaded_after
       in: query
-      description: Filter feed datasets with downloaded date greater or equal to given date.
+      description: Filter feed datasets with downloaded date greater or equal to given date. Date should be in ISO 8601 date-time format.
       schema:
         type: string
-        example: 2024-02-11T18:16:05Z
-    downloaded_at_lte:
-      name: downloaded_at_lte
+        format: date-time
+        example: 2023-07-00T22:06:00Z
+    downloaded_before:
+      name: downloaded_before
       in: query
-      description: Filter feed datasets with downloaded date less or equal to given date.
+      description: Filter feed datasets with downloaded date less or equal to given date. Date should be in ISO 8601 date-time format.
       schema:
         type: string
-        example: 2024-02-20T18:16:05Z
+        format: date-time
+        example: 2023-07-20T22:06:00Z
 
     dataset_latitudes:
       name: dataset_latitudes
