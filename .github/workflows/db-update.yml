@@ -66,6 +66,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Authenticate to Google Cloud QA/PROD
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v2
+   
     - name: Load secrets from 1Password
       uses: 1password/load-secrets-action@v1.3.1
       with:
@@ -123,6 +131,14 @@ jobs:
       with:
         python-version: '3.10'
 
+    - name: Authenticate to Google Cloud QA/PROD
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
+  
+    - name: Google Cloud Setup
+      uses: google-github-actions/setup-gcloud@v2
+      
     - name: Update .env file
       run: |
         echo "PGUSER=${{ secrets.DB_USER_NAME }}" > config/.env.local
