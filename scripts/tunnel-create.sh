@@ -26,7 +26,7 @@
 # -project_id <PROJECT_ID>          The GCP project id
 # -zone <ZONE>                      The GCP zone network.
 # -instance <INSTANCE>              Name of the instance deployed within the GCP zone.
-# -port <PORT>                      Local port to map. Default 8888.
+# -port <PORT>                      Local port to map. Default 5432.
 # -target_port <TARGET_PORT>        Remote port of the target machine. Default 5432.
 # -target_account <TARGET_ACCOUNT>  Account in the target machine.
 # -db_instance <DB_INSTANCE>        Name of the deployed DB instance.
@@ -35,7 +35,7 @@
 PROJECT_ID=""
 ZONE=""
 INSTANCE=""
-PORT="8888"
+PORT="5432"
 TARGET_PORT="5432"
 TARGET_ACCOUNT=""
 DB_INSTANCE=""
@@ -48,7 +48,7 @@ display_usage() {
     echo "  -project_id <PROJECT_ID>            The GCP project id."
     echo "  -zone <ZONE>                        The GCP zone network."
     echo "  -instance <INSTANCE>                Name of the instance deployed within the GCP zone."
-    echo "  -port <PORT>                        Optional - local port to map. Default 8888."
+    echo "  -port <PORT>                        Optional - local port to map. Default 5432."
     echo "  -target_port <TARGET_PORT>          Optional - remote port of the target machine. Default 5432."
     echo "  -target_account <TARGET_ACCOUNT>    Account in the target machine."
     echo "  -db_instance <DB_INSTANCE>          Name of the DB instance deployed in GCP."
