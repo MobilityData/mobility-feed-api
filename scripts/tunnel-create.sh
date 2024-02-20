@@ -19,7 +19,7 @@
 #
 
 #
-# This script creates a SSH tunnel between the local machine and a GCP database using a SSH on a GCP instance.
+# This script creates a SSH tunnel between the local machine and a GCP database using a GCP instance deployed in the same VPC.
 # Usage:
 #  ./scripts/tunnel-create.sh -project_id mobility-feeds-qa -zone northamerica-northeast1-a -instance vm-name -target_account user -db_instance dn-instance-name
 # Parameters:
@@ -41,7 +41,7 @@ TARGET_ACCOUNT=""
 DB_INSTANCE=""
 
 display_usage() {
-    printf "\nThis script creates a SSH tunnel between the local machine and a GCP database using a SSH on a GCP instance."
+    printf "\nThis script creates a SSH tunnel between the local machine and a GCP database using a GCP instance deployed in the same VPC."
     printf "\nScript Usage:\n"
     echo "Usage: $0 [options]"
     echo "Options:"
