@@ -22,6 +22,6 @@
 # This script kills the background process created by the tunnel-create.sh script.
 # Usage:
 #   tunnel-kill.sh
-# Notice: This script will kill a process that matches that was started with parameters "ssh -fN -L" and assumes that you didn't create any other ssh tunnel not related with 
+# Notice: This script will kill a process that was started with parameters "ssh -fN -L" and assumes that you didn't create any other ssh tunnel with the mentioned parameters.
 
 ps aux | grep "[s]sh -fN -L" | awk '{print $2}' | xargs kill -9
