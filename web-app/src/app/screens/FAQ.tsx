@@ -66,32 +66,7 @@ export default function FAQ(): React.ReactElement {
             longer term solutions for the architecture that require more
             community investment.
           </Typography>
-          <Typography className='question'>What’s coming next?</Typography>
-          <Typography className='answer'>
-            The MobilityData team is working to add validation info from the{' '}
-            <a
-              href='https://gtfs-validator.mobilitydata.org/'
-              target='_blank'
-              rel='noreferrer'
-            >
-              Canonical GTFS Schedule Validator
-            </a>{' '}
-            for each feed, and create a user interface.
-            <br /> <br />
-            <a
-              href='https://mobilitydata.org/roadmaps/'
-              target='_blank'
-              rel='noreferrer'
-            >
-              You can add ideas and vote on our current roadmap
-            </a>
-            . We anticipate an influx of new feedback as we transition away from
-            TransitFeeds and intend to adapt our plan to the emerging needs of
-            the community. How quickly we scale the Mobility Database
-            architecture depends on how much engagement and contribution we get
-            from the community in this phase.
-          </Typography>
-          <Typography className='question'>
+           <Typography className='question'>
             What about the TransitFeeds user interface?
           </Typography>
           <Typography className='answer'>
@@ -121,6 +96,31 @@ export default function FAQ(): React.ReactElement {
             TransitFeeds API will no longer be available. MobilityData will
             migrate the historical data from TransitFeeds to the Mobility
             Database before deprecating the old API.
+          </Typography>
+          <Typography className='question'>What’s coming next?</Typography>
+          <Typography className='answer'>
+            The MobilityData team is working to add validation info from the{' '}
+            <a
+              href='https://gtfs-validator.mobilitydata.org/'
+              target='_blank'
+              rel='noreferrer'
+            >
+              Canonical GTFS Schedule Validator
+            </a>{' '}
+            for each feed, and create a user interface.
+            <br /> <br />
+            <a
+              href='https://mobilitydata.org/roadmaps/'
+              target='_blank'
+              rel='noreferrer'
+            >
+              You can add ideas and vote on our current roadmap
+            </a>
+            . We anticipate an influx of new feedback as we transition away from
+            TransitFeeds and intend to adapt our plan to the emerging needs of
+            the community. How quickly we scale the Mobility Database
+            architecture depends on how much engagement and contribution we get
+            from the community in this phase.
           </Typography>
         </Box>
       </Box>
