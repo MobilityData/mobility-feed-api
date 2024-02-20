@@ -33,7 +33,7 @@ if [ -z "$EXTRACTED_VERSION" ]; then
   git fetch --tags
   EXTRACTED_VERSION=`git tag --sort=-creatordate | egrep '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1`
   if [ -z "$EXTRACTED_VERSION" ]; then
-    EXTRACTED_VERSION="0.0.0"
+    EXTRACTED_VERSION="v0.0.0"
   else
     # Since the tag is on an earlier commit, use the latest tag and add SNAPSHOT
     EXTRACTED_VERSION+="_SNAPSHOT"

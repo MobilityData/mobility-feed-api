@@ -1,5 +1,6 @@
 import configparser
 import logging
+import os
 
 from feeds_gen.apis.metadata_api_base import BaseMetadataApi
 from feeds_gen.models.metadata import Metadata
@@ -22,8 +23,16 @@ class MetadataApiImpl(BaseMetadataApi):
             # Create a configparser object
             config = configparser.ConfigParser()
 
+            current_directory = os.getcwd()
+
+            file = "version_info"
+            # The config file is on api/src. Normally the cwd is api/src, but with unit tests it's api. In that case
+            # add /src
+            if current_directory.endswith("api"):
+                file = os.path.join("src", file)
+
             # Read the properties file. This file should have been filled as part of the build.
-            config.read("version_info")
+            config.read(file)
 
             # Access the values using the get() method
             long_commit_hash = config.get("DEFAULT", "LONG_COMMIT_HASH")
