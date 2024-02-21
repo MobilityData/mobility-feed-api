@@ -109,24 +109,24 @@ jobs:
 
       - name: Authenticate to Google Cloud DEV
         if: ${{ inputs.FIREBASE_PROJECT == 'dev' }}
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Authenticate to Google Cloud QA
         if: ${{ inputs.FIREBASE_PROJECT == 'qa' }}
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Authenticate to Google Cloud PROD
         if: ${{ inputs.FIREBASE_PROJECT == 'prod' }}
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
