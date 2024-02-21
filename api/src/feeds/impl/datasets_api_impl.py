@@ -175,8 +175,11 @@ class DatasetsApiImpl(BaseDatasetsApi):
                 validator_report.total_error = sum(
                     [notice.total_notices for notice in notices_for_dataset if notice.severity == "ERROR"]
                 )
-                validator_report.validated_at = database_validator_report.validated_at.strftime(DATETIME_FORMAT) \
-                    if database_validator_report.validated_at else None
+                validator_report.validated_at = (
+                    database_validator_report.validated_at.strftime(DATETIME_FORMAT)
+                    if database_validator_report.validated_at
+                    else None
+                )
                 validator_report.validator_version = database_validator_report.validator_version
                 validator_report.url_json = database_validator_report.json_report
                 validator_report.url_html = database_validator_report.html_report

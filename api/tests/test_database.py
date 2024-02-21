@@ -9,10 +9,17 @@ from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker
 
 
-from .test_utils.database import (NEW_VALIDATION_VERSION, NEW_VALIDATION_TIME, VALIDATION_INFO_COUNT_PER_NOTICE,
-                                  VALIDATION_INFO_NOTICES, VALIDATION_WARNING_COUNT_PER_NOTICE,
-                                  VALIDATION_WARNING_NOTICES, VALIDATION_ERROR_NOTICES,
-                                  VALIDATION_ERROR_COUNT_PER_NOTICE, COMPONENT_IDS)
+from .test_utils.database import (
+    NEW_VALIDATION_VERSION,
+    NEW_VALIDATION_TIME,
+    VALIDATION_INFO_COUNT_PER_NOTICE,
+    VALIDATION_INFO_NOTICES,
+    VALIDATION_WARNING_COUNT_PER_NOTICE,
+    VALIDATION_WARNING_NOTICES,
+    VALIDATION_ERROR_NOTICES,
+    VALIDATION_ERROR_COUNT_PER_NOTICE,
+    COMPONENT_IDS,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import patch
 from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
@@ -124,6 +131,7 @@ def test_validation_report(test_database):
     assert validation_report.total_warning == VALIDATION_WARNING_COUNT_PER_NOTICE * VALIDATION_WARNING_NOTICES
     assert validation_report.total_error == VALIDATION_ERROR_COUNT_PER_NOTICE * VALIDATION_ERROR_NOTICES
     assert validation_report.components == COMPONENT_IDS
+
 
 def test_generate_unique_id():
     unique_id = generate_unique_id()

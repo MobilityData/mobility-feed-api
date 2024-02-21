@@ -5,8 +5,15 @@ from typing import Final
 from geoalchemy2 import WKTElement
 
 from database.database import Database, generate_unique_id
-from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Gtfsdataset, Externalid, Validationreport, \
-    Notice, Component
+from database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Gtfsdataset,
+    Externalid,
+    Validationreport,
+    Notice,
+    Component,
+)
 
 TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
 TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
@@ -38,7 +45,9 @@ def populate_database(db: Database):
 
     try:
         for stable_id, gtfs_feed_id in zip(TEST_GTFS_FEED_STABLE_IDS, gtfs_feed_ids):
-            db.merge(Gtfsfeed(id=gtfs_feed_id, stable_id=stable_id, data_type="gtfs", status="active"), auto_commit=True)
+            db.merge(
+                Gtfsfeed(id=gtfs_feed_id, stable_id=stable_id, data_type="gtfs", status="active"), auto_commit=True
+            )
         for component_id in COMPONENT_IDS:
             db.merge(Component(name=component_id), auto_commit=True)
         db.merge(
@@ -77,8 +86,9 @@ def populate_database(db: Database):
                     latest=idx % 2 == 1,
                     bounding_box=WKTElement(polygon, srid=4326),
                     validation_reports=[old_validation_report, new_validation_report],
-                # This makes downloaded_at predictable and unique for each dataset
-                downloaded_at=(datasets_download_first_date + idx * one_day),),
+                    # This makes downloaded_at predictable and unique for each dataset
+                    downloaded_at=(datasets_download_first_date + idx * one_day),
+                ),
                 auto_commit=True,
             )
 
@@ -115,7 +125,8 @@ def populate_database(db: Database):
                 )
             for component_id in COMPONENT_IDS:
                 db.session.execute(
-                    f"INSERT INTO componentgtfsdataset (component, dataset_id) VALUES ('{component_id}', '{dataset_id}')"
+                    f"INSERT INTO componentgtfsdataset (component, dataset_id) "
+                    f"VALUES ('{component_id}', '{dataset_id}')"
                 )
 
         for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
@@ -158,6 +169,9 @@ def populate_database(db: Database):
         db.session.execute(f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'")
         for feed_id in [*gtfs_feed_ids, gtfs_rt_feed_id]:
             db.session.execute(f"DELETE FROM feed where id = '{feed_id}'")
-        db.session.execute(f"""DELETE FROM component where name in ({', '.join(["'" + component_id + "'"  
-                                                                                for component_id in COMPONENT_IDS])})""")
+        db.session.execute(
+            f"""DELETE FROM component where name in ({', '.join(["'" + component_id + "'"
+                                                                                for component_id
+                                                                                in COMPONENT_IDS])})"""
+        )
         db.commit()
