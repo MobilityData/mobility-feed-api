@@ -12,17 +12,21 @@ jobs:
         secrets: inherit
     bd-update:
         name: Database Update
+        # needs: bd-deployment
         uses: ./.github/workflows/db-update-prod.yml
         secrets: inherit
     bash-deployment:
         name: Bash Processes Deployment
+        # needs: bd-update
         uses: ./.github/workflows/datasets-batch-deployer-prod.yml
         secrets: inherit
     api-deployment:
         name: API Deployment
+        # needs: bash-deployment
         uses: ./.github/workflows/api-prod.yml
         secrets: inherit
     web-deployment:
         name: Web Deployment
+        # needs: api-deployment
         uses: ./.github/workflows/web-dev.yml
         secrets: inherit

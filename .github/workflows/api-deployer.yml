@@ -130,6 +130,7 @@ jobs:
         with:
           name: terraform-artifact-plan.txt
           path: infra/artifact-registry/terraform-plan.txt
+          overwrite: true
 
   docker-build-publish:
     # Add docker healthy test
@@ -313,3 +314,4 @@ jobs:
         with:
           name: terraform-plan.txt
           path: infra/terraform-plan.txt
+          overwrite: true
