@@ -8,3 +8,4 @@ on:
 jobs:
     bd-deployment:
         uses: ./.github/workflows/db-update-prod.yml
+        secrets: inherit
