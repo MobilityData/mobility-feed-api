@@ -163,7 +163,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             validator_report = None
             if notices_for_dataset:
                 validator_report = ValidationReport(
-                    components=[component for component in components if component is not None]
+                    components=sorted([component for component in components if component is not None])
                 )
                 database_validator_report = notices_for_dataset[0].validation_report
                 validator_report.total_info = sum(
