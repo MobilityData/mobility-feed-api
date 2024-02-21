@@ -68,15 +68,6 @@ const Footer: React.FC = () => {
       </div>
       <p style={{ margin: 0 }}>Maintained with &#128156; by MobilityData.</p>
       <p style={{ margin: 0 }}>
-        <a
-          href={'https://mobilitydata.org/privacy-policy/'}
-          target={'_blank'}
-          rel={'noreferrer'}
-        >
-          Privacy Policy
-        </a>
-      </p>
-      <p style={{ margin: 0 }}>
         <a href={'/terms-and-conditions'} target={'_blank'} rel={'noreferrer'}>
           Terms and Conditions
         </a>
