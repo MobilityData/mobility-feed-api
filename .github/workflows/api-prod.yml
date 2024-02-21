@@ -2,7 +2,7 @@
 name: Deploy Feeds API - PROD
 on:
   workflow_dispatch: # Supports manual deployment
-  release:
+  workflow_call:
 
 jobs:
   api-build-deployment:
