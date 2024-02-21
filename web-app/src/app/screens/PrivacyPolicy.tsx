@@ -32,7 +32,6 @@ export default function TermsAndConditions(): React.ReactElement {
         <Typography>
           ADAPTED FOR MOBILITYDATA AND TRANSLATED BY: Frédéric Simard
         </Typography>
-        <Typography>WITH THE FINANCIAL PARTICIPATION OF:</Typography>
         <br />
         <Typography
           variant='h4'
@@ -47,6 +46,7 @@ export default function TermsAndConditions(): React.ReactElement {
           personal information is governed by the Act respecting the protection
           of personal information in the private sector.
         </Typography>
+        <br />
         <Typography>
           {' '}
           This policy establishes a procedure for the management of personal
@@ -55,6 +55,7 @@ export default function TermsAndConditions(): React.ReactElement {
           volunteers, staff and administrators of the organization in accordance
           with the law.{' '}
         </Typography>
+        <br />
         <Typography>
           {' '}
           The person responsible for the protection of personal information
@@ -63,6 +64,7 @@ export default function TermsAndConditions(): React.ReactElement {
           this policy by the organization’s representatives, whether they are
           current or former staff members, volunteers or directors.{' '}
         </Typography>
+        <br />
         <Typography>
           {' '}
           In this respect, the person in charge publishes this policy on its
@@ -122,6 +124,85 @@ export default function TermsAndConditions(): React.ReactElement {
               information.
             </li>
           </ul>
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Definition of personal information
+        </Typography>
+        <Typography>
+          Personal information is that which relates to a natural person and
+          enables that person to be identified.
+        </Typography>
+        <Typography>
+          This information is confidential and must be treated as such. Within
+          the organization, personal information includes the following:
+        </Typography>
+        <Typography component='div'>
+          <ul>
+            <li>surname and given name;</li>
+            <li>signature;</li>
+            <li>residential address;</li>
+            <li>medical records, prescription drugs;</li>
+            <li>telephone number;</li>
+            <li>e-mail address;</li>
+            <li>image and voice of a person;</li>
+            <li>biometric data;</li>
+            <li>state of health;</li>
+            <li>employment records;</li>
+            <li>banking/financial information;</li>
+            <li>Computer data</li>
+            <li>
+              Information concerning family, friends and other related persons
+            </li>
+            <li>Social insurance number</li>
+            <li>Health insurance number and driver’s license number</li>
+            <li>
+              Any document on which this information is found or any document
+              that refers to the existence of a particular person
+            </li>
+          </ul>
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Collection of personal information
+        </Typography>
+        <Typography>
+          The organization collects personal information when it has a serious
+          and legitimate interest in doing so. Personal information may be
+          collected through forms on its website, by telephone interview,
+          through a paper form, or through any interaction between individuals
+          and the organization and/or its stakeholders.
+        </Typography>
+        <Typography>
+          In particular, the organization collects personal information for the
+          management of:
+        </Typography>
+        <Typography component='div'>
+          <ul>
+            <li>Member profiles</li>
+            <li>User profiles</li>
+            <li>Staff and volunteer profiles</li>
+            <li>
+              Incidents, including those with potential liability implications
+              for the organization or anyone associated with it
+            </li>
+          </ul>
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Service inquiries.
         </Typography>
       </Box>
     </Container>
