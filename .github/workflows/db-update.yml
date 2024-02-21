@@ -190,7 +190,7 @@ jobs:
       run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
     - name: Upload log file for verification
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: populate.log
         path: populate.log

@@ -69,7 +69,7 @@ jobs:
       db_instance_host: ${{ steps.get_outputs.outputs.db_instance_host }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         id: gcloud_auth

@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -43,7 +43,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
 
       - name: Cache Cypress binary
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.cache/Cypress
           key: cypress-${{ runner.os }}-binary-${{ hashFiles('**/package-lock.json') }}
@@ -86,13 +86,13 @@ jobs:
           wait-on: "npx wait-on --timeout 120000 http://127.0.0.1:3000"
           working-directory: web-app
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-screenshots
           path: ./web-app/cypress/screenshots
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: cypress-videos
@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud DEV
         if: ${{ inputs.FIREBASE_PROJECT == 'dev' }}
