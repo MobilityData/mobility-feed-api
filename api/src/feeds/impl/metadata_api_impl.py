@@ -39,6 +39,6 @@ class MetadataApiImpl(BaseMetadataApi):
             version = config.get("DEFAULT", "EXTRACTED_VERSION")
 
         except Exception as e:
-            logging.error(f"Cannot read version_info file: \n {e}")
+            logging.error(f"Cannot read {file} file from directory {current_directory}: \n {e}")
 
         return Metadata(version=version, commit_hash=long_commit_hash)

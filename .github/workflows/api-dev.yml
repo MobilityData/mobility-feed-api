@@ -2,6 +2,11 @@
 name: Deploy Feeds API - DEV
 on:
   workflow_dispatch: # Supports manual deployment
+    inputs:
+      run_integration_tests:
+        description: 'Set to true to run the integration tests'
+        required: false
+        default: 'false'
 
 jobs:
   api-build-deployment:
@@ -20,3 +25,13 @@ jobs:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+
+  integration-tests:
+    if: ${{ github.event.inputs.run_integration_tests == 'true' }}
+    uses: ./.github/workflows/integration-tests.yml
+    needs:
+      - api-build-deployment
+    with:
+      API_URL: 'https://api-dev.mobilitydatabase.org'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
