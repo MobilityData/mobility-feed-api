@@ -143,6 +143,12 @@ jobs:
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
+      - name: Upload version info to workflow artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: version_info.txt
+          path: api/src/version_info
+
       - name: Authenticate to Google Cloud
         id: gcloud_auth
         uses: google-github-actions/auth@v1
