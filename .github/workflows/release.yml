@@ -1,3 +1,4 @@
+# Deploys all the resources to production environment
 name: Production Release
 on:
     workflow_dispatch:
@@ -26,8 +27,15 @@ jobs:
         needs: bash-deployment
         uses: ./.github/workflows/api-prod.yml
         secrets: inherit
+    integration-tests:
+        uses: ./.github/workflows/integration-tests.yml
+        needs: api-deployment
+        with:
+            API_URL: 'https://api.mobilitydatabase.org'
+        secrets:
+            REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}        
     web-deployment:
         name: Web Deployment
-        needs: api-deployment
+        needs: bash-deployment
         uses: ./.github/workflows/web-prod.yml
         secrets: inherit
