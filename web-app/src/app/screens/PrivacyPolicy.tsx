@@ -569,6 +569,61 @@ export default function TermsAndConditions(): React.ReactElement {
             </li>
           </ul>
         </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Process in the event of a privacy incident
+        </Typography>
+        <Typography paragraph>
+          In the event of an incident involving personal information, the
+          organization follows the procedure set out in the Act respecting the
+          protection of personal information in the private sector and its
+          related regulations. When an incident presents a risk of serious
+          prejudice, the Commission d’accès à l’information (CAI) and the
+          persons concerned by the incident will be notified as quickly as
+          possible following knowledge of the incident, insofar as the situation
+          permits. The content of these notices is set out in Appendices 1 and 2
+          respectively.
+        </Typography>
+
+        <Typography paragraph>
+          If third parties need to be contacted in order to mitigate the damage
+          that may result from the incident, the person responsible for the
+          protection of personal information will ensure that only the personal
+          information required for this purpose is communicated, and that this
+          communication is recorded. An incident log will be maintained by the
+          Privacy Officer. The contents of this register can be found in
+          Appendix 3.
+        </Typography>
+
+        <Typography paragraph>
+          By transmitting personal information to the organization, it is
+          understood that the persons concerned understand that the organization
+          deploys best work practices and protection mechanisms in order to
+          limit the possibility of any incident, leak or misuse of personal
+          information. However, the organization cannot guarantee infallible
+          security for every conceivable scenario.
+        </Typography>
+
+        <Typography paragraph>
+          If a data subject notices that an incident involving his or her
+          personal information may have occurred within the organization, he or
+          she should contact the person responsible for the protection of
+          personal information at the coordinates shown above.
+          Complaints/reports are processed within a maximum of thirty (30) days
+          after they are filed.
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Inapplicability of the policy
+        </Typography>
       </Box>
     </Container>
   );
