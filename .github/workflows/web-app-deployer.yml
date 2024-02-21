@@ -212,7 +212,7 @@ jobs:
         run: npx firebase use ${{  inputs.FIREBASE_PROJECT }}
 
       - name: Deploy to Firebase Hosting (${{ inputs.FIREBASE_PROJECT }})
-        if: ${{ inputs.FIREBASE_PROJECT != 'dev' }}
+        if: ${{ github.event_name != 'pull_request' }}
         working-directory: web-app
         run: npx firebase deploy --only hosting
 
