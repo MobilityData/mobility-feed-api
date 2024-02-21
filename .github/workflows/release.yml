@@ -1,0 +1,10 @@
+name: Production Release
+on:
+    workflow_dispatch:
+    push: # Update on merge on main branch if the changelog file has been updated
+        branches:
+            - chore/production-release
+
+jobs:
+    bd-deployment:
+        uses: ./.github/workflows/db-update-prod.yml
