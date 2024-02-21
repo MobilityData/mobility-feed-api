@@ -1,0 +1,255 @@
+name: Web App - Build Deploy
+on:
+  workflow_call:
+    inputs:
+      FIREBASE_PROJECT:
+        description: Firebase project.
+        type: string
+        default: dev
+        required: true      
+
+
+env:
+  NODE_VERSION: "18"
+
+jobs:
+  lint-test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile
+
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: |
+            **/node_modules
+            **/.eslintcache
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+
+      - name: Cache Cypress binary
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-binary-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            cypress-${{ runner.os }}-binary-
+
+      - name: Lint
+        working-directory: web-app
+        run: yarn lint
+
+      - name: Unit tests
+        working-directory: web-app
+        run: yarn test:ci
+
+      - name: Set Firebase project properties
+        working-directory: web-app
+        run: |
+          echo "Setting FIREBASE_PROJECT to 'dev'"
+          echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+          echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+          echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+          echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+          echo "CYPRESS_EMAIL=${{ secrets.DEV_CYPRESS_EMAIL }}" >> $GITHUB_ENV
+          echo "CYPRESS_PWD=${{ secrets.DEV_CYPRESS_PWD }}" >> $GITHUB_ENV
+
+      - name: Populate Variables
+        working-directory: web-app
+        run: |
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.test -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+          ../scripts/replace-variables.sh -in_file cypress.env.json.rename_me -out_file cypress.env.json -variables CYPRESS_EMAIL,CYPRESS_PWD
+
+      - name: Cypress test
+        uses: cypress-io/github-action@v6
+        with:
+          start: yarn start:test
+          wait-on: "npx wait-on --timeout 120000 http://127.0.0.1:3000"
+          working-directory: web-app
+
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: ./web-app/cypress/screenshots
+
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: cypress-videos
+          path: ./web-app/cypress/videos
+
+  build:
+    name: "Build & Deploy"
+    permissions: write-all
+    needs: [lint-test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google Cloud DEV
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Authenticate to Google Cloud QA
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Authenticate to Google Cloud PROD
+        if: ${{ github.event_name == 'release' }}
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile
+
+      - name: Set Firebase project properties
+        working-directory: web-app
+        run: |
+          if [[ $FIREBASE_PROJECT == 'qa' ]]; then
+              echo "Setting FIREBASE_PROJECT to 'pushed to main branch'"
+              echo "FIREBASE_PROJECT=qa" >> $GITHUB_ENV
+              echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.QA_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+              echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.QA_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+              echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.QA_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+              echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.QA_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+              echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.QA_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+              echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.QA_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+              echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.QA_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+          elif [[ $FIREBASE_PROJECT == 'prod' ]]; then
+            echo "Setting FIREBASE_PROJECT to 'prod'"
+            echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.PROD_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.PROD_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.PROD_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.PROD_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.PROD_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.PROD_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.PROD_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV        
+          else
+            echo "Setting FIREBASE_PROJECT to 'dev'"
+            echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
+          fi
+
+      - name: Populate Variables
+        working-directory: web-app
+        run: |
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  env.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+
+      - name: Run Install for Functions
+        working-directory: functions
+        run: yarn install
+
+      - name: Select Firebase Project for Functions
+        working-directory: functions
+        run: npx firebase use ${{  env.FIREBASE_PROJECT }}
+
+      - name: Run Lint for Functions
+        working-directory: functions
+        run: yarn lint
+
+      - name: Run Tests for Functions
+        working-directory: functions
+        run: yarn test
+
+      - name: Set Firebase Password Policy
+        working-directory: functions/packages/firebase-password-policy
+        run: |
+          yarn build
+          node lib/index.js
+
+      - name: Deploy Firebase Functions
+        working-directory: functions
+        run: npx firebase deploy --only functions
+
+      - name: Build
+        working-directory: web-app
+        run: yarn build:${FIREBASE_PROJECT}
+
+      - name: Select Firebase Project
+        working-directory: web-app
+        run: npx firebase use ${{  env.FIREBASE_PROJECT }}
+
+      - name: Deploy to Firebase Hosting (${{ env.FIREBASE_PROJECT }})
+        if: ${{ env.FIREBASE_PROJECT != 'dev' }}
+        working-directory: web-app
+        run: npx firebase deploy --only hosting
+
+      - name: Deploy to Firebase Hosting (PR Preview)
+        if: ${{ github.event_name == 'pull_request' }}
+        working-directory: web-app
+        run: npx firebase hosting:channel:deploy pr_${{ env.PR_ID }}
+        env:
+          PR_ID: ${{ github.event.number }}
+
+      - name: Check for Existing Comment
+        id: check-comment
+        working-directory: web-app
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
+          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
+          COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
+
+          JQ_CHECK=`echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")"`
+          if [ -z "$JQ_CHECK" ]; then
+            echo "Comment does not exist."
+            echo "comment_exists=false" >> $GITHUB_OUTPUT
+          else
+            echo "Comment already exists."
+            echo "comment_exists=true" >> $GITHUB_OUTPUT
+          fi
+        env:
+          PR_ID: ${{ github.event.number }}
+
+      - name: Comment on PR with Hosting URL (PR Preview)
+        if: ${{ github.event_name == 'pull_request' && steps.check-comment.outputs.comment_exists == 'false' }}
+        working-directory: web-app
+        run: |
+          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
+          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
+          echo "$COMMENT" > comment.txt
+          curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
+        env:
+          PR_ID: ${{ github.event.number }}
