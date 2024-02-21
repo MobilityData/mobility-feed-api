@@ -130,7 +130,7 @@ def test_validation_report(test_database):
     assert validation_report.total_info == VALIDATION_INFO_COUNT_PER_NOTICE * VALIDATION_INFO_NOTICES
     assert validation_report.total_warning == VALIDATION_WARNING_COUNT_PER_NOTICE * VALIDATION_WARNING_NOTICES
     assert validation_report.total_error == VALIDATION_ERROR_COUNT_PER_NOTICE * VALIDATION_ERROR_NOTICES
-    assert validation_report.components == COMPONENT_IDS
+    assert validation_report.components == sorted(COMPONENT_IDS)
 
 
 def test_generate_unique_id():
