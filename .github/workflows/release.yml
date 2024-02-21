@@ -1,11 +1,7 @@
 # Deploys all the resources to production environment
 name: Production Release
 on:
-    workflow_dispatch:
     release:
-    push: # Update on merge on main branch if the changelog file has been updated
-        branches:
-            - chore/production-release
 
 jobs:
     bd-deployment:
