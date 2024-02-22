@@ -21,4 +21,4 @@ jobs:
         run: |
           echo "version_info file:"
           cat api/src/version_info
-          echo "EXTRACTED_VERSION = ${{ env.VERSION }}"
+          echo "EXTRACTED_VERSION = ${{ env.EXTRACTED_VERSION }}"
