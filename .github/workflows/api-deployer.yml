@@ -136,6 +136,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     needs: [create-artifact-repo, api-build-test]
+    outputs:
+      FEED_API_IMAGE_VERSION2: ${{ steps.set_variables.outputs.FEED_API_IMAGE_VERSION2 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -206,21 +208,24 @@ jobs:
           path: api/src/feeds_gen/
 
       - name: Set Variables
+        id: set_variables
         run: |
           echo "Setting variables"
           echo "PROJECT_ID=${{ inputs.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
-          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}.${{ env.EXTRACTED_VERSION }}" >> $GITHUB_ENV
+          echo "FEED_API_IMAGE_VERSION2=${{ inputs.FEED_API_IMAGE_VERSION }}.${{ env.EXTRACTED_VERSION }}" >> $GITHUB_ENV
 
       - name: Build & Publish Docker Image
         run: |
-          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION
+          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $FEED_API_IMAGE_VERSION2
 
   terraform-deploy:
     runs-on: ubuntu-latest
     permissions: write-all
     needs: docker-build-publish
+    env:
+      FEED_API_IMAGE_VERSION: ${{needs.docker-build-publish.outputs.FEED_API_IMAGE_VERSION2}}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -267,7 +272,7 @@ jobs:
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
-          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}.${{ env.EXTRACTED_VERSION }}" >> $GITHUB_ENV
+#          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}.${{ env.EXTRACTED_VERSION }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
