@@ -21,9 +21,10 @@ export default function TermsAndConditions(): React.ReactElement {
           color='primary'
           sx={{ fontWeight: 700, pb: 4 }}
         >
-          Mobility Database Privacy Policy
+          Privacy Policy
         </Typography>
         <Typography sx={{ fontWeight: 700 }}>SEPTEMBER 2023 </Typography>
+        <br />
         <Typography>WRITTEN BY: Me Edward Smith, Legal Counsel</Typography>
         <Typography>
           WITH THE COLLABORATION OF: Me Daniel Cooper, Legal Advisor
@@ -46,34 +47,27 @@ export default function TermsAndConditions(): React.ReactElement {
           personal information is governed by the Act respecting the protection
           of personal information in the private sector.
         </Typography>
-
         <Typography paragraph>
-          {' '}
           This policy establishes a procedure for the management of personal
           information by the organization in order to collect, hold, conserve,
           use and communicate personal information on members, users,
           volunteers, staff and administrators of the organization in accordance
-          with the law.{' '}
+          with the law.
         </Typography>
-
         <Typography paragraph>
-          {' '}
           The person responsible for the protection of personal information
           (hereinafter referred to as the “responsible person”) within the
           organization is responsible for the application of and compliance with
           this policy by the organization’s representatives, whether they are
           current or former staff members, volunteers or directors.{' '}
         </Typography>
-
         <Typography paragraph>
-          {' '}
           In this respect, the person in charge publishes this policy on its
           website and makes it available to members, users, staff, volunteers or
           directors for consultation or training. In addition, the person in
           charge determines the directives and procedures necessary for the
-          application of this policy.{' '}
+          application of this policy.
         </Typography>
-
         <br />
         <Typography
           variant='h4'
@@ -82,15 +76,17 @@ export default function TermsAndConditions(): React.ReactElement {
         >
           Objectives
         </Typography>
-        <Typography>
+        <Typography paragraph>
           The purpose of this policy is to inform the organization’s members,
           users, staff, volunteers and administrators of the principles it
           applies in managing the personal information it holds on them. It also
           sets out the rules of conduct that the organization requires its
           members, users, staff, volunteers and directors to obey when they have
-          access to personal information held on others by the organization. In
-          applying this policy, the organization respects the following
-          principles:{' '}
+          access to personal information held on others by the organization.
+        </Typography>
+        <Typography>
+          In applying this policy, the organization respects the following
+          principles:
         </Typography>
         <Typography component='div'>
           <ul>
@@ -133,7 +129,7 @@ export default function TermsAndConditions(): React.ReactElement {
         >
           Definition of personal information
         </Typography>
-        <Typography>
+        <Typography paragraph>
           Personal information is that which relates to a natural person and
           enables that person to be identified.
         </Typography>
@@ -154,15 +150,15 @@ export default function TermsAndConditions(): React.ReactElement {
             <li>state of health;</li>
             <li>employment records;</li>
             <li>banking/financial information;</li>
-            <li>Computer data</li>
+            <li>Computer data;</li>
             <li>
-              Information concerning family, friends and other related persons
+              Information concerning family, friends and other related persons;
             </li>
-            <li>Social insurance number</li>
-            <li>Health insurance number and driver’s license number</li>
+            <li>Social insurance number;</li>
+            <li>Health insurance number and driver’s license number;</li>
             <li>
               Any document on which this information is found or any document
-              that refers to the existence of a particular person
+              that refers to the existence of a particular person.
             </li>
           </ul>
         </Typography>
@@ -174,7 +170,7 @@ export default function TermsAndConditions(): React.ReactElement {
         >
           Collection of personal information
         </Typography>
-        <Typography>
+        <Typography paragraph>
           The organization collects personal information when it has a serious
           and legitimate interest in doing so. Personal information may be
           collected through forms on its website, by telephone interview,
@@ -187,12 +183,12 @@ export default function TermsAndConditions(): React.ReactElement {
         </Typography>
         <Typography component='div'>
           <ul>
-            <li>Member profiles</li>
-            <li>User profiles</li>
-            <li>Staff and volunteer profiles</li>
+            <li>Member profiles;</li>
+            <li>User profiles;</li>
+            <li>Staff and volunteer profiles;</li>
             <li>
               Incidents, including those with potential liability implications
-              for the organization or anyone associated with it
+              for the organization or anyone associated with it;
             </li>
           </ul>
         </Typography>
@@ -241,28 +237,28 @@ export default function TermsAndConditions(): React.ReactElement {
         <Typography component='div'>
           <ul>
             <li>
-              The purposes for which the information is collected (collection)
+              The purposes for which the information is collected (collection);
             </li>
-            <li>The means by which the information is collected</li>
+            <li>The means by which the information is collected;</li>
             <li>
               Of his or her right to withdraw consent to the disclosure or use
-              of the information collected
+              of the information collected;
             </li>
             <li>
               The name of the third party for whom the information is being
-              collected
+              collected;
             </li>
             <li>
               Contact information for the person responsible for protecting
-              personal information
+              personal information;
             </li>
             <li>
               The categories of persons, including third parties, who may have
-              access to it
+              access to it;
             </li>
-            <li>Where your personal information will be stored</li>
-            <li>The safeguards in place</li>
-            <li>Access and rectification rights provided by law</li>
+            <li>Where your personal information will be stored;</li>
+            <li>The safeguards in place;</li>
+            <li>Access and rectification rights provided by law.</li>
           </ul>
         </Typography>
         <Typography paragraph>
@@ -280,15 +276,17 @@ export default function TermsAndConditions(): React.ReactElement {
         >
           Protection of personal information
         </Typography>
-        <Typography paragraph>
+        <Typography>
           Physical files containing confidential information are kept under lock
           and key in a filing cabinet or in a location dedicated to this purpose
           by the person in charge and to which access is secured. Employees are
           prohibited from leaving the workplace with personal information
-          without the organization’s approval. Personal information is stored on
-          a cloud server for which a secure password is required. The
-          organization has a firewall and anti-virus software to limit the scope
-          of malicious attacks.
+          without the organization’s approval.
+        </Typography>
+        <Typography paragraph>
+          Personal information is stored on a cloud server for which a secure
+          password is required. The organization has a firewall and anti-virus
+          software to limit the scope of malicious attacks.
         </Typography>
         <Typography>
           The following categories of persons have access to personal
@@ -296,8 +294,8 @@ export default function TermsAndConditions(): React.ReactElement {
         </Typography>
         <Typography component='div'>
           <ul>
-            <li>Members of the Board of Directors and General Management</li>
-            <li>Employees</li>
+            <li>Members of the Board of Directors and General Management;</li>
+            <li>Employees.</li>
           </ul>
         </Typography>
         <Typography paragraph>
@@ -421,12 +419,14 @@ export default function TermsAndConditions(): React.ReactElement {
           it as liquidator, beneficiary, heir or successor to the liquidator of
           the succession;
         </Typography>
-        <Typography paragraph>
+        <Typography>
           It would likely reveal personal information about a third party, or
           the existence of such information, and such disclosure would be likely
           to cause serious harm to the third party, unless the third party
-          consents; It is prohibited by law, an ongoing investigation or a court
-          order.
+          consents;
+        </Typography>
+        <Typography paragraph>
+          It is prohibited by law, an ongoing investigation or a court order.
         </Typography>
         <Typography paragraph>
           In the event of refusal, the organization will give reasons in writing
@@ -513,13 +513,16 @@ export default function TermsAndConditions(): React.ReactElement {
           Charges for transcription, reproduction or transmission of personal
           information
         </Typography>
-        <Typography paragraph>
+        <Typography>
           The organization charges reasonable fees for the transcription,
           reproduction or transmission of personal information. These fees are
           established by the person responsible and are subject to periodic
-          review. Before proceeding with the transcription, reproduction or
-          transmission of such information, the organization will inform the
-          applicant of the approximate amount payable.
+          review.
+        </Typography>
+        <Typography paragraph>
+          Before proceeding with the transcription, reproduction or transmission
+          of such information, the organization will inform the applicant of the
+          approximate amount payable.
         </Typography>
         <br />
         <Typography
@@ -671,7 +674,6 @@ export default function TermsAndConditions(): React.ReactElement {
         >
           APPENDICES
         </Typography>
-        <br />
         <Typography
           variant='h4'
           color='primary'
@@ -681,6 +683,172 @@ export default function TermsAndConditions(): React.ReactElement {
           confidentiality incident
         </Typography>
         <Typography>The CAI notice contains:</Typography>
+        <Typography component='div'>
+          <ul>
+            <li>Name and NEQ of the organization</li>
+            <li>
+              The name of the person responsible for the protection of personal
+              information
+            </li>
+            <li>
+              A description of the personal information affected by the incident
+              (if this information is not known, the reason for not being able
+              to provide such a description)
+            </li>
+            <li>
+              A brief description of the circumstances of the incident (and, if
+              known, its Cause)
+            </li>
+            <li>
+              The date or period when the incident took place (and, if unknown,
+              an approximation)
+            </li>
+            <li>
+              The date or period during which the organization became aware of
+              the incident
+            </li>
+            <li>
+              The number of people affected by the incident and, among them, the
+              number of Quebec residents (or, if unknown, an approximation of
+              these numbers)
+            </li>
+            <li>
+              A description of the factors that lead the organization to
+              conclude that there is a risk of serious harm being caused to the
+              people concerned
+            </li>
+            <li>
+              The measures that the organization has taken or intends to take to
+              notify the persons concerned (including the date on which the
+              persons were notified or the timeframe envisaged for completion)
+            </li>
+            <li>
+              The measures the organization has taken or intends to take
+              following the occurrence of the incident (including the date or
+              period when the measures were taken, or the timeframe envisaged
+              for their completion)
+            </li>
+            <li>
+              Where applicable, a statement to the effect that a person or
+              organization outside Quebec with similar responsibilities to CAI
+              has been notified of the incident.
+            </li>
+          </ul>
+        </Typography>
+        <Typography>
+          The information provided in the notice must be updated in the event of
+          subsequent changes.
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Appendix 2 – Contents of the notice to data subjects in the event of a
+          confidentiality incident
+        </Typography>
+        <Typography>The notice to data subjects contains:</Typography>
+        <Typography component='div'>
+          <ul>
+            <li>
+              A description of the personal information affected by the incident
+              (if this information is not known, the reason for not being able
+              to provide such a description).
+            </li>
+            <li>A brief description of the circumstances of the incident.</li>
+            <li>
+              The date or period when the incident took place (and, if unknown,
+              an approximation).
+            </li>
+            <li>
+              A brief description of the measures that the organization has
+              taken or intends to take following the incident, in order to
+              reduce the risk of harm being caused.
+            </li>
+            <li>
+              Measures the organization suggests the person concerned take to
+              reduce the risk of harm being caused, or to mitigate such harm.
+            </li>
+            <li>
+              Contact details enabling the person concerned to obtain further
+              information about the incident.
+            </li>
+          </ul>
+        </Typography>
+        <Typography>The notice may be public if:</Typography>
+        <Typography component='div'>
+          <ul>
+            <li>
+              Passing on the notice is likely to cause greater harm to the
+              person concerned
+            </li>
+            <li>
+              Providing the notice is likely to cause undue hardship to the
+              organization
+            </li>
+            <li>
+              The organization does not have the contact details of the person
+              concerned
+            </li>
+            <li>
+              The organization does not find itself in one of the three cases
+              listed above, but wishes to inform the persons concerned quickly,
+              without neglecting to send them a notice directly afterwards
+            </li>
+          </ul>
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Appendix 3 – Contents of the confidentiality incident register
+        </Typography>
+        <Typography component='div'>
+          <ul>
+            <li>Incident number (for internal reference).</li>
+            <li>
+              A description of the personal information affected by the incident
+              (if this information is not known, the reason for not being able
+              to provide such a description).
+            </li>
+            <li>A brief description of the circumstances of the incident.</li>
+            <li>
+              The date or period when the incident took place (and, if unknown,
+              an approximation).
+            </li>
+            <li>
+              The date or period during which the organization became aware of
+              the incident.
+            </li>
+            <li>
+              The number of persons concerned by the incident (or, if not known,
+              an approximation of this number).
+            </li>
+            <li>
+              A description of the factors that lead the organization to
+              conclude that there is a risk of serious harm being caused to the
+              people concerned.
+            </li>
+            <li>
+              The dates on which notifications were sent to CAI and to the
+              persons concerned, as well as an indication of whether public
+              notifications were given by the organization and why, if so.
+            </li>
+            <li>
+              A brief description of the measures taken by the organization,
+              following the occurrence of the incident, to reduce the risk of
+              harm being caused.
+            </li>
+          </ul>
+        </Typography>
+        <Typography>
+          The information contained in the register must be kept up to date and
+          retained for a minimum period of five years after the date or period
+          during which the organization became aware of the incident.
+        </Typography>
       </Box>
     </Container>
   );
