@@ -624,6 +624,63 @@ export default function TermsAndConditions(): React.ReactElement {
         >
           Inapplicability of the policy
         </Typography>
+        <Typography paragraph>
+          When a data subject leaves the organization’s website for any other
+          website linked to the organization’s website, this policy no longer
+          applies. Please refer to their policy, if applicable.
+        </Typography>
+        <Typography paragraph>
+          When a law, regulation or court order compels the organization to
+          transmit personal information, it is understood that the organization
+          cannot guarantee the level of confidentiality and security instituted
+          by the person or government that has been granted it.
+        </Typography>
+        <Typography paragraph>
+          In the event of a merger or other legal reorganization of the
+          organization, all personal information may be transferred to the new
+          legal entity.
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Policy modification
+        </Typography>
+        <Typography>
+          Any modification will be updated on the organization’s website and
+          sent to the e-mail address of the persons concerned if they have been
+          forwarded.
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Adoption and coming into force of this policy
+        </Typography>
+        <Typography>This policy was adopted on: September 22, 2023</Typography>
+        <Typography>This policy takes effect on: September 22, 2023</Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 700, pb: 4 }}
+        >
+          APPENDICES
+        </Typography>
+        <br />
+        <Typography
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 500, pb: 4 }}
+        >
+          Appendix 1 – Contents of the notice to the CAI in the event of a
+          confidentiality incident
+        </Typography>
+        <Typography>The CAI notice contains:</Typography>
       </Box>
     </Container>
   );
