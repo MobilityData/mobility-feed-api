@@ -143,11 +143,18 @@ jobs:
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
+      - name: Display Commit Hash and version
+        run: |
+          echo "version_info file:"
+          cat api/src/version_info
+          echo "EXTRACTED_VERSION = ${{ env.EXTRACTED_VERSION }}"
+
       - name: Upload version_info to workflow artefacts
         uses: actions/upload-artifact@v4
         with:
-          name: version_info.txt
+          name: version_info
           path: api/src/version_info
+          compression-level: 0
 
       - name: Authenticate to Google Cloud
         id: gcloud_auth
