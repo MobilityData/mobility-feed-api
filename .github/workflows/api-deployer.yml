@@ -272,7 +272,7 @@ jobs:
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
-#          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}.${{ env.EXTRACTED_VERSION }}" >> $GITHUB_ENV
+          #          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}.${{ env.EXTRACTED_VERSION }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
