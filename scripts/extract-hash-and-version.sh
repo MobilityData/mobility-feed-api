@@ -12,9 +12,9 @@ handle_error() {
 }
 trap 'handle_error' ERR
 
-LONG_COMMIT_HASH=$(git rev-parse HEAD)
+export LONG_COMMIT_HASH=$(git rev-parse HEAD)
 echo "LONG_COMMIT_HASH = $LONG_COMMIT_HASH"
-SHORT_COMMIT_HASH=$(git rev-parse --short HEAD)
+export SHORT_COMMIT_HASH=$(git rev-parse --short HEAD)
 echo "SHORT_COMMIT_HASH = $SHORT_COMMIT_HASH"
 
 echo "# This file is automatically created at build time. Do not delete." > $versionFile
@@ -27,7 +27,7 @@ git fetch --tags
 
 # First obtain the tags that are associated with the current commit, if any. Tags should look like this: v1.1.0
 # sort -V is great! It sorts with versions, so v10.1.1 will come after v2.1.1 for example.
-EXTRACTED_VERSION=`git tag --contains "$LONG_COMMIT_HASH" | egrep '^v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1`
+export EXTRACTED_VERSION=`git tag --contains "$LONG_COMMIT_HASH" | egrep '^v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1`
 
 if [ -z "$EXTRACTED_VERSION" ]; then
   # If there are no tags on the current commit, get all the tags with the latest at the end of the list.
@@ -41,5 +41,10 @@ if [ -z "$EXTRACTED_VERSION" ]; then
   fi
 fi
 echo "EXTRACTED_VERSION = $EXTRACTED_VERSION"
+
+# We want this script to be runnable by hand. In that case GITHUB_ENV is not defined
+if [ ! -z "$GITHUB_ENV" ]; then
+  echo "EXTRACTED_VERSION=$EXTRACTED_VERSION" >> $GITHUB_ENV
+fi
 
 echo "EXTRACTED_VERSION=$EXTRACTED_VERSION" >> $versionFile
