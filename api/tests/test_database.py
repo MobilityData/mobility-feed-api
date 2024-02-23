@@ -4,9 +4,22 @@ import os
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import Gtfsdataset, Component
-from feeds.impl.datasets_api_impl import DatasetsApiImpl
+from feeds.impl.datasets_api_impl import DatasetsApiImpl, DATETIME_FORMAT
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker
+
+
+from .test_utils.database import (
+    NEW_VALIDATION_VERSION,
+    NEW_VALIDATION_TIME,
+    VALIDATION_INFO_COUNT_PER_NOTICE,
+    VALIDATION_INFO_NOTICES,
+    VALIDATION_WARNING_COUNT_PER_NOTICE,
+    VALIDATION_WARNING_NOTICES,
+    VALIDATION_ERROR_NOTICES,
+    VALIDATION_ERROR_COUNT_PER_NOTICE,
+    COMPONENT_IDS,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import patch
 from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
@@ -86,7 +99,7 @@ def test_bounding_box_disjoint(latitudes, longitudes, method, expected_found, te
 def test_merge_gtfs_feed(test_database):
     results = {
         feed.id: feed
-        for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None, None, None, None, None, None, None, None)
+        for feed in FeedsApiImpl().get_gtfs_feeds(None, None, None, None, None, None, None, None, None, None)
         if feed.id in TEST_GTFS_FEED_STABLE_IDS
     }
     assert len(results) == len(TEST_GTFS_FEED_STABLE_IDS)
@@ -105,6 +118,19 @@ def test_merge_gtfs_feed(test_database):
         TEST_GTFS_FEED_STABLE_IDS[2],
         TEST_GTFS_FEED_STABLE_IDS[3],
     ]
+
+
+def test_validation_report(test_database):
+    result = DatasetsApiImpl().get_dataset_gtfs(id=TEST_DATASET_STABLE_IDS[0])
+    assert result is not None
+    validation_report = result.validation_report
+    assert validation_report is not None
+    assert validation_report.validator_version == NEW_VALIDATION_VERSION
+    assert validation_report.validated_at == NEW_VALIDATION_TIME.strftime(DATETIME_FORMAT)
+    assert validation_report.total_info == VALIDATION_INFO_COUNT_PER_NOTICE * VALIDATION_INFO_NOTICES
+    assert validation_report.total_warning == VALIDATION_WARNING_COUNT_PER_NOTICE * VALIDATION_WARNING_NOTICES
+    assert validation_report.total_error == VALIDATION_ERROR_COUNT_PER_NOTICE * VALIDATION_ERROR_NOTICES
+    assert validation_report.components == sorted(COMPONENT_IDS)
 
 
 def test_generate_unique_id():

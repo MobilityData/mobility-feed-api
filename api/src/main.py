@@ -15,7 +15,9 @@
 #
 # This files allows to add extra application decorators aside from the generated code.
 # The app created here is intended to replace the generated feeds_gen.main:app variable.
+import os
 
+import uvicorn
 from fastapi import FastAPI
 
 from feeds_gen.apis.datasets_api import router as DatasetsApiRouter
@@ -49,3 +51,6 @@ app.add_middleware(RequestContextMiddleware)
 app.include_router(DatasetsApiRouter)
 app.include_router(FeedsApiRouter)
 app.include_router(MetadataApiRouter)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=os.getenv("PORT", 8080))
