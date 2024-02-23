@@ -25,18 +25,18 @@ echo "SHORT_COMMIT_HASH=$SHORT_COMMIT_HASH" >> $versionFile
 # Typically actions/checkout@v4 in the workflows does not get all the tags. Get them here.
 git fetch --tags
 
-# First obtain the tags that are associated with the current commit, if any. Tags should look like this: v1.1.0
+# First obtain the tags that are associated with the current commit, if any. Tags should look like this: v1.1.0.
+# There could be more than one such tag. In that case take the one with the highest version.
 # sort -V is great! It sorts with versions, so v10.1.1 will come after v2.1.1 for example.
 export EXTRACTED_VERSION=`git tag --contains "$LONG_COMMIT_HASH" | egrep '^v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1`
 
 if [ -z "$EXTRACTED_VERSION" ]; then
-  # If there are no tags on the current commit, get all the tags with the latest at the end of the list.
-
+  # If the current commit is not tagged, get the tag from previous commits that is the closest in time, but add
+  # _SNAPSHOT to it.
   EXTRACTED_VERSION=`git tag --sort=-creatordate | egrep '^v[0-9]+\.[0-9]+\.[0-9]+' | head -1`
   if [ -z "$EXTRACTED_VERSION" ]; then
     EXTRACTED_VERSION="v0.0.0"
   else
-    # Since the tag is on an earlier commit, use the latest tag and add SNAPSHOT
     EXTRACTED_VERSION+="_SNAPSHOT"
   fi
 fi
