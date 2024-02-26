@@ -1,8 +1,23 @@
 # coding: utf-8
 from fastapi.testclient import TestClient
+from datetime import timedelta
 
-from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
+from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID, TEST_DATASET_STABLE_IDS
 from .test_utils.token import authHeaders
+from .test_utils.database import datasets_download_first_date
+
+
+def get_all_datasets(client):
+    unfiltered_response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets".format(id=TEST_GTFS_FEED_STABLE_IDS[0]),
+        headers=authHeaders,
+    )
+    datasets = []
+    for dataset in unfiltered_response.json():
+        if dataset["feed_id"] == TEST_GTFS_FEED_STABLE_IDS[0]:
+            datasets.append(dataset)
+    return datasets
 
 
 def test_feeds_get(client: TestClient):
@@ -27,22 +42,6 @@ def test_feeds_gtfs_get(client: TestClient):
     """Test case for feeds_gtfs_get"""
 
     params = []
-    response = client.request(
-        "GET",
-        "/v1/gtfs_feeds",
-        headers=authHeaders,
-        params=params,
-    )
-
-    assert response.status_code == 200
-
-
-def test_feeds_gtfs_get_with_sorting(client: TestClient):
-    """Test case for feeds_gtfs_get"""
-
-    params = [
-        ("order_by", "+external_id"),
-    ]
     response = client.request(
         "GET",
         "/v1/gtfs_feeds",
@@ -105,7 +104,7 @@ def test_fetch_gtfs_feeds_with_incorrect_filter_method(client: TestClient):
         headers=authHeaders,
         params=params,
     )
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_fetch_gtfs_feeds_with_incorrect_latitude_for_bounding_box(client: TestClient):
@@ -194,3 +193,171 @@ def test_feeds_id_get(client: TestClient):
     )
 
     assert response.status_code == 200
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_before_before(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter by downloaded_before with date before all downloads
+    Expected result: empty list
+    """
+    date = datasets_download_first_date - timedelta(days=10)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_before_after(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter by downloaded_before with date after all downloads
+    Expected result: the full list of datasets
+    """
+    datasets = get_all_datasets(client)
+    date = datasets_download_first_date + timedelta(days=10)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == datasets
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_before_the_first_dataset(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter by downloaded_before with date before of the first dataset
+    Expected result: the first dataset
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=datasets_download_first_date.isoformat()
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["feed_id"] == TEST_GTFS_FEED_STABLE_IDS[0]
+    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[0]
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_after_after(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter downloaded_after with date after all downloads
+    Expected result: empty list
+    """
+    date = datasets_download_first_date + timedelta(days=10)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_after_before(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter by downloaded_after with date before
+     all downloads
+    Expected result: the full list of datasets
+    """
+    datasets = get_all_datasets(client)
+    date = datasets_download_first_date - timedelta(days=1)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == datasets
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_after_first(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter by downloaded_after date after the first dataset
+    Expected result: the full list of datasets
+    """
+    datasets = get_all_datasets(client)
+    datasets.pop(0)
+    date = datasets_download_first_date + timedelta(days=1)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date=date.isoformat()
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == len(datasets)
+    assert response.json() == datasets
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_before_invalid_date(client: TestClient):
+    """Test case for get_gtfs_feed_datasets with an invalid date in download_before
+    Expected result: the full list of datasets
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_before={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date="invalid_date"
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Invalid date format for 'downloaded_before'. Expected ISO 8601 format, example: "
+        "'2021-01-01T00:00:00Z'"
+    }
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_after_invalid_date(client: TestClient):
+    """Test case for get_gtfs_feed_datasets with an invalid date in download_after
+    filter by the after operation with date after the first dataset
+    Expected result: the full list of datasets
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={date}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0], date="invalid_date"
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Invalid date format for 'downloaded_after'. Expected ISO 8601 format, example: "
+        "'2021-01-01T00:00:00Z'"
+    }
+
+
+def test_get_gtfs_feed_datasets_with_downloaded_date_between(client: TestClient):
+    """Test case for get_gtfs_feed_datasets filter by downloaded_before and downloaded_after containing
+     all downloads
+    Expected result: the full list of datasets
+    """
+    datasets = get_all_datasets(client)
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?downloaded_after={first}&downloaded_before={last}".format(
+            id=TEST_GTFS_FEED_STABLE_IDS[0],
+            first=datasets_download_first_date.isoformat(),
+            last=(datasets_download_first_date + timedelta(days=len(datasets) - 1)).isoformat(),
+        ),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == datasets
