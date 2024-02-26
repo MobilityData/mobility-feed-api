@@ -66,6 +66,38 @@ export default function FAQ(): React.ReactElement {
             longer term solutions for the architecture that require more
             community investment.
           </Typography>
+          <Typography className='question'>
+            What about the TransitFeeds user interface?
+          </Typography>
+          <Typography className='answer'>
+            We plan to develop a new user interface as part of the Mobility
+            Database by summer 2024, since this is critical for making data
+            discoverable and fostering collaboration on data quality
+            improvements.
+            <br /> <br />
+            In order to ensure the community has access to more up-to-date data
+            as soon as possible, we&apos;ve focused on providing a catalog of
+            data without an interface as a first step. How quickly we scale the
+            architecture to build the user interface depends on how much
+            engagement and contribution we get from the community in this phase.
+          </Typography>
+          <Typography className='question'>
+            What about the TransitFeeds API?
+          </Typography>
+          <Typography className='answer'>
+            You can use{' '}
+            <a href='/sign-in' target='_blank' rel='noreferrer'>
+              the Mobility Database API
+            </a>{' '}
+            instead to access up-to-date GTFS and GTFS Realtime data. The API is
+            providing historical data from the time of launch (February 2024).
+            If you need to access historical data from previous years from the
+            TransitFeeds API, you are still able to. Your systems will be
+            unaffected until the to-be-determined deprecation date, when the
+            TransitFeeds API will no longer be available. MobilityData will
+            migrate the historical data from TransitFeeds to the Mobility
+            Database before deprecating the old API.
+          </Typography>
           <Typography className='question'>What’s coming next?</Typography>
           <Typography className='answer'>
             The MobilityData team is working to add validation info from the{' '}
@@ -90,33 +122,6 @@ export default function FAQ(): React.ReactElement {
             the community. How quickly we scale the Mobility Database
             architecture depends on how much engagement and contribution we get
             from the community in this phase.
-          </Typography>
-          <Typography className='question'>
-            What about the TransitFeeds user interface?
-          </Typography>
-          <Typography className='answer'>
-            We plan to develop a new user interface as part of the Mobility
-            Database by summer 2024, since this is critical for making data
-            discoverable and fostering collaboration on data quality
-            improvements.
-            <br /> <br />
-            In order to ensure the community has access to more up-to-date data
-            as soon as possible, we&apos;ve focused on providing a catalog of
-            data without an interface as a first step. How quickly we scale the
-            architecture to build the user interface depends on how much
-            engagement and contribution we get from the community in this phase.
-          </Typography>
-          <Typography className='question'>
-            What about the TransitFeeds API?
-          </Typography>
-          <Typography className='answer'>
-            You can use the Mobility Database API instead to access up-to-date
-            GTFS and GTFS Realtime data. If you need to access historical data
-            from the TransitFeeds API, you are still able to. Your systems will
-            be unaffected until the to-be-determined deprecation date, when the
-            TransitFeeds API will no longer be available. MobilityData will
-            migrate the historical data from TransitFeeds to the Mobility
-            Database before deprecating the old API.
           </Typography>
         </Box>
       </Box>
