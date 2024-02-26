@@ -4,10 +4,10 @@
 #
 set -e
 
-versionFile=api/src/version_info
+version_file=api/src/version_info
 
 handle_error() {
-    echo "An error occurred. $versionFile might not have been properly filled."
+    echo "An error occurred. $version_file might not have been properly filled."
     exit 1
 }
 trap 'handle_error' ERR
@@ -17,10 +17,10 @@ echo "LONG_COMMIT_HASH = $LONG_COMMIT_HASH"
 export SHORT_COMMIT_HASH=$(git rev-parse --short HEAD)
 echo "SHORT_COMMIT_HASH = $SHORT_COMMIT_HASH"
 
-echo "# This file is automatically created at build time. Do not delete." > $versionFile
-echo "[DEFAULT]" >> $versionFile
-echo "LONG_COMMIT_HASH=$LONG_COMMIT_HASH" >> $versionFile
-echo "SHORT_COMMIT_HASH=$SHORT_COMMIT_HASH" >> $versionFile
+echo "# This file is automatically created at build time. Do not delete." > $version_file
+echo "[DEFAULT]" >> $version_file
+echo "LONG_COMMIT_HASH=$LONG_COMMIT_HASH" >> $version_file
+echo "SHORT_COMMIT_HASH=$SHORT_COMMIT_HASH" >> $version_file
 
 # Typically actions/checkout@v4 in the workflows does not get all the tags. Get them here.
 git fetch --tags
@@ -47,4 +47,4 @@ if [ ! -z "$GITHUB_ENV" ]; then
   echo "EXTRACTED_VERSION=$EXTRACTED_VERSION" >> $GITHUB_ENV
 fi
 
-echo "EXTRACTED_VERSION=$EXTRACTED_VERSION" >> $versionFile
+echo "EXTRACTED_VERSION=$EXTRACTED_VERSION" >> $version_file

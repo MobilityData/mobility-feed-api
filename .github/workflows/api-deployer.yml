@@ -212,7 +212,7 @@ jobs:
         run: |
           # We want to generate the image even if it's the same commit that has been tagged. So use the version 
           # (coming from the tag) in the docker image tag (If the docket tag does not change it's won't be uploaded)
-          DOCKER_IMAGE_VERSION=$FEED_API_IMAGE_VERSION.$EXTRACTED_VERSION
+          DOCKER_IMAGE_VERSION=$EXTRACTED_VERSION.$FEED_API_IMAGE_VERSION
           scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $DOCKER_IMAGE_VERSION         
 
   terraform-deploy:
@@ -269,7 +269,7 @@ jobs:
           echo "REGION=${{ inputs.REGION }}" >> $GITHUB_ENV
           echo "ENVIRONMENT=${{ inputs.ENVIRONMENT }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ inputs.DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
-          echo "FEED_API_IMAGE_VERSION=${{ inputs.FEED_API_IMAGE_VERSION }}.$EXTRACTED_VERSION" >> $GITHUB_ENV
+          echo "FEED_API_IMAGE_VERSION=$EXTRACTED_VERSION.${{ inputs.FEED_API_IMAGE_VERSION }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
