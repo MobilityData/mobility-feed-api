@@ -567,6 +567,9 @@ components:
         version:
           type: string
           example: 1.0.0
+        commit_hash:
+          type: string
+          example: 8635fdac4fbff025b4eaca6972fcc9504bc1552d
 
     ValidationReport:
       description: Validation report - Not yet supported. Can change in the future.
