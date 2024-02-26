@@ -84,6 +84,11 @@ while [[ $# -gt 0 ]]; do
         shift # past argument
         shift # past value
         ;;
+    -port)
+        PORT="$2"
+        shift # past argument
+        shift # past value
+        ;;        
     -h | --help)
         display_usage
         ;;
@@ -132,8 +137,10 @@ fi
 # Getting the first IP
 ip=$(echo $ips | sed "s/\['\([^']*\)'.*/\1/")
 
-# Wait 5s to allow the machine to be up before creating the tunnel
-sleep 5
+# Wait 15s to allow the machine to be up before creating the tunnel
+echo "Sleeping for 15s..."
+sleep 15
+echo "Compute engine should be ready to use now"
 
 # Creating SSH tunnel
 ssh -o StrictHostKeyChecking=no -fN -L ${PORT}:${target_ip}:${TARGET_PORT} ${TARGET_ACCOUNT}@${ip}
