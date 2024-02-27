@@ -17,8 +17,6 @@ on:
         type: string
         required: false
 
-
-
 env:
   NODE_VERSION: "18"
 
@@ -229,4 +227,8 @@ jobs:
       - name: Deploy to Firebase Preview Hosting (${{ inputs.FIREBASE_PROJECT }})
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
-        run: npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}
+        run: |
+          npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}
+          HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
+          echo "HOSTING_URL=$HOSTING_URL" >> "$GITHUB_OUTPUT"
+

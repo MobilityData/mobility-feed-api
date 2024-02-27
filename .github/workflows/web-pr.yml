@@ -9,8 +9,6 @@ on:
       - "functions/**"
       - ".github/workflows/web-pr.yml"
       - ".github/workflows/web-deployer.yml"
-env:
-  NODE_VERSION: "18"
 
 jobs:
   deploy-web-app:
@@ -29,52 +27,10 @@ jobs:
     env:
       PR_ID: ${{ github.event.number }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Authenticate to Google Cloud DEV
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install dependencies
-        working-directory: web-app
-        run: yarn install --frozen-lockfile
-
-      - name: Set Firebase project properties
-        working-directory: web-app
-        run: |
-            echo "Setting FIREBASE_PROJECT to 'dev'"
-            echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
-            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
-            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
-            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
-
-      - name: Populate Variables
-        working-directory: web-app
-        run: |
-          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.test -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
-
-      - name: Select Firebase Project
-        working-directory: web-app
-        run: npx firebase use dev
-
       - name: Check for Existing Comment
         id: check-comment
         working-directory: web-app
         run: |
-          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
           JQ_CHECK=`echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")"`
@@ -85,13 +41,16 @@ jobs:
               echo "Comment already exists."
               echo "comment_exists=true" >> $GITHUB_OUTPUT
           fi
+        env:
+            HOSTING_URL: ${{ needs.deploy-web-app.outputs.HOSTING_URL }}
 
       - name: Comment on PR with Hosting URL (PR Preview)
         if: steps.check-comment.outputs.comment_exists == 'false'
         working-directory: web-app
         run: |
-          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
+        env:
+            HOSTING_URL: ${{ needs.deploy-web-app.outputs.HOSTING_URL }}
 
