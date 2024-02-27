@@ -226,7 +226,7 @@ jobs:
         working-directory: web-app
         run: npx firebase deploy --only hosting
 
-      - name: Deploy to Firebase Hosting (Preview Deployment)
+      - name: Deploy to Firebase Preview Hosting (${{ inputs.FIREBASE_PROJECT }})
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
         run: npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}

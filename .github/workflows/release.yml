@@ -2,9 +2,6 @@
 name: Production Release
 on:
     release:
-    push: # Update on merge on main branch if the changelog file has been updated
-        branches:
-            - chore/production-release
 
 jobs:
     bd-deployment:
