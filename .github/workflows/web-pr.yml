@@ -11,13 +11,21 @@ on:
       - ".github/workflows/web-deployer.yml"
 
 jobs:
-  # deploy-web-app job remains unchanged
+  deploy-web-app:
+    name: Deploy Web App
+    uses: ./.github/workflows/web-app-deployer.yml
+    with:
+      FIREBASE_PROJECT: dev
+      PREVIEW_DEPLOYMENT: true
+      PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
+    secrets: inherit
 
   update-pr-comment:
     name: Update PR comments
     runs-on: ubuntu-latest
+    needs: [deploy-web-app ]
     env:
-      PR_ID: ${{ github.event.number }} # Define PR_ID here for the entire job
+      PR_ID: ${{ github.event.number }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,8 +51,7 @@ jobs:
         working-directory: web-app
         run: |
           HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
-          COMMENT="[Preview Firebase Hosting URL]($HOSTING_URL)"
+          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
-
 
