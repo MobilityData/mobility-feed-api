@@ -4,6 +4,9 @@ on:
     branches: [ main ]
     paths-ignore:
       - '**.md'
+      - "web-app/**"
+      - "functions/**"
+      - ".github/workflows/web-*.yml"
   workflow_call:
 
 env:
