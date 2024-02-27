@@ -43,7 +43,7 @@ jobs:
               echo "comment_exists=true" >> $GITHUB_OUTPUT
           fi
         env:
-          HOSTING_URL_64: ${{ needs.deploy-web-app.deploy-web-app.outputs.hosting_url }}
+          HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
 
       - name: Comment on PR with Hosting URL (PR Preview)
         if: steps.check-comment.outputs.comment_exists == 'false'
@@ -53,5 +53,5 @@ jobs:
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
         env:
-          HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.deploy-web-app.hosting_url }}
+          HOSTING_URL_64: ${{ needs.deploy-web-app.hosting_url }}
 

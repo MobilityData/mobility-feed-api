@@ -106,7 +106,7 @@ jobs:
   #         name: cypress-videos
   #         path: ./web-app/cypress/videos
 
-  build:
+  deploy-web-app:
     name: "Build & Deploy"
     permissions: write-all
     # needs: [lint-test]
