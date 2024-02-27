@@ -51,5 +51,5 @@ variable "python_runtime" {
 variable "public_hosted_datasets_dns" {
   type = string
   description = "Public hosted DNS for datasets"
-  default = "files.mobilitydatabase.com"
+  default = "files.mobilitydatabase.org"
 }
