@@ -9,6 +9,8 @@ on:
       - "functions/**"
       - ".github/workflows/web-pr.yml"
       - ".github/workflows/web-deployer.yml"
+env:
+  NODE_VERSION: "18"
 
 jobs:
   deploy-web-app:
@@ -23,12 +25,41 @@ jobs:
   update-pr-comment:
     name: Update PR comments
     runs-on: ubuntu-latest
-    needs: [deploy-web-app ]
+    needs: [ deploy-web-app ]
     env:
       PR_ID: ${{ github.event.number }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Authenticate to Google Cloud DEV
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: Google Cloud Setup
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile
+
+      - name: Set Firebase project properties
+        working-directory: web-app
+        run: |
+            echo "Setting FIREBASE_PROJECT to 'dev'"
+            echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.DEV_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.DEV_REACT_APP_FIREBASE_AUTH_DOMAIN }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_PROJECT_ID=${{ secrets.DEV_REACT_APP_FIREBASE_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.DEV_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
+            echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
+            echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
+            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
 
       - name: Check for Existing Comment
         id: check-comment
