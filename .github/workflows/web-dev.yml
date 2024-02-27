@@ -7,6 +7,10 @@ on:
         paths:
             - "web-app/**"
             - "functions/**"
+    push:
+        branches:
+          - main
+          - chore/production-release            
 jobs:
     deploy-web-app:
         name: Deploy Web App

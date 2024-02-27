@@ -2,7 +2,10 @@ name: Web App - PROD
 on:
     workflow_dispatch:
     workflow_call:
-
+    push:
+        branches:
+          - main
+          - chore/production-release
 jobs:
     deploy-web-app:
         name: Deploy Web App

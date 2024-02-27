@@ -3,7 +3,9 @@ on:
     workflow_dispatch:
     workflow_call:
     push:
-        branches: [main]
+        branches:
+          - main
+          - chore/production-release
 
 jobs:
     deploy-web-app:
