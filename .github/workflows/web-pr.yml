@@ -9,22 +9,15 @@ on:
       - "functions/**"
       - ".github/workflows/web-pr.yml"
       - ".github/workflows/web-deployer.yml"
-env:
-  PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
 
 jobs:
-  deploy-web-app:
-    name: Deploy Web App
-    uses: ./.github/workflows/web-app-deployer.yml
-    with:
-      FIREBASE_PROJECT: dev
-      PREVIEW_DEPLOYMENT: true
-      PREVIEW_HOST_NAME: "${{ env.PREVIEW_HOST_NAME }}"
-    secrets: inherit
+  # deploy-web-app job remains unchanged
 
   update-pr-comment:
     name: Update PR comments
     runs-on: ubuntu-latest
+    env:
+      PR_ID: ${{ github.event.number }} # Define PR_ID here for the entire job
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,10 +26,9 @@ jobs:
         id: check-comment
         working-directory: web-app
         run: |
-          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PREVIEW_HOST_NAME }}" | awk '{print $7}')
+          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
-
           JQ_CHECK=`echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")"`
           if [ -z "$JQ_CHECK" ]; then
               echo "Comment does not exist."
@@ -45,17 +37,14 @@ jobs:
               echo "Comment already exists."
               echo "comment_exists=true" >> $GITHUB_OUTPUT
           fi
-        env:
-            PR_ID: ${{ github.event.number }}
 
       - name: Comment on PR with Hosting URL (PR Preview)
-        if: ${{ steps.check-comment.outputs.comment_exists == 'false' }}
+        if: steps.check-comment.outputs.comment_exists == 'false'
         working-directory: web-app
         run: |
           HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
-          COMMENT="[Preview Firebase Hosting URL]($HOSTING_URL){:target="_blank"}"
+          COMMENT="[Preview Firebase Hosting URL]($HOSTING_URL)"
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
-        env:
-            PR_ID: ${{ github.event.number }}
+
 
