@@ -111,6 +111,8 @@ jobs:
     permissions: write-all
     needs: [lint-test]
     runs-on: ubuntu-latest
+    outputs:
+      hosting_url: ${{ steps.deploy-preview.outputs.hosting_url }}  
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -225,10 +227,11 @@ jobs:
         run: npx firebase deploy --only hosting
 
       - name: Deploy to Firebase Preview Hosting (${{ inputs.FIREBASE_PROJECT }})
+        id: deploy-preview
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
         run: |
           npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}
           HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
-          echo "HOSTING_URL=$HOSTING_URL" >> "$GITHUB_OUTPUT"
+          echo "hosting_url=$HOSTING_URL" >> "$GITHUB_OUTPUT"
 
