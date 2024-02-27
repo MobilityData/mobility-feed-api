@@ -53,5 +53,5 @@ jobs:
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
         env:
-          HOSTING_URL_64: ${{ needs.deploy-web-app.hosting_url }}
+          HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
 
