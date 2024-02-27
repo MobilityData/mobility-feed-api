@@ -2,11 +2,7 @@ name: Web App - DEV
 on:
     workflow_dispatch:
     workflow_call:
-    pull_request:
-        branches: [main]
-        paths:
-            - "web-app/**"
-            - "functions/**"
+
 jobs:
     deploy-web-app:
         name: Deploy Web App
