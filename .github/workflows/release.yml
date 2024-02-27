@@ -4,7 +4,7 @@ on:
     release:
     push:
         branches:
-          - main    
+          - chore/production-release
 
 jobs:
     bd-deployment:
