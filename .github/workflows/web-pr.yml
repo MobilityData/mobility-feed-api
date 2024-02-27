@@ -30,7 +30,7 @@ jobs:
       - name: Check for Existing Comment
         id: check-comment
         run: |
-          HOSTING_URL=$(echo "$HOSTING_URL_64" | base -d)
+          HOSTING_URL=$(echo "$HOSTING_URL_64" | base64 -d)
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           echo "PR comment: $COMMENT"
           COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
@@ -48,7 +48,7 @@ jobs:
       - name: Comment on PR with Hosting URL (PR Preview)
         if: steps.check-comment.outputs.comment_exists == 'false'
         run: |
-          HOSTING_URL=$(echo "$HOSTING_URL_64" | base -d)
+          HOSTING_URL=$(echo "$HOSTING_URL_64" | base64 -d)
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
