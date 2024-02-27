@@ -61,6 +61,15 @@ jobs:
             echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
             echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
 
+      - name: Populate Variables
+        working-directory: web-app
+        run: |
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.test -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+
+      - name: Select Firebase Project
+        working-directory: web-app
+        run: npx firebase use dev
+
       - name: Check for Existing Comment
         id: check-comment
         working-directory: web-app
