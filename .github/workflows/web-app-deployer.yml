@@ -16,7 +16,10 @@ on:
         description: Host name to be used in preview deployment
         type: string
         required: false
-
+    outputs:
+      hosting_url:
+        description: "The URL of the deployed web app"
+        value: ${{ jobs.deploy-web-app.outputs.hosting_url }}
 env:
   NODE_VERSION: "18"
 
