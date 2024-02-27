@@ -2,6 +2,9 @@
 name: Production Release
 on:
     release:
+    push:
+        branches:
+          - main    
 
 jobs:
     bd-deployment:
