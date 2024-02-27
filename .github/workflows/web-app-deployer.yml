@@ -6,7 +6,17 @@ on:
         description: Firebase project.
         type: string
         default: dev
-        required: true      
+        required: true
+      PREVIEW_DEPLOYMENT:
+        description: True if the firebase will be deployed in preview mode, false otherwise
+        type: boolean
+        default: false
+        required: false
+      PREVIEW_HOST_NAME:
+        description: Host name to be used in preview deployment
+        type: string
+        required: false
+
 
 
 env:
@@ -212,44 +222,11 @@ jobs:
         run: npx firebase use ${{  inputs.FIREBASE_PROJECT }}
 
       - name: Deploy to Firebase Hosting (${{ inputs.FIREBASE_PROJECT }})
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
         run: npx firebase deploy --only hosting
 
-      - name: Deploy to Firebase Hosting (PR Preview)
-        if: ${{ github.event_name == 'pull_request' }}
+      - name: Deploy to Firebase Hosting (Preview Deployment)
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
-        run: npx firebase hosting:channel:deploy pr_${{ env.PR_ID }}
-        env:
-          PR_ID: ${{ github.event.number }}
-
-      - name: Check for Existing Comment
-        id: check-comment
-        working-directory: web-app
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
-          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
-          COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
-
-          JQ_CHECK=`echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")"`
-          if [ -z "$JQ_CHECK" ]; then
-            echo "Comment does not exist."
-            echo "comment_exists=false" >> $GITHUB_OUTPUT
-          else
-            echo "Comment already exists."
-            echo "comment_exists=true" >> $GITHUB_OUTPUT
-          fi
-        env:
-          PR_ID: ${{ github.event.number }}
-
-      - name: Comment on PR with Hosting URL (PR Preview)
-        if: ${{ github.event_name == 'pull_request' && steps.check-comment.outputs.comment_exists == 'false' }}
-        working-directory: web-app
-        run: |
-          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
-          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
-          echo "$COMMENT" > comment.txt
-          curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
-        env:
-          PR_ID: ${{ github.event.number }}
+        run: npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}
