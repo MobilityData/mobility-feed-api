@@ -685,54 +685,60 @@ export default function APIAccount(): React.ReactElement {
                 </Typography>
               </Box>
             )}
-          </Box>
-          <Paper elevation={3} id='code-block'>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '10px',
-              }}
-            >
-              <div>
-                <Typography variant='h6'>API Test</Typography>
+            <Paper elevation={3} id='code-block'>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '10px',
+                }}
+              >
+                <div>
+                  <Typography variant='h6'>API Test</Typography>
 
-                <Typography>
-                  Copy the CLI command to test your access to the API.
-                </Typography>
+                  <Typography>
+                    Copy the CLI command to test your access to the API.
+                  </Typography>
+                </div>
+                <Tooltip title={accountState.codeBlockTooltip}>
+                  <IconButton
+                    color='inherit'
+                    aria-label='Copy access token to clipboard'
+                    edge='end'
+                    onClick={() => {
+                      handleCopyCodeBlock(getCurlApiTestCommand());
+                    }}
+                    sx={{ display: 'inline-block', verticalAlign: 'middle' }}
+                  >
+                    <ContentCopyOutlined fontSize='small' />
+                  </IconButton>
+                </Tooltip>
               </div>
-              <Tooltip title={accountState.codeBlockTooltip}>
-                <IconButton
-                  color='inherit'
-                  aria-label='Copy access token to clipboard'
-                  edge='end'
-                  onClick={() => {
-                    handleCopyCodeBlock(getCurlApiTestCommand());
-                  }}
-                  sx={{ display: 'inline-block', verticalAlign: 'middle' }}
-                >
-                  <ContentCopyOutlined fontSize='small' />
-                </IconButton>
-              </Tooltip>
-            </div>
-            <Typography id='code-block-content'>
-              <span style={{ color: '#ff79c6', fontWeight: 'bold' }}>curl</span>{' '}
-              --location &apos;{apiURL}/metadata&apos;
-              <span style={{ color: theme.mixins.code?.contrastText }}>\</span>
-              <br />
-              <span style={{ color: theme.mixins.code?.contrastText }}>
-                --header
-              </span>{' '}
-              &apos;Accept: application/json&apos;
-              <span style={{ color: theme.mixins.code?.contrastText }}>\</span>
-              <br />
-              <span style={{ color: theme.mixins.code?.contrastText }}>
-                --header{' '}
-              </span>
-              &apos;Authorization: Bearer [Your Access Token]&apos;
-            </Typography>
-          </Paper>
+              <Typography id='code-block-content'>
+                <span style={{ color: '#ff79c6', fontWeight: 'bold' }}>
+                  curl
+                </span>{' '}
+                --location &apos;{apiURL}/metadata&apos;
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  \
+                </span>
+                <br />
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  --header
+                </span>{' '}
+                &apos;Accept: application/json&apos;
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  \
+                </span>
+                <br />
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  --header{' '}
+                </span>
+                &apos;Authorization: Bearer [Your Access Token]&apos;
+              </Typography>
+            </Paper>
+          </Box>
         </Box>
       </Box>
       <LogoutConfirmModal
