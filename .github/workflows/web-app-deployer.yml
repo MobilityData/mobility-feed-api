@@ -19,7 +19,7 @@ on:
       REACT_APP_GOOGLE_ANALYTICS_ID:
         description: Google Analytics ID
         type: string
-        # defaulting to a placeholder to keep the GA ID empty at runtime
+        # defaulting to a placeholder to keep the GA ID empty if parameter is not passed
         default: '{{REACT_APP_GOOGLE_ANALYTICS_ID}}'
         required: false
     outputs:
