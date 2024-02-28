@@ -1,0 +1,15 @@
+name: Web App - QA
+on:
+    workflow_dispatch:
+    workflow_call:
+    push:
+        branches: 
+          - main
+
+jobs:
+    deploy-web-app:
+        name: Deploy Web App
+        uses: ./.github/workflows/web-app-deployer.yml
+        with:
+          FIREBASE_PROJECT: qa
+        secrets: inherit

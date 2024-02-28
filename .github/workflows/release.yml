@@ -1,0 +1,37 @@
+# Deploys all the resources to production environment
+name: Production Release
+on:
+  release:
+
+jobs:
+  bd-deployment:
+    name: Database Deployment
+    uses: ./.github/workflows/db-prod.yml
+    secrets: inherit
+  bd-update:
+    name: Database Update
+    needs: bd-deployment
+    uses: ./.github/workflows/db-update-prod.yml
+    secrets: inherit
+  bash-deployment:
+    name: Bash Processes Deployment
+    needs: bd-update
+    uses: ./.github/workflows/datasets-batch-deployer-prod.yml
+    secrets: inherit
+  api-deployment:
+    name: API Deployment
+    needs: bash-deployment
+    uses: ./.github/workflows/api-prod.yml
+    secrets: inherit
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    needs: api-deployment
+    with:
+      API_URL: "https://api.mobilitydatabase.org"
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
+  web-deployment:
+    name: Web Deployment
+    needs: bash-deployment
+    uses: ./.github/workflows/web-prod.yml
+    secrets: inherit

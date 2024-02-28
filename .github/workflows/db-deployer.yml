@@ -69,16 +69,16 @@ jobs:
       db_instance_host: ${{ steps.get_outputs.outputs.db_instance_host }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
         id: gcloud_auth
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Set Variables
         run: |
@@ -154,12 +154,12 @@ jobs:
       DB_INSTANCE_HOST: ${{ needs.terraform.outputs.db_instance_host }}
     steps:
       - name: Authenticate to Google Cloud DEV
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup DEV
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Create or Update Secret in DEV
         run: |

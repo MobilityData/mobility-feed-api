@@ -4,6 +4,9 @@ on:
     branches: [ main ]
     paths-ignore:
       - '**.md'
+      - "web-app/**"
+      - "functions/**"
+      - ".github/workflows/web-*.yml"
   workflow_call:
 
 env:
@@ -102,15 +105,18 @@ jobs:
         with:
           name: coverage_report
           path: scripts/coverage_reports/
+          overwrite: true
 
       - name: Upload DB models
         uses: actions/upload-artifact@v4
         with:
           name: database_gen
           path: api/src/database_gen/
+          overwrite: true
 
       - name: API generated code
         uses: actions/upload-artifact@v4
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
+          overwrite: true

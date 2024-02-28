@@ -1,18 +1,27 @@
 name: Web App - Build Deploy
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "web-app/**"
-      - "functions/**"
-  push:
-    branches: [main]
-  workflow_dispatch:
-  release:
-
+  workflow_call:
+    inputs:
+      FIREBASE_PROJECT:
+        description: Firebase project.
+        type: string
+        default: dev
+        required: true
+      PREVIEW_DEPLOYMENT:
+        description: True if the firebase will be deployed in preview mode, false otherwise
+        type: boolean
+        default: false
+        required: false
+      PREVIEW_HOST_NAME:
+        description: Host name to be used in preview deployment
+        type: string
+        required: false
+    outputs:
+      hosting_url:
+        description: "The URL of the deployed web app"
+        value: ${{ jobs.build-deploy.outputs.hosting_url }}
 env:
   NODE_VERSION: "18"
-  FIREBASE_PROJECT: dev
 
 jobs:
   lint-test:
@@ -20,10 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -33,7 +42,7 @@ jobs:
 
       - name: Cache node modules
         id: cache-npm
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         env:
           cache-name: cache-node-modules
         with:
@@ -45,7 +54,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
 
       - name: Cache Cypress binary
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.cache/Cypress
           key: cypress-${{ runner.os }}-binary-${{ hashFiles('**/package-lock.json') }}
@@ -88,50 +97,54 @@ jobs:
           wait-on: "npx wait-on --timeout 120000 http://127.0.0.1:3000"
           working-directory: web-app
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-screenshots
           path: ./web-app/cypress/screenshots
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: cypress-videos
           path: ./web-app/cypress/videos
 
-  build:
+  build-deploy:
     name: "Build & Deploy"
     permissions: write-all
     needs: [lint-test]
     runs-on: ubuntu-latest
+    outputs:
+      # Output will be baseb4 encoded due to a false positive secret detection
+      # More info https://github.com/orgs/community/discussions/37942
+      hosting_url: ${{ steps.deploy-preview.outputs.hosting_url }}  
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud DEV
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: google-github-actions/auth@v1
+        if: ${{ inputs.FIREBASE_PROJECT == 'dev' }}
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Authenticate to Google Cloud QA
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: google-github-actions/auth@v1
+        if: ${{ inputs.FIREBASE_PROJECT == 'qa' }}
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Authenticate to Google Cloud PROD
-        if: ${{ github.event_name == 'release' }}
-        uses: google-github-actions/auth@v1
+        if: ${{ inputs.FIREBASE_PROJECT == 'prod' }}
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Google Cloud Setup
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -142,7 +155,7 @@ jobs:
       - name: Set Firebase project properties
         working-directory: web-app
         run: |
-          if [[ $GITHUB_EVENT_NAME == 'push' && $GITHUB_REF == 'refs/heads/main' ]]; then
+          if [[ ${{ inputs.FIREBASE_PROJECT }} == 'qa' ]]; then
               echo "Setting FIREBASE_PROJECT to 'pushed to main branch'"
               echo "FIREBASE_PROJECT=qa" >> $GITHUB_ENV
               echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.QA_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
@@ -152,7 +165,7 @@ jobs:
               echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.QA_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
               echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.QA_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
               echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.QA_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
-          elif [[ $GITHUB_EVENT_NAME == 'release' ]]; then
+          elif [[ ${{ inputs.FIREBASE_PROJECT }} == 'prod' ]]; then
             echo "Setting FIREBASE_PROJECT to 'prod'"
             echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
             echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.PROD_REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
@@ -177,7 +190,7 @@ jobs:
       - name: Populate Variables
         working-directory: web-app
         run: |
-          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  env.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
 
       - name: Run Install for Functions
         working-directory: functions
@@ -185,7 +198,7 @@ jobs:
 
       - name: Select Firebase Project for Functions
         working-directory: functions
-        run: npx firebase use ${{  env.FIREBASE_PROJECT }}
+        run: npx firebase use ${{  inputs.FIREBASE_PROJECT }}
 
       - name: Run Lint for Functions
         working-directory: functions
@@ -211,47 +224,20 @@ jobs:
 
       - name: Select Firebase Project
         working-directory: web-app
-        run: npx firebase use ${{  env.FIREBASE_PROJECT }}
+        run: npx firebase use ${{  inputs.FIREBASE_PROJECT }}
 
-      - name: Deploy to Firebase Hosting (${{ env.FIREBASE_PROJECT }})
-        if: ${{ env.FIREBASE_PROJECT != 'dev' }}
+      - name: Deploy to Firebase Hosting (${{ inputs.FIREBASE_PROJECT }})
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
         run: npx firebase deploy --only hosting
 
-      - name: Deploy to Firebase Hosting (PR Preview)
-        if: ${{ github.event_name == 'pull_request' }}
-        working-directory: web-app
-        run: npx firebase hosting:channel:deploy pr_${{ env.PR_ID }}
-        env:
-          PR_ID: ${{ github.event.number }}
-
-      - name: Check for Existing Comment
-        id: check-comment
-        working-directory: web-app
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
-          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
-          COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
-
-          JQ_CHECK=`echo "$COMMENTS" | jq -r ".[] | select(.body == \"$COMMENT\")"`
-          if [ -z "$JQ_CHECK" ]; then
-            echo "Comment does not exist."
-            echo "comment_exists=false" >> $GITHUB_OUTPUT
-          else
-            echo "Comment already exists."
-            echo "comment_exists=true" >> $GITHUB_OUTPUT
-          fi
-        env:
-          PR_ID: ${{ github.event.number }}
-
-      - name: Comment on PR with Hosting URL (PR Preview)
-        if: ${{ github.event_name == 'pull_request' && steps.check-comment.outputs.comment_exists == 'false' }}
+      - name: Deploy to Firebase Preview Hosting (${{ inputs.FIREBASE_PROJECT }})
+        id: deploy-preview
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
         run: |
-          HOSTING_URL=$(npx firebase hosting:channel:list | grep "pr-${{ env.PR_ID }}" | awk '{print $7}')
-          COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
-          echo "$COMMENT" > comment.txt
-          curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
-        env:
-          PR_ID: ${{ github.event.number }}
+          npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}
+          HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
+          HOSTING_URL_64=$(echo $HOSTING_URL | base64)
+          echo "hosting_url=$HOSTING_URL_64" >> "$GITHUB_OUTPUT"
+

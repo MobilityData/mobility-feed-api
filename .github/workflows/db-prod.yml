@@ -2,6 +2,7 @@
 name: Deploy DB - PROD
 on:
   workflow_dispatch: # Supports manual deployment
+  workflow_call:
 
 jobs:
   deploy:

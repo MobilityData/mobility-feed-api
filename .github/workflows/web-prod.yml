@@ -1,0 +1,12 @@
+name: Web App - PROD
+on:
+    workflow_dispatch:
+    workflow_call:
+
+jobs:
+    deploy-web-app:
+        name: Deploy Web App
+        uses: ./.github/workflows/web-app-deployer.yml
+        with:
+          FIREBASE_PROJECT: prod
+        secrets: inherit
