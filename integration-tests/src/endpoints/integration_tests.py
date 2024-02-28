@@ -115,18 +115,11 @@ class IntegrationTests:
                 municipalities = [
                     location["municipality"] for location in feed["locations"]
                 ]
-                invalid_municipalities = [
-                    m for m in municipalities if lowercase_municipality not in m.lower()
-                ]
-                assert len(invalid_municipalities) > 0, (
-                    f"Looking for feeds containing municipality '{municipality}', "
-                    "but found municipalities {invalid_municipalities}"
+                is_municipality_valid = [lowercase_municipality in m.lower() for m in municipalities]
+                assert any(is_municipality_valid), (
+                    f"Expected all feeds to have municipality '{municipality}', but found municipalities "
+                    f"'{municipalities}'"
                 )
-
-                assert all(
-                    m != municipality for m in municipalities
-                ), f"Expected at lest one feed to have the exact municipality '{municipality}', but found none "
-
         self._update_progression(
             task_id, f"Validated municipality {municipality}", index
         )
