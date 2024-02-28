@@ -96,7 +96,6 @@ export default function SignIn(): React.ReactElement {
     const provider = oathProviders[oauthProvider];
     signInWithPopup(auth, provider)
       .then((userCredential: UserCredential) => {
-        console.log(userCredential.user);
         if (userCredential.user.email == null) {
           setShowNoEmailSnackbar(true);
         } else {

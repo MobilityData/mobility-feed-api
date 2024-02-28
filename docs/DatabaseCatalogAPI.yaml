@@ -2,7 +2,11 @@ openapi: 3.0.0
 info:
   version: 1.0.0
   title: Mobility Database Catalog
-  description: API for the Mobility Database Catalog. See https://mobilitydatabase.org/
+  description: |
+    API for the Mobility Database Catalog. See [https://mobilitydatabase.org/](https://mobilitydatabase.org/).
+    
+    The Mobility Database API uses OAuth2 authentication.
+    To initiate a successful API request, an access token must be included as a bearer token in the HTTP header. Access tokens are valid for one hour. To obtain an access token, you&apos;ll first need a refresh token, which is long-lived and does not expire.
   termsOfService: https://mobilitydatabase.org/terms-and-conditions
   contact:
     name: MobilityData

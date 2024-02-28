@@ -232,7 +232,10 @@ export default function APIAccount(): React.ReactElement {
         }, 1000);
       })
       .catch((error) => {
-        console.log('Could not copy text: ', error);
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log('Could not copy text: ', error);
+        }
       });
   };
 
@@ -378,7 +381,8 @@ export default function APIAccount(): React.ReactElement {
           </Box>
           <Box sx={{ mt: 4 }} />
           <Typography>
-            Want your account removed? Send us an email at{' '}
+            If you need a reissued refresh token or want your account removed,
+            send us an email at{' '}
             <Link
               href='mailto:api@mobilitydata.org?subject=Remove Mobility Database account'
               color={'inherit'}
@@ -392,6 +396,13 @@ export default function APIAccount(): React.ReactElement {
         </Paper>
         <Box sx={{ ml: 10 }}>
           <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
+            <Typography sx={{ mb: 2 }}>
+              The Mobility Database API uses OAuth2 authentication. To initiate
+              a successful API request, an access token must be included as a
+              bearer token in the HTTP header. Access tokens are valid for one
+              hour. To obtain an access token, you&apos;ll first need a refresh
+              token, which is long-lived and does not expire.
+            </Typography>
             <Typography variant='sectionTitle'>Refresh Token</Typography>
             <Typography sx={{ mb: 2 }}>
               Use your refresh token to connect to the API in your app.
@@ -458,7 +469,81 @@ export default function APIAccount(): React.ReactElement {
               </Box>
             </Box>
           </Box>
-          <Box sx={{ mb: 1 }}>
+          <Box sx={{ p: 1, mt: 5 }}>
+            <Typography variant='sectionTitle'>
+              How to Generate the Access Token in Your App
+            </Typography>
+            <Typography sx={{ mb: 2 }}>
+              Follow{' '}
+              <Link
+                href='https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html'
+                color={'inherit'}
+                target='_blank'
+              >
+                our OpenAPI documentation
+              </Link>{' '}
+              to authenticate your account with the refresh token.
+            </Typography>
+            <Paper elevation={3} id='code-block'>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '10px',
+                }}
+              >
+                <div>
+                  <Typography variant='h6'>Generate Access Token</Typography>
+
+                  <Typography>
+                    Copy the CLI command to generate an access token.
+                  </Typography>
+                </div>
+                <Tooltip title={accountState.codeBlockTooltip}>
+                  <IconButton
+                    color='inherit'
+                    aria-label='Copy access token to clipboard'
+                    edge='end'
+                    onClick={() => {
+                      handleCopyCodeBlock(getCurlAccessTokenCommand());
+                    }}
+                    sx={{ display: 'inline-block', verticalAlign: 'middle' }}
+                  >
+                    <ContentCopyOutlined fontSize='small' />
+                  </IconButton>
+                </Tooltip>
+              </div>
+              <Typography id='code-block-content'>
+                <span style={{ ...theme.mixins.code.command }}>curl</span>{' '}
+                --location &apos;{apiURL}/tokens&apos;
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  \
+                </span>
+                <br />
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  --header
+                </span>{' '}
+                &apos;Content-Type: application/json&apos;
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  \
+                </span>
+                <br />
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  --data &apos;&#123;
+                </span>
+                <span>
+                  {' '}
+                  &quot;refresh_token&quot;: &quot;[Your Refresh Token]&quot;
+                </span>
+                <span style={{ color: theme.mixins.code?.contrastText }}>
+                  {' '}
+                  &#125;&apos;
+                </span>
+              </Typography>
+            </Paper>
+          </Box>
+          <Box sx={{ p: 1, mt: 5 }}>
             <Typography variant='sectionTitle'>
               Access Token for Testing
             </Typography>
@@ -469,11 +554,9 @@ export default function APIAccount(): React.ReactElement {
                 href='https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html#/'
                 target={'_blank'}
               >
-                Swagger documentation
+                OpenAPI documentation
               </Link>
-              .
-              <br />
-              The access token updates regularly.
+              . Access tokens are valid for one hour.
             </Typography>
             {showGenerateAccessTokenButton && (
               <Box sx={{ mb: 2 }}>
@@ -602,69 +685,6 @@ export default function APIAccount(): React.ReactElement {
                 </Typography>
               </Box>
             )}
-          </Box>
-          <Paper elevation={3} id='code-block'>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '10px',
-              }}
-            >
-              <div>
-                <Typography variant='h6'>API Test</Typography>
-
-                <Typography>
-                  Copy the CLI command to test your access to the API.
-                </Typography>
-              </div>
-              <Tooltip title={accountState.codeBlockTooltip}>
-                <IconButton
-                  color='inherit'
-                  aria-label='Copy access token to clipboard'
-                  edge='end'
-                  onClick={() => {
-                    handleCopyCodeBlock(getCurlApiTestCommand());
-                  }}
-                  sx={{ display: 'inline-block', verticalAlign: 'middle' }}
-                >
-                  <ContentCopyOutlined fontSize='small' />
-                </IconButton>
-              </Tooltip>
-            </div>
-            <Typography id='code-block-content'>
-              <span style={{ color: '#ff79c6', fontWeight: 'bold' }}>curl</span>{' '}
-              --location &apos;{apiURL}/metadata&apos;
-              <span style={{ color: theme.mixins.code?.contrastText }}>\</span>
-              <br />
-              <span style={{ color: theme.mixins.code?.contrastText }}>
-                --header
-              </span>{' '}
-              &apos;Accept: application/json&apos;
-              <span style={{ color: theme.mixins.code?.contrastText }}>\</span>
-              <br />
-              <span style={{ color: theme.mixins.code?.contrastText }}>
-                --header
-              </span>
-              &apos;Authorization: Bearer [Your Access Token]&apos;
-            </Typography>
-          </Paper>
-          <Box sx={{ p: 1, mt: 5 }}>
-            <Typography variant='sectionTitle'>
-              How to Get the Access Token in Your App
-            </Typography>
-            <Typography sx={{ mb: 2 }}>
-              Follow{' '}
-              <Link
-                href='https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html'
-                color={'inherit'}
-                target='_blank'
-              >
-                our Swagger documentation
-              </Link>{' '}
-              to authenticate your account with the refresh token.
-            </Typography>
             <Paper elevation={3} id='code-block'>
               <div
                 style={{
@@ -675,10 +695,10 @@ export default function APIAccount(): React.ReactElement {
                 }}
               >
                 <div>
-                  <Typography variant='h6'>Generate Access Token</Typography>
+                  <Typography variant='h6'>API Test</Typography>
 
                   <Typography>
-                    Copy the CLI command to generate an access token.
+                    Copy the CLI command to test your access to the API.
                   </Typography>
                 </div>
                 <Tooltip title={accountState.codeBlockTooltip}>
@@ -687,7 +707,7 @@ export default function APIAccount(): React.ReactElement {
                     aria-label='Copy access token to clipboard'
                     edge='end'
                     onClick={() => {
-                      handleCopyCodeBlock(getCurlAccessTokenCommand());
+                      handleCopyCodeBlock(getCurlApiTestCommand());
                     }}
                     sx={{ display: 'inline-block', verticalAlign: 'middle' }}
                   >
@@ -696,8 +716,10 @@ export default function APIAccount(): React.ReactElement {
                 </Tooltip>
               </div>
               <Typography id='code-block-content'>
-                <span style={{ ...theme.mixins.code.command }}>curl</span>{' '}
-                --location &apos;{apiURL}/tokens&apos;
+                <span style={{ color: '#ff79c6', fontWeight: 'bold' }}>
+                  curl
+                </span>{' '}
+                --location &apos;{apiURL}/metadata&apos;
                 <span style={{ color: theme.mixins.code?.contrastText }}>
                   \
                 </span>
@@ -705,22 +727,15 @@ export default function APIAccount(): React.ReactElement {
                 <span style={{ color: theme.mixins.code?.contrastText }}>
                   --header
                 </span>{' '}
-                &apos;Content-Type: application/json&apos;
+                &apos;Accept: application/json&apos;
                 <span style={{ color: theme.mixins.code?.contrastText }}>
                   \
                 </span>
                 <br />
                 <span style={{ color: theme.mixins.code?.contrastText }}>
-                  --data &apos;&#123;
+                  --header{' '}
                 </span>
-                <span>
-                  {' '}
-                  &quot;refresh_token&quot;: &quot;[Your Refresh Token]&quot;
-                </span>
-                <span style={{ color: theme.mixins.code?.contrastText }}>
-                  {' '}
-                  &#125;&apos;
-                </span>
+                &apos;Authorization: Bearer [Your Access Token]&apos;
               </Typography>
             </Paper>
           </Box>
