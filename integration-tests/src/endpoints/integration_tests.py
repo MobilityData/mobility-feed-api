@@ -108,12 +108,16 @@ class IntegrationTests:
         assert (
             len(feeds) > 0
         ), f"Expected at least one feed with municipality '{municipality}', got 0."
+
+        lowercase_municipality = municipality.lower()
         if validate_location:
             for feed in feeds:
                 municipalities = [
                     location["municipality"] for location in feed["locations"]
                 ]
-                is_municipality_valid = [municipality in m for m in municipalities]
+                is_municipality_valid = [
+                    lowercase_municipality in m.lower() for m in municipalities
+                ]
                 assert any(is_municipality_valid), (
                     f"Expected all feeds to have municipality '{municipality}', but found municipalities "
                     f"'{municipalities}'"
