@@ -9,4 +9,5 @@ jobs:
         uses: ./.github/workflows/web-app-deployer.yml
         with:
           FIREBASE_PROJECT: prod
+          REACT_APP_GOOGLE_ANALYTICS_ID: ${{ vars.PROD_REACT_APP_GOOGLE_ANALYTICS_ID }}
         secrets: inherit

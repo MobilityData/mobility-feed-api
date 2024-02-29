@@ -20,6 +20,7 @@
     "formik": "^2.4.5",
     "react": "^17.0.0 || ^18.0.0",
     "react-dom": "^17.0.0 || ^18.0.0",
+    "react-ga4": "^2.1.0",
     "react-google-recaptcha": "^3.1.0",
     "react-loading-overlay-ts": "^2.0.2",
     "react-redux": "^8.1.3",

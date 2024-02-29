@@ -16,6 +16,12 @@ on:
         description: Host name to be used in preview deployment
         type: string
         required: false
+      REACT_APP_GOOGLE_ANALYTICS_ID:
+        description: Google Analytics ID
+        type: string
+        # defaulting to a placeholder to keep the GA ID empty if parameter is not passed
+        default: '{{REACT_APP_GOOGLE_ANALYTICS_ID}}'
+        required: false
     outputs:
       hosting_url:
         description: "The URL of the deployed web app"
@@ -155,6 +161,7 @@ jobs:
       - name: Set Firebase project properties
         working-directory: web-app
         run: |
+          echo "REACT_APP_GOOGLE_ANALYTICS_ID=${{ inputs.REACT_APP_GOOGLE_ANALYTICS_ID }}" >> $GITHUB_ENV
           if [[ ${{ inputs.FIREBASE_PROJECT }} == 'qa' ]]; then
               echo "Setting FIREBASE_PROJECT to 'pushed to main branch'"
               echo "FIREBASE_PROJECT=qa" >> $GITHUB_ENV
@@ -174,7 +181,7 @@ jobs:
             echo "REACT_APP_FIREBASE_STORAGE_BUCKET=${{ secrets.PROD_REACT_APP_FIREBASE_STORAGE_BUCKET }}" >> $GITHUB_ENV
             echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.PROD_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
             echo "REACT_REACT_APP_FIREBASE_APP_ID=${{ secrets.PROD_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
-            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.PROD_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV        
+            echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.PROD_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
           else
             echo "Setting FIREBASE_PROJECT to 'dev'"
             echo "FIREBASE_PROJECT=dev" >> $GITHUB_ENV
@@ -190,7 +197,7 @@ jobs:
       - name: Populate Variables
         working-directory: web-app
         run: |
-          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID
 
       - name: Run Install for Functions
         working-directory: functions
