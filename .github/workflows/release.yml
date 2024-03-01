@@ -2,6 +2,7 @@
 name: Production Release
 on:
   release:
+    types: [ released ]
 
 jobs:
   bd-deployment:
