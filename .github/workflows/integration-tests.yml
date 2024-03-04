@@ -49,6 +49,7 @@ jobs:
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
 
     - name: Upload Test Logs
+      if: ${{ always() }} # always upload the available logs even if the integration tests failed.
       uses: actions/upload-artifact@v4
       with:
         name: integration-tests-results
