@@ -29,8 +29,8 @@ jobs:
   integration-tests:
     if: ${{ github.event.inputs.run_integration_tests == 'true' }}
     uses: ./.github/workflows/integration-tests.yml
-    needs:
-      - api-build-deployment
+#    needs:
+#      - api-build-deployment
     with:
       API_URL: 'https://api-dev.mobilitydatabase.org'
     secrets:
