@@ -9,22 +9,22 @@ on:
         default: 'false'
 
 jobs:
-  api-build-deployment:
-    uses: ./.github/workflows/api-deployer.yml
-    with:
-      ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
-      BUCKET_NAME: ${{ vars.DEV_MOBILITY_FEEDS_TF_STATE_BUCKET }}
-      OBJECT_PREFIX: ${{ vars.DEV_MOBILITY_FEEDS_TF_STATE_OBJECT_PREFIX }}
-      PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
-      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
-      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
-      FEED_API_IMAGE_VERSION: ${{ github.sha }}
-      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
-      TF_APPLY: true
-    secrets:
-      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
-      OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
-      OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+#  api-build-deployment:
+#    uses: ./.github/workflows/api-deployer.yml
+#    with:
+#      ENVIRONMENT: ${{ vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}
+#      BUCKET_NAME: ${{ vars.DEV_MOBILITY_FEEDS_TF_STATE_BUCKET }}
+#      OBJECT_PREFIX: ${{ vars.DEV_MOBILITY_FEEDS_TF_STATE_OBJECT_PREFIX }}
+#      PROJECT_ID: ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}
+#      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+#      DEPLOYER_SERVICE_ACCOUNT: ${{ vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
+#      FEED_API_IMAGE_VERSION: ${{ github.sha }}
+#      GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
+#      TF_APPLY: true
+#    secrets:
+#      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+#      OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
+#      OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
 
   integration-tests:
     if: ${{ github.event.inputs.run_integration_tests == 'true' }}
