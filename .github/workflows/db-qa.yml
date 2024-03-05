@@ -1,4 +1,4 @@
-# Deploys the Mobility Database to the DEV environment
+# Deploys the Mobility Database to the QA environment
 name: Deploy DB - QA
 on:
   workflow_dispatch:  # Supports manual deployment

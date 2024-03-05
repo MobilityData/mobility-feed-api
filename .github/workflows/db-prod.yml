@@ -1,4 +1,4 @@
-# Deploys the Mobility Database to the DEV environment
+# Deploys the Mobility Database to the PROD environment
 name: Deploy DB - PROD
 on:
   workflow_dispatch: # Supports manual deployment

@@ -14,14 +14,14 @@ jobs:
     needs: bd-deployment
     uses: ./.github/workflows/db-update-prod.yml
     secrets: inherit
-  bash-deployment:
-    name: Bash Processes Deployment
+  batch-deployment:
+    name: Batch Processes Deployment
     needs: bd-update
     uses: ./.github/workflows/datasets-batch-deployer-prod.yml
     secrets: inherit
   api-deployment:
     name: API Deployment
-    needs: bash-deployment
+    needs: batch-deployment
     uses: ./.github/workflows/api-prod.yml
     secrets: inherit
   integration-tests:
@@ -33,6 +33,6 @@ jobs:
       REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
   web-deployment:
     name: Web Deployment
-    needs: bash-deployment
+    needs: batch-deployment
     uses: ./.github/workflows/web-prod.yml
     secrets: inherit
