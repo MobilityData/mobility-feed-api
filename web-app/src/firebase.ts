@@ -1,4 +1,5 @@
 import firebase from 'firebase/compat/app';
+import { getRemoteConfig } from 'firebase/remote-config';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -10,3 +11,7 @@ const firebaseConfig = {
 };
 
 export const app = firebase.initializeApp(firebaseConfig);
+export const remoteConfig = getRemoteConfig(app);
+remoteConfig.defaultConfig = {
+  enable_google_sso_login: true,
+};

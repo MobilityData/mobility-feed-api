@@ -34,6 +34,8 @@ import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
+import { getValue } from 'firebase/remote-config';
+import { remoteConfig } from '../../firebase';
 
 export default function SignUp(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
@@ -44,6 +46,11 @@ export default function SignUp(): React.ReactElement {
   const signUpError = useSelector(selectSignUpError);
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+
+  const enableGoogleSSO = getValue(
+    remoteConfig,
+    'enable_google_sso_login',
+  ).asBoolean();
 
   const SignUpSchema = Yup.object().shape({
     email: Yup.string()
@@ -335,19 +342,20 @@ export default function SignUp(): React.ReactElement {
             <span>OR</span>
           </p>
         </Box>
-
-        <Button
-          variant='outlined'
-          color='primary'
-          sx={{ mb: 2 }}
-          startIcon={<GoogleIcon />}
-          className='sso-button'
-          onClick={() => {
-            signInWithProvider(OauthProvider.Google);
-          }}
-        >
-          Sign Up With Google
-        </Button>
+        {enableGoogleSSO && (
+          <Button
+            variant='outlined'
+            color='primary'
+            sx={{ mb: 2 }}
+            startIcon={<GoogleIcon />}
+            className='sso-button'
+            onClick={() => {
+              signInWithProvider(OauthProvider.Google);
+            }}
+          >
+            Sign Up With Google
+          </Button>
+        )}
         <Button
           variant='outlined'
           color='primary'
