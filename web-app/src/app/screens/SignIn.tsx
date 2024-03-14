@@ -39,6 +39,7 @@ import {
   POST_REGISTRATION_TARGET,
 } from '../constants/Navigation';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
+import { useRemoteConfig } from '../context/RemoteConfigProvider';
 
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
@@ -48,6 +49,10 @@ export default function SignIn(): React.ReactElement {
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showNoEmailSnackbar, setShowNoEmailSnackbar] = React.useState(false);
+
+  const { config } = useRemoteConfig();
+  const enableGoogleSSO = config.enableGoogleSSO as boolean;
+  const enableGithubSSO = config.enableGithubSSO as boolean;
 
   const SignInSchema = Yup.object().shape({
     email: Yup.string()
@@ -260,30 +265,34 @@ export default function SignIn(): React.ReactElement {
           </p>
         </Box>
 
-        <Button
-          variant='outlined'
-          color='primary'
-          className='sso-button'
-          sx={{ mb: 2 }}
-          startIcon={<GoogleIcon />}
-          onClick={() => {
-            signInWithProvider(OauthProvider.Google);
-          }}
-        >
-          Sign In With Google
-        </Button>
-        <Button
-          variant='outlined'
-          color='primary'
-          className='sso-button'
-          sx={{ mb: 2 }}
-          startIcon={<GitHubIcon />}
-          onClick={() => {
-            signInWithProvider(OauthProvider.Github);
-          }}
-        >
-          Sign In With GitHub
-        </Button>
+        {enableGoogleSSO && (
+          <Button
+            variant='outlined'
+            color='primary'
+            className='sso-button'
+            sx={{ mb: 2 }}
+            startIcon={<GoogleIcon />}
+            onClick={() => {
+              signInWithProvider(OauthProvider.Google);
+            }}
+          >
+            Sign In With Google
+          </Button>
+        )}
+        {enableGithubSSO && (
+          <Button
+            variant='outlined'
+            color='primary'
+            className='sso-button'
+            sx={{ mb: 2 }}
+            startIcon={<GitHubIcon />}
+            onClick={() => {
+              signInWithProvider(OauthProvider.Github);
+            }}
+          >
+            Sign In With Github
+          </Button>
+        )}
       </Box>
     </Container>
   );

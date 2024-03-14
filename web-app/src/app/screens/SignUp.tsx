@@ -45,8 +45,7 @@ import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
-import { remoteConfig } from '../../firebase';
-import { getValue } from 'firebase/remote-config';
+import { useRemoteConfig } from '../context/RemoteConfigProvider';
 
 export default function SignUp(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
@@ -58,11 +57,10 @@ export default function SignUp(): React.ReactElement {
   const signUpError = useSelector(selectSignUpError);
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const { config } = useRemoteConfig();
 
-  const enableGoogleSSO = getValue(
-    remoteConfig,
-    'enable_google_sso_login',
-  ).asBoolean();
+  const enableGoogleSSO = config.enableGoogleSSO as boolean;
+  const enableGithubSSO = config.enableGithubSSO as boolean;
 
   const SignUpSchema = Yup.object().shape({
     email: Yup.string()
@@ -393,18 +391,20 @@ export default function SignUp(): React.ReactElement {
             Sign Up With Google
           </Button>
         )}
-        <Button
-          variant='outlined'
-          color='primary'
-          sx={{ mb: 2 }}
-          startIcon={<GitHubIcon />}
-          className='sso-button'
-          onClick={() => {
-            signInWithProvider(OauthProvider.Github);
-          }}
-        >
-          Sign Up With GitHub
-        </Button>
+        {enableGithubSSO && (
+          <Button
+            variant='outlined'
+            color='primary'
+            sx={{ mb: 2 }}
+            startIcon={<GitHubIcon />}
+            className='sso-button'
+            onClick={() => {
+              signInWithProvider(OauthProvider.Github);
+            }}
+          >
+            Sign Up With GitHub
+          </Button>
+        )}
       </Box>
     </Container>
   );
