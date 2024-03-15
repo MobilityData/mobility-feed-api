@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import AppleIcon from '@mui/icons-material/Apple';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
 import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
@@ -283,6 +284,18 @@ export default function SignIn(): React.ReactElement {
           }}
         >
           Sign In With GitHub
+        </Button>
+        <Button
+          variant='outlined'
+          color='primary'
+          sx={{ mb: 2 }}
+          startIcon={<AppleIcon />}
+          className='sso-button'
+          onClick={() => {
+            signInWithProvider(OauthProvider.Apple);
+          }}
+        >
+          Sign in With Apple
         </Button>
       </Box>
     </Container>

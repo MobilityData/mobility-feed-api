@@ -1,4 +1,8 @@
-import { GithubAuthProvider, GoogleAuthProvider } from 'firebase/auth';
+import {
+  GithubAuthProvider,
+  GoogleAuthProvider,
+  OAuthProvider,
+} from 'firebase/auth';
 
 export type ChildrenElement =
   | string
@@ -69,9 +73,11 @@ export type AppErrors = {
 export enum OauthProvider {
   Google = 'Google',
   Github = 'Github',
+  Apple = 'Apple',
 }
 
 export const oathProviders = {
   Google: new GoogleAuthProvider(),
   Github: new GithubAuthProvider(),
+  Apple: new OAuthProvider('apple.com'),
 };
