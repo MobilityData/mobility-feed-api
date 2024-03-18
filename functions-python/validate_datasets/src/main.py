@@ -19,7 +19,7 @@ def create_job(url: str, country_code: str) -> dict:
     Returns:
         dict: A dictionary containing the response from the 'createJob' endpoint.
     """
-    endpoint = "https://gtfs-validator-results.mobilitydata.org/createJob"
+    endpoint = "https://gtfs-validator-results.mobilitydata.org/create-job"
     payload = {
         "url": url,
         "countryCode": country_code,
