@@ -15,39 +15,36 @@ import Contribute from '../screens/Contribute';
 import PostRegistration from '../screens/PostRegistration';
 import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
-import { RemoteConfigProvider } from '../context/RemoteConfigProvider';
 
 export const AppRouter: React.FC = () => {
   return (
-    <RemoteConfigProvider>
-      <Routes>
-        <Route path='/' element={<Home />} />
-        <Route path='sign-in' element={<SignIn />} />
-        <Route path='sign-up' element={<SignUp />} />
-        <Route element={<ProtectedRoute targetStatus='authenticated' />}>
-          <Route
-            path='complete-registration'
-            element={<CompleteRegistration />}
-          />
-        </Route>
-        <Route element={<ProtectedRoute />}>
-          <Route path='account' element={<Account />} />
-        </Route>
-        <Route path='contact-info' element={<ContactInformation />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path='change-password' element={<ChangePassword />} />
-        </Route>
-        <Route element={<ProtectedRoute targetStatus='unverified' />}>
-          <Route path='verify-email' element={<PostRegistration />} />
-        </Route>
-        <Route path='forgot-password' element={<ForgotPassword />} />
-        <Route path='faq' element={<FAQ />} />
-        <Route path='about' element={<About />} />
-        <Route path='contribute' element={<Contribute />} />
-        <Route path='privacy-policy' element={<PrivacyPolicy />} />
-        <Route path='terms-and-conditions' element={<TermsAndConditions />} />
-      </Routes>
-    </RemoteConfigProvider>
+    <Routes>
+      <Route path='/' element={<Home />} />
+      <Route path='sign-in' element={<SignIn />} />
+      <Route path='sign-up' element={<SignUp />} />
+      <Route element={<ProtectedRoute targetStatus='authenticated' />}>
+        <Route
+          path='complete-registration'
+          element={<CompleteRegistration />}
+        />
+      </Route>
+      <Route element={<ProtectedRoute />}>
+        <Route path='account' element={<Account />} />
+      </Route>
+      <Route path='contact-info' element={<ContactInformation />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path='change-password' element={<ChangePassword />} />
+      </Route>
+      <Route element={<ProtectedRoute targetStatus='unverified' />}>
+        <Route path='verify-email' element={<PostRegistration />} />
+      </Route>
+      <Route path='forgot-password' element={<ForgotPassword />} />
+      <Route path='faq' element={<FAQ />} />
+      <Route path='about' element={<About />} />
+      <Route path='contribute' element={<Contribute />} />
+      <Route path='privacy-policy' element={<PrivacyPolicy />} />
+      <Route path='terms-and-conditions' element={<TermsAndConditions />} />
+    </Routes>
   );
 };
 

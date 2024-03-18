@@ -59,8 +59,8 @@ export default function SignUp(): React.ReactElement {
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const { config } = useRemoteConfig();
 
-  const enableGoogleSSO = config.enableGoogleSSO as boolean;
-  const enableGithubSSO = config.enableGithubSSO as boolean;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const enableAppleSSO = config.enableAppleSSO as boolean;
 
   const SignUpSchema = Yup.object().shape({
     email: Yup.string()
@@ -376,35 +376,30 @@ export default function SignUp(): React.ReactElement {
             <span>OR</span>
           </p>
         </Box>
-
-        {enableGoogleSSO && (
-          <Button
-            variant='outlined'
-            color='primary'
-            sx={{ mb: 2 }}
-            startIcon={<GoogleIcon />}
-            className='sso-button'
-            onClick={() => {
-              signInWithProvider(OauthProvider.Google);
-            }}
-          >
-            Sign Up With Google
-          </Button>
-        )}
-        {enableGithubSSO && (
-          <Button
-            variant='outlined'
-            color='primary'
-            sx={{ mb: 2 }}
-            startIcon={<GitHubIcon />}
-            className='sso-button'
-            onClick={() => {
-              signInWithProvider(OauthProvider.Github);
-            }}
-          >
-            Sign Up With GitHub
-          </Button>
-        )}
+        <Button
+          variant='outlined'
+          color='primary'
+          sx={{ mb: 2 }}
+          startIcon={<GoogleIcon />}
+          className='sso-button'
+          onClick={() => {
+            signInWithProvider(OauthProvider.Google);
+          }}
+        >
+          Sign Up With Google
+        </Button>
+        <Button
+          variant='outlined'
+          color='primary'
+          sx={{ mb: 2 }}
+          startIcon={<GitHubIcon />}
+          className='sso-button'
+          onClick={() => {
+            signInWithProvider(OauthProvider.Github);
+          }}
+        >
+          Sign Up With GitHub
+        </Button>
       </Box>
     </Container>
   );
