@@ -22,12 +22,7 @@ def create_job(url: str, country_code: str) -> dict:
         dict: A dictionary containing the response from the 'createJob' endpoint.
     """
     endpoint = "https://gtfs-validator-results.mobilitydata.org/create-job"
-    multipart_data = MultipartEncoder(
-        fields={
-            'url': url,
-            'countryCode': country_code
-        }
-    )
+    multipart_data = MultipartEncoder(fields={"url": url, "countryCode": country_code})
 
     headers = {
         "Content-Type": multipart_data.content_type,
