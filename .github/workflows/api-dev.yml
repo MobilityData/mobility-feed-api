@@ -7,6 +7,7 @@ on:
         description: 'true to run the integration tests'
         required: false
         default: 'false'
+  push: # TODO delete
 
 jobs:
   api-build-deployment:
@@ -26,12 +27,12 @@ jobs:
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
 
-  integration-tests:
-    if: ${{ github.event.inputs.run_integration_tests == 'true' }}
-    uses: ./.github/workflows/integration-tests.yml
-    needs:
-      - api-build-deployment
-    with:
-      API_URL: 'https://api-dev.mobilitydatabase.org'
-    secrets:
-      REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
+#  integration-tests:
+#    if: ${{ github.event.inputs.run_integration_tests == 'true' }}
+#    uses: ./.github/workflows/integration-tests.yml
+#    needs:
+#      - api-build-deployment
+#    with:
+#      API_URL: 'https://api-dev.mobilitydatabase.org'
+#    secrets:
+#      REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}

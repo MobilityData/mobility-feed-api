@@ -4,6 +4,8 @@ import functions_framework
 from cloudevents.http import CloudEvent
 
 from helpers.logger import Logger
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,15 +22,19 @@ def create_job(url: str, country_code: str) -> dict:
         dict: A dictionary containing the response from the 'createJob' endpoint.
     """
     endpoint = "https://gtfs-validator-results.mobilitydata.org/create-job"
-    payload = {
-        "url": url,
-        "countryCode": country_code,
-    }
+    multipart_data = MultipartEncoder(
+        fields={
+            'url': url,
+            'countryCode': country_code
+        }
+    )
+
     headers = {
-        "Content-Type": "application/json",
+        "Content-Type": multipart_data.content_type,
     }
 
-    response = requests.post(endpoint, headers=headers, json=payload)
+    response = requests.post(endpoint, headers=headers, data=multipart_data)
+
     if response.status_code == 200:
         return response.json()
     else:
