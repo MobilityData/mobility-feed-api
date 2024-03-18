@@ -20,6 +20,10 @@ locals {
 
   function_extract_bb_config = jsondecode(file("${path.module}../../../functions-python/extract_bb/function_config.json"))
   function_extract_bb_zip    = "${path.module}/../../functions-python/extract_bb/.dist/extract_bb.zip"
+
+  function_validate_dataset_config = jsondecode(file("${path.module}../../../functions-python/validate_datasets/function_config.json"))
+  function_validate_dataset_zip    = "${path.module}/../../functions-python/validate_datasets/.dist/validate_datasets.zip"
+
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
@@ -50,11 +54,17 @@ resource "google_storage_bucket_object" "function_token_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_tokens_zip
 }
-# 2. Bucket extract bounding box
+# 2. Extract bounding box
 resource "google_storage_bucket_object" "function_extract_bb_zip_object" {
   name   = "bucket-extract-bb-${substr(filebase64sha256(local.function_extract_bb_zip),0,10)}.zip"
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_extract_bb_zip
+}
+# 3. Validate datasets
+resource "google_storage_bucket_object" "function_validate_dataset_zip_object" {
+  name   = "bucket-validate-datasets-${substr(filebase64sha256(local.function_validate_dataset_zip),0,10)}.zip"
+  bucket = google_storage_bucket.functions_bucket.name
+  source = local.function_validate_dataset_zip
 }
 
 # Secrets access
@@ -162,6 +172,55 @@ resource "google_cloudfunctions2_function" "extract_bb" {
         version    = "latest"
       }
     }
+  }
+}
+
+# 3. functions/validate_datasets cloud function
+resource "google_cloudfunctions2_function" "validate_datasets" {
+  name        = local.function_validate_dataset_config.name
+  description = local.function_validate_dataset_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  event_trigger {
+    event_type = "google.cloud.audit.log.v1.written"
+    service_account_email = google_service_account.functions_service_account.email
+    event_filters {
+      attribute = "serviceName"
+      value = "storage.googleapis.com"
+    }
+    event_filters {
+      attribute = "methodName"
+      value = "storage.objects.create"
+    }
+    event_filters {
+      attribute = "resourceName"
+      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
+      operator = "match-path-pattern"
+    }
+  }
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_validate_dataset_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_validate_dataset_zip_object.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_validate_dataset_config.memory
+    timeout_seconds = local.function_validate_dataset_config.timeout
+    available_cpu = local.function_validate_dataset_config.available_cpu
+    max_instance_request_concurrency = local.function_validate_dataset_config.max_instance_request_concurrency
+    max_instance_count = local.function_validate_dataset_config.max_instance_count
+    min_instance_count = local.function_validate_dataset_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_validate_dataset_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
   }
 }
 

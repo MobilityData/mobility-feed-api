@@ -1,0 +1,15 @@
+{
+  "name": "validate-dataset",
+  "description": "Use the GTFS Validator to validate dataset",
+  "entry_point": "validate_dataset",
+  "timeout": 540,
+  "memory": "2Gi",
+  "trigger_http": true,
+  "include_folders": ["database_gen", "helpers"],
+  "secret_environment_variables": [],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 20,
+  "max_instance_count": 10,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}
