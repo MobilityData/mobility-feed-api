@@ -32,7 +32,9 @@ def create_job(url: str, country_code: str) -> dict:
     if response.status_code == 200:
         return response.json()
     else:
-        logging.error(f"Failed to create job. Status code: {response.status_code}, Response: {response.text}")
+        logging.error(
+            f"Failed to create job. Status code: {response.status_code}, Response: {response.text}"
+        )
         return {}
 
 
