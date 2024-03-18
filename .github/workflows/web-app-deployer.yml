@@ -89,7 +89,7 @@ jobs:
           echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
           echo "CYPRESS_EMAIL=${{ secrets.DEV_CYPRESS_EMAIL }}" >> $GITHUB_ENV
           echo "CYPRESS_PWD=${{ secrets.DEV_CYPRESS_PWD }}" >> $GITHUB_ENV
-          echo "REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS=300000" >> $GITHUB_ENV
+          echo "REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS=60000" >> $GITHUB_ENV
 
       - name: Populate Variables
         working-directory: web-app
@@ -173,7 +173,7 @@ jobs:
               echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.QA_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
               echo "REACT_APP_FIREBASE_APP_ID=${{ secrets.QA_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
               echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.QA_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
-              echo "REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS=300000" >> $GITHUB_ENV
+              echo "REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS=60000" >> $GITHUB_ENV
           elif [[ ${{ inputs.FIREBASE_PROJECT }} == 'prod' ]]; then
             echo "Setting FIREBASE_PROJECT to 'prod'"
             echo "FIREBASE_PROJECT=prod" >> $GITHUB_ENV
@@ -195,18 +195,13 @@ jobs:
             echo "REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.DEV_REACT_APP_FIREBASE_MESSAGING_SENDER_ID }}" >> $GITHUB_ENV
             echo "REACT_APP_FIREBASE_APP_ID=${{ secrets.DEV_REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
             echo "REACT_APP_RECAPTCHA_SITE_KEY=${{ secrets.DEV_REACT_APP_RECAPTCHA_SITE_KEY }}" >> $GITHUB_ENV
-            echo "REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS=300000" >> $GITHUB_ENV
+            echo "REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS=60000" >> $GITHUB_ENV
           fi
 
       - name: Populate Variables
         working-directory: web-app
         run: |
           ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS
-
-      - name: cat
-        working-directory: web-app
-        run: |
-          cat src/.env.${{  inputs.FIREBASE_PROJECT }}
 
       - name: Run Install for Functions
         working-directory: functions
