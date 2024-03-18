@@ -45,6 +45,7 @@ import { type UserCredential, getAuth, signInWithPopup } from 'firebase/auth';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
+import { useRemoteConfig } from '../context/RemoteConfigProvider';
 
 export default function SignUp(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
@@ -56,6 +57,10 @@ export default function SignUp(): React.ReactElement {
   const signUpError = useSelector(selectSignUpError);
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const { config } = useRemoteConfig();
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const enableAppleSSO = config.enableAppleSSO as boolean;
 
   const SignUpSchema = Yup.object().shape({
     email: Yup.string()
@@ -371,7 +376,6 @@ export default function SignUp(): React.ReactElement {
             <span>OR</span>
           </p>
         </Box>
-
         <Button
           variant='outlined'
           color='primary'

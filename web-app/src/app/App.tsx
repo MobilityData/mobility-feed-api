@@ -5,20 +5,23 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import { BrowserRouter } from 'react-router-dom';
 import AppSpinner from './components/AppSpinner';
+import { RemoteConfigProvider } from './context/RemoteConfigProvider';
 
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
   return (
     <ContextProviders>
-      <div id='app-main-container'>
-        <AppSpinner>
-          <BrowserRouter>
-            <Header />
-            <AppRouter />
-          </BrowserRouter>
-        </AppSpinner>
-        <Footer />
-      </div>
+      <RemoteConfigProvider>
+        <div id='app-main-container'>
+          <AppSpinner>
+            <BrowserRouter>
+              <Header />
+              <AppRouter />
+            </BrowserRouter>
+          </AppSpinner>
+          <Footer />
+        </div>
+      </RemoteConfigProvider>
     </ContextProviders>
   );
 }

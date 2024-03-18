@@ -48,7 +48,6 @@ export default function SignIn(): React.ReactElement {
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showNoEmailSnackbar, setShowNoEmailSnackbar] = React.useState(false);
-
   const SignInSchema = Yup.object().shape({
     email: Yup.string()
       .email('Email format is invalid.')
@@ -282,7 +281,7 @@ export default function SignIn(): React.ReactElement {
             signInWithProvider(OauthProvider.Github);
           }}
         >
-          Sign In With GitHub
+          Sign In With Github
         </Button>
       </Box>
     </Container>
