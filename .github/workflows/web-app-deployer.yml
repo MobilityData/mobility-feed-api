@@ -94,7 +94,7 @@ jobs:
       - name: Populate Variables
         working-directory: web-app
         run: |
-          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.test -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.test -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS
           ../scripts/replace-variables.sh -in_file cypress.env.json.rename_me -out_file cypress.env.json -variables CYPRESS_EMAIL,CYPRESS_PWD
 
       - name: Cypress test
@@ -201,7 +201,7 @@ jobs:
       - name: Populate Variables
         working-directory: web-app
         run: |
-          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID
+          ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLIS
 
       - name: Run Install for Functions
         working-directory: functions
