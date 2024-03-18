@@ -1,11 +1,39 @@
 import logging
-
+import requests
 import functions_framework
 from cloudevents.http import CloudEvent
 
 from helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
+
+
+def create_job(url: str, country_code: str) -> dict:
+    """
+    Calls the 'createJob' API endpoint to initiate a validation job with the provided URL and country code.
+
+    Args:
+        url (str): The URL of the GTFS ZIP file to be validated.
+        country_code (str): The country code associated with the GTFS dataset.
+
+    Returns:
+        dict: A dictionary containing the response from the 'createJob' endpoint.
+    """
+    endpoint = "https://gtfs-validator-results.mobilitydata.org/createJob"
+    payload = {
+        "url": url,
+        "countryCode": country_code,
+    }
+    headers = {
+        "Content-Type": "application/json",
+    }
+
+    response = requests.post(endpoint, headers=headers, json=payload)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        logging.error(f"Failed to create job. Status code: {response.status_code}, Response: {response.text}")
+        return {}
 
 
 def parse_resource_data(data: dict) -> tuple:
@@ -36,5 +64,10 @@ def validate_dataset(cloud_event: CloudEvent) -> None:
     stable_id, dataset_id, url = parse_resource_data(data)
     logging.info(f"[{dataset_id}] accessing url: {url}")
 
-    # TODO run validation process
+    job_info = create_job(url, "CA")
+    if job_info:
+        logging.info(f"Job created successfully: {job_info}")
+    #     TODO: wait for file creation
+    else:
+        logging.error("Failed to create job or process response.")
     logging.info(f"[{stable_id} - {dataset_id}] Validation process completed.")
