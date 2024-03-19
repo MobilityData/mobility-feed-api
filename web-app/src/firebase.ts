@@ -1,4 +1,5 @@
 import firebase from 'firebase/compat/app';
+import 'firebase/compat/remote-config';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -10,3 +11,7 @@ const firebaseConfig = {
 };
 
 export const app = firebase.initializeApp(firebaseConfig);
+export const remoteConfig = firebase.remoteConfig();
+remoteConfig.settings.minimumFetchIntervalMillis = Number(
+  process.env.REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI ?? 3600000, // default to 12 hours
+);
