@@ -18,7 +18,7 @@ export const navigationItems: NavigationItem[] = [
   { title: 'About', target: 'about', color: 'inherit', variant: 'text' },
   { title: 'FAQ', target: 'faq', color: 'inherit', variant: 'text' },
   {
-    title: 'Contribute',
+    title: 'Add a Feed',
     target: 'contribute',
     color: 'inherit',
     variant: 'text',
