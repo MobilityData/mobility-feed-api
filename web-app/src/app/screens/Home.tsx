@@ -72,8 +72,8 @@ export default function Home(): React.ReactElement {
           sx={{ textAlign: 'center', color: 'black', fontWeight: 700, mt: 5 }}
         >
           Currently serving data from over{' '}
-          <span style={{ color: '#3859FA' }}>1400</span> transit providers in{' '}
-          <span style={{ color: '#3859FA' }}>69</span> countries.
+          <span style={{ color: '#3859FA' }}>2000</span> GTFS feeds in{' '}
+          <span style={{ color: '#3859FA' }}>70</span> countries.
         </Typography>
         <Box
           sx={{
