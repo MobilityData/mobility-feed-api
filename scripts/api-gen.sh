@@ -18,7 +18,7 @@ OPENAPI_SCHEMA_IAP=$SCRIPT_PATH/../docs/DatabaseCatalogAPI_IAP.yaml
 OUTPUT_PATH=$SCRIPT_PATH/../api
 CONFIG_FILE=$SCRIPT_PATH/gen-config.yaml
 
-sed 's%$ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"%$ref: "./IAPAuthenticationSchema.yaml#/components/securitySchemes/Authentication"%g' $OPENAPI_SCHEMA > $OPENAPI_SCHEMA_IAP
+sed 's%$ref: "./BearerTokenSchema.yaml#/features/securitySchemes/Authentication"%$ref: "./IAPAuthenticationSchema.yaml#/features/securitySchemes/Authentication"%g' $OPENAPI_SCHEMA > $OPENAPI_SCHEMA_IAP
 
 OPENAPI_GENERATOR_VERSION=$GENERATOR_VERSION $SCRIPT_PATH/bin/openapitools/openapi-generator-cli generate -g python-fastapi -i $OPENAPI_SCHEMA_IAP  -o $OUTPUT_PATH -c $CONFIG_FILE
 
