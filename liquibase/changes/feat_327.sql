@@ -1,4 +1,3 @@
---validCheckSum: 1:any
 ALTER TABLE component
   RENAME TO feature;
 ALTER TABLE componentgtfsdataset
