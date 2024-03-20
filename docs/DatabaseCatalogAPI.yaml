@@ -4,7 +4,7 @@ info:
   title: Mobility Database Catalog
   description: |
     API for the Mobility Database Catalog. See [https://mobilitydatabase.org/](https://mobilitydatabase.org/).
-    
+
     The Mobility Database API uses OAuth2 authentication.
     To initiate a successful API request, an access token must be included as a bearer token in the HTTP header. Access tokens are valid for one hour. To obtain an access token, you&apos;ll first need a refresh token, which is long-lived and does not expire.
   termsOfService: https://mobilitydatabase.org/terms-and-conditions
@@ -42,14 +42,14 @@ paths:
         - "feeds"
       operationId: getFeeds
       parameters:
-        - $ref: "#/components/parameters/limit_query_param"
-        - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/status"
-        - $ref: "#/components/parameters/provider"
-        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/features/parameters/limit_query_param"
+        - $ref: "#/features/parameters/offset"
+        - $ref: "#/features/parameters/status"
+        - $ref: "#/features/parameters/provider"
+        - $ref: "#/features/parameters/producer_url"
 
       security:
-        - Authentication: [ ]
+        - Authentication: []
       responses:
         200:
           description: >
@@ -58,11 +58,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BasicFeeds"
+                $ref: "#/features/schemas/BasicFeeds"
 
   /v1/feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feed_id_path_param"
+      - $ref: "#/features/parameters/feed_id_path_param"
     get:
       description: Get the specified feed from the Mobility Database.
       tags:
@@ -78,7 +78,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BasicFeed"
+                $ref: "#/features/schemas/BasicFeed"
 
   /v1/gtfs_feeds:
     get:
@@ -87,16 +87,16 @@ paths:
         - "feeds"
       operationId: getGtfsFeeds
       parameters:
-        - $ref: "#/components/parameters/limit_query_param"
-        - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/provider"
-        - $ref: "#/components/parameters/producer_url"
-        - $ref: "#/components/parameters/country_code"
-        - $ref: "#/components/parameters/subdivision_name"
-        - $ref: "#/components/parameters/municipality"
-        - $ref: "#/components/parameters/dataset_latitudes"
-        - $ref: "#/components/parameters/dataset_longitudes"
-        - $ref: "#/components/parameters/bounding_filter_method"
+        - $ref: "#/features/parameters/limit_query_param"
+        - $ref: "#/features/parameters/offset"
+        - $ref: "#/features/parameters/provider"
+        - $ref: "#/features/parameters/producer_url"
+        - $ref: "#/features/parameters/country_code"
+        - $ref: "#/features/parameters/subdivision_name"
+        - $ref: "#/features/parameters/municipality"
+        - $ref: "#/features/parameters/dataset_latitudes"
+        - $ref: "#/features/parameters/dataset_longitudes"
+        - $ref: "#/features/parameters/bounding_filter_method"
 
       security:
         - Authentication: []
@@ -106,7 +106,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GtfsFeeds"
+                $ref: "#/features/schemas/GtfsFeeds"
 
   /v1/gtfs_rt_feeds:
     get:
@@ -115,11 +115,11 @@ paths:
         - "feeds"
       operationId: getGtfsRtFeeds
       parameters:
-        - $ref: "#/components/parameters/limit_query_param"
-        - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/provider"
-        - $ref: "#/components/parameters/producer_url"
-        - $ref: "#/components/parameters/entity_types"
+        - $ref: "#/features/parameters/limit_query_param"
+        - $ref: "#/features/parameters/offset"
+        - $ref: "#/features/parameters/provider"
+        - $ref: "#/features/parameters/producer_url"
+        - $ref: "#/features/parameters/entity_types"
       security:
         - Authentication: []
       responses:
@@ -128,11 +128,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GtfsRTFeeds"
+                $ref: "#/features/schemas/GtfsRTFeeds"
 
   /v1/gtfs_feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feed_id_path_param"
+      - $ref: "#/features/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS feed from the Mobility Database.
       tags:
@@ -147,11 +147,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GtfsFeed"
+                $ref: "#/features/schemas/GtfsFeed"
 
   /v1/gtfs_rt_feeds/{id}:
     parameters:
-      - $ref: "#/components/parameters/feed_id_path_param"
+      - $ref: "#/features/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS Realtime feed from the Mobility Database.
       tags:
@@ -166,32 +166,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GtfsRTFeed"
+                $ref: "#/features/schemas/GtfsRTFeed"
 
   /v1/gtfs_feeds/{id}/datasets:
     parameters:
-      - $ref: "#/components/parameters/feed_id_of_datasets_path_param"
+      - $ref: "#/features/parameters/feed_id_of_datasets_path_param"
     get:
       description: Get a list of datasets related to a GTFS feed.
       tags:
         - "feeds"
       operationId: getGtfsFeedDatasets
       parameters:
-        - $ref: "#/components/parameters/latest_query_param"
-        - $ref: "#/components/parameters/limit_query_param"
-        - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/downloaded_after"
-        - $ref: "#/components/parameters/downloaded_before"
+        - $ref: "#/features/parameters/latest_query_param"
+        - $ref: "#/features/parameters/limit_query_param"
+        - $ref: "#/features/parameters/offset"
+        - $ref: "#/features/parameters/downloaded_after"
+        - $ref: "#/features/parameters/downloaded_before"
 
       security:
-        -  Authentication: []
+        - Authentication: []
       responses:
         200:
           description: Successful pull of the requested datasets.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GtfsDatasets"
+                $ref: "#/features/schemas/GtfsDatasets"
 
   /v1/datasets/gtfs/{id}:
     get:
@@ -200,7 +200,7 @@ paths:
         - "datasets"
       operationId: getDatasetGtfs
       parameters:
-        - $ref: "#/components/parameters/dataset_id_path_param"
+        - $ref: "#/features/parameters/dataset_id_path_param"
       security:
         - Authentication: []
       responses:
@@ -209,7 +209,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GtfsDataset"
+                $ref: "#/features/schemas/GtfsDataset"
 
   /v1/metadata:
     get:
@@ -226,9 +226,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Metadata"
+                $ref: "#/features/schemas/Metadata"
 
-components:
+features:
   schemas:
     Redirect:
       type: object
@@ -254,8 +254,8 @@ components:
             - gtfs
             - gtfs_rt
           example: gtfs
-#    Have to put the enum inline because of a bug in openapi-generator
-#          $ref: "#/components/schemas/DataType"
+        #    Have to put the enum inline because of a bug in openapi-generator
+        #          $ref: "#/features/schemas/DataType"
         status:
           description: >
             Describes status of the Feed. Should be one of 
@@ -270,11 +270,11 @@ components:
             - inactive
             - development
           example: deprecated
-#           Have to put the enum inline because of a bug in openapi-generator
-#          $ref: "#/components/schemas/FeedStatus"
+        #           Have to put the enum inline because of a bug in openapi-generator
+        #          $ref: "#/features/schemas/FeedStatus"
 
         external_ids:
-          $ref: "#/components/schemas/ExternalIds"
+          $ref: "#/features/schemas/ExternalIds"
         provider:
           description: A commonly used name for the transit provider included in the feed.
           type: string
@@ -286,34 +286,34 @@ components:
           type: string
           example: Bus
         note:
-         description: A note to clarify complex use cases for consumers.
-         type: string
+          description: A note to clarify complex use cases for consumers.
+          type: string
         feed_contact_email:
           description: Use to contact the feed producer.
           type: string
           example: someEmail@ladotbus.com
         source_info:
-          $ref: "#/components/schemas/SourceInfo"
+          $ref: "#/features/schemas/SourceInfo"
         redirects:
           type: array
           items:
-            $ref: "#/components/schemas/Redirect"
+            $ref: "#/features/schemas/Redirect"
 
     GtfsFeed:
       allOf:
-        - $ref: "#/components/schemas/BasicFeed"
+        - $ref: "#/features/schemas/BasicFeed"
         - type: object
           properties:
             locations:
-              $ref: "#/components/schemas/Locations"
+              $ref: "#/features/schemas/Locations"
         - type: object
           properties:
             latest_dataset:
-              $ref: "#/components/schemas/LatestDataset"
+              $ref: "#/features/schemas/LatestDataset"
 
     GtfsRTFeed:
       allOf:
-        - $ref: "#/components/schemas/BasicFeed"
+        - $ref: "#/features/schemas/BasicFeed"
         - type: object
           properties:
             entity_types:
@@ -330,11 +330,10 @@ components:
                     * vp - vehicle positions
                     * tu - trip updates
                     * sa - service alerts
-#              Have to put the enum inline because of a bug in openapi-generator
-#              $ref: "#/components/schemas/EntityTypes"
+            #              Have to put the enum inline because of a bug in openapi-generator
+            #              $ref: "#/features/schemas/EntityTypes"
             feed_references:
-              description:
-                A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+              description: A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
               type: array
               items:
                 type: string
@@ -343,17 +342,17 @@ components:
     BasicFeeds:
       type: array
       items:
-        $ref: "#/components/schemas/BasicFeed"
+        $ref: "#/features/schemas/BasicFeed"
 
     GtfsFeeds:
       type: array
       items:
-        $ref: "#/components/schemas/GtfsFeed"
+        $ref: "#/features/schemas/GtfsFeed"
 
     GtfsRTFeeds:
       type: array
       items:
-        $ref: "#/components/schemas/GtfsRTFeed"
+        $ref: "#/features/schemas/GtfsRTFeed"
 
     LatestDataset:
       type: object
@@ -371,7 +370,7 @@ components:
           format: url
           example: https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1210/mdb-1210-202402121801/mdb-1210-202402121801.zip
         bounding_box:
-          $ref: "#/components/schemas/BoundingBox"
+          $ref: "#/features/schemas/BoundingBox"
         downloaded_at:
           description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
           type: string
@@ -382,29 +381,29 @@ components:
           type: string
           example: ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
 
-#    Have to put the enum inline because of a bug in openapi-generator
-#    EntityTypes:
-#      type: array
-#      items:
-#        $ref: "#/components/schemas/EntityType"
+    #    Have to put the enum inline because of a bug in openapi-generator
+    #    EntityTypes:
+    #      type: array
+    #      items:
+    #        $ref: "#/features/schemas/EntityType"
 
-#    EntityType:
-#      type: string
-#      enum:
-#        - vp
-#        - tu
-#        - sa
-#      example: vp
-#      description: >
-#        The type of realtime entry:
-#          * vp - vehicle positions
-#          * tu - trip updates
-#          * sa - service alerts
+    #    EntityType:
+    #      type: string
+    #      enum:
+    #        - vp
+    #        - tu
+    #        - sa
+    #      example: vp
+    #      description: >
+    #        The type of realtime entry:
+    #          * vp - vehicle positions
+    #          * tu - trip updates
+    #          * sa - service alerts
 
     ExternalIds:
       type: array
       items:
-        $ref: "#/components/schemas/ExternalId"
+        $ref: "#/features/schemas/ExternalId"
 
     ExternalId:
       type: object
@@ -463,7 +462,7 @@ components:
     Locations:
       type: array
       items:
-        $ref: "#/components/schemas/Location"
+        $ref: "#/features/schemas/Location"
 
     Location:
       type: object
@@ -485,21 +484,21 @@ components:
           type: string
           example: Los Angeles
 
-#    Have to put the enum inline because of a bug in openapi-generator
-#    FeedStatus:
-#      description: >
-#        Describes status of the Feed. Should be one of
-#          * `active` Feed should be used in public trip planners.
-#          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-#          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-#          * `development` Feed is being used for development purposes and should not be used in public trip planners.
-#      type: string
-#      enum:
-#        - active
-#        - deprecated
-#        - inactive
-#        - development
-#      example: active
+    #    Have to put the enum inline because of a bug in openapi-generator
+    #    FeedStatus:
+    #      description: >
+    #        Describes status of the Feed. Should be one of
+    #          * `active` Feed should be used in public trip planners.
+    #          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+    #          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+    #          * `development` Feed is being used for development purposes and should not be used in public trip planners.
+    #      type: string
+    #      enum:
+    #        - active
+    #        - deprecated
+    #        - inactive
+    #        - development
+    #      example: active
 
     BasicDataset:
       type: object
@@ -515,7 +514,7 @@ components:
 
     GtfsDataset:
       allOf:
-        - $ref: "#/components/schemas/BasicDataset"
+        - $ref: "#/features/schemas/BasicDataset"
         - type: object
           properties:
             hosted_url:
@@ -535,9 +534,9 @@ components:
               type: string
               example: 6497e85e34390b8b377130881f2f10ec29c18a80dd6005d504a2038cdd00aa71
             bounding_box:
-              $ref: "#/components/schemas/BoundingBox"
+              $ref: "#/features/schemas/BoundingBox"
             validation_report:
-              $ref: "#/components/schemas/ValidationReport"
+              $ref: "#/features/schemas/ValidationReport"
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
@@ -563,7 +562,7 @@ components:
     GtfsDatasets:
       type: array
       items:
-        $ref: "#/components/schemas/GtfsDataset"
+        $ref: "#/features/schemas/GtfsDataset"
 
     Metadata:
       type: object
@@ -584,8 +583,8 @@ components:
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
-        components:
-          description: An array of components for this dataset.
+        features:
+          description: An array of features for this dataset.
           type: array
           items:
             type: string
@@ -621,15 +620,14 @@ components:
           description: JSON validation system errors URL
           example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-system-errors-4_2_0.json
 
-#    Have to put the enum inline because of a bug in openapi-generator
-#    DataType:
-#      type: string
-#      enum:
-#        - gtfs
-#        - gtfs_rt
-#      example: gtfs
+  #    Have to put the enum inline because of a bug in openapi-generator
+  #    DataType:
+  #      type: string
+  #      enum:
+  #        - gtfs
+  #        - gtfs_rt
+  #      example: gtfs
   parameters:
-
     status:
       name: status
       in: query
@@ -710,9 +708,9 @@ components:
       name: dataset_latitudes
       in: query
       description: >
-       Specify the minimum and maximum latitudes of the bounding box to use for filtering.
-        <br>Filters by the bounding box of the `LatestDataset` for a feed.
-        <br>Must be specified alongside `dataset_longitudes`.
+        Specify the minimum and maximum latitudes of the bounding box to use for filtering.
+         <br>Filters by the bounding box of the `LatestDataset` for a feed.
+         <br>Must be specified alongside `dataset_longitudes`.
       required: False
       schema:
         type: string
@@ -806,7 +804,7 @@ components:
 
   securitySchemes:
     Authentication:
-      $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
+      $ref: "./BearerTokenSchema.yaml#/features/securitySchemes/Authentication"
 
 security:
   - Authentication: []
