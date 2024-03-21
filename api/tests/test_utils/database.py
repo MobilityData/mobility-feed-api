@@ -18,8 +18,7 @@ from database_gen.sqlacodegen_models import (
 TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
 TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
-TEST_EXTERNAL_IDS = ["external_id_1",
-                     "external_id_2", "external_id_3", "external_id_4"]
+TEST_EXTERNAL_IDS = ["external_id_1", "external_id_2", "external_id_3", "external_id_4"]
 OLD_VALIDATION_VERSION = "1.0.0"
 OLD_VALIDATION_TIME = datetime.utcnow() - timedelta(hours=1)
 NEW_VALIDATION_VERSION = "2.0.0"
@@ -35,16 +34,13 @@ FEATURE_IDS = [generate_unique_id() for _ in range(3)]
 date_string: Final[str] = "2024-01-31 00:00:00"
 date_format: Final[str] = "%Y-%m-%d %H:%M:%S"
 one_day: Final[timedelta] = timedelta(days=1)
-datasets_download_first_date: Final[datetime] = datetime.strptime(
-    date_string, date_format)
+datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, date_format)
 
 
 @contextlib.contextmanager
 def populate_database(db: Database):
-    gtfs_feed_ids = [generate_unique_id()
-                     for _ in range(len(TEST_GTFS_FEED_STABLE_IDS))]
-    dataset_ids = [generate_unique_id()
-                   for _ in range(len(TEST_DATASET_STABLE_IDS))]
+    gtfs_feed_ids = [generate_unique_id() for _ in range(len(TEST_GTFS_FEED_STABLE_IDS))]
+    dataset_ids = [generate_unique_id() for _ in range(len(TEST_DATASET_STABLE_IDS))]
     gtfs_rt_feed_id = generate_unique_id()
 
     try:
@@ -89,11 +85,9 @@ def populate_database(db: Database):
                     feed_id=gtfs_feed_ids[idx // 2],
                     latest=idx % 2 == 1,
                     bounding_box=WKTElement(polygon, srid=4326),
-                    validation_reports=[
-                        old_validation_report, new_validation_report],
+                    validation_reports=[old_validation_report, new_validation_report],
                     # This makes downloaded_at predictable and unique for each dataset
-                    downloaded_at=(
-                        datasets_download_first_date + idx * one_day),
+                    downloaded_at=(datasets_download_first_date + idx * one_day),
                 ),
                 auto_commit=True,
             )
@@ -131,8 +125,7 @@ def populate_database(db: Database):
                 )
             for feature_id in FEATURE_IDS:
                 db.session.execute(
-                    f"INSERT INTO featuregtfsdataset (feature, dataset_id) "
-                    f"VALUES ('{feature_id}', '{dataset_id}')"
+                    f"INSERT INTO featuregtfsdataset (feature, dataset_id) " f"VALUES ('{feature_id}', '{dataset_id}')"
                 )
 
         for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
@@ -160,26 +153,19 @@ def populate_database(db: Database):
     finally:
         # clean up the testing data regardless of the test result
         for dataset_id in dataset_ids:
-            db.session.execute(
-                f"DELETE FROM featuregtfsdataset where dataset_id = '{dataset_id}'")
-            db.session.execute(
-                f"DELETE FROM notice where dataset_id ='{dataset_id}'")
-            db.session.execute(
-                f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'")
-            db.session.execute(
-                f"DELETE FROM gtfsdataset where id ='{dataset_id}'")
+            db.session.execute(f"DELETE FROM featuregtfsdataset where dataset_id = '{dataset_id}'")
+            db.session.execute(f"DELETE FROM notice where dataset_id ='{dataset_id}'")
+            db.session.execute(f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'")
+            db.session.execute(f"DELETE FROM gtfsdataset where id ='{dataset_id}'")
         for external_id in TEST_EXTERNAL_IDS:
-            db.session.execute(
-                f"DELETE FROM externalid where associated_id = '{external_id}'")
+            db.session.execute(f"DELETE FROM externalid where associated_id = '{external_id}'")
         for gtfs_feed_id in gtfs_feed_ids:
             db.session.execute(
                 f"DELETE from redirectingid where " f"source_id = '{gtfs_feed_id}' OR target_id = '{gtfs_feed_id}'"
             )
-            db.session.execute(
-                f"DELETE FROM gtfsfeed where id = '{gtfs_feed_id}'")
+            db.session.execute(f"DELETE FROM gtfsfeed where id = '{gtfs_feed_id}'")
 
-        db.session.execute(
-            f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'")
+        db.session.execute(f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'")
         for feed_id in [*gtfs_feed_ids, gtfs_rt_feed_id]:
             db.session.execute(f"DELETE FROM feed where id = '{feed_id}'")
         db.session.execute(

@@ -39,8 +39,7 @@ def test_bounding_box_dateset_exists(test_database):
 
 
 def assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database):
-    query = DatasetsApiImpl.apply_bounding_filtering(
-        BASE_QUERY, latitudes, longitudes, method)
+    query = DatasetsApiImpl.apply_bounding_filtering(BASE_QUERY, latitudes, longitudes, method)
     result = test_database.select(query=query)
     assert (len(result) > 0) is expected_found
 
@@ -60,8 +59,7 @@ def assert_bounding_box_found(latitudes, longitudes, method, expected_found, tes
     ],
 )
 def test_bounding_box_completed_closed(latitudes, longitudes, method, expected_found, test_database):
-    assert_bounding_box_found(latitudes, longitudes,
-                              method, expected_found, test_database)
+    assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database)
 
 
 @pytest.mark.parametrize(
@@ -82,8 +80,7 @@ def test_bounding_box_completed_closed(latitudes, longitudes, method, expected_f
     ],
 )
 def test_bounding_box_partial_closed(latitudes, longitudes, method, expected_found, test_database):
-    assert_bounding_box_found(latitudes, longitudes,
-                              method, expected_found, test_database)
+    assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database)
 
 
 @pytest.mark.parametrize(
@@ -96,8 +93,7 @@ def test_bounding_box_partial_closed(latitudes, longitudes, method, expected_fou
     ],
 )
 def test_bounding_box_disjoint(latitudes, longitudes, method, expected_found, test_database):
-    assert_bounding_box_found(latitudes, longitudes,
-                              method, expected_found, test_database)
+    assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database)
 
 
 def test_merge_gtfs_feed(test_database):
@@ -113,8 +109,7 @@ def test_merge_gtfs_feed(test_database):
     assert feed_1 is not None
 
     assert feed_1.latest_dataset.id == TEST_DATASET_STABLE_IDS[1]
-    assert sorted([redirect.target_id for redirect in feed_1.redirects]) == [
-        TEST_GTFS_FEED_STABLE_IDS[1]]
+    assert sorted([redirect.target_id for redirect in feed_1.redirects]) == [TEST_GTFS_FEED_STABLE_IDS[1]]
 
     assert feed_2 is not None
 
@@ -131,14 +126,10 @@ def test_validation_report(test_database):
     validation_report = result.validation_report
     assert validation_report is not None
     assert validation_report.validator_version == NEW_VALIDATION_VERSION
-    assert validation_report.validated_at == NEW_VALIDATION_TIME.strftime(
-        DATETIME_FORMAT)
-    assert validation_report.total_info == VALIDATION_INFO_COUNT_PER_NOTICE * \
-        VALIDATION_INFO_NOTICES
-    assert validation_report.total_warning == VALIDATION_WARNING_COUNT_PER_NOTICE * \
-        VALIDATION_WARNING_NOTICES
-    assert validation_report.total_error == VALIDATION_ERROR_COUNT_PER_NOTICE * \
-        VALIDATION_ERROR_NOTICES
+    assert validation_report.validated_at == NEW_VALIDATION_TIME.strftime(DATETIME_FORMAT)
+    assert validation_report.total_info == VALIDATION_INFO_COUNT_PER_NOTICE * VALIDATION_INFO_NOTICES
+    assert validation_report.total_warning == VALIDATION_WARNING_COUNT_PER_NOTICE * VALIDATION_WARNING_NOTICES
+    assert validation_report.total_error == VALIDATION_ERROR_COUNT_PER_NOTICE * VALIDATION_ERROR_NOTICES
     assert validation_report.features == sorted(FEATURE_IDS)
 
 
@@ -162,8 +153,7 @@ def test_insert_and_select():
     feature_name = fake.name()
     new_feature = Feature(name=feature_name)
     db.merge(new_feature, auto_commit=True)
-    retrieved_features = db.select(
-        Feature, conditions=[Feature.name == feature_name])
+    retrieved_features = db.select(Feature, conditions=[Feature.name == feature_name])
     assert len(retrieved_features) == 1
     assert retrieved_features[0][0].name == feature_name
 
@@ -184,8 +174,7 @@ def test_select_from_active_session_success():
 
     # The active session should have one instance of the feature
     conditions = [Feature.name == feature_name]
-    selected_features = db.select_from_active_session(
-        Feature, conditions=conditions, attributes=["name"])
+    selected_features = db.select_from_active_session(Feature, conditions=conditions, attributes=["name"])
     all_features = db.select(Feature)
     assert len(all_features) >= 1
     assert len(selected_features) == 1
@@ -194,8 +183,7 @@ def test_select_from_active_session_success():
     db.session.rollback()
 
     # The database should have no instance of the feature
-    retrieved_features = db.select(
-        Feature, conditions=[Feature.name == feature_name])
+    retrieved_features = db.select(Feature, conditions=[Feature.name == feature_name])
     assert len(retrieved_features) == 0
 
 
@@ -225,8 +213,7 @@ def test_merge_relationship_w_uncommitted_changed():
         )
 
         # Retrieve the feature and check if the GtfsDataset was added
-        retrieved_feature = db.select_from_active_session(
-            Feature, conditions=[Feature.name == feature_name])[0]
+        retrieved_feature = db.select_from_active_session(Feature, conditions=[Feature.name == feature_name])[0]
         dataset_ids = [dataset.id for dataset in retrieved_feature.datasets]
         assert gtfs_dataset_id in dataset_ids
     except Exception as e:
@@ -243,8 +230,7 @@ def test_merge_with_update_session():
     new_feature = Feature(name=feature_name)
 
     with patch.object(db.session, "merge", side_effect=SQLAlchemyError("Mocked merge failure")):
-        result = db.merge(new_feature, update_session=True,
-                          auto_commit=False, load=True)
+        result = db.merge(new_feature, update_session=True, auto_commit=False, load=True)
         assert result is False, "Expected merge to fail and return False"
 
 

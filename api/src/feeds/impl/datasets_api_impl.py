@@ -68,8 +68,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
         max_vr = aliased(Validationreport)
 
         max_validator_version_subquery = (
-            select(vrgd.c.dataset_id, func.max(
-                max_vr.validator_version).label("max_validator_version"))
+            select(vrgd.c.dataset_id, func.max(max_vr.validator_version).label("max_validator_version"))
             .join(max_vr, max_vr.id == vrgd.c.validation_report_id)
             .group_by(vrgd.c.dataset_id)
             .alias("max_versions")
@@ -106,8 +105,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             len(bounding_latitudes_tokens := bounding_latitudes.split(",")) != 2
             or len(bounding_longitudes_tokens := bounding_longitudes.split(",")) != 2
         ):
-            raise_http_validation_error(invalid_bounding_coordinates.format(
-                bounding_latitudes, bounding_longitudes))
+            raise_http_validation_error(invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes))
         min_latitude, max_latitude = bounding_latitudes_tokens
         min_longitude, max_longitude = bounding_longitudes_tokens
         try:
@@ -116,8 +114,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             min_longitude = float(min_longitude)
             max_longitude = float(max_longitude)
         except ValueError:
-            raise_http_validation_error(invalid_bounding_coordinates.format(
-                bounding_latitudes, bounding_longitudes))
+            raise_http_validation_error(invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes))
         points = [
             (min_longitude, min_latitude),
             (min_longitude, max_latitude),
@@ -143,8 +140,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
         elif bounding_filter_method == "disjoint":
             return query.filter(Gtfsdataset.bounding_box.ST_Disjoint(bounding_box))
         else:
-            raise_http_validation_error(
-                invalid_bounding_method.format(bounding_filter_method))
+            raise_http_validation_error(invalid_bounding_method.format(bounding_filter_method))
 
     @staticmethod
     def get_datasets_gtfs(query: Query, limit: int = None, offset: int = None) -> List[GtfsDataset]:
@@ -160,17 +156,14 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
         gtfs_datasets = []
         for dataset_group in dataset_groups:
-            dataset_objects, features, bound_box_strings, feed_ids = zip(
-                *dataset_group)
+            dataset_objects, features, bound_box_strings, feed_ids = zip(*dataset_group)
             database_gtfs_dataset = dataset_objects[0]
-            notices_for_dataset = [
-                notice for notice in notices if notice.dataset_id == database_gtfs_dataset.id]
+            notices_for_dataset = [notice for notice in notices if notice.dataset_id == database_gtfs_dataset.id]
 
             validator_report = None
             if notices_for_dataset:
                 validator_report = ValidationReport(
-                    features=sorted(
-                        [feature for feature in features if feature is not None])
+                    features=sorted([feature for feature in features if feature is not None])
                 )
                 database_validator_report = notices_for_dataset[0].validation_report
                 validator_report.total_info = sum(
@@ -183,8 +176,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
                     [notice.total_notices for notice in notices_for_dataset if notice.severity == "ERROR"]
                 )
                 validator_report.validated_at = (
-                    database_validator_report.validated_at.strftime(
-                        DATETIME_FORMAT)
+                    database_validator_report.validated_at.strftime(DATETIME_FORMAT)
                     if database_validator_report.validated_at
                     else None
                 )
