@@ -46,7 +46,6 @@ main:
       - successCreatingJob:
           assign:
               - jobID: ${response.body.jobId}
-          next: waitForExecutionResultCreation
       - logJobID:
           call: sys.log
           args:
@@ -68,7 +67,7 @@ main:
                           url: ${"https://gtfs-validator-results.mobilitydata.org/" + jobID + "/execution_result.json"}
                         result: executionResultResponse
                     - validateStatus:
-                        next: checkExecutionResultStatus
+                        next: logExecutionResult
                 except:
                   as: e
                   steps:
