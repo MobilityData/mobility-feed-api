@@ -83,47 +83,93 @@ main:
                     next: incrementCounter
                 next: fileExistenceTimeout
             - incrementCounter:
-                assign:
-                  - counter: ${counter + 1}
+                steps:
+                  - applyIncrementCounter:
+                      assign:
+                        - counter: ${counter + 1}
+                  - logIncrementCounter:
+                      call: sys.log
+                      args:
+                          text: ${"File not found after " + counter + " try. Delaying retry for 10 seconds..."}
+                          severity: INFO
             - wait:
                 call: sys.sleep
                 args:
                   seconds: 10
                 next: checkFileExistence
       - logExecutionResult:
+          steps:
+          - logExecutionResultMessage:
+              call: sys.log
+              args:
+                  text: 'Execution results:'
+                  severity: INFO
+          - logExecutionResultBody:
+              call: sys.log
+              args:
+                  text: ${executionResultResponse.body}
+                  severity: INFO
+      - checkExecutionResultStatus:
+          steps:
+            - getExecutionStatus:
+                assign:
+                  - isReportGenerated: ${executionResultResponse.body.status == "success"}
+            - validateExecutionStatus:
+                switch:
+                  - condition: ${isReportGenerated}
+                    next: htmlReport
+                next: errorReportGeneration
+      - errorReportGeneration:
+          steps:
+            - logErrorReportGeneration:
+                call: sys.log
+                args:
+                    text: 'Error generating report'
+                    severity: ERROR
+            - returnErrorReportGeneration:
+                return: "Error generating report"
+      - htmlReport:
+          call: googleapis.storage.v1.objects.copy
+          args:
+            destinationBucket: ${datasetsBucket}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.html"}
+            sourceBucket: ${reportsBucket}
+            sourceObject: ${jobID + "%2Freport.html"}
+            destinationPredefinedAcl: publicRead
+      - logHTMLReportCopied:
           call: sys.log
           args:
-              text: '${"executionResultResponse: " + executionResultResponse.body}'
+              text: ${"HTML report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report.html"}
               severity: INFO
-      - checkExecutionResultStatus:
-          assign:
-            - isReportGenerated: ${executionResultResponse.body.status == "success"}
-      - htmlReport:
-          switch:
-            - condition: ${isReportGenerated}
-              steps:
-                - copyHTMLReport:
-                    call: googleapis.storage.v1.objects.copy
-                    args:
-                      destinationBucket: ${datasetsBucket}
-                      destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.html"}
-                      sourceBucket: ${reportsBucket}
-                      sourceObject: ${jobID + "%2Freport.html"}
-                      destinationPredefinedAcl: publicRead
       - jsonReport:
-          switch:
-            - condition: ${isReportGenerated}
-              steps:
-                - copyJSONReport:
-                    call: googleapis.storage.v1.objects.copy
-                    args:
-                      destinationBucket: ${datasetsBucket}
-                      destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.json"}
-                      sourceBucket: ${reportsBucket}
-                      sourceObject: ${jobID + "%2Freport.json"}
-                      destinationPredefinedAcl: publicRead
-          next: exit
+          call: googleapis.storage.v1.objects.copy
+          args:
+            destinationBucket: ${datasetsBucket}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.json"}
+            sourceBucket: ${reportsBucket}
+            sourceObject: ${jobID + "%2Freport.json"}
+            destinationPredefinedAcl: publicRead
+      - logJSONReportCopied:
+          call: sys.log
+          args:
+              text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report.json"}
+              severity: INFO
+          next: successfulExecution
       - fileExistenceTimeout:
-          return: ${"https://gtfs-validator-results.mobilitydata.org/" + jobID + "/execution_result.json"}
-      - exit:
-          return: "${executionResultResponse.body}"
+          steps:
+            - logFileExistenceTimeout:
+                call: sys.log
+                args:
+                    text: File not found after 20 minutes
+                    severity: ERROR
+            - returnFileNotFound:
+                return: File not found after 20 minutes
+      - successfulExecution:
+          steps:
+            - logSuccessfulExecution:
+                call: sys.log
+                args:
+                    text: GTFS validator execution completed successfully
+                    severity: INFO
+            - returnSuccessfulExecution:
+                return: GTFS validator execution completed successfully
