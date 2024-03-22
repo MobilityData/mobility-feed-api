@@ -1,0 +1,130 @@
+main:
+  params: [event]
+  steps:
+      - log_event:
+          call: sys.log
+          args:
+              text: ${event}
+              severity: INFO
+      - extract_data:
+          assign:
+          - data: ${event.data.protoPayload}
+      - init:
+          assign:
+            - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
+            - reportsBucket: ${sys.get_env("reports_bucket_name")}
+            - feedID: ${text.split(data.resourceName, "/")[5]}
+            - datasetID: ${text.split(data.resourceName, "/")[6]}
+            - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
+            - endpoint: "https://gtfs-validator-web-mbzoxaljzq-ue.a.run.app/create-job"
+            - payload:
+                  url: "${url}"
+                  countryCode: ""
+            - headers:
+                  Content-Type: application/json
+            - jobID: "undefined"
+      - logInit:
+          call: sys.log
+          args:
+              text: '${"feedID: " + feedID + ", datasetID: " + datasetID + ", url: " + url}'
+              severity: INFO
+      - createJob:
+          call: http.post
+          args:
+              url: "${endpoint}"
+              headers: ${headers}
+              body: ${payload}
+          result: response
+      - checkJobCreationStatus:
+          switch:
+            - condition: ${response.code == 200}
+              next: successCreatingJob
+          next: errorCreatingJob
+      - errorCreatingJob:
+          return:
+            createJobResponse: response
+      - successCreatingJob:
+          assign:
+              - jobID: ${response.body.jobId}
+          next: waitForExecutionResultCreation
+      - logJobID:
+          call: sys.log
+          args:
+              text: '${"jobID: " + jobID}'
+              severity: INFO
+      - waitForExecutionResultCreation:
+          steps:
+            - startLoop:
+                assign:
+                  - counter: 0
+            - checkFileExistence:
+                try:
+                  steps:
+                    - getFile:
+                        call: http.get
+                        args:
+                          headers:
+                              Content-Type: text/plain
+                          url: ${"https://gtfs-validator-results.mobilitydata.org/" + jobID + "/execution_result.json"}
+                        result: executionResultResponse
+                    - validateStatus:
+                        next: checkExecutionResultStatus
+                except:
+                  as: e
+                  steps:
+                    - known_errors:
+                        switch:
+                          - condition: ${e.code == 404}
+                            next: checkCounter
+                    - unhandled_exception:
+                        raise: ${e}
+            - checkCounter:
+                switch:
+                  - condition: ${counter < 120} # 20 minutes
+                    next: incrementCounter
+                next: fileExistenceTimeout
+            - incrementCounter:
+                assign:
+                  - counter: ${counter + 1}
+            - wait:
+                call: sys.sleep
+                args:
+                  seconds: 10
+                next: checkFileExistence
+      - logExecutionResult:
+          call: sys.log
+          args:
+              text: '${"executionResultResponse: " + executionResultResponse.body}'
+              severity: INFO
+      - checkExecutionResultStatus:
+          assign:
+            - isReportGenerated: ${executionResultResponse.body.status == "success"}
+      - htmlReport:
+          switch:
+            - condition: ${isReportGenerated}
+              steps:
+                - copyHTMLReport:
+                    call: googleapis.storage.v1.objects.copy
+                    args:
+                      destinationBucket: ${datasetsBucket}
+                      destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.html"}
+                      sourceBucket: ${reportsBucket}
+                      sourceObject: ${jobID + "%2Freport.html"}
+                      destinationPredefinedAcl: publicRead
+      - jsonReport:
+          switch:
+            - condition: ${isReportGenerated}
+              steps:
+                - copyJSONReport:
+                    call: googleapis.storage.v1.objects.copy
+                    args:
+                      destinationBucket: ${datasetsBucket}
+                      destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.json"}
+                      sourceBucket: ${reportsBucket}
+                      sourceObject: ${jobID + "%2Freport.json"}
+                      destinationPredefinedAcl: publicRead
+          next: exit
+      - fileExistenceTimeout:
+          return: ${"https://gtfs-validator-results.mobilitydata.org/" + jobID + "/execution_result.json"}
+      - exit:
+          return: "${executionResultResponse.body}"

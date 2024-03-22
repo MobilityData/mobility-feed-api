@@ -181,6 +181,12 @@ resource "google_project_iam_member" "ci_binding_security_policy" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+ resource "google_project_iam_member" "ci_binding_workspace" {
+  project = var.project_id
+  role    = "roles/workflows.workflows.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_project_iam_member" "ci_binding_cloudsql_admin" {
   project = var.project_id
   role    = "roles/cloudsql.admin"

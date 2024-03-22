@@ -105,6 +105,13 @@ module "functions-python" {
 
 }
 
+module "workflows" {
+  source = "./workflows"
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
+}
+
 module "feed-api-load-balancer" {
   depends_on  = [module.feed-api, module.functions-python]
   project_id  = var.project_id
