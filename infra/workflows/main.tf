@@ -63,7 +63,7 @@ resource "google_workflows_workflow" "gtfs_validator_execution" {
     datasets_bucket_name  = "${var.datasets_bucket_name}-${var.environment}"
     reports_bucket_name   = var.reports_bucket_name
   }
-  source_contents         = file("../../workflows/gtfs_validator_execution.yml")
+  source_contents         = file("${path.module}../../../workflows/gtfs_validator_execution.yml")
 }
 
 # Trigger to execute the GTFS Validator
