@@ -42,11 +42,11 @@ paths:
         - "feeds"
       operationId: getFeeds
       parameters:
-        - $ref: "#/features/parameters/limit_query_param"
-        - $ref: "#/features/parameters/offset"
-        - $ref: "#/features/parameters/status"
-        - $ref: "#/features/parameters/provider"
-        - $ref: "#/features/parameters/producer_url"
+        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/status"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
 
       security:
         - Authentication: []
@@ -58,11 +58,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/BasicFeeds"
+                $ref: "#/components/schemas/BasicFeeds"
 
   /v1/feeds/{id}:
     parameters:
-      - $ref: "#/features/parameters/feed_id_path_param"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified feed from the Mobility Database.
       tags:
@@ -78,7 +78,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/BasicFeed"
+                $ref: "#/components/schemas/BasicFeed"
 
   /v1/gtfs_feeds:
     get:
@@ -87,16 +87,16 @@ paths:
         - "feeds"
       operationId: getGtfsFeeds
       parameters:
-        - $ref: "#/features/parameters/limit_query_param"
-        - $ref: "#/features/parameters/offset"
-        - $ref: "#/features/parameters/provider"
-        - $ref: "#/features/parameters/producer_url"
-        - $ref: "#/features/parameters/country_code"
-        - $ref: "#/features/parameters/subdivision_name"
-        - $ref: "#/features/parameters/municipality"
-        - $ref: "#/features/parameters/dataset_latitudes"
-        - $ref: "#/features/parameters/dataset_longitudes"
-        - $ref: "#/features/parameters/bounding_filter_method"
+        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/country_code"
+        - $ref: "#/components/parameters/subdivision_name"
+        - $ref: "#/components/parameters/municipality"
+        - $ref: "#/components/parameters/dataset_latitudes"
+        - $ref: "#/components/parameters/dataset_longitudes"
+        - $ref: "#/components/parameters/bounding_filter_method"
 
       security:
         - Authentication: []
@@ -106,7 +106,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/GtfsFeeds"
+                $ref: "#/components/schemas/GtfsFeeds"
 
   /v1/gtfs_rt_feeds:
     get:
@@ -115,11 +115,11 @@ paths:
         - "feeds"
       operationId: getGtfsRtFeeds
       parameters:
-        - $ref: "#/features/parameters/limit_query_param"
-        - $ref: "#/features/parameters/offset"
-        - $ref: "#/features/parameters/provider"
-        - $ref: "#/features/parameters/producer_url"
-        - $ref: "#/features/parameters/entity_types"
+        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/entity_types"
       security:
         - Authentication: []
       responses:
@@ -128,11 +128,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/GtfsRTFeeds"
+                $ref: "#/components/schemas/GtfsRTFeeds"
 
   /v1/gtfs_feeds/{id}:
     parameters:
-      - $ref: "#/features/parameters/feed_id_path_param"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS feed from the Mobility Database.
       tags:
@@ -147,11 +147,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/GtfsFeed"
+                $ref: "#/components/schemas/GtfsFeed"
 
   /v1/gtfs_rt_feeds/{id}:
     parameters:
-      - $ref: "#/features/parameters/feed_id_path_param"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get the specified GTFS Realtime feed from the Mobility Database.
       tags:
@@ -166,22 +166,22 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/GtfsRTFeed"
+                $ref: "#/components/schemas/GtfsRTFeed"
 
   /v1/gtfs_feeds/{id}/datasets:
     parameters:
-      - $ref: "#/features/parameters/feed_id_of_datasets_path_param"
+      - $ref: "#/components/parameters/feed_id_of_datasets_path_param"
     get:
       description: Get a list of datasets related to a GTFS feed.
       tags:
         - "feeds"
       operationId: getGtfsFeedDatasets
       parameters:
-        - $ref: "#/features/parameters/latest_query_param"
-        - $ref: "#/features/parameters/limit_query_param"
-        - $ref: "#/features/parameters/offset"
-        - $ref: "#/features/parameters/downloaded_after"
-        - $ref: "#/features/parameters/downloaded_before"
+        - $ref: "#/components/parameters/latest_query_param"
+        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/downloaded_after"
+        - $ref: "#/components/parameters/downloaded_before"
 
       security:
         - Authentication: []
@@ -191,7 +191,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/GtfsDatasets"
+                $ref: "#/components/schemas/GtfsDatasets"
 
   /v1/datasets/gtfs/{id}:
     get:
@@ -200,7 +200,7 @@ paths:
         - "datasets"
       operationId: getDatasetGtfs
       parameters:
-        - $ref: "#/features/parameters/dataset_id_path_param"
+        - $ref: "#/components/parameters/dataset_id_path_param"
       security:
         - Authentication: []
       responses:
@@ -209,7 +209,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/GtfsDataset"
+                $ref: "#/components/schemas/GtfsDataset"
 
   /v1/metadata:
     get:
@@ -226,9 +226,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/features/schemas/Metadata"
+                $ref: "#/components/schemas/Metadata"
 
-features:
+components:
   schemas:
     Redirect:
       type: object
@@ -255,7 +255,7 @@ features:
             - gtfs_rt
           example: gtfs
         #    Have to put the enum inline because of a bug in openapi-generator
-        #          $ref: "#/features/schemas/DataType"
+        #          $ref: "#/components/schemas/DataType"
         status:
           description: >
             Describes status of the Feed. Should be one of 
@@ -271,10 +271,10 @@ features:
             - development
           example: deprecated
         #           Have to put the enum inline because of a bug in openapi-generator
-        #          $ref: "#/features/schemas/FeedStatus"
+        #          $ref: "#/components/schemas/FeedStatus"
 
         external_ids:
-          $ref: "#/features/schemas/ExternalIds"
+          $ref: "#/components/schemas/ExternalIds"
         provider:
           description: A commonly used name for the transit provider included in the feed.
           type: string
@@ -293,27 +293,27 @@ features:
           type: string
           example: someEmail@ladotbus.com
         source_info:
-          $ref: "#/features/schemas/SourceInfo"
+          $ref: "#/components/schemas/SourceInfo"
         redirects:
           type: array
           items:
-            $ref: "#/features/schemas/Redirect"
+            $ref: "#/components/schemas/Redirect"
 
     GtfsFeed:
       allOf:
-        - $ref: "#/features/schemas/BasicFeed"
+        - $ref: "#/components/schemas/BasicFeed"
         - type: object
           properties:
             locations:
-              $ref: "#/features/schemas/Locations"
+              $ref: "#/components/schemas/Locations"
         - type: object
           properties:
             latest_dataset:
-              $ref: "#/features/schemas/LatestDataset"
+              $ref: "#/components/schemas/LatestDataset"
 
     GtfsRTFeed:
       allOf:
-        - $ref: "#/features/schemas/BasicFeed"
+        - $ref: "#/components/schemas/BasicFeed"
         - type: object
           properties:
             entity_types:
@@ -331,7 +331,7 @@ features:
                     * tu - trip updates
                     * sa - service alerts
             #              Have to put the enum inline because of a bug in openapi-generator
-            #              $ref: "#/features/schemas/EntityTypes"
+            #              $ref: "#/components/schemas/EntityTypes"
             feed_references:
               description: A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
               type: array
@@ -342,17 +342,17 @@ features:
     BasicFeeds:
       type: array
       items:
-        $ref: "#/features/schemas/BasicFeed"
+        $ref: "#/components/schemas/BasicFeed"
 
     GtfsFeeds:
       type: array
       items:
-        $ref: "#/features/schemas/GtfsFeed"
+        $ref: "#/components/schemas/GtfsFeed"
 
     GtfsRTFeeds:
       type: array
       items:
-        $ref: "#/features/schemas/GtfsRTFeed"
+        $ref: "#/components/schemas/GtfsRTFeed"
 
     LatestDataset:
       type: object
@@ -370,7 +370,7 @@ features:
           format: url
           example: https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1210/mdb-1210-202402121801/mdb-1210-202402121801.zip
         bounding_box:
-          $ref: "#/features/schemas/BoundingBox"
+          $ref: "#/components/schemas/BoundingBox"
         downloaded_at:
           description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
           type: string
@@ -385,7 +385,7 @@ features:
     #    EntityTypes:
     #      type: array
     #      items:
-    #        $ref: "#/features/schemas/EntityType"
+    #        $ref: "#/components/schemas/EntityType"
 
     #    EntityType:
     #      type: string
@@ -403,7 +403,7 @@ features:
     ExternalIds:
       type: array
       items:
-        $ref: "#/features/schemas/ExternalId"
+        $ref: "#/components/schemas/ExternalId"
 
     ExternalId:
       type: object
@@ -462,7 +462,7 @@ features:
     Locations:
       type: array
       items:
-        $ref: "#/features/schemas/Location"
+        $ref: "#/components/schemas/Location"
 
     Location:
       type: object
@@ -514,7 +514,7 @@ features:
 
     GtfsDataset:
       allOf:
-        - $ref: "#/features/schemas/BasicDataset"
+        - $ref: "#/components/schemas/BasicDataset"
         - type: object
           properties:
             hosted_url:
@@ -534,9 +534,9 @@ features:
               type: string
               example: 6497e85e34390b8b377130881f2f10ec29c18a80dd6005d504a2038cdd00aa71
             bounding_box:
-              $ref: "#/features/schemas/BoundingBox"
+              $ref: "#/components/schemas/BoundingBox"
             validation_report:
-              $ref: "#/features/schemas/ValidationReport"
+              $ref: "#/components/schemas/ValidationReport"
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
@@ -562,7 +562,7 @@ features:
     GtfsDatasets:
       type: array
       items:
-        $ref: "#/features/schemas/GtfsDataset"
+        $ref: "#/components/schemas/GtfsDataset"
 
     Metadata:
       type: object
@@ -584,7 +584,7 @@ features:
           example: 2023-07-10T22:06:00Z
           format: date-time
         features:
-          description: An array of features for this dataset.
+          description: An array of components for this dataset.
           type: array
           items:
             type: string
@@ -804,7 +804,7 @@ features:
 
   securitySchemes:
     Authentication:
-      $ref: "./BearerTokenSchema.yaml#/features/securitySchemes/Authentication"
+      $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
 
 security:
   - Authentication: []
