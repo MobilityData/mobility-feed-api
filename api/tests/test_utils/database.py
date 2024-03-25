@@ -125,7 +125,7 @@ def populate_database(db: Database):
                 )
             for feature_id in FEATURE_IDS:
                 db.session.execute(
-                    f"INSERT INTO featuregtfsdataset (feature, dataset_id) " f"VALUES ('{feature_id}', '{dataset_id}')"
+                    f"INSERT INTO featurevalidationreport (feature, dataset_id) " f"VALUES ('{feature_id}', '{validation_id}')"
                 )
 
         for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
@@ -153,7 +153,6 @@ def populate_database(db: Database):
     finally:
         # clean up the testing data regardless of the test result
         for dataset_id in dataset_ids:
-            db.session.execute(f"DELETE FROM featuregtfsdataset where dataset_id = '{dataset_id}'")
             db.session.execute(f"DELETE FROM notice where dataset_id ='{dataset_id}'")
             db.session.execute(f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'")
             db.session.execute(f"DELETE FROM gtfsdataset where id ='{dataset_id}'")

@@ -16,7 +16,7 @@ from feeds.impl.error_handling import (
 )
 from database_gen.sqlacodegen_models import (
     Gtfsdataset,
-    t_featuregtfsdataset,
+    t_featurevalidationreport,
     Feed,
     Validationreport,
     t_validationreportgtfsdataset,
@@ -44,14 +44,14 @@ class DatasetsApiImpl(BaseDatasetsApi):
             Query(
                 [
                     Gtfsdataset,
-                    t_featuregtfsdataset.c["feature"],
+                    t_featurevalidationreport.c["feature"],
                     Gtfsdataset.bounding_box.ST_AsGeoJSON(),
                     Feed.stable_id,
                 ]
             )
             .join(
-                t_featuregtfsdataset,
-                t_featuregtfsdataset.c["dataset_id"] == Gtfsdataset.id,
+                t_featurevalidationreport,
+                t_featurevalidationreport.c["dataset_id"] == Gtfsdataset.id, //TODO
                 isouter=True,
             )
             .join(Feed, Feed.id == Gtfsdataset.feed_id)

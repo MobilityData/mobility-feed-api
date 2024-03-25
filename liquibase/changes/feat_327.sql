@@ -1,9 +1,9 @@
 ALTER TABLE component
   RENAME TO feature;
-ALTER TABLE componentgtfsdataset
-  RENAME TO featuregtfsdataset;
-ALTER TABLE featuregtfsdataset
-  RENAME COLUMN component to feature;
-ALTER TABLE featuregtfsdataset
-  RENAME CONSTRAINT componentgtfsdataset_pkey TO featuregtfsdataset_pkey;
-  
+DROP TABLE componentgtfsdataset;
+
+CREATE TABLE FeatureValidationReport (
+    feature VARCHAR(255) REFERENCES Feature(name),
+    validation_id VARCHAR(255) REFERENCES ValidationReport(id),
+    PRIMARY KEY (feature, validation_id)
+);
