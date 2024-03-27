@@ -51,7 +51,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             )
             .join(
                 t_featurevalidationreport,
-                t_featurevalidationreport.c["dataset_id"] == Gtfsdataset.id, //TODO
+                t_featurevalidationreport.c["dataset_id"] == Gtfsdataset.id, #todo: change to validation_id
                 isouter=True,
             )
             .join(Feed, Feed.id == Gtfsdataset.feed_id)

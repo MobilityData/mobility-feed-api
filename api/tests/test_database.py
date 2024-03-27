@@ -3,7 +3,7 @@ from sqlalchemy.orm import Query
 import os
 
 from database.database import Database, generate_unique_id
-from database_gen.sqlacodegen_models import Feature, ValidationReport
+from database_gen.sqlacodegen_models import Feature, Validationreport, Gtfsdataset
 from feeds.impl.datasets_api_impl import DatasetsApiImpl, DATETIME_FORMAT
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker
@@ -198,24 +198,23 @@ def test_merge_relationship_w_uncommitted_changed():
         new_feature = Feature(name=feature_name)
         db.merge(new_feature)
 
-        # Create a new ValidationReport object (child)
+        # Create a new Validationreport object (child)
         validation_id = fake.uuid4()
-        new_validation_report = ValidationReport(id=validation_id)
 
-        # Merge this ValidationReport into the FeatureValidationReport relationship
+        # Merge this Validationreport into the FeatureValidationreport relationship
         db.merge_relationship(
             parent_model=Feature,
             parent_key_values={"name": feature_name},
-            child=new_validation_report,
-            relationship_name="featurevalidationreport",
+            child=validation_id,
+            relationship_name="validation_id",
             auto_commit=False,
             uncommitted=True,
         )
 
-        # Retrieve the feature and check if the GtfsDataset was added
+        # Retrieve the feature and check if the ValidationReport was added
         retrieved_feature = db.select_from_active_session(Feature, conditions=[Feature.name == feature_name])[0]
-        validation_ids = [validation.id for validation in retrieved_feature.validationreports]
-        assert gtfs_dataset_id in dataset_ids
+        validation_ids = [validation.id for validation in retrieved_feature.validation_id]
+        assert validation_id in validation_ids
     except Exception as e:
         raise e
     finally:
