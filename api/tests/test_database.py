@@ -200,20 +200,21 @@ def test_merge_relationship_w_uncommitted_changed():
 
         # Create a new Validationreport object (child)
         validation_id = fake.uuid4()
+        new_validation = Validationreport(id=validation_id)
 
         # Merge this Validationreport into the FeatureValidationreport relationship
         db.merge_relationship(
             parent_model=Feature,
             parent_key_values={"name": feature_name},
-            child=validation_id,
-            relationship_name="validation_id",
+            child=new_validation,
+            relationship_name="validations",
             auto_commit=False,
             uncommitted=True,
         )
 
         # Retrieve the feature and check if the ValidationReport was added
         retrieved_feature = db.select_from_active_session(Feature, conditions=[Feature.name == feature_name])[0]
-        validation_ids = [validation.id for validation in retrieved_feature.validation_id]
+        validation_ids = [validation.id for validation in retrieved_feature.validations]
         assert validation_id in validation_ids
     except Exception as e:
         raise e
