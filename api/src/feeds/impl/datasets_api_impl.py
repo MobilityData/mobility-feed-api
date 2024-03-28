@@ -39,25 +39,6 @@ class DatasetsApiImpl(BaseDatasetsApi):
     """
 
     @staticmethod
-    def create_dataset_query():
-        return (
-            Query(
-                [
-                    Gtfsdataset,
-                    t_featurevalidationreport.c["feature"],
-                    Gtfsdataset.bounding_box.ST_AsGeoJSON(),
-                    Feed.stable_id,
-                ]
-            )
-            .join(
-                t_featurevalidationreport,
-                t_featurevalidationreport.c["dataset_id"] == Gtfsdataset.id, #todo: change to validation_id
-                isouter=True,
-            )
-            .join(Feed, Feed.id == Gtfsdataset.feed_id)
-        )
-
-    @staticmethod
     def _load_validation_report():
         """
         This method is for loading validation reports. This could be done as part of loading gtfs dataset
