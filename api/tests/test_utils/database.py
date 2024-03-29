@@ -20,9 +20,9 @@ TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
 TEST_EXTERNAL_IDS = ["external_id_1", "external_id_2", "external_id_3", "external_id_4"]
 OLD_VALIDATION_VERSION = "1.0.0"
-OLD_VALIDATION_TIME = datetime.utcnow() - timedelta(hours=1)
+NEW_VALIDATION_TIME: Final[datetime] = datetime(2023,2,1,10,10,10)
+OLD_VALIDATION_TIME = NEW_VALIDATION_TIME - timedelta(hours=1)
 NEW_VALIDATION_VERSION = "2.0.0"
-NEW_VALIDATION_TIME = datetime.utcnow()
 VALIDATION_INFO_COUNT_PER_NOTICE = 5
 VALIDATION_INFO_NOTICES = 10
 VALIDATION_WARNING_COUNT_PER_NOTICE = 3
@@ -167,9 +167,11 @@ def populate_database(db: Database):
         db.session.execute(f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'")
         for feed_id in [*gtfs_feed_ids, gtfs_rt_feed_id]:
             db.session.execute(f"DELETE FROM feed where id = '{feed_id}'")
+        
+        feature_ids_str = ', '.join([f"'{feature_id}'" for feature_id in FEATURE_IDS])
+        # Delete referencing rows in featurevalidationreport
+        db.session.execute(f"DELETE FROM featurevalidationreport WHERE feature IN ({feature_ids_str})")
         db.session.execute(
-            f"""DELETE FROM feature where name in ({', '.join(["'" + feature_id + "'"
-                                                                                for feature_id
-                                                                                in FEATURE_IDS])})"""
+            f"""DELETE FROM feature where name in ({feature_ids_str})"""
         )
         db.commit()
