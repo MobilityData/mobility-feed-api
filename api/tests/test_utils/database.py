@@ -29,7 +29,7 @@ VALIDATION_WARNING_COUNT_PER_NOTICE = 3
 VALIDATION_WARNING_NOTICES = 4
 VALIDATION_ERROR_COUNT_PER_NOTICE = 2
 VALIDATION_ERROR_NOTICES = 7
-FEATURE_IDS = [generate_unique_id() for _ in range(3)]
+FEATURE_IDS = ["Route Colors", "Bike Allowed", "Headsigns"]
 
 date_string: Final[str] = "2024-01-31 00:00:00"
 date_format: Final[str] = "%Y-%m-%d %H:%M:%S"
@@ -123,10 +123,10 @@ def populate_database(db: Database):
                         total_notices=VALIDATION_ERROR_COUNT_PER_NOTICE,
                     ),
                 )
-            # for feature_id in FEATURE_IDS:
-            #     db.session.execute(
-            #         f"INSERT INTO featurevalidationreport (feature, dataset_id) " f"VALUES ('{feature_id}', '{validation_id}')"
-            #     )
+            for feature_id in FEATURE_IDS:
+                db.session.execute(
+                    f"INSERT INTO featurevalidationreport (feature, validation_id) " f"VALUES ('{feature_id}', '{new_validation_report.id}')"
+                )
 
         for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
             db.merge(
