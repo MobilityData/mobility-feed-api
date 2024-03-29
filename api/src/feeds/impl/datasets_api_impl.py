@@ -54,9 +54,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
     @staticmethod
     def _load_validation_report():
         """
-        This method is for loading validation reports. This could be done as part of loading gtfs dataset
-        but the query for loading gtfs dataset is already complex, and therefore I decided to create a separate method
-        for this.
+        This method is for loading validation reports. 
         """
         vrgd = t_validationreportgtfsdataset.alias()
         max_vr = aliased(Validationreport)
@@ -153,13 +151,17 @@ class DatasetsApiImpl(BaseDatasetsApi):
             dataset_objects, bound_box_strings, feed_ids = zip(*dataset_group)
             database_gtfs_dataset = dataset_objects[0]
             notices_for_dataset = [notice for notice in notices if notice.dataset_id == database_gtfs_dataset.id]
-            #figure out how to get the features
             validator_report = None
             if notices_for_dataset:
+                #get the validator report from the first notice
+                database_validator_report = notices_for_dataset[0].validation_report
+                features = Database().select(
+                    query=select(t_featurevalidationreport.c.feature)
+                    .where(t_featurevalidationreport.c.validation_id == database_validator_report.id)
+                )
                 validator_report = ValidationReport(
                     features=sorted([feature for feature in features if feature is not None])
                 )
-                database_validator_report = notices_for_dataset[0].validation_report
                 validator_report.total_info = sum(
                     [notice.total_notices for notice in notices_for_dataset if notice.severity == "INFO"]
                 )
