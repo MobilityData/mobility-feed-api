@@ -20,7 +20,7 @@ TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
 TEST_EXTERNAL_IDS = ["external_id_1", "external_id_2", "external_id_3", "external_id_4"]
 OLD_VALIDATION_VERSION = "1.0.0"
-NEW_VALIDATION_TIME: Final[datetime] = datetime(2023,2,1,10,10,10)
+NEW_VALIDATION_TIME: Final[datetime] = datetime(2023, 2, 1, 10, 10, 10)
 OLD_VALIDATION_TIME = NEW_VALIDATION_TIME - timedelta(hours=1)
 NEW_VALIDATION_VERSION = "2.0.0"
 VALIDATION_INFO_COUNT_PER_NOTICE = 5
