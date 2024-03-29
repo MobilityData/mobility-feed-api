@@ -40,16 +40,13 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
     @staticmethod
     def create_dataset_query():
-        return (
-            Query(
-                [
-                    Gtfsdataset,
-                    Gtfsdataset.bounding_box.ST_AsGeoJSON(),
-                    Feed.stable_id,
-                ]
-            )
-            .join(Feed, Feed.id == Gtfsdataset.feed_id)
-        )
+        return Query(
+            [
+                Gtfsdataset,
+                Gtfsdataset.bounding_box.ST_AsGeoJSON(),
+                Feed.stable_id,
+            ]
+        ).join(Feed, Feed.id == Gtfsdataset.feed_id)
 
     @staticmethod
     def _load_validation_report():
@@ -86,8 +83,9 @@ class DatasetsApiImpl(BaseDatasetsApi):
         """
         This method is for loading features related with a validation report.
         """
-        query = select(t_featurevalidationreport.c.feature).where(t_featurevalidationreport.c.validation_id == validation_report_id)
-
+        query = select(t_featurevalidationreport.c.feature).where(
+            t_featurevalidationreport.c.validation_id == validation_report_id
+        )
         return Database().session.execute(query).scalars().all()
 
     @staticmethod
@@ -164,7 +162,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
             if notices_for_dataset:
                 database_validator_report = notices_for_dataset[0].validation_report
                 features_results = DatasetsApiImpl._load_features_validation_report(database_validator_report.id)
-                features=sorted([feature for feature in features_results if feature is not None])
+                features = sorted([feature for feature in features_results if feature is not None])
                 print(features)
                 validator_report = ValidationReport(
                     features=features,

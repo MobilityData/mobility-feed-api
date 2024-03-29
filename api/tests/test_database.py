@@ -18,7 +18,6 @@ from .test_utils.database import (
     VALIDATION_WARNING_NOTICES,
     VALIDATION_ERROR_NOTICES,
     VALIDATION_ERROR_COUNT_PER_NOTICE,
-    FEATURE_IDS,
 )
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import patch

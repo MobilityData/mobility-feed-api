@@ -125,7 +125,8 @@ def populate_database(db: Database):
                 )
             for feature_id in FEATURE_IDS:
                 db.session.execute(
-                    f"INSERT INTO featurevalidationreport (feature, validation_id) " f"VALUES ('{feature_id}', '{new_validation_report.id}')"
+                    f"INSERT INTO featurevalidationreport (feature, validation_id) "
+                    f"VALUES ('{feature_id}', '{new_validation_report.id}')"
                 )
 
         for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
@@ -167,11 +168,8 @@ def populate_database(db: Database):
         db.session.execute(f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'")
         for feed_id in [*gtfs_feed_ids, gtfs_rt_feed_id]:
             db.session.execute(f"DELETE FROM feed where id = '{feed_id}'")
-        
-        feature_ids_str = ', '.join([f"'{feature_id}'" for feature_id in FEATURE_IDS])
+        feature_ids_str = ", ".join([f"'{feature_id}'" for feature_id in FEATURE_IDS])
         # Delete referencing rows in featurevalidationreport
         db.session.execute(f"DELETE FROM featurevalidationreport WHERE feature IN ({feature_ids_str})")
-        db.session.execute(
-            f"""DELETE FROM feature where name in ({feature_ids_str})"""
-        )
+        db.session.execute(f"""DELETE FROM feature where name in ({feature_ids_str})""")
         db.commit()
