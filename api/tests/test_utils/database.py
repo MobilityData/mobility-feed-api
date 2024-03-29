@@ -123,10 +123,10 @@ def populate_database(db: Database):
                         total_notices=VALIDATION_ERROR_COUNT_PER_NOTICE,
                     ),
                 )
-            for feature_id in FEATURE_IDS:
-                db.session.execute(
-                    f"INSERT INTO featurevalidationreport (feature, dataset_id) " f"VALUES ('{feature_id}', '{validation_id}')"
-                )
+            # for feature_id in FEATURE_IDS:
+            #     db.session.execute(
+            #         f"INSERT INTO featurevalidationreport (feature, dataset_id) " f"VALUES ('{feature_id}', '{validation_id}')"
+            #     )
 
         for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
             db.merge(

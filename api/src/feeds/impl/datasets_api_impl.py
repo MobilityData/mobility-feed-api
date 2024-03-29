@@ -39,6 +39,19 @@ class DatasetsApiImpl(BaseDatasetsApi):
     """
 
     @staticmethod
+    def create_dataset_query():
+        return (
+            Query(
+                [
+                    Gtfsdataset,
+                    Gtfsdataset.bounding_box.ST_AsGeoJSON(),
+                    Feed.stable_id,
+                ]
+            )
+            .join(Feed, Feed.id == Gtfsdataset.feed_id)
+        )
+
+    @staticmethod
     def _load_validation_report():
         """
         This method is for loading validation reports. This could be done as part of loading gtfs dataset
@@ -137,10 +150,10 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
         gtfs_datasets = []
         for dataset_group in dataset_groups:
-            dataset_objects, features, bound_box_strings, feed_ids = zip(*dataset_group)
+            dataset_objects, bound_box_strings, feed_ids = zip(*dataset_group)
             database_gtfs_dataset = dataset_objects[0]
             notices_for_dataset = [notice for notice in notices if notice.dataset_id == database_gtfs_dataset.id]
-
+            #figure out how to get the features
             validator_report = None
             if notices_for_dataset:
                 validator_report = ValidationReport(
