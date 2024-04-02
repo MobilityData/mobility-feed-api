@@ -13,16 +13,28 @@ main:
           assign:
             - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
             - reportsBucket: ${sys.get_env("reports_bucket_name")}
+            - validatorEndpoint: ${sys.get_env("validator_endpoint")}
             - feedID: ${text.split(data.resourceName, "/")[5]}
             - datasetID: ${text.split(data.resourceName, "/")[6]}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
-            - endpoint: "https://gtfs-validator-web-mbzoxaljzq-ue.a.run.app/create-job"
+            - endpoint: ${validatorEndpoint + "/create-job"}
             - payload:
                   url: "${url}"
                   countryCode: ""
             - headers:
                   Content-Type: application/json
             - jobID: "undefined"
+      - assignResultsEndpoint:
+          switch:
+            - condition: ${sys.get_env("environment") == "prod"}
+              next: assignResultsEndpointProd
+          next: assignResultsEndpointDev
+      - assignResultsEndpointProd:
+          assign:
+            - resultsEndpoint: "https://gtfs-validator-results.mobilitydata.org/"
+      - assignResultsEndpointDev:
+        assign:
+          - resultsEndpoint: "https://staging-gtfs-validator-results.mobilitydata.org/"
       - logInit:
           call: sys.log
           args:
@@ -64,7 +76,7 @@ main:
                         args:
                           headers:
                               Content-Type: text/plain
-                          url: ${"https://gtfs-validator-results.mobilitydata.org/" + jobID + "/execution_result.json"}
+                          url: ${resultsEndpoint + jobID + "/execution_result.json"}
                         result: executionResultResponse
                     - validateStatus:
                         next: logExecutionResult

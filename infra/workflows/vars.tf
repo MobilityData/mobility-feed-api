@@ -47,3 +47,7 @@ variable "reports_project_id" {
   default     = "web-based-gtfs-validator"
 }
 
+variable "validator_endpoint" {
+  type = string
+  description = "URL of the validator endpoint"
+}

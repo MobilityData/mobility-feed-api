@@ -58,3 +58,8 @@ variable "artifact_repo_name" {
   type = string
   description = "Name of the artifact repository"
 }
+
+variable "validator_endpoint" {
+  type = string
+  description = "URL of the validator endpoint"
+}
