@@ -33,8 +33,8 @@ main:
           assign:
             - resultsEndpoint: "https://gtfs-validator-results.mobilitydata.org/"
       - assignResultsEndpointDev:
-        assign:
-          - resultsEndpoint: "https://staging-gtfs-validator-results.mobilitydata.org/"
+          assign:
+            - resultsEndpoint: "https://staging-gtfs-validator-results.mobilitydata.org/"
       - logInit:
           call: sys.log
           args:
