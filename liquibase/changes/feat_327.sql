@@ -1,6 +1,6 @@
-ALTER TABLE component
-  RENAME TO feature;
-DROP TABLE componentgtfsdataset;
+ALTER TABLE Component
+  RENAME TO Feature;
+DROP TABLE ComponentGtfsDataset;
 
 CREATE TABLE FeatureValidationReport (
     feature VARCHAR(255) REFERENCES Feature(name),
