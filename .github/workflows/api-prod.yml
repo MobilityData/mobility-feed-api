@@ -17,6 +17,7 @@ jobs:
       FEED_API_IMAGE_VERSION: ${{ github.sha }}
       GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
       TF_APPLY: true
+      VALIDATOR_ENDPOINT: https://gtfs-validator-web-mbzoxaljzq-ue.a.run.app
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.PROD_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}

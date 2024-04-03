@@ -49,6 +49,10 @@ on:
         description: Global Load Balancer rate limit per minute
         required: true
         type: string
+      VALIDATOR_ENDPOINT:
+        description: Validator endpoint
+        required: true
+        type: string
 
 env:
   python_version: '3.10'
@@ -274,11 +278,12 @@ jobs:
           echo "OAUTH2_CLIENT_ID=${{ secrets.OAUTH2_CLIENT_ID }}" >> $GITHUB_ENV
           echo "OAUTH2_CLIENT_SECRET=${{ secrets.OAUTH2_CLIENT_SECRET }}" >> $GITHUB_ENV
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
+          echo "VALIDATOR_ENDPOINT=${{ inputs.VALIDATOR_ENDPOINT }}" >> $GITHUB_ENV
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT
 
       - uses: hashicorp/setup-terraform@v2
         with:

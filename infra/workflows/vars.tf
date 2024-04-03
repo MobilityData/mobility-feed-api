@@ -1,5 +1,5 @@
 #
-# MobilityData 2023
+# MobilityData 2024
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,34 +29,22 @@ variable "environment" {
   description = "API environment. Possible values: prod, staging and dev"
 }
 
-variable "feed_api_image_version" {
+variable "datasets_bucket_name" {
   type        = string
-  description = "Docker image version"
+  description = "Name of the bucket where the datasets are stored"
+  default     = "mobilitydata-datasets"
 }
 
-variable "deployer_service_account" {
+variable "reports_bucket_name" {
   type        = string
-  description = "Service account used to deploy resources using impersonation"
+  description = "Name of the bucket where the validation reports are stored"
+  default     = "gtfs-validator-results"
 }
 
-variable "oauth2_client_id" {
+variable "reports_project_id" {
   type        = string
-  description = "OAuth2 Client id"
-}
-
-variable "oauth2_client_secret" {
-  type        = string
-  description = "OAuth2 Client secret"
-}
-
-variable "global_rate_limit_req_per_minute" {
-  type        = string
-  description = "Global load balancer rate limit"
-}
-
-variable "artifact_repo_name" {
-  type = string
-  description = "Name of the artifact repository"
+  description = "GCP project ID where the validation reports are stored"
+  default     = "web-based-gtfs-validator"
 }
 
 variable "validator_endpoint" {

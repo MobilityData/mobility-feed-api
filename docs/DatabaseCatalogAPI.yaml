@@ -623,7 +623,7 @@ components:
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
-        components:
+        features:
           description: An array of components for this dataset.
           type: array
           items:
