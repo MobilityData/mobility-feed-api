@@ -149,19 +149,19 @@ main:
             - logFileExistenceTimeout:
                 call: sys.log
                 args:
-                    text: File not found after 20 minutes
+                    text: ${"File not found after 20 minutes for datasetID " + datasetID }
                     severity: ERROR
             - returnFileNotFound:
-                return: File not found after 20 minutes
+                return:  ${"File not found after 20 minutes for datasetID " + datasetID }
       - successfulExecution:
           steps:
             - logSuccessfulExecution:
                 call: sys.log
                 args:
-                    text: GTFS validator execution completed successfully
+                    text: ${"GTFS validator execution completed successfully for datasetID " + datasetID}
                     severity: INFO
             - returnSuccessfulExecution:
-                return: GTFS validator execution completed successfully
+                return: ${"GTFS validator execution completed successfully for datasetID " + datasetID}
 retry_predicate:
       params: [e]
       steps:
