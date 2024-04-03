@@ -3,6 +3,9 @@
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 Using node v18.16.0 (npm v9.5.1)
 
+## Installing packages
+It is preferred to install the packages using `yarn` over `npm install`
+
 ## Configuration variables
 React scripts can inject all necessary environment variables into the application in development mode and the JS bundle files. 
 Steps to set environment variables:
