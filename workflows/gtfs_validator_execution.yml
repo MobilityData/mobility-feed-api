@@ -98,6 +98,20 @@ main:
               args:
                   text: ${executionResultResponse.body}
                   severity: INFO
+      - systemErrors:
+          call: googleapis.storage.v1.objects.copy
+          args:
+            destinationBucket: ${datasetsBucket}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors.json"}
+            sourceBucket: ${reportsBucket}
+            sourceObject: ${jobID + "%2Fsystem_errors.json"}
+            destinationPredefinedAcl: publicRead
+      - logSystemErrorsCopied:
+          call: sys.log
+          args:
+              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors.json"}
+              severity: INFO
+
       - checkExecutionResultStatus:
           steps:
             - getExecutionStatus:
