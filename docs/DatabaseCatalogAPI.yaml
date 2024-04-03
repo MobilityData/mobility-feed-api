@@ -232,6 +232,7 @@ paths:
       description: Search feeds using full-text search on feed, location and provider's information.
       operationId: searchFeeds
       tags:
+        - "Experimental/Unimplemented" # TODO remove experimental tag when fully implemented
         - "search"
       parameters:
         - $ref: "#/components/parameters/limit_query_param"
@@ -244,7 +245,7 @@ paths:
         - Authentication: []
       responses:
         200:
-          description: Successful search across entities, potentially returning a mixed array of different entity types.
+          description: Successful search feeds using full-text search on feed, location and provider's information, potentially returning a mixed array of different entity types.
           content:
             application/json:
               schema:
