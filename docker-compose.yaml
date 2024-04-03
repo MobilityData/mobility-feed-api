@@ -56,6 +56,7 @@ services:
     command:
       - --url=jdbc:postgresql://postgres:${POSTGRES_PORT}/${POSTGRES_DB}
       - --changeLogFile=changelog.xml
+      - --searchpath=changelog
       - --username=${POSTGRES_USER}
       - --password=${POSTGRES_PASSWORD}
       - --log-level=1
@@ -74,6 +75,7 @@ services:
     command:
       - --url=jdbc:postgresql://postgres-test:${POSTGRES_PORT}/${POSTGRES_DB}Test
       - --changeLogFile=changelog.xml
+      - --searchpath=changelog
       - --username=${POSTGRES_USER}
       - --password=${POSTGRES_PASSWORD}
       - --log-level=1
