@@ -5,8 +5,6 @@ src/feeds_gen/apis/feeds_api.py
 src/feeds_gen/apis/feeds_api_base.py
 src/feeds_gen/apis/metadata_api.py
 src/feeds_gen/apis/metadata_api_base.py
-src/feeds_gen/apis/search_api.py
-src/feeds_gen/apis/search_api_base.py
 src/feeds_gen/main.py
 src/feeds_gen/models/__init__.py
 src/feeds_gen/models/basic_dataset.py
