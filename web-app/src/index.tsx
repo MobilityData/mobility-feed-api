@@ -6,6 +6,7 @@ import { theme } from './app/Theme';
 import { ThemeProvider } from '@mui/material/styles';
 import ReactGA from 'react-ga4';
 import { getEnvConfig } from './app/utils/config';
+import ContextProviders from './app/components/Context';
 
 const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
 if (gaId.length > 0) {
@@ -19,7 +20,9 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
-      <App />
+      <ContextProviders>
+        <App />
+      </ContextProviders>
     </ThemeProvider>
   </React.StrictMode>,
 );
