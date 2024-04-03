@@ -14,6 +14,7 @@ main:
             - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
             - reportsBucket: ${sys.get_env("reports_bucket_name")}
             - validatorEndpoint: ${sys.get_env("validator_endpoint")}
+            # Resource name format: projects/_/buckets/<datasetBucketName>/objects/<feedID>/<datasetID>/<datasetID>.zip
             - feedID: ${text.split(data.resourceName, "/")[5]}
             - datasetID: ${text.split(data.resourceName, "/")[6]}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
@@ -65,9 +66,6 @@ main:
               severity: INFO
       - waitForExecutionResultCreation:
           steps:
-            - startLoop:
-                assign:
-                  - counter: 0
             - checkFileExistence:
                 try:
                   steps:
@@ -80,35 +78,14 @@ main:
                         result: executionResultResponse
                     - validateStatus:
                         next: logExecutionResult
-                except:
-                  as: e
-                  steps:
-                    - known_errors:
-                        switch:
-                          - condition: ${e.code == 404}
-                            next: checkCounter
-                    - unhandled_exception:
-                        raise: ${e}
-            - checkCounter:
-                switch:
-                  - condition: ${counter < 120} # 20 minutes
-                    next: incrementCounter
-                next: fileExistenceTimeout
-            - incrementCounter:
-                steps:
-                  - applyIncrementCounter:
-                      assign:
-                        - counter: ${counter + 1}
-                  - logIncrementCounter:
-                      call: sys.log
-                      args:
-                          text: ${"File not found after " + counter + " try. Delaying retry for 10 seconds..."}
-                          severity: INFO
-            - wait:
-                call: sys.sleep
-                args:
-                  seconds: 10
-                next: checkFileExistence
+                # Retrying 120 times with a delay of 10 seconds each time gives 20 minutes wait time.
+                retry:
+                  predicate: ${retry_predicate}
+                  maxAttempts: 120
+                  backoff:
+                    initial_delay: 10
+                    max_delay: 10
+                    multiplier: 1
       - logExecutionResult:
           steps:
           - logExecutionResultMessage:
@@ -185,3 +162,12 @@ main:
                     severity: INFO
             - returnSuccessfulExecution:
                 return: GTFS validator execution completed successfully
+retry_predicate:
+      params: [e]
+      steps:
+        - validateErrorCode:
+            switch:
+                - condition: ${e.code in [404, 500, 503, 429]}
+                  return: true
+        - unSupportedError:
+            return: false
