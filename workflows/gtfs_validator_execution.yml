@@ -1,0 +1,187 @@
+main:
+  params: [event]
+  steps:
+      - log_event:
+          call: sys.log
+          args:
+              text: ${event}
+              severity: INFO
+      - extract_data:
+          assign:
+          - data: ${event.data.protoPayload}
+      - init:
+          assign:
+            - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
+            - reportsBucket: ${sys.get_env("reports_bucket_name")}
+            - validatorEndpoint: ${sys.get_env("validator_endpoint")}
+            # Resource name format: projects/_/buckets/<datasetBucketName>/objects/<feedID>/<datasetID>/<datasetID>.zip
+            - feedID: ${text.split(data.resourceName, "/")[5]}
+            - datasetID: ${text.split(data.resourceName, "/")[6]}
+            - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
+            - endpoint: ${validatorEndpoint + "/create-job"}
+            - payload:
+                  url: "${url}"
+                  countryCode: ""
+            - headers:
+                  Content-Type: application/json
+            - jobID: "undefined"
+      - assignResultsEndpoint:
+          switch:
+            - condition: ${sys.get_env("environment") == "prod"}
+              next: assignResultsEndpointProd
+          next: assignResultsEndpointDev
+      - assignResultsEndpointProd:
+          assign:
+            - resultsEndpoint: "https://gtfs-validator-results.mobilitydata.org/"
+      - assignResultsEndpointDev:
+          assign:
+            - resultsEndpoint: "https://staging-gtfs-validator-results.mobilitydata.org/"
+      - logInit:
+          call: sys.log
+          args:
+              text: '${"feedID: " + feedID + ", datasetID: " + datasetID + ", url: " + url}'
+              severity: INFO
+      - createJob:
+          call: http.post
+          args:
+              url: "${endpoint}"
+              headers: ${headers}
+              body: ${payload}
+          result: response
+      - checkJobCreationStatus:
+          switch:
+            - condition: ${response.code == 200}
+              next: successCreatingJob
+          next: errorCreatingJob
+      - errorCreatingJob:
+          return:
+            createJobResponse: response
+      - successCreatingJob:
+          assign:
+              - jobID: ${response.body.jobId}
+      - logJobID:
+          call: sys.log
+          args:
+              text: '${"jobID: " + jobID}'
+              severity: INFO
+      - waitForExecutionResultCreation:
+          steps:
+            - checkFileExistence:
+                try:
+                  steps:
+                    - getFile:
+                        call: http.get
+                        args:
+                          headers:
+                              Content-Type: text/plain
+                          url: ${resultsEndpoint + jobID + "/execution_result.json"}
+                        result: executionResultResponse
+                    - validateStatus:
+                        next: logExecutionResult
+                # Retrying 120 times with a delay of 10 seconds each time gives 20 minutes wait time.
+                retry:
+                  predicate: ${retry_predicate}
+                  maxAttempts: 120
+                  backoff:
+                    initial_delay: 10
+                    max_delay: 10
+                    multiplier: 1
+      - logExecutionResult:
+          steps:
+          - logExecutionResultMessage:
+              call: sys.log
+              args:
+                  text: 'Execution results:'
+                  severity: INFO
+          - logExecutionResultBody:
+              call: sys.log
+              args:
+                  text: ${executionResultResponse.body}
+                  severity: INFO
+      - systemErrors:
+          call: googleapis.storage.v1.objects.copy
+          args:
+            destinationBucket: ${datasetsBucket}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors.json"}
+            sourceBucket: ${reportsBucket}
+            sourceObject: ${jobID + "%2Fsystem_errors.json"}
+            destinationPredefinedAcl: publicRead
+      - logSystemErrorsCopied:
+          call: sys.log
+          args:
+              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors.json"}
+              severity: INFO
+
+      - checkExecutionResultStatus:
+          steps:
+            - getExecutionStatus:
+                assign:
+                  - isReportGenerated: ${executionResultResponse.body.status == "success"}
+            - validateExecutionStatus:
+                switch:
+                  - condition: ${isReportGenerated}
+                    next: htmlReport
+                next: errorReportGeneration
+      - errorReportGeneration:
+          steps:
+            - logErrorReportGeneration:
+                call: sys.log
+                args:
+                    text: 'Error generating report'
+                    severity: ERROR
+            - returnErrorReportGeneration:
+                return: "Error generating report"
+      - htmlReport:
+          call: googleapis.storage.v1.objects.copy
+          args:
+            destinationBucket: ${datasetsBucket}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.html"}
+            sourceBucket: ${reportsBucket}
+            sourceObject: ${jobID + "%2Freport.html"}
+            destinationPredefinedAcl: publicRead
+      - logHTMLReportCopied:
+          call: sys.log
+          args:
+              text: ${"HTML report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report.html"}
+              severity: INFO
+      - jsonReport:
+          call: googleapis.storage.v1.objects.copy
+          args:
+            destinationBucket: ${datasetsBucket}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.json"}
+            sourceBucket: ${reportsBucket}
+            sourceObject: ${jobID + "%2Freport.json"}
+            destinationPredefinedAcl: publicRead
+      - logJSONReportCopied:
+          call: sys.log
+          args:
+              text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report.json"}
+              severity: INFO
+          next: successfulExecution
+      - fileExistenceTimeout:
+          steps:
+            - logFileExistenceTimeout:
+                call: sys.log
+                args:
+                    text: ${"File not found after 20 minutes for datasetID " + datasetID }
+                    severity: ERROR
+            - returnFileNotFound:
+                return:  ${"File not found after 20 minutes for datasetID " + datasetID }
+      - successfulExecution:
+          steps:
+            - logSuccessfulExecution:
+                call: sys.log
+                args:
+                    text: ${"GTFS validator execution completed successfully for datasetID " + datasetID}
+                    severity: INFO
+            - returnSuccessfulExecution:
+                return: ${"GTFS validator execution completed successfully for datasetID " + datasetID}
+retry_predicate:
+      params: [e]
+      steps:
+        - validateErrorCode:
+            switch:
+                - condition: ${e.code in [404, 500, 503, 429]}
+                  return: true
+        - unSupportedError:
+            return: false

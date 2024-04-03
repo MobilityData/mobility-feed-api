@@ -51,7 +51,8 @@ locals {
     "iamcredentials.googleapis.com",
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com",
-    "vpcaccess.googleapis.com"
+    "vpcaccess.googleapis.com",
+    "workflows.googleapis.com"
   ]
 }
 
@@ -103,6 +104,14 @@ module "functions-python" {
   gcp_region  = var.gcp_region
   environment = var.environment
 
+}
+
+module "workflows" {
+  source = "./workflows"
+  project_id         = var.project_id
+  gcp_region         = var.gcp_region
+  environment        = var.environment
+  validator_endpoint = var.validator_endpoint
 }
 
 module "feed-api-load-balancer" {
