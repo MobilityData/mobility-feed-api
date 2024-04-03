@@ -219,7 +219,6 @@ paths:
       operationId: getMetadata
       security:
         - Authentication: []
-          GoogleIap: []
       responses:
         200:
           description: Successful pull of the metadata.
@@ -227,6 +226,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Metadata"
+
+  /v1/search:
+    get:
+      description: Search across different types of entities in the Mobility Database.
+      operationId: search
+      tags:
+        - "search"
+      parameters:
+        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/offset"        
+        # - in: query
+        #   name: query
+        #   schema:
+        #     type: string
+        #   description: General search query to match against various fields of the entities.
+        # Include other common query parameters for filtering
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Successful search across entities, potentially returning a mixed array of different entity types.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: '#/components/schemas/GtfsFeed'
+                        - $ref: '#/components/schemas/GtfsRTFeed'
+                        # Add references to other entity schemas as needed
+                      discriminator:
+                        propertyName: data_type
+                        mapping:
+                          gtfs: '#/components/schemas/GtfsFeed'
+                          gtfs_rt: '#/components/schemas/GtfsRTFeed'
+                          # Add other data_type mappings
+                  count:
+                    type: integer
+                    description: The total number of matching entities found.
+               
 
 components:
   schemas:
@@ -806,7 +848,10 @@ components:
 
   securitySchemes:
     Authentication:
-      $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    #  $ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"
 
 security:
   - Authentication: []
