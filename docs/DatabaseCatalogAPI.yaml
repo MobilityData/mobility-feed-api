@@ -229,15 +229,17 @@ paths:
 
   /v1/search:
     get:
-      description: Search across different types of entities in the Mobility Database.
-      operationId: searchEntities
+      description: Search feeds using full-text search on feed, location and provider's information.
+      operationId: searchFeeds
       tags:
         - "search"
       parameters:
         - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/search_query"
-        - $ref: "#/components/parameters/data_type"
+        - $ref: "#/components/parameters/status"
+        - $ref: "#/components/parameters/feed_id_query_param"
+        - $ref: "#/components/parameters/data_type_query_param"
+        - $ref: "#/components/parameters/search_text_query_param"
       security:
         - Authentication: []
       responses:
@@ -802,6 +804,7 @@ components:
         type: integer
         minimum: 0
         example: 10
+        
     offset:
       name: offset
       in: query
@@ -813,7 +816,7 @@ components:
         default: 0
         example: 0
 
-    search_query:
+    search_text_query_param:
       name: search_query
       in: query
       description: General search query to match against various fields of the entities.
@@ -821,7 +824,7 @@ components:
       schema:
         type: string
 
-    data_type:
+    data_type_query_param:
       name: data_type
       in: query
       description: Unique identifier used as a key for the feeds table.
@@ -832,6 +835,15 @@ components:
           - gtfs
           - gtfs_rt
         example: gtfs
+
+    feed_id_query_param:
+      name: feed_id
+      in: query
+      description: The feed ID of the requested feed.
+      required: False
+      schema:
+        type: string
+        example: mdb-1210
 
     feed_id_path_param:
       name: id
