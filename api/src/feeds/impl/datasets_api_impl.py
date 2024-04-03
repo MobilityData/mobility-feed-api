@@ -16,7 +16,7 @@ from feeds.impl.error_handling import (
 )
 from database_gen.sqlacodegen_models import (
     Gtfsdataset,
-    t_componentgtfsdataset,
+    t_featurevalidationreport,
     Feed,
     Validationreport,
     t_validationreportgtfsdataset,
@@ -40,29 +40,18 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
     @staticmethod
     def create_dataset_query():
-        return (
-            Query(
-                [
-                    Gtfsdataset,
-                    t_componentgtfsdataset.c["component"],
-                    Gtfsdataset.bounding_box.ST_AsGeoJSON(),
-                    Feed.stable_id,
-                ]
-            )
-            .join(
-                t_componentgtfsdataset,
-                t_componentgtfsdataset.c["dataset_id"] == Gtfsdataset.id,
-                isouter=True,
-            )
-            .join(Feed, Feed.id == Gtfsdataset.feed_id)
-        )
+        return Query(
+            [
+                Gtfsdataset,
+                Gtfsdataset.bounding_box.ST_AsGeoJSON(),
+                Feed.stable_id,
+            ]
+        ).join(Feed, Feed.id == Gtfsdataset.feed_id)
 
     @staticmethod
     def _load_validation_report():
         """
-        This method is for loading validation reports. This could be done as part of loading gtfs dataset
-        but the query for loading gtfs dataset is already complex, and therefore I decided to create a separate method
-        for this.
+        This method is for loading validation reports.
         """
         vrgd = t_validationreportgtfsdataset.alias()
         max_vr = aliased(Validationreport)
@@ -88,6 +77,16 @@ class DatasetsApiImpl(BaseDatasetsApi):
         )
 
         return Database().session.execute(notices_query).scalars().all()
+
+    @staticmethod
+    def _load_features_validation_report(validation_report_id: str):
+        """
+        This method is for loading features related with a validation report.
+        """
+        query = select(t_featurevalidationreport.c.feature).where(
+            t_featurevalidationreport.c.validation_id == validation_report_id
+        )
+        return Database().session.execute(query).scalars().all()
 
     @staticmethod
     def apply_bounding_filtering(
@@ -156,16 +155,18 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
         gtfs_datasets = []
         for dataset_group in dataset_groups:
-            dataset_objects, components, bound_box_strings, feed_ids = zip(*dataset_group)
+            dataset_objects, bound_box_strings, feed_ids = zip(*dataset_group)
             database_gtfs_dataset = dataset_objects[0]
             notices_for_dataset = [notice for notice in notices if notice.dataset_id == database_gtfs_dataset.id]
-
             validator_report = None
             if notices_for_dataset:
-                validator_report = ValidationReport(
-                    components=sorted([component for component in components if component is not None])
-                )
                 database_validator_report = notices_for_dataset[0].validation_report
+                features_results = DatasetsApiImpl._load_features_validation_report(database_validator_report.id)
+                features = sorted([feature for feature in features_results if feature is not None])
+                print(features)
+                validator_report = ValidationReport(
+                    features=features,
+                )
                 validator_report.total_info = sum(
                     [notice.total_notices for notice in notices_for_dataset if notice.severity == "INFO"]
                 )
