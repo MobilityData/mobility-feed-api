@@ -245,6 +245,12 @@ resource "google_project_iam_member" "function_invoker" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "workflow_admin" {
+  project = var.project_id
+  role    = "roles/workflows.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 output "ci_service_account_id" {
   value       = google_service_account.ci_service_account.id
   description = "CI service account ID"
