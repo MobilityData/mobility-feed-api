@@ -19,6 +19,8 @@ src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/location.py
 src/feeds_gen/models/metadata.py
 src/feeds_gen/models/redirect.py
+src/feeds_gen/models/search_feeds200_response.py
+src/feeds_gen/models/search_feeds200_response_results_inner.py
 src/feeds_gen/models/source_info.py
 src/feeds_gen/models/validation_report.py
 src/feeds_gen/security_api.py

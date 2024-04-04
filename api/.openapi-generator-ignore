@@ -36,3 +36,11 @@ requirements_dev.txt
 requirements.txt
 .flake8
 tests/conftest.py
+# Avoids generating classes by experimental/unimplemented and experimental/unstable tags
+# If an additional tag is attached to the endpoint, the related classes will be generated
+src/feeds_gen/apis/experimental_unimplemented_api.py
+src/feeds_gen/apis/experimental_unimplemented_api_base.py
+tests/test_experimental_unimplemented_api.py
+src/feeds_gen/apis/experimental_unstable_api.py
+src/feeds_gen/apis/experimental_unstable_api_base.py
+tests/test_experimental_unstable_api.py
