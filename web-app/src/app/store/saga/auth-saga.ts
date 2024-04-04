@@ -1,6 +1,6 @@
 import { app } from '../../../firebase';
 import { type PayloadAction } from '@reduxjs/toolkit';
-import { call, put, takeLatest } from 'redux-saga/effects';
+import { call, put, select, takeLatest } from 'redux-saga/effects';
 import {
   USER_PROFILE_LOGIN,
   USER_PROFILE_LOGOUT,
@@ -28,6 +28,7 @@ import {
   verifyFail,
   verifySuccess,
   anonymousLogin,
+  anonymousLoginFailed,
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
 import {
@@ -48,6 +49,7 @@ import {
   signInAnonymously,
 } from 'firebase/auth';
 import { getAppError } from '../../utils/error';
+import { selectIsAuthenticated } from '../profile-selectors';
 
 function* emailLoginSaga({
   payload: { email, password },
@@ -178,6 +180,16 @@ function* resetPasswordSaga({
 
 function* anonymousLoginSaga(): Generator {
   try {
+    // Check if the user is already authenticated
+    const isAuthenticated: boolean = (yield select(
+      selectIsAuthenticated,
+    )) as boolean;
+    if (isAuthenticated) {
+      yield put(anonymousLoginFailed()); // fails silently
+      return;
+    }
+
+    // Sign in anonymously
     const auth = getAuth();
     yield call(async () => {
       await signInAnonymously(auth);
@@ -189,7 +201,7 @@ function* anonymousLoginSaga(): Generator {
     const currentUser = yield call(generateUserAccessToken, user as User);
     yield put(loginSuccess(currentUser as User));
   } catch (error) {
-    yield put(loginFail(getAppError(error)));
+    yield put(anonymousLoginFailed()); // fails silently
   }
 }
 

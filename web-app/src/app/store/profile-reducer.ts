@@ -251,6 +251,9 @@ export const userProfileSlice = createSlice({
     anonymousLogin: (state) => {
       state.isAppRefreshing = true;
     },
+    anonymousLoginFailed: (state) => {
+      state.isAppRefreshing = false;
+    },
   },
 });
 
@@ -286,6 +289,7 @@ export const {
   verifyFail,
   emailVerified,
   anonymousLogin,
+  anonymousLoginFailed,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
