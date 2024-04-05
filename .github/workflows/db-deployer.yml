@@ -99,7 +99,6 @@ jobs:
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/postgresql/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          cp infra/postgresql/backend.conf infra/terraform-init/backend.conf
           scripts/replace-variables.sh -in_file infra/postgresql/vars.tfvars.rename_me -out_file infra/postgresql/vars.tfvars -variables ENVIRONMENT,PROJECT_ID,REGION,DEPLOYER_SERVICE_ACCOUNT,POSTGRE_SQL_INSTANCE_NAME,POSTGRE_SQL_DB_NAME,POSTGRE_USER_NAME,POSTGRE_USER_PASSWORD,POSTGRE_INSTANCE_TIER,MAX_CONNECTIONS
 
       - name: Install Terraform
@@ -164,7 +163,7 @@ jobs:
       - name: Create or Update Secret in DEV
         run: |
           SECRET_NAME="DEV_FEEDS_DATABASE_URL"
-          SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/${{ env.POSTGRE_SQL_DB_NAME }}"
+          SECRET_VALUE="postgresql://${{ env.POSTGRE_USER_NAME }}:${{ env.POSTGRE_USER_PASSWORD }}@${{ env.DB_INSTANCE_HOST }}/${{ env.POSTGRE_SQL_DB_NAME }}DEV"
           echo $SECRET_VALUE
           
           if gcloud secrets describe $SECRET_NAME --project=mobility-feeds-dev; then

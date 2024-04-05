@@ -104,8 +104,19 @@ build_function() {
     printf "\nINFO: function_config.json file contains a property called include_folders"
   fi
   for folder in $include_folders; do
-    printf "INFO: including folder $FX_PATH/../$folder\n"
-    cp -R "$FX_PATH/../$folder" "$FX_DIST_BUILD"
+    printf "\nINFO: Including .py files from folder $FX_PATH/../$folder, excluding 'tests' directories\n"
+    # Find all .py files, excluding those in 'tests' directories
+    find "$FX_PATH/../$folder" -type d -name "tests" -prune -o -name "*.py" -print | while read file; do
+        if [ -d "$file" ]; then continue; fi
+        relative_path="${file#$FX_PATH/../}"
+        dest_path="$FX_DIST_BUILD/$relative_path"
+
+        # Create the directory structure for the current file in the destination
+        mkdir -p "$(dirname "$dest_path")"
+
+        # Copy the file to the destination
+        cp "$file" "$dest_path"
+    done
   done
 
   (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
