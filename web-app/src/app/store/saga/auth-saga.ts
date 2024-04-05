@@ -1,6 +1,6 @@
 import { app } from '../../../firebase';
 import { type PayloadAction } from '@reduxjs/toolkit';
-import { call, put, takeLatest } from 'redux-saga/effects';
+import { call, put, select, takeLatest } from 'redux-saga/effects';
 import {
   USER_PROFILE_LOGIN,
   USER_PROFILE_LOGOUT,
@@ -12,6 +12,7 @@ import {
   USER_PROFILE_RESET_PASSWORD,
   type UserData,
   USER_PROFILE_SEND_VERIFICATION_EMAIL,
+  USER_PROFILE_ANONYMOUS_LOGIN,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -26,9 +27,12 @@ import {
   resetPasswordSuccess,
   verifyFail,
   verifySuccess,
+  anonymousLogin,
+  anonymousLoginFailed,
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
 import {
+  generateUserAccessToken,
   getUserFromSession,
   populateUserWithAdditionalInfo,
   retrieveUserInformation,
@@ -42,8 +46,10 @@ import {
   EmailAuthProvider,
   getAuth,
   sendPasswordResetEmail,
+  signInAnonymously,
 } from 'firebase/auth';
 import { getAppError } from '../../utils/error';
+import { selectIsAuthenticated } from '../profile-selectors';
 
 function* emailLoginSaga({
   payload: { email, password },
@@ -76,6 +82,7 @@ function* logoutSaga({
   try {
     yield app.auth().signOut();
     yield put(logoutSuccess());
+    yield put(anonymousLogin()); // Use anonymous login to keep the user signed in
     navigateTo(redirectScreen);
   } catch (error) {
     yield put(loginFail(getAppError(error)));
@@ -171,6 +178,33 @@ function* resetPasswordSaga({
   }
 }
 
+function* anonymousLoginSaga(): Generator {
+  try {
+    // Check if the user is already authenticated
+    const isAuthenticated: boolean = (yield select(
+      selectIsAuthenticated,
+    )) as boolean;
+    if (isAuthenticated) {
+      yield put(anonymousLoginFailed()); // fails silently
+      return;
+    }
+
+    // Sign in anonymously
+    const auth = getAuth();
+    yield call(async () => {
+      await signInAnonymously(auth);
+    });
+    const user = yield call(getUserFromSession);
+    if (user === null) {
+      throw new Error('User not found');
+    }
+    const currentUser = yield call(generateUserAccessToken, user as User);
+    yield put(loginSuccess(currentUser as User));
+  } catch (error) {
+    yield put(anonymousLoginFailed()); // fails silently
+  }
+}
+
 export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_LOGIN, emailLoginSaga);
   yield takeLatest(USER_PROFILE_LOGOUT, logoutSaga);
@@ -182,4 +216,5 @@ export function* watchAuth(): Generator {
   yield takeLatest(USER_PROFILE_LOGIN_WITH_PROVIDER, loginWithProviderSaga);
   yield takeLatest(USER_PROFILE_CHANGE_PASSWORD, changePasswordSaga);
   yield takeLatest(USER_PROFILE_RESET_PASSWORD, resetPasswordSaga);
+  yield takeLatest(USER_PROFILE_ANONYMOUS_LOGIN, anonymousLoginSaga);
 }

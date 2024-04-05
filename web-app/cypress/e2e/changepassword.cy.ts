@@ -61,8 +61,6 @@ describe('Change Password Screen', () => {
     cy.get('button[type="submit"]').click();
 
     // Check that the password was changed successfully
-    // This depends on how your application shows that the password was changed successfully
-    // For example, you might check for a success message or that you're redirected to a certain page
     cy.contains('Change Password Succeeded').should('exist');
     cy.get('[cy-data="goToAccount"]').click();
     cy.location('pathname').should('eq', '/account');

@@ -19,7 +19,8 @@ interface UserProfileState {
     | 'sign_up'
     | 'loading_organization'
     | 'registered'
-    | 'registering';
+    | 'registering'
+    | 'anonymous_login';
   isRefreshingAccessToken: boolean;
   isAppRefreshing: boolean;
   isRecoveryEmailSent: boolean;
@@ -65,7 +66,9 @@ export const userProfileSlice = createSlice({
         ? 'registered'
         : action.payload?.isEmailVerified
           ? 'authenticated'
-          : 'unverified';
+          : action.payload?.isAnonymous
+            ? 'anonymous_login'
+            : 'unverified';
       state.errors = { ...initialState.errors };
       state.user = action.payload;
       state.isAppRefreshing = false;
@@ -245,6 +248,12 @@ export const userProfileSlice = createSlice({
       }
       state.isAppRefreshing = false;
     },
+    anonymousLogin: (state) => {
+      state.isAppRefreshing = true;
+    },
+    anonymousLoginFailed: (state) => {
+      state.isAppRefreshing = false;
+    },
   },
 });
 
@@ -279,6 +288,8 @@ export const {
   verifySuccess,
   verifyFail,
   emailVerified,
+  anonymousLogin,
+  anonymousLoginFailed,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;

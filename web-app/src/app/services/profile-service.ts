@@ -30,6 +30,7 @@ export const getUserFromSession = async (): Promise<User | null> => {
     // Organization cannot be retrieved from the current user
     organization: undefined,
     isRegisteredToReceiveAPIAnnouncements: false,
+    isAnonymous: currentUser.isAnonymous,
     refreshToken,
   };
 };

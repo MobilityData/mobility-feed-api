@@ -25,6 +25,7 @@ export interface User {
   isRegistered: boolean;
   isRegisteredToReceiveAPIAnnouncements: boolean;
   isEmailVerified: boolean;
+  isAnonymous: boolean;
 }
 
 export interface UserData {
@@ -48,6 +49,7 @@ export const USER_PROFILE_LOGIN_WITH_PROVIDER = `${USER_PROFILE}/loginWithProvid
 export const USER_PROFILE_CHANGE_PASSWORD = `${USER_PROFILE}/changePassword`;
 export const USER_PROFILE_REFRESH_INFORMATION = `${USER_PROFILE}/refreshUserInformation`;
 export const USER_PROFILE_RESET_PASSWORD = `${USER_PROFILE}/resetPassword`;
+export const USER_PROFILE_ANONYMOUS_LOGIN = `${USER_PROFILE}/anonymousLogin`;
 
 export enum ErrorSource {
   SignUp = 'SignUp',
