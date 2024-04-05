@@ -18,7 +18,12 @@ import os
 from datetime import datetime
 import requests
 import functions_framework
-from database_gen.sqlacodegen_models import Validationreport, Feature, Notice, Gtfsdataset
+from database_gen.sqlacodegen_models import (
+    Validationreport,
+    Feature,
+    Notice,
+    Gtfsdataset,
+)
 from helpers.database import start_db_session, close_db_session
 
 FILES_ENDPOINT = os.getenv("FILES_ENDPOINT")
@@ -58,7 +63,11 @@ def get_dataset(dataset_stable_id, session):
     :param session: Database session instance
     :return: Gtfsdataset instance or None if not found
     """
-    return session.query(Gtfsdataset).filter(Gtfsdataset.stable_id == dataset_stable_id).one_or_none()
+    return (
+        session.query(Gtfsdataset)
+        .filter(Gtfsdataset.stable_id == dataset_stable_id)
+        .one_or_none()
+    )
 
 
 def create_validation_report_entities(feed_stable_id, dataset_stable_id):
@@ -73,7 +82,9 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
     """
     entities = []
 
-    json_report_url = f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
+    json_report_url = (
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
+    )
     try:
         json_report = read_json_report(json_report_url)
     except Exception as error:
@@ -89,7 +100,9 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
         return f"Error parsing JSON report: {error}", 500
 
     report_id = f"{dataset_stable_id}_{version}"
-    html_report_url = f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.html"
+    html_report_url = (
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.html"
+    )
 
     print(f"Creating validation report entities for {report_id}.")
     print(f"JSON report URL: {json_report_url}")
@@ -136,7 +149,9 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
 
 
 def get_validation_report(report_id, session):
-    return session.query(Validationreport).filter(Validationreport.id == report_id).first()
+    return (
+        session.query(Validationreport).filter(Validationreport.id == report_id).first()
+    )
 
 
 @functions_framework.http
@@ -149,7 +164,11 @@ def process_validation_report(request):
     :return: HTTP response indicating the result of the operation
     """
     request_json = request.get_json(silent=True)
-    if not request_json or 'dataset_id' not in request_json or 'feed_id' not in request_json:
+    if (
+        not request_json
+        or "dataset_id" not in request_json
+        or "feed_id" not in request_json
+    ):
         return "Invalid request", 400
 
     dataset_id = request_json["dataset_id"]
