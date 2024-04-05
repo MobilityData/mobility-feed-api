@@ -23,6 +23,23 @@ locals {
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+
+  function_process_validation_report_config = jsondecode(file("${path.module}/../../functions-python/validation_report_processor/function_config.json"))
+  function_process_validation_report_zip = "${path.module}/../../functions-python/validation_report_processor/.dist/validation_report_processor.zip"
+  public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
+}
+
+locals {
+  # To allow multiple functions to access the same secrets, we need to combine all the keys from the different functions
+  # Combine all keys into a list
+  all_secret_keys_list = concat(
+    [for x in local.function_tokens_config.secret_environment_variables : x.key],
+    [for x in local.function_extract_bb_config.secret_environment_variables : x.key],
+    [for x in local.function_process_validation_report_config.secret_environment_variables : x.key]
+  )
+
+  # Convert the list to a set to ensure uniqueness
+  unique_secret_keys = toset(local.all_secret_keys_list)
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -56,16 +73,20 @@ resource "google_storage_bucket_object" "function_extract_bb_zip_object" {
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_extract_bb_zip
 }
+# Process validation report
+resource "google_storage_bucket_object" "process_validation_report_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "process-validation-report-${substr(filebase64sha256(local.function_process_validation_report_zip), 0, 10)}.zip"
+  source = local.function_process_validation_report_zip
+}
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
-  for_each = {
-    for x in concat(local.function_tokens_config.secret_environment_variables, local.function_extract_bb_config.secret_environment_variables) :
-    x.key => x
-  }
+  for_each = local.unique_secret_keys
 
   project    = var.project_id
-  secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.key}")
+  # The secret_id is the current item in the set. Since these are unique keys, we use each.value to access it.
+  secret_id  = "${upper(var.environment)}_${each.value}"
   role       = "roles/secretmanager.secretAccessor"
   member     = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
@@ -237,4 +258,49 @@ resource "google_cloud_run_service_iam_member" "extract_bb_cloud_run_invoker" {
   service        = google_cloudfunctions2_function.extract_bb.name
   role           = "roles/run.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Process validation report function
+resource "google_cloudfunctions2_function" "process_validation_report" {
+  name        = local.function_process_validation_report_config.name
+  description = local.function_process_validation_report_config.description
+  location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project = var.project_id
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_process_validation_report_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.process_validation_report_zip.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_process_validation_report_config.memory
+    available_cpu    = local.function_process_validation_report_config.available_cpu
+    timeout_seconds  = local.function_process_validation_report_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+    environment_variables = {
+      FILES_ENDPOINT    = local.public_hosted_datasets_url
+      # prevents multiline logs from being truncated on GCP console
+      PYTHONNODEBUGRANGES = 0
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_process_validation_report_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+    service_account_email            = google_service_account.functions_service_account.email
+    max_instance_request_concurrency = local.function_process_validation_report_config.max_instance_request_concurrency
+    max_instance_count               = local.function_process_validation_report_config.max_instance_count
+    min_instance_count               = local.function_process_validation_report_config.min_instance_count
+  }
 }
