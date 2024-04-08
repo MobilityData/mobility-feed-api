@@ -144,10 +144,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'yarn'
+          cache-dependency-path: 'web-app/yarn.lock'
 
       - name: Install dependencies
         working-directory: web-app
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --prefer-offline
 
       - name: Set Firebase project properties
         working-directory: web-app
