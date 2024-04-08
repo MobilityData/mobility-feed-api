@@ -11,7 +11,7 @@ import { anonymousLogin } from './store/profile-reducer';
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
   const dispatch = useDispatch();
-  dispatch(anonymousLogin()); // Login anonymously at the start of the app
+  dispatch(anonymousLogin()); // Login anonymously at the start of the app. test cicd
   return (
     <RemoteConfigProvider>
       <div id='app-main-container'>
