@@ -233,7 +233,7 @@ paths:
       operationId: searchFeeds
       tags:
         - "Experimental/Unimplemented"
-        # - "search" # TODO remove experimental tag when fully implemented and uncomment this line
+        - "search" # TODO remove experimental tag when fully implemented and uncomment this line
       parameters:
         - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
@@ -262,9 +262,9 @@ paths:
                         mapping:
                           gtfs: '#/components/schemas/GtfsFeed'
                           gtfs_rt: '#/components/schemas/GtfsRTFeed'
-                  count:
+                  total:
                     type: integer
-                    description: The total number of matching entities found.
+                    description: The total number of matching entities found regarless the limit and offset parameters.
                
 
 components:
