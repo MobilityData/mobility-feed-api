@@ -23,9 +23,8 @@ class SearchApiImpl(BaseSearchApi):
             query = query.where(t_feedsearch.c.data_type == data_type.strip().lower())
         if status:
             query = query.where(t_feedsearch.c.status == status.strip().lower())
-        search_condition = t_feedsearch.c.document.op('@@')(func.plainto_tsquery('english', f'{search_query}:*'))
         if search_query:
-            query = query.filter(search_condition)
+            query = query.filter(t_feedsearch.c.document.op('@@')(func.plainto_tsquery('english', f'{search_query}:*')))
         return query
 
     @staticmethod
@@ -37,8 +36,7 @@ class SearchApiImpl(BaseSearchApi):
         Create a search query for the database.
         """
         query = (select([func.count(t_feedsearch.c.feed_id)]))
-        query = SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
-        return query
+        return SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
 
     @staticmethod
     def create_search_query(status: str,
@@ -56,8 +54,7 @@ class SearchApiImpl(BaseSearchApi):
             *feed_search_columns,
         ]))
         query = SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
-        query = query.order_by(rank_expression.desc())
-        return query
+        return query.order_by(rank_expression.desc())
 
     def search_feeds(
             self,
