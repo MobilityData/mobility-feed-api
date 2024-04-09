@@ -6,9 +6,7 @@ on:
     paths:
       - "web-app/**"
       - "functions/**"
-      - ".github/workflows/web-pr.yml"
-      - ".github/workflows/web-deployer.yml"
-
+      - ".github/workflows/web-*.yml"
 jobs:
   deploy-web-app:
     name: Deploy Web App

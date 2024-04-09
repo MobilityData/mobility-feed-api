@@ -41,23 +41,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+          cache-dependency-path: 'web-app/yarn.lock'
 
-      - name: Install dependencies
-        working-directory: web-app
-        run: yarn install --frozen-lockfile
-
-      - name: Cache node modules
-        id: cache-npm
+      - name: Cache Yarn dependencies
         uses: actions/cache@v4
-        env:
-          cache-name: cache-node-modules
+        id: yarn-cache
         with:
           path: |
             **/node_modules
             **/.eslintcache
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('web-app/yarn.lock') }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn-lock.json') }}
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile --prefer-offline
 
       - name: Cache Cypress binary
         uses: actions/cache@v4
@@ -154,10 +154,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+          cache-dependency-path: 'web-app/yarn.lock'
 
       - name: Install dependencies
         working-directory: web-app
-        run: yarn install --frozen-lockfile
+        run: yarn install --frozen-lockfile --prefer-offline
 
       - name: Set Firebase project properties
         working-directory: web-app
