@@ -1,5 +1,5 @@
 #
-#   MobilityData 2023
+#   MobilityData 2024
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 #
 
 import os
+import logging
 from datetime import datetime
 import requests
 import functions_framework
@@ -25,6 +26,9 @@ from database_gen.sqlacodegen_models import (
     Gtfsdataset,
 )
 from helpers.database import start_db_session, close_db_session
+from helpers.logger import Logger
+
+logging.basicConfig(level=logging.INFO)
 
 FILES_ENDPOINT = os.getenv("FILES_ENDPOINT")
 
@@ -37,7 +41,7 @@ def read_json_report(json_report_url):
     :return: Dict representation of the JSON report
     """
     response = requests.get(json_report_url)
-    return response.json()
+    return response.json(), response.status_code
 
 
 def get_feature(feature_name, session):
@@ -85,16 +89,23 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
     json_report_url = (
         f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
     )
+    logging.info(f"Accessing JSON report at {json_report_url}.")
     try:
-        json_report = read_json_report(json_report_url)
-    except Exception as error:
+        json_report, code = read_json_report(json_report_url)
+        if code != 200:
+            logging.error(f"Error reading JSON report: {code}")
+            return f"Error reading JSON report at url {json_report_url}.", code
+    except Exception as error:  # JSONDecodeError or RequestException
         print(f"Error reading JSON report: {error}")
-        return f"Error reading JSON report: {error}", 500
+        return f"Error reading JSON report at url {json_report_url}: {error}", 500
 
     try:
         dt = json_report["summary"]["validatedAt"]
         validated_at = datetime.fromisoformat(dt.replace("Z", "+00:00"))
         version = json_report["summary"]["validatorVersion"]
+        logging.info(
+            f"Validation report validated at {validated_at} with version {version}."
+        )
     except Exception as error:
         print(f"Error parsing JSON report: {error}")
         return f"Error parsing JSON report: {error}", 500
@@ -104,16 +115,17 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
         f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.html"
     )
 
-    print(f"Creating validation report entities for {report_id}.")
-    print(f"JSON report URL: {json_report_url}")
-    print(f"HTML report URL: {html_report_url}")
-
+    logging.info(f"Creating validation report entities for {report_id}.")
     session = None
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        logging.info("Database session started.")
+
         # Validation Report Entity
         if get_validation_report(report_id, session):  # Check if report already exists
+            logging.info(f"Validation report {report_id} already exists. Terminating.")
             return f"Validation report {report_id} already exists.", 409
+
         validation_report_entity = Validationreport(
             id=report_id,
             validator_version=version,
@@ -139,13 +151,16 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
             entities.append(notice_entity)
         for entity in entities:
             session.add(entity)
+        logging.info(f"Committing {len(entities)} entities to the database.")
         session.commit()
+        logging.info("Entities committed successfully.")
         return f"Created {len(entities)} entities.", 200
     except Exception as error:
         print(f"Error creating validation report entities: {error}")
         return f"Error creating validation report entities: {error}", 500
     finally:
         close_db_session(session)
+        logging.info("Database session closed.")
 
 
 def get_validation_report(report_id, session):
@@ -163,14 +178,24 @@ def process_validation_report(request):
     :param request: Request object containing 'dataset_id' and 'feed_id'
     :return: HTTP response indicating the result of the operation
     """
+    Logger.init_logger()
     request_json = request.get_json(silent=True)
+    logging.info(
+        f"Processing validation report function called with request: {request_json}"
+    )
     if (
         not request_json
         or "dataset_id" not in request_json
         or "feed_id" not in request_json
     ):
-        return "Invalid request", 400
+        return (
+            f"Invalid request body: {request_json}. We expect 'dataset_id' and 'feed_id' to be present.",
+            400,
+        )
 
     dataset_id = request_json["dataset_id"]
     feed_id = request_json["feed_id"]
+    logging.info(
+        f"Processing validation report for dataset {dataset_id} in feed {feed_id}."
+    )
     return create_validation_report_entities(feed_id, dataset_id)

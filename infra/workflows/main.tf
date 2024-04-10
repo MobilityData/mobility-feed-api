@@ -52,6 +52,12 @@ resource "google_project_iam_member" "workflows_invoker" {
   member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
 }
 
+resource "google_project_iam_member" "cloud_run_invoker" {
+  project = var.project_id
+  role    = "roles/run.invoker"
+  member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
+}
+
 # Workflow to execute the GTFS Validator
 resource "google_workflows_workflow" "gtfs_validator_execution" {
   name                    = "gtfs_validator_execution"

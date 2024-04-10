@@ -1,7 +1,5 @@
 functions-framework==3.*
-google-cloud-pubsub
 google-cloud-logging
-google-cloud-datastore
 psycopg2-binary==2.9.6
 aiohttp~=3.8.6
 asyncio~=3.4.3

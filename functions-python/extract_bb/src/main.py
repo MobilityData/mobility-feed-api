@@ -41,7 +41,7 @@ def get_gtfs_feed_bounds(url: str, dataset_id: str) -> numpy.ndarray:
         feed = gtfs_kit.read_feed(url, "km")
         return feed.compute_bounds()
     except Exception as e:
-        print(f"[{dataset_id}] Error retrieving GTFS feed from {url}: {e}")
+        logging.error(f"[{dataset_id}] Error retrieving GTFS feed from {url}: {e}")
         raise Exception(e)
 
 
