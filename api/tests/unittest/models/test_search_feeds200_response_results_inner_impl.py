@@ -7,51 +7,7 @@ from feeds.impl.models.search_feeds200_response_results_inner_impl import Search
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
 
-# id: Optional[str] = Field(alias="id", default=None)
-# data_type: Optional[str] = Field(alias="data_type", default=None)
-# status: Optional[str] = Field(alias="status", default=None)
-# external_ids: Optional[List[ExternalId]] = Field(alias="external_ids", default=None)
-# provider: Optional[str] = Field(alias="provider", default=None)
-# feed_name: Optional[str] = Field(alias="feed_name", default=None)
-# note: Optional[str] = Field(alias="note", default=None)
-# feed_contact_email: Optional[str] = Field(alias="feed_contact_email", default=None)
-# source_info: Optional[SourceInfo] = Field(alias="source_info", default=None)
-# redirects: Optional[List[Redirect]] = Field(alias="redirects", default=None)
-# locations: Optional[List[Location]] = Field(alias="locations", default=None)
-# latest_dataset: Optional[LatestDataset] = Field(alias="latest_dataset", default=None)
-# entity_types: Optional[List[str]] = Field(alias="entity_types", default=None)
-# feed_references: Optional[List[str]] = Field(alias="feed_references", default=None)
-
-# Column('feed_stable_id', String(255), index=True),
-# Column('feed_id', String(255)),
-# Column('data_type', Enum('gtfs', 'gtfs_rt', name='datatype'), index=True),
-# Column('status', Enum('active', 'inactive', 'development', 'deprecated', name='status'), index=True),
-# Column('feed_name', String(255)),
-# Column('note', String(255)),
-# Column('feed_contact_email', String(255)),
-# Column('producer_url', String(255)),
-# Column('authentication_info_url', String(255)),
-# Column('authentication_type', Enum('0', '1', '2', name='authenticationtype')),
-# Column('api_key_parameter_name', String(255)),
-# Column('license_url', String(255)),
-# Column('country_code', String(3)),
-# Column('subdivision_name', String(255)),
-# Column('municipality', String(255)),
-# Column('provider', Text),
-# Column('latest_dataset_id', String(255)),
-# Column('latest_dataset_hosted_url', String(255)),
-# Column('latest_dataset_downloaded_at', DateTime),
-# Column('latest_dataset_bounding_box',
-#        Geometry('POLYGON', 4326, spatial_index=False, from_text='ST_GeomFromEWKT', name='geometry')),
-# Column('latest_dataset_hash', String(255)),
-# Column('external_ids', JSON),
-# Column('redirect_ids', JSON),
-# Column('feed_reference_ids', ARRAY(String())),
-# Column('entities', ARRAY(String())),
-# Column('locations', JSON),
-
 fake = Faker()
-
 downloaded_at = fake.date_time_this_month()
 
 
@@ -59,25 +15,6 @@ class FeedSearchRow:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
-
-# id = feed_search_row.feed_stable_id,
-#
-# provider = feed_search_row.provider,
-# feed_name = feed_search_row.feed_name,
-# note = feed_search_row.note,
-# feed_contact_email = feed_search_row.feed_contact_email,
-#
-# source_info = SourceInfo(producer_url=feed_search_row.producer_url,
-#                          authentication_type=feed_search_row.authentication_type,
-#                          authentication_info_url=feed_search_row.authentication_info_url,
-#                          api_key_parameter_name=feed_search_row.api_key_parameter_name,
-#                          license_url=feed_search_row.license_url),
-# redirects = feed_search_row.redirect_ids,
-# locations = feed_search_row.locations,
-# latest_dataset = LatestDataset(id=feed_search_row.latest_dataset_id,
-#                                hosted_url=feed_search_row.latest_dataset_hosted_url,
-#                                downloaded_at=feed_search_row.latest_dataset_downloaded_at,
-#                                hash=feed_search_row.latest_dataset_hash) if feed_search_row.latest_dataset_id else None,
 
 search_item = FeedSearchRow(
     feed_id='feed_id',

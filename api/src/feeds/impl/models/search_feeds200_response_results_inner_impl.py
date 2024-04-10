@@ -33,10 +33,12 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
                                    license_url=feed_search_row.license_url),
             redirects=feed_search_row.redirect_ids,
             locations=feed_search_row.locations,
-            latest_dataset=LatestDataset(id=feed_search_row.latest_dataset_id,
-                                         hosted_url=feed_search_row.latest_dataset_hosted_url,
-                                         downloaded_at=feed_search_row.latest_dataset_downloaded_at,
-                                         hash=feed_search_row.latest_dataset_hash) if feed_search_row.latest_dataset_id else None,
+            latest_dataset=LatestDataset(
+                id=feed_search_row.latest_dataset_id,
+                hosted_url=feed_search_row.latest_dataset_hosted_url,
+                downloaded_at=feed_search_row.latest_dataset_downloaded_at,
+                hash=feed_search_row.latest_dataset_hash) if feed_search_row.latest_dataset_id
+            else None,
         )
 
     @classmethod
