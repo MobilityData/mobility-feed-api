@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response  # noqa: F401
 
 
-def test_search_feeds(client: TestClient):
+def search_feeds(client: TestClient):
     """Test case for search_feeds
 
     
