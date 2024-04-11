@@ -215,7 +215,7 @@ class DatasetProcessor:
                 session.add(latest_dataset)
             session.add(new_dataset)
 
-            refresh_materialized_view(t_feedsearch.name)
+            refresh_materialized_view(session, t_feedsearch.name)
             session.commit()
             logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
         except Exception as e:

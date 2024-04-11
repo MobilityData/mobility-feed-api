@@ -58,17 +58,30 @@ def get_testing_session() -> Session:
 
 
 def clean_testing_db():
-    """Truncates all table in the test db."""
+    """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
     engine = get_testing_engine()
     with contextlib.closing(engine.connect()) as con:
         trans = con.begin()
-        query = "TRUNCATE {} RESTART IDENTITY;".format(
-            ",".join(
+        try:
+            tables_to_delete = [
                 table.name
-                for table in filter(
-                    lambda t: t.name not in excluded_tables, Base.metadata.sorted_tables
-                )
-            )
-        )
-        con.execute(text(query))
-        trans.commit()
+                for table in reversed(Base.metadata.sorted_tables)
+                if table.name not in excluded_tables
+            ]
+            # Disable triggers for each table
+            for table_name in tables_to_delete:
+                con.execute(text(f"ALTER TABLE {table_name} DISABLE TRIGGER ALL;"))
+
+            # Delete all rows from each table
+            for table_name in tables_to_delete:
+                delete_query = f"DELETE FROM {table_name};"
+                con.execute(text(delete_query))
+
+            # Re-enable triggers for each table
+            for table_name in tables_to_delete:
+                con.execute(text(f"ALTER TABLE {table_name} ENABLE TRIGGER ALL;"))
+
+            trans.commit()
+        except Exception as error:
+            trans.rollback()
+            logging.error(f"Error while deleting from test db: {error}")
