@@ -232,8 +232,7 @@ paths:
       description: Search feeds using full-text search on feed, location and provider's information.
       operationId: searchFeeds
       tags:
-        - "Experimental/Unimplemented"
-        - "search" # TODO remove experimental tag when fully implemented and uncomment this line
+        - "search"
       parameters:
         - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
