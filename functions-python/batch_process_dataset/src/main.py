@@ -29,9 +29,13 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
 
-from database_gen.sqlacodegen_models import Gtfsdataset
+from database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
 from dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from helpers.database import start_db_session, close_db_session
+from helpers.database import (
+    start_db_session,
+    close_db_session,
+    refresh_materialized_view,
+)
 import logging
 
 from helpers.logger import Logger
@@ -211,6 +215,7 @@ class DatasetProcessor:
                 session.add(latest_dataset)
             session.add(new_dataset)
 
+            refresh_materialized_view(t_feedsearch.name)
             session.commit()
             logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
         except Exception as e:

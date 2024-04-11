@@ -96,3 +96,10 @@ def close_db_session(session, raise_exception: bool = False):
         logging.error(f"Error closing database session: {error}")
         if raise_exception:
             raise error
+
+
+def refresh_materialized_view(session, view_name: str):
+    """
+    Refresh Materialized view by name.
+    """
+    session.execute(f"REFRESH MATERIALIZED VIEW {view_name}")
