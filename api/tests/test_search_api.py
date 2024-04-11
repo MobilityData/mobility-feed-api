@@ -11,14 +11,18 @@ from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_ST
     [
         # Provider
         "MobilityDataTest provider",
+        # Provider using a lexically similar word
         "MobilityDataTest PROVIDE",
         # Feed name
         "MobilityDataTest Feed name",
+        # Feed name using a lexically similar word
         "MobilityDataTest feedING",
     ],
 )
 def test_search_feeds_all_feeds(client: TestClient, search_query: str):
-    """Test case for search_feeds"""
+    """
+    Retrieve all feeds with a search query using provider or feed name.
+    """
     params = [("limit", 100), ("offset", 0), ("feed_id", ""), ("data_type", ""), ("search_query", search_query)]
     headers = {
         "Authentication": "special-key",
@@ -45,14 +49,18 @@ def test_search_feeds_all_feeds(client: TestClient, search_query: str):
     [
         # Provider
         "MobilityDataTest provider",
-        "MobilityDataTest provide",
+        # Provider using a lexically similar word
+        "MobilityDataTest PROVIDE",
         # Feed name
         "MobilityDataTest Feed name",
-        "MobilityDataTest FEeding",
+        # Feed name using a lexically similar word
+        "MobilityDataTest feedING",
     ],
 )
 def test_search_feeds_all_feeds_with_limit(client: TestClient, search_query: str):
-    """Test case for search_feeds"""
+    """
+    Retrieve 2 feeds using limit with a search query using provider or feed name.
+    """
     params = [("limit", 2), ("offset", 0), ("feed_id", ""), ("data_type", ""), ("search_query", search_query)]
     headers = {
         "Authentication": "special-key",
@@ -79,14 +87,18 @@ def test_search_feeds_all_feeds_with_limit(client: TestClient, search_query: str
     [
         # Provider
         f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest provider",
+        # Provider using a lexically similar word
         f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest provide",
         # Feed name
         f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest Feed name",
+        # Feed name using a lexically similar word
         f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest Feeding name",
     ],
 )
 def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
-    """Test case for search_feeds"""
+    """
+    Retrieve a single feed with a search query using provider or feed name.
+    """
     params = [
         ("limit", 10),
         ("offset", 0),
@@ -125,7 +137,9 @@ def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
     ],
 )
 def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expected_results_total: int):
-    """Test case for search_feeds"""
+    """
+    Retrieve feeds with a specific data type.
+    """
     params = [
         ("limit", 100),
         ("offset", 0),
@@ -166,7 +180,9 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
     ],
 )
 def test_search_feeds_filter_status(client: TestClient, status: str, expected_results_total: int):
-    """Test case for search_feeds"""
+    """
+    Retrieve feeds with a specific status.
+    """
     params = [
         ("limit", 100),
         ("offset", 0),
@@ -207,7 +223,9 @@ def test_search_feeds_filter_status(client: TestClient, status: str, expected_re
     ],
 )
 def test_search_feeds_filter_feed_id(client: TestClient, feed_id: str, expected_results_total: int):
-    """Test case for search_feeds"""
+    """
+    Retrieve feeds with a specific feed ID.
+    """
     params = [
         ("limit", 100),
         ("offset", 0),
@@ -253,7 +271,9 @@ def test_search_feeds_filter_feed_id(client: TestClient, feed_id: str, expected_
 def test_search_feeds_filter_combine_filters_and_query(
     client: TestClient, feed_id: str, status: str, data_type: str, search_query: str, expected_results_total: int
 ):
-    """Test case for search_feeds"""
+    """
+    Retrieve feeds combining feed ID, status, data type, and search query.
+    """
     params = [
         ("limit", 100),
         ("offset", 0),

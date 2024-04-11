@@ -17,11 +17,20 @@ class SearchApiImpl(BaseSearchApi):
 
     @staticmethod
     def get_parsed_search_tsquery(search_query: str) -> str:
+        """
+        Parse the search query to be used in the database query.
+        The resulting query will be in the form of `search_query:*` if the search query is not empty.
+        Spaces are trimmed from the search query.
+        """
         parsed_query = f"{search_query.strip()}:*" if search_query and len(search_query.strip()) > 0 else ""
         return func.plainto_tsquery("english", parsed_query)
 
     @staticmethod
     def add_search_query_filters(query, search_query, data_type, feed_id, status) -> Query:
+        """
+        Add filters to the search query.
+        Filter values are trimmed and converted to lowercase.
+        """
         if feed_id:
             query = query.where(t_feedsearch.c.feed_stable_id == feed_id.strip().lower())
         if data_type:
