@@ -16,6 +16,7 @@ from database_gen.sqlacodegen_models import (
 )
 
 TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
+
 TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
 TEST_EXTERNAL_IDS = ["external_id_1", "external_id_2", "external_id_3", "external_id_4"]
@@ -46,7 +47,15 @@ def populate_database(db: Database):
     try:
         for stable_id, gtfs_feed_id in zip(TEST_GTFS_FEED_STABLE_IDS, gtfs_feed_ids):
             db.merge(
-                Gtfsfeed(id=gtfs_feed_id, stable_id=stable_id, data_type="gtfs", status="active"), auto_commit=True
+                Gtfsfeed(
+                    id=gtfs_feed_id,
+                    stable_id=stable_id,
+                    data_type="gtfs",
+                    status="active",
+                    provider=f"{stable_id}-MobilityDataTest provider",
+                    feed_name=f"{stable_id}-MobilityDataTest Feed Name",
+                ),
+                auto_commit=True,
             )
         for feature_id in FEATURE_IDS:
             db.merge(Feature(name=feature_id), auto_commit=True)
@@ -146,6 +155,8 @@ def populate_database(db: Database):
         db.session.execute(
             f"INSERT INTO redirectingid (source_id, target_id) VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[3]}')"
         )
+        # update the feed search materialized view after all the data is inserted
+        db.session.execute("REFRESH MATERIALIZED VIEW feedsearch")
         db.commit()
         db.flush()
         yield db

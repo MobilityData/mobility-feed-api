@@ -10,7 +10,8 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
 
     class Config:
         """Pydantic configuration.
-            Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
+        Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
+
         from_attributes = True
         orm_mode = True
 
@@ -26,18 +27,22 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
             feed_name=feed_search_row.feed_name,
             note=feed_search_row.note,
             feed_contact_email=feed_search_row.feed_contact_email,
-            source_info=SourceInfo(producer_url=feed_search_row.producer_url,
-                                   authentication_type=feed_search_row.authentication_type,
-                                   authentication_info_url=feed_search_row.authentication_info_url,
-                                   api_key_parameter_name=feed_search_row.api_key_parameter_name,
-                                   license_url=feed_search_row.license_url),
+            source_info=SourceInfo(
+                producer_url=feed_search_row.producer_url,
+                authentication_type=feed_search_row.authentication_type,
+                authentication_info_url=feed_search_row.authentication_info_url,
+                api_key_parameter_name=feed_search_row.api_key_parameter_name,
+                license_url=feed_search_row.license_url,
+            ),
             redirects=feed_search_row.redirect_ids,
             locations=feed_search_row.locations,
             latest_dataset=LatestDataset(
                 id=feed_search_row.latest_dataset_id,
                 hosted_url=feed_search_row.latest_dataset_hosted_url,
                 downloaded_at=feed_search_row.latest_dataset_downloaded_at,
-                hash=feed_search_row.latest_dataset_hash) if feed_search_row.latest_dataset_id
+                hash=feed_search_row.latest_dataset_hash,
+            )
+            if feed_search_row.latest_dataset_id
             else None,
         )
 
@@ -53,11 +58,13 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
             feed_name=feed_search_row.feed_name,
             note=feed_search_row.note,
             feed_contact_email=feed_search_row.feed_contact_email,
-            source_info=SourceInfo(producer_url=feed_search_row.producer_url,
-                                   authentication_type=feed_search_row.authentication_type,
-                                   authentication_info_url=feed_search_row.authentication_info_url,
-                                   api_key_parameter_name=feed_search_row.api_key_parameter_name,
-                                   license_url=feed_search_row.license_url),
+            source_info=SourceInfo(
+                producer_url=feed_search_row.producer_url,
+                authentication_type=feed_search_row.authentication_type,
+                authentication_info_url=feed_search_row.authentication_info_url,
+                api_key_parameter_name=feed_search_row.api_key_parameter_name,
+                license_url=feed_search_row.license_url,
+            ),
             redirects=feed_search_row.redirect_ids,
             locations=feed_search_row.locations,
             entity_types=feed_search_row.entities,
@@ -70,9 +77,9 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
         if feed_search_row is None:
             return None
         match feed_search_row.data_type:
-            case 'gtfs':
+            case "gtfs":
                 return cls.from_orm_gtfs(feed_search_row)
-            case 'gtfs_rt':
+            case "gtfs_rt":
                 return cls.from_orm_gtfs_rt(feed_search_row)
             case _:
                 raise ValueError(f"Unknown data type: {feed_search_row.data_type}")

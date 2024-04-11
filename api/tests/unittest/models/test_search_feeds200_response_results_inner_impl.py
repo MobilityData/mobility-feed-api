@@ -17,42 +17,41 @@ class FeedSearchRow:
 
 
 search_item = FeedSearchRow(
-    feed_id='feed_id',
-    feed_stable_id='feed_stable_id',
-    data_type='gtfs',
-    status='status',
-    feed_name='feed_name',
-    note='note',
-    feed_contact_email='feed_contact_email',
-    producer_url='producer_url',
-    authentication_info_url='authentication_info_url',
+    feed_id="feed_id",
+    feed_stable_id="feed_stable_id",
+    data_type="gtfs",
+    status="status",
+    feed_name="feed_name",
+    note="note",
+    feed_contact_email="feed_contact_email",
+    producer_url="producer_url",
+    authentication_info_url="authentication_info_url",
     authentication_type=1,
-    api_key_parameter_name='api_key_parameter_name',
-    license_url='license_url',
-    country_code='country_code',
-    subdivision_name='subdivision_name',
-    municipality='municipality',
-    provider='provider',
-    latest_dataset_id='latest_dataset_id',
-    latest_dataset_hosted_url='latest_dataset_hosted_url',
+    api_key_parameter_name="api_key_parameter_name",
+    license_url="license_url",
+    country_code="country_code",
+    subdivision_name="subdivision_name",
+    municipality="municipality",
+    provider="provider",
+    latest_dataset_id="latest_dataset_id",
+    latest_dataset_hosted_url="latest_dataset_hosted_url",
     latest_dataset_downloaded_at=downloaded_at,
     latest_dataset_bounding_box=None,
-    latest_dataset_hash='latest_dataset_hash',
+    latest_dataset_hash="latest_dataset_hash",
     external_ids=[],
     redirect_ids=[],
     feed_reference_ids=[],
-    entities=['ec'],
+    entities=["ec"],
     locations=[],
 )
 
 
 class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
-
     def test_from_orm_gtfs(self):
         item = copy.deepcopy(search_item)
-        item.data_type = 'gtfs'
+        item.data_type = "gtfs"
         result = SearchFeeds200ResponseResultsInnerImpl.from_orm_gtfs(item)
-        assert result.data_type == 'gtfs'
+        assert result.data_type == "gtfs"
         expected = SearchFeeds200ResponseResultsInnerImpl(
             id=item.feed_stable_id,
             data_type=item.data_type,
@@ -62,25 +61,29 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             feed_name=item.feed_name,
             note=item.note,
             feed_contact_email=item.feed_contact_email,
-            source_info=SourceInfo(producer_url=item.producer_url,
-                                   authentication_type=item.authentication_type,
-                                   authentication_info_url=item.authentication_info_url,
-                                   api_key_parameter_name=item.api_key_parameter_name,
-                                   license_url=item.license_url),
+            source_info=SourceInfo(
+                producer_url=item.producer_url,
+                authentication_type=item.authentication_type,
+                authentication_info_url=item.authentication_info_url,
+                api_key_parameter_name=item.api_key_parameter_name,
+                license_url=item.license_url,
+            ),
             redirects=item.redirect_ids,
             locations=item.locations,
-            latest_dataset=LatestDataset(id=item.latest_dataset_id,
-                                         hosted_url=item.latest_dataset_hosted_url,
-                                         downloaded_at=item.latest_dataset_downloaded_at,
-                                         hash=item.latest_dataset_hash)
+            latest_dataset=LatestDataset(
+                id=item.latest_dataset_id,
+                hosted_url=item.latest_dataset_hosted_url,
+                downloaded_at=item.latest_dataset_downloaded_at,
+                hash=item.latest_dataset_hash,
+            ),
         )
         assert result == expected
 
     def test_from_orm_gtfs_rt(self):
         item = copy.deepcopy(search_item)
-        item.data_type = 'gtfs_rt'
+        item.data_type = "gtfs_rt"
         result = SearchFeeds200ResponseResultsInnerImpl.from_orm_gtfs_rt(item)
-        assert result.data_type == 'gtfs_rt'
+        assert result.data_type == "gtfs_rt"
         expected = SearchFeeds200ResponseResultsInnerImpl(
             id=item.feed_stable_id,
             data_type=item.data_type,
@@ -90,11 +93,13 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             feed_name=item.feed_name,
             note=item.note,
             feed_contact_email=item.feed_contact_email,
-            source_info=SourceInfo(producer_url=item.producer_url,
-                                   authentication_type=item.authentication_type,
-                                   authentication_info_url=item.authentication_info_url,
-                                   api_key_parameter_name=item.api_key_parameter_name,
-                                   license_url=item.license_url),
+            source_info=SourceInfo(
+                producer_url=item.producer_url,
+                authentication_type=item.authentication_type,
+                authentication_info_url=item.authentication_info_url,
+                api_key_parameter_name=item.api_key_parameter_name,
+                license_url=item.license_url,
+            ),
             redirects=item.redirect_ids,
             locations=item.locations,
             entity_types=item.entities,
@@ -104,18 +109,18 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
 
     def test_from_orm(self):
         item = copy.deepcopy(search_item)
-        item.data_type = 'gtfs'
+        item.data_type = "gtfs"
         result = SearchFeeds200ResponseResultsInnerImpl.from_orm(item)
-        assert result.data_type == 'gtfs'
+        assert result.data_type == "gtfs"
 
         item = copy.deepcopy(search_item)
-        item.data_type = 'gtfs_rt'
+        item.data_type = "gtfs_rt"
         result = SearchFeeds200ResponseResultsInnerImpl.from_orm(item)
-        assert result.data_type == 'gtfs_rt'
+        assert result.data_type == "gtfs_rt"
 
         assert SearchFeeds200ResponseResultsInnerImpl.from_orm(None) is None
 
         with pytest.raises(ValueError):
             item = copy.deepcopy(search_item)
-            item.data_type = 'unknown'
+            item.data_type = "unknown"
             SearchFeeds200ResponseResultsInnerImpl.from_orm(item)
