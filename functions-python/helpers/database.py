@@ -102,4 +102,7 @@ def refresh_materialized_view(session, view_name: str):
     """
     Refresh Materialized view by name.
     """
-    session.execute(f"REFRESH MATERIALIZED VIEW {view_name}")
+    try:
+        session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}")
+    except Exception as error:
+        logging.error(f"Error raised while refreshing view: {error}")

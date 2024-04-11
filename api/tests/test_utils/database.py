@@ -156,7 +156,7 @@ def populate_database(db: Database):
             f"INSERT INTO redirectingid (source_id, target_id) VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[3]}')"
         )
         # update the feed search materialized view after all the data is inserted
-        db.session.execute("REFRESH MATERIALIZED VIEW feedsearch")
+        db.session.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY feedsearch")
         db.commit()
         db.flush()
         yield db

@@ -1,4 +1,8 @@
 -- Introduce feedsearch materialized view to support full-text search over feeds
+
+-- This drop command allows easy testing on DEV and local environments
+DROP MATERIALIZED VIEW IF EXISTS FeedSearch;
+
 CREATE MATERIALIZED VIEW FeedSearch AS
 SELECT 
 --feed
@@ -88,7 +92,10 @@ LEFT JOIN (
 ) AS EntityTypeFeedJoin ON EntityTypeFeedJoin.feed_id = Feed.id AND Feed.data_type = 'gtfs_rt'
 ;
 
--- indices for feedsearch view
+-- This index allows concurrent refresh on the materialized view avoiding table locks
+CREATE UNIQUE INDEX idx_unique_feed_id ON FeedSearch(feed_id);
+
+-- indices for feedsearch view optimization
 CREATE INDEX feedsearch_document_idx ON FeedSearch USING GIN(document);
 CREATE INDEX feedsearch_feed_stable_id ON FeedSearch(feed_stable_id);
 CREATE INDEX feedsearch_data_type ON FeedSearch(data_type);

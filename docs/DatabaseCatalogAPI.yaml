@@ -229,7 +229,7 @@ paths:
 
   /v1/search:
     get:
-      description: Search feeds using full-text search on feed, location and provider's information.
+      description: Search feeds using full-text search on feed name, location and provider's information.
       operationId: searchFeeds
       tags:
         - "search"

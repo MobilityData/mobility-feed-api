@@ -245,7 +245,7 @@ class DatabasePopulateHelper:
             self.fast_merge(entities[entity_index])
 
         self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-        self.db.session.execute(f"REFRESH MATERIALIZED VIEW {t_feedsearch.name}")
+        self.db.session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}")
         self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
 
         self.db.commit()
