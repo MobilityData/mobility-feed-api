@@ -39,9 +39,9 @@ FeedLocationJoin.locations,
 --full-text searchable document	
 setweight(to_tsvector('english', coalesce(Feed.feed_name, '')), 'C') ||
 setweight(to_tsvector('english', coalesce(Feed.provider, '')), 'C') ||
-setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations->> 'country_code'), '')), 'A') ||
-setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations->> 'subdivision_name'), '')), 'A') ||
-setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations->> 'municipality'), '')), 'A')
+COALESCE(setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations #>> '{0,country_code}'), '')), 'A'), '') ||
+COALESCE(setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations #>> '{0,subdivision_name}'), '')), 'A'), '') ||
+COALESCE(setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations #>> '{0,municipality}'), '')), 'A'), '')
 AS DOCUMENT
 FROM FEED
 LEFT JOIN (
