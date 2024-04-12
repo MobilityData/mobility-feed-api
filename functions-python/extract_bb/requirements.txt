@@ -3,9 +3,9 @@ google-cloud-pubsub
 google-cloud-logging
 google-cloud-datastore
 psycopg2-binary==2.9.6
-aiohttp~=3.8.6
+aiohttp~=3.9.4
 asyncio~=3.4.3
-urllib3~=2.1.0
+urllib3~=2.2.1
 SQLAlchemy==1.4.49
 geoalchemy2~=0.14.2
 requests~=2.31.0
