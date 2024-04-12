@@ -19,8 +19,6 @@ Feed.authentication_info_url,
 Feed.authentication_type,
 Feed.api_key_parameter_name,
 Feed.license_url,
---location
-Location.country_code, Location.subdivision_name, Location.municipality,
 Feed.provider,
 --latest_dataset
 Latest_dataset.id as latest_dataset_id,
@@ -40,14 +38,12 @@ EntityTypeFeedJoin.entities,
 FeedLocationJoin.locations,
 --full-text searchable document	
 setweight(to_tsvector('english', coalesce(Feed.feed_name, '')), 'C') ||
-setweight(to_tsvector('english', coalesce(Location.country_code, '')), 'A') ||
-setweight(to_tsvector('english', coalesce(Location.subdivision_name, '')), 'A') ||
-setweight(to_tsvector('english', coalesce(Location.municipality, '')), 'A') ||
-setweight(to_tsvector('english', coalesce(Feed.provider, '')), 'C')
+setweight(to_tsvector('english', coalesce(Feed.provider, '')), 'C') ||
+setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations->> 'country_code'), '')), 'A') ||
+setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations->> 'subdivision_name'), '')), 'A') ||
+setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations->> 'municipality'), '')), 'A')
 AS DOCUMENT
 FROM FEED
-LEFT JOIN Locationfeed on Locationfeed.feed_id = feed.id
-LEFT JOIN Location on Location.id = Locationfeed.location_id
 LEFT JOIN (
 	SELECT *
 	FROM gtfsdataset
@@ -102,4 +98,6 @@ CREATE INDEX feedsearch_data_type ON FeedSearch(data_type);
 CREATE INDEX feedsearch_status ON FeedSearch(status);
 
 -- indices for feed table
+-- This drop command allows easy testing on DEV and local environments
+DROP INDEX IF EXISTS idx_feed_data_type;
 CREATE INDEX idx_feed_data_type ON FeedSearch(data_type);
