@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from feeds_gen.apis.datasets_api import router as DatasetsApiRouter
 from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
+from feeds_gen.apis.search_api import router as SearchApiRouter
 
 
 # Using the starlettte implementaiton as fastapi implementation generates errors with CORS in certain situations and
@@ -51,6 +52,7 @@ app.add_middleware(RequestContextMiddleware)
 app.include_router(DatasetsApiRouter)
 app.include_router(FeedsApiRouter)
 app.include_router(MetadataApiRouter)
+app.include_router(SearchApiRouter)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=os.getenv("PORT", 8080))

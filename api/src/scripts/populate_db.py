@@ -16,6 +16,7 @@ from database_gen.sqlacodegen_models import (
     Location,
     Redirectingid,
     Base,
+    t_feedsearch,
 )
 from utils.data_utils import set_up_defaults
 from utils.logger import Logger
@@ -242,6 +243,11 @@ class DatabasePopulateHelper:
                 priority = next_priority
                 self.db.flush()
             self.fast_merge(entities[entity_index])
+
+        self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
+        self.db.session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}")
+        self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
+
         self.db.commit()
 
 
