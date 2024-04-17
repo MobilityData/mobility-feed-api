@@ -125,14 +125,14 @@ def batch_datasets(request):
     for active_feed in active_feeds:
         payload = {
             "execution_id": execution_id,
-            "producer_url": active_feed["producer_url"],
-            "feed_stable_id": active_feed["stable_id"],
-            "feed_id": active_feed["feed_id"],
-            "dataset_id": active_feed["dataset_id"],
-            "dataset_hash": active_feed["dataset_hash"],
-            "authentication_type": active_feed["authentication_type"],
-            "authentication_info_url": active_feed["authentication_info_url"],
-            "api_key_parameter_name": active_feed["api_key_parameter_name"],
+            "producer_url": active_feed.producer_url,
+            "feed_stable_id": active_feed.stable_id,
+            "feed_id": active_feed.feed_id,
+            "dataset_id": active_feed.dataset_id,
+            "dataset_hash": active_feed.dataset_hash,
+            "authentication_type": active_feed.authentication_type,
+            "authentication_info_url": active_feed.authentication_info_url,
+            "api_key_parameter_name": active_feed.api_key_parameter_name,
         }
         data_str = json.dumps(payload)
         print(f"Publishing {data_str} to {topic_path}.")
