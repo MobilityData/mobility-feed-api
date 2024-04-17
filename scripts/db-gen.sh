@@ -32,6 +32,7 @@ fi
 echo "Generating SQLAlchemy models using sqlacodegen..."
 # Running sqlacodegen and capturing errors and warnings in the sqlacodegen.log file
 sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?options=-csearch_path%3Dpublic" --outfile "${OUT_FILE}" --options use_inflect &> ${SCRIPT_PATH}/sqlacodegen.log
+sqlacodegen_error=($?)
 echo "Completed SQLAlchemy models generation"
 
 printf "/n--- Generated models ---/n"
@@ -42,15 +43,27 @@ rm -rf "${COPY_TO_PATH}"
 mkdir -p "${COPY_TO_PATH}"
 cp "${OUT_FILE}" "${COPY_TO_PATH}"
 
-# Check the exit status of sqlacodegen and the log file for any output
-if [ $? -eq 0 ] && [ ! -s ${SCRIPT_PATH}/sqlacodegen.log ]
+print_logs (){
+  if [ -s ${SCRIPT_PATH}/sqlacodegen.log ]
+  then
+    echo "sqlacodegen.log"
+    echo "----------------"
+    cat ${SCRIPT_PATH}/sqlacodegen.log
+    echo "----------------"
+  fi
+}
+
+# Check the exit status of sqlacodegen
+if [ $sqlacodegen_error -eq 0 ]
 then
-  echo "Success: executing sqlacodegen."
+  printf "\nSuccess: executing sqlacodegen.\n\n"
+  print_logs
   exit 0
 else
-  echo "Failure executing sqlacodegen" >&2
-  printf "\nsqlacodegen error:\n"
-  cat ${SCRIPT_PATH}/sqlacodegen.log
+  printf "\nFailure executing sqlacodegen\n\n"
+  print_logs
   printf "\n"
   exit 1
 fi
+
+
