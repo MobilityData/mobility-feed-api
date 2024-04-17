@@ -93,7 +93,7 @@ pip3 install -r requirements_dev.txt
 docker-compose --env-file ./config/.env.local  up -d --force-recreate
 ```
 
-- Generates the api and database stubs on first run and everytime the schema changes
+- Generates the api and database stubs on the first run and every time the schema changes
 
 ```bash
 scripts/api-gen.sh
@@ -102,6 +102,24 @@ scripts/db-gen.sh
 
 In case you modify the database schema, you can run
 `docker-compose --env-file ./config/.env.local  up schemaspy -d --force-recreate` which will update your local instance of the database and the related schema documentation located in `docs/schemapy-dev/index.html`.
+
+- Reset the local database and apply liquibase changes(Only on schema changes)
+This command is very useful when switching from branch to branch which can potentially have different DB schema definitions.
+**All the data within the database will be lost**
+
+```bash
+./scripts/populate-db.sh <path to local sources.csv>
+```
+
+- Reset the local database and populate it with the catalog content`(Optional)`
+```bash
+./scripts/docker-localdb-rebuild-data.sh --populate-db
+```
+Datasets are not part of the catalog. If you need to test or debug a feature that requires dataset entities use the following command:
+```bash
+./scripts/docker-localdb-rebuild-data.sh --populate-db --populate-test-db
+```
+
 
 - Run local API
 
@@ -179,3 +197,5 @@ The API HTTP error responses follow the FastAPI structure. Example:
 ```
 
 To simplify and standardize HTTP error responses use the helpers function located in [api/src/feeds/impl/error_handling.py](api/src/feeds/impl/error_handling.py). Also keep the error messages as Finals of the mentioned file, this will make it easier to locate and reuse error messages.
+
+

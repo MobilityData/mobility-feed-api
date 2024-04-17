@@ -2,7 +2,7 @@
 
 #
 #
-#  MobilityData 2023
+#  MobilityData 2024
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-#
-
 # This script delete the data and the local database container.
 # Then it downloads the latest csv file and populates the database applying the liquibase changes.
 # Usage:
-#       ./docker-localdb-rebuild-data.sh
+#       ./docker-localdb-rebuild-data.sh --populate-db
+# Options:
+#       --populate-db: populate the database with the latest csv file
 
 container_name="database"
 target_csv_file="catalogs.csv"
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
+
+display_usage() {
+  printf "\nThis script deletes the data and the local database container.\n"
+  printf "\nScript Usage:\n"
+  echo "Usage: $0 [options]"
+  echo "Options:"
+  echo "  --populate-db <TEST_FILE>   Populate the database with the latest csv file."
+  echo "  --populate-test-data <FOLDER>   Populate the database with the test data."
+  echo "  --help                    Display help content."
+  exit 1
+}
+
+POPULATE_DB=false
+POPULATE_TEST_DATA=false
+while [[ $# -gt 0 ]]; do
+  key="$1"
+
+  case $key in
+  --help)
+    display_usage
+    ;;
+  --populate-db)
+    POPULATE_DB=true
+    shift # past argument
+    ;;
+  --populate-test-data)
+    POPULATE_TEST_DATA=true
+    shift # past argument
+    ;;
+  *)      # unknown option
+    shift # past argument
+    ;;
+  esac
+done
+
 
 # Stop and remove the container
 docker stop $container_name
@@ -43,13 +78,18 @@ sleep 20
 # generate the models
 $SCRIPT_PATH/db-gen.sh
 
-# populate the db if --populate-db is set
-if [ "$1" == "--populate-db" ]; then
+
+if [ "$POPULATE_DB" = true ]; then
     download the latest csv file and populate the db
     mkdir $SCRIPT_PATH/../data/
     wget -O $SCRIPT_PATH/../data/$target_csv_file https://bit.ly/catalogs-csv
     # populate db
     full_path="$(readlink -f $SCRIPT_PATH/../data/$target_csv_file)"
     $SCRIPT_PATH/populate-db.sh $full_path
+fi
+
+if [ "$POPULATE_TEST_DATA" = true ]; then
+    # populate test data
+    $SCRIPT_PATH/populate-db-test-data.sh
 fi
 
