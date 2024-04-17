@@ -104,7 +104,7 @@ In case you modify the database schema, you can run
 `docker-compose --env-file ./config/.env.local  up schemaspy -d --force-recreate` which will update your local instance of the database and the related schema documentation located in `docs/schemapy-dev/index.html`.
 
 - Reset the local database and apply liquibase changes(Only on schema changes)
-This command is very useful when switching from branch to branch which can potentially have different DB schema definitions.
+This command is very useful when switching branches that potentially have different DB schema definitions.
 **All the data within the database will be lost**
 
 ```bash
@@ -197,5 +197,3 @@ The API HTTP error responses follow the FastAPI structure. Example:
 ```
 
 To simplify and standardize HTTP error responses use the helpers function located in [api/src/feeds/impl/error_handling.py](api/src/feeds/impl/error_handling.py). Also keep the error messages as Finals of the mentioned file, this will make it easier to locate and reuse error messages.
-
-

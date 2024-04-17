@@ -4,7 +4,7 @@ from geoalchemy2.shape import to_shape
 from feeds_gen.models.bounding_box import BoundingBox
 
 
-class BoundingBoxApiImpl(BoundingBox):
+class BoundingBoxImpl(BoundingBox):
     """Implementation of the `BoundingBox` model.
     This class converts a SQLAlchemy geometry values to a Pydantic model.
     """

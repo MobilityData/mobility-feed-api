@@ -5,12 +5,12 @@ from packaging.version import Version
 from sqlalchemy.orm import Mapped
 
 from database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
-from feeds.impl.models.bounding_box_api_impl import BoundingBoxApiImpl
-from feeds.impl.models.validation_report_api_impl import ValidationReportApiImpl
-from feeds_gen.models.gtfs_dataset import GtfsDataset as GtfsDatasetApi
+from feeds.impl.models.bounding_box_api_impl import BoundingBoxImpl
+from feeds.impl.models.validation_report_api_impl import ValidationReportImpl
+from feeds_gen.models.gtfs_dataset import GtfsDataset
 
 
-class GtfsDatasetApiImpl(GtfsDatasetApi):
+class GtfsDatasetImpl(GtfsDataset):
     """Implementation of the `GtfsDataset` model.
     This class converts a SQLAlchemy row DB object to a Pydantic model.
     """
@@ -25,7 +25,7 @@ class GtfsDatasetApiImpl(GtfsDatasetApi):
     @classmethod
     def from_orm_latest_validation_report(
         cls, validation_reports: Mapped[List["Validationreport"]]
-    ) -> ValidationReportApiImpl | None:
+    ) -> ValidationReportImpl | None:
         """Create a model instance from a SQLAlchemy the latest Validation Report list.
         The latest validation report has the highest `validator_version`.
         The `validator_version` is in form of semantic version.
@@ -34,11 +34,11 @@ class GtfsDatasetApiImpl(GtfsDatasetApi):
             latest_report = reduce(
                 lambda a, b: a if Version(a.validator_version) > Version(b.validator_version) else b, validation_reports
             )
-            return ValidationReportApiImpl.from_orm(latest_report)
+            return ValidationReportImpl.from_orm(latest_report)
         return None
 
     @classmethod
-    def from_orm(cls, gtfs_dataset: Gtfsdataset) -> GtfsDatasetApi | None:
+    def from_orm(cls, gtfs_dataset: Gtfsdataset) -> GtfsDataset | None:
         """Create a model instance from a SQLAlchemy a GTFS row object."""
         if not gtfs_dataset:
             return None
@@ -49,6 +49,6 @@ class GtfsDatasetApiImpl(GtfsDatasetApi):
             note=gtfs_dataset.note,
             downloaded_at=gtfs_dataset.downloaded_at,
             hash=gtfs_dataset.hash,
-            bounding_box=BoundingBoxApiImpl.from_orm(gtfs_dataset.bounding_box),
+            bounding_box=BoundingBoxImpl.from_orm(gtfs_dataset.bounding_box),
             validation_report=cls.from_orm_latest_validation_report(gtfs_dataset.validation_reports),
         )

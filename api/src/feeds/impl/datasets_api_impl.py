@@ -17,7 +17,7 @@ from feeds.impl.error_handling import (
     raise_http_error,
     dataset_not_found,
 )
-from feeds.impl.models.gtfs_dataset_api_impl import GtfsDatasetApiImpl
+from feeds.impl.models.gtfs_dataset_api_impl import GtfsDatasetImpl
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 
@@ -108,7 +108,7 @@ class DatasetsApiImpl(BaseDatasetsApi):
         for dataset_group in dataset_groups:
             dataset_objects: Tuple[Gtfsdataset, ...]
             dataset_objects, bound_box_strings, feed_ids = zip(*dataset_group)
-            gtfs_datasets.append(GtfsDatasetApiImpl.from_orm(dataset_objects[0]))
+            gtfs_datasets.append(GtfsDatasetImpl.from_orm(dataset_objects[0]))
         return gtfs_datasets
 
     def get_dataset_gtfs(

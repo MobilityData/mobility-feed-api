@@ -1,11 +1,11 @@
 from database_gen.sqlacodegen_models import Validationreport
-from feeds_gen.models.validation_report import ValidationReport as ValidationReportApi
+from feeds_gen.models.validation_report import ValidationReport
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
 
-class ValidationReportApiImpl(ValidationReportApi):
-    """Implementation of the `ValidationReportApi` model.
+class ValidationReportImpl(ValidationReport):
+    """Implementation of the `ValidationReport` model.
     This class converts a SQLAlchemy row DB object to a Pydantic model.
     """
 
@@ -17,7 +17,7 @@ class ValidationReportApiImpl(ValidationReportApi):
         orm_mode = True
 
     @classmethod
-    def from_orm(cls, validation_report: Validationreport) -> ValidationReportApi | None:
+    def from_orm(cls, validation_report: Validationreport) -> ValidationReport | None:
         """Create a model instance from a SQLAlchemy a Validation Report row object."""
         if not validation_report:
             return None
