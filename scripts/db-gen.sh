@@ -31,7 +31,7 @@ fi
 
 echo "Generating SQLAlchemy models using sqlacodegen..."
 # Running sqlacodegen and capturing errors and warnings in the sqlacodegen.log file
-sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}" --outfile "${OUT_FILE}" &> ${SCRIPT_PATH}/sqlacodegen.log
+sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?options=-csearch_path%3Dpublic" --outfile "${OUT_FILE}" --options use_inflect &> ${SCRIPT_PATH}/sqlacodegen.log
 echo "Completed SQLAlchemy models generation"
 
 printf "/n--- Generated models ---/n"

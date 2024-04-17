@@ -5,7 +5,7 @@ from queue import PriorityQueue
 
 import pandas
 from dotenv import load_dotenv
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import (
@@ -245,7 +245,7 @@ class DatabasePopulateHelper:
             self.fast_merge(entities[entity_index])
 
         self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-        self.db.session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}")
+        self.db.session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
         self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
 
         self.db.commit()
