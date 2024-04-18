@@ -1,0 +1,210 @@
+{
+  "datasets": [
+    {
+      "id": "dataset-1",
+      "feed_stable_id": "mdb-1",
+      "description": "MDB-1 description",
+      "hosted_url": "https://example.com/mdb-1",
+      "downloaded_at": "2024-02-01T00:00:00Z",
+      "hash": "hash-1",
+      "latest": true,
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+    },
+    {
+      "id": "dataset-2",
+      "feed_stable_id": "mdb-1",
+      "hosted_url": "https://example.com/mdb-2",
+      "downloaded_at": "2024-01-01T00:00:00Z",
+      "hash": "hash-2",
+      "latest": false,
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+    },
+    {
+      "id": "dataset-3",
+      "feed_stable_id": "mdb-2",
+      "hosted_url": "https://example.com/mdb-3",
+      "downloaded_at": "2024-01-01T00:00:00Z",
+      "hash": "hash-3",
+      "latest": true,
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+    },
+    {
+      "id": "dataset-4",
+      "feed_stable_id": "mdb-2",
+      "hosted_url": "https://example.com/mdb-1",
+      "downloaded_at": "2024-02-01T00:00:00Z",
+      "hash": "hash-4",
+      "latest": false,
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+    },
+    {
+      "id": "dataset-5",
+      "feed_stable_id": "mdb-3",
+      "hosted_url": "https://example.com/mdb-2",
+      "downloaded_at": "2024-01-01T00:00:00Z",
+      "hash": "hash-5",
+      "latest": true,
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+    }
+  ],
+  "validation_reports": [
+    {
+      "id": "dataset-1-report-1",
+      "validator_version": "2.0",
+      "dataset_id": "dataset-1",
+      "validated_at": "2022-01-01T00:00:00Z",
+      "html_report": "dataset-1-report-1.html",
+      "json_report": "dataset-1-report-1.json"
+    },
+    {
+      "id": "dataset-1-report-2",
+      "validator_version": "1.0",
+      "dataset_id": "dataset-1",
+      "validated_at": "2022-01-01T00:00:00Z",
+      "html_report": "dataset-1-report-2.html",
+      "json_report": "dataset-1-report-2.json"
+    },
+    {
+      "id": "dataset-2-report-1",
+      "validator_version": "1.0",
+      "dataset_id": "dataset-2",
+      "validated_at": "2022-01-01T00:00:00Z",
+      "html_report": "dataset-2-report-1.html",
+      "json_report": "dataset-2-report-1.json"
+    },
+    {
+      "id": "dataset-2-report-2",
+      "validator_version": "1.0",
+      "dataset_id": "dataset-2",
+      "validated_at": "2022-01-01T00:00:00Z",
+      "html_report": "dataset-2-report-2.html",
+      "json_report": "dataset-2-report-2.json"
+    },
+    {
+      "id": "dataset-3-report-1",
+      "validator_version": "1.0",
+      "dataset_id": "dataset-3",
+      "validated_at": "2022-01-01T00:00:00Z",
+      "html_report": "dataset-3-report-1.html",
+      "json_report": "dataset-3-report-1.json"
+    },
+    {
+      "id": "dataset-3-report-2",
+      "validator_version": "1.0",
+      "dataset_id": "dataset-3",
+      "validated_at": "2022-01-01T00:00:00Z",
+      "html_report": "dataset-3-report-2.html",
+      "json_report": "dataset-3-report-2.json"
+    }
+  ],
+  "validation_report_dataset": [
+    {
+      "dataset_id": "dataset-1",
+      "validation_report_id": "dataset-1-report-1"
+    },
+    {
+      "dataset_id": "dataset-1",
+      "validation_report_id": "dataset-1-report-2"
+    },
+    {
+      "dataset_id": "dataset-2",
+      "validation_report_id": "dataset-2-report-1"
+    },
+    {
+      "dataset_id": "dataset-2",
+      "validation_report_id": "dataset-2-report-2"
+    },
+    {
+      "dataset_id": "dataset-3",
+      "validation_report_id": "dataset-3-report-1"
+    },
+    {
+      "dataset_id": "dataset-3",
+      "validation_report_id": "dataset-3-report-2"
+    }
+  ],
+  "notices": [
+    {
+      "dataset_id": "dataset-1",
+      "validation_report_id": "dataset-1-report-1",
+      "severity": "ERROR",
+      "notice_code": "foreign_key_violation",
+      "total_notices": 1
+    },
+    {
+      "dataset_id": "dataset-1",
+      "validation_report_id": "dataset-1-report-1",
+      "severity": "WARNING",
+      "notice_code": "inconsistent_agency_timezone",
+      "total_notices": 1
+    },
+    {
+      "dataset_id": "dataset-2",
+      "validation_report_id": "dataset-2-report-2",
+      "severity": "ERROR",
+      "notice_code": "foreign_key_violation",
+      "total_notices": 1
+    },
+    {
+      "dataset_id": "dataset-2",
+      "validation_report_id": "dataset-2-report-2",
+      "severity": "ERROR",
+      "notice_code": "inconsistent_agency_timezone",
+      "total_notices": 1
+    }
+  ],
+  "features": [
+    "Text-to-speech",
+    "Wheelchair accesibility",
+    "Route Colors",
+    "Bike Allowed",
+    "Translations",
+    "Headsigns",
+    "Fare Products",
+    "Fare Media",
+    "Route-Based Fares",
+    "Time-Based Fares"
+  ],
+  "validation_report_features": [
+    {
+      "validation_report_id": "dataset-1-report-1",
+      "feature_name": "Text-to-speech"
+    },
+    {
+      "validation_report_id": "dataset-1-report-1",
+      "feature_name": "Wheelchair accesibility"
+    },
+    {
+      "validation_report_id": "dataset-1-report-1",
+      "feature_name": "Route Colors"
+    },
+    {
+      "validation_report_id": "dataset-1-report-1",
+      "feature_name": "Bike Allowed"
+    },
+    {
+      "validation_report_id": "dataset-1-report-1",
+      "feature_name": "Translations"
+    },
+    {
+      "validation_report_id": "dataset-2-report-1",
+      "feature_name": "Headsigns"
+    },
+    {
+      "validation_report_id": "dataset-2-report-1",
+      "feature_name": "Fare Products"
+    },
+    {
+      "validation_report_id": "dataset-2-report-1",
+      "feature_name": "Fare Media"
+    },
+    {
+      "validation_report_id": "dataset-2-report-1",
+      "feature_name": "Route-Based Fares"
+    },
+    {
+      "validation_report_id": "dataset-2-report-1",
+      "feature_name": "Time-Based Fares"
+    }
+  ]
+}

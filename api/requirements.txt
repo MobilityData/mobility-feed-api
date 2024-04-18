@@ -35,11 +35,13 @@ uvicorn==0.13.4
 uvloop==0.17.0
 watchgod==0.7
 websockets==10.0
-SQLAlchemy==1.4.49
-geoalchemy2
+SQLAlchemy==2.0.23
+geoalchemy2==0.14.7
 psycopg2-binary==2.9.6
-sqlacodegen==2.3.0post1
+sqlacodegen==3.0.0rc5
 pandas
+packaging==24.0
 cloud-sql-python-connector[pg8000]
 fastapi-filter[sqlalchemy]==0.6.1
 PyJWT
+shapely

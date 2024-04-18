@@ -48,7 +48,7 @@ class SearchApiImpl(BaseSearchApi):
         """
         Create a search query for the database.
         """
-        query = select([func.count(t_feedsearch.c.feed_id)])
+        query = select(func.count(t_feedsearch.c.feed_id))
         return SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
 
     @staticmethod
@@ -61,10 +61,8 @@ class SearchApiImpl(BaseSearchApi):
             t_feedsearch.c.document, SearchApiImpl.get_parsed_search_tsquery(search_query)
         ).label("rank")
         query = select(
-            [
-                rank_expression,
-                *feed_search_columns,
-            ]
+            rank_expression,
+            *feed_search_columns,
         )
         query = SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
         return query.order_by(rank_expression.desc())

@@ -1,8 +1,9 @@
 import contextlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Final
 
 from geoalchemy2 import WKTElement
+from sqlalchemy import text
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import (
@@ -21,7 +22,7 @@ TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
 TEST_EXTERNAL_IDS = ["external_id_1", "external_id_2", "external_id_3", "external_id_4"]
 OLD_VALIDATION_VERSION = "1.0.0"
-NEW_VALIDATION_TIME: Final[datetime] = datetime(2023, 2, 1, 10, 10, 10)
+NEW_VALIDATION_TIME: Final[datetime] = datetime(2023, 2, 1, 10, 10, 10, tzinfo=timezone.utc)
 OLD_VALIDATION_TIME = NEW_VALIDATION_TIME - timedelta(hours=1)
 NEW_VALIDATION_VERSION = "2.0.0"
 VALIDATION_INFO_COUNT_PER_NOTICE = 5
@@ -134,8 +135,10 @@ def populate_database(db: Database):
                 )
             for feature_id in FEATURE_IDS:
                 db.session.execute(
-                    f"INSERT INTO featurevalidationreport (feature, validation_id) "
-                    f"VALUES ('{feature_id}', '{new_validation_report.id}')"
+                    text(
+                        f"INSERT INTO featurevalidationreport (feature, validation_id) "
+                        f"VALUES ('{feature_id}', '{new_validation_report.id}')"
+                    )
                 )
 
         for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
@@ -147,16 +150,25 @@ def populate_database(db: Database):
                 )
             )
         db.session.execute(
-            f"INSERT INTO redirectingid (source_id, target_id) VALUES ('{gtfs_feed_ids[0]}', '{gtfs_feed_ids[1]}')"
+            text(
+                f"INSERT INTO redirectingid (source_id, target_id) "
+                f"VALUES ('{gtfs_feed_ids[0]}', '{gtfs_feed_ids[1]}')"
+            )
         )
         db.session.execute(
-            f"INSERT INTO redirectingid (source_id, target_id) VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[2]}')"
+            text(
+                f"INSERT INTO redirectingid (source_id, target_id) "
+                f"VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[2]}')"
+            )
         )
         db.session.execute(
-            f"INSERT INTO redirectingid (source_id, target_id) VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[3]}')"
+            text(
+                f"INSERT INTO redirectingid "
+                f"(source_id, target_id) VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[3]}')"
+            )
         )
         # update the feed search materialized view after all the data is inserted
-        db.session.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY feedsearch")
+        db.session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY feedsearch"))
         db.commit()
         db.flush()
         yield db
@@ -165,22 +177,26 @@ def populate_database(db: Database):
     finally:
         # clean up the testing data regardless of the test result
         for dataset_id in dataset_ids:
-            db.session.execute(f"DELETE FROM notice where dataset_id ='{dataset_id}'")
-            db.session.execute(f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'")
-            db.session.execute(f"DELETE FROM gtfsdataset where id ='{dataset_id}'")
+            db.session.execute(text(f"DELETE FROM notice where dataset_id ='{dataset_id}'"))
+            db.session.execute(text(f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'"))
+            db.session.execute(text(f"DELETE FROM gtfsdataset where id ='{dataset_id}'"))
         for external_id in TEST_EXTERNAL_IDS:
-            db.session.execute(f"DELETE FROM externalid where associated_id = '{external_id}'")
+            db.session.execute(text(f"DELETE FROM externalid where associated_id = '{external_id}'"))
         for gtfs_feed_id in gtfs_feed_ids:
             db.session.execute(
-                f"DELETE from redirectingid where " f"source_id = '{gtfs_feed_id}' OR target_id = '{gtfs_feed_id}'"
+                text(
+                    f"DELETE from redirectingid where "
+                    f"source_id = '{gtfs_feed_id}' "
+                    f"OR target_id = '{gtfs_feed_id}'"
+                )
             )
-            db.session.execute(f"DELETE FROM gtfsfeed where id = '{gtfs_feed_id}'")
+            db.session.execute(text(f"DELETE FROM gtfsfeed where id = '{gtfs_feed_id}'"))
 
-        db.session.execute(f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'")
+        db.session.execute(text(f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'"))
         for feed_id in [*gtfs_feed_ids, gtfs_rt_feed_id]:
-            db.session.execute(f"DELETE FROM feed where id = '{feed_id}'")
+            db.session.execute(text(f"DELETE FROM feed where id = '{feed_id}'"))
         feature_ids_str = ", ".join([f"'{feature_id}'" for feature_id in FEATURE_IDS])
         # Delete referencing rows in featurevalidationreport
-        db.session.execute(f"DELETE FROM featurevalidationreport WHERE feature IN ({feature_ids_str})")
-        db.session.execute(f"""DELETE FROM feature where name in ({feature_ids_str})""")
+        db.session.execute(text(f"DELETE FROM featurevalidationreport WHERE feature IN ({feature_ids_str})"))
+        db.session.execute(text(f"""DELETE FROM feature where name in ({feature_ids_str})"""))
         db.commit()
