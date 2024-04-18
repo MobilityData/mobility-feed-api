@@ -86,10 +86,13 @@ if [ "$POPULATE_DB" = true ]; then
     # populate db
     full_path="$(readlink -f $SCRIPT_PATH/../data/$target_csv_file)"
     $SCRIPT_PATH/populate-db.sh $full_path
+    printf "\n---------\nCompleted: populating catalog data.\n---------\n"
 fi
 
 if [ "$POPULATE_TEST_DATA" = true ]; then
     # populate test data
     $SCRIPT_PATH/populate-db-test-data.sh
+    printf "\n---------\Completed: populating test data.\n---------\n"
 fi
 
+printf "\n---------\nSuccess: Rebuilding the database.\n---------\n"
