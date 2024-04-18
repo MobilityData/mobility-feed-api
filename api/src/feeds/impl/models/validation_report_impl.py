@@ -1,5 +1,6 @@
 from database_gen.sqlacodegen_models import Validationreport
 from feeds_gen.models.validation_report import ValidationReport
+from utils.logger import Logger
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -17,18 +18,25 @@ class ValidationReportImpl(ValidationReport):
         orm_mode = True
 
     @classmethod
-    def from_orm(cls, validation_report: Validationreport) -> ValidationReport | None:
+    def _get_logger(cls):
+        return Logger(ValidationReportImpl.__class__.__module__).get_logger()
+
+    @classmethod
+    def from_orm(cls, validation_report: Validationreport | None) -> ValidationReport | None:
         """Create a model instance from a SQLAlchemy a Validation Report row object."""
         if not validation_report:
             return None
         total_info, total_warning, total_error = 0, 0, 0
         for notice in validation_report.notices:
-            if notice.severity == "INFO":
-                total_info += notice.total_notices
-            elif notice.severity == "WARNING":
-                total_warning += notice.total_notices
-            elif notice.severity == "ERROR":
-                total_error += notice.total_notices
+            match notice.severity:
+                case "INFO":
+                    total_info += notice.total_notices
+                case "WARNING":
+                    total_warning += notice.total_notices
+                case "ERROR":
+                    total_error += notice.total_notices
+                case _:
+                    cls._get_logger().warning(f"Unknown severity: {notice.severity}")
         return cls(
             validated_at=validation_report.validated_at,
             features=[feature.name for feature in validation_report.features],

@@ -21,8 +21,6 @@ from feeds.impl.models.gtfs_dataset_impl import GtfsDatasetImpl
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 
-DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
-
 
 class DatasetsApiImpl(BaseDatasetsApi):
     """

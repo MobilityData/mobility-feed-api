@@ -2,7 +2,6 @@ from functools import reduce
 from typing import List
 
 from packaging.version import Version
-from sqlalchemy.orm import Mapped
 
 from database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
@@ -24,7 +23,7 @@ class GtfsDatasetImpl(GtfsDataset):
 
     @classmethod
     def from_orm_latest_validation_report(
-        cls, validation_reports: Mapped[List["Validationreport"]]
+        cls, validation_reports: List["Validationreport"] | None
     ) -> ValidationReportImpl | None:
         """Create a model instance from a SQLAlchemy the latest Validation Report list.
         The latest validation report has the highest `validator_version`.
@@ -38,7 +37,7 @@ class GtfsDatasetImpl(GtfsDataset):
         return None
 
     @classmethod
-    def from_orm(cls, gtfs_dataset: Gtfsdataset) -> GtfsDataset | None:
+    def from_orm(cls, gtfs_dataset: Gtfsdataset | None) -> GtfsDataset | None:
         """Create a model instance from a SQLAlchemy a GTFS row object."""
         if not gtfs_dataset:
             return None

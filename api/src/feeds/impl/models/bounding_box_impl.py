@@ -17,9 +17,9 @@ class BoundingBoxImpl(BoundingBox):
         orm_mode = True
 
     @classmethod
-    def from_orm(cls, geometry_value: WKBElement) -> BoundingBox | None:
+    def from_orm(cls, geometry_value: WKBElement | None) -> BoundingBox | None:
         """Create a model instance from a SQLAlchemy a WKBElement value."""
-        if geometry_value is None:
+        if geometry_value is None or geometry_value.data is None:
             return None
         shape = to_shape(geometry_value)
         return BoundingBox(
