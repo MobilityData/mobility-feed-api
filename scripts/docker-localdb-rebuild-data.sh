@@ -22,6 +22,8 @@
 #       ./docker-localdb-rebuild-data.sh --populate-db
 # Options:
 #       --populate-db: populate the database with the latest csv file
+# Dependencies:
+#      docker, docker-compose, wget
 
 container_name="database"
 target_csv_file="catalogs.csv"
@@ -80,7 +82,7 @@ $SCRIPT_PATH/db-gen.sh
 
 
 if [ "$POPULATE_DB" = true ]; then
-    download the latest csv file and populate the db
+    # download the latest csv file and populate the db
     mkdir $SCRIPT_PATH/../data/
     wget -O $SCRIPT_PATH/../data/$target_csv_file https://bit.ly/catalogs-csv
     # populate db
