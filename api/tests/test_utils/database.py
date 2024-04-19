@@ -60,12 +60,28 @@ def populate_database(db: Database):
             )
         for feature_id in FEATURE_IDS:
             db.merge(Feature(name=feature_id), auto_commit=True)
+        # Need to flush the session to create the relationship between the gtfs feed and the gtfs-rt feed
+        db.session.flush()
         db.merge(
             Gtfsrealtimefeed(
-                id=gtfs_rt_feed_id, stable_id=TEST_GTFS_RT_FEED_STABLE_ID, data_type="gtfs_rt", status="active"
+                id=gtfs_rt_feed_id,
+                stable_id=TEST_GTFS_RT_FEED_STABLE_ID,
+                data_type="gtfs_rt",
+                status="active",
+                gtfs_feeds=[
+                    Gtfsfeed(
+                        id=gtfs_feed_ids[0],
+                        stable_id=TEST_GTFS_FEED_STABLE_IDS[0],
+                        data_type="gtfs",
+                        status="active",
+                        provider=f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest provider",
+                        feed_name=f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest Feed Name",
+                    )
+                ],
             ),
             auto_commit=True,
         )
+
         min_lat = 37.615264
         max_lat = 38.2321
         min_lon = -84.8984452721203
@@ -176,6 +192,7 @@ def populate_database(db: Database):
         print(e)
     finally:
         # clean up the testing data regardless of the test result
+        db.session.execute(text("DELETE FROM feedreference"))
         for dataset_id in dataset_ids:
             db.session.execute(text(f"DELETE FROM notice where dataset_id ='{dataset_id}'"))
             db.session.execute(text(f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'"))
