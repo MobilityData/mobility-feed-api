@@ -315,7 +315,7 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
     mock_select = mocker.patch.object(Database(), "select")
     mock_feed = Feed(stable_id="test_gtfs_rt_id")
     mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_entity_types = "test_entity_type"
+    mock_entity_types = "tu"
     mock_feed_references = "test_feed_reference"
     mock_select.return_value = [
         [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_entity_types, mock_feed_references)]
@@ -344,8 +344,8 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
     check_redirect(response_gtfs_rt_feed)
 
     assert (
-        response_gtfs_rt_feed["entity_types"][0] == "test_entity_type"
-    ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of test_entity_type'
+        response_gtfs_rt_feed["entity_types"][0] == "tu"
+    ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of tu'
     assert (
         response_gtfs_rt_feed["feed_references"][0] == "test_feed_reference"
     ), f'Response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'
@@ -358,7 +358,7 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
     mock_select = mocker.patch.object(Database(), "select")
     mock_feed = Feed(stable_id="test_gtfs_rt_id")
     mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_entity_types = "test_entity_type"
+    mock_entity_types = "tu"
     mock_feed_references = "test_feed_reference"
     mock_select.return_value = [
         [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_entity_types, mock_feed_references)]
@@ -387,8 +387,8 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
     check_redirect(response_gtfs_rt_feed)
 
     assert (
-        response_gtfs_rt_feed["entity_types"][0] == "test_entity_type"
-    ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of test_entity_type'
+        response_gtfs_rt_feed["entity_types"][0] == "tu"
+    ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of tu'
     assert (
         response_gtfs_rt_feed["feed_references"][0] == "test_feed_reference"
     ), f'Response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'

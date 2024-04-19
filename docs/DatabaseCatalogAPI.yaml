@@ -279,15 +279,13 @@ paths:
                   results:
                     type: array
                     items:
-                      oneOf:
+                      allOf:
                         - $ref: '#/components/schemas/GtfsFeed'
                         - $ref: '#/components/schemas/GtfsRTFeed'
-                      discriminator:
-                        propertyName: data_type
-                        mapping:
-                          gtfs: '#/components/schemas/GtfsFeed'
-                          gtfs_rt: '#/components/schemas/GtfsRTFeed'
-
+                  total:
+                    type: integer
+                    description: The total number of matching entities found regarless the limit and offset parameters.
+               
 
 components:
   schemas:

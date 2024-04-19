@@ -20,7 +20,7 @@ search_item = FeedSearchRow(
     feed_id="feed_id",
     feed_stable_id="feed_stable_id",
     data_type="gtfs",
-    status="status",
+    status="active",
     feed_name="feed_name",
     note="note",
     feed_contact_email="feed_contact_email",
@@ -41,7 +41,7 @@ search_item = FeedSearchRow(
     external_ids=[],
     redirect_ids=[],
     feed_reference_ids=[],
-    entities=["ec"],
+    entities=["sa"],
     locations=[],
 )
 
@@ -63,7 +63,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             feed_contact_email=item.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=item.producer_url,
-                authentication_type=item.authentication_type,
+                authentication_type=int(item.authentication_type) if item.authentication_type else None,
                 authentication_info_url=item.authentication_info_url,
                 api_key_parameter_name=item.api_key_parameter_name,
                 license_url=item.license_url,
@@ -95,7 +95,7 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             feed_contact_email=item.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=item.producer_url,
-                authentication_type=item.authentication_type,
+                authentication_type=int(item.authentication_type) if item.authentication_type else None,
                 authentication_info_url=item.authentication_info_url,
                 api_key_parameter_name=item.api_key_parameter_name,
                 license_url=item.license_url,

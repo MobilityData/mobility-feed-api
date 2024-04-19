@@ -74,7 +74,9 @@ class FeedsApiImpl(BaseFeedsApi):
             "feed_contact_email": database_feed.feed_contact_email,
             "source_info": SourceInfo(
                 producer_url=database_feed.producer_url,
-                authentication_type=database_feed.authentication_type,
+                authentication_type=int(database_feed.authentication_type)
+                if database_feed.authentication_type
+                else None,
                 authentication_info_url=database_feed.authentication_info_url,
                 api_key_parameter_name=database_feed.api_key_parameter_name,
                 license_url=database_feed.license_url,
@@ -306,7 +308,11 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> GtfsFeed:
         """Get the specified feed from the Mobility Database."""
-        if (ret := self._get_gtfs_feeds(GtfsFeedFilter(stable_id=id))) and len(ret) == 1:
+        if (
+            ret := self._get_gtfs_feeds(
+                GtfsFeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, location=None)
+            )
+        ) and len(ret) == 1:
             return ret[0]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
@@ -362,6 +368,7 @@ class FeedsApiImpl(BaseFeedsApi):
             municipality__ilike=municipality,
         )
         feed_filter = GtfsFeedFilter(
+            stable_id=None,
             provider__ilike=provider,
             producer_url__ilike=producer_url,
             location=location_filter,
@@ -380,7 +387,11 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
-        if (ret := self._get_gtfs_rt_feeds(GtfsRtFeedFilter(stable_id=id))) and len(ret) == 1:
+        if (
+            ret := self._get_gtfs_rt_feeds(
+                GtfsRtFeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, entity_types=None)
+            )
+        ) and len(ret) == 1:
             return ret[0]
         else:
             raise_http_error(404, gtfs_rt_feed_not_found.format(id))
@@ -399,6 +410,7 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get some (or all) GTFS feeds from the Mobility Database."""
         return self._get_gtfs_rt_feeds(
             GtfsRtFeedFilter(
+                stable_id=None,
                 provider__ilike=provider,
                 producer_url__ilike=producer_url,
                 entity_types=EntityTypeFilter(name__in=entity_types),
