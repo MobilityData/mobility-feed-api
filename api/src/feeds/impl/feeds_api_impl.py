@@ -32,6 +32,7 @@ from feeds.impl.error_handling import (
     gtfs_feed_not_found,
     gtfs_rt_feed_not_found,
 )
+from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
@@ -271,6 +272,11 @@ class FeedsApiImpl(BaseFeedsApi):
             )
             gtfs_rt_feed.entity_types = {entity_type for entity_type in entity_types if entity_type is not None}
             gtfs_rt_feed.feed_references = {reference for reference in feed_references if reference is not None}
+            gtfs_rt_feed.locations = [
+                LocationImpl.from_orm(location)
+                for location in feed_objects[0].locations
+                if feed_objects[0].locations is not None
+            ]
             gtfs_rt_feeds.append(gtfs_rt_feed)
 
         return gtfs_rt_feeds

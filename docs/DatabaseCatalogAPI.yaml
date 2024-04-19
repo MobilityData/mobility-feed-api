@@ -377,6 +377,8 @@ components:
               items:
                 type: string
                 example: "mdb-20"
+            locations:
+              $ref: "#/components/schemas/Locations"
 
     BasicFeeds:
       type: array
