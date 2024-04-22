@@ -134,7 +134,7 @@ def generate_report_entities(
         f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
     )
     if get_validation_report(report_id, session):  # Check if report already exists
-        logging.info(f"Validation report {report_id} already exists. Terminating.")
+        logging.warning(f"Validation report {report_id} already exists. Terminating.")
         raise Exception(f"Validation report {report_id} already exists.")
 
     validation_report_entity = Validationreport(
@@ -214,6 +214,8 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
         return f"Created {len(entities)} entities.", 200
     except Exception as error:
         logging.error(f"Error creating validation report entities: {error}")
+        if session:
+            session.rollback()
         return f"Error creating validation report entities: {error}", 500
     finally:
         close_db_session(session)
