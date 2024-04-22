@@ -59,16 +59,18 @@ Folder `api` contains source code of the API implementation. This repository rel
 
 ## Requirements.
 
-Python == 3.11
+The tested and recommended Python version: `~=3.11`.
 
-### Scripts dependencies
-
+### External dependencies
  - docker
+ - docker-compose
  - wget
+ - Postgresql
+ - sed
 
 ## Installation & Usage
 
-- As a one time step, download the `openapi-generator-cli.sh` script using:
+- As a one-time step, download the `openapi-generator-cli.sh` script using:
 
 ```bash
 scripts/setup-openapi-generator.sh
