@@ -17,15 +17,9 @@ class ValidationReportImpl(ValidationReport):
         from_attributes = True
         orm_mode = True
 
-    @classmethod
-    def _get_logger(cls):
-        return Logger(ValidationReportImpl.__class__.__module__).get_logger()
-
-    @classmethod
-    def from_orm(cls, validation_report: Validationreport | None) -> ValidationReport | None:
-        """Create a model instance from a SQLAlchemy a Validation Report row object."""
-        if not validation_report:
-            return None
+    @staticmethod
+    def compute_totals(validation_report) -> tuple[int, int, int]:
+        """Compute the total number of errors, info, and warnings from a validation report."""
         total_info, total_warning, total_error = 0, 0, 0
         for notice in validation_report.notices:
             match notice.severity:
@@ -36,7 +30,19 @@ class ValidationReportImpl(ValidationReport):
                 case "ERROR":
                     total_error += notice.total_notices
                 case _:
-                    cls._get_logger().warning(f"Unknown severity: {notice.severity}")
+                    ValidationReportImpl._get_logger().warning(f"Unknown severity: {notice.severity}")
+        return total_error, total_info, total_warning
+
+    @classmethod
+    def _get_logger(cls):
+        return Logger(ValidationReportImpl.__class__.__module__).get_logger()
+
+    @classmethod
+    def from_orm(cls, validation_report: Validationreport | None) -> ValidationReport | None:
+        """Create a model instance from a SQLAlchemy a Validation Report row object."""
+        if not validation_report:
+            return None
+        total_error, total_info, total_warning = cls.compute_totals(validation_report)
         return cls(
             validated_at=validation_report.validated_at,
             features=[feature.name for feature in validation_report.features],
