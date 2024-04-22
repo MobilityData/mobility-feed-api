@@ -5,8 +5,12 @@ from unittest.mock import MagicMock, patch
 
 from faker import Faker
 
-from database_gen.sqlacodegen_models import Feature
-from database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed, Validationreport
+from database_gen.sqlacodegen_models import (
+    Feature,
+    Gtfsdataset,
+    Gtfsfeed,
+    Validationreport,
+)
 from helpers.database import start_db_session
 from test_utils.database_utils import default_db_url
 from validation_report_processor.src.main import (

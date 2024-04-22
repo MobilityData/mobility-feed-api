@@ -61,17 +61,106 @@ def get_feature(feature_name, session):
 
 def get_dataset(dataset_stable_id, session):
     """
-    Retrieves a Gtfsdataset object by its stable ID from the database.
+    Retrieves a GTFSDataset object by its stable ID from the database.
 
     :param dataset_stable_id: Stable ID of the dataset
     :param session: Database session instance
-    :return: Gtfsdataset instance or None if not found
+    :return: GTFSDataset instance or None if not found
     """
     return (
         session.query(Gtfsdataset)
         .filter(Gtfsdataset.stable_id == dataset_stable_id)
         .one_or_none()
     )
+
+
+def validate_json_report(json_report_url):
+    """
+    Validates the JSON report by fetching and reading it.
+    :param json_report_url: The URL of the JSON report
+    :return: Tuple containing the JSON report or an error message and the status code
+    """
+    try:
+        json_report, code = read_json_report(json_report_url)
+        if code != 200:
+            logging.error(f"Error reading JSON report: {code}")
+            return f"Error reading JSON report at url {json_report_url}.", code
+        return json_report, 200
+    except Exception as error:  # JSONDecodeError or RequestException
+        logging.error(f"Error reading JSON report: {error}")
+        return f"Error reading JSON report at url {json_report_url}: {error}", 500
+
+
+def parse_json_report(json_report):
+    """
+    Parses the JSON report and extracts the validatedAt and validatorVersion fields.
+    :param json_report: The JSON report
+    :return: A tuple containing the validatedAt datetime and the validatorVersion
+    """
+    try:
+        dt = json_report["summary"]["validatedAt"]
+        validated_at = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+        version = json_report["summary"]["validatorVersion"]
+        logging.info(
+            f"Validation report validated at {validated_at} with version {version}."
+        )
+        return validated_at, version
+    except Exception as error:
+        logging.error(f"Error parsing JSON report: {error}")
+        raise Exception(f"Error parsing JSON report: {error}")
+
+
+def generate_report_entities(
+    version, validated_at, json_report, dataset_stable_id, session, feed_stable_id
+):
+    """
+    Creates validation report entities based on the JSON report.
+    :param version: The version of the validator
+    :param validated_at: The datetime the report was validated
+    :param json_report: The JSON report object
+    :param dataset_stable_id: Stable ID of the dataset
+    :param session: The database session
+    :param feed_stable_id: Stable ID of the feed
+    :return: List of entities created
+    """
+    entities = []
+    report_id = f"{dataset_stable_id}_{version}"
+    logging.info(f"Creating validation report entities for {report_id}.")
+
+    html_report_url = (
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.html"
+    )
+    json_report_url = (
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
+    )
+    if get_validation_report(report_id, session):  # Check if report already exists
+        logging.info(f"Validation report {report_id} already exists. Terminating.")
+        raise Exception(f"Validation report {report_id} already exists.")
+
+    validation_report_entity = Validationreport(
+        id=report_id,
+        validator_version=version,
+        validated_at=validated_at,
+        html_report=html_report_url,
+        json_report=json_report_url,
+    )
+    entities.append(validation_report_entity)
+
+    dataset = get_dataset(dataset_stable_id, session)
+    for feature_name in json_report["summary"]["gtfsFeatures"]:
+        feature = get_feature(feature_name, session)
+        feature.validations.append(validation_report_entity)
+        entities.append(feature)
+    for notice in json_report["notices"]:
+        notice_entity = Notice(
+            dataset_id=dataset.id,
+            validation_report_id=report_id,
+            notice_code=notice["code"],
+            severity=notice["severity"],
+            total_notices=notice["totalNotices"],
+        )
+        entities.append(notice_entity)
+    return entities
 
 
 def create_validation_report_entities(feed_stable_id, dataset_stable_id):
@@ -84,79 +173,47 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
     :param dataset_stable_id: Stable ID of the dataset
     :return: Tuple List of all entities created (Validationreport, Feature, Notice) and status code
     """
-    entities = []
-
     json_report_url = (
         f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
     )
     logging.info(f"Accessing JSON report at {json_report_url}.")
-    try:
-        json_report, code = read_json_report(json_report_url)
-        if code != 200:
-            logging.error(f"Error reading JSON report: {code}")
-            return f"Error reading JSON report at url {json_report_url}.", code
-    except Exception as error:  # JSONDecodeError or RequestException
-        print(f"Error reading JSON report: {error}")
-        return f"Error reading JSON report at url {json_report_url}: {error}", 500
+    json_report, code = validate_json_report(json_report_url)
+    if code != 200:
+        return json_report, code
 
     try:
-        dt = json_report["summary"]["validatedAt"]
-        validated_at = datetime.fromisoformat(dt.replace("Z", "+00:00"))
-        version = json_report["summary"]["validatorVersion"]
-        logging.info(
-            f"Validation report validated at {validated_at} with version {version}."
-        )
+        validated_at, version = parse_json_report(json_report)
     except Exception as error:
-        print(f"Error parsing JSON report: {error}")
-        return f"Error parsing JSON report: {error}", 500
+        return str(error), 500
 
-    report_id = f"{dataset_stable_id}_{version}"
-    html_report_url = (
-        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.html"
-    )
-
-    logging.info(f"Creating validation report entities for {report_id}.")
     session = None
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         logging.info("Database session started.")
 
-        # Validation Report Entity
-        if get_validation_report(report_id, session):  # Check if report already exists
-            logging.info(f"Validation report {report_id} already exists. Terminating.")
-            return f"Validation report {report_id} already exists.", 409
-
-        validation_report_entity = Validationreport(
-            id=report_id,
-            validator_version=version,
-            validated_at=validated_at,
-            html_report=html_report_url,
-            json_report=json_report_url,
-        )
-        entities.append(validation_report_entity)
-
-        dataset = get_dataset(dataset_stable_id, session)
-        for feature_name in json_report["summary"]["gtfsFeatures"]:
-            feature = get_feature(feature_name, session)
-            feature.validations.append(validation_report_entity)
-            entities.append(feature)
-        for notice in json_report["notices"]:
-            notice_entity = Notice(
-                dataset_id=dataset.id,
-                validation_report_id=report_id,
-                notice_code=notice["code"],
-                severity=notice["severity"],
-                total_notices=notice["totalNotices"],
+        # Generate the database entities required for the report
+        try:
+            entities = generate_report_entities(
+                version,
+                validated_at,
+                json_report,
+                dataset_stable_id,
+                session,
+                feed_stable_id,
             )
-            entities.append(notice_entity)
+        except Exception as error:
+            return str(error), 409  # Conflict if report already exists
+
+        # Commit the entities to the database
         for entity in entities:
             session.add(entity)
         logging.info(f"Committing {len(entities)} entities to the database.")
         session.commit()
+
         logging.info("Entities committed successfully.")
         return f"Created {len(entities)} entities.", 200
     except Exception as error:
-        print(f"Error creating validation report entities: {error}")
+        logging.error(f"Error creating validation report entities: {error}")
         return f"Error creating validation report entities: {error}", 500
     finally:
         close_db_session(session)
@@ -164,6 +221,12 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
 
 
 def get_validation_report(report_id, session):
+    """
+    Retrieves a ValidationReport object by its ID from the database.
+    :param report_id: The ID of the report
+    :param session: The database session
+    :return: ValidationReport instance or None if not found
+    """
     return (
         session.query(Validationreport).filter(Validationreport.id == report_id).first()
     )
