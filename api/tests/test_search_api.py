@@ -308,3 +308,37 @@ def test_search_feeds_filter_combine_filters_and_query(
                 assert result.status == status
             if data_type:
                 assert result.data_type == data_type
+
+
+def test_search_feeds_filter_reference_id(client: TestClient):
+    """
+    Retrieve feeds combining feed ID, status, data type, and search query.
+    """
+    params = [
+        ("limit", 100),
+        ("offset", 0),
+        ("feed_id", TEST_GTFS_RT_FEED_STABLE_ID),
+    ]
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+
+    assert response_body.total == 1
+    assert len(response_body.results) == 1
+    assert response_body.results[0].id == TEST_GTFS_RT_FEED_STABLE_ID
+    assert response_body.results[0].data_type == "gtfs_rt"
+    assert response_body.results[0].status == "active"
+    assert len(response_body.results[0].feed_references) == 1
+    assert response_body.results[0].feed_references[0] == TEST_GTFS_FEED_STABLE_IDS[0]

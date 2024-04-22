@@ -94,7 +94,7 @@ fi
 if [ "$POPULATE_TEST_DATA" = true ]; then
     # populate test data
     $SCRIPT_PATH/populate-db-test-data.sh
-    printf "\n---------\Completed: populating test data.\n---------\n"
+    printf "\n---------\nCompleted: populating test data.\n---------\n"
 fi
 
 printf "\n---------\nSuccess: Rebuilding the database.\n---------\n"
