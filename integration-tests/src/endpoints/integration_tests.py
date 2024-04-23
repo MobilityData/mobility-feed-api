@@ -72,7 +72,13 @@ class IntegrationTests:
     @staticmethod
     def _sample_country_codes(df, n):
         """Helper function for sampling random unique country codes."""
-        unique_country_codes = df["location.country_code"].unique()
+        filtered_country_codes = df["location.country_code"].dropna()
+        filtered_country_codes = filtered_country_codes[filtered_country_codes != ""]
+        filtered_country_codes = filtered_country_codes[
+            ~filtered_country_codes.str.isnumeric()
+        ]
+
+        unique_country_codes = filtered_country_codes.unique()
 
         # Sample min(n, len(unique values)) country codes
         num_samples = min(len(unique_country_codes), n)

@@ -32,6 +32,7 @@ from feeds.impl.error_handling import (
     gtfs_feed_not_found,
     gtfs_rt_feed_not_found,
 )
+from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.bounding_box import BoundingBox
@@ -242,6 +243,8 @@ class FeedsApiImpl(BaseFeedsApi):
                 referenced_feed.id == t_feedreference.c.gtfs_feed_id,
                 isouter=True,
             )
+            .join(t_locationfeed, t_locationfeed.c.feed_id == Gtfsrealtimefeed.id, isouter=True)
+            .join(Location, t_locationfeed.c.location_id == Location.id, isouter=True)
             .add_columns(Entitytype.name, referenced_feed.stable_id)
             .order_by(Feed.stable_id)
         )
@@ -271,6 +274,11 @@ class FeedsApiImpl(BaseFeedsApi):
             )
             gtfs_rt_feed.entity_types = {entity_type for entity_type in entity_types if entity_type is not None}
             gtfs_rt_feed.feed_references = {reference for reference in feed_references if reference is not None}
+            gtfs_rt_feed.locations = [
+                LocationImpl.from_orm(location)
+                for location in feed_objects[0].locations
+                if feed_objects[0].locations is not None
+            ]
             gtfs_rt_feeds.append(gtfs_rt_feed)
 
         return gtfs_rt_feeds
@@ -388,6 +396,9 @@ class FeedsApiImpl(BaseFeedsApi):
         provider: str,
         producer_url: str,
         entity_types: str,
+        country_code: str,
+        subdivision_name: str,
+        municipality: str,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         return self._get_gtfs_rt_feeds(
@@ -395,6 +406,11 @@ class FeedsApiImpl(BaseFeedsApi):
                 provider__ilike=provider,
                 producer_url__ilike=producer_url,
                 entity_types=EntityTypeFilter(name__in=entity_types),
+                location=LocationFilter(
+                    country_code=country_code,
+                    subdivision_name__ilike=subdivision_name,
+                    municipality__ilike=municipality,
+                ),
             ),
             limit,
             offset,

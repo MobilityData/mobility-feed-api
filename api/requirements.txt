@@ -4,7 +4,7 @@ async-exit-stack==1.0.1
 async-generator==1.10
 certifi==2023.7.22
 chardet==4.0.0
-click==7.1.2
+click==8.0.3
 dnspython==2.1.0
 email-validator==1.1.2
 fastapi==0.94.1
@@ -31,7 +31,7 @@ starlette==0.26.1
 typing-extensions==4.6.1
 ujson==5.4.0
 urllib3==2.0.4
-uvicorn==0.13.4
+uvicorn==0.15.0
 uvloop==0.17.0
 watchgod==0.7
 websockets==10.0
