@@ -18,6 +18,7 @@ from database_gen.sqlacodegen_models import (
     Base,
     t_feedsearch,
 )
+from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
 from utils.logger import Logger
 
@@ -119,6 +120,9 @@ class DatabasePopulateHelper:
         entity_types_map = {entity_type.name: entity_type for entity_type in entity_types}
         redirects_set = {(redirect_entity.source_id, redirect_entity.target_id) for redirect_entity in redirects}
 
+        # Keep track of the feeds that have been added to the database
+        new_feeds = []
+
         for index, row in self.df.iterrows():
             mdb_id = f"mdb-{int(row['mdb_source_id'])}"
             self.logger.debug(f"Populating Database for with Feed [stable_id = {mdb_id}]")
@@ -188,6 +192,8 @@ class DatabasePopulateHelper:
                     source="mdb",
                 )
                 add_entity(mdb_external_id, 4)
+                if feed.data_type == "gtfs":
+                    new_feeds.append(feed)
 
         [add_entity(entity_type, 4) for entity_type in entity_types_map.values()]
 
@@ -249,6 +255,8 @@ class DatabasePopulateHelper:
         self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
 
         self.db.commit()
+        if os.getenv('ENV', 'local') != 'local':
+            publish_all(new_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
 
 
 if __name__ == "__main__":

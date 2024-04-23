@@ -45,3 +45,4 @@ cloud-sql-python-connector[pg8000]
 fastapi-filter[sqlalchemy]==0.6.1
 PyJWT
 shapely
+google-cloud-pubsub
