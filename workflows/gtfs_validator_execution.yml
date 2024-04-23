@@ -9,6 +9,7 @@ main:
       - extract_data:
           assign:
           - data: ${event.data.protoPayload}
+          - resource: ${event.data.resource}
       - init:
           assign:
             - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
@@ -17,11 +18,10 @@ main:
             # Resource name format: projects/_/buckets/<datasetBucketName>/objects/<feedID>/<datasetID>/<datasetID>.zip
             - feedID: ${text.split(data.resourceName, "/")[5]}
             - datasetID: ${text.split(data.resourceName, "/")[6]}
+            - region: ${resource.labels.location}
+            - projectID: ${resource.labels.project_id}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
             - endpoint: ${validatorEndpoint + "/create-job"}
-            - payload:
-                  url: "${url}"
-                  countryCode: ""
             - headers:
                   Content-Type: application/json
             - jobID: "undefined"
@@ -46,7 +46,9 @@ main:
           args:
               url: "${endpoint}"
               headers: ${headers}
-              body: ${payload}
+              body:
+                url: "${url}"
+                countryCode: ""
           result: response
       - checkJobCreationStatus:
           switch:
@@ -156,6 +158,22 @@ main:
           call: sys.log
           args:
               text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report.json"}
+              severity: INFO
+      - updateDatabase:
+          call: http.post
+          args:
+            url: ${"https://" + region + "-" + projectID + ".cloudfunctions.net/process-validation-report"}
+            auth:
+              type: OIDC
+            body:
+                feed_id: ${feedID}
+                dataset_id: ${datasetID}
+            headers: ${headers}
+          result: updateDatabaseResponse
+      - logUpdateDatabaseResponse:
+          call: sys.log
+          args:
+              text: ${updateDatabaseResponse}
               severity: INFO
           next: successfulExecution
       - fileExistenceTimeout:

@@ -41,3 +41,8 @@ variable "datasets_bucket_name" {
   default = "mobilitydata-datasets"
 }
 
+variable "public_hosted_datasets_dns" {
+  type = string
+  description = "Public hosted DNS for datasets"
+  default = "files.mobilitydatabase.org"
+}

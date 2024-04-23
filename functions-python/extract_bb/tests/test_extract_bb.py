@@ -82,7 +82,8 @@ class TestExtractBoundingBox(unittest.TestCase):
         for i in range(4):
             self.assertEqual(bounds[i], expected_bounds[i])
 
-    def test_extract_bb_exception(self):
+    @patch("extract_bb.src.main.Logger")
+    def test_extract_bb_exception(self, _):
         file_name = faker.file_name()
         resource_name = (
             f"{faker.uri_path()}/{faker.pystr()}/{faker.pystr()}/{file_name}"
