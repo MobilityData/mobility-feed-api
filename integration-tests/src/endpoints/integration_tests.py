@@ -37,7 +37,7 @@ class IntegrationTests:
         self.progress = progress
 
     def _test_filter_by_country_code(
-            self, country_code, endpoint, validate_location=False, task_id=None, index="1/1"
+        self, country_code, endpoint, validate_location=False, task_id=None, index="1/1"
     ):
         """Helper function for filtering the response by country code."""
         response = self.get_response(endpoint, params={"country_code": country_code})
@@ -47,7 +47,7 @@ class IntegrationTests:
         )
         feeds = response.json()
         assert (
-                len(feeds) > 0
+            len(feeds) > 0
         ), f"Expected at least one feed with country code '{country_code}', got 0."
         if validate_location:
             for feed in feeds:
@@ -73,8 +73,10 @@ class IntegrationTests:
     def _sample_country_codes(df, n):
         """Helper function for sampling random unique country codes."""
         filtered_country_codes = df["location.country_code"].dropna()
-        filtered_country_codes = filtered_country_codes[filtered_country_codes != '']
-        filtered_country_codes = filtered_country_codes[~filtered_country_codes.str.isnumeric()]
+        filtered_country_codes = filtered_country_codes[filtered_country_codes != ""]
+        filtered_country_codes = filtered_country_codes[
+            ~filtered_country_codes.str.isnumeric()
+        ]
 
         unique_country_codes = filtered_country_codes.unique()
 
@@ -91,16 +93,16 @@ class IntegrationTests:
         )
         feeds = response.json()
         assert (
-                len(feeds) > 0
+            len(feeds) > 0
         ), f"Expected at least one feed with provider '{provider}', got 0."
         for feed in feeds:
             assert (
-                    provider.lower() in feed.get("provider").lower()
+                provider.lower() in feed.get("provider").lower()
             ), f"Expected all feeds to be provided by '{provider}', but found '{feed.get('provider')}'"
         self._update_progression(task_id, f"Validated provider {provider}", index)
 
     def _test_filter_by_municipality(
-            self, municipality, endpoint, validate_location=False, task_id=None, index="1/1"
+        self, municipality, endpoint, validate_location=False, task_id=None, index="1/1"
     ):
         """Helper function for filtering the response by municipality."""
         response = self.get_response(endpoint, params={"municipality": municipality})
@@ -110,7 +112,7 @@ class IntegrationTests:
         )
         feeds = response.json()
         assert (
-                len(feeds) > 0
+            len(feeds) > 0
         ), f"Expected at least one feed with municipality '{municipality}', got 0."
 
         lowercase_municipality = municipality.lower()
@@ -152,8 +154,8 @@ class IntegrationTests:
             method_name
             for method_name in dir(cls)
             if callable(getattr(cls, method_name))
-               and method_name.startswith("test_")
-               and method_name != "test_all"
+            and method_name.startswith("test_")
+            and method_name != "test_all"
         ]
 
     def test_all(self, target_classes=[]):
@@ -197,13 +199,13 @@ class IntegrationTests:
         n_tests = sum(len(methods) for _, methods in test_methods)
 
         with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                TimeElapsedColumn(),
-                console=console,
-                transient=True,
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=console,
+            transient=True,
         ) as progress:
             test_task = progress.add_task("[cyan]Running tests...", total=n_tests)
 
