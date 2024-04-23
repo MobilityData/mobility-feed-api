@@ -202,7 +202,7 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
                 feed_stable_id,
             )
         except Exception as error:
-            return str(error), 409  # Conflict if report already exists
+            return str(error), 200  # Report already exists
 
         # Commit the entities to the database
         for entity in entities:
