@@ -120,6 +120,9 @@ paths:
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/entity_types"
+        - $ref: "#/components/parameters/country_code"
+        - $ref: "#/components/parameters/subdivision_name"
+        - $ref: "#/components/parameters/municipality"
       security:
         - Authentication: []
       responses:

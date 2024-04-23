@@ -243,6 +243,8 @@ class FeedsApiImpl(BaseFeedsApi):
                 referenced_feed.id == t_feedreference.c.gtfs_feed_id,
                 isouter=True,
             )
+            .join(t_locationfeed, t_locationfeed.c.feed_id == Gtfsrealtimefeed.id, isouter=True)
+            .join(Location, t_locationfeed.c.location_id == Location.id, isouter=True)
             .add_columns(Entitytype.name, referenced_feed.stable_id)
             .order_by(Feed.stable_id)
         )
@@ -394,6 +396,9 @@ class FeedsApiImpl(BaseFeedsApi):
         provider: str,
         producer_url: str,
         entity_types: str,
+        country_code: str,
+        subdivision_name: str,
+        municipality: str,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         return self._get_gtfs_rt_feeds(
@@ -401,6 +406,11 @@ class FeedsApiImpl(BaseFeedsApi):
                 provider__ilike=provider,
                 producer_url__ilike=producer_url,
                 entity_types=EntityTypeFilter(name__in=entity_types),
+                location=LocationFilter(
+                    country_code=country_code,
+                    subdivision_name__ilike=subdivision_name,
+                    municipality__ilike=municipality,
+                ),
             ),
             limit,
             offset,
