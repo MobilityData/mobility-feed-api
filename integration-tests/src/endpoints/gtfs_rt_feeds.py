@@ -23,7 +23,7 @@ class GTFSRTFeedsEndpointTests(IntegrationTests):
 
     def test_filter_by_country_code_gtfs_rt(self):
         """Test GTFS Realtime feed retrieval filtered by country code"""
-        country_codes = self._sample_country_codes(self.gtfs_feeds, 100)
+        country_codes = self._sample_country_codes(self.gtfs_rt_feeds, 100)
         task_id = self.progress.add_task(
             "[yellow]Validating GTFS Realtime feeds by country code...[/yellow]",
             total=len(country_codes),
@@ -32,7 +32,7 @@ class GTFSRTFeedsEndpointTests(IntegrationTests):
         for i, country_code in enumerate(country_codes):
             self._test_filter_by_country_code(
                 country_code,
-                "v1/gtfs_rt_feeds",
+                "v1/gtfs_rt_feeds?country_code={country_code}",
                 task_id=task_id,
                 index=f"{i + 1}/{len(country_codes)}",
             )
@@ -47,7 +47,7 @@ class GTFSRTFeedsEndpointTests(IntegrationTests):
         for i, municipality in enumerate(municipalities):
             self._test_filter_by_municipality(
                 municipality,
-                "v1/gtfs_rt_feeds",
+                "v1/gtfs_rt_feeds?municipality={municipality}",
                 task_id=task_id,
                 index=f"{i + 1}/{len(municipalities)}",
             )
