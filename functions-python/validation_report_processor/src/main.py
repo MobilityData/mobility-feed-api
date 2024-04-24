@@ -128,10 +128,10 @@ def generate_report_entities(
     logging.info(f"Creating validation report entities for {report_id}.")
 
     html_report_url = (
-        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.html"
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report-{version}.html"
     )
     json_report_url = (
-        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report-{version}.json"
     )
     if get_validation_report(report_id, session):  # Check if report already exists
         logging.warning(f"Validation report {report_id} already exists. Terminating.")
@@ -163,7 +163,7 @@ def generate_report_entities(
     return entities
 
 
-def create_validation_report_entities(feed_stable_id, dataset_stable_id):
+def create_validation_report_entities(feed_stable_id, dataset_stable_id, version):
     """
     Creates and stores entities based on a validation report.
     This includes the validation report itself, related feature entities,
@@ -171,10 +171,11 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id):
 
     :param feed_stable_id: Stable ID of the feed
     :param dataset_stable_id: Stable ID of the dataset
+    :param version: Version of the validator
     :return: Tuple List of all entities created (Validationreport, Feature, Notice) and status code
     """
     json_report_url = (
-        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report.json"
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report-{version}.json"
     )
     logging.info(f"Accessing JSON report at {json_report_url}.")
     json_report, code = validate_json_report(json_report_url)
@@ -252,15 +253,18 @@ def process_validation_report(request):
         not request_json
         or "dataset_id" not in request_json
         or "feed_id" not in request_json
+        or "validator_version" not in request_json
     ):
         return (
-            f"Invalid request body: {request_json}. We expect 'dataset_id' and 'feed_id' to be present.",
+            f"Invalid request body: {request_json}. We expect 'dataset_id', 'feed_id' and 'validator_version' to be "
+            f"present.",
             400,
         )
 
     dataset_id = request_json["dataset_id"]
     feed_id = request_json["feed_id"]
+    validator_version = request_json["validator_version"]
     logging.info(
-        f"Processing validation report for dataset {dataset_id} in feed {feed_id}."
+        f"Processing validation report version {validator_version} for dataset {dataset_id} in feed {feed_id}."
     )
-    return create_validation_report_entities(feed_id, dataset_id)
+    return create_validation_report_entities(feed_id, dataset_id, validator_version)

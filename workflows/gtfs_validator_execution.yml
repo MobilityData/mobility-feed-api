@@ -21,7 +21,6 @@ main:
             - region: ${resource.labels.location}
             - projectID: ${resource.labels.project_id}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
-            - endpoint: ${validatorEndpoint + "/create-job"}
             - headers:
                   Content-Type: application/json
             - jobID: "undefined"
@@ -41,10 +40,25 @@ main:
           args:
               text: '${"feedID: " + feedID + ", datasetID: " + datasetID + ", url: " + url}'
               severity: INFO
+      - getValidatorVersion:
+          steps:
+            - httpCall:
+                call: http.get
+                args:
+                  url: ${validatorEndpoint + "/version"}
+                result: versionResponse
+            - assignValidatorVersion:
+                assign:
+                    - validatorVersion: ${versionResponse.body.version}
+            - logValidatorVersion:
+                call: sys.log
+                args:
+                  text: '${"GTFS Validator version: " + validatorVersion}'
+                  severity: INFO
       - createJob:
           call: http.post
           args:
-              url: "${endpoint}"
+              url: ${validatorEndpoint + "/create-job"}
               headers: ${headers}
               body:
                 url: "${url}"
@@ -104,14 +118,14 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors.json"}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors-" + validatorVersion + ".json"}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Fsystem_errors.json"}
             destinationPredefinedAcl: publicRead
       - logSystemErrorsCopied:
           call: sys.log
           args:
-              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors.json"}
+              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors-" + validatorVersion + ".json"}
               severity: INFO
 
       - checkExecutionResultStatus:
@@ -137,27 +151,27 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.html"}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport-" + validatorVersion + ".html"}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.html"}
             destinationPredefinedAcl: publicRead
       - logHTMLReportCopied:
           call: sys.log
           args:
-              text: ${"HTML report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report.html"}
+              text: ${"HTML report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report-" + validatorVersion + ".html"}
               severity: INFO
       - jsonReport:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport.json"}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport-" + validatorVersion + ".json"}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.json"}
             destinationPredefinedAcl: publicRead
       - logJSONReportCopied:
           call: sys.log
           args:
-              text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report.json"}
+              text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report-" + validatorVersion + ".json"}
               severity: INFO
       - updateDatabase:
           call: http.post
@@ -168,6 +182,7 @@ main:
             body:
                 feed_id: ${feedID}
                 dataset_id: ${datasetID}
+                validator_version: ${validatorVersion}
             headers: ${headers}
           result: updateDatabaseResponse
       - logUpdateDatabaseResponse:

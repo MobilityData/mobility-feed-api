@@ -121,7 +121,7 @@ class TestValidationReportProcessor(unittest.TestCase):
             session.add(feed)
             session.add(dataset)
             session.commit()
-            create_validation_report_entities(feed_stable_id, dataset_stable_id)
+            create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
 
             # Validate that the validation report was created
             validation_report = (
@@ -155,7 +155,7 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         feed_stable_id = faker.word()
         dataset_stable_id = faker.word()
-        _, status = create_validation_report_entities(feed_stable_id, dataset_stable_id)
+        _, status = create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
         self.assertEqual(status, 400)
 
     @mock.patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
@@ -167,7 +167,7 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         feed_stable_id = faker.word()
         dataset_stable_id = faker.word()
-        _, status = create_validation_report_entities(feed_stable_id, dataset_stable_id)
+        _, status = create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
         self.assertEqual(status, 500)
 
     @patch("validation_report_processor.src.main.Logger")
@@ -178,6 +178,7 @@ class TestValidationReportProcessor(unittest.TestCase):
                 return_value={
                     "dataset_id": faker.word(),
                     "feed_id": faker.word(),
+                    "validator_version": "1.0",
                 }
             )
         )
