@@ -118,14 +118,14 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors-" + validatorVersion + ".json"}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Fsystem_errors.json"}
             destinationPredefinedAcl: publicRead
       - logSystemErrorsCopied:
           call: sys.log
           args:
-              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors-" + validatorVersion + ".json"}
+              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors_" + validatorVersion + ".json"}
               severity: INFO
 
       - checkExecutionResultStatus:
@@ -151,27 +151,27 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport-" + validatorVersion + ".html"}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".html"}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.html"}
             destinationPredefinedAcl: publicRead
       - logHTMLReportCopied:
           call: sys.log
           args:
-              text: ${"HTML report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report-" + validatorVersion + ".html"}
+              text: ${"HTML report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report_" + validatorVersion + ".html"}
               severity: INFO
       - jsonReport:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport-" + validatorVersion + ".json"}
+            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".json"}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.json"}
             destinationPredefinedAcl: publicRead
       - logJSONReportCopied:
           call: sys.log
           args:
-              text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report-" + validatorVersion + ".json"}
+              text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report_" + validatorVersion + ".json"}
               severity: INFO
       - updateDatabase:
           call: http.post

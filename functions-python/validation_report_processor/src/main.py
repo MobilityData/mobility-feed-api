@@ -128,10 +128,10 @@ def generate_report_entities(
     logging.info(f"Creating validation report entities for {report_id}.")
 
     html_report_url = (
-        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report-{version}.html"
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report_{version}.html"
     )
     json_report_url = (
-        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report-{version}.json"
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report_{version}.json"
     )
     if get_validation_report(report_id, session):  # Check if report already exists
         logging.warning(f"Validation report {report_id} already exists. Terminating.")
@@ -175,7 +175,7 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id, version
     :return: Tuple List of all entities created (Validationreport, Feature, Notice) and status code
     """
     json_report_url = (
-        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report-{version}.json"
+        f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report_{version}.json"
     )
     logging.info(f"Accessing JSON report at {json_report_url}.")
     json_report, code = validate_json_report(json_report_url)
