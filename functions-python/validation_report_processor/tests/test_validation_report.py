@@ -155,7 +155,9 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         feed_stable_id = faker.word()
         dataset_stable_id = faker.word()
-        _, status = create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
+        _, status = create_validation_report_entities(
+            feed_stable_id, dataset_stable_id, "1.0"
+        )
         self.assertEqual(status, 400)
 
     @mock.patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
@@ -167,7 +169,9 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         feed_stable_id = faker.word()
         dataset_stable_id = faker.word()
-        _, status = create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
+        _, status = create_validation_report_entities(
+            feed_stable_id, dataset_stable_id, "1.0"
+        )
         self.assertEqual(status, 500)
 
     @patch("validation_report_processor.src.main.Logger")
