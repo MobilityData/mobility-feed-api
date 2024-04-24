@@ -16,6 +16,7 @@ export const MOBILITY_DATA_LINKS = {
 
 export const navigationItems: NavigationItem[] = [
   { title: 'About', target: 'about', color: 'inherit', variant: 'text' },
+  { title: 'Feeds', target: 'feeds', color: 'inherit', variant: 'text' },
   { title: 'FAQ', target: 'faq', color: 'inherit', variant: 'text' },
   {
     title: 'Add a Feed',
