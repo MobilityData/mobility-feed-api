@@ -112,6 +112,7 @@ This command is very useful when switching branches that potentially have differ
 ```
 
 - Reset the local database and populate it with the catalog content`(Optional)`
+  - Note: the wget command has to be available.
 ```bash
 ./scripts/docker-localdb-rebuild-data.sh --populate-db
 ```
