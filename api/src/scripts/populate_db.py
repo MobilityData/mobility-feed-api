@@ -43,7 +43,7 @@ class DatabasePopulateHelper:
     """
 
     def __init__(self, filepath):
-        self.logger = Logger(self.__class__.__module__).get_logger()
+        self.logger = Logger(self.__class__.__name__).get_logger()
         self.db = Database()
         self.df = pandas.read_csv(filepath)  # contains the data to populate the database
 
@@ -255,7 +255,10 @@ class DatabasePopulateHelper:
         self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
 
         self.db.commit()
-        if os.getenv('ENV', 'local') != 'local':
+        self.logger.info("Database populated successfully.")
+        self.logger.debug(f"New feeds added to the database: {','.join([feed.stable_id for feed in new_feeds] if new_feeds else 'None')}")
+        self.logger.debug('Environment: ' + os.getenv('ENV', 'local'))
+        if os.getenv("ENV", "local") != "local":
             publish_all(new_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
 
 

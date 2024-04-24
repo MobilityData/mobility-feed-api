@@ -24,9 +24,7 @@ def publish_callback(future: Future, stable_id: str, topic_path: str):
     This function logs the result of the publishing operation.
     """
     if future.exception():
-        print(
-            f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}"
-        )
+        print(f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}")
     else:
         print(f"Published stable_id={stable_id}.")
 
