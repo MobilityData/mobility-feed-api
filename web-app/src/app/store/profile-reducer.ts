@@ -43,7 +43,7 @@ const initialState: UserProfileState = {
     Registration: null,
     ResetPassword: null,
     VerifyEmail: null,
-    [ErrorSource.DatabaseAPI]: null,
+    DatabaseAPI: null,
   },
   isRefreshingAccessToken: false,
   isVerificationEmailSent: false,
