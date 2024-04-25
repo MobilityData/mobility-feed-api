@@ -5,9 +5,9 @@ import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import load_only, Query
+from sqlalchemy.orm import load_only, Query, class_mapper
 
-from database_gen.sqlacodegen_models import Base
+from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed
 from sqlalchemy.orm import sessionmaker
 import logging
 from typing import Final
@@ -24,6 +24,24 @@ def generate_unique_id() -> str:
     :return: the ID
     """
     return str(uuid.uuid4())
+
+
+def configure_polymorphic_mappers():
+    """
+    Configure the polymorphic mappers allowing polymorphic values on relationships.
+    """
+    feed_mapper = class_mapper(Feed)
+    # Configure the polymorphic mapper using date_type as discriminator for the Feed class
+    feed_mapper.polymorphic_on = Feed.data_type
+    feed_mapper.polymorphic_identity = Feed.__tablename__.lower()
+
+    gtfsfeed_mapper = class_mapper(Gtfsfeed)
+    gtfsfeed_mapper.inherits = feed_mapper
+    gtfsfeed_mapper.polymorphic_identity = Gtfsfeed.__tablename__.lower()
+
+    gtfsrealtimefeed_mapper = class_mapper(Gtfsrealtimefeed)
+    gtfsrealtimefeed_mapper.inherits = feed_mapper
+    gtfsrealtimefeed_mapper.polymorphic_identity = Gtfsrealtimefeed.__tablename__.lower()
 
 
 class Database:
