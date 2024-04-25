@@ -72,11 +72,6 @@ export enum FeedErrorSource {
   DatabaseAPI = 'DatabaseAPI',
 }
 
-export enum AppErrorSource {
-  FeedErrorSource,
-  ProfileErrorSource,
-}
-
 export interface ProfileError {
   code: string | 'unknown';
   message: string;
