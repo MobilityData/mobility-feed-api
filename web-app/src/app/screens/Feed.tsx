@@ -35,7 +35,7 @@ import {
 export default function Feed(): React.ReactElement {
   const { feedId } = useParams();
   const user = useSelector(selectUserProfile);
-  const feedType = useSelector(selectFeedDataType);
+  const feedType = useSelector(selectFeedData)?.data_type;
   const feed =
     feedType === 'gtfs'
       ? useSelector(selectGTFSFeedData)

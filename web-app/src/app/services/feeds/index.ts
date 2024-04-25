@@ -19,6 +19,8 @@ const throwOnError: Middleware = {
   },
 };
 
+client.use(throwOnError);
+
 const generateAuthMiddlewareWithToken = (accessToken: string): Middleware => {
   return {
     async onRequest(req) {
@@ -28,8 +30,6 @@ const generateAuthMiddlewareWithToken = (accessToken: string): Middleware => {
     },
   };
 };
-
-client.use(throwOnError);
 
 export const getFeeds = async (): Promise<
   | paths['/v1/feeds']['get']['responses'][200]['content']['application/json']
@@ -121,10 +121,13 @@ export const getGtfsFeed = async (
 
 export const getGtfsRtFeed = async (
   id: string,
+  accessToken: string,
 ): Promise<
   | paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json']
   | undefined
 > => {
+  const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  client.use(authMiddleware);
   return await client
     .GET('/v1/gtfs_rt_feeds/{id}', { params: { path: { id } } })
     .then((response) => {
@@ -133,6 +136,9 @@ export const getGtfsRtFeed = async (
     })
     .catch(function (error) {
       throw error;
+    })
+    .finally(() => {
+      client.eject(authMiddleware);
     });
 };
 

@@ -3,7 +3,7 @@ import { loadingFeedFail, loadingFeedSuccess } from '../feed-reducer';
 import { getAppError } from '../../utils/error';
 import { FEED_PROFILE_LOADING_FEED, type FeedError } from '../../types';
 import { type PayloadAction } from '@reduxjs/toolkit';
-import { getGtfsFeed } from '../../services/feeds';
+import { getFeed, getGtfsFeed, getGtfsRtFeed } from '../../services/feeds';
 import { type AllFeedType } from '../../services/feeds/utils';
 
 function* getFeedSaga({
@@ -15,7 +15,11 @@ function* getFeedSaga({
 > {
   try {
     if (feedId !== undefined) {
-      const feed = yield call(getGtfsFeed, feedId, accessToken);
+      const basicFeed = yield call(getFeed, feedId, accessToken);
+      const feed =
+        basicFeed?.data_type === 'gtfs'
+          ? yield call(getGtfsFeed, feedId, accessToken)
+          : yield call(getGtfsRtFeed, feedId, accessToken);
       yield put(loadingFeedSuccess({ data: feed }));
     }
   } catch (error) {
