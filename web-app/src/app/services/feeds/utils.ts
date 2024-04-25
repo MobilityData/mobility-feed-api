@@ -1,4 +1,4 @@
-import { type paths } from '../feeds/types';
+import { type paths } from './types';
 
 export type AllFeedType =
   | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']

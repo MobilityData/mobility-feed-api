@@ -1,5 +1,5 @@
 import createClient, { type Middleware } from 'openapi-fetch';
-import type { paths } from '../feeds/types';
+import type { paths } from './types';
 import { type AllFeedType } from './utils';
 
 const API_BASE_URL = 'https://api-dev.mobilitydatabase.org';
