@@ -1,12 +1,12 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { type AppErrors, type AppError, ErrorSource } from '../types';
+import { type FeedErrors, FeedErrorSource, type FeedError } from '../types';
 import { type AllFeedType } from '../services/feeds/utils';
 
 interface FeedState {
   status: 'loading' | 'loaded';
   feedId: string | undefined;
   data: AllFeedType;
-  errors: AppErrors;
+  errors: FeedErrors;
 }
 
 const initialState: FeedState = {
@@ -14,15 +14,7 @@ const initialState: FeedState = {
   feedId: undefined,
   data: undefined,
   errors: {
-    [ErrorSource.SignUp]: null,
-    [ErrorSource.Login]: null,
-    [ErrorSource.Logout]: null,
-    [ErrorSource.RefreshingAccessToken]: null,
-    [ErrorSource.ChangePassword]: null,
-    [ErrorSource.Registration]: null,
-    [ErrorSource.ResetPassword]: null,
-    [ErrorSource.VerifyEmail]: null,
-    [ErrorSource.DatabaseAPI]: null,
+    [FeedErrorSource.DatabaseAPI]: null,
   },
 };
 
@@ -47,7 +39,10 @@ export const feedSlice = createSlice({
     ) => {
       state.status = 'loading';
       state.data = undefined;
-      state.errors = { ...initialState.errors };
+      state.errors = {
+        ...state.errors,
+        DatabaseAPI: initialState.errors.DatabaseAPI,
+      };
     },
     loadingFeedSuccess: (
       state,
@@ -58,9 +53,12 @@ export const feedSlice = createSlice({
       state.status = 'loaded';
       state.data = action.payload?.data;
       state.feedId = action.payload.data?.id;
-      state.errors = { ...initialState.errors };
+      state.errors = {
+        ...state.errors,
+        DatabaseAPI: initialState.errors.DatabaseAPI,
+      };
     },
-    loadingFeedFail: (state, action: PayloadAction<AppError>) => {
+    loadingFeedFail: (state, action: PayloadAction<FeedError>) => {
       state.errors.DatabaseAPI = action.payload;
     },
   },

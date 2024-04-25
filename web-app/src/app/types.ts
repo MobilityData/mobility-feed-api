@@ -58,7 +58,7 @@ export const FEED_PROFILE_LOADING_FEED = `${FEED_PROFILE}/loadingFeed`;
 export const FEED_PROFILE_LOADING_FEED_SUCCESS = `${FEED_PROFILE}/loadingFeedSuccess`;
 export const FEED_PROFILE_LOADING_FEED_FAIL = `${FEED_PROFILE}/loadingFeedFail`;
 
-export enum ErrorSource {
+export enum ProfileErrorSource {
   SignUp = 'SignUp',
   Login = 'Login',
   Logout = 'Logout',
@@ -67,17 +67,34 @@ export enum ErrorSource {
   Registration = 'Registration',
   ResetPassword = 'ResetPassword',
   VerifyEmail = 'VerifyEmail',
+}
+export enum FeedErrorSource {
   DatabaseAPI = 'DatabaseAPI',
 }
 
-export interface AppError {
-  code: string | 'unknown';
-  message: string;
-  source?: ErrorSource;
+export enum AppErrorSource {
+  FeedErrorSource,
+  ProfileErrorSource,
 }
 
-export type AppErrors = {
-  [Property in ErrorSource]: AppError | null;
+export interface ProfileError {
+  code: string | 'unknown';
+  message: string;
+  source?: ProfileErrorSource;
+}
+
+export interface FeedError {
+  code: string | 'unknown';
+  message: string;
+  source?: FeedErrorSource;
+}
+
+export type ProfileErrors = {
+  [Property in ProfileErrorSource]: ProfileError | null;
+};
+
+export type FeedErrors = {
+  [Property in FeedErrorSource]: FeedError | null;
 };
 
 export enum OauthProvider {

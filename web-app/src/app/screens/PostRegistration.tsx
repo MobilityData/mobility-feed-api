@@ -12,7 +12,7 @@ import {
   selectIsVerificationEmailSent,
   selectUserProfileStatus,
 } from '../store/profile-selectors';
-import { type AppError } from '../types';
+import { type ProfileError } from '../types';
 import { app } from '../../firebase';
 import { useEffect } from 'react';
 import { ACCOUNT_TARGET } from '../constants/Navigation';
@@ -25,7 +25,7 @@ export default function PostRegistration(): React.ReactElement {
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const [resendEmailSuccess, setResendEmailSuccess] = React.useState(false);
   const [resendEmailError, setResendEmailError] =
-    React.useState<AppError | null>(null);
+    React.useState<ProfileError | null>(null);
   React.useEffect(() => {
     setResendEmailSuccess(selectResendEmailSuccess);
   }, [selectResendEmailSuccess]);

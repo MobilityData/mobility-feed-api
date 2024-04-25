@@ -1,7 +1,7 @@
 import { type StrictEffect, call, takeLatest, put } from 'redux-saga/effects';
 import { loadingFeedFail, loadingFeedSuccess } from '../feed-reducer';
 import { getAppError } from '../../utils/error';
-import { FEED_PROFILE_LOADING_FEED } from '../../types';
+import { FEED_PROFILE_LOADING_FEED, type FeedError } from '../../types';
 import { type PayloadAction } from '@reduxjs/toolkit';
 import { getGtfsFeed } from '../../services/feeds';
 import { type AllFeedType } from '../../services/feeds/utils';
@@ -19,7 +19,7 @@ function* getFeedSaga({
       yield put(loadingFeedSuccess({ data: feed }));
     }
   } catch (error) {
-    yield put(loadingFeedFail(getAppError(error)));
+    yield put(loadingFeedFail(getAppError(error) as FeedError));
   }
 }
 

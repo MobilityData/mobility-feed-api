@@ -1,8 +1,8 @@
-import { type AppError } from '../types';
+import { type FeedError, type ProfileError } from '../types';
 import { FirebaseError } from '@firebase/util';
 
-export const getAppError = (error: unknown): AppError => {
-  const appError: AppError = {
+export const getAppError = (error: unknown): ProfileError | FeedError => {
+  const appError: ProfileError | FeedError = {
     code: 'unknown',
     message: 'Unknown error',
   };
