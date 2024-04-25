@@ -15,7 +15,7 @@ import Contribute from '../screens/Contribute';
 import PostRegistration from '../screens/PostRegistration';
 import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
-import Feeds from '../screens/Feeds';
+import Feeds from '../screens/Feed';
 
 export const AppRouter: React.FC = () => {
   return (
