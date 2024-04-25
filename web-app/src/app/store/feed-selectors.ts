@@ -1,12 +1,11 @@
-import { type paths } from '../services/feeds/types';
-import { type GTFSFeedType, isGtfsFeedType } from '../services/feeds/utils';
+import {
+  type GTFSFeedType,
+  isGtfsFeedType,
+  type BasicFeedType,
+} from '../services/feeds/utils';
 import { type RootState } from './store';
 
-export const selectFeedData = (
-  state: RootState,
-):
-  | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']
-  | undefined => {
+export const selectFeedData = (state: RootState): BasicFeedType => {
   return state.feedProfile.data;
 };
 export const selectGTFSFeedData = (state: RootState): GTFSFeedType => {
