@@ -152,7 +152,6 @@ class DatabasePopulateHelper:
                 already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
                 if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
                     gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
-                    # self.db.session.add(gtfs_feed)
                     # Flush to avoid FK violation
                     self.db.session.flush()
 
