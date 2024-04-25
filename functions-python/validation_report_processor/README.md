@@ -16,10 +16,11 @@ The function depends on several environment variables:
 Follow standard practices for local development of GCP serverless functions. Refer to the main [README.md](../README.md) for general setup instructions for the development environment.
 
 ### Testing
-For testing, simulate HTTP requests using tools like Postman or curl. Ensure to include both `dataset_id` and `feed_id` in the JSON payload:
+For testing, simulate HTTP requests using tools like Postman or curl. Ensure to include `dataset_id`, `feed_id` and `validator_version` in the JSON payload:
 ```json
 {
   "dataset_id": "example_dataset_id",
-  "feed_id": "example_feed_id"
+  "feed_id": "example_feed_id",
+  "validator_version": "1.0"
 }
 ```
