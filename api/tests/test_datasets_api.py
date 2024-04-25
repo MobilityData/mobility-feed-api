@@ -1,7 +1,7 @@
 # coding: utf-8
 from fastapi.testclient import TestClient
 
-from .test_utils.database import TEST_DATASET_STABLE_IDS
+from .test_utils.database import TEST_DATASET_STABLE_IDS, TEST_GTFS_FEED_STABLE_IDS
 from .test_utils.token import authHeaders
 
 
@@ -31,7 +31,7 @@ def test_feeds_gtfs_id_datasets_get(client: TestClient):
     ]
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets".format(id=TEST_DATASET_STABLE_IDS[0]),
+        "/v1/gtfs_feeds/{id}/datasets".format(id=TEST_GTFS_FEED_STABLE_IDS[0]),
         headers=authHeaders,
         params=params,
     )
