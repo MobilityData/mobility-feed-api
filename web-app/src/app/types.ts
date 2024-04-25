@@ -67,6 +67,7 @@ export enum ErrorSource {
   Registration = 'Registration',
   ResetPassword = 'ResetPassword',
   VerifyEmail = 'VerifyEmail',
+  DatabaseAPI = 'DatabaseAPI',
 }
 
 export interface AppError {
