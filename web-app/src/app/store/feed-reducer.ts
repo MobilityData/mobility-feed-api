@@ -1,15 +1,11 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type AppError } from '../types';
-import { type paths } from '../services/feeds/types';
+import { type AllFeedType } from '../services/feeds/utils';
 
 interface FeedState {
   status: 'loading' | 'loaded' | 'loading_error';
   feedId: string | undefined;
-  data:
-    | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']
-    | paths['/v1/gtfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
-    | paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json']
-    | undefined;
+  data: AllFeedType;
 }
 
 const initialState: FeedState = {
@@ -42,11 +38,7 @@ export const feedSlice = createSlice({
     loadingFeedSuccess: (
       state,
       action: PayloadAction<{
-        data:
-          | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']
-          | paths['/v1/gtfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
-          | paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json']
-          | undefined;
+        data: AllFeedType;
       }>,
     ) => {
       state.status = 'loaded';
