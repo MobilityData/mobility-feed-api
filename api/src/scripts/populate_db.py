@@ -21,6 +21,11 @@ from database_gen.sqlacodegen_models import (
 from utils.data_utils import set_up_defaults
 from utils.logger import Logger
 
+import logging
+
+logging.basicConfig()
+logging.getLogger("sqlalchemy.engine").setLevel(logging.ERROR)
+
 
 def set_up_configs():
     """
@@ -43,13 +48,13 @@ class DatabasePopulateHelper:
 
     def __init__(self, filepath):
         self.logger = Logger(self.__class__.__module__).get_logger()
-        self.db = Database()
+        self.logger.setLevel(logging.INFO)
+        self.db = Database(echo_sql=False)
         self.df = pandas.read_csv(filepath)  # contains the data to populate the database
 
         # Filter unsupported data types
         self.df = self.df[(self.df.data_type == "gtfs") | (self.df.data_type == "gtfs-rt")]
         self.df = set_up_defaults(self.df)
-        self.logger.info(self.df)
 
     @staticmethod
     def get_model(data_type: str | None) -> Type[Gtfsrealtimefeed | Gtfsfeed | Feed]:
@@ -105,7 +110,7 @@ class DatabasePopulateHelper:
             self.logger.warning(f"Location ID is empty for feed {stable_id}")
             feed.locations.clear()
         else:
-            location = self.db.session.query(Location).get(location_id)
+            location = self.db.session.get(Location, location_id)
             location = (
                 location
                 if location
@@ -139,6 +144,7 @@ class DatabasePopulateHelper:
         """
         Process the feed references
         """
+        self.logger.info("Processing feed references")
         for index, row in self.df.iterrows():
             stable_id = self.get_stable_id(row)
             data_type = self.get_data_type(row)
@@ -159,6 +165,7 @@ class DatabasePopulateHelper:
         """
         Process the redirects
         """
+        self.logger.info("Processing redirects")
         for index, row in self.df.iterrows():
             stable_id = self.get_stable_id(row)
             raw_redirects = row.get("redirect.id", None)
@@ -168,7 +175,7 @@ class DatabasePopulateHelper:
             feed = self.query_feed_by_stable_id(stable_id, None)
             raw_comments = row.get("redirect.comment", None)
             comments = raw_comments.split("|") if raw_comments is not None else []
-            if len(redirects_ids) != len(comments):
+            if len(redirects_ids) != len(comments) and len(comments) > 0:
                 self.logger.warning(f"Number of redirect ids and redirect comments differ for feed {stable_id}")
             for mdb_source_id in redirects_ids:
                 if len(mdb_source_id) == 0:
@@ -202,13 +209,13 @@ class DatabasePopulateHelper:
         """
         self.logger.info("Populating the database with sources.csv data")
         for index, row in self.df.iterrows():
-            self.logger.info(f"Populating Database with Feed [stable_id = {row['mdb_source_id']}]")
+            self.logger.debug(f"Populating Database with Feed [stable_id = {row['mdb_source_id']}]")
             # Create or update the GTFS feed
             data_type = self.get_data_type(row)
             stable_id = self.get_stable_id(row)
             feed = self.query_feed_by_stable_id(stable_id, data_type)
             if feed:
-                self.logger.info(f"Updating {feed.__class__.__name__}: {stable_id}")
+                self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
             else:
                 self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 feed = self.get_model(data_type)(id=generate_unique_id(), data_type=data_type, stable_id=stable_id)

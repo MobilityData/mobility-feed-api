@@ -58,11 +58,12 @@ class Database:
                     cls.instance = object.__new__(cls)
         return cls.instance
 
-    def __init__(self):
+    def __init__(self, echo_sql=True):
         load_dotenv()
         self.engine = None
         self.connection_attempts = 0
         self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
+        self.echo_sql = echo_sql
         self.start_session()
 
     def is_connected(self):
@@ -99,7 +100,7 @@ class Database:
                 raise Exception("Database URL is not set")
             else:
                 logging.info("Starting new global database session.")
-                self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
+                self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=self.echo_sql)
                 global_session = sessionmaker(bind=self.engine)()
                 self.session = global_session
                 return global_session
