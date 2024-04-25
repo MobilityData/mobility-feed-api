@@ -176,8 +176,8 @@ scripts/api-tests.sh <my_test_filename>.py
 Note: the tests rely on having an empty local DB instance. If you have data in your local DB, you can run the following command to reset the DB before running the tests
 ```bash
 ./scripts/docker-localdb-rebuild-data.sh
-````
-```bash
+```
+
 
 ## Running with Docker
 
