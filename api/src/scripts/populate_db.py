@@ -123,16 +123,17 @@ class DatabasePopulateHelper:
         Process the entity types for the feed
         """
         entity_types = self.get_safe_value(row, "entity_type", "").replace("|", "-").split("-")
-        if not feed.entitytypes:
+        if len(entity_types) > 0:
+            for entity_type_name in entity_types:
+                entity_type = self.db.session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
+                if not entity_type:
+                    entity_type = Entitytype(name=entity_type_name)
+                if all(entity_type.name != entity.name for entity in feed.entitytypes):
+                    feed.entitytypes.append(entity_type)
+                    self.db.session.flush()
+        else:
             self.logger.warning(f"Entity types array is empty for feed {stable_id}")
             feed.entitytypes.clear()
-        for entity_type_name in entity_types:
-            entity_type = self.db.session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
-            if not entity_type:
-                self.logger.warning(f"Entity type {entity_type_name} not found for feed {stable_id}")
-                continue
-            if entity_type not in feed.entitytypes:
-                feed.entitytypes.append(entity_type)
 
     def process_feed_references(self):
         """
