@@ -1,10 +1,10 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import {
-  type AppError,
+  type ProfileError,
   type EmailLogin,
-  type AppErrors,
   type User,
   type OauthProvider,
+  type ProfileErrors,
 } from '../types';
 import { type NavigateFunction } from 'react-router-dom';
 import { type UserCredential } from 'firebase/auth';
@@ -25,7 +25,7 @@ interface UserProfileState {
   isAppRefreshing: boolean;
   isRecoveryEmailSent: boolean;
   isVerificationEmailSent: boolean;
-  errors: AppErrors;
+  errors: ProfileErrors;
   user: User | undefined;
   changePasswordStatus: 'idle' | 'loading' | 'success' | 'fail';
   isSignedInWithProvider: boolean;
@@ -73,7 +73,7 @@ export const userProfileSlice = createSlice({
       state.user = action.payload;
       state.isAppRefreshing = false;
     },
-    loginFail: (state, action: PayloadAction<AppError>) => {
+    loginFail: (state, action: PayloadAction<ProfileError>) => {
       state.errors = { ...initialState.errors, Login: action.payload };
       state.status = 'unauthenticated';
       state.isAppRefreshing = false;
@@ -117,7 +117,7 @@ export const userProfileSlice = createSlice({
       state.errors = { ...initialState.errors };
       state.isAppRefreshing = false;
     },
-    signUpFail: (state, action: PayloadAction<AppError>) => {
+    signUpFail: (state, action: PayloadAction<ProfileError>) => {
       state.status = 'unauthenticated';
       state.errors = { ...initialState.errors, SignUp: action.payload };
       state.isAppRefreshing = false;
@@ -137,7 +137,7 @@ export const userProfileSlice = createSlice({
       }
       state.isRefreshingAccessToken = false;
     },
-    refreshAccessTokenFail: (state, action: PayloadAction<AppError>) => {
+    refreshAccessTokenFail: (state, action: PayloadAction<ProfileError>) => {
       state.isRefreshingAccessToken = false;
       state.errors.RefreshingAccessToken = action.payload;
     },
@@ -169,7 +169,10 @@ export const userProfileSlice = createSlice({
         state.status = 'registering';
       }
     },
-    refreshUserInformationFail: (state, action: PayloadAction<AppError>) => {
+    refreshUserInformationFail: (
+      state,
+      action: PayloadAction<ProfileError>,
+    ) => {
       state.errors.Registration = action.payload;
       state.status = 'authenticated';
     },
@@ -197,7 +200,7 @@ export const userProfileSlice = createSlice({
       state.errors.ChangePassword = null;
       state.changePasswordStatus = 'success';
     },
-    changePasswordFail: (state, action: PayloadAction<AppError>) => {
+    changePasswordFail: (state, action: PayloadAction<ProfileError>) => {
       state.isAppRefreshing = false;
       state.errors.ChangePassword = action.payload;
       state.changePasswordStatus = 'fail';
@@ -215,7 +218,7 @@ export const userProfileSlice = createSlice({
         state.isAppRefreshing = true;
       }
     },
-    resetPasswordFail: (state, action: PayloadAction<AppError>) => {
+    resetPasswordFail: (state, action: PayloadAction<ProfileError>) => {
       state.isRecoveryEmailSent = false;
       state.errors.ResetPassword = action.payload;
       state.isAppRefreshing = false;
@@ -235,7 +238,7 @@ export const userProfileSlice = createSlice({
       state.isVerificationEmailSent = true;
       state.errors = { ...initialState.errors };
     },
-    verifyFail: (state, action: PayloadAction<AppError>) => {
+    verifyFail: (state, action: PayloadAction<ProfileError>) => {
       state.errors.VerifyEmail = action.payload;
       state.isAppRefreshing = false;
       state.isVerificationEmailSent = false;

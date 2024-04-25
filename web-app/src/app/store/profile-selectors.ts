@@ -1,4 +1,4 @@
-import { type AppError, ErrorSource, type User } from '../types';
+import { type ProfileError, ProfileErrorSource, type User } from '../types';
 import { type RootState } from './store';
 
 export const selectUserProfile = (state: RootState): User | undefined =>
@@ -21,29 +21,32 @@ export const selectIsVerificationEmailSent = (state: RootState): boolean =>
 
 export const selectErrorBySource = (
   state: RootState,
-  source: ErrorSource,
-): AppError | null => state.userProfile.errors[source];
+  source: ProfileErrorSource,
+): ProfileError | null => state.userProfile.errors[source];
 
-export const selectEmailLoginError = (state: RootState): AppError | null =>
-  selectErrorBySource(state, ErrorSource.Login);
+export const selectEmailLoginError = (state: RootState): ProfileError | null =>
+  selectErrorBySource(state, ProfileErrorSource.Login);
 
 export const selectEmailVerificationError = (
   state: RootState,
-): AppError | null => selectErrorBySource(state, ErrorSource.VerifyEmail);
+): ProfileError | null =>
+  selectErrorBySource(state, ProfileErrorSource.VerifyEmail);
 
-export const selectResetPasswordError = (state: RootState): AppError | null =>
-  selectErrorBySource(state, ErrorSource.ResetPassword);
+export const selectResetPasswordError = (
+  state: RootState,
+): ProfileError | null =>
+  selectErrorBySource(state, ProfileErrorSource.ResetPassword);
 
 export const selectIsRecoveryEmailSent = (state: RootState): boolean =>
   state.userProfile.isRecoveryEmailSent;
 
-export const selectSignUpError = (state: RootState): AppError | null =>
-  selectErrorBySource(state, ErrorSource.SignUp);
+export const selectSignUpError = (state: RootState): ProfileError | null =>
+  selectErrorBySource(state, ProfileErrorSource.SignUp);
 
 export const selectRefreshingAccessTokenError = (
   state: RootState,
-): AppError | null =>
-  selectErrorBySource(state, ErrorSource.RefreshingAccessToken);
+): ProfileError | null =>
+  selectErrorBySource(state, ProfileErrorSource.RefreshingAccessToken);
 
 export const selectIsRefreshingAccessToken = (state: RootState): boolean =>
   state.userProfile.isRefreshingAccessToken;
@@ -51,11 +54,15 @@ export const selectIsRefreshingAccessToken = (state: RootState): boolean =>
 export const selectSignedInWithProvider = (state: RootState): boolean =>
   state.userProfile.isSignedInWithProvider;
 
-export const selectChangePasswordError = (state: RootState): AppError | null =>
-  selectErrorBySource(state, ErrorSource.ChangePassword);
+export const selectChangePasswordError = (
+  state: RootState,
+): ProfileError | null =>
+  selectErrorBySource(state, ProfileErrorSource.ChangePassword);
 
 export const selectChangePasswordStatus = (state: RootState): string =>
   state.userProfile.changePasswordStatus;
 
-export const selectRegistrationError = (state: RootState): AppError | null =>
-  selectErrorBySource(state, ErrorSource.Registration);
+export const selectRegistrationError = (
+  state: RootState,
+): ProfileError | null =>
+  selectErrorBySource(state, ProfileErrorSource.Registration);

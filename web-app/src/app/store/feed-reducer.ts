@@ -1,21 +1,21 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { type AppError } from '../types';
-import { type paths } from '../services/feeds/types';
+import { type FeedErrors, FeedErrorSource, type FeedError } from '../types';
+import { type AllFeedType } from '../services/feeds/utils';
 
 interface FeedState {
-  status: 'loading' | 'loaded' | 'loading_error';
+  status: 'loading' | 'loaded';
   feedId: string | undefined;
-  data:
-    | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']
-    | paths['/v1/gtfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
-    | paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json']
-    | undefined;
+  data: AllFeedType;
+  errors: FeedErrors;
 }
 
 const initialState: FeedState = {
   status: 'loading',
   feedId: undefined,
   data: undefined,
+  errors: {
+    [FeedErrorSource.DatabaseAPI]: null,
+  },
 };
 
 export const feedSlice = createSlice({
@@ -38,24 +38,28 @@ export const feedSlice = createSlice({
       }>,
     ) => {
       state.status = 'loading';
+      state.data = undefined;
+      state.errors = {
+        ...state.errors,
+        DatabaseAPI: initialState.errors.DatabaseAPI,
+      };
     },
     loadingFeedSuccess: (
       state,
       action: PayloadAction<{
-        data:
-          | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']
-          | paths['/v1/gtfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
-          | paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json']
-          | undefined;
+        data: AllFeedType;
       }>,
     ) => {
       state.status = 'loaded';
       state.data = action.payload?.data;
+      state.feedId = action.payload.data?.id;
+      state.errors = {
+        ...state.errors,
+        DatabaseAPI: initialState.errors.DatabaseAPI,
+      };
     },
-    loadingFeedFail: (state, action: PayloadAction<AppError>) => {
-      state.status = 'loading_error';
-      state.feedId = undefined;
-      // state.errors = { ...initialState.errors, Feed: action.payload };
+    loadingFeedFail: (state, action: PayloadAction<FeedError>) => {
+      state.errors.DatabaseAPI = action.payload;
     },
   },
 });

@@ -6,6 +6,7 @@ import {
   select,
 } from 'redux-saga/effects';
 import {
+  type ProfileError,
   USER_PROFILE_REFRESH_INFORMATION,
   USER_REQUEST_REFRESH_ACCESS_TOKEN,
   type User,
@@ -28,7 +29,7 @@ function* refreshAccessTokenSaga(): Generator<StrictEffect, void, User> {
       yield put(refreshAccessToken(user));
     }
   } catch (error) {
-    yield put(refreshAccessTokenFail(getAppError(error)));
+    yield put(refreshAccessTokenFail(getAppError(error) as ProfileError));
   }
 }
 
@@ -47,7 +48,7 @@ function* refreshUserInformation(): Generator<StrictEffect, void, User> {
       yield put(refreshUserInformationSuccess());
     }
   } catch (error) {
-    yield put(refreshUserInformationFail(getAppError(error)));
+    yield put(refreshUserInformationFail(getAppError(error) as ProfileError));
   }
 }
 
