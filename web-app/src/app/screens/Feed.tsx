@@ -6,7 +6,7 @@ import Container from '@mui/material/Container';
 import CssBaseline from '@mui/material/CssBaseline';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import { ContentCopy, Download } from '@mui/icons-material';
+import { ContentCopy, Download, LaunchOutlined } from '@mui/icons-material';
 import {
   Chip,
   Grid,
@@ -23,13 +23,25 @@ import { useAppDispatch } from '../hooks';
 import { loadingFeed } from '../store/feed-reducer';
 import { useSelector } from 'react-redux';
 import { selectUserProfile } from '../store/profile-selectors';
-import { selectGTFSFeedData } from '../store/feed-selectors';
+import {
+  selectFeedData,
+  selectGTFSFeedData,
+  selectGTFSRTFeedData,
+} from '../store/feed-selectors';
 
-export default function Feeds(): React.ReactElement {
+// const renderGTFSInfo = () => {};
+// const renderGTFSRTInfo = () => {};
+
+export default function Feed(): React.ReactElement {
   const { feedId } = useParams();
   const user = useSelector(selectUserProfile);
-  const feed = useSelector(selectGTFSFeedData);
-  console.log(feed);
+  const feedType = useSelector(selectFeedDataType);
+  const feed =
+    feedType === 'gtfs'
+      ? useSelector(selectGTFSFeedData)
+      : useSelector(selectGTFSRTFeedData);
+  console.log(feedType);
+
   const dispatch = useAppDispatch();
 
   useEffect(() => {
@@ -69,16 +81,25 @@ export default function Feeds(): React.ReactElement {
         >
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <Typography>Feeds / GTFS Schedule / {feed?.id} </Typography>
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant='h3'>
-                {feed?.source_info?.producer_url}
+              <Typography>
+                Feeds /{' '}
+                {feedType === 'gtfs'
+                  ? 'GTFS Schedule'
+                  : 'GTFS Realtime Schedule'}
+                {' / '}
+                {feed?.id}{' '}
               </Typography>
             </Grid>
             <Grid item xs={12}>
-              <Typography variant='h5'>{feed?.provider}</Typography>
+              <Typography variant='h3'>
+                {feed?.provider?.substring(0, 100)}
+              </Typography>
             </Grid>
+            {feed?.feed_name ?? (
+              <Grid item xs={12}>
+                <Typography variant='h5'>{feed?.feed_name}</Typography>
+              </Grid>
+            )}
             <Grid item xs={12} sm={6}>
               <Button
                 variant='contained'
@@ -86,7 +107,11 @@ export default function Feeds(): React.ReactElement {
                 startIcon={<Download />}
               >
                 <a
-                  href={feed?.latest_dataset?.hosted_url}
+                  href={
+                    feed?.data_type === 'gtfs'
+                      ? feed?.latest_dataset?.hosted_url
+                      : feed?.source_info?.producer_url
+                  }
                   target='_blank'
                   className='btn-link'
                   rel='noreferrer'
@@ -97,7 +122,7 @@ export default function Feeds(): React.ReactElement {
               <Button
                 variant='contained'
                 sx={{ m: 2 }}
-                startIcon={<Download />}
+                endIcon={<LaunchOutlined />}
               >
                 <a
                   href={feed?.source_info?.license_url}
@@ -105,13 +130,13 @@ export default function Feeds(): React.ReactElement {
                   className='btn-link'
                   rel='noreferrer'
                 >
-                  License URL
+                  See License
                 </a>
               </Button>
               <Button
                 variant='contained'
                 sx={{ m: 2 }}
-                startIcon={<Download />}
+                endIcon={<LaunchOutlined />}
               >
                 <a
                   href={feed?.source_info?.authentication_info_url}
@@ -119,7 +144,7 @@ export default function Feeds(): React.ReactElement {
                   className='btn-link'
                   rel='noreferrer'
                 >
-                  Authentication info URL
+                  See Authentication info
                 </a>
               </Button>
             </Grid>
@@ -192,7 +217,9 @@ export default function Feeds(): React.ReactElement {
                             </TableCell>
                             <TableCell sx={{ border: 'none' }}>
                               {feed?.locations !== undefined
-                                ? Object.values(feed?.locations[0]).join(', ')
+                                ? Object.values(feed?.locations[0])
+                                    .reverse()
+                                    .join(', ')
                                 : ''}
                             </TableCell>
                           </TableRow>
@@ -208,7 +235,9 @@ export default function Feeds(): React.ReactElement {
                               Last downloaded at:
                             </TableCell>
                             <TableCell sx={{ border: 'none' }}>
-                              {feed?.latest_dataset?.downloaded_at}
+                              {feed?.data_type === 'gtfs'
+                                ? feed?.latest_dataset?.downloaded_at
+                                : undefined}
                             </TableCell>
                           </TableRow>
                           <TableRow>
