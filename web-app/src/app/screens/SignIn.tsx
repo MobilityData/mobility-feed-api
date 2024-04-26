@@ -16,7 +16,7 @@ import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
 import {
   OauthProvider,
   type EmailLogin,
-  ErrorSource,
+  ProfileErrorSource,
   oathProviders,
 } from '../types';
 import { useSelector } from 'react-redux';
@@ -115,7 +115,7 @@ export default function SignIn(): React.ReactElement {
           loginFail({
             code: error.code,
             message: error.message,
-            source: ErrorSource.Login,
+            source: ProfileErrorSource.Login,
           }),
         );
       });

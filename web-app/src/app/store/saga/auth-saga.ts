@@ -13,6 +13,7 @@ import {
   type UserData,
   USER_PROFILE_SEND_VERIFICATION_EMAIL,
   USER_PROFILE_ANONYMOUS_LOGIN,
+  type ProfileError,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -69,7 +70,7 @@ function* emailLoginSaga({
     );
     yield put(loginSuccess(userEnhanced));
   } catch (error) {
-    yield put(loginFail(getAppError(error)));
+    yield put(loginFail(getAppError(error) as ProfileError));
   }
 }
 
@@ -85,7 +86,7 @@ function* logoutSaga({
     yield put(anonymousLogin()); // Use anonymous login to keep the user signed in
     navigateTo(redirectScreen);
   } catch (error) {
-    yield put(loginFail(getAppError(error)));
+    yield put(loginFail(getAppError(error) as ProfileError));
   }
 }
 
@@ -104,7 +105,7 @@ function* signUpSaga({
     }
     yield put(signUpSuccess(user as User));
   } catch (error) {
-    yield put(signUpFail(getAppError(error)));
+    yield put(signUpFail(getAppError(error) as ProfileError));
   }
 }
 
@@ -127,7 +128,7 @@ function* changePasswordSaga({
     yield user.updatePassword(newPassword);
     yield put(changePasswordSuccess());
   } catch (error) {
-    yield put(changePasswordFail(getAppError(error)));
+    yield put(changePasswordFail(getAppError(error) as ProfileError));
   }
 }
 
@@ -136,7 +137,7 @@ function* sendEmailVerificationSaga(): Generator {
     yield call(sendEmailVerification);
     yield put(verifySuccess());
   } catch (error) {
-    yield put(verifyFail(getAppError(error)));
+    yield put(verifyFail(getAppError(error) as ProfileError));
   }
 }
 
@@ -160,7 +161,7 @@ function* loginWithProviderSaga({
     );
     yield put(loginSuccess(userEnhanced));
   } catch (error) {
-    yield put(loginFail(getAppError(error)));
+    yield put(loginFail(getAppError(error) as ProfileError));
   }
 }
 
@@ -174,7 +175,7 @@ function* resetPasswordSaga({
     });
     yield put(resetPasswordSuccess());
   } catch (error) {
-    yield put(resetPasswordFail(getAppError(error)));
+    yield put(resetPasswordFail(getAppError(error) as ProfileError));
   }
 }
 

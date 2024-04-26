@@ -26,7 +26,9 @@
       "no-console": "warn",
       "unused-imports/no-unused-imports": "error",
       "react/react-in-jsx-scope": "off",
-      "prettier/prettier": "error"
+      "prettier/prettier": "error",
+      "@typescript-eslint/ban-tslint-comment": "off"
+
     }
   }
   

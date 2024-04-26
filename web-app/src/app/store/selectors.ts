@@ -1,6 +1,7 @@
 import { type RootState } from './store';
 
 export * from './profile-selectors';
+export * from './feed-selectors';
 
 export const selectLoadingApp = (state: RootState): boolean => {
   return (

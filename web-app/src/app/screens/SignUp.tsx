@@ -37,7 +37,7 @@ import {
 } from '../constants/Navigation';
 import '../styles/SignUp.css';
 import { selectSignUpError, selectUserProfileStatus } from '../store/selectors';
-import { ErrorSource, OauthProvider, oathProviders } from '../types';
+import { ProfileErrorSource, OauthProvider, oathProviders } from '../types';
 import {
   passwordValidationError,
   passwordValidationRegex,
@@ -140,7 +140,7 @@ export default function SignUp(): React.ReactElement {
           loginFail({
             code: error.code,
             message: error.message,
-            source: ErrorSource.Login,
+            source: ProfileErrorSource.Login,
           }),
         );
       });
