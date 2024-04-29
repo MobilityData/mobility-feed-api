@@ -217,8 +217,8 @@ class DatabasePopulateHelper:
             if feed:
                 self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
             else:
-                self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 feed = self.get_model(data_type)(id=generate_unique_id(), data_type=data_type, stable_id=stable_id)
+                self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 self.db.session.add(feed)
                 feed.externalids = [
                     Externalid(
