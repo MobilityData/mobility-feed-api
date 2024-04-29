@@ -188,15 +188,23 @@ class FeedsApiImpl(BaseFeedsApi):
             redirects_list = [Redirect(target_id=redirect, comment=comment) for redirect, comment in redirects_set]
 
             gtfs_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsFeed, redirects_list, set(external_ids))
+
+            # Iterate over locations and put in a set to eliminate duplicates
+            unique_locations = set()
+            for location in locations:
+                if location is not None:
+                    location_tuple = (location.country_code, location.subdivision_name, location.municipality)
+                    unique_locations.add(location_tuple)
+
             gtfs_feed.locations = [
                 ApiLocation(
-                    country_code=location.country_code,
-                    subdivision_name=location.subdivision_name,
-                    municipality=location.municipality,
+                    country_code=country_code,
+                    subdivision_name=subdivision_name,
+                    municipality=municipality,
                 )
-                for location in locations
-                if location is not None
+                for country_code, subdivision_name, municipality in unique_locations
             ]
+
             latest_dataset, bounding_box = next(
                 filter(
                     lambda dataset: dataset[0] is not None and dataset[1] is not None and dataset[0].latest,

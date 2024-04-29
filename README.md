@@ -112,6 +112,7 @@ This command is very useful when switching branches that potentially have differ
 ```
 
 - Reset the local database and populate it with the catalog content`(Optional)`
+  - Note: the wget command has to be available.
 ```bash
 ./scripts/docker-localdb-rebuild-data.sh --populate-db
 ```
@@ -171,6 +172,12 @@ To run a single test file:
 ```bash
 scripts/api-tests.sh <my_test_filename>.py
 ```
+
+Note: the tests rely on having an empty local DB instance. If you have data in your local DB, you can run the following command to reset the DB before running the tests
+```bash
+./scripts/docker-localdb-rebuild-data.sh
+```
+
 
 ## Running with Docker
 
