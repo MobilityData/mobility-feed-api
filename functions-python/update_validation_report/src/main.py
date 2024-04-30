@@ -174,13 +174,15 @@ def get_dataset_blobs_for_validation(
             f"{feed_id}/{dataset_id}/system_errors_{validator_version}.json"
         )
         dataset_blob = bucket.blob(
-            f"{feed_id}/{dataset_id}/dataset_{validator_version}.json"
+            f"{feed_id}/{dataset_id}/{dataset_id}.zip"
         )
         dataset_blob_exists = dataset_blob.exists()
         if not dataset_blob_exists:
             logging.warning(f"Dataset blob not found for {feed_id}/{dataset_id}")
+        # The system errors blob is used to determine if the validation report needs to be updated
+        # since it's the only report that is always generated even if there are errors during validation
         if not system_errors_blob.exists() and dataset_blob_exists:
-            report_update_needed.append(system_errors_blob)
+            report_update_needed.append(dataset_blob)
             logging.info(
                 f"System errors blob not found for {feed_id}/{dataset_id} -- Adding to update list"
             )
