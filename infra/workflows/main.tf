@@ -75,6 +75,7 @@ resource "google_workflows_workflow" "gtfs_validator_execution" {
 }
 
 # Trigger to execute the GTFS Validator
+# Trigger 1: Trigger the workflow when a new GTFS dataset is uploaded to the datasets bucket
 resource "google_eventarc_trigger" "gtfs_validator_trigger" {
   name     = "gtfsvalidatortrigger"
   project  = var.project_id
@@ -107,5 +108,36 @@ resource "google_eventarc_trigger" "gtfs_validator_trigger" {
 
 }
 
+# Trigger 2: Trigger the workflow when a dataset is updated
+resource "google_eventarc_trigger" "gtfs_validator_update_trigger" {
+  name     = "gtfsvalidatormetadatatrigger"
+  project  = var.project_id
+  location = google_workflows_workflow.gtfs_validator_execution.region
+
+  matching_criteria {
+    attribute = "type"
+    value     = "google.cloud.audit.log.v1.written"
+  }
+  matching_criteria {
+    attribute = "methodName"
+    value = "storage.objects.update"
+  }
+  matching_criteria {
+    attribute = "serviceName"
+    value = "storage.googleapis.com"
+  }
+  matching_criteria {
+    attribute = "resourceName"
+    value     = "projects/_/buckets/${var.datasets_bucket_name}-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
+    operator = "match-path-pattern"
+  }
+
+  # Send events to Workflows
+  destination {
+    workflow = google_workflows_workflow.gtfs_validator_execution.id
+  }
+
+  service_account = google_service_account.workflows_service_account.email
+}
 
 
