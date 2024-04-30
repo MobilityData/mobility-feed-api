@@ -173,9 +173,7 @@ def get_dataset_blobs_for_validation(
         system_errors_blob = bucket.blob(
             f"{feed_id}/{dataset_id}/system_errors_{validator_version}.json"
         )
-        dataset_blob = bucket.blob(
-            f"{feed_id}/{dataset_id}/{dataset_id}.zip"
-        )
+        dataset_blob = bucket.blob(f"{feed_id}/{dataset_id}/{dataset_id}.zip")
         dataset_blob_exists = dataset_blob.exists()
         if not dataset_blob_exists:
             logging.warning(f"Dataset blob not found for {feed_id}/{dataset_id}")
