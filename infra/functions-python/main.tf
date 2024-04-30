@@ -29,7 +29,7 @@ locals {
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
 
   function_update_validation_report_config = jsondecode(file("${path.module}/../../functions-python/update_validation_report/function_config.json"))
-  function_update_validation_report_zip = "${path.module}/../../functions-python/validation_report_processor/.dist/update_validation_report.zip"
+  function_update_validation_report_zip = "${path.module}/../../functions-python/update_validation_report/.dist/update_validation_report.zip"
 }
 
 locals {
