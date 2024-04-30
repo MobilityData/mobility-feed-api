@@ -99,7 +99,6 @@ jobs:
         ./scripts/tunnel-create.sh -project_id ${{ inputs.PROJECT_ID }} -zone ${{ inputs.REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ inputs.DB_ENVIRONMENT}} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.POSTGRE_SQL_INSTANCE_NAME }}
         sleep 10 # Wait for the tunnel to establish
 
-#    Uncomment the following block to test the database connection through the tunnel
     - name: Test Database Connection Through Tunnel
       run: |
         sudo apt-get update && sudo apt-get install -y postgresql-client

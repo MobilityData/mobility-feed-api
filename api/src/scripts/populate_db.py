@@ -18,6 +18,7 @@ from database_gen.sqlacodegen_models import (
     t_feedsearch,
     Feed,
 )
+from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
 from utils.logger import Logger
 
@@ -47,7 +48,7 @@ class DatabasePopulateHelper:
     """
 
     def __init__(self, filepath):
-        self.logger = Logger(self.__class__.__module__).get_logger()
+        self.logger = Logger(self.__class__.__name__).get_logger()
         self.logger.setLevel(logging.INFO)
         self.db = Database(echo_sql=False)
         self.df = pandas.read_csv(filepath)  # contains the data to populate the database
@@ -55,6 +56,7 @@ class DatabasePopulateHelper:
         # Filter unsupported data types
         self.df = self.df[(self.df.data_type == "gtfs") | (self.df.data_type == "gtfs-rt")]
         self.df = set_up_defaults(self.df)
+        self.added_gtfs_feeds = []  # Keep track of the feeds that have been added to the database
 
     @staticmethod
     def get_model(data_type: str | None) -> Type[Gtfsrealtimefeed | Gtfsfeed | Feed]:
@@ -220,6 +222,8 @@ class DatabasePopulateHelper:
                 feed = self.get_model(data_type)(id=generate_unique_id(), data_type=data_type, stable_id=stable_id)
                 self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 self.db.session.add(feed)
+                if data_type == "gtfs":
+                    self.added_gtfs_feeds.append(feed)
                 feed.externalids = [
                     Externalid(
                         feed_id=feed.id,
@@ -249,6 +253,18 @@ class DatabasePopulateHelper:
         self.process_feed_references()
         self.process_redirects()
 
+    def trigger_downstream_tasks(self):
+        """
+        Trigger downstream tasks after populating the database
+        """
+        self.logger.info("Triggering downstream tasks")
+        self.logger.debug(
+            f"New feeds added to the database: "
+            f"{','.join([feed.stable_id for feed in self.added_gtfs_feeds] if self.added_gtfs_feeds else [])}"
+        )
+        if os.getenv("ENV", "local") != "local":
+            publish_all(self.added_gtfs_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
+
 
 if __name__ == "__main__":
     db_helper = DatabasePopulateHelper(set_up_configs())
@@ -262,6 +278,7 @@ if __name__ == "__main__":
         db_helper.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
         db_helper.db.session.commit()
         db_helper.logger.info("\n----- Database populated with sources.csv data. -----")
+        db_helper.trigger_downstream_tasks()
     except Exception as e:
         db_helper.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
         db_helper.db.session.rollback()
