@@ -21,15 +21,23 @@ from typing import List
 import functions_framework
 import requests
 import sqlalchemy.orm
+import json
+from sqlalchemy import or_
 from google.cloud import storage
 from sqlalchemy.engine import Row
 from sqlalchemy.engine.interfaces import Any
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
+from database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed, Validationreport
 from helpers.database import start_db_session
+from google.cloud import workflows_v1
+from google.cloud.workflows import executions_v1
+from google.cloud.workflows.executions_v1 import Execution
+
 from helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
+env = os.getenv("ENV", "dev").lower()
+bucket_name = f"mobilitydata-datasets-{env}"
 
 
 @functions_framework.http
@@ -38,32 +46,37 @@ def update_validation_report(_):
     Update the validation report for the datasets that need it
     """
     Logger.init_logger()
-    env = os.getenv("ENV", "dev").lower()
 
     # Get validator version
     validator_version = get_validator_version()
-
-    bucket_name = f"mobilitydata-datasets-{env}"
     logging.info(f"Accessing bucket {bucket_name}")
 
     session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
-    latest_datasets = get_latest_datasets(session)
+    latest_datasets = get_latest_datasets_without_validation_reports(
+        session, validator_version
+    )
     logging.info(f"Retrieved {len(latest_datasets)} latest datasets.")
 
-    dataset_blobs = get_dataset_blobs_for_validation(
-        bucket_name, validator_version, latest_datasets
-    )
-    logging.info(f"Retrieved {len(dataset_blobs)} blobs to update.")
+    valid_latest_datasets = get_datasets_for_validation(latest_datasets)
+    logging.info(f"Retrieved {len(latest_datasets)} blobs to update.")
 
-    updated_datasets = update_dataset_metadata(dataset_blobs, validator_version)
+    execution_triggered_datasets = execute_workflows(valid_latest_datasets)
     response = {
-        "message": f"Updated {len(updated_datasets)} validation report(s).",
-        "updated_datasets": sorted(updated_datasets),
+        "message": f"Validation report update needed for {len(valid_latest_datasets)} datasets and triggered for "
+        f"{len(execution_triggered_datasets)} datasets.",
+        "dataset_workflow_triggered": sorted(execution_triggered_datasets),
+        "datasets_not_updated": sorted(
+            [
+                dataset_id
+                for _, dataset_id in valid_latest_datasets
+                if dataset_id not in execution_triggered_datasets
+            ]
+        ),
         "ignored_datasets": sorted(
             [
                 dataset_id
                 for _, dataset_id in latest_datasets
-                if dataset_id not in updated_datasets
+                if dataset_id not in valid_latest_datasets
             ]
         ),
     }
@@ -82,63 +95,14 @@ def get_validator_version():
     return validator_version
 
 
-def update_dataset_metadata(
-    dataset_blobs: List[storage.Blob], validator_version: str
-) -> List[str]:
+def get_latest_datasets_without_validation_reports(
+    session: sqlalchemy.orm.Session,
+    validator_version: str,
+) -> List[Row[tuple[Any, Any]]]:
     """
-    Update the metadata of the dataset blobs - This will trigger the validation report processor
-    :param dataset_blobs: The dataset blobs to update
-    :param validator_version: The version of the validator
-    :return: The list of updated datasets stable ids
-    """
-    max_retry = os.getenv("MAX_RETRY", None)
-    batch_size = int(os.getenv("BATCH_SIZE", 5))
-    sleep_time = int(os.getenv("SLEEP_TIME", 5))
-    logging.info(f"Max retry: {max_retry}, Batch size: {batch_size}")
-
-    batch_count = 0
-    updated_datasets = []
-    for blob in dataset_blobs:
-        # Update metadata to trigger the validation report processor
-        metadata = blob.metadata if blob.metadata is not None else {}
-        retry = 0
-        if "retry" in metadata:
-            retry = int(metadata["retry"])
-            if (
-                "latest_validator_version" in metadata
-                and metadata["latest_validator_version"] == validator_version
-            ):
-                if max_retry is not None and retry >= int(max_retry):
-                    logging.info(
-                        f"Max retry of {max_retry} reached for {blob.name} for validator version {validator_version} "
-                        f"-- Skipping"
-                    )
-                    continue
-            if (
-                "latest_validator_version" in metadata
-                and metadata["latest_validator_version"] != validator_version
-            ):
-                retry = 0  # Reset retry count if validator version has changed
-
-        metadata["retry"] = str(retry + 1)
-        metadata["latest_validator_version"] = validator_version
-        blob.metadata = metadata
-        blob.patch()
-        batch_count += 1
-        updated_datasets.append(blob.name.split("/")[1])
-        logging.info(f"Updated {blob.name} metadata.")
-
-        if batch_count == batch_size:
-            logging.info("Sleeping for 5 seconds to avoid rate limiting..")
-            sleep(sleep_time)
-            batch_count = 0
-    return updated_datasets
-
-
-def get_latest_datasets(session: sqlalchemy.orm.Session) -> List[Row[tuple[Any, Any]]]:
-    """
-    Retrieve the latest datasets for each feed
+    Retrieve the latest datasets for each feed that do not have a validation report
     :param session: The database session
+    :param validator_version: The version of the validator
     :return: A list of tuples containing the feed stable id and dataset stable id
     """
     query = (
@@ -148,40 +112,114 @@ def get_latest_datasets(session: sqlalchemy.orm.Session) -> List[Row[tuple[Any, 
         )
         .select_from(Gtfsfeed)
         .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
+        .outerjoin(Validationreport, Gtfsdataset.validation_reports)
         .filter(Gtfsdataset.latest.is_(True))
+        .filter(
+            or_(
+                Validationreport.validator_version != validator_version,
+                Validationreport.id.is_(None),
+            )
+        )
+        .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
     )
     return query.all()
 
 
-def get_dataset_blobs_for_validation(
-    bucket_name: str,
-    validator_version: str,
-    latest_datasets: List[Row[tuple[Any, Any]]],
-) -> List[storage.Blob]:
+def get_datasets_for_validation(
+    latest_datasets: List[Row[tuple[Any, Any]]]
+) -> List[tuple[str, str]]:
     """
-    Get the dataset blobs that need their validation report to be updated
-    :param bucket_name: Name of the GCP bucket
-    :param validator_version: Version of the validator
+    Get the valid dataset blobs that need their validation report to be updated
     :param latest_datasets: List of tuples containing the feed stable id and dataset stable id
-    :return: List of blobs that need their validation report to be updated
+    :return: List of tuples containing the feed stable id and dataset stable id
     """
     report_update_needed = []
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
 
     for feed_id, dataset_id in latest_datasets:
-        system_errors_blob = bucket.blob(
-            f"{feed_id}/{dataset_id}/system_errors_{validator_version}.json"
-        )
-        dataset_blob = bucket.blob(f"{feed_id}/{dataset_id}/{dataset_id}.zip")
-        dataset_blob_exists = dataset_blob.exists()
-        if not dataset_blob_exists:
-            logging.warning(f"Dataset blob not found for {feed_id}/{dataset_id}")
-        # The system errors blob is used to determine if the validation report needs to be updated
-        # since it's the only report that is always generated even if there are errors during validation
-        if not system_errors_blob.exists() and dataset_blob_exists:
-            report_update_needed.append(dataset_blob)
-            logging.info(
-                f"System errors blob not found for {feed_id}/{dataset_id} -- Adding to update list"
+        try:
+            dataset_blob = bucket.blob(f"{feed_id}/{dataset_id}/{dataset_id}.zip")
+            if not dataset_blob.exists():
+                logging.warning(f"Dataset blob not found for {feed_id}/{dataset_id}")
+            else:
+                report_update_needed.append((feed_id, dataset_id))
+                logging.info(
+                    f"Dataset blob found for {feed_id}/{dataset_id} -- Adding to update list"
+                )
+        except Exception as e:
+            logging.error(
+                f"Error while accessing dataset blob for {feed_id}/{dataset_id}: {e}"
             )
     return report_update_needed
+
+
+def execute_workflow(
+    project: str,
+    location: str = "northamerica-northeast1",
+    workflow: str = "gtfs_validator_execution",
+    input_data: dict = None,
+) -> Execution:
+    """
+    Executes a workflow with input data and print the execution results.
+    @param project: The Google Cloud project id which contains the workflow to execute.
+    @param location: The location for the workflow.
+    @param workflow: The ID of the workflow to execute.
+    @param input_data: A dictionary containing input data for the workflow.
+    @return: The execution response.
+    """
+    execution_client = executions_v1.ExecutionsClient()
+    workflows_client = workflows_v1.WorkflowsClient()
+    parent = workflows_client.workflow_path(project, location, workflow)
+
+    # Prepare the execution input as a JSON string.
+    input_json = json.dumps(input_data) if input_data else "{}"
+
+    # Create and configure the execution request with input data.
+    execution_request = Execution(argument=input_json)
+    response = execution_client.create_execution(
+        parent=parent, execution=execution_request
+    )
+    logging.info(f"Created execution: {response.name}")
+    execution = execution_client.get_execution(request={"name": response.name})
+    return execution
+
+
+def execute_workflows(latest_datasets):
+    """
+    Execute the workflow for the latest datasets that need their validation report to be updated
+    :param latest_datasets: List of tuples containing the feed stable id and dataset stable id
+    :return: List of dataset stable ids for which the workflow was executed
+    """
+    project_id = f"mobility-feeds-{env}"
+    location = os.getenv("LOCATION", "northamerica-northeast1")
+    execution_triggered_datasets = []
+    batch_size = int(os.getenv("BATCH_SIZE", 5))
+    sleep_time = int(os.getenv("SLEEP_TIME", 5))
+    count = 0
+    for feed_id, dataset_id in latest_datasets:
+        try:
+            input_data = {
+                "data": {
+                    "protoPayload": {
+                        "resourceName": f"projects/_/buckets/{bucket_name}/objects/{feed_id}/{dataset_id}/{dataset_id}.zip"
+                    },
+                    "resource": {
+                        "labels": {"location": location, "project_id": project_id},
+                    },
+                }
+            }
+            logging.info(f"Executing workflow for {feed_id}/{dataset_id}")
+            execute_workflow(project_id, input_data=input_data)
+            execution_triggered_datasets.append(dataset_id)
+        except Exception as e:
+            logging.error(
+                f"Error while executing workflow for {feed_id}/{dataset_id}: {e}"
+            )
+        count += 1
+        if count % batch_size == 0:
+            logging.info(
+                f"Sleeping for {sleep_time} seconds before next batch to avoid rate limiting.."
+            )
+            sleep(sleep_time)
+    return execution_triggered_datasets

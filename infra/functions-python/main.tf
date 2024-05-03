@@ -330,6 +330,13 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
   ]
 }
 
+# Grant the service account the ability to invoke the workflows
+resource "google_project_iam_member" "workflows_invoker" {
+  project = var.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 resource "google_project_iam_audit_config" "all-services" {
   project = var.project_id
   service = "allServices"

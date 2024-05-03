@@ -3,7 +3,7 @@
   "description": "Batch update of validation report for the latest datasets",
   "entry_point": "update_validation_report",
   "timeout": 3600,
-  "memory": "2Gi",
+  "memory": "256Mi",
   "trigger_http": true,
   "include_folders": ["database_gen", "helpers"],
   "secret_environment_variables": [

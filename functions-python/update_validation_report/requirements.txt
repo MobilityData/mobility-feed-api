@@ -1,6 +1,7 @@
 functions-framework==3.*
 google-cloud-logging
 google-cloud-storage
+google-cloud-workflows
 psycopg2-binary==2.9.6
 aiohttp~=3.8.6
 asyncio~=3.4.3

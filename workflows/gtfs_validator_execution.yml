@@ -114,11 +114,38 @@ main:
               args:
                   text: ${executionResultResponse}
                   severity: INFO
+      - systemErrors:
+            try:
+                call: googleapis.storage.v1.objects.copy
+                args:
+                    destinationBucket: ${datasetsBucket}
+                    destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
+                    sourceBucket: ${reportsBucket}
+                    sourceObject: ${jobID + "%2Fsystem_errors.json"}
+                    destinationPredefinedAcl: publicRead
+            except: # Could fail in case of a validation error, but a validation error doesn't mean it failed to create system_errors.json
+                as: e
+                steps:
+                    - logSystemErrorCopyErrorMessage:
+                        call: sys.log
+                        args:
+                            text: 'An error occurred during copy of system_errors.json'
+                            severity: ERROR
+                    - logSystemErrorCopyError:
+                        call: sys.log
+                        args:
+                            data: ${e.message}
+                            severity: ERROR
+      - logSystemErrorsCopied:
+          call: sys.log
+          args:
+            text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors_" + validatorVersion + ".json"}
+            severity: INFO
       - validateExecutionResult:
           switch:
             - condition: ${map.get(executionResultResponse, "error") != null and executionResultResponse.error == "Validation failed"}
               next: handleExecutionFailure
-          next: systemErrors
+          next: checkExecutionResultStatus
       - handleExecutionFailure:
           steps:
           - logFailure:
@@ -128,19 +155,6 @@ main:
                   severity: ERROR
           - returnFailure:
               return: "Execution failed due to validation error." # No system_errors.json was generated
-      - systemErrors:
-          call: googleapis.storage.v1.objects.copy
-          args:
-            destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
-            sourceBucket: ${reportsBucket}
-            sourceObject: ${jobID + "%2Fsystem_errors.json"}
-            destinationPredefinedAcl: publicRead
-      - logSystemErrorsCopied:
-          call: sys.log
-          args:
-              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors_" + validatorVersion + ".json"}
-              severity: INFO
       - checkExecutionResultStatus:
           steps:
             - getExecutionStatus:
