@@ -202,7 +202,9 @@ def execute_workflows(latest_datasets):
             input_data = {
                 "data": {
                     "protoPayload": {
-                        "resourceName": f"projects/_/buckets/{bucket_name}/objects/{feed_id}/{dataset_id}/{dataset_id}.zip"
+                        "resourceName": "projects/_/"
+                        f"buckets/{bucket_name}/"
+                        f"objects/{feed_id}/{dataset_id}/{dataset_id}.zip"
                     },
                     "resource": {
                         "labels": {"location": location, "project_id": project_id},
