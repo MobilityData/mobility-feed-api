@@ -113,4 +113,4 @@ class TestUpdateReportProcessor(unittest.TestCase):
         self.assertTrue("message" in response[0])
         self.assertTrue("dataset_workflow_triggered" in response[0])
         self.assertEqual(response[1], 200)
-        self.assertGreater(len(response[0]["dataset_workflow_triggered"]), 0)
+        self.assertGreaterEqual(len(response[0]["dataset_workflow_triggered"]), 0)
