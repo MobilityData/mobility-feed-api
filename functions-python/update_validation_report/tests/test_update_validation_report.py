@@ -93,12 +93,12 @@ class TestUpdateReportProcessor(unittest.TestCase):
     @patch(
         "update_validation_report.src.main.get_latest_datasets_without_validation_reports",
         autospec=True,
-        return_value=[("feed1", "dataset1")]
+        return_value=[("feed1", "dataset1")],
     )
     @patch(
         "update_validation_report.src.main.get_datasets_for_validation",
         autospec=True,
-        return_value=[("feed1", "dataset1")]
+        return_value=[("feed1", "dataset1")],
     )
     @patch("google.cloud.storage.Blob", autospec=True)
     @patch("requests.get", autospec=True)
@@ -125,4 +125,4 @@ class TestUpdateReportProcessor(unittest.TestCase):
         self.assertTrue("message" in response[0])
         self.assertTrue("dataset_workflow_triggered" in response[0])
         self.assertEqual(response[1], 200)
-        self.assertEqual(response[0]["dataset_workflow_triggered"], ['dataset1'])
+        self.assertEqual(response[0]["dataset_workflow_triggered"], ["dataset1"])
