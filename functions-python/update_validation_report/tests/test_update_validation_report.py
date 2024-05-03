@@ -90,6 +90,16 @@ class TestUpdateReportProcessor(unittest.TestCase):
             "SLEEP_TIME": "0",
         },
     )
+    @patch(
+        "update_validation_report.src.main.get_latest_datasets_without_validation_reports",
+        autospec=True,
+        return_value=[("feed1", "dataset1")]
+    )
+    @patch(
+        "update_validation_report.src.main.get_datasets_for_validation",
+        autospec=True,
+        return_value=[("feed1", "dataset1")]
+    )
     @patch("google.cloud.storage.Blob", autospec=True)
     @patch("requests.get", autospec=True)
     @patch("google.cloud.storage.Client", autospec=True)
@@ -106,6 +116,8 @@ class TestUpdateReportProcessor(unittest.TestCase):
         mock_client,
         mock_get,
         mock_blob,
+        mock_get_latest_datasets,
+        mock_get_datasets_for_validation,
     ):
         """Test update_validation_report function."""
         mock_get.return_value.json.return_value = {"version": "1.0.1"}
@@ -113,4 +125,4 @@ class TestUpdateReportProcessor(unittest.TestCase):
         self.assertTrue("message" in response[0])
         self.assertTrue("dataset_workflow_triggered" in response[0])
         self.assertEqual(response[1], 200)
-        self.assertGreaterEqual(len(response[0]["dataset_workflow_triggered"]), 0)
+        self.assertEqual(response[0]["dataset_workflow_triggered"], ['dataset1'])
