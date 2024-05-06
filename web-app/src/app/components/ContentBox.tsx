@@ -1,8 +1,10 @@
 import * as React from 'react';
-import { Box, Grid, colors } from '@mui/material';
+import { Box, Grid } from '@mui/material';
 
 export interface ContentBoxProps {
   title: string;
+  width: Record<string, string>;
+  outlineColor: string;
 }
 
 export const ContentBox = (
@@ -10,11 +12,11 @@ export const ContentBox = (
 ): JSX.Element => {
   return (
     <Box
-      width={{ xs: '100%', md: '50%' }}
+      width={props.width}
       sx={{
         background: '#FFFFFF',
         borderRadius: '6px',
-        border: `2px solid ${colors.indigo[500]}`,
+        border: `2px solid ${props.outlineColor}`,
         p: 5,
         fontSize: '18px',
         fontWeight: 700,

@@ -144,27 +144,39 @@ export const getGtfsRtFeed = async (
 
 export const getGtfsFeedDatasets = async (
   id: string,
+  accessToken: string,
+  queryParams?: paths['/v1/gtfs_feeds/{id}/datasets']['get']['parameters']['query'],
 ): Promise<
   | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
   | undefined
 > => {
+  const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  client.use(authMiddleware);
   return await client
-    .GET('/v1/gtfs_feeds/{id}/datasets', { params: { path: { id } } })
+    .GET('/v1/gtfs_feeds/{id}/datasets', {
+      params: { query: queryParams, path: { id } },
+    })
     .then((response) => {
       const data = response.data;
       return data;
     })
     .catch(function (error) {
       throw error;
+    })
+    .finally(() => {
+      client.eject(authMiddleware);
     });
 };
 
 export const getDatasetGtfs = async (
   id: string,
+  accessToken: string,
 ): Promise<
   | paths['/v1/datasets/gtfs/{id}']['get']['responses'][200]['content']['application/json']
   | undefined
 > => {
+  const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  client.use(authMiddleware);
   return await client
     .GET('/v1/datasets/gtfs/{id}', { params: { path: { id } } })
     .then((response) => {
@@ -173,6 +185,9 @@ export const getDatasetGtfs = async (
     })
     .catch(function (error) {
       throw error;
+    })
+    .finally(() => {
+      client.eject(authMiddleware);
     });
 };
 

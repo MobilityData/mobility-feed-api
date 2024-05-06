@@ -58,6 +58,11 @@ export const FEED_PROFILE_LOADING_FEED = `${FEED_PROFILE}/loadingFeed`;
 export const FEED_PROFILE_LOADING_FEED_SUCCESS = `${FEED_PROFILE}/loadingFeedSuccess`;
 export const FEED_PROFILE_LOADING_FEED_FAIL = `${FEED_PROFILE}/loadingFeedFail`;
 
+export const DATASET_UPDATE_FEED_ID = `dataset/updateDatasetId`;
+export const DATASET_LOADING_FEED = `dataset/loadingDataset`;
+export const DATASET_LOADING_FEED_SUCCESS = `dataset/loadingDatasetSuccess`;
+export const DATASET_LOADING_FEED_FAIL = `dataset/loadingDatasetFail`;
+
 export enum ProfileErrorSource {
   SignUp = 'SignUp',
   Login = 'Login',
