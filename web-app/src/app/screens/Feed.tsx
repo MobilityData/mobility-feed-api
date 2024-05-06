@@ -31,6 +31,7 @@ import {
 
 // const renderGTFSInfo = () => {};
 // const renderGTFSRTInfo = () => {};
+import { Map } from '../components/Map';
 
 export default function Feed(): React.ReactElement {
   const { feedId } = useParams();
@@ -41,6 +42,7 @@ export default function Feed(): React.ReactElement {
       ? useSelector(selectGTFSFeedData)
       : useSelector(selectGTFSRTFeedData);
   console.log(feedType);
+  const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
 
   const dispatch = useAppDispatch();
 
@@ -259,29 +261,9 @@ export default function Feed(): React.ReactElement {
                       </Table>
                     </TableContainer>
                   </ContentBox>
-                  <Box>Map</Box>
-                </Grid>
-                <Grid item xs={12}>
-                  <ContentBox title={'Data Quality Summary'}>
-                    <Chip label='Error' color='error' variant='outlined' />
-                    <Chip label='Warning' color='warning' variant='outlined' />
-                    <Chip
-                      label='Info notices'
-                      color='primary'
-                      variant='outlined'
-                    />
-                  </ContentBox>
-                </Grid>
-                <Grid item xs={12}>
-                  <ContentBox title={'Features List'}></ContentBox>
-                </Grid>
-                <Grid item xs={12}>
-                  <ContentBox
-                    title={'Associated GTFS Realtime Feeds'}
-                  ></ContentBox>
-                </Grid>
-                <Grid item xs={12}>
-                  <ContentBox title={'Previous Datasets'}></ContentBox>
+                  <Box width={{ xs: '100%', md: '40%' }}>
+                    {boundingBox !== undefined && <Map polygon={boundingBox} />}
+                  </Box>
                 </Grid>
               </Grid>
             </Grid>
