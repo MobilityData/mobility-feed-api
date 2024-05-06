@@ -26,7 +26,7 @@ export interface paths {
     get: operations['getGtfsRtFeeds'];
   };
   '/v1/gtfs_feeds/{id}': {
-    /** @description Get the specified GTFS feed from the Mobility Database. */
+    /** @description Get the specified GTFS feed from the Mobility Database. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
     get: operations['getGtfsFeed'];
     parameters: {
       path: {
@@ -44,7 +44,7 @@ export interface paths {
     };
   };
   '/v1/gtfs_feeds/{id}/datasets': {
-    /** @description Get a list of datasets related to a GTFS feed. */
+    /** @description Get a list of datasets related to a GTFS feed. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
     get: operations['getGtfsFeedDatasets'];
     parameters: {
       path: {
@@ -514,7 +514,7 @@ export interface operations {
       };
     };
   };
-  /** @description Get the specified GTFS feed from the Mobility Database. */
+  /** @description Get the specified GTFS feed from the Mobility Database. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
   getGtfsFeed: {
     parameters: {
       path: {
@@ -546,7 +546,7 @@ export interface operations {
       };
     };
   };
-  /** @description Get a list of datasets related to a GTFS feed. */
+  /** @description Get a list of datasets related to a GTFS feed. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
   getGtfsFeedDatasets: {
     parameters: {
       query?: {
