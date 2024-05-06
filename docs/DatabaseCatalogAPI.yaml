@@ -137,7 +137,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
     get:
-      description: Get the specified GTFS feed from the Mobility Database.
+      description: Get the specified GTFS feed from the Mobility Database. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly.
       tags:
         - "feeds"
       operationId: getGtfsFeed
@@ -175,7 +175,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/feed_id_of_datasets_path_param"
     get:
-      description: Get a list of datasets related to a GTFS feed.
+      description: Get a list of datasets related to a GTFS feed. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly.
       tags:
         - "feeds"
       operationId: getGtfsFeedDatasets

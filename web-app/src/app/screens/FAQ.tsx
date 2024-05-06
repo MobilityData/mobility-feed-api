@@ -123,6 +123,14 @@ export default function FAQ(): React.ReactElement {
             architecture depends on how much engagement and contribution we get
             from the community in this phase.
           </Typography>
+          <Typography className='question'>
+            How often do you check for feed updates?
+          </Typography>
+          <Typography className='answer'>
+            The Mobility Database checks for feed updates every week using the
+            producer&apos;s URL. We store the new feed version if we detect a
+            change.
+          </Typography>
         </Box>
       </Box>
     </Container>
