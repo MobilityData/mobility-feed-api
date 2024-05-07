@@ -2,16 +2,15 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Optional
 
 from middleware.request_context import RequestContext, get_request_context
-from utils.config import get_config
+from utils.config import get_config, PROJECT_ID
 from utils.dict_utils import get_safe_value
 
 API_ACCESS_LOG: Final[str] = "api-access-log"
 CLOUD_RUN_SERVICE_ID: Final[str] = "K_SERVICE"
 CLOUD_RUN_REVISION_ID: Final[str] = "K_REVISION"
-CLOUD_PROJECT_ID: Final[str] = "PROJECT_ID"
 CLOUD_RUN_CONFIGURATION_ID: Final[str] = "K_CONFIGURATION"
 
 
@@ -42,6 +41,8 @@ class LogRecord:
     trace: str
     spanId: str
     traceSampled: bool
+    textPayload: Optional[str]
+    jsonPayload: Optional[dict]
 
 
 class AsyncStreamHandler(logging.StreamHandler):
@@ -89,7 +90,7 @@ class GCPLogHandler(AsyncStreamHandler):
         trace = ""
         trace_id = get_safe_value(request_context, "trace_id")
         if trace_id:
-            trace = f"projects/{get_config(CLOUD_PROJECT_ID, '')}/traces/{trace_id}"
+            trace = f"projects/{get_config(PROJECT_ID, '')}/traces/{trace_id}"
         return trace
 
     @staticmethod
@@ -103,12 +104,23 @@ class GCPLogHandler(AsyncStreamHandler):
         """
         http_request = self.get_http_request(record)
         request_context = get_request_context()
+        text_payload = None
+        json_payload = None
+        message = record.getMessage() if hasattr(record, "getMessage") else None
+        if message:
+            if isinstance(message, dict):
+                json_payload = message
+            else:
+                text_payload = str(message)
+
         log_record: LogRecord = LogRecord(
             httpRequest=http_request.__dict__,
             trace=self.get_trace(request_context),
             spanId=request_context.get("span_id"),
             traceSampled=request_context.get("trace_sampled"),
             user_id=request_context.get("user_id"),
+            textPayload=text_payload,
+            jsonPayload=json_payload,
         )
         self.logger.info(json.dumps(log_record.__dict__))
 
