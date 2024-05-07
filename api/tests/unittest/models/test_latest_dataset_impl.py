@@ -4,7 +4,7 @@ from datetime import datetime
 from geoalchemy2 import WKTElement
 
 from database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport, Notice
-from feeds.impl.models.latest_dateset_impl import LatestDatasetImpl
+from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds_gen.models.latest_dataset import LatestDataset
 
 POLYGON = "POLYGON ((3.0 1.0, 4.0 1.0, 4.0 2.0, 3.0 2.0, 3.0 1.0))"

@@ -32,7 +32,7 @@ from feeds.impl.error_handling import (
     gtfs_rt_feed_not_found,
 )
 from feeds.impl.models.location_impl import LocationImpl
-from feeds.impl.models.latest_dateset_impl import LatestDatasetImpl
+from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.external_id import ExternalId
