@@ -26,6 +26,7 @@ class HttpRequest:
     responseSize: int
     userAgent: str
     remoteIp: str
+    serverIp: str
     latency: float
     protocol: str
 

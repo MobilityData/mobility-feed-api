@@ -55,8 +55,15 @@ class RequestContext:
         self.host = headers.get("host")
         self.protocol = headers.get("x-forwarded-proto") if headers.get("x-forwarded-proto") else scope.get("scheme")
         self.client_host = headers.get("x-forwarded-for")
+        self.server_ip = scope.get("server")[0] if scope.get("server") and len(scope.get("server")) > 0 else None
         if not self.client_host:
             self.client_host = scope.get("client")[0] if scope.get("client") and len(scope.get("client")) > 0 else None
+        else:
+            # X-Forwarded-For: client, proxy1, proxy2
+            forwarded_ips = self.client_host.split(",")
+            self.client_host = forwarded_ips[0] if len(forwarded_ips) > 0 else self.client_host
+            # merge all forwarded ips but the first one
+            self.server_ip = ",".join(forwarded_ips[1:]) if len(forwarded_ips) > 1 else self.server_ip
         self.client_user_agent = headers.get("user-agent")
         self.iap_jwt_assertion = headers.get("x-goog-iap-jwt-assertion")
         self.trace_sampled = headers.get("x-b3-sampled")

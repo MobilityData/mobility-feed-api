@@ -37,6 +37,7 @@ class RequestContextMiddleware:
             status=status_code,
             responseSize=content_length,
             userAgent=request_context.client_user_agent,
+            serverIp=request_context.server_ip,
             latency=latency,
         )
 
