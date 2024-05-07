@@ -8,6 +8,8 @@ click==8.0.3
 dnspython==2.1.0
 email-validator==1.1.2
 fastapi==0.94.1
+google-auth
+google-cloud-logging==3.10.0
 graphene==2.1.8
 graphql-core==2.3.2
 graphql-relay==2.0.1
