@@ -481,13 +481,19 @@ export default function Feed(): React.ReactElement {
                           return (
                             <TableRow key={feedRef}>
                               <TableCell>
-                                <a
-                                  target='_blank'
-                                  href={`/feeds/${feedRef}`}
-                                  rel='noreferrer'
+                                <span
+                                  style={{
+                                    display: 'flex',
+                                  }}
                                 >
-                                  {feedRef} <OpenInNewOutlined />
-                                </a>
+                                  <a
+                                    href={`/feeds/${feedRef}`}
+                                    rel='noreferrer'
+                                  >
+                                    {feedRef}
+                                  </a>
+                                  <OpenInNewOutlined />
+                                </span>
                               </TableCell>
                             </TableRow>
                           );
