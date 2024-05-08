@@ -1,4 +1,3 @@
-import json
 from typing import List, Type, Set, Union
 from datetime import datetime
 from sqlalchemy.orm import Query, aliased
@@ -33,14 +32,13 @@ from feeds.impl.error_handling import (
     gtfs_rt_feed_not_found,
 )
 from feeds.impl.models.location_impl import LocationImpl
+from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
-from feeds_gen.models.bounding_box import BoundingBox
 from feeds_gen.models.external_id import ExternalId
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
-from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.location import Location as ApiLocation
 from feeds_gen.models.source_info import SourceInfo
 from feeds_gen.models.redirect import Redirect
@@ -212,22 +210,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 ),
                 (None, None),
             )
-            if latest_dataset:
-                api_dataset = LatestDataset(
-                    id=latest_dataset.stable_id,
-                    downloaded_at=latest_dataset.downloaded_at.isoformat() if latest_dataset.downloaded_at else None,
-                    hash=latest_dataset.hash,
-                    hosted_url=latest_dataset.hosted_url,
-                )
-                if bounding_box:
-                    coordinates = json.loads(bounding_box)["coordinates"][0]
-                    api_dataset.bounding_box = BoundingBox(
-                        minimum_latitude=coordinates[0][1],
-                        maximum_latitude=coordinates[2][1],
-                        minimum_longitude=coordinates[0][0],
-                        maximum_longitude=coordinates[2][0],
-                    )
-                gtfs_feed.latest_dataset = api_dataset
+            gtfs_feed.latest_dataset = LatestDatasetImpl.from_orm(latest_dataset)
 
             gtfs_feeds.append(gtfs_feed)
 
