@@ -448,11 +448,16 @@ export default function Feed(): React.ReactElement {
                       outlineColor={colors.indigo[500]}
                     >
                       <TableContainer>
-                        <TableRow>
-                          <TableCell>
-                            <b>Feature</b>
-                          </TableCell>
-                        </TableRow>
+                        {latestDataset?.validation_report?.features !==
+                          undefined &&
+                          latestDataset?.validation_report?.features?.length >
+                            0 && (
+                            <TableRow>
+                              <TableCell>
+                                <b>Feature</b>
+                              </TableCell>
+                            </TableRow>
+                          )}
                         {latestDataset?.validation_report?.features?.map(
                           (v) => (
                             <TableRow key={v}>
