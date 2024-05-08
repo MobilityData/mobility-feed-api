@@ -1,8 +1,13 @@
 # Bath Process Dataset
-This function process a dataset and publish a message to the `batch_datasets` topic.
-The function download the dataset from the source and compares the previous file hash.
-If the hash are different, the function will create a new dataset making it the latest dataset for the related feed.
-If the hash is the same, the function will not do anything.
+Subscribed to the topic set in the `batch-datasets` function, `batch-process-dataset` is triggered for each message published. It handles the processing of each feed individually, ensuring data consistency and integrity. The function performs the following operations:
+
+1. **Download Data**: It retrieves the feed data from the provided URL.
+2. **Compare Hashes**: The SHA256 hash of the downloaded data is compared to the hash of the last stored version to detect changes.
+   - If the hash is unchanged, the dataset is considered up-to-date, and no further action is taken.
+   - If the hash has changed, it is indicative of an update, and a new `Dataset` entity is created and stored with the corresponding feed information.
+
+The URL format for accessing these datasets is standardized as `<bucket-url>/<feed_stable_id>/<dataset_id>.zip`, ensuring a consistent and predictable path for data retrieval.
+
 
 # Message format
 The function expects a Pub/Sub message with the following format:
