@@ -333,26 +333,27 @@ export default function Feed(): React.ReactElement {
                               Feed contact email:
                             </TableCell>
                             <TableCell sx={{ border: 'none' }}>
-                              {feed?.feed_contact_email !== undefined && (
-                                <Button
-                                  onClick={() => {
-                                    if (
-                                      feed?.feed_contact_email !== undefined
-                                    ) {
-                                      void navigator.clipboard
-                                        .writeText(feed?.feed_contact_email)
-                                        .then((value) => {});
-                                    }
-                                  }}
-                                  sx={{
-                                    textOverflow: 'ellipsis',
-                                  }}
-                                  variant='outlined'
-                                  endIcon={<ContentCopyOutlined />}
-                                >
-                                  {feed?.feed_contact_email}
-                                </Button>
-                              )}
+                              {feed?.feed_contact_email !== undefined &&
+                                feed?.feed_contact_email.length > 0 && (
+                                  <Button
+                                    onClick={() => {
+                                      if (
+                                        feed?.feed_contact_email !== undefined
+                                      ) {
+                                        void navigator.clipboard
+                                          .writeText(feed?.feed_contact_email)
+                                          .then((value) => {});
+                                      }
+                                    }}
+                                    sx={{
+                                      textOverflow: 'ellipsis',
+                                    }}
+                                    variant='outlined'
+                                    endIcon={<ContentCopyOutlined />}
+                                  >
+                                    {feed?.feed_contact_email}
+                                  </Button>
+                                )}
                             </TableCell>
                           </TableRow>
                         </TableBody>
