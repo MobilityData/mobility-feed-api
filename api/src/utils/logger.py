@@ -107,15 +107,16 @@ class GCPLogHandler(AsyncStreamHandler):
         request_context = get_request_context()
         text_payload = None
         json_payload = None
-        message = record.getMessage() if hasattr(record, "getMessage") else None
+        message = record.msg if hasattr(record, "msg") else None
+        message = record.getMessage() if message is None and hasattr(record, "getMessage") else message
         if message:
-            if isinstance(message, dict):
+            if type(message) is dict:
                 json_payload = message
             else:
                 text_payload = str(message)
 
         log_record: LogRecord = LogRecord(
-            httpRequest=http_request.__dict__,
+            httpRequest=http_request.__dict__ if not isinstance(http_request, dict) else {},
             trace=self.get_trace(request_context),
             spanId=request_context.get("span_id"),
             traceSampled=request_context.get("trace_sampled"),

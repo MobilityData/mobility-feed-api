@@ -20,7 +20,6 @@ class RequestContext:
         self.headers = headers
         self.scope = scope
         self._extract_from_headers(headers, scope)
-        self.resolve_google_public_keys()
 
     def resolve_google_public_keys(self):
         """
@@ -55,23 +54,25 @@ class RequestContext:
         self.host = headers.get("host")
         self.protocol = headers.get("x-forwarded-proto") if headers.get("x-forwarded-proto") else scope.get("scheme")
         self.client_host = headers.get("x-forwarded-for")
-        self.server_ip = scope.get("server")[0] if scope.get("server") and len(scope.get("server")) > 0 else None
+        self.server_ip = scope.get("server")[0] if scope.get("server") and len(scope.get("server")) > 0 else ""
         if not self.client_host:
-            self.client_host = scope.get("client")[0] if scope.get("client") and len(scope.get("client")) > 0 else None
+            self.client_host = scope.get("client")[0] if scope.get("client") and len(scope.get("client")) > 0 else ""
         else:
             # X-Forwarded-For: client, proxy1, proxy2
             forwarded_ips = self.client_host.split(",")
-            self.client_host = forwarded_ips[0] if len(forwarded_ips) > 0 else self.client_host
+            self.client_host = (
+                str(forwarded_ips[0]).strip() if len(forwarded_ips) > 0 else str(self.client_host).strip()
+            )
             # merge all forwarded ips but the first one
-            self.server_ip = ",".join(forwarded_ips[1:]) if len(forwarded_ips) > 1 else self.server_ip
+            self.server_ip = ",".join(forwarded_ips[1:]).strip() if len(forwarded_ips) > 1 else self.server_ip
         self.client_user_agent = headers.get("user-agent")
         self.iap_jwt_assertion = headers.get("x-goog-iap-jwt-assertion")
-        self.trace_sampled = headers.get("x-b3-sampled")
         self.span_id = None
         self.trace_id = None
         self.trace_sampled = False
         trace_context = headers.get("x-cloud-trace-context")
         self.trace = trace_context
+        # x-cloud-trace-context: TRACE_ID/SPAN_ID;o=TRACE_TRUE
         if trace_context and len(trace_context) > 0:
             parts = trace_context.split("/")
             self.trace_id = parts[0]
@@ -81,6 +82,7 @@ class RequestContext:
         # auth header is used for local development
         self.user_id = headers.get("x-goog-authenticated-user-id")
         self.user_email = headers.get("x-goog-authenticated-user-email")
+        self.google_public_keys = None
         if not self.iap_jwt_assertion and headers.get("authorization"):
             self.iap_jwt_assertion = self.decode_jwt(headers.get("authorization"))
             if self.iap_jwt_assertion:
