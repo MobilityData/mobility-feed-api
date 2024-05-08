@@ -370,57 +370,73 @@ export default function Feed(): React.ReactElement {
                       title={'Data Quality Summary'}
                       outlineColor={colors.indigo[500]}
                     >
-                      <TableRow>
-                        <TableCell>
-                          <Chip
-                            icon={<ReportOutlined />}
-                            label={`${
-                              latestDataset?.validation_report?.total_error ??
-                              '0'
-                            } Error`}
-                            color='error'
-                            variant='outlined'
-                          />
-                          <Chip
-                            icon={<ReportProblemOutlined />}
-                            label={`${
-                              latestDataset?.validation_report?.total_warning ??
-                              '0'
-                            } Warning`}
-                            color='warning'
-                            variant='outlined'
-                          />
-                          <Chip
-                            icon={<ErrorOutlineOutlined />}
-                            label={`${
-                              latestDataset?.validation_report?.total_info ??
-                              '0'
-                            } Info Notices`}
-                            color='primary'
-                            variant='outlined'
-                          />
-                        </TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <a
-                            href={`${latestDataset?.validation_report?.url_html}`}
-                            target='_blank'
-                            rel='noreferrer'
-                          >
-                            Open Full Report <OpenInNewOutlined />
-                          </a>
-                        </TableCell>
-                        <TableCell>
-                          <a
-                            href={`${latestDataset?.validation_report?.url_json}`}
-                            target='_blank'
-                            rel='noreferrer'
-                          >
-                            Open JSON Report <OpenInNewOutlined />
-                          </a>
-                        </TableCell>
-                      </TableRow>
+                      <TableContainer>
+                        <TableRow>
+                          <TableCell>
+                            <Chip
+                              icon={<ReportOutlined />}
+                              label={`${
+                                latestDataset?.validation_report?.total_error ??
+                                '0'
+                              } Error`}
+                              color='error'
+                              variant='outlined'
+                            />
+                            <Chip
+                              icon={<ReportProblemOutlined />}
+                              label={`${
+                                latestDataset?.validation_report
+                                  ?.total_warning ?? '0'
+                              } Warning`}
+                              color='warning'
+                              variant='outlined'
+                            />
+                            <Chip
+                              icon={<ErrorOutlineOutlined />}
+                              label={`${
+                                latestDataset?.validation_report?.total_info ??
+                                '0'
+                              } Info Notices`}
+                              color='primary'
+                              variant='outlined'
+                            />
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell>
+                            <span
+                              style={{
+                                display: 'flex',
+                              }}
+                            >
+                              <a
+                                href={`${latestDataset?.validation_report?.url_html}`}
+                                target='_blank'
+                                rel='noreferrer'
+                              >
+                                Open Full Report
+                              </a>
+                              <OpenInNewOutlined />
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              style={{
+                                display: 'flex',
+                              }}
+                            >
+                              <a
+                                href={`${latestDataset?.validation_report?.url_json}`}
+                                target='_blank'
+                                rel='noreferrer'
+                              >
+                                Open JSON Report
+                              </a>
+                              <OpenInNewOutlined />
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      </TableContainer>
                     </ContentBox>
                   </Grid>
                 )}
@@ -493,12 +509,14 @@ export default function Feed(): React.ReactElement {
                           </TableCell>
                         )}
                         <TableCell>
-                          <a
-                            href={dataset.hosted_url}
-                            className='flex items-center'
+                          <span
+                            style={{
+                              display: 'flex',
+                            }}
                           >
-                            Download Dataset <DownloadOutlined />
-                          </a>
+                            <a href={dataset.hosted_url}>Download Dataset</a>
+                            <DownloadOutlined />
+                          </span>
                         </TableCell>
                         <TableCell>
                           <div>
@@ -528,28 +546,37 @@ export default function Feed(): React.ReactElement {
                             />
                           </div>
                         </TableCell>
-                        {dataset.validation_report != null && (
-                          <TableCell>
-                            <a
-                              href={`${dataset?.validation_report?.url_html}`}
-                              target='_blank'
-                              rel='noreferrer'
-                            >
-                              Open Full Report <OpenInNewOutlined />
-                            </a>
-                          </TableCell>
-                        )}
-                        {dataset.validation_report != null && (
-                          <TableCell>
-                            <a
-                              href={`${dataset?.validation_report?.url_json}`}
-                              target='_blank'
-                              rel='noreferrer'
-                            >
-                              Open JSON Report <OpenInNewOutlined />
-                            </a>
-                          </TableCell>
-                        )}
+                        {dataset.validation_report != null &&
+                          dataset.validation_report !== undefined && (
+                            <TableCell>
+                              <span
+                                style={{
+                                  display: 'flex',
+                                }}
+                              >
+                                <a
+                                  href={`${dataset?.validation_report?.url_html}`}
+                                  target='_blank'
+                                  rel='noreferrer'
+                                >
+                                  Open Full Report
+                                </a>
+                                <OpenInNewOutlined />
+                              </span>
+                            </TableCell>
+                          )}
+                        {dataset.validation_report != null &&
+                          dataset.validation_report !== undefined && (
+                            <TableCell>
+                              <a
+                                href={`${dataset?.validation_report?.url_json}`}
+                                target='_blank'
+                                rel='noreferrer'
+                              >
+                                Open JSON Report <OpenInNewOutlined />
+                              </a>
+                            </TableCell>
+                          )}
                       </TableRow>
                     ))}
                   </TableContainer>
