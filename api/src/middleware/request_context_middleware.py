@@ -7,12 +7,19 @@ from utils.logger import HttpRequest, API_ACCESS_LOG
 
 
 class RequestContextMiddleware:
+    """
+    Middleware to set the request context and log the API access logs.
+    """
+
     def __init__(self, app: ASGIApp) -> None:
         self.logger = logging.getLogger(API_ACCESS_LOG)
         self.app = app
 
     @staticmethod
     def extract_response_info(headers):
+        """
+        Extracts the content type and content length from the response headers.
+        """
         content_type = None
         content_length = None
         for key, value in headers:
@@ -26,6 +33,9 @@ class RequestContextMiddleware:
     def create_http_request(
         scope: Scope, request_context: RequestContext, status_code: int, content_length: int, latency: float
     ) -> HttpRequest:
+        """
+        Create an HttpRequest object for logging.
+        """
         request_method = scope["method"]
         request_path = scope["path"]
         protocol = scope["scheme"].upper() + "/" + str(scope["http_version"])
@@ -44,6 +54,9 @@ class RequestContextMiddleware:
     def log_api_access(
         self, scope: Scope, request_context: RequestContext, status_code: int, content_length: int, start_time: float
     ):
+        """
+        Log the API access logs.
+        """
         latency = time.time() - start_time
         request = self.create_http_request(scope, request_context, status_code, content_length, latency)
         self.logger.info(
@@ -56,6 +69,9 @@ class RequestContextMiddleware:
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """
+        Middleware to set the request context and log the API access logs.
+        """
         if scope["type"] == "http":
             start_time = time.time()
             request_context = RequestContext(scope=scope)

@@ -1,8 +1,7 @@
 import logging
+import pytest
 import unittest
 from unittest.mock import patch, MagicMock
-
-import pytest
 
 from middleware.request_context import RequestContext
 from utils.logger import GCPLogHandler
@@ -11,7 +10,6 @@ from utils.logger import GCPLogHandler
 class TestGCPLogHandler(unittest.TestCase):
     @patch("utils.logger.get_config")
     def test_get_trace(self, mock_get_config):
-        # Test the get_trace method
         mock_get_config.return_value = "PROJECT_ID"
         handler = GCPLogHandler()
         request_context = {"trace_id": "TRACE_ID"}
@@ -20,13 +18,11 @@ class TestGCPLogHandler(unittest.TestCase):
 
     @patch("utils.logger.get_config")
     def test_get_trace_no_trace(self, mock_get_config):
-        # Test the get_trace method
         mock_get_config.return_value = "PROJECT_ID"
         handler = GCPLogHandler()
         self.assertEqual(handler.get_trace({}), "")
 
     def test_get_http_request(self):
-        # Test the get_http_request method
         handler = GCPLogHandler()
         record = MagicMock()
         record.context = {"http_request": "HTTP_REQUEST"}
@@ -56,6 +52,11 @@ async def assert_async_emit(mock_get_logger, mock_json_dumps, mock_get_request_c
 
 
 class TestAsyncGCPLogHandler(unittest.IsolatedAsyncioTestCase):
+    """
+    Test the GCP Log Handler for async methods.
+    This separate class is needed as it extends from IsolatedAsyncioTestCase
+    """
+
     @patch("utils.logger.get_request_context")
     @patch("json.dumps")
     @patch("logging.getLogger")

@@ -39,6 +39,8 @@ class RequestContext:
         """
         :param token: jwt token
         :return:
+        This method decodes a JWT token using Google's public keys.
+        No exception is raised if the token is invalid, None is returned instead.
         """
         try:
             token = token.replace("Bearer ", "")

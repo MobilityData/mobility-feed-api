@@ -1,6 +1,3 @@
-# Unit test for dict_utils.py
-
-
 def test_get_safe_value_with_field_present():
     from src.utils.dict_utils import get_safe_value
 
