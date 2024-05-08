@@ -457,15 +457,6 @@ export default function Feed(): React.ReactElement {
                     </ContentBox>
                   </Grid>
                 )}
-                {feed?.data_type === 'gtfs' && (
-                  <Grid item xs={12}>
-                    <ContentBox
-                      width={{ xs: '100%', md: '50%' }}
-                      title={'Associated GTFS Realtime Feeds'}
-                      outlineColor={colors.indigo[500]}
-                    ></ContentBox>
-                  </Grid>
-                )}
                 {feed?.data_type === 'gtfs_rt' && (
                   <Grid item xs={12}>
                     <ContentBox
