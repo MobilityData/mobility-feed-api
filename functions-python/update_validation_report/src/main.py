@@ -197,6 +197,7 @@ def execute_workflows(latest_datasets):
     batch_size = int(os.getenv("BATCH_SIZE", 5))
     sleep_time = int(os.getenv("SLEEP_TIME", 5))
     count = 0
+    logging.info(f"Executing workflow for {len(latest_datasets)} datasets")
     for feed_id, dataset_id in latest_datasets:
         try:
             input_data = {
@@ -219,6 +220,7 @@ def execute_workflows(latest_datasets):
                 f"Error while executing workflow for {feed_id}/{dataset_id}: {e}"
             )
         count += 1
+        logging.info(f"Triggered workflow execution for {count} datasets")
         if count % batch_size == 0:
             logging.info(
                 f"Sleeping for {sleep_time} seconds before next batch to avoid rate limiting.."
