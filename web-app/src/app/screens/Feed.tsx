@@ -47,7 +47,6 @@ import {
   selectDatasetsData,
   selectLatestDatasetsData,
 } from '../store/dataset-selectors';
-import { DATASET_FEATURES_FILES_MAPPING } from '../utils/consts';
 import { Map } from '../components/Map';
 
 export default function Feed(): React.ReactElement {
@@ -437,19 +436,11 @@ export default function Feed(): React.ReactElement {
                           <TableCell>
                             <b>Feature</b>
                           </TableCell>
-                          <TableCell>
-                            <b>File or Field Associated</b>
-                          </TableCell>
                         </TableRow>
                         {latestDataset?.validation_report?.features?.map(
                           (v) => (
                             <TableRow key={v}>
                               <TableCell>{v}</TableCell>
-                              <TableCell>
-                                {DATASET_FEATURES_FILES_MAPPING.getFeedFileByFeatureName(
-                                  v,
-                                )}
-                              </TableCell>
                             </TableRow>
                           ),
                         )}
