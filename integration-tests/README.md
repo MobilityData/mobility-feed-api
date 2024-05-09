@@ -35,7 +35,7 @@ Use the bash script with necessary arguments to specify the API URL, a refresh t
 
 ```bash
 export REFRESH_TOKEN="your_refresh_token"
-./integration-tests.sh -u <API URL> -f <FILE PATH> [-c <CLASS NAMES>]
+./scripts/integration-tests.sh -u <API URL> -f <FILE PATH> [-c <CLASS NAMES>]
 ```
 
 #### Options
@@ -45,7 +45,7 @@ export REFRESH_TOKEN="your_refresh_token"
 
 ### Example
 ```bash
-./integration-tests.sh -u "http://0.0.0.0:8080" -f "/path/to/your/data_file.csv" -c "ClassName1,ClassName2"
+./scripts/integration-tests.sh -u "http://0.0.0.0:8080" -f "/path/to/your/data_file.csv" -c "ClassName1,ClassName2"
 ```
 
 This command runs the integration tests against the specified API URL and data file, filtering the tests to only include those from `ClassName1` and `ClassName2`.
