@@ -1,16 +1,16 @@
 main:
   params: [event]
   steps:
-      - log_event:
+      - logTriggeringEvent:
           call: sys.log
           args:
               text: ${event}
               severity: INFO
-      - extract_data:
+      - extractDataFromEvent:
           assign:
           - data: ${event.data.protoPayload}
           - resource: ${event.data.resource}
-      - init:
+      - initVariables:
           assign:
             - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
             - reportsBucket: ${sys.get_env("reports_bucket_name")}
@@ -86,18 +86,18 @@ main:
                 try:
                   steps:
                     - getFile:
-                        call: http.get
+                        call: googleapis.storage.v1.objects.get
                         args:
-                          headers:
-                              Content-Type: text/plain
-                          url: ${resultsEndpoint + jobID + "/execution_result.json"}
+                            bucket: ${reportsBucket}
+                            object: ${text.url_encode(jobID + "/execution_result.json")}
+                            alt: media
                         result: executionResultResponse
                     - validateStatus:
                         next: logExecutionResult
                 # Retrying 120 times with a delay of 10 seconds each time gives 20 minutes wait time.
                 retry:
                   predicate: ${retry_predicate}
-                  maxAttempts: 120
+                  max_retries: 120
                   backoff:
                     initial_delay: 10
                     max_delay: 10
@@ -109,30 +109,57 @@ main:
               args:
                   text: 'Execution results:'
                   severity: INFO
-          - logExecutionResultBody:
+          - logExecutionResultValue:
               call: sys.log
               args:
-                  text: ${executionResultResponse.body}
+                  text: ${executionResultResponse}
                   severity: INFO
       - systemErrors:
-          call: googleapis.storage.v1.objects.copy
-          args:
-            destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
-            sourceBucket: ${reportsBucket}
-            sourceObject: ${jobID + "%2Fsystem_errors.json"}
-            destinationPredefinedAcl: publicRead
+            try:
+                call: googleapis.storage.v1.objects.copy
+                args:
+                    destinationBucket: ${datasetsBucket}
+                    destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
+                    sourceBucket: ${reportsBucket}
+                    sourceObject: ${jobID + "%2Fsystem_errors.json"}
+                    destinationPredefinedAcl: publicRead
+            except: # Could fail in case of a validation error, but a validation error doesn't mean it failed to create system_errors.json
+                as: e
+                steps:
+                    - logSystemErrorCopyErrorMessage:
+                        call: sys.log
+                        args:
+                            text: 'An error occurred during copy of system_errors.json'
+                            severity: ERROR
+                    - logSystemErrorCopyError:
+                        call: sys.log
+                        args:
+                            data: ${e.message}
+                            severity: ERROR
       - logSystemErrorsCopied:
           call: sys.log
           args:
-              text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors_" + validatorVersion + ".json"}
-              severity: INFO
-
+            text: ${"system_errors.json copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/system_errors_" + validatorVersion + ".json"}
+            severity: INFO
+      - validateExecutionResult:
+          switch:
+            - condition: ${map.get(executionResultResponse, "error") != null and executionResultResponse.error == "Validation failed"}
+              next: handleExecutionFailure
+          next: checkExecutionResultStatus
+      - handleExecutionFailure:
+          steps:
+          - logFailure:
+              call: sys.log
+              args:
+                  text: 'Validation failed and status is error. Aborting execution.'
+                  severity: ERROR
+          - returnFailure:
+              return: "Execution failed due to validation error." # No system_errors.json was generated
       - checkExecutionResultStatus:
           steps:
             - getExecutionStatus:
                 assign:
-                  - isReportGenerated: ${executionResultResponse.body.status == "success"}
+                  - isReportGenerated: ${executionResultResponse.status == "success"}
             - validateExecutionStatus:
                 switch:
                   - condition: ${isReportGenerated}
@@ -212,6 +239,11 @@ main:
 retry_predicate:
       params: [e]
       steps:
+        - log_error_message:
+            call: sys.log
+            args:
+                data: ${e.message}
+                severity: "INFO"
         - validateErrorCode:
             switch:
                 - condition: ${e.code in [404, 500, 503, 429]}

@@ -36,11 +36,11 @@ def get_db_engine(database_url: str = None, echo: bool = True):
     return create_engine(database_url, echo=echo)
 
 
-def start_new_db_session(database_url: str = None):
+def start_new_db_session(database_url: str = None, echo: bool = True):
     if database_url is None:
         raise Exception("Database URL is not provided")
     logging.info("Starting new database session.")
-    return sessionmaker(bind=get_db_engine(database_url))()
+    return sessionmaker(bind=get_db_engine(database_url, echo=echo))()
 
 
 def start_singleton_db_session(database_url: str = None):
@@ -59,7 +59,7 @@ def start_singleton_db_session(database_url: str = None):
         raise Exception(f"Error creating database session: {error}")
 
 
-def start_db_session(database_url: str = None):
+def start_db_session(database_url: str = None, echo: bool = True):
     """
     :return: Database session
     """
@@ -69,7 +69,7 @@ def start_db_session(database_url: str = None):
         if is_session_reusable():
             return start_singleton_db_session(database_url)
         logging.info("Not reusing the previous session, starting new database session.")
-        return start_new_db_session(database_url)
+        return start_new_db_session(database_url, echo)
     except Exception as error:
         raise Exception(f"Error creating database session: {error}")
     finally:

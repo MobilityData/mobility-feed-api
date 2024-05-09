@@ -75,6 +75,7 @@ resource "google_workflows_workflow" "gtfs_validator_execution" {
 }
 
 # Trigger to execute the GTFS Validator
+# Trigger 1: Trigger the workflow when a new GTFS dataset is uploaded to the datasets bucket
 resource "google_eventarc_trigger" "gtfs_validator_trigger" {
   name     = "gtfsvalidatortrigger"
   project  = var.project_id
@@ -106,6 +107,5 @@ resource "google_eventarc_trigger" "gtfs_validator_trigger" {
   service_account = google_service_account.workflows_service_account.email
 
 }
-
 
 
