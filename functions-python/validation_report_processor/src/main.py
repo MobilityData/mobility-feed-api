@@ -147,6 +147,7 @@ def generate_report_entities(
     entities.append(validation_report_entity)
 
     dataset = get_dataset(dataset_stable_id, session)
+    dataset.validation_reports.append(validation_report_entity)
     for feature_name in json_report["summary"]["gtfsFeatures"]:
         feature = get_feature(feature_name, session)
         feature.validations.append(validation_report_entity)
@@ -159,6 +160,7 @@ def generate_report_entities(
             severity=notice["severity"],
             total_notices=notice["totalNotices"],
         )
+        dataset.notices.append(notice_entity)
         entities.append(notice_entity)
     return entities
 
