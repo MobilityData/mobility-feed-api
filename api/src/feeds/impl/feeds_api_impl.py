@@ -389,7 +389,9 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get the specified GTFS Realtime feed from the Mobility Database."""
         if (
             ret := self._get_gtfs_rt_feeds(
-                GtfsRtFeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, entity_types=None)
+                GtfsRtFeedFilter(
+                    stable_id=id, provider__ilike=None, producer_url__ilike=None, entity_types=None, location=None
+                )
             )
         ) and len(ret) == 1:
             return ret[0]

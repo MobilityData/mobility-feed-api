@@ -5,7 +5,6 @@ from geoalchemy2 import WKTElement
 
 from database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport, Notice
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
-from feeds_gen.models.latest_dataset import LatestDataset
 
 POLYGON = "POLYGON ((3.0 1.0, 4.0 1.0, 4.0 2.0, 3.0 2.0, 3.0 1.0))"
 
@@ -37,7 +36,7 @@ class TestLatestDatasetImpl(unittest.TestCase):
                     Validationreport(validator_version="1.1.1"),
                 ],
             )
-        ) == LatestDataset(
+        ) == LatestDatasetImpl(
             id="stable_id",
             feed_id="feed_stable_id",
             hosted_url="http://example.com",
