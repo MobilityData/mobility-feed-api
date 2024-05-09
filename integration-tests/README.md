@@ -2,6 +2,9 @@
 
 ## Overview
 This suite of integration tests validates the functionality and reliability of the Mobility Feeds API. It covers various scenarios to ensure accurate data retrieval and verify the API's response codes, content types, and payload structures.
+The integration test suite sends _user-agent_ header as `MobilityData Feed API Integration Tests (Python {platform.python_version()})`, this is useful to identify the usage of this suite on the target platform.
+
+## Setup
 
 ## Getting Started
 
