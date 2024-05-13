@@ -1,3 +1,4 @@
+import platform
 import time
 from enum import Enum
 
@@ -144,7 +145,10 @@ class IntegrationTests:
     def get_response(self, url_suffix, params=None, timeout=10):
         """Helper function to get response from the API."""
         url = self.base_url + "/" + url_suffix
-        headers = {"Authorization": "Bearer " + self.access_token}
+        headers = {
+            "Authorization": "Bearer " + self.access_token,
+            "User-Agent": f"MobilityData Feed API Integration Tests (Python {platform.python_version()})",
+        }
         return requests.get(url, params=params, headers=headers, timeout=timeout)
 
     @staticmethod
