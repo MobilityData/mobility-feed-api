@@ -33,6 +33,7 @@ data-test/
 
 # IDE files
 .idea
+.vscode
 
 # Ignore generated files
 api/src/feeds_gen

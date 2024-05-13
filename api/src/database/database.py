@@ -58,7 +58,13 @@ class Database:
                     cls.instance = object.__new__(cls)
         return cls.instance
 
-    def __init__(self, echo_sql=True):
+    def __init__(self, echo_sql=False):
+        """
+        Initializes the database instance
+        :param echo_sql: whether to echo the SQL queries or not
+        echo_sql set to False reduces the amount of information and noise going to the logs.
+        In case of errors, the exceptions will still contain relevant information about the failing queries.
+        """
         load_dotenv()
         self.engine = None
         self.connection_attempts = 0

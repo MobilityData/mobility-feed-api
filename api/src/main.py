@@ -15,6 +15,7 @@
 #
 # This files allows to add extra application decorators aside from the generated code.
 # The app created here is intended to replace the generated feeds_gen.main:app variable.
+import logging
 import os
 
 import uvicorn
@@ -25,12 +26,12 @@ from feeds_gen.apis.feeds_api import router as FeedsApiRouter
 from feeds_gen.apis.metadata_api import router as MetadataApiRouter
 from feeds_gen.apis.search_api import router as SearchApiRouter
 
-
 # Using the starlettte implementaiton as fastapi implementation generates errors with CORS in certain situations and
 # returns 200 in the method response. More info, https://github.com/tiangolo/fastapi/issues/1663#issuecomment-730362611
 from starlette.middleware.cors import CORSMiddleware
 
-from middleware.request_context import RequestContextMiddleware
+from middleware.request_context_middleware import RequestContextMiddleware
+from utils.logger import API_ACCESS_LOG, GCPLogHandler
 
 app = FastAPI(
     title="Mobility Data Catalog API",
@@ -53,6 +54,16 @@ app.include_router(DatasetsApiRouter)
 app.include_router(FeedsApiRouter)
 app.include_router(MetadataApiRouter)
 app.include_router(SearchApiRouter)
+
+
+@app.on_event("startup")
+async def startup_event():
+    # Add the GCP log handler to the logger.
+    # This is required to log the API access logs to the GCP logging service.
+    logger = logging.getLogger(API_ACCESS_LOG)
+    handler = GCPLogHandler()
+    logger.handlers.append(handler)
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=os.getenv("PORT", 8080))
