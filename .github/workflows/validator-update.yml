@@ -1,9 +1,12 @@
-name: Validator Update
+name: Update validation reports after GTFS Validator has been updated
 on:
   push: # TODO: remove before merging
-  workflow_dispatch:
+  workflow_dispatch: # Supports manual trigger
   repository_dispatch:
-    types: [gtfs-validator-release, gtfs-validator-update-stg]
+    types: [
+      gtfs-validator-release, # Triggered by a release from the Canonical GTFS Validator
+      gtfs-validator-update-stg # Triggered by a merge to `master` in the Canonical GTFS Validator
+    ]
 jobs:
   validator-update:
     runs-on: ubuntu-latest
@@ -29,7 +32,7 @@ jobs:
       - name: Create task to run cloud function
         run: |
           gcloud tasks create-http-task \
-            --queue=test-queue-2 \
+            --queue=update-validation-report \
             --url=https://${ENVIRONMENT}-${PROJECT_ID}.cloudfunctions.net/update-validation-report \
-            --schedule-time=$(date -u -d "+5 minutes" +%Y-%m-%dT%H:%M:%SZ) \
+            --schedule-time=$(date -u -d "+24 hours" +%Y-%m-%dT%H:%M:%SZ) \
             --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT}
