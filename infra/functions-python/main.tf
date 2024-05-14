@@ -370,3 +370,10 @@ resource "google_cloud_run_service_iam_member" "extract_bb_cloud_run_invoker" {
   role           = "roles/run.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
+
+# Task queue to invoke update_validation_report function
+resource "google_cloudtasks_queue" "update_validation_report" {
+  project = var.project_id
+  location = var.gcp_region
+  queue = "update-validation-report"
+}
