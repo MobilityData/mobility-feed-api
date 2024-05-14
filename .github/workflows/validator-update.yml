@@ -1,6 +1,5 @@
 name: Update validation reports after GTFS Validator has been updated
 on:
-  push: # TODO: remove before merging
   workflow_dispatch: # Supports manual trigger
   repository_dispatch:
     types: [
