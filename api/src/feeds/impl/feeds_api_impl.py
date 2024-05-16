@@ -203,10 +203,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 for country_code, subdivision_name, municipality in unique_locations
             ]
 
-            latest_dataset = next(
-                (dataset for dataset in datasets if dataset is not None and dataset.latest),
-                None
-            )
+            latest_dataset = next((dataset for dataset in datasets if dataset is not None and dataset.latest), None)
             gtfs_feed.latest_dataset = LatestDatasetImpl.from_orm(latest_dataset)
 
             gtfs_feeds.append(gtfs_feed)
