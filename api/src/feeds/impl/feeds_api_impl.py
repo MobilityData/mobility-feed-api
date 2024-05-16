@@ -203,12 +203,9 @@ class FeedsApiImpl(BaseFeedsApi):
                 for country_code, subdivision_name, municipality in unique_locations
             ]
 
-            latest_dataset, bounding_box = next(
-                filter(
-                    lambda dataset: dataset[0] is not None and dataset[1] is not None and dataset[0].latest,
-                    zip(datasets, bounding_boxes),
-                ),
-                (None, None),
+            latest_dataset = next(
+                (dataset for dataset in datasets if dataset is not None and dataset.latest),
+                None
             )
             gtfs_feed.latest_dataset = LatestDatasetImpl.from_orm(latest_dataset)
 
