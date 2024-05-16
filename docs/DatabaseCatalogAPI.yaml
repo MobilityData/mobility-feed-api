@@ -253,6 +253,10 @@ paths:
               schema:
                 type: object
                 properties:
+                  total:
+                    type: integer
+                    description: The total number of matching entities found regardless the limit and offset parameters.
+
                   results:
                     type: array
                     items:
@@ -264,10 +268,7 @@ paths:
                         mapping:
                           gtfs: '#/components/schemas/GtfsFeed'
                           gtfs_rt: '#/components/schemas/GtfsRTFeed'
-                  total:
-                    type: integer
-                    description: The total number of matching entities found regardless the limit and offset parameters.
-               
+
 
 components:
   schemas:
