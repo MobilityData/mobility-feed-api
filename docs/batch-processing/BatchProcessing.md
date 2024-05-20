@@ -2,51 +2,46 @@
 
 ## Overview
 
-This document provides a comprehensive overview of the workflow for batch processing and storing historical datasets in a Google Cloud Platform (GCP) bucket. Our process strategically combines GCP Scheduler, HTTP-triggered functions, and Pub/Sub-triggered functions to ensure efficient and reliable data handling.
+This documentation provides an in-depth guide to the workflow used for batch processing and storing historical datasets in a Google Cloud Platform (GCP) bucket. Our solution combines Cloud Scheduler, HTTP-triggered functions, and Pub/Sub-triggered functions (along with those triggered by storage events) to efficiently manage data processing.
 
-## Workflow Description
-The following schema provides a high-level overview of the workflow process:
+## Workflow Overview
+The diagram below offers a high-level view of the workflow:
 
-<img src="batch_processing_schema.png" alt="Workflow Schema" width="500" height="auto">
+<img src="batch_processing_schema.png" alt="Workflow Schema" width="500" height="auto" style="background-color:white;">
 
 ### Cloud Scheduler: `dataset-batch-job`
 
-The `dataset-batch-job` in Cloud Scheduler is a pivotal component of our workflow. It is configured to run at specific intervals, which can vary based on the environment setting. Its primary role is to initiate the data processing sequence by making an HTTP call to the `batch-datasets` function.
+The `dataset-batch-job` Cloud Scheduler is a pivotal component of our workflow. It is configured to run at specific intervals, which can vary based on the environment setting. Its primary role is to initiate the data processing sequence by making an HTTP call to the `batch-datasets` function.
+
+### Workflow Description
+Currently, there is a single workflow in place:
+
+- **`gtfs-validator-execution`**: This workflow is triggered when a new dataset is created in the `mobilitydata-datasets` bucket. The dataset path must match the pattern `mdb-*/mdb-*/mdb-*.zip`. It validates the dataset and updates the corresponding entity in the database with the validation report by calling the `process-validation-report` HTTP function.
 
 ### Function Descriptions
 
-Each cloud function encapsulates a specific part of the workflow:
-- `batch-datasets`: HTTP-triggered function that retrieves information about feeds and publishes this data to the Pub/Sub topic for further processing. It serves as the orchestrator for dataset updates, ensuring that new data is queued for processing.
+The cloud functions each play a specific role within the workflow:
 
-- `batch-process-dataset`: Pub/Sub-triggered function that performs the actual data processing. It downloads the feed data, compares it to the previous version, and, if necessary, updates the dataset information in the system. This function is crucial for maintaining the latest data within our storage and ensuring that users have access to the most current datasets.
+1. **`batch-datasets`**: This HTTP-triggered function collects information about feeds and publishes it to the Pub/Sub topic for further processing. It serves as the central coordinator for dataset updates, ensuring new data is properly queued.
+   <img src="batch_datasets.png" alt="batch-datasets Workflow Schema" width="500" height="auto" style="background-color:white;">
+    More information about the `batch-datasets` function can be found [here](../../functions-python/batch_datasets/README.md).
 
-#### HTTP Cloud Function: `batch-datasets`
-<img src="batch_datasets.png" alt="batch-datasets Workflow Schema" width="500" height="auto">
 
-This function serves as the starting point for the batch processing workflow. It queries for active feeds and publishes their information to a specified Pub/Sub topic. The messages contain details necessary to process each feed, including URLs, feed IDs, and authentication details if applicable. The structure of the message it sends is detailed as follows:
+2. **`batch-process-dataset`**: Triggered via Pub/Sub, this function handles actual data processing by downloading, comparing with previous versions, and updating the system with the latest dataset information. The standardized URL format `<bucket-url>/<feed_stable_id>/<dataset_id>.zip` ensures data consistency and predictability.
+   <img src="batch_process_dataset.png" alt="batch-process-dataset Workflow Schema" width="500" height="auto" style="background-color:white;">
+    More information about the `batch-process-dataset` function can be found [here](../../functions-python/batch_process_dataset/README.md).
 
-```json
-{
-  "execution_id": "<execution_id>",
-  "producer_url": "<producer_url>",
-  "feed_stable_id": "<feed_stable_id>",
-  "feed_id": "<feed_id>",
-  "authentication_type": "<authentication_type>",
-  "authentication_info_url": "<authentication_info_url>",
-  "api_key_parameter_name": "<api_key_parameter_name>",
-  "dataset_id": "<dataset_id>",
-  "dataset_hash": "<dataset_hash>"
-}
-```
 
-#### Pub/Sub Cloud Function: `batch-process-dataset`
-<img src="batch_process_dataset.png" alt="batch-process-dataset Workflow Schema" width="500" height="auto">
+3. **`extract-bounding-box`**: Triggered when a dataset with the pattern `mdb-*/mdb-*/mdb-*.zip` is added to the `mobilitydata-datasets` bucket, this function reads the `stops.txt` file to extract the dataset's bounding box (min/max latitude/longitude). It updates the `bounding_box` field of the appropriate entity in the PostgreSQL database.
+   <img src="extract_bb.png" alt="extract-bounding-box Workflow Schema" width="500" height="auto" style="background-color:white;">
+    More information about the `extract-bounding-box` function can be found [here](../../functions-python/extract_bb/README.md).
 
-Subscribed to the topic set in the `batch-datasets` function, `batch-process-dataset` is triggered for each message published. It handles the processing of each feed individually, ensuring data consistency and integrity. The function performs the following operations:
 
-1. **Download Data**: It retrieves the feed data from the provided URL.
-2. **Compare Hashes**: The SHA256 hash of the downloaded data is compared to the hash of the last stored version to detect changes.
-   - If the hash is unchanged, the dataset is considered up-to-date, and no further action is taken.
-   - If the hash has changed, it is indicative of an update, and a new `Dataset` entity is created and stored with the corresponding feed information.
+4. **`process-validation-report`**: This HTTP-triggered function is called by the `gtfs-validator-execution` workflow. It adds validation report entities to the database and links them to the appropriate dataset.
+   <img src="process_validation_report.png" alt="process-validation-report Workflow Schema" width="500" height="auto" style="background-color:white;">
+   More information about the `process-validation-report` function can be found [here](../../functions-python/validation_report_processor/README.md).
 
-The URL format for accessing these datasets is standardized as `<bucket-url>/<feed_stable_id>/<dataset_id>.zip`, ensuring a consistent and predictable path for data retrieval.
+
+5. **`update-validation-report`**: This function triggers batch validation through the GTFS Web Validator backend services, calling the `gtfs-validator-execution` workflow for any `latest` datasets lacking a recent or updated validation report.
+   <img src="update_validation_report.png" alt="update-validation-report Workflow Schema" width="500" height="auto" style="background-color:white;">
+   More information about the `update-validation-report` function can be found [here](../../functions-python/update_validation_report/README.md).

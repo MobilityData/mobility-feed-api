@@ -72,9 +72,14 @@ if [ ! -d "$FX_PATH" ]; then
 fi
 
 if [ ! -f "$FX_PATH/../.env.local" ]; then
-  printf "\nWARN: .env.local file not found at location: %s/.env.local" "$FX_PATH"
+  printf "\nWARN: .env.local file not found at location: %s/../.env.local\n" "$FX_PATH"
 else
-  source "$FX_PATH/../.env.local"
+  printf "\nINFO: loading environment variables from: %s/../.env.local\n" "$FX_PATH"
+  ENV_FILE="$FX_PATH/../.env.local"
+  while IFS='=' read -r key value
+  do
+    export "$key=$value"
+  done < "$ENV_FILE"
 fi
 
 # extract the --target value from the function's name main.py file with @functions_framework.http annotation

@@ -253,6 +253,10 @@ paths:
               schema:
                 type: object
                 properties:
+                  total:
+                    type: integer
+                    description: The total number of matching entities found regardless the limit and offset parameters.
+
                   results:
                     type: array
                     items:
@@ -264,10 +268,7 @@ paths:
                         mapping:
                           gtfs: '#/components/schemas/GtfsFeed'
                           gtfs_rt: '#/components/schemas/GtfsRTFeed'
-                  total:
-                    type: integer
-                    description: The total number of matching entities found regarless the limit and offset parameters.
-               
+
 
 components:
   schemas:
@@ -424,6 +425,21 @@ components:
           description: A hash of the dataset.
           type: string
           example: ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
+        validation_report:
+          type: object
+          properties:
+            total_error:
+              type: integer
+              example: 1
+              minimum: 0
+            total_warning:
+              type: integer
+              example: 2
+              minimum: 0
+            total_info:
+              type: integer
+              example: 3
+              minimum: 0
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    EntityTypes:
@@ -619,7 +635,7 @@ components:
           example: 8635fdac4fbff025b4eaca6972fcc9504bc1552d
 
     ValidationReport:
-      description: Validation report - Not yet supported. Can change in the future.
+      description: Validation report
       type: object
       properties:
         validated_at:
@@ -628,7 +644,7 @@ components:
           example: 2023-07-10T22:06:00Z
           format: date-time
         features:
-          description: An array of components for this dataset.
+          description: An array of features for this dataset.
           type: array
           items:
             type: string
@@ -658,11 +674,11 @@ components:
           format: url
           description: HTML validation report URL
           example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.html
-        url_system_errors:
-          type: string
-          format: url
-          description: JSON validation system errors URL
-          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-system-errors-4_2_0.json
+#        url_system_errors:
+#          type: string
+#          format: url
+#          description: JSON validation system errors URL
+#          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-system-errors-4_2_0.json
 
 #    Have to put the enum inline because of a bug in openapi-generator
 #    DataType:
