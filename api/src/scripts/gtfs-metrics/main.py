@@ -3,7 +3,7 @@ from sqlacodegen_models import Gtfsdataset
 from unidecode import unidecode
 import pandas as pd
 
-EXPECTED_VALIDATION_VERSION = "5.0.2-SNAPSHOT"
+EXPECTED_VALIDATION_VERSION = "5.0.1"
 
 legacy_id_format = "{country_code}-{subdivision_name}-{provider}-{data_type}-{mdb_source_id}"
 db = Database(echo_sql=False)
@@ -27,6 +27,7 @@ data_depth_results = []
 
 i = 0
 for dataset in latest_datasets:
+    i += 1
     print(f"Processing {dataset.feed.stable_id} ({i}/{len(latest_datasets)})")
     feed = dataset.feed
     country_code = feed.locations[0].country_code
