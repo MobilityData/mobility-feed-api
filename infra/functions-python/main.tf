@@ -372,8 +372,8 @@ resource "google_cloud_run_service_iam_member" "extract_bb_cloud_run_invoker" {
 }
 
 # Task queue to invoke update_validation_report function
-resource "google_cloud_tasks_queue" "update_validation_report" {
+resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   project  = var.project_id
   location = var.gcp_region
-  name     = "update-validation-report"
+  name     = "update-validation-report-task-queue"
 }

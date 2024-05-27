@@ -28,6 +28,8 @@ jobs:
           echo "PROJECT_ID=${{ github.event.action == 'gtfs-validator-release' && vars.PROD_MOBILITY_FEEDS_PROJECT_ID || vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}" >> $GITHUB_ENV
           echo "DEPLOYER_SERVICE_ACCOUNT=${{ github.event.action == 'gtfs-validator-release' && vars.PROD_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT || vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
 
+      # Schedule a task to update the validation report in 24 hours from now to allow runners of the web validator
+      # to be properly updated with the new version of the GTFS Validator
       - name: Create task to run cloud function
         run: |
           gcloud tasks create-http-task \
