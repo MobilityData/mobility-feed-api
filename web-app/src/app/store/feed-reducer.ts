@@ -3,7 +3,7 @@ import { type FeedErrors, FeedErrorSource, type FeedError } from '../types';
 import { type AllFeedType } from '../services/feeds/utils';
 
 interface FeedState {
-  status: 'loading' | 'loaded';
+  status: 'loading' | 'loaded' | 'error';
   feedId: string | undefined;
   data: AllFeedType;
   errors: FeedErrors;
@@ -59,6 +59,7 @@ export const feedSlice = createSlice({
       };
     },
     loadingFeedFail: (state, action: PayloadAction<FeedError>) => {
+      state.status = 'error';
       state.errors.DatabaseAPI = action.payload;
     },
   },
