@@ -459,7 +459,10 @@ export default function Feed(): React.ReactElement {
                     >
                       <WarningAmberOutlined />
                       This feed has been replaced with a different producer URL.
-                      Go to the new feed here.
+                      <a href={`/feeds/${feed.redirects[0].target_id}`}>
+                        Go to the new feed here
+                      </a>
+                      .
                     </ContentBox>
                   )}
               </Grid>
