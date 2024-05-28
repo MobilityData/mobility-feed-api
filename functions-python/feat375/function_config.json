@@ -1,0 +1,15 @@
+{
+  "name": "retrieve-datasets-hash",
+  "description": "Retrieve datasets hash",
+  "entry_point": "retrieve_datasets_hash",
+  "timeout": 3600,
+  "memory": "2Gi",
+  "trigger_http": true,
+  "include_folders": ["helpers"],
+  "secret_environment_variables": [ ],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 5,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}
