@@ -29,12 +29,12 @@ def get_blob(bucket_name, source_blob_name, bucket=None):
 def get_object_name_from_url(url):
     """Extracts the object name from a Google Cloud Storage URL."""
     parsed_url = urlparse(url)
-    path_segments = parsed_url.path.split('/')
+    path_segments = parsed_url.path.split("/")
 
     # The object name is the segment after '/o/'
     try:
-        object_index = path_segments.index('o') + 1
-        object_name = '/'.join(path_segments[object_index:])
+        object_index = path_segments.index("o") + 1
+        object_name = "/".join(path_segments[object_index:])
     except ValueError:
         raise ValueError("Invalid URL format for extracting object name.")
 
@@ -50,20 +50,22 @@ def extend_dataframe(df1, df2):
         # If both DataFrames have the same columns, concatenate them
         return pd.concat([df1, df2], ignore_index=True)
     else:
-        raise ValueError("The DataFrames do not have the same columns and df1 is not empty.")
+        raise ValueError(
+            "The DataFrames do not have the same columns and df1 is not empty."
+        )
 
 
 @functions_framework.http
 def retrieve_datasets_hash(request):
     logging.info("Retrieving datasets hash function started")
-    today = pd.Timestamp.now().date().strftime('%Y-%m-%d')
+    today = pd.Timestamp.now().date().strftime("%Y-%m-%d")
 
     # 1. Read existing summary file
     analytics_blob = get_blob(destination_bucket_name, analytics_object_name)
     try:
         analytics_blob.reload()
         analytics_content = analytics_blob.download_as_string()
-        analytics_df = pd.read_json(io.BytesIO(analytics_content), orient='records')
+        analytics_df = pd.read_json(io.BytesIO(analytics_content), orient="records")
         logging.info(f"Analytics file has {len(analytics_df)} entries")
     except Exception as e:
         logging.error(f"Error reading analytics file: {e}")
@@ -91,28 +93,32 @@ def retrieve_datasets_hash(request):
         try:
             url = row["urls.latest"]
             object_name = get_object_name_from_url(url)
-            if not object_name.endswith('.zip'):
-                logging.error(f"Feed {feed_id} with object {object_name} is not a zip file")
+            if not object_name.endswith(".zip"):
+                logging.error(
+                    f"Feed {feed_id} with object {object_name} is not a zip file"
+                )
                 continue
 
             logging.info(f"Getting hash for feed {feed_id} -- {object_name}")
-            object_blob = get_blob(source_bucket_name, object_name, bucket=source_bucket)
+            object_blob = get_blob(
+                source_bucket_name, object_name, bucket=source_bucket
+            )
             if not object_blob.exists():
-                logging.error(f"Feed {feed_id} with object {object_name} does not exist")
+                logging.error(
+                    f"Feed {feed_id} with object {object_name} does not exist"
+                )
                 continue
             object_blob.reload()
             lts_dataset_hash = object_blob.md5_hash
             if lts_dataset_hash is None:
-                logging.error(f"Feed {feed_id} with object {object_name} does not have a hash")
+                logging.error(
+                    f"Feed {feed_id} with object {object_name} does not have a hash"
+                )
                 continue
 
             logging.info(f"Hash for feed {feed_id}: {lts_dataset_hash}")
             lts_datasets_hashes.append(
-                {
-                    "feed_id": feed_id,
-                    "hash": lts_dataset_hash,
-                    "date": today
-                }
+                {"feed_id": feed_id, "hash": lts_dataset_hash, "date": today}
             )
         except Exception as e:
             logging.error(f"Error getting hash for dataset {feed_id}: {e}")
@@ -127,9 +133,13 @@ def retrieve_datasets_hash(request):
     # 5. Upload analytics content to the destination bucket
     try:
         analytics_json = analytics_df.to_json(orient="records")
-        analytics_blob.upload_from_string(analytics_json, content_type="application/json")
-        logging.info(f"Uploaded updated analytics content to {destination_bucket_name}/{analytics_object_name}"
-                     f"\n {analytics_df}")
+        analytics_blob.upload_from_string(
+            analytics_json, content_type="application/json"
+        )
+        logging.info(
+            f"Uploaded updated analytics content to {destination_bucket_name}/{analytics_object_name}"
+            f"\n {analytics_df}"
+        )
     except Exception as e:
         logging.error(f"Error uploading updated analytics content: {e}")
         return "Error uploading updated analytics content", 500
