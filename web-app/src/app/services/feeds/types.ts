@@ -172,6 +172,14 @@ export interface components {
        * @example ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
        */
       hash?: string;
+      validation_report?: {
+        /** @example 1 */
+        total_error?: number;
+        /** @example 2 */
+        total_warning?: number;
+        /** @example 3 */
+        total_info?: number;
+      };
     };
     ExternalIds: Array<components['schemas']['ExternalId']>;
     ExternalId: {
@@ -309,7 +317,7 @@ export interface components {
       /** @example 8635fdac4fbff025b4eaca6972fcc9504bc1552d */
       commit_hash?: string;
     };
-    /** @description Validation report - Not yet supported. Can change in the future. */
+    /** @description Validation report */
     ValidationReport: {
       /**
        * Format: date-time
@@ -317,7 +325,7 @@ export interface components {
        * @example "2023-07-10T22:06:00.000Z"
        */
       validated_at?: string;
-      /** @description An array of components for this dataset. */
+      /** @description An array of features for this dataset. */
       features?: string[];
       /** @example 4.2.0 */
       validator_version?: string;
@@ -339,12 +347,6 @@ export interface components {
        * @example https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.html
        */
       url_html?: string;
-      /**
-       * Format: url
-       * @description JSON validation system errors URL
-       * @example https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-system-errors-4_2_0.json
-       */
-      url_system_errors?: string;
     };
   };
   responses: never;
@@ -613,12 +615,12 @@ export interface operations {
       200: {
         content: {
           'application/json': {
+            /** @description The total number of matching entities found regardless the limit and offset parameters. */
+            total?: number;
             results?: Array<
               | components['schemas']['GtfsFeed']
               | components['schemas']['GtfsRTFeed']
             >;
-            /** @description The total number of matching entities found regarless the limit and offset parameters. */
-            total?: number;
           };
         };
       };
