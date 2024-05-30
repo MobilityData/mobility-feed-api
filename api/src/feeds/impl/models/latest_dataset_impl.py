@@ -32,11 +32,21 @@ class LatestDatasetImpl(LatestDataset):
                 lambda a, b: a if Version(a.validator_version) > Version(b.validator_version) else b,
                 dataset.validation_reports,
             )
-            total_error, total_info, total_warning = ValidationReportImpl.compute_totals(latest_report)
+            (
+                total_error,
+                total_info,
+                total_warning,
+                unique_error_count,
+                unique_info_count,
+                unique_warning_count,
+            ) = ValidationReportImpl.compute_totals(latest_report)
             validation_report = LatestDatasetValidationReport(
                 total_error=total_error,
                 total_warning=total_warning,
                 total_info=total_info,
+                unique_error_count=unique_error_count,
+                unique_warning_count=unique_warning_count,
+                unique_info_count=unique_info_count,
             )
         return cls(
             id=dataset.stable_id,

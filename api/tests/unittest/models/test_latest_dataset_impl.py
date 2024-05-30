@@ -29,7 +29,8 @@ class TestLatestDatasetImpl(unittest.TestCase):
                         validator_version="1.2.0",
                         notices=[
                             Notice(severity="INFO", total_notices=1),
-                            Notice(severity="ERROR", total_notices=2),
+                            Notice(severity="ERROR", total_notices=2, notice_code="foreign_key_violation"),
+                            Notice(severity="ERROR", total_notices=1, notice_code="empty_column_name"),
                             Notice(severity="WARNING", total_notices=3),
                         ],
                     ),
@@ -49,7 +50,15 @@ class TestLatestDatasetImpl(unittest.TestCase):
                 "minimum_longitude": 3.0,
                 "maximum_longitude": 4.0,
             },
-            validation_report={"validator_version": "1.2.0", "total_error": 2, "total_info": 1, "total_warning": 3},
+            validation_report={
+                "validator_version": "1.2.0",
+                "total_error": 3,
+                "total_info": 1,
+                "total_warning": 3,
+                "unique_error_count": 2,
+                "unique_info_count": 1,
+                "unique_warning_count": 1,
+            },
         )
 
         assert LatestDatasetImpl.from_orm(None) is None
