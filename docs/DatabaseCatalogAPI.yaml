@@ -232,7 +232,26 @@ paths:
 
   /v1/search:
     get:
-      description: Search feeds using full-text search on feed name, location and provider's information.
+      description: |
+        Search feeds on feed name, location and provider's information.
+        <br>
+        The current implemation leverage the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
+        <br><br>
+        Points to consider while using search endpoint:
+        <br>
+        - Operators are not currently supported. Operators are ignored as stop-words.
+        - Search are based on word lexeme(English). The search_text_query_param is parsed and normalized much as for to_tsvector, then the & (AND) tsquery operator is inserted between surviving words.
+        - The search will match all the lexemes with an AND operator. So, all lexemes must be present in the document.
+        - Our current implementation only creates English lexemes. We are currently considering adding support to more languages.
+        - The order of the words is not relevant for matching. The query __New York__ should give you the same results as __York New__.
+        <br><br>
+        Example:
+        <br>
+        Query: New York Transit
+        <br>
+        Search Executed: 'New' & York & 'Transit'
+        <br>
+        
       operationId: searchFeeds
       tags:
         - "search"
@@ -864,7 +883,7 @@ components:
     search_text_query_param:
       name: search_query
       in: query
-      description: General search query to match against various fields of the entities.
+      description: General search query to match against transit provider, location, and feed name.
       required: False
       schema:
         type: string
