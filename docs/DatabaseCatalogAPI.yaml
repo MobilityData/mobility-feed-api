@@ -240,7 +240,7 @@ paths:
         Points to consider while using search endpoint:
         <br>
         - Operators are not currently supported. Operators are ignored as stop-words.
-        - Search are based on word lexeme(English) and case insensitive. The search_text_query_param is parsed and normalized much as for to_tsvector, then the & (AND) tsquery operator is inserted between surviving words.
+        - Search are based on lexemes(English) and case insensitive. The search_text_query_param is parsed and normalized much as for to_tsvector, then the & (AND) tsquery operator is inserted between surviving words.
         - The search will match all the lexemes with an AND operator. So, all lexemes must be present in the document.
         - Our current implementation only creates English lexemes. We are currently considering adding support to more languages.
         - The order of the words is not relevant for matching. The query __New York__ should give you the same results as __York New__.
