@@ -7,6 +7,10 @@ on:
         required: true
         type: string
         description: 'API URL to be used for tests'
+      ENVIRONMENT:
+        type: string
+        description: 'Environment name'
+        default: 'dev'
     secrets:
       REFRESH_TOKEN:
         required: true
@@ -60,7 +64,7 @@ jobs:
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
       uses: actions/upload-artifact@v4
       with:
-        name: integration-tests-results
+        name: integration-tests-results-${{ inputs.ENVIRONMENT }}
         path: |
           integration-tests/src/integration_tests_log.html
           integration-tests/src/datasets_validation.csv

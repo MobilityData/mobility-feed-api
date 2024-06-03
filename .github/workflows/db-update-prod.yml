@@ -28,6 +28,7 @@ jobs:
       - update-qa
     with:
       API_URL: 'https://api-qa.mobilitydatabase.org'
+      ENVIRONMENT: 'qa'
     secrets:
       REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
   update:
@@ -53,5 +54,6 @@ jobs:
     needs: update
     with:
       API_URL: "https://api.mobilitydatabase.org"
+      ENVIRONMENT: 'prod'
     secrets:
       REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
