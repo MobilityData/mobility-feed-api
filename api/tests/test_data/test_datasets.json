@@ -129,7 +129,14 @@
       "validation_report_id": "dataset-1-report-1",
       "severity": "ERROR",
       "notice_code": "foreign_key_violation",
-      "total_notices": 1
+      "total_notices": 10
+    },
+    {
+      "dataset_id": "dataset-1",
+      "validation_report_id": "dataset-1-report-1",
+      "severity": "ERROR",
+      "notice_code": "empty_column_name",
+      "total_notices": 10
     },
     {
       "dataset_id": "dataset-1",
