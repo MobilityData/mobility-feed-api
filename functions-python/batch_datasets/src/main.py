@@ -108,8 +108,11 @@ def batch_datasets(request):
     """
 
     Logger.init_logger()
-    logging.info("Batch datasets function started. Pub/Sub topic: %s Project Id: %s", pubsub_topic_name,
-                 project_id)
+    logging.info(
+        "Batch datasets function started. Pub/Sub topic: %s Project Id: %s",
+        pubsub_topic_name,
+        project_id,
+    )
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         feeds = get_none_deprecated_feeds(session)
