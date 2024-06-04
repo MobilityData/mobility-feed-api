@@ -64,8 +64,9 @@ def test_batch_datasets(mock_client, mock_publish):
                     ]
 
 
+@patch("batch_datasets.src.main.Logger")
 @patch("batch_datasets.src.main.start_db_session")
-def test_batch_datasets_exception(start_db_session_mock):
+def test_batch_datasets_exception(start_db_session_mock, _):
     exception_message = "Failure occurred"
     start_db_session_mock.side_effect = Exception(exception_message)
     with pytest.raises(Exception) as exec_info:
