@@ -62,5 +62,5 @@ gcloud components install pubsub-emulator
 # Test
 - Run the tests
 ```bash
-  ./scripts/function-python-test.sh --function_name batch_datasets
+  ./scripts/api-tests.sh --folder functions-python/batch_datasets 
 ```
