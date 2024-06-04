@@ -25,8 +25,9 @@ def populate_database():
     """
     Populates the database with fake data with the following distribution:
     - 10 GTFS feeds
-        - 5 active
-        - 5 inactive
+        - 3 active
+        - 7 inactive
+        - 2 deprecated
     - 5 GTFS Realtime feeds
     - 9 GTFS datasets
         - 3 active in active feeds
@@ -47,6 +48,24 @@ def populate_database():
             license_url=fake.url(),
             stable_id=fake.uuid4(),
             status="active" if (i in [0, 1, 2]) else "inactive",
+            feed_contact_email=fake.email(),
+            provider=fake.company(),
+        )
+        session.add(feed)
+
+    for i in range(2):
+        feed = Gtfsfeed(
+            id=fake.uuid4(),
+            data_type="gtfs",
+            feed_name=fake.name(),
+            note=fake.sentence(),
+            producer_url=fake.url(),
+            authentication_type="0" if (i in [0, 1, 2]) else "1",
+            authentication_info_url=None,
+            api_key_parameter_name=None,
+            license_url=fake.url(),
+            stable_id=fake.uuid4(),
+            status="deprecated",
             feed_contact_email=fake.email(),
             provider=fake.company(),
         )
