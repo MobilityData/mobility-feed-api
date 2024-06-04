@@ -15,6 +15,7 @@
 #
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -28,6 +29,7 @@ from sqlalchemy.orm import Session
 from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 from dataset_service.main import BatchExecutionService, BatchExecution
 from helpers.database import start_db_session, close_db_session
+from helpers.logger import Logger
 
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
@@ -105,6 +107,9 @@ def batch_datasets(request):
     :return: HTTP response object
     """
 
+    Logger.init_logger()
+    logging.info("Batch datasets function started. Pub/Sub topic: %s Project Id: %s", pubsub_topic_name,
+                 project_id)
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         feeds = get_none_deprecated_feeds(session)

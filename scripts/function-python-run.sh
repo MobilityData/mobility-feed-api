@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 #
 #  MobilityData 2023

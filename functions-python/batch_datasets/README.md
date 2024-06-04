@@ -30,3 +30,37 @@ The function is configured using the following environment variables:
 # Local development
 The local development of this function follows the same steps as the other functions. Please refer to the [README.md](../README.md) file for more information.
 
+## Test locally with Google Cloud Emulators
+
+```bash
+gcloud components install cloud-datastore-emulator
+```
+
+- Install the Pub/Sub emulator
+```bash
+gcloud components install pubsub-emulator
+```
+- Install the Cloud Datastore emulator
+```bash
+
+```
+
+- Execute the following commands to start the emulators:
+```bash
+    gcloud beta emulators pubsub start --project=project-id --host-port='localhost:8043'
+    gcloud beta emulators datastore start --project=project-id --host-port='localhost:8044'
+```
+- Start function
+```bash
+  ./scripts/function-python-run.sh --function_name batch_datasets
+```
+- Execute function
+```bash
+   curl http://localhost:8080
+```
+
+# Test
+- Run the tests
+```bash
+  ./scripts/function-python-test.sh --function_name batch_datasets
+```
