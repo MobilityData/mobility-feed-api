@@ -18,17 +18,16 @@ import os
 from unittest import mock
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from batch_datasets.src.main import get_active_feeds, batch_datasets
+from batch_datasets.src.main import get_non_deprecated_feeds, batch_datasets
 from test_utils.database_utils import get_testing_session, default_db_url
 
 
-def test_get_active_feeds():
+def test_get_non_deprecated_feeds():
     with get_testing_session() as session:
-        active_feeds = get_active_feeds(session)
-        assert len(active_feeds) == 3
-        #         assert all active feeds has authentication_type == '0'
-        for feed in active_feeds:
-            assert feed.authentication_type == "0"
+        feeds = get_non_deprecated_feeds(session)
+        assert len(feeds) == 10
+        assert len([feed for feed in feeds if feed.status == "active"]) == 3
+        assert len([feed for feed in feeds if feed.status == "inactive"]) == 7
 
 
 @mock.patch.dict(
@@ -45,7 +44,7 @@ def test_get_active_feeds():
 def test_batch_datasets(mock_client, mock_publish):
     mock_client.return_value = MagicMock()
     with get_testing_session() as session:
-        active_feeds = get_active_feeds(session)
+        feeds = get_non_deprecated_feeds(session)
         with patch(
             "dataset_service.main.BatchExecutionService.__init__", return_value=None
         ):
@@ -53,7 +52,7 @@ def test_batch_datasets(mock_client, mock_publish):
                 "dataset_service.main.BatchExecutionService.save", return_value=None
             ):
                 batch_datasets(Mock())
-                assert mock_publish.call_count == 3
+                assert mock_publish.call_count == 5
                 # loop over mock_publish.call_args_list and check that the stable_id of the feed is in the list of
                 # active feeds
                 for i in range(3):
@@ -61,7 +60,7 @@ def test_batch_datasets(mock_client, mock_publish):
                         mock_publish.call_args_list[i][0][2].decode("utf-8")
                     )
                     assert message["feed_stable_id"] in [
-                        feed.stable_id for feed in active_feeds
+                        feed.stable_id for feed in feeds
                     ]
 
 

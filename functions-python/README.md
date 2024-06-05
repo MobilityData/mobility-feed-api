@@ -58,16 +58,16 @@ export MY_AWESOME_KEY=MY_AWESOME_VALUE
 ```
 
 # Unit tests
-If a folder `tests` is added to a function's folder, the script `api-test.sh` will execute the tests without any further configuration.
+If a folder `tests` is added to a function's folder, the script `api-tests.sh` will execute the tests without any further configuration.
 Make sure the testing database is running before executing the tests.
 ```
 docker-compose --env-file ./config/.env.local up -d liquibase-test
 ```
 Execute all tests within the functions-python folder
 ```
-./scripts/api-test.sh --folder functions-python 
+./scripts/api-tests.sh --folder functions-python 
 ```
 Execute test from a specific function
 ```
-./scripts/api-test.sh --folder functions-python/batch_datasets
+./scripts/api-tests.sh --folder functions-python/batch_datasets
 ```

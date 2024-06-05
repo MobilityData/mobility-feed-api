@@ -60,13 +60,12 @@ def publish(publisher: PublisherClient, topic_path: str, data_bytes: bytes) -> F
     return publisher.publish(topic_path, data=data_bytes)
 
 
-def get_active_feeds(session: Session):
+def get_non_deprecated_feeds(session: Session):
     """
-    Returns a list of active feeds
-    :return: list of active feeds
+    Returns a list of non deprecated feeds
+    :return: list of feeds
     """
-    #  Query the feeds database for active feeds with a GTFS dataset and no authentication
-    #  and also feeds without gtfs datasets
+    #  Query the database for Gtfs feeds with status different from deprecated
     query = (
         session.query(
             Gtfsfeed.stable_id,
@@ -75,12 +74,13 @@ def get_active_feeds(session: Session):
             Gtfsfeed.authentication_type,
             Gtfsfeed.authentication_info_url,
             Gtfsfeed.api_key_parameter_name,
+            Gtfsfeed.status,
             Gtfsdataset.id.label("dataset_id"),
             Gtfsdataset.hash.label("dataset_hash"),
         )
         .select_from(Gtfsfeed)
         .outerjoin(Gtfsdataset, (Gtfsdataset.feed_id == Gtfsfeed.id))
-        .filter(Gtfsfeed.status == "active")
+        .filter(Gtfsfeed.status != "deprecated")
         .filter(or_(Gtfsdataset.id.is_(None), Gtfsdataset.latest.is_(True)))
     )
     # Limit the query to 10 feeds (or FEEDS_LIMIT param) for testing purposes and lower environments
@@ -88,7 +88,7 @@ def get_active_feeds(session: Session):
         limit = os.getenv("FEEDS_LIMIT")
         query = query.limit(10 if limit is None else int(limit))
     results = query.all()
-    print(f"Retrieved {len(results)} active feeds.")
+    print(f"Retrieved {len(results)} feeds.")
 
     return results
 
@@ -104,17 +104,16 @@ def batch_datasets(request):
     :param request: HTTP request object
     :return: HTTP response object
     """
-
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        active_feeds = get_active_feeds(session)
+        feeds = get_non_deprecated_feeds(session)
     except Exception as error:
-        print(f"Error retrieving active feeds: {error}")
-        raise Exception(f"Error retrieving active feeds: {error}")
+        print(f"Error retrieving feeds: {error}")
+        raise Exception(f"Error retrieving feeds: {error}")
     finally:
         close_db_session(session)
 
-    print(f"Retrieved {len(active_feeds)} active feeds.")
+    print(f"Retrieved {len(feeds)} feeds.")
     publisher = get_pubsub_client()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
     trace_id = request.headers.get("X-Cloud-Trace-Context")
@@ -122,29 +121,29 @@ def batch_datasets(request):
         f"batch-trace-{trace_id}" if trace_id else f"batch-uuid-{uuid.uuid4()}"
     )
     timestamp = datetime.now()
-    for active_feed in active_feeds:
+    for feed in feeds:
         payload = {
             "execution_id": execution_id,
-            "producer_url": active_feed.producer_url,
-            "feed_stable_id": active_feed.stable_id,
-            "feed_id": active_feed.feed_id,
-            "dataset_id": active_feed.dataset_id,
-            "dataset_hash": active_feed.dataset_hash,
-            "authentication_type": active_feed.authentication_type,
-            "authentication_info_url": active_feed.authentication_info_url,
-            "api_key_parameter_name": active_feed.api_key_parameter_name,
+            "producer_url": feed.producer_url,
+            "feed_stable_id": feed.stable_id,
+            "feed_id": feed.feed_id,
+            "dataset_id": feed.dataset_id,
+            "dataset_hash": feed.dataset_hash,
+            "authentication_type": feed.authentication_type,
+            "authentication_info_url": feed.authentication_info_url,
+            "api_key_parameter_name": feed.api_key_parameter_name,
         }
         data_str = json.dumps(payload)
         print(f"Publishing {data_str} to {topic_path}.")
         future = publish(publisher, topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
-            lambda _: publish_callback(future, active_feed["stable_id"], topic_path)
+            lambda _: publish_callback(future, feed["stable_id"], topic_path)
         )
     BatchExecutionService().save(
         BatchExecution(
             execution_id=execution_id,
-            feeds_total=len(active_feeds),
+            feeds_total=len(feeds),
             timestamp=timestamp,
         )
     )
-    return f"Publish completed. Published {len(active_feeds)} feeds to {pubsub_topic_name}."
+    return f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
