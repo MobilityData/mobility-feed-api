@@ -62,7 +62,7 @@ def publish(publisher: PublisherClient, topic_path: str, data_bytes: bytes) -> F
 
 def get_non_deprecated_feeds(session: Session):
     """
-    Returns a list of none deprecated feeds
+    Returns a list of non deprecated feeds
     :return: list of feeds
     """
     #  Query the database for Gtfs feeds with status different from deprecated
