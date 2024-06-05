@@ -1,0 +1,48 @@
+name: 'Notify Slack'
+description: 'Send a notification to a Slack channel with an error message'
+inputs:
+  OP_SERVICE_ACCOUNT_TOKEN:
+    description: 'The service account token for 1Password'
+    required: true
+    type: string
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Load secrets from 1Password
+      id: onepw_secrets
+      uses: 1password/load-secrets-action@v2.0.0
+      with:
+        export-env: true
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ inputs.OP_SERVICE_ACCOUNT_TOKEN }}
+        CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
+        SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"
+
+    - name: Post notification in Slack channel
+      uses: slackapi/slack-github-action@v1.26.0
+      with:
+        payload: |
+          {
+            "channel": "C074SPVCH6H",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": ":x: ERROR running Github action \"${{ github.workflow }}\"",
+                  "emoji": true
+                }
+              },  
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }
+              }    
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

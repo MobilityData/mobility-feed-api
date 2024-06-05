@@ -36,3 +36,15 @@ jobs:
       API_URL: 'https://api-dev.mobilitydatabase.org'
     secrets:
       REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
+
+  notify-slack-on-failure:
+    needs: [ api-build-deployment, integration-tests ]
+    if: always() && (needs.api-build-deployment.result == 'failure' || needs.integration-tests.result == 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
