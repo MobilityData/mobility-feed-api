@@ -52,7 +52,8 @@ locals {
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com",
     "vpcaccess.googleapis.com",
-    "workflows.googleapis.com"
+    "workflows.googleapis.com",
+    "cloudtasks.googleapis.com",
   ]
 }
 
