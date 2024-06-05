@@ -1,36 +1,38 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type FeedErrors, FeedErrorSource, type FeedError } from '../types';
-import { type AllFeedType } from '../services/feeds/utils';
+import { type paths } from '../services/feeds/types';
 
-interface FeedState {
-  status: 'loading' | 'loaded' | 'error';
-  feedId: string | undefined;
-  data: AllFeedType;
+interface DatasetState {
+  status: 'loading' | 'loaded';
+  datasetId: string | undefined;
+  data:
+    | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
+    | undefined;
   errors: FeedErrors;
 }
 
-const initialState: FeedState = {
+const initialState: DatasetState = {
   status: 'loading',
-  feedId: undefined,
+  datasetId: undefined,
   data: undefined,
   errors: {
     [FeedErrorSource.DatabaseAPI]: null,
   },
 };
 
-export const feedSlice = createSlice({
-  name: 'feedProfile',
+export const datasetSlice = createSlice({
+  name: 'dataset',
   initialState,
   reducers: {
-    updateFeedId: (
+    updateDatasetId: (
       state,
       action: PayloadAction<{
-        feedId: string;
+        datasetId: string;
       }>,
     ) => {
-      state.feedId = action.payload?.feedId;
+      state.datasetId = action.payload?.datasetId;
     },
-    loadingFeed: (
+    loadingDataset: (
       state,
       action: PayloadAction<{
         feedId: string;
@@ -44,32 +46,31 @@ export const feedSlice = createSlice({
         DatabaseAPI: initialState.errors.DatabaseAPI,
       };
     },
-    loadingFeedSuccess: (
+    loadingDatasetSuccess: (
       state,
       action: PayloadAction<{
-        data: AllFeedType;
+        data: paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json'];
       }>,
     ) => {
       state.status = 'loaded';
       state.data = action.payload?.data;
-      state.feedId = action.payload.data?.id;
+      // state.datasetId = action.payload.data?.id;
       state.errors = {
         ...state.errors,
         DatabaseAPI: initialState.errors.DatabaseAPI,
       };
     },
-    loadingFeedFail: (state, action: PayloadAction<FeedError>) => {
-      state.status = 'error';
+    loadingDatasetFail: (state, action: PayloadAction<FeedError>) => {
       state.errors.DatabaseAPI = action.payload;
     },
   },
 });
 
 export const {
-  updateFeedId,
-  loadingFeed,
-  loadingFeedFail,
-  loadingFeedSuccess,
-} = feedSlice.actions;
+  updateDatasetId,
+  loadingDataset,
+  loadingDatasetFail,
+  loadingDatasetSuccess,
+} = datasetSlice.actions;
 
-export default feedSlice.reducer;
+export default datasetSlice.reducer;

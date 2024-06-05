@@ -35,3 +35,8 @@ export const isGtfsRtFeedType = (
 ): data is paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json'] => {
   return data !== undefined && data.data_type === 'gtfs_rt';
 };
+
+export type AllDatasetType =
+  | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
+  | paths['/v1/datasets/gtfs/{id}']['get']['responses'][200]['content']['application/json']
+  | undefined;
