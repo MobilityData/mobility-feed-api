@@ -18,13 +18,13 @@ import os
 from unittest import mock
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from batch_datasets.src.main import get_none_deprecated_feeds, batch_datasets
+from batch_datasets.src.main import get_non_deprecated_feeds, batch_datasets
 from test_utils.database_utils import get_testing_session, default_db_url
 
 
-def test_get_none_deprecated_feeds():
+def test_get_non_deprecated_feeds():
     with get_testing_session() as session:
-        feeds = get_none_deprecated_feeds(session)
+        feeds = get_non_deprecated_feeds(session)
         assert len(feeds) == 10
         assert len([feed for feed in feeds if feed.status == "active"]) == 3
         assert len([feed for feed in feeds if feed.status == "inactive"]) == 7
@@ -44,7 +44,7 @@ def test_get_none_deprecated_feeds():
 def test_batch_datasets(mock_client, mock_publish):
     mock_client.return_value = MagicMock()
     with get_testing_session() as session:
-        feeds = get_none_deprecated_feeds(session)
+        feeds = get_non_deprecated_feeds(session)
         with patch(
             "dataset_service.main.BatchExecutionService.__init__", return_value=None
         ):

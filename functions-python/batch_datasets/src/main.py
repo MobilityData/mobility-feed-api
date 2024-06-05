@@ -60,7 +60,7 @@ def publish(publisher: PublisherClient, topic_path: str, data_bytes: bytes) -> F
     return publisher.publish(topic_path, data=data_bytes)
 
 
-def get_none_deprecated_feeds(session: Session):
+def get_non_deprecated_feeds(session: Session):
     """
     Returns a list of none deprecated feeds
     :return: list of feeds
@@ -106,7 +106,7 @@ def batch_datasets(request):
     """
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        feeds = get_none_deprecated_feeds(session)
+        feeds = get_non_deprecated_feeds(session)
     except Exception as error:
         print(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
