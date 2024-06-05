@@ -67,7 +67,7 @@ resource "google_workflows_workflow" "gtfs_validator_execution" {
   service_account         = google_service_account.workflows_service_account.id
   user_env_vars = {
     datasets_bucket_name  = "${var.datasets_bucket_name}-${var.environment}"
-    reports_bucket_name   = lower(var.project_id) == "prod" ? var.reports_bucket_name : "stg-${var.reports_bucket_name}"
+    reports_bucket_name   = lower(var.environment) == "prod" ? var.reports_bucket_name : "stg-${var.reports_bucket_name}"
     validator_endpoint    = var.validator_endpoint
     environment           = lower(var.environment)
   }
