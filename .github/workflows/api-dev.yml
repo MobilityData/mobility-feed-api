@@ -36,6 +36,9 @@ jobs:
       API_URL: 'https://api-dev.mobilitydatabase.org'
     secrets:
       REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
+    steps:
+      - name: Fail for testing
+        run: exit 1
 
   notify-slack-on-failure:
     needs: [ api-build-deployment, integration-tests ]
