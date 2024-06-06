@@ -4,7 +4,6 @@ on:
   repository_dispatch:
     types: [
       gtfs-validator-release, # Triggered by a release from the Canonical GTFS Validator
-      gtfs-validator-update-stg # Triggered by a merge to `master` in the Canonical GTFS Validator
     ]
 jobs:
   validator-update:
@@ -17,23 +16,23 @@ jobs:
         id: gcloud_auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ github.event.action == 'gtfs-validator-release' && secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY || secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: GCloud Setup
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Set environment variables
         run: |
-          echo "ENVIRONMENT=${{ github.event.action == 'gtfs-validator-release' && vars.PROD_MOBILITY_FEEDS_ENVIRONMENT || vars.DEV_MOBILITY_FEEDS_ENVIRONMENT }}" >> $GITHUB_ENV
-          echo "PROJECT_ID=${{ github.event.action == 'gtfs-validator-release' && vars.PROD_MOBILITY_FEEDS_PROJECT_ID || vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}" >> $GITHUB_ENV
-          echo "DEPLOYER_SERVICE_ACCOUNT=${{ github.event.action == 'gtfs-validator-release' && vars.PROD_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT || vars.DEV_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
+          echo "ENVIRONMENT=${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}" >> $GITHUB_ENV
+          echo "PROJECT_ID=${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}" >> $GITHUB_ENV
+          echo "DEPLOYER_SERVICE_ACCOUNT=${{ vars.PROD_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
 
       # Schedule a task to update the validation report in 24 hours from now to allow runners of the web validator
       # to be properly updated with the new version of the GTFS Validator
       - name: Create task to run cloud function
         run: |
           gcloud tasks create-http-task \
-            --queue=update-validation-report \
+            --queue=update_validation_report_task_queue \
             --url=https://${ENVIRONMENT}-${PROJECT_ID}.cloudfunctions.net/update-validation-report \
             --schedule-time=$(date -u -d "+24 hours" +%Y-%m-%dT%H:%M:%SZ) \
             --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT}
