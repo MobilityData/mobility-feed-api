@@ -1,14 +1,54 @@
+import copy
 import json
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Query
 
-from tests.test_utils.token import authHeaders
 from database.database import Database
-from database_gen.sqlacodegen_models import Feed, Externalid, Location, Gtfsdataset
+from database_gen.sqlacodegen_models import Feed, Externalid, Location, Gtfsdataset, Redirectingid
+from feeds.filters.feed_filter import FeedFilter
+from feeds.impl.models.basic_feed_impl import BaseFeedImpl
+from tests.test_utils.token import authHeaders
 
 redirect_target_id = "test_target_id"
 redirect_comment = "Some comment"
 expected_redirect_response = {"target_id": redirect_target_id, "comment": redirect_comment}
+
+mock_feed = Feed(
+    stable_id="test_id",
+    data_type="test_data_type",
+    status="test_status",
+    provider="test_provider",
+    feed_name="test_feed_name",
+    note="test_note",
+    feed_contact_email="test_feed_contact_email",
+    producer_url="test_producer_url",
+    authentication_type=1,
+    authentication_info_url="test_authentication_info_url",
+    api_key_parameter_name="test_api_key_parameter_name",
+    license_url="test_license_url",
+    externalids=[Externalid(associated_id="test_associated_id", source="test_source")],
+    redirectingids=[Redirectingid(source_id="source_id", target_id="test_target_id", redirect_comment="Some comment")],
+)
+
+expected_feed_response = BaseFeedImpl(
+    id="test_id",
+    data_type="test_data_type",
+    status="test_status",
+    provider="test_provider",
+    feed_name="test_feed_name",
+    note="test_note",
+    feed_contact_email="test_feed_contact_email",
+    source_info={
+        "authentication_type": 1,
+        "authentication_info_url": "test_authentication_info_url",
+        "api_key_parameter_name": "test_api_key_parameter_name",
+        "license_url": "test_license_url",
+        "producer_url": "test_producer_url",
+    },
+    external_ids=[{"external_id": "test_associated_id", "source": "test_source"}],
+    redirects=[{"comment": "Some comment", "target_id": "test_target_id"}],
+)
 
 
 def check_redirect(response: dict):
@@ -21,38 +61,35 @@ def test_feeds_get(client: TestClient, mocker):
     """
     Unit test for get_feeds
     """
-    mock_select = mocker.patch.object(Database(), "select")
+    mock_filter = mocker.patch.object(FeedFilter, "filter")
+    mock_filter_offset = mock_filter.return_value.offset.return_value = mocker.patch.object(Query, "offset")
+    mock_feed_2 = copy.deepcopy(mock_feed)
+    mock_feed_2.stable_id = "test_id_2"
+    mock_filter_offset.all.return_value = [mock_feed, mock_feed_2]
 
-    mock_feed = Feed(stable_id="test_id")
-    mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_select.return_value = [[(mock_feed, redirect_target_id, mock_external_id, redirect_comment)]]
     response = client.request(
         "GET",
         "/v1/feeds",
         headers=authHeaders,
     )
 
-    assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_feed = response.json()[0]
-    assert response_feed["id"] == "test_id", f"Response feed id was {response_feed.id} instead of test_id"
+    response_feeds = response.json()
+    assert len(response_feeds) == 2, f"Response feeds length was {len(response_feeds)} instead of 2"
     assert (
-        response_feed["external_ids"][0]["external_id"] == "test_associated_id"
-    ), f'Response feed external id was {response_feed["external_ids"][0]["external_id"]} instead of test_associated_id'
+        response_feeds[0] == expected_feed_response.dict()
+    ), f"Response feed was {response_feeds[0]} instead of {expected_feed_response.dict()}"
     assert (
-        response_feed["external_ids"][0]["source"] == "test_source"
-    ), f'Response feed source was {response_feed["external_ids"][0]["source"]} instead of test_source'
-    check_redirect(response_feed)
+        response_feeds[1]["id"] == "test_id_2"
+    ), f"Response feed was {response_feeds[0]} instead of {expected_feed_response.dict()}"
 
 
 def test_feed_get(client: TestClient, mocker):
     """
     Unit test for get_feeds
     """
-    mock_select = mocker.patch.object(Database(), "select")
-    mock_feed = Feed(stable_id="test_id")
-    mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_select.return_value = [[(mock_feed, redirect_target_id, mock_external_id, redirect_comment)]]
+    mock_filter = mocker.patch.object(FeedFilter, "filter")
+    mock_filter.return_value.first.return_value = mock_feed
 
     response = client.request(
         "GET",
@@ -60,18 +97,15 @@ def test_feed_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
+    assert mock_filter.call_count == 1, (
+        f"create_feed_filter() was called {mock_filter.call_count} times instead of 1 " f"time"
+    )
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     response_feed = response.json()
-    assert response_feed["id"] == "test_id", f"Response feed id was {response_feed.id} instead of test_id"
-    assert (
-        response_feed["external_ids"][0]["external_id"] == "test_associated_id"
-    ), f'Response feed external id was {response_feed["external_ids"][0]["external_id"]} instead of test_associated_id'
-    assert (
-        response_feed["external_ids"][0]["source"] == "test_source"
-    ), f'Response feed source was {response_feed["external_ids"][0]["source"]} instead of test_source'
 
-    check_redirect(response_feed)
+    assert (
+        response_feed == expected_feed_response.dict()
+    ), f"Response feed was {response_feed} instead of {expected_feed_response.dict()}"
 
 
 def test_gtfs_feeds_get(client: TestClient, mocker):

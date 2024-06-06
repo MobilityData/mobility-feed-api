@@ -175,7 +175,7 @@ def populate_database(db: Database):
         db.session.execute(
             text(
                 f"INSERT INTO redirectingid (source_id, target_id) "
-                f"VALUES ('{gtfs_feed_ids[0]}', '{gtfs_feed_ids[1]}')"
+                f"VALUES ('{gtfs_feed_ids[0]}', '{gtfs_feed_ids[2]}')"
             )
         )
 
@@ -186,12 +186,6 @@ def populate_database(db: Database):
             )
         )
 
-        db.session.execute(
-            text(
-                f"INSERT INTO redirectingid (source_id, target_id) "
-                f"VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[2]}')"
-            )
-        )
         db.session.execute(
             text(
                 f"INSERT INTO redirectingid "

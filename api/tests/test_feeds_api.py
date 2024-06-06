@@ -41,7 +41,7 @@ def test_feeds_get(client: TestClient):
 def test_feeds_get_with_limit_and_offset(client: TestClient):
     params = [
         ("limit", 5),
-        ("offset", 1),
+        ("offset", 0),
         ("filter", "status=active"),
         ("sort", "+provider"),
     ]
