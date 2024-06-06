@@ -31,6 +31,7 @@ from feeds.impl.error_handling import (
     gtfs_feed_not_found,
     gtfs_rt_feed_not_found,
 )
+from feeds.impl.models.basic_feed_impl import BasicFeedImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
@@ -273,8 +274,9 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        if (ret := self._get_basic_feeds(FeedFilter(stable_id=id))) and len(ret) == 1:
-            return ret[0]
+        feed = FeedFilter(stable_id=id).filter(Database().get_query_model(Feed)).first()
+        if feed:
+            return BasicFeedImpl.from_orm(feed)
         else:
             raise_http_error(404, feed_not_found.format(id))
 
@@ -288,7 +290,13 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
         feed_filter = FeedFilter(status=status, provider__ilike=provider, producer_url__ilike=producer_url)
-        return self._get_basic_feeds(feed_filter, limit, offset)
+        feed_query = feed_filter.filter(Database().get_query_model(Feed))
+        if limit is not None:
+            feed_query = feed_query.limit(limit)
+        if offset is not None:
+            feed_query = feed_query.offset(offset)
+        results = feed_query.all()
+        return [BasicFeedImpl.from_orm(feed) for feed in results]
 
     def get_gtfs_feed(
         self,

@@ -37,6 +37,7 @@ def test_feeds_get(client: TestClient):
 
     assert response.status_code == 200
 
+
 def test_feeds_get_with_limit_and_offset(client: TestClient):
     params = [
         ("limit", 5),
