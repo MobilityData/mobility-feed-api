@@ -20,7 +20,8 @@ on:
 jobs:
   integration-tests:
     name: Integration Tests
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: ubuntu-latest-4-cores
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
