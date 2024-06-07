@@ -1,8 +1,6 @@
-import io
 import json
-import os
+
 from google.cloud import bigquery, storage
-from google.cloud.bigquery import SchemaField
 from google.cloud.bigquery.job import LoadJobConfig, SourceFormat
 
 # Set up your Google Cloud project and bucket details
@@ -37,7 +35,7 @@ def create_bigquery_table():
     try:
         bigquery_client.get_table(table_ref)
         print(f"Table {table_id} already exists.")
-    except:
+    except Exception as e:
         schema = [
             bigquery.SchemaField("summary", "RECORD", mode="NULLABLE", fields=[
                 bigquery.SchemaField("validatorVersion", "STRING", mode="NULLABLE"),
@@ -82,6 +80,7 @@ def create_bigquery_table():
             ]),
             bigquery.SchemaField("feedId", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("datasetId", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("validatedAt", "TIMESTAMP", mode="NULLABLE"),
         ]
 
         table = bigquery.Table(table_ref, schema=schema)
@@ -104,6 +103,10 @@ def process_bucket_files():
             # Add feedId to the JSON data
             json_data['feedId'] = feed_id
             json_data['datasetId'] = feed_dataset_id
+
+            # Extract validatedAt and add it to the same level
+            validated_at = json_data['summary'].get('validatedAt', None)
+            json_data['validatedAt'] = validated_at
 
             # Convert sampleNotices to JSON strings
             for notice in json_data.get('notices', []):
@@ -150,7 +153,7 @@ def load_data_to_bigquery():
                 if 'debugInfo' in error:
                     print(f"Debug Info: {error['reason']}")
 
-# Main function
+
 def main():
     create_bigquery_dataset()
     create_bigquery_table()
