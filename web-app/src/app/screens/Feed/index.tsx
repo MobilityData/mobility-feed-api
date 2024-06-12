@@ -57,6 +57,7 @@ export default function Feed(): React.ReactElement {
 
   useEffect(() => {
     if (user?.accessToken !== undefined && feedId !== undefined) {
+      console.log(user);
       dispatch(loadingFeed({ feedId, accessToken: user?.accessToken }));
       dispatch(loadingDataset({ feedId, accessToken: user?.accessToken }));
     }

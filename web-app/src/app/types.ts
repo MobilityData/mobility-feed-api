@@ -58,6 +58,10 @@ export const FEED_PROFILE_LOADING_FEED = `${FEED_PROFILE}/loadingFeed`;
 export const FEED_PROFILE_LOADING_FEED_SUCCESS = `${FEED_PROFILE}/loadingFeedSuccess`;
 export const FEED_PROFILE_LOADING_FEED_FAIL = `${FEED_PROFILE}/loadingFeedFail`;
 
+export const FEEDS_LOADING_FEEDS = `feeds/loadingFeeds`;
+export const FEEDS_LOADING_FEEDS_SUCCESS = `feeds/loadingFeedsSuccess`;
+export const FEEDS_LOADING_FEEDS_FAIL = `feeds/loadingFeedsFail`;
+
 export const DATASET_UPDATE_FEED_ID = `dataset/updateDatasetId`;
 export const DATASET_LOADING_FEED = `dataset/loadingDataset`;
 export const DATASET_LOADING_FEED_SUCCESS = `dataset/loadingDatasetSuccess`;
@@ -91,6 +95,10 @@ export interface FeedError {
 
 export type ProfileErrors = {
   [Property in ProfileErrorSource]: ProfileError | null;
+};
+
+export type FeedsErrors = {
+  [Property in FeedErrorSource]: FeedError | null;
 };
 
 export type FeedErrors = {

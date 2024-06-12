@@ -1,6 +1,6 @@
 import createClient, { type Middleware } from 'openapi-fetch';
 import type { paths } from './types';
-import { type AllFeedType } from './utils';
+import { type AllFeedsParams, type AllFeedType } from './utils';
 
 const API_BASE_URL = 'https://api-dev.mobilitydatabase.org';
 
@@ -206,17 +206,26 @@ export const getMetadata = async (): Promise<
     });
 };
 
-export const searchFeeds = async (): Promise<
+export const searchFeeds = async (
+  params: AllFeedsParams,
+  accessToken: string,
+): Promise<
   | paths['/v1/search']['get']['responses'][200]['content']['application/json']
   | undefined
 > => {
+  const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  client.use(authMiddleware);
+  // debugger;
   return await client
-    .GET('/v1/search', { params: {} })
+    .GET('/v1/search', { params })
     .then((response) => {
       const data = response.data;
       return data;
     })
     .catch(function (error) {
       throw error;
+    })
+    .finally(() => {
+      client.eject(authMiddleware);
     });
 };
