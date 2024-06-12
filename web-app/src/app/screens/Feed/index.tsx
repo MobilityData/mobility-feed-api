@@ -22,6 +22,7 @@ import { ContentBox } from '../../components/ContentBox';
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed } from '../../store/feed-reducer';
 import {
+  selectIsAnonymous,
   selectIsAuthenticated,
   selectUserProfile,
 } from '../../store/profile-selectors';
@@ -57,18 +58,19 @@ export default function Feed(): React.ReactElement {
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
   const dispatch = useAppDispatch();
-  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const isAuthenticatedOrAnonymous =
+    useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
 
   useEffect(() => {
     if (
-      isAuthenticated &&
+      isAuthenticatedOrAnonymous &&
       user?.accessToken !== undefined &&
       feedId !== undefined
     ) {
       dispatch(loadingFeed({ feedId, accessToken: user?.accessToken }));
       dispatch(loadingDataset({ feedId, accessToken: user?.accessToken }));
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticatedOrAnonymous]);
 
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
