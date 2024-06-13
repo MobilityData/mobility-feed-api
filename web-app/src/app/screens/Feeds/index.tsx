@@ -241,6 +241,7 @@ export default function Feed(): React.ReactElement {
                     </Grid>
                     <Grid item xs={12}>
                       <Button
+                        variant='contained'
                         disabled={
                           feedsData?.total !== undefined &&
                           searchLimit >= feedsData?.total
