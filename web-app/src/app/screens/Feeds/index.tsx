@@ -29,7 +29,7 @@ import {
 import SearchResultItem from './SearchResultItem';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-const SEARCH_LIMIT_INCREASE = 10;
+const SEARCH_LIMIT_INCREASE = 20;
 
 const getDataTypeParamFromSelectedFeedTypes = (
   selectedFeedTypes: Record<string, boolean>,
