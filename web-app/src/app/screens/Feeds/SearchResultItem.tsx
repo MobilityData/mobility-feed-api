@@ -52,6 +52,9 @@ export default function SearchResultItem({
           {result.status === 'deprecated' && (
             <Chip label={`Deprecated`} color='error' variant='outlined' />
           )}
+          {result.status === 'development' && (
+            <Chip label={`Development`} color='error' variant='outlined' />
+          )}
           <Chip
             label={
               result.data_type === 'gtfs' ? 'GTFS Schedule' : 'GTFS Realtime'
