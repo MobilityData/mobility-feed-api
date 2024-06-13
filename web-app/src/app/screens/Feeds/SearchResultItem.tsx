@@ -10,6 +10,16 @@ export interface SearchResultItemProps {
   result: GTFSFeedType | GTFSRTFeedType;
 }
 
+const renderEntityTypeChip = (entityType: string): JSX.Element => {
+  let label = 'Service Alerts';
+  if (entityType === 'vp') {
+    label = 'Vehicle Positions';
+  } else if (entityType === 'tu') {
+    label = 'Trip Updates';
+  }
+  return <Chip label={label} variant='outlined' />;
+};
+
 export default function SearchResultItem({
   result,
 }: SearchResultItemProps): React.ReactElement {
@@ -17,12 +27,18 @@ export default function SearchResultItem({
   return (
     <ContentBox
       key={result.id}
-      title={result.provider ?? ''}
-      width={{ xs: '80%' }}
+      title={
+        result.provider?.substring(0, 100) +
+          (result.provider?.length !== undefined &&
+          result.provider?.length > 100
+            ? '...'
+            : '') ?? ''
+      }
+      width={{ xs: '100%' }}
       outlineColor={colors.blue[900]}
     >
       <Grid container>
-        <Grid item>
+        <Grid item xs={12}>
           <div>
             {result?.locations !== undefined
               ? Object.values(result?.locations[0])
@@ -32,12 +48,21 @@ export default function SearchResultItem({
               : ''}
           </div>
         </Grid>
-        <Grid item>
-          <div>
+        <Grid item xs={12}>
+          {result.status === 'deprecated' && (
             <Chip label={`Deprecated`} color='error' variant='outlined' />
-            <Chip label={`GTFS Schedule`} color='primary' variant='outlined' />
-            <Chip label={`GTFS Schedule`} variant='outlined' />
-          </div>
+          )}
+          <Chip
+            label={
+              result.data_type === 'gtfs' ? 'GTFS Schedule' : 'GTFS Realtime'
+            }
+            color='primary'
+            variant='outlined'
+          />
+          {result.data_type === 'gtfs_rt' &&
+            result.entity_types?.map((entityType) => {
+              return renderEntityTypeChip(entityType);
+            })}
         </Grid>
       </Grid>
     </ContentBox>
