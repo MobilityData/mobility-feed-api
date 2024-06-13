@@ -43,7 +43,7 @@ export const AppRouter: React.FC = () => {
       <Route path='forgot-password' element={<ForgotPassword />} />
       <Route path='faq' element={<FAQ />} />
       <Route path='about' element={<About />} />
-      <Route path='feeds/' element={<Feeds />} />
+      <Route path='feeds' element={<Feeds />} />
       <Route path='feeds/:feedId' element={<Feed />} />
       <Route path='contribute' element={<Contribute />} />
       <Route path='privacy-policy' element={<PrivacyPolicy />} />
