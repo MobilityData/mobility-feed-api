@@ -120,8 +120,8 @@ export default function Feed(): React.ReactElement {
           display: 'flex',
           flexDirection: 'column',
           m: 0,
-          width: '90%',
         }}
+        width={{ xs: '100%', sm: '90%' }}
         margin={{ xs: '0', sm: '80px' }}
       >
         <Grid container spacing={2}>
@@ -160,8 +160,8 @@ export default function Feed(): React.ReactElement {
           </Grid>
           <Grid item xs={12}>
             <Box
+              width={{ xs: '100vw', sm: '90vw' }}
               sx={{
-                width: '90vw',
                 background: '#F8F5F5',
                 borderRadius: '6px 0px 0px 6px',
                 p: 5,
