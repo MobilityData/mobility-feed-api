@@ -275,16 +275,12 @@ paths:
                   total:
                     type: integer
                     description: The total number of matching entities found regardless the limit and offset parameters.
-
                   results:
                     type: array
                     items:
                       allOf:
                         - $ref: '#/components/schemas/GtfsFeed'
                         - $ref: '#/components/schemas/GtfsRTFeed'
-                  total:
-                    type: integer
-                    description: The total number of matching entities found regarless the limit and offset parameters.
                
 
 components:
