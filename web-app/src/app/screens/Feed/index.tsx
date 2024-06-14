@@ -60,7 +60,7 @@ export default function Feed(): React.ReactElement {
       dispatch(loadingFeed({ feedId, accessToken: user?.accessToken }));
       dispatch(loadingDataset({ feedId, accessToken: user?.accessToken }));
     }
-  }, []);
+  }, [user?.accessToken, feedId]);
 
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
