@@ -1,8 +1,9 @@
 import createClient, { type Middleware } from 'openapi-fetch';
 import type { paths } from './types';
 import { type AllFeedType } from './utils';
+import { getEnvConfig } from '../../utils/config';
 
-const API_BASE_URL = 'https://api-dev.mobilitydatabase.org';
+const API_BASE_URL = getEnvConfig('REACT_APP_FEED_API_BASE_URL');
 
 const client = createClient<paths>({ baseUrl: `${API_BASE_URL}` });
 
