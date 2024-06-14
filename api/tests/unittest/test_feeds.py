@@ -1,8 +1,8 @@
 import copy
 import json
+from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Query
 
 from database.database import Database
 from database_gen.sqlacodegen_models import Feed, Externalid, Location, Gtfsdataset, Redirectingid
@@ -62,7 +62,10 @@ def test_feeds_get(client: TestClient, mocker):
     Unit test for get_feeds
     """
     mock_filter = mocker.patch.object(FeedFilter, "filter")
-    mock_filter_offset = mock_filter.return_value.offset.return_value = mocker.patch.object(Query, "offset")
+    mock_filter_offset = Mock()
+    mock_filter_order_by = Mock()
+    mock_filter.return_value.order_by.return_value = mock_filter_order_by
+    mock_filter_order_by.offset.return_value = mock_filter_offset
     mock_feed_2 = copy.deepcopy(mock_feed)
     mock_feed_2.stable_id = "test_id_2"
     mock_filter_offset.all.return_value = [mock_feed, mock_feed_2]

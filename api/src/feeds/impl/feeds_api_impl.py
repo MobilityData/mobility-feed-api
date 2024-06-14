@@ -291,10 +291,13 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get some (or all) feeds from the Mobility Database."""
         feed_filter = FeedFilter(status=status, provider__ilike=provider, producer_url__ilike=producer_url)
         feed_query = feed_filter.filter(Database().get_query_model(Feed))
+        # Results are sorted by provider
+        feed_query = feed_query.order_by(Feed.provider, Feed.stable_id)
         if limit is not None:
             feed_query = feed_query.limit(limit)
         if offset is not None:
             feed_query = feed_query.offset(offset)
+
         results = feed_query.all()
         return [BasicFeedImpl.from_orm(feed) for feed in results]
 
