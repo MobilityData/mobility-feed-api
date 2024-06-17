@@ -1,5 +1,12 @@
 import { remoteConfig } from '../../firebase';
-export type RemoteConfigValues = Record<string, string | number | boolean>;
+
+type FirebaseDefaultConfig = typeof remoteConfig.defaultConfig;
+
+export interface RemoteConfigValues extends FirebaseDefaultConfig {
+  enableAppleSSO: boolean;
+  enableMVPSearch: boolean;
+  enableFeedsPage: boolean;
+}
 
 // Add default values for remote config here
 export const defaultRemoteConfigValues: RemoteConfigValues = {

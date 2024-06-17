@@ -25,7 +25,7 @@ import {
   navigationAccountItem,
   SIGN_IN_TARGET,
   ACCOUNT_TARGET,
-  buildNavigationItems
+  buildNavigationItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { useNavigate } from 'react-router-dom';
@@ -146,11 +146,13 @@ const DrawerContent: React.FC<{
 export default function DrawerAppBar(): React.ReactElement {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openDialog, setOpenDialog] = React.useState(false);
-  const [navigationItems, setNavigationItems] = React.useState<NavigationItem[]>([]);
+  const [navigationItems, setNavigationItems] = React.useState<
+    NavigationItem[]
+  >([]);
   const { config } = useRemoteConfig();
 
   React.useEffect(() => {
-    setNavigationItems(buildNavigationItems(config))
+    setNavigationItems(buildNavigationItems(config));
   }, [config]);
 
   const navigateTo = useNavigate();
