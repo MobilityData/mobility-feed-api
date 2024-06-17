@@ -7,6 +7,7 @@ locals {
     "networkmanagement.googleapis.com",
     "servicenetworking.googleapis.com"
   ]
+  retained_backups = lower(var.environment) == "prod" ? 31 : 7
 }
 
 resource "google_project_service" "services" {
@@ -49,6 +50,7 @@ resource "google_sql_database_instance" "db" {
   name             = var.postgresql_instance_name
   database_version = "POSTGRES_12"
   region           = var.gcp_region
+  deletion_protection = true
 
   settings {
     tier = var.postgresql_db_instance
@@ -59,6 +61,16 @@ resource "google_sql_database_instance" "db" {
     ip_configuration {
       ipv4_enabled = false
       private_network = "projects/${var.project_id}/global/networks/default"
+    }
+    backup_configuration {
+      enabled    = true
+      start_time = "00:00"
+      binary_log_enabled = true
+      point_in_time_recovery_enabled = true
+      transaction_log_retention_days = 7
+      backup_retention_settings {
+        retained_backups = local.retained_backups
+      }
     }
   }
   depends_on = [google_service_networking_connection.private_vpc_connection]
