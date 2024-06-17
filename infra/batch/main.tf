@@ -35,6 +35,7 @@ locals {
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
   # 1day=86400, 7days=604800, 31days=2678400
   retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 2678400
+  retention_duration_days = lower(var.environment) == "prod" ? 31 : 31
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -67,9 +68,13 @@ resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
   location = var.gcp_region
   uniform_bucket_level_access = false
-  soft_delete_policy {
-    # this is seconds. 1day=86400, 7days=604800, 30days=2592000
-    retention_duration_seconds = local.retention_duration_seconds
+  lifecycle_rule {
+    condition {
+      age = local.retention_duration_days
+    }
+    action {
+      type = "Delete"
+    }
   }
 }
 
