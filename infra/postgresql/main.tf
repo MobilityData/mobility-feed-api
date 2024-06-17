@@ -8,6 +8,7 @@ locals {
     "servicenetworking.googleapis.com"
   ]
   retained_backups = lower(var.environment) == "prod" ? 31 : 7
+  availability_type = lower(var.environment) == "prod" ? "REGIONAL" : "REGIONAL"
 }
 
 resource "google_project_service" "services" {
@@ -62,6 +63,7 @@ resource "google_sql_database_instance" "db" {
       ipv4_enabled = false
       private_network = "projects/${var.project_id}/global/networks/default"
     }
+    availability_type = local.availability_type
     backup_configuration {
       enabled    = true
       start_time = "00:00"
