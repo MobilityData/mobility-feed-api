@@ -8,7 +8,7 @@ locals {
     "servicenetworking.googleapis.com"
   ]
   retained_backups = lower(var.environment) == "prod" ? 31 : 7
-  availability_type = lower(var.environment) == "prod" ? "REGIONAL" : "REGIONAL"
+  availability_type = lower(var.environment) == "prod" ? "REGIONAL" : "ZONAL"
 }
 
 resource "google_project_service" "services" {
@@ -51,10 +51,14 @@ resource "google_sql_database_instance" "db" {
   name             = var.postgresql_instance_name
   database_version = "POSTGRES_12"
   region           = var.gcp_region
+  # This property protects the DB from deletion only for terraform commands
+  # settings.deletion_protection_enabled protects the DB from deletion in the GCP console and GCP API
   deletion_protection = true
 
   settings {
     tier = var.postgresql_db_instance
+    # This property protects the DB from deletion in the GCP console and GCP API
+    deletion_protection_enabled = true
     database_flags {
       name  = "max_connections"
       value = var.max_db_connections
