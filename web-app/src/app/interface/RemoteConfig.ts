@@ -5,6 +5,7 @@ export type RemoteConfigValues = Record<string, string | number | boolean>;
 export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableAppleSSO: false,
   enableMVPSearch: false,
+  enableFeedsPage: false,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;

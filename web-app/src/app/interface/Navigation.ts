@@ -2,6 +2,12 @@ export default interface NavigationItem {
   title: string;
   color: string;
   target: string;
-  variant: 'text' | 'outlined' | 'contained' | undefined;
+  variant: NavigationItemVariant;
   external?: boolean;
+}
+
+export enum NavigationItemVariant {
+  Text = 'text',
+  Outlined = 'outlined',
+  Contained = 'contained',
 }
