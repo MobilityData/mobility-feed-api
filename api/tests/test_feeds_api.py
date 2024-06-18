@@ -38,6 +38,24 @@ def test_feeds_get(client: TestClient):
     assert response.status_code == 200
 
 
+def test_feeds_get_with_limit_and_offset(client: TestClient):
+    params = [
+        ("limit", 5),
+        ("offset", 0),
+        ("filter", "status=active"),
+        ("sort", "+provider"),
+    ]
+    response = client.request(
+        "GET",
+        "/v1/feeds",
+        headers=authHeaders,
+        params=params,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 5
+
+
 def test_feeds_gtfs_get(client: TestClient):
     """Test case for feeds_gtfs_get"""
 

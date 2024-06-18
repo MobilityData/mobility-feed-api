@@ -22,10 +22,10 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import {
-  navigationItems,
   navigationAccountItem,
   SIGN_IN_TARGET,
   ACCOUNT_TARGET,
+  buildNavigationItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { useNavigate } from 'react-router-dom';
@@ -38,13 +38,15 @@ import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { OpenInNew } from '@mui/icons-material';
 import '../styles/Header.css';
+import { useRemoteConfig } from '../context/RemoteConfigProvider';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
 const DrawerContent: React.FC<{
   onLogoutClick: React.MouseEventHandler;
   onNavigationClick: (target: NavigationItem | string) => void;
-}> = ({ onLogoutClick, onNavigationClick }) => {
+  navigationItems: NavigationItem[];
+}> = ({ onLogoutClick, onNavigationClick, navigationItems }) => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const navigateTo = useNavigate();
   return (
@@ -144,6 +146,14 @@ const DrawerContent: React.FC<{
 export default function DrawerAppBar(): React.ReactElement {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openDialog, setOpenDialog] = React.useState(false);
+  const [navigationItems, setNavigationItems] = React.useState<
+    NavigationItem[]
+  >([]);
+  const { config } = useRemoteConfig();
+
+  React.useEffect(() => {
+    setNavigationItems(buildNavigationItems(config));
+  }, [config]);
 
   const navigateTo = useNavigate();
   const isAuthenticated = useSelector(selectIsAuthenticated);
@@ -235,7 +245,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 onClick={() => {
                   handleNavigation(item);
                 }}
-                variant={item.variant}
+                variant={'text'}
                 endIcon={item.external === true ? <OpenInNew /> : null}
               >
                 {item.title}
@@ -299,6 +309,7 @@ export default function DrawerAppBar(): React.ReactElement {
           <DrawerContent
             onLogoutClick={handleLogoutClick}
             onNavigationClick={handleNavigation}
+            navigationItems={navigationItems}
           />
         </Drawer>
       </nav>
