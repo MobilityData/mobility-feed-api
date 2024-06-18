@@ -128,7 +128,7 @@ class DatasetProcessor:
             file_sha256_hash = self.download_content(temp_file_path)
             if not is_zip_file(temp_file_path):
                 logging.error(
-                    f"The downloaded file from {self.producer_url} is not a valid ZIP file."
+                    f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
                 )
                 return None
 
