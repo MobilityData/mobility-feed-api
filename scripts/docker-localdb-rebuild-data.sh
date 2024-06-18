@@ -36,7 +36,7 @@ display_usage() {
   echo "Usage: $0 [options]"
   echo "Options:"
   echo "  --populate-db <TEST_FILE>   Populate the database with the latest csv file."
-  echo "  --populate-test-data <FOLDER>   Populate the database with the test data."
+  echo "  --populate-test-data  Populate the database with the test data."
   echo "  --help                    Display help content."
   exit 1
 }

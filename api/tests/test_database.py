@@ -108,7 +108,10 @@ def test_merge_gtfs_feed(test_database):
     assert feed_1 is not None
 
     assert feed_1.latest_dataset.id == TEST_DATASET_STABLE_IDS[1]
-    assert sorted([redirect.target_id for redirect in feed_1.redirects]) == [TEST_GTFS_FEED_STABLE_IDS[1]]
+    assert sorted([redirect.target_id for redirect in feed_1.redirects]) == [
+        TEST_GTFS_FEED_STABLE_IDS[1],
+        TEST_GTFS_FEED_STABLE_IDS[2],
+    ]
 
     assert feed_2 is not None
 

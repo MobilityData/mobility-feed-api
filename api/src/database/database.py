@@ -5,7 +5,7 @@ import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import load_only, Query, class_mapper
+from sqlalchemy.orm import load_only, Query, class_mapper, Session
 
 from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed
 from sqlalchemy.orm import sessionmaker
@@ -183,6 +183,19 @@ class Database:
         finally:
             if update_session:
                 self.close_session()
+
+    def get_session(self) -> Session:
+        """
+        :return: the current session
+        """
+        return self.session
+
+    def get_query_model(self, model: Type[Base]) -> Query:
+        """
+        :param model: the sqlalchemy model to query
+        :return: the query model
+        """
+        return self.get_session().query(model)
 
     def select_from_active_session(self, model: Base, conditions: list = None, attributes: list = None):
         """
