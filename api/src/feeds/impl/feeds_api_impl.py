@@ -276,7 +276,11 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
-        feed = FeedFilter(stable_id=id).filter(Database().get_query_model(Feed)).first()
+        feed = (
+            FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
+            .filter(Database().get_query_model(Feed))
+            .first()
+        )
         if feed:
             return BasicFeedImpl.from_orm(feed)
         else:
@@ -291,7 +295,9 @@ class FeedsApiImpl(BaseFeedsApi):
         producer_url: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
-        feed_filter = FeedFilter(status=status, provider__ilike=provider, producer_url__ilike=producer_url)
+        feed_filter = FeedFilter(
+            status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
+        )
         feed_query = feed_filter.filter(Database().get_query_model(Feed))
         # Results are sorted by provider
         feed_query = feed_query.order_by(Feed.provider, Feed.stable_id)
