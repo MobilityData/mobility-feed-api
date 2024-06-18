@@ -39,7 +39,7 @@ from helpers.database import (
 import logging
 
 from helpers.logger import Logger
-from helpers.utils import download_and_get_hash
+from helpers.utils import download_and_get_hash, is_zip_file
 
 
 @dataclass
@@ -126,6 +126,12 @@ class DatasetProcessor:
             logging.info(f"[{self.feed_stable_id}] - Accessing URL {self.producer_url}")
             temp_file_path = self.generate_temp_filename()
             file_sha256_hash = self.download_content(temp_file_path)
+            if not is_zip_file(temp_file_path):
+                logging.error(
+                    f"The downloaded file from {self.producer_url} is not a valid ZIP file."
+                )
+                return None
+
             logging.info(f"[{self.feed_stable_id}] File hash is {file_sha256_hash}.")
 
             if self.latest_hash != file_sha256_hash:

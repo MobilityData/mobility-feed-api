@@ -15,6 +15,7 @@
 #
 
 import os
+import zipfile
 
 from google.cloud import storage
 from requests.adapters import HTTPAdapter
@@ -126,3 +127,15 @@ def download_and_get_hash(
         if os.path.exists(file_path):
             os.remove(file_path)
         raise e
+
+
+def is_zip_file(file_path):
+    """
+    Checks if the file is a valid ZIP file.
+    :param file_path: the path to the file
+    """
+    try:
+        with zipfile.ZipFile(file_path, "r"):
+            return True
+    except zipfile.BadZipFile:
+        return False
