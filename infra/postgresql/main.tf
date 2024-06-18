@@ -7,8 +7,9 @@ locals {
     "networkmanagement.googleapis.com",
     "servicenetworking.googleapis.com"
   ]
-  retained_backups = lower(var.environment) == "prod" ? 31 : 7
+  retained_backups = lower(var.environment) == "prod" ? 31 : 1
   availability_type = lower(var.environment) == "prod" ? "REGIONAL" : "ZONAL"
+  transaction_log_retention_days = lower(var.environment) == "prod" ? 7 : 1
 }
 
 resource "google_project_service" "services" {
@@ -73,7 +74,7 @@ resource "google_sql_database_instance" "db" {
       start_time = "00:00"
       binary_log_enabled = true
       point_in_time_recovery_enabled = true
-      transaction_log_retention_days = 7
+      transaction_log_retention_days = local.transaction_log_retention_days
       backup_retention_settings {
         retained_backups = local.retained_backups
       }

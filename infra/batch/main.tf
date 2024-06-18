@@ -40,7 +40,7 @@ locals {
 #  Files DNS name
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
   # 1day=86400, 7days=604800, 31days=2678400
-  retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 2678400
+  retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 604800
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
