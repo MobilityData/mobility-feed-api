@@ -4,142 +4,215 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
-import { Button, Grid } from '@mui/material';
-import { Download, Login } from '@mui/icons-material';
+import {
+  Button,
+  Divider,
+  Grid,
+  InputAdornment,
+  TextField,
+} from '@mui/material';
+import { Search, CheckCircleOutlineOutlined, PowerOutlined } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
+import { useState, KeyboardEvent } from 'react';
+
+interface ActionBoxProps {
+  IconComponent: React.ElementType;
+  iconHeight: string;
+  buttonHref: string;
+  buttonText: string;
+}
+
+const ActionBox = ({ IconComponent, iconHeight, buttonHref, buttonText }: ActionBoxProps) => (
+  <Box
+      sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+      }}
+  >
+      <IconComponent sx={{ width: '100%', height: iconHeight }} />
+      <Button variant='contained' sx={{ m: 2, px: 2 }}>
+          <a href={buttonHref} className='btn-link' rel='noreferrer'>
+              {buttonText}
+          </a>
+      </Button>
+  </Box>
+);
 
 export default function Home(): React.ReactElement {
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const navigate = useNavigate();
+
+  const handleSearch = () => {
+    if (searchInputValue.trim()) {
+      navigate(`/feeds/q=${encodeURIComponent(searchInputValue)}`);
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
       <CssBaseline />
       <Box
         sx={{
           mt: 12,
+          px: 6,
           display: 'flex',
           flexDirection: 'column',
           width: '100vw',
         }}
       >
-        <Grid container spacing={0}>
-          <Grid sm={12} md={7}>
-            <Typography
-              sx={{
-                fontSize: {
-                  xs: '48px',
-                  sm: '60px',
-                  md: '72px',
-                  lg: '96px',
-                  xl: '96px',
-                },
-                fontStyle: 'normal',
-                fontWeight: 700,
-                lineHeight: 'normal',
-                ml: { xs: 2, sm: 4, md: 8 },
-              }}
-              color='primary'
-              data-testid='home-title'
-            >
-              The Mobility Database
-            </Typography>
-          </Grid>
-          <Grid sm={12} md={5}>
-            <Box
-              sx={{
-                background: '#F8F5F5',
-                borderRadius: '6px 0px 0px 6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyItems: 'center',
-                p: 5,
-                color: 'black',
-                fontSize: '18px',
-                fontWeight: 700,
-                mr: 0,
-              }}
-            >
-              The Mobility Database catalogs is a repository of 2000+ mobility
-              feeds across the world. It has over 150 updated feeds previously
-              unavailable on TransitFeeds (OpenMobilityData).
-              <br />
-              <br />
-              We’re in the first phase of building a sustainable, central hub
-              for mobility data internationally.
-            </Box>
-          </Grid>
-        </Grid>
+        <Typography
+          sx={{
+            fontSize: {
+              xs: '48px',
+              sm: '60px',
+              md: '72px',
+            },
+            fontStyle: 'normal',
+            fontWeight: 700,
+            lineHeight: 'normal',
+            textAlign: 'center',
+          }}
+          color='primary'
+          data-testid='home-title'
+        >
+          The Mobility Database
+        </Typography>
         <Typography
           component='h1'
           variant='h5'
-          sx={{ textAlign: 'center', color: 'black', fontWeight: 700, mt: 5 }}
+          sx={{ textAlign: 'center', color: 'black', fontWeight: 700, mt: 4 }}
         >
-          Currently serving data from over{' '}
-          <span style={{ color: '#3859FA' }}>2000</span> GTFS feeds in{' '}
-          <span style={{ color: '#3859FA' }}>70</span> countries.
+          Currently serving over <span style={{ color: '#3859FA' }}>2000</span>{' '}
+          GTFS feeds from <span style={{ color: '#3859FA' }}>70</span>{' '}
+          countries.
         </Typography>
         <Box
           sx={{
             display: 'flex',
             justifyContent: 'center',
+            alignItems: 'center',
           }}
         >
-          <Button variant='contained' sx={{ m: 2 }} startIcon={<Download />}>
-            <a
-              href='https://bit.ly/catalogs-csv'
-              target='_blank'
-              className='btn-link'
-              rel='noreferrer'
-            >
-              Download the entire catalog
-            </a>
-          </Button>
-          <Button variant='contained' sx={{ m: 2 }} startIcon={<Login />}>
-            <a href='/sign-up' className='btn-link' rel='noreferrer'>
-              Sign up for the API
-            </a>
-          </Button>
-        </Box>
-      </Box>
-      <Box
+          <TextField
+            sx={{
+              width: '80%',
+              mt: 6,
+            }}
+            value={searchInputValue}
+            onChange={(e) => setSearchInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="ex. Boston"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position={'start'}>
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+          />
+        <Button
         sx={{
-          width: '100vw',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          justifyItems: 'center',
+          mt: 6,
+          py: 1.5,
+          ml: 1,
         }}
+        variant="contained"
+        color="primary"
+        onClick={handleSearch}
       >
+        Search
+      </Button>
+        </Box>
         <Box
           sx={{
-            width: '90vw',
-            background: '#F8F5F5',
-            borderRadius: '6px 0px 0px 6px',
-            p: 5,
-            color: 'black',
-            fontSize: '18px',
-            fontWeight: 700,
-            mr: 0,
+            display: 'flex',
+            alignItems: 'center',
+            margin: '60px 0',
+            position: 'relative',
           }}
         >
-          <Typography variant='h5' sx={{ fontWeight: 700 }}>
-            What About TransitFeeds?
+          <Divider
+            sx={{
+              flexGrow: 1,
+              backgroundColor: 'text.primary',
+            }}
+            variant='middle'
+          />
+          <Typography
+            sx={{ fontWeight: 'bold', marginX: '8px' }}
+            variant='body1'
+          >
+            or
           </Typography>
-          You’ll be able to access transitfeeds.com until a deprecation date is
-          decided
-          <br />
-          <Typography>
-            The data on TransitFeeds is becoming increasingly out of date and
-            cannot be updated, which is negatively impacting travelers. That’s
-            why we’re encouraging users to use the Mobility Database instead,
-            which they can actively contribute to and improve.
-            <br />
-            <br />
-            We will discuss the transition process in greater depth before
-            committing to a specific date to remove access to transitfeeds.com.
-            No decision has been made yet. If you want to participated in a
-            discussion about the deprecation of transitfeeds.com, let us know in
-            the catalogs GtiHub repo. We commit to giving 6 months notice once
-            the decision is finalized.
-          </Typography>
+          <Divider
+            sx={{
+              flexGrow: 1,
+              backgroundColor: 'text.primary',
+              mx: '16',
+            }}
+            variant='middle'
+          />
         </Box>
+          <Box
+              sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+              }}
+          >
+              <ActionBox 
+            IconComponent={Search} 
+            iconHeight="70px" 
+            buttonHref="/feeds" 
+            buttonText="Browse Feeds" 
+        />
+        <ActionBox 
+            IconComponent={CheckCircleOutlineOutlined} 
+            iconHeight="70px" 
+            buttonHref="/feeds" 
+            buttonText="Add a feed" 
+        />
+        <ActionBox 
+            IconComponent={PowerOutlined} 
+            iconHeight="70px" 
+            buttonHref="/feeds" 
+            buttonText="Sign up for the API" 
+        />
+          </Box>
+
+
+
+        <Grid sm={12} md={5}>
+          <Box
+            sx={{
+              background: '#F8F5F5',
+              borderRadius: '6px 0px 0px 6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyItems: 'center',
+              p: 5,
+              color: 'black',
+              fontSize: '18px',
+              fontWeight: 700,
+              mr: 0,
+              mt: 5,
+            }}
+          >
+            The Mobility Database catalogs is a repository of 2000+ mobility
+            feeds across the world. It has over 150 updated feeds previously
+            unavailable on TransitFeeds (OpenMobilityData).
+            <br />
+            <br />
+            We’re in the first phase of building a sustainable, central hub for
+            mobility data internationally.
+          </Box>
+        </Grid>
       </Box>
     </Container>
   );
