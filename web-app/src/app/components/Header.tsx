@@ -245,7 +245,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 onClick={() => {
                   handleNavigation(item);
                 }}
-                variant={item.variant}
+                variant={'text'}
                 endIcon={item.external === true ? <OpenInNew /> : null}
               >
                 {item.title}

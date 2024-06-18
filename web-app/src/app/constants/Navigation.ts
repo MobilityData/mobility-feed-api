@@ -1,5 +1,4 @@
 import type NavigationItem from '../interface/Navigation';
-import { NavigationItemVariant } from '../interface/Navigation';
 import { type RemoteConfigValues } from '../interface/RemoteConfig';
 
 export const SIGN_OUT_TARGET = '/sign-out';
@@ -24,7 +23,6 @@ export function buildNavigationItems(
       title: 'About',
       target: 'about',
       color: 'inherit',
-      variant: NavigationItemVariant.Text,
     },
   ];
 
@@ -33,7 +31,6 @@ export function buildNavigationItems(
       title: 'Feeds',
       target: 'feeds',
       color: 'inherit',
-      variant: NavigationItemVariant.Text,
     });
   }
 
@@ -43,27 +40,23 @@ export function buildNavigationItems(
         title: 'FAQ',
         target: 'faq',
         color: 'inherit',
-        variant: NavigationItemVariant.Text,
       },
       {
         title: 'Add a Feed',
         target: 'contribute',
         color: 'inherit',
-        variant: NavigationItemVariant.Text,
       },
       {
         title: 'API Docs',
         target:
           'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html',
         color: 'inherit',
-        variant: NavigationItemVariant.Text,
         external: true,
       },
       {
         title: 'Contact Us',
         target: 'mailto:api@mobilitydata.org',
         color: 'inherit',
-        variant: NavigationItemVariant.Text,
         external: true,
       },
     ],
@@ -75,7 +68,6 @@ export const navigationAccountItem: NavigationItem = {
   title: 'Account',
   target: ACCOUNT_TARGET,
   color: 'inherit',
-  variant: NavigationItemVariant.Text,
 };
 
 export type NavigationHandler = (navigationItem: NavigationItem) => void;
