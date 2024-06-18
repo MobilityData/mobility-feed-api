@@ -74,7 +74,6 @@ resource "google_storage_bucket" "datasets_bucket" {
   location = var.gcp_region
   uniform_bucket_level_access = false
   soft_delete_policy {
-    # this is seconds. 1day=86400, 7days=604800, 30days=2592000
     retention_duration_seconds = local.retention_duration_seconds
   }
 }

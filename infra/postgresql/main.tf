@@ -8,6 +8,7 @@ locals {
     "servicenetworking.googleapis.com"
   ]
   retained_backups = lower(var.environment) == "prod" ? 31 : 1
+  # Prod instances are regional meaning high availability with logs distributed across the region, non-prod instances are zonal with logs distributed across the zone
   availability_type = lower(var.environment) == "prod" ? "REGIONAL" : "ZONAL"
   transaction_log_retention_days = lower(var.environment) == "prod" ? 7 : 1
 }
