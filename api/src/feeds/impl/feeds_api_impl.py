@@ -34,6 +34,7 @@ from feeds.impl.error_handling import (
 from feeds.impl.models.basic_feed_impl import BasicFeedImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
+from feeds.impl.models.gtfs_feed_impl import GtfsFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.external_id import ExternalId
@@ -356,24 +357,23 @@ class FeedsApiImpl(BaseFeedsApi):
         bounding_filter_method: str,
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
-        location_filter = LocationFilter(
-            country_code=country_code,
-            subdivision_name__ilike=subdivision_name,
-            municipality__ilike=municipality,
-        )
-        feed_filter = GtfsFeedFilter(
+        gtfs_feed_filter = GtfsFeedFilter(
             provider__ilike=provider,
             producer_url__ilike=producer_url,
-            location=location_filter,
+            location=LocationFilter(
+                country_code=country_code,
+                subdivision_name__ilike=subdivision_name,
+                municipality__ilike=municipality,
+            ),
         )
-        return self._get_gtfs_feeds(
-            feed_filter,
-            limit=limit,
-            offset=offset,
-            bounding_latitudes=dataset_latitudes,
-            bounding_longitudes=dataset_longitudes,
-            bounding_filter_method=bounding_filter_method,
-        )
+        gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
+        gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.stable_id)
+        if limit is not None:
+            gtfs_feed_query = gtfs_feed_query.limit(limit)
+        if offset is not None:
+            gtfs_feed_query = gtfs_feed_query.offset(offset)
+        results = gtfs_feed_query.all()
+        return [GtfsFeedImpl.from_orm(gtfs_feed) for gtfs_feed in results]
 
     def get_gtfs_rt_feed(
         self,
