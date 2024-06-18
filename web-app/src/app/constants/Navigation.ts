@@ -1,4 +1,5 @@
 import type NavigationItem from '../interface/Navigation';
+import { type RemoteConfigValues } from '../interface/RemoteConfig';
 
 export const SIGN_OUT_TARGET = '/sign-out';
 export const SIGN_IN_TARGET = '/sign-in';
@@ -14,38 +15,59 @@ export const MOBILITY_DATA_LINKS = {
   github: 'https://github.com/MobilityData/mobility-database-catalogs',
 };
 
-export const navigationItems: NavigationItem[] = [
-  { title: 'About', target: 'about', color: 'inherit', variant: 'text' },
-  { title: 'Feeds', target: 'feeds', color: 'inherit', variant: 'text' },
-  { title: 'FAQ', target: 'faq', color: 'inherit', variant: 'text' },
-  {
-    title: 'Add a Feed',
-    target: 'contribute',
-    color: 'inherit',
-    variant: 'text',
-  },
-  {
-    title: 'API Docs',
-    target:
-      'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html',
-    color: 'inherit',
-    variant: 'text',
-    external: true,
-  },
-  {
-    title: 'Contact Us',
-    target: 'mailto:api@mobilitydata.org',
-    color: 'inherit',
-    variant: 'text',
-    external: true,
-  },
-];
+export function buildNavigationItems(
+  featureFlags: RemoteConfigValues,
+): NavigationItem[] {
+  const navigationItems: NavigationItem[] = [
+    {
+      title: 'About',
+      target: 'about',
+      color: 'inherit',
+    },
+  ];
+
+  if (featureFlags.enableFeedsPage) {
+    navigationItems.push({
+      title: 'Feeds',
+      target: 'feeds',
+      color: 'inherit',
+    });
+  }
+
+  navigationItems.push(
+    ...[
+      {
+        title: 'FAQ',
+        target: 'faq',
+        color: 'inherit',
+      },
+      {
+        title: 'Add a Feed',
+        target: 'contribute',
+        color: 'inherit',
+      },
+      {
+        title: 'API Docs',
+        target:
+          'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html',
+        color: 'inherit',
+        external: true,
+      },
+      {
+        title: 'Contact Us',
+        target: 'mailto:api@mobilitydata.org',
+        color: 'inherit',
+        external: true,
+      },
+    ],
+  );
+  return navigationItems;
+}
 
 export const navigationAccountItem: NavigationItem = {
   title: 'Account',
   target: ACCOUNT_TARGET,
   color: 'inherit',
-  variant: 'text',
 };
 
 export type NavigationHandler = (navigationItem: NavigationItem) => void;
