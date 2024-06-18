@@ -37,7 +37,7 @@ tags:
 paths:
   /v1/feeds:
     get:
-      description: Get some (or all) feeds from the Mobility Database.
+      description: Get some (or all) feeds from the Mobility Database. The items are sorted by provider in alphabetical ascending order.
       tags:
         - "feeds"
       operationId: getFeeds

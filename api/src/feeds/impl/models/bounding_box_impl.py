@@ -22,7 +22,7 @@ class BoundingBoxImpl(BoundingBox):
         if geometry_value is None or geometry_value.data is None:
             return None
         shape = to_shape(geometry_value)
-        return BoundingBox(
+        return BoundingBoxImpl(
             minimum_latitude=shape.bounds[1],
             maximum_latitude=shape.bounds[3],
             minimum_longitude=shape.bounds[0],
