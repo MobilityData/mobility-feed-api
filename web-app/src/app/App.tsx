@@ -11,8 +11,6 @@ import i18n from '../i18n';
 import { Suspense } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
-const Loader = () => <div>Loading...</div>;
-
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
   const dispatch = useDispatch();
@@ -21,7 +19,7 @@ function App(): React.ReactElement {
   return (
     <RemoteConfigProvider>
       <I18nextProvider i18n={i18n}>
-        <Suspense fallback={<Loader />}>
+        <Suspense>
           <div id='app-main-container'>
             <AppSpinner>
                 <BrowserRouter>
