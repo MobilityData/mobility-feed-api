@@ -42,6 +42,7 @@ import {
   formatTokenExpiration,
   getTimeLeftForTokenExpiration,
 } from '../utils/date';
+import { useTranslation } from 'react-i18next';
 
 interface APIAccountState {
   showRefreshToken: boolean;
@@ -55,24 +56,29 @@ enum TokenTypes {
   Refresh = 'refreshToken',
 }
 
-const texts = {
-  accessTokenHidden: 'Your access token is hidden',
-  refreshTokenHidden: 'Your refresh token is hidden',
-  copyAccessToken: 'Copy Access Token',
-  copyAccessTokenToClipboard: 'Copy access token to clipboard',
-  copyRefreshToken: 'Copy Refresh Token',
-  copyRefreshTokenToClipboard: 'Copy refresh token to clipboard',
-  copyToClipboard: 'Copy to clipboard',
-  copied: 'Copied!',
-  tokenUnavailable: 'Your token is unavailable',
-};
+
 
 export default function APIAccount(): React.ReactElement {
+  
+  const { t } = useTranslation('account');
   const apiURL = 'https://api.mobilitydatabase.org/v1';
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const user = useSelector(selectUserProfile);
   const navigateTo = useNavigate();
+
+  const texts = {
+    accessTokenHidden: t('accessToken.hidden'),
+    refreshTokenHidden: t('refreshToken.placeholder'),
+    copyAccessToken: t('accessToken.copyToken'),
+    copyAccessTokenToClipboard: t('accessToken.copyTokenToClipboard'),
+    copyRefreshToken: t('refreshToken.copy'),
+    copyRefreshTokenToClipboard: t('refreshToken.copyToClipboard'),
+    copyToClipboard: t('common:copyToClipboard'),
+    copied: t('common:copied'),
+    tokenUnavailable: t('accessToken.unavailable'),
+  };
+
   const refreshingAccessTokenError = useSelector(
     selectRefreshingAccessTokenError,
   );
@@ -204,7 +210,7 @@ export default function APIAccount(): React.ReactElement {
     const refreshToken =
       user?.refreshToken !== undefined
         ? user?.refreshToken
-        : '[Your Refresh Token]';
+        : `[${t('refreshToken.yourToken')}]`;
     return `curl --location '${apiURL}/tokens' --header 'Content-Type: application/json' --data '{ "refresh_token": "${refreshToken}" }'`;
   };
 
@@ -212,7 +218,7 @@ export default function APIAccount(): React.ReactElement {
     const accessToken =
       user?.accessToken !== undefined
         ? user?.accessToken
-        : '[Your Access Token]';
+        : `[${t('accessToken.yourToken')}]`;
     return `curl --location '${apiURL}/metadata' --header 'Accept: application/json' --header 'Authorization: Bearer ${accessToken}'`;
   };
 
@@ -222,12 +228,12 @@ export default function APIAccount(): React.ReactElement {
       .then(() => {
         setAccountState({
           ...accountState,
-          codeBlockTooltip: 'Copied!',
+          codeBlockTooltip: texts.copied,
         });
         setTimeout(() => {
           setAccountState({
             ...accountState,
-            codeBlockTooltip: 'Copy to clipboard',
+            codeBlockTooltip: texts.copyToClipboard,
           });
         }, 1000);
       })
@@ -248,8 +254,8 @@ export default function APIAccount(): React.ReactElement {
   }
 
   const refreshAccessTokenButtonText = isRefreshingAccessToken
-    ? 'Refreshing Access token...'
-    : 'Refresh Access token';
+    ? t('accessToken.refreshing')
+    : t('accessToken.refresh')
 
   return (
     <Container
@@ -293,7 +299,7 @@ export default function APIAccount(): React.ReactElement {
             setRefreshTokenSuccess(false);
           }}
         >
-          Your access token has been refreshed successfully!
+          {t('accessToken.refreshSuccess')}
         </Alert>
       </Snackbar>
       <CssBaseline />
@@ -304,7 +310,7 @@ export default function APIAccount(): React.ReactElement {
         sx={{ fontWeight: 'bold', ml: 5 }}
         alignSelf='flex-start'
       >
-        Your API Account
+        {t('title')}
       </Typography>
       <Box sx={{ display: 'flex', width: '100%', mt: 2 }}>
         <Paper
@@ -330,27 +336,27 @@ export default function APIAccount(): React.ReactElement {
             }}
           >
             <AccountCircleOutlined sx={{ mr: 1 }} />
-            User Details
+            {t('userDetails')}
           </Typography>
           <Typography variant='body1'>
-            <b>Name:</b>
-            {' ' + user?.fullName ?? 'Unknown'}
+            <b>{t('common:name')}:</b>
+            {' ' + user?.fullName ?? t('common:unknown')}
           </Typography>
           <Typography variant='body1'>
             {user?.email !== undefined && user?.email !== '' ? (
               <Typography variant='body1'>
-                <b>Email:</b> {' ' + user?.email ?? 'Unknown'}
+                <b>{t('common:email')}:</b> {' ' + user?.email ?? t('common:unknown')}
               </Typography>
             ) : null}
           </Typography>
           {user?.organization !== undefined && (
             <Typography variant='body1'>
-              <b>Organization:</b> {' ' + user?.organization}
+              <b>{t('common:organization')}:</b> {' ' + user?.organization}
             </Typography>
           )}
           {user?.isRegisteredToReceiveAPIAnnouncements === true ? (
             <Chip
-              label='Registered to API Announcements'
+              label={t('registerApiAnnouncements')}
               color='primary'
               variant='outlined'
               sx={{ mt: 1 }}
@@ -376,13 +382,12 @@ export default function APIAccount(): React.ReactElement {
               startIcon={<ExitToAppOutlined />}
               onClick={handleSignOutClick}
             >
-              Sign Out
+              {t('common:signOut')}
             </Button>
           </Box>
           <Box sx={{ mt: 4 }} />
           <Typography>
-            If you need a reissued refresh token or want your account removed,
-            send us an email at{' '}
+            {t('support') + ' '}
             <Link
               href='mailto:api@mobilitydata.org?subject=Remove Mobility Database account'
               color={'inherit'}
@@ -397,15 +402,11 @@ export default function APIAccount(): React.ReactElement {
         <Box sx={{ ml: 10 }}>
           <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
             <Typography sx={{ mb: 2 }}>
-              The Mobility Database API uses OAuth2 authentication. To initiate
-              a successful API request, an access token must be included as a
-              bearer token in the HTTP header. Access tokens are valid for one
-              hour. To obtain an access token, you&apos;ll first need a refresh
-              token, which is long-lived and does not expire.
+              {t('description')}
             </Typography>
-            <Typography variant='sectionTitle'>Refresh Token</Typography>
+            <Typography variant='sectionTitle'>{t('refreshToken.title')}</Typography>
             <Typography sx={{ mb: 2 }}>
-              Use your refresh token to connect to the API in your app.
+              {t('refreshToken.description')}
             </Typography>
             <Box className='token-display-element'>
               <Typography width={500} variant='body1'>
@@ -449,10 +450,10 @@ export default function APIAccount(): React.ReactElement {
                     </IconButton>
                   </span>
                 </Tooltip>
-                <Tooltip title='Toggle Refresh Token Visibility'>
+                <Tooltip title={t('refreshToken.toggleVisibility')}>
                   <IconButton
                     color='primary'
-                    aria-label='toggle refresh token visibility'
+                    aria-label={t('refreshToken.toggleVisibility')}
                     onClick={() => {
                       handleClickShowToken(TokenTypes.Refresh);
                     }}
@@ -471,18 +472,18 @@ export default function APIAccount(): React.ReactElement {
           </Box>
           <Box sx={{ p: 1, mt: 5 }}>
             <Typography variant='sectionTitle'>
-              How to Generate the Access Token in Your App
+              {t('accessToken.title')}
             </Typography>
             <Typography sx={{ mb: 2 }}>
-              Follow{' '}
+              {t('accessToken.description.pt1') + ' '}
               <Link
                 href='https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html'
                 color={'inherit'}
                 target='_blank'
               >
-                our OpenAPI documentation
+                {t('accessToken.description.cta')}
               </Link>{' '}
-              to authenticate your account with the refresh token.
+              {t('accessToken.description.pt2')}
             </Typography>
             <Paper elevation={3} id='code-block'>
               <div
@@ -494,16 +495,16 @@ export default function APIAccount(): React.ReactElement {
                 }}
               >
                 <div>
-                  <Typography variant='h6'>Generate Access Token</Typography>
+                  <Typography variant='h6'>{t('accessToken.generate')}</Typography>
 
                   <Typography>
-                    Copy the CLI command to generate an access token.
+                    {t('accessToken.copy')}
                   </Typography>
                 </div>
                 <Tooltip title={accountState.codeBlockTooltip}>
                   <IconButton
                     color='inherit'
-                    aria-label='Copy access token to clipboard'
+                    aria-label={texts.copyAccessTokenToClipboard}
                     edge='end'
                     onClick={() => {
                       handleCopyCodeBlock(getCurlAccessTokenCommand());
@@ -534,7 +535,7 @@ export default function APIAccount(): React.ReactElement {
                 </span>
                 <span>
                   {' '}
-                  &quot;refresh_token&quot;: &quot;[Your Refresh Token]&quot;
+                  &quot;refresh_token&quot;: &quot;[{t('refreshToken.yourToken')}]&quot;
                 </span>
                 <span style={{ color: theme.mixins.code?.contrastText }}>
                   {' '}
@@ -545,23 +546,22 @@ export default function APIAccount(): React.ReactElement {
           </Box>
           <Box sx={{ p: 1, mt: 5 }}>
             <Typography variant='sectionTitle'>
-              Access Token for Testing
+              {t('accessToken.testing.title')}
             </Typography>
             <Typography sx={{ mb: 2 }}>
-              Want some quick testing? Copy the access token bellow to test
-              endpoints in our{' '}
+              {t('accessToken.testing.description.pt1') + ' '}
               <Link
                 href='https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html#/'
                 target={'_blank'}
               >
-                OpenAPI documentation
+                {t('accessToken.testing.description.cta')}
               </Link>
-              . Access tokens are valid for one hour.
+              {t('accessToken.testing.description.pt2')}
             </Typography>
             {showGenerateAccessTokenButton && (
               <Box sx={{ mb: 2 }}>
                 <Button onClick={handleGenerateAccessToken} variant='contained'>
-                  Generate Access Token
+                  {t('accessToken.generate')}
                 </Button>
               </Box>
             )}
@@ -642,10 +642,10 @@ export default function APIAccount(): React.ReactElement {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title='Toggle Access Token Visibility'>
+                    <Tooltip title={t('accessToken.toggleVisibility')}>
                       <IconButton
                         color='primary'
-                        aria-label='Toggle access token visibility'
+                        aria-label={t('accessToken.toggleVisibility')}
                         edge='end'
                         onClick={() => {
                           handleClickShowToken(TokenTypes.Access);
@@ -679,8 +679,8 @@ export default function APIAccount(): React.ReactElement {
                 <Typography color='error' sx={{ mb: 2 }}>
                   <WarningAmberOutlined style={{ verticalAlign: 'bottom' }} />
                   {accountState.tokenExpired
-                    ? 'Token expired'
-                    : `Your token will expire in ${timeLeftForTokenExpiration}`}
+                    ? t('accessToken.expired')
+                    : t('accessToken.willExpireIn', {timeLeftForTokenExpiration})}
                   .
                 </Typography>
               </Box>
@@ -695,16 +695,16 @@ export default function APIAccount(): React.ReactElement {
                 }}
               >
                 <div>
-                  <Typography variant='h6'>API Test</Typography>
+                  <Typography variant='h6'>{t('accessToken.testing.api')}</Typography>
 
                   <Typography>
-                    Copy the CLI command to test your access to the API.
+                    {t('accessToken.testing.copyCli')}
                   </Typography>
                 </div>
                 <Tooltip title={accountState.codeBlockTooltip}>
                   <IconButton
                     color='inherit'
-                    aria-label='Copy access token to clipboard'
+                    aria-label={texts.copyAccessTokenToClipboard}
                     edge='end'
                     onClick={() => {
                       handleCopyCodeBlock(getCurlApiTestCommand());
@@ -735,7 +735,7 @@ export default function APIAccount(): React.ReactElement {
                 <span style={{ color: theme.mixins.code?.contrastText }}>
                   --header{' '}
                 </span>
-                &apos;Authorization: Bearer [Your Access Token]&apos;
+                &apos;Authorization: Bearer [{t('accessToken.yourToken')}]&apos;
               </Typography>
             </Paper>
           </Box>
