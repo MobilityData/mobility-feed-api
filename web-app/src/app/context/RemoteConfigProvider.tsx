@@ -55,15 +55,14 @@ export const RemoteConfigProvider = ({
 
         const newConfig = {
           ...config,
-          ...fetchedConfigValues
-        }
+          ...fetchedConfigValues,
+        };
 
         setConfig(newConfig);
 
-        if(!newConfig.enableLanguageToggle) {
-          i18n.changeLanguage('en');
+        if (!newConfig.enableLanguageToggle) {
+          void i18n.changeLanguage('en');
         }
-
       } catch (error) {
         // pass -- default values will be used
       } finally {

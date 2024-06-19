@@ -295,7 +295,7 @@ export default function DrawerAppBar(): React.ReactElement {
               <Select
                 value={i18n.language}
                 onChange={(lang) => {
-                  i18n.changeLanguage(lang.target.value);
+                  void i18n.changeLanguage(lang.target.value);
                 }}
               >
                 <MenuItem value={'en'}>EN</MenuItem>

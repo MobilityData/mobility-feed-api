@@ -22,10 +22,10 @@ function App(): React.ReactElement {
         <Suspense>
           <div id='app-main-container'>
             <AppSpinner>
-                <BrowserRouter>
-                  <Header />
-                  <AppRouter />
-                </BrowserRouter>
+              <BrowserRouter>
+                <Header />
+                <AppRouter />
+              </BrowserRouter>
             </AppSpinner>
             <Footer />
           </div>

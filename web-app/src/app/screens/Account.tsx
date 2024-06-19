@@ -56,10 +56,7 @@ enum TokenTypes {
   Refresh = 'refreshToken',
 }
 
-
-
 export default function APIAccount(): React.ReactElement {
-  
   const { t } = useTranslation('account');
   const apiURL = 'https://api.mobilitydatabase.org/v1';
   const dispatch = useAppDispatch();
@@ -255,7 +252,7 @@ export default function APIAccount(): React.ReactElement {
 
   const refreshAccessTokenButtonText = isRefreshingAccessToken
     ? t('accessToken.refreshing')
-    : t('accessToken.refresh')
+    : t('accessToken.refresh');
 
   return (
     <Container
@@ -345,7 +342,8 @@ export default function APIAccount(): React.ReactElement {
           <Typography variant='body1'>
             {user?.email !== undefined && user?.email !== '' ? (
               <Typography variant='body1'>
-                <b>{t('common:email')}:</b> {' ' + user?.email ?? t('common:unknown')}
+                <b>{t('common:email')}:</b>{' '}
+                {' ' + user?.email ?? t('common:unknown')}
               </Typography>
             ) : null}
           </Typography>
@@ -401,10 +399,10 @@ export default function APIAccount(): React.ReactElement {
         </Paper>
         <Box sx={{ ml: 10 }}>
           <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
-            <Typography sx={{ mb: 2 }}>
-              {t('description')}
+            <Typography sx={{ mb: 2 }}>{t('description')}</Typography>
+            <Typography variant='sectionTitle'>
+              {t('refreshToken.title')}
             </Typography>
-            <Typography variant='sectionTitle'>{t('refreshToken.title')}</Typography>
             <Typography sx={{ mb: 2 }}>
               {t('refreshToken.description')}
             </Typography>
@@ -495,11 +493,11 @@ export default function APIAccount(): React.ReactElement {
                 }}
               >
                 <div>
-                  <Typography variant='h6'>{t('accessToken.generate')}</Typography>
-
-                  <Typography>
-                    {t('accessToken.copy')}
+                  <Typography variant='h6'>
+                    {t('accessToken.generate')}
                   </Typography>
+
+                  <Typography>{t('accessToken.copy')}</Typography>
                 </div>
                 <Tooltip title={accountState.codeBlockTooltip}>
                   <IconButton
@@ -535,7 +533,8 @@ export default function APIAccount(): React.ReactElement {
                 </span>
                 <span>
                   {' '}
-                  &quot;refresh_token&quot;: &quot;[{t('refreshToken.yourToken')}]&quot;
+                  &quot;refresh_token&quot;: &quot;[
+                  {t('refreshToken.yourToken')}]&quot;
                 </span>
                 <span style={{ color: theme.mixins.code?.contrastText }}>
                   {' '}
@@ -680,7 +679,9 @@ export default function APIAccount(): React.ReactElement {
                   <WarningAmberOutlined style={{ verticalAlign: 'bottom' }} />
                   {accountState.tokenExpired
                     ? t('accessToken.expired')
-                    : t('accessToken.willExpireIn', {timeLeftForTokenExpiration})}
+                    : t('accessToken.willExpireIn', {
+                        timeLeftForTokenExpiration,
+                      })}
                   .
                 </Typography>
               </Box>
@@ -695,11 +696,11 @@ export default function APIAccount(): React.ReactElement {
                 }}
               >
                 <div>
-                  <Typography variant='h6'>{t('accessToken.testing.api')}</Typography>
-
-                  <Typography>
-                    {t('accessToken.testing.copyCli')}
+                  <Typography variant='h6'>
+                    {t('accessToken.testing.api')}
                   </Typography>
+
+                  <Typography>{t('accessToken.testing.copyCli')}</Typography>
                 </div>
                 <Tooltip title={accountState.codeBlockTooltip}>
                   <IconButton
