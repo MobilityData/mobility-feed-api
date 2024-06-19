@@ -35,6 +35,7 @@ from feeds.impl.models.basic_feed_impl import BasicFeedImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds.impl.models.gtfs_feed_impl import GtfsFeedImpl
+from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.external_id import ExternalId
@@ -396,18 +397,22 @@ class FeedsApiImpl(BaseFeedsApi):
         subdivision_name: str,
         municipality: str,
     ) -> List[GtfsRTFeed]:
-        """Get some (or all) GTFS feeds from the Mobility Database."""
-        return self._get_gtfs_rt_feeds(
-            GtfsRtFeedFilter(
-                provider__ilike=provider,
-                producer_url__ilike=producer_url,
-                entity_types=EntityTypeFilter(name__in=entity_types),
-                location=LocationFilter(
-                    country_code=country_code,
-                    subdivision_name__ilike=subdivision_name,
-                    municipality__ilike=municipality,
-                ),
+        """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
+        gtfs_rt_feed_filter = GtfsRtFeedFilter(
+            provider__ilike=provider,
+            producer_url__ilike=producer_url,
+            entity_types=EntityTypeFilter(name__in=entity_types),
+            location=LocationFilter(
+                country_code=country_code,
+                subdivision_name__ilike=subdivision_name,
+                municipality__ilike=municipality,
             ),
-            limit,
-            offset,
         )
+        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed))
+        gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.stable_id)
+        if limit is not None:
+            gtfs_rt_feed_query = gtfs_rt_feed_query.limit(limit)
+        if offset is not None:
+            gtfs_rt_feed_query = gtfs_rt_feed_query.offset(offset)
+        results = gtfs_rt_feed_query.all()
+        return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in results]
