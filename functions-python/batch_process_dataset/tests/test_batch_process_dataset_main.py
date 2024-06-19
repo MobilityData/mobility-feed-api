@@ -115,7 +115,7 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
     @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
     def test_upload_dataset_not_zip(
-            self, mock_download_url_content, upload_file_to_storage
+        self, mock_download_url_content, upload_file_to_storage
     ):
         """
         Test upload_dataset method of DatasetProcessor class with a non zip file
