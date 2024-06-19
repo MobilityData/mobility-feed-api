@@ -1,0 +1,38 @@
+import {
+  defaultRemoteConfigValues,
+  type RemoteConfigValues,
+} from '../interface/RemoteConfig';
+import { buildNavigationItems } from './Navigation';
+
+jest.mock('firebase/compat/app', () => ({
+  initializeApp: jest.fn(),
+  remoteConfig: jest.fn(() => ({
+    settings: { minimumFetchIntervalMillis: 3600000 },
+  })),
+}));
+
+describe('Navigation Elements', () => {
+  it('should return feed nav item if feature flag enabled', () => {
+    const featureFlags: RemoteConfigValues = {
+      ...defaultRemoteConfigValues,
+      enableFeedsPage: true,
+    };
+    const navigationItems = buildNavigationItems(featureFlags);
+    const feedsNavigation = navigationItems.find(
+      (item) => item.title === 'Feeds',
+    );
+    expect(feedsNavigation).toBeDefined();
+  });
+
+  it('should not return feed nav item if feature flag disabled', () => {
+    const featureFlags: RemoteConfigValues = {
+      ...defaultRemoteConfigValues,
+      enableFeedsPage: false,
+    };
+    const navigationItems = buildNavigationItems(featureFlags);
+    const feedsNavigation = navigationItems.find(
+      (item) => item.title === 'Feeds',
+    );
+    expect(feedsNavigation).toBeUndefined();
+  });
+});
