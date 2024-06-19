@@ -368,7 +368,7 @@ class FeedsApiImpl(BaseFeedsApi):
             ),
         )
         gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
-        gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.stable_id)
+        gtfs_feed_query = gtfs_feed_query.order_by(GtfsFeed.provider, Gtfsfeed.stable_id)
         if limit is not None:
             gtfs_feed_query = gtfs_feed_query.limit(limit)
         if offset is not None:
@@ -409,7 +409,7 @@ class FeedsApiImpl(BaseFeedsApi):
             ),
         )
         gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed))
-        gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.stable_id)
+        gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         if limit is not None:
             gtfs_rt_feed_query = gtfs_rt_feed_query.limit(limit)
         if offset is not None:
