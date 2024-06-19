@@ -125,20 +125,7 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         subdivision_name="test_subdivision_name",
         municipality="test_municipality",
     )
-    mock_bounding_box = json.dumps(
-        {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [-70.248666, 43.655373],
-                    [-70.248666, 43.71619],
-                    [-70.11018, 43.71619],
-                    [-70.11018, 43.655373],
-                    [-70.248666, 43.655373],
-                ]
-            ],
-        }
-    )
+
     mock_select.return_value = [
         [
             (
@@ -147,7 +134,8 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
                 mock_external_id,
                 redirect_comment,
                 mock_latest_datasets,
-                mock_bounding_box,
+                # See issue #431 where latest_dataset would be None if bounding_box was None.
+                None,
                 mock_locations,
             )
         ]
@@ -185,6 +173,8 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         response_gtfs_feed["locations"][0]["municipality"] == "test_municipality"
     ), f'Response feed municipality was {response_gtfs_feed["locations"][0]["municipality"]} \
         instead of test_municipality'
+    # See issue #431 where latest_dataset would be None if bounding_box was None.
+    assert response_gtfs_feed["latest_dataset"] is not None, "Response feed latest dataset was None"
     assert (
         response_gtfs_feed["latest_dataset"]["id"] == "test_latest_dataset_id"
     ), f'Response feed latest dataset id was {response_gtfs_feed["latest_dataset"]["id"]} \
