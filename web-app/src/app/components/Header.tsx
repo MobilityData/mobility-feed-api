@@ -40,7 +40,6 @@ import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { OpenInNew } from '@mui/icons-material';
 import '../styles/Header.css';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import { changeLanguage } from 'i18next';
 import i18n from '../../i18n';
 
 const drawerWidth = 240;
@@ -149,7 +148,6 @@ const DrawerContent: React.FC<{
 export default function DrawerAppBar(): React.ReactElement {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openDialog, setOpenDialog] = React.useState(false);
-  const [language, setLanguage] = React.useState(i18n.language);
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
   >([]);
@@ -292,14 +290,12 @@ export default function DrawerAppBar(): React.ReactElement {
             ) : (
               <Button href={SIGN_IN_TARGET}>Login</Button>
             )}
-
             {/* Testing language tool */}
             {config.enableLanguageToggle && (
               <Select
-                value={language}
+                value={i18n.language}
                 onChange={(lang) => {
-                  changeLanguage(lang.target.value);
-                  setLanguage(lang.target.value);
+                  i18n.changeLanguage(lang.target.value);
                 }}
               >
                 <MenuItem value={'en'}>EN</MenuItem>

@@ -7,8 +7,9 @@ import AppSpinner from './components/AppSpinner';
 import { RemoteConfigProvider } from './context/RemoteConfigProvider';
 import { useDispatch } from 'react-redux';
 import { anonymousLogin } from './store/profile-reducer';
-import '../i18n';
+import i18n from '../i18n';
 import { Suspense } from 'react';
+import { I18nextProvider } from 'react-i18next';
 
 const Loader = () => <div>Loading...</div>;
 
@@ -19,17 +20,19 @@ function App(): React.ReactElement {
 
   return (
     <RemoteConfigProvider>
-      <div id='app-main-container'>
-        <AppSpinner>
-          <BrowserRouter>
-            <Header />
-            <Suspense fallback={<Loader />}>
-              <AppRouter />
-            </Suspense>
-          </BrowserRouter>
-        </AppSpinner>
-        <Footer />
-      </div>
+      <I18nextProvider i18n={i18n}>
+        <Suspense fallback={<Loader />}>
+          <div id='app-main-container'>
+            <AppSpinner>
+                <BrowserRouter>
+                  <Header />
+                  <AppRouter />
+                </BrowserRouter>
+            </AppSpinner>
+            <Footer />
+          </div>
+        </Suspense>
+      </I18nextProvider>
     </RemoteConfigProvider>
   );
 }
