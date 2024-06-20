@@ -4,20 +4,12 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
-import {
-  Button,
-  Divider,
-  Grid,
-  InputAdornment,
-  TextField,
-} from '@mui/material';
+import { Button, Grid } from '@mui/material';
 import {
   Search,
   CheckCircleOutlineOutlined,
   PowerOutlined,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { useState, type KeyboardEvent } from 'react';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -49,20 +41,20 @@ const ActionBox = ({
 );
 
 export default function Home(): React.ReactElement {
-  const [searchInputValue, setSearchInputValue] = useState('');
-  const navigate = useNavigate();
+  // const [searchInputValue, setSearchInputValue] = useState('');
+  // const navigate = useNavigate();
 
-  const handleSearch = (): void => {
-    if (searchInputValue.trim().length > 0) {
-      navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
-    }
-  };
+  // const handleSearch = (): void => {
+  //   if (searchInputValue.trim().length > 0) {
+  //     navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
+  //   }
+  // };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (event.key === 'Enter') {
-      handleSearch();
-    }
-  };
+  // const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+  //   if (event.key === 'Enter') {
+  //     handleSearch();
+  //   }
+  // };
 
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
@@ -102,7 +94,7 @@ export default function Home(): React.ReactElement {
           GTFS feeds from <span style={{ color: '#3859FA' }}>70</span>{' '}
           countries.
         </Typography>
-        <Box
+        {/* <Box
           sx={{
             display: 'flex',
             justifyContent: 'center',
@@ -140,16 +132,16 @@ export default function Home(): React.ReactElement {
           >
             Search
           </Button>
-        </Box>
+        </Box> */}
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
-            margin: '60px 0',
+            margin: '30px 0',
             position: 'relative',
           }}
         >
-          <Divider
+          {/* <Divider
             sx={{
               flexGrow: 1,
               backgroundColor: 'text.primary',
@@ -161,15 +153,15 @@ export default function Home(): React.ReactElement {
             variant='body1'
           >
             or
-          </Typography>
-          <Divider
+          </Typography> */}
+          {/* <Divider
             sx={{
               flexGrow: 1,
               backgroundColor: 'text.primary',
               mx: '16',
             }}
             variant='middle'
-          />
+          /> */}
         </Box>
         <Box
           sx={{
