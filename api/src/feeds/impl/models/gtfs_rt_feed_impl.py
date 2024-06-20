@@ -1,5 +1,6 @@
 from database_gen.sqlacodegen_models import Gtfsrealtimefeed as GtfsRTFeedOrm
 from feeds.impl.models.basic_feed_impl import BaseFeedImpl
+from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 
 class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
@@ -17,4 +18,5 @@ class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
         gtfs_rt_feed = super().from_orm(feed)
         if not gtfs_rt_feed:
             return None
+        gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations]
         return gtfs_rt_feed
