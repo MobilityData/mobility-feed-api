@@ -11,9 +11,13 @@ import {
   InputAdornment,
   TextField,
 } from '@mui/material';
-import { Search, CheckCircleOutlineOutlined, PowerOutlined } from '@mui/icons-material';
+import {
+  Search,
+  CheckCircleOutlineOutlined,
+  PowerOutlined,
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useState, KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -22,20 +26,25 @@ interface ActionBoxProps {
   buttonText: string;
 }
 
-const ActionBox = ({ IconComponent, iconHeight, buttonHref, buttonText }: ActionBoxProps) => (
+const ActionBox = ({
+  IconComponent,
+  iconHeight,
+  buttonHref,
+  buttonText,
+}: ActionBoxProps): JSX.Element => (
   <Box
-      sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-      }}
+    sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+    }}
   >
-      <IconComponent sx={{ width: '100%', height: iconHeight }} />
-      <Button variant='contained' sx={{ m: 2, px: 2 }}>
-          <a href={buttonHref} className='btn-link' rel='noreferrer'>
-              {buttonText}
-          </a>
-      </Button>
+    <IconComponent sx={{ width: '100%', height: iconHeight }} />
+    <Button variant='contained' sx={{ m: 2, px: 2 }}>
+      <a href={buttonHref} className='btn-link' rel='noreferrer'>
+        {buttonText}
+      </a>
+    </Button>
   </Box>
 );
 
@@ -43,13 +52,13 @@ export default function Home(): React.ReactElement {
   const [searchInputValue, setSearchInputValue] = useState('');
   const navigate = useNavigate();
 
-  const handleSearch = () => {
-    if (searchInputValue.trim()) {
+  const handleSearch = (): void => {
+    if (searchInputValue.trim().length > 0) {
       navigate(`/feeds/q=${encodeURIComponent(searchInputValue)}`);
     }
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Enter') {
       handleSearch();
     }
@@ -106,9 +115,11 @@ export default function Home(): React.ReactElement {
               mt: 6,
             }}
             value={searchInputValue}
-            onChange={(e) => setSearchInputValue(e.target.value)}
+            onChange={(e) => {
+              setSearchInputValue(e.target.value);
+            }}
             onKeyDown={handleKeyDown}
-            placeholder="ex. Boston"
+            placeholder='ex. Boston'
             InputProps={{
               startAdornment: (
                 <InputAdornment position={'start'}>
@@ -117,18 +128,18 @@ export default function Home(): React.ReactElement {
               ),
             }}
           />
-        <Button
-        sx={{
-          mt: 6,
-          py: 1.5,
-          ml: 1,
-        }}
-        variant="contained"
-        color="primary"
-        onClick={handleSearch}
-      >
-        Search
-      </Button>
+          <Button
+            sx={{
+              mt: 6,
+              py: 1.5,
+              ml: 1,
+            }}
+            variant='contained'
+            color='primary'
+            onClick={handleSearch}
+          >
+            Search
+          </Button>
         </Box>
         <Box
           sx={{
@@ -160,33 +171,31 @@ export default function Home(): React.ReactElement {
             variant='middle'
           />
         </Box>
-          <Box
-              sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-              }}
-          >
-              <ActionBox 
-            IconComponent={Search} 
-            iconHeight="70px" 
-            buttonHref="/feeds" 
-            buttonText="Browse Feeds" 
-        />
-        <ActionBox 
-            IconComponent={CheckCircleOutlineOutlined} 
-            iconHeight="70px" 
-            buttonHref="/feeds" 
-            buttonText="Add a feed" 
-        />
-        <ActionBox 
-            IconComponent={PowerOutlined} 
-            iconHeight="70px" 
-            buttonHref="/feeds" 
-            buttonText="Sign up for the API" 
-        />
-          </Box>
-
-
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <ActionBox
+            IconComponent={Search}
+            iconHeight='70px'
+            buttonHref='/feeds'
+            buttonText='Browse Feeds'
+          />
+          <ActionBox
+            IconComponent={CheckCircleOutlineOutlined}
+            iconHeight='70px'
+            buttonHref='/feeds'
+            buttonText='Add a feed'
+          />
+          <ActionBox
+            IconComponent={PowerOutlined}
+            iconHeight='70px'
+            buttonHref='/feeds'
+            buttonText='Sign up for the API'
+          />
+        </Box>
 
         <Grid sm={12} md={5}>
           <Box
