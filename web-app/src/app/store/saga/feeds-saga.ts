@@ -16,7 +16,6 @@ function* getFeedsSaga({
   accessToken: string;
 }>): Generator<StrictEffect, void, AllFeedsType> {
   try {
-    // debugger;
     const searchData = yield call(searchFeeds, params, accessToken);
     yield put(loadingFeedsSuccess({ data: searchData }));
   } catch (error) {
