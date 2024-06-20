@@ -178,13 +178,13 @@ export default function Home(): React.ReactElement {
           <ActionBox
             IconComponent={CheckCircleOutlineOutlined}
             iconHeight='70px'
-            buttonHref='/feeds'
+            buttonHref='/contribute'
             buttonText='Add a feed'
           />
           <ActionBox
             IconComponent={PowerOutlined}
             iconHeight='70px'
-            buttonHref='/feeds'
+            buttonHref='/sign-up'
             buttonText='Sign up for the API'
           />
         </Box>
