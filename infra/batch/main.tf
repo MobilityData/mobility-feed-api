@@ -1,6 +1,12 @@
 terraform {
   backend "gcs" {
   }
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = ">= 5.34.0"
+    }
+  }  
 }
 
 data "google_project" "project" {}
@@ -33,6 +39,8 @@ locals {
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
 #  Files DNS name
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
+  # 1day=86400, 7days=604800, 31days=2678400
+  retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 604800
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -65,6 +73,9 @@ resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
   location = var.gcp_region
   uniform_bucket_level_access = false
+  soft_delete_policy {
+    retention_duration_seconds = local.retention_duration_seconds
+  }
 }
 
 # Grant permissions to the service account to access the datasets bucket

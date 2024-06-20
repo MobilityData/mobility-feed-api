@@ -7,6 +7,10 @@ locals {
     "networkmanagement.googleapis.com",
     "servicenetworking.googleapis.com"
   ]
+  retained_backups = lower(var.environment) == "prod" ? 31 : 1
+  # Prod instances are regional meaning high availability with logs distributed across the region, non-prod instances are zonal with logs distributed across the zone
+  availability_type = lower(var.environment) == "prod" ? "REGIONAL" : "ZONAL"
+  transaction_log_retention_days = lower(var.environment) == "prod" ? 7 : 1
 }
 
 resource "google_project_service" "services" {
@@ -49,9 +53,14 @@ resource "google_sql_database_instance" "db" {
   name             = var.postgresql_instance_name
   database_version = "POSTGRES_12"
   region           = var.gcp_region
+  # This property protects the DB from deletion only for terraform commands
+  # settings.deletion_protection_enabled protects the DB from deletion in the GCP console and GCP API
+  deletion_protection = true
 
   settings {
     tier = var.postgresql_db_instance
+    # This property protects the DB from deletion in the GCP console and GCP API
+    deletion_protection_enabled = true
     database_flags {
       name  = "max_connections"
       value = var.max_db_connections
@@ -59,6 +68,17 @@ resource "google_sql_database_instance" "db" {
     ip_configuration {
       ipv4_enabled = false
       private_network = "projects/${var.project_id}/global/networks/default"
+    }
+    availability_type = local.availability_type
+    backup_configuration {
+      enabled    = true
+      start_time = "00:00"
+      binary_log_enabled = true
+      point_in_time_recovery_enabled = true
+      transaction_log_retention_days = local.transaction_log_retention_days
+      backup_retention_settings {
+        retained_backups = local.retained_backups
+      }
     }
   }
   depends_on = [google_service_networking_connection.private_vpc_connection]

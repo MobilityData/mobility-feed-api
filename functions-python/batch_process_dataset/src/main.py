@@ -19,6 +19,7 @@ import json
 import os
 import random
 import uuid
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -96,13 +97,15 @@ class DatasetProcessor:
         """
         Downloads the content of a URL and return the hash of the file
         """
-        return download_and_get_hash(
+        file_hash = download_and_get_hash(
             self.producer_url,
             temporary_file_path,
             authentication_type=self.authentication_type,
             api_key_parameter_name=self.api_key_parameter_name,
             credentials=self.feed_credentials,
         )
+        is_zip = zipfile.is_zipfile(temporary_file_path)
+        return file_hash, is_zip
 
     def upload_file_to_storage(self, source_file_path, target_path):
         """
@@ -125,7 +128,13 @@ class DatasetProcessor:
         try:
             logging.info(f"[{self.feed_stable_id}] - Accessing URL {self.producer_url}")
             temp_file_path = self.generate_temp_filename()
-            file_sha256_hash = self.download_content(temp_file_path)
+            file_sha256_hash, is_zip = self.download_content(temp_file_path)
+            if not is_zip:
+                logging.error(
+                    f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
+                )
+                return None
+
             logging.info(f"[{self.feed_stable_id}] File hash is {file_sha256_hash}.")
 
             if self.latest_hash != file_sha256_hash:
