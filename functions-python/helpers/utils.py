@@ -14,14 +14,14 @@
 #  limitations under the License.
 #
 
+import hashlib
 import os
 
+import requests
+import urllib3
 from google.cloud import storage
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import requests
-import hashlib
-import urllib3
 from urllib3.util.ssl_ import create_urllib3_context
 
 
