@@ -6,8 +6,35 @@ on:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated ]
 jobs:
+  update-qa: # Update the QA database first
+    uses: ./.github/workflows/db-update.yml
+    with:
+      PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_NAME: ${{ vars.QA_POSTGRE_SQL_DB_NAME }}
+      ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+      DB_ENVIRONMENT: ${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }}
+    secrets:
+      DB_USER_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
+      DB_USER_NAME: ${{ secrets.QA_POSTGRE_USER_NAME }}
+      DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+  integration-tests-qa: # Run integration tests on QA
+    uses: ./.github/workflows/integration-tests.yml
+    needs:
+      - update-qa
+    with:
+      API_URL: 'https://api-qa.mobilitydatabase.org'
+      ENVIRONMENT: 'qa'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
   update:
     uses: ./.github/workflows/db-update.yml
+    needs:
+      - integration-tests-qa
     with:
       PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
       REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
@@ -22,3 +49,11 @@ jobs:
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+  integration-tests-prod:
+    uses: ./.github/workflows/integration-tests.yml
+    needs: update
+    with:
+      API_URL: "https://api.mobilitydatabase.org"
+      ENVIRONMENT: 'prod'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
