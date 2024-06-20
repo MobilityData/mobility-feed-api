@@ -19,6 +19,7 @@ import json
 import os
 import random
 import uuid
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -39,7 +40,7 @@ from helpers.database import (
 import logging
 
 from helpers.logger import Logger
-from helpers.utils import download_and_get_hash, is_zip_file
+from helpers.utils import download_and_get_hash
 
 
 @dataclass
@@ -103,7 +104,7 @@ class DatasetProcessor:
             api_key_parameter_name=self.api_key_parameter_name,
             credentials=self.feed_credentials,
         )
-        is_zip = is_zip_file(temporary_file_path)
+        is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
 
     def upload_file_to_storage(self, source_file_path, target_path):

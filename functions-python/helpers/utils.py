@@ -14,15 +14,14 @@
 #  limitations under the License.
 #
 
+import hashlib
 import os
-import zipfile
 
+import requests
+import urllib3
 from google.cloud import storage
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import requests
-import hashlib
-import urllib3
 from urllib3.util.ssl_ import create_urllib3_context
 
 
@@ -127,15 +126,3 @@ def download_and_get_hash(
         if os.path.exists(file_path):
             os.remove(file_path)
         raise e
-
-
-def is_zip_file(file_path):
-    """
-    Checks if the file is a valid ZIP file.
-    :param file_path: the path to the file
-    """
-    try:
-        with zipfile.ZipFile(file_path, "r"):
-            return True
-    except zipfile.BadZipFile:
-        return False
