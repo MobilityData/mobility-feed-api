@@ -18,7 +18,7 @@ import os
 import threading
 from typing import Final
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import logging
 
@@ -103,6 +103,6 @@ def refresh_materialized_view(session, view_name: str):
     Refresh Materialized view by name.
     """
     try:
-        session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}")
+        session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
     except Exception as error:
         logging.error(f"Error raised while refreshing view: {error}")
