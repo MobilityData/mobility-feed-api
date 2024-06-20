@@ -58,6 +58,7 @@ export const FEED_PROFILE_LOADING_FEED = `${FEED_PROFILE}/loadingFeed`;
 export const FEED_PROFILE_LOADING_FEED_SUCCESS = `${FEED_PROFILE}/loadingFeedSuccess`;
 export const FEED_PROFILE_LOADING_FEED_FAIL = `${FEED_PROFILE}/loadingFeedFail`;
 
+export const FEEDS_RESET_FEEDS = `feeds/resetFeeds`;
 export const FEEDS_LOADING_FEEDS = `feeds/loadingFeeds`;
 export const FEEDS_LOADING_FEEDS_SUCCESS = `feeds/loadingFeedsSuccess`;
 export const FEEDS_LOADING_FEEDS_FAIL = `feeds/loadingFeedsFail`;

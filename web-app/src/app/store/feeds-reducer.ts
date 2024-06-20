@@ -23,6 +23,13 @@ export const feedsSlice = createSlice({
   name: 'feeds',
   initialState,
   reducers: {
+    resetFeeds: (state) => {
+      state.status = 'loading';
+      state.data = {
+        total: 0,
+        results: [],
+      };
+    },
     loadingFeeds: (
       state,
       action: PayloadAction<{
@@ -57,7 +64,11 @@ export const feedsSlice = createSlice({
   },
 });
 
-export const { loadingFeeds, loadingFeedsFail, loadingFeedsSuccess } =
-  feedsSlice.actions;
+export const {
+  resetFeeds,
+  loadingFeeds,
+  loadingFeedsFail,
+  loadingFeedsSuccess,
+} = feedsSlice.actions;
 
 export default feedsSlice.reducer;

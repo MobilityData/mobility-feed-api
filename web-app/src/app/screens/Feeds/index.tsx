@@ -20,7 +20,7 @@ import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { selectUserProfile } from '../../store/profile-selectors';
 import { useAppDispatch } from '../../hooks';
-import { loadingFeeds } from '../../store/feeds-reducer';
+import { loadingFeeds, resetFeeds } from '../../store/feeds-reducer';
 import { selectFeedsData } from '../../store/feeds-selectors';
 import {
   type GTFSFeedType,
@@ -110,6 +110,21 @@ export default function Feed(): React.ReactElement {
       clearTimeout(timer);
     };
   }, [searchLimit, searchParams, selectedFeedTypes]);
+
+  useEffect(() => {
+    const searchQuery = searchParams.get('q') ?? undefined;
+    if (
+      user?.accessToken === undefined ||
+      searchQuery === undefined ||
+      searchQuery.trim() === ''
+    ) {
+      dispatch(resetFeeds());
+    }
+    return () => {
+      // reset feeds state on cleanup too
+      dispatch(resetFeeds());
+    };
+  }, []);
 
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
