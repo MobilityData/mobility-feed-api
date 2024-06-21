@@ -1,6 +1,8 @@
 {
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "test": "yarn workspaces run test",
     "build": "yarn workspaces run build",
@@ -8,5 +10,8 @@
   },
   "devDependencies": {
     "firebase-tools": "^12.5.4"
+  },
+  "dependencies": {
+    "googleapis": "^140.0.0"
   }
 }
