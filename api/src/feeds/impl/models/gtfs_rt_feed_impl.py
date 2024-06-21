@@ -3,6 +3,7 @@ from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 
+
 class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
     """Implementation of the 'Gtfsrealtimefeed' model."""
 

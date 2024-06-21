@@ -62,7 +62,7 @@ expected_gtfs_rt_feed_result = GtfsRTFeedImpl(
     feed_contact_email="feed_contact_email",
     source_info=SourceInfo(producer_url="producer_url",
                            authentication_type=1,
-                            authentication_info_url="authentication_info_url",
+                           authentication_info_url="authentication_info_url",
                            api_key_parameter_name="api_key_parameter_name",
                            license_url="license_url", ),
     redirects=[RedirectImpl(
