@@ -54,9 +54,8 @@ export const RemoteConfigProvider = ({
 
         setConfig((prevConfig) => ({
           ...prevConfig,
-          ...fetchedConfigValues
+          ...fetchedConfigValues,
         }));
-
       } catch (error) {
         // pass -- default values will be used
       } finally {
