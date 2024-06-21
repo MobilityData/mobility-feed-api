@@ -2,6 +2,7 @@ from database_gen.sqlacodegen_models import Gtfsrealtimefeed as GtfsRTFeedOrm
 from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
+from feeds.impl.models.entity_type_impl import EntitytypeImpl
 
 
 class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
@@ -20,4 +21,5 @@ class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
         if not gtfs_rt_feed:
             return None
         gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations]
+        gtfs_rt_feed.entitytypes = [EntitytypeImpl.from_orm(item) for item in feed.entitytypes]
         return gtfs_rt_feed
