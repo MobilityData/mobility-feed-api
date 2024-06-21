@@ -15,7 +15,8 @@ import Contribute from '../screens/Contribute';
 import PostRegistration from '../screens/PostRegistration';
 import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
-import Feeds from '../screens/Feed';
+import Feed from '../screens/Feed';
+import Feeds from '../screens/Feeds';
 
 export const AppRouter: React.FC = () => {
   return (
@@ -42,7 +43,8 @@ export const AppRouter: React.FC = () => {
       <Route path='forgot-password' element={<ForgotPassword />} />
       <Route path='faq' element={<FAQ />} />
       <Route path='about' element={<About />} />
-      <Route path='feeds/:feedId' element={<Feeds />} />
+      <Route path='feeds' element={<Feeds />} />
+      <Route path='feeds/:feedId' element={<Feed />} />
       <Route path='contribute' element={<Contribute />} />
       <Route path='privacy-policy' element={<PrivacyPolicy />} />
       <Route path='terms-and-conditions' element={<TermsAndConditions />} />
