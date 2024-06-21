@@ -1,5 +1,10 @@
 import { type paths } from './types';
 
+export type AllFeedsType =
+  paths['/v1/search']['get']['responses'][200]['content']['application/json'];
+
+export type AllFeedsParams = paths['/v1/search']['get']['parameters'];
+
 export type AllFeedType =
   | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']
   | paths['/v1/gtfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
