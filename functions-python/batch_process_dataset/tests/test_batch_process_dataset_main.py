@@ -52,7 +52,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob.public_url = public_url
         mock_blob.path = public_url
         upload_file_to_storage.return_value = mock_blob
-        mock_download_url_content.return_value = file_hash
+        mock_download_url_content.return_value = file_hash, True
 
         processor = DatasetProcessor(
             public_url,
@@ -91,7 +91,39 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
         upload_file_to_storage.return_value = mock_blob
-        mock_download_url_content.return_value = file_hash
+        mock_download_url_content.return_value = file_hash, True
+
+        processor = DatasetProcessor(
+            public_url,
+            "feed_id",
+            "feed_stable_id",
+            "execution_id",
+            file_hash,
+            "bucket_name",
+            0,
+            None,
+            test_hosted_public_url,
+        )
+
+        result = processor.upload_dataset()
+
+        self.assertIsNone(result)
+        upload_file_to_storage.blob.assert_not_called()
+        mock_blob.make_public.assert_not_called()
+        mock_download_url_content.assert_called_once()
+
+    @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
+    @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
+    def test_upload_dataset_not_zip(
+        self, mock_download_url_content, upload_file_to_storage
+    ):
+        """
+        Test upload_dataset method of DatasetProcessor class with a non zip file
+        """
+        mock_blob = MagicMock()
+        mock_blob.public_url = public_url
+        upload_file_to_storage.return_value = mock_blob
+        mock_download_url_content.return_value = file_hash, False
 
         processor = DatasetProcessor(
             public_url,

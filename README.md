@@ -118,7 +118,7 @@ This command is very useful when switching branches that potentially have differ
 ```
 Datasets are not part of the catalog. If you need to test or debug a feature that requires dataset entities use the following command:
 ```bash
-./scripts/docker-localdb-rebuild-data.sh --populate-db --populate-test-db
+./scripts/docker-localdb-rebuild-data.sh --populate-db --populate-test-data
 ```
 
 

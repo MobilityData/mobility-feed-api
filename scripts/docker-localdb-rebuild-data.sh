@@ -72,6 +72,9 @@ docker rm $container_name
 # delete the data
 rm -rf $SCRIPT_PATH/../data
 
+# Add a slight delay because sometimes Docker does not seem ready after the rm.
+sleep 5
+
 # Start the container and run the liquibase
 docker-compose -f $SCRIPT_PATH/../docker-compose.yaml up -d liquibase
 # wait for the liquibase to finish
