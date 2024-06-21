@@ -61,7 +61,26 @@ export interface paths {
     get: operations['getMetadata'];
   };
   '/v1/search': {
-    /** @description Search feeds using full-text search on feed name, location and provider's information. */
+    /**
+     * @description Search feeds on feed name, location and provider's information.
+     * <br>
+     * The current implemation leverage the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
+     * <br><br>
+     * Points to consider while using search endpoint:
+     * <br>
+     * - Operators are not currently supported. Operators are ignored as stop-words.
+     * - Search is based on lexemes(English) and case insensitive. The search_text_query_param is parsed and normalized much as for to_tsvector, then the & (AND) tsquery operator is inserted between surviving words.
+     * - The search will match all the lexemes with an AND operator. So, all lexemes must be present in the document.
+     * - Our current implementation only creates English lexemes. We are currently considering adding support to more languages.
+     * - The order of the words is not relevant for matching. The query __New York__ should give you the same results as __York New__.
+     * <br><br>
+     * Example:
+     * <br>
+     * Query: New York Transit
+     * <br>
+     * Search Executed: 'new' & york & 'transit'
+     * <br>
+     */
     get: operations['searchFeeds'];
   };
 }
@@ -173,12 +192,18 @@ export interface components {
        */
       hash?: string;
       validation_report?: {
-        /** @example 1 */
+        /** @example 10 */
         total_error?: number;
-        /** @example 2 */
+        /** @example 20 */
         total_warning?: number;
-        /** @example 3 */
+        /** @example 30 */
         total_info?: number;
+        /** @example 1 */
+        unique_error_count?: number;
+        /** @example 2 */
+        unique_warning_count?: number;
+        /** @example 3 */
+        unique_info_count?: number;
       };
     };
     ExternalIds: Array<components['schemas']['ExternalId']>;
@@ -329,12 +354,18 @@ export interface components {
       features?: string[];
       /** @example 4.2.0 */
       validator_version?: string;
-      /** @example 1 */
+      /** @example 10 */
       total_error?: number;
-      /** @example 2 */
+      /** @example 20 */
       total_warning?: number;
-      /** @example 3 */
+      /** @example 30 */
       total_info?: number;
+      /** @example 1 */
+      unique_error_count?: number;
+      /** @example 2 */
+      unique_warning_count?: number;
+      /** @example 3 */
+      unique_info_count?: number;
       /**
        * Format: url
        * @description JSON validation report URL
@@ -395,7 +426,7 @@ export interface components {
     limit_query_param?: number;
     /** @description Offset of the first item to return. */
     offset?: number;
-    /** @description General search query to match against various fields of the entities. */
+    /** @description General search query to match against transit provider, location, and feed name. */
     search_text_query_param?: string;
     /** @description Unique identifier used as a key for the feeds table. */
     data_type_query_param?: 'gtfs' | 'gtfs_rt';
@@ -598,7 +629,26 @@ export interface operations {
       };
     };
   };
-  /** @description Search feeds using full-text search on feed name, location and provider's information. */
+  /**
+   * @description Search feeds on feed name, location and provider's information.
+   * <br>
+   * The current implemation leverage the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
+   * <br><br>
+   * Points to consider while using search endpoint:
+   * <br>
+   * - Operators are not currently supported. Operators are ignored as stop-words.
+   * - Search is based on lexemes(English) and case insensitive. The search_text_query_param is parsed and normalized much as for to_tsvector, then the & (AND) tsquery operator is inserted between surviving words.
+   * - The search will match all the lexemes with an AND operator. So, all lexemes must be present in the document.
+   * - Our current implementation only creates English lexemes. We are currently considering adding support to more languages.
+   * - The order of the words is not relevant for matching. The query __New York__ should give you the same results as __York New__.
+   * <br><br>
+   * Example:
+   * <br>
+   * Query: New York Transit
+   * <br>
+   * Search Executed: 'new' & york & 'transit'
+   * <br>
+   */
   searchFeeds: {
     parameters: {
       query?: {
