@@ -1,13 +1,7 @@
 import unittest
 import copy
 
-from database_gen.sqlacodegen_models import (
-    Gtfsrealtimefeed,
-    Entitytype,
-    Externalid,
-    Location,
-    Redirectingid
-)
+from database_gen.sqlacodegen_models import Gtfsrealtimefeed, Entitytype, Externalid, Location, Redirectingid
 from feeds_gen.models.source_info import SourceInfo
 from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds.impl.models.external_id_impl import ExternalIdImpl
@@ -60,15 +54,19 @@ expected_gtfs_rt_feed_result = GtfsRTFeedImpl(
     feed_name="feed_name",
     note="note",
     feed_contact_email="feed_contact_email",
-    source_info=SourceInfo(producer_url="producer_url",
-                           authentication_type=1,
-                           authentication_info_url="authentication_info_url",
-                           api_key_parameter_name="api_key_parameter_name",
-                           license_url="license_url", ),
-    redirects=[RedirectImpl(
-        target_id="target_id",
-        redirect_comment="redirect_comment",
-    )],
+    source_info=SourceInfo(
+        producer_url="producer_url",
+        authentication_type=1,
+        authentication_info_url="authentication_info_url",
+        api_key_parameter_name="api_key_parameter_name",
+        license_url="license_url",
+    ),
+    redirects=[
+        RedirectImpl(
+            target_id="target_id",
+            redirect_comment="redirect_comment",
+        )
+    ],
     entity_types=["entitytype"],
     locations=[
         LocationImpl(
