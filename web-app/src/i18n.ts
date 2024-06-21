@@ -7,7 +7,7 @@ export const supportedLanguages = ['en', 'fr'];
 
 i18n
   .use(Backend)
-  .use(LanguageDetector)
+  //.use(LanguageDetector) TOOD: renable when we are good for production
   .use(initReactI18next)
   .init({
     fallbackLng: 'en',

@@ -10,7 +10,6 @@ import {
   defaultRemoteConfigValues,
   type RemoteConfigValues,
 } from '../interface/RemoteConfig';
-import i18n from '../../i18n';
 
 const RemoteConfigContext = createContext<{
   config: RemoteConfigValues;
@@ -53,16 +52,11 @@ export const RemoteConfigProvider = ({
           }
         });
 
-        const newConfig = {
-          ...config,
-          ...fetchedConfigValues,
-        };
+        setConfig((prevConfig) => ({
+          ...prevConfig,
+          ...fetchedConfigValues
+        }));
 
-        setConfig(newConfig);
-
-        if (!newConfig.enableLanguageToggle) {
-          void i18n.changeLanguage('en');
-        }
       } catch (error) {
         // pass -- default values will be used
       } finally {

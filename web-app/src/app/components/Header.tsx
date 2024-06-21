@@ -151,7 +151,14 @@ export default function DrawerAppBar(): React.ReactElement {
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
   >([]);
+  const [currentLanguage, setCurrentLanguage] = React.useState<
+    string | undefined
+  >(i18n.language);
   const { config } = useRemoteConfig();
+
+  i18n.on('languageChanged', (lang) => {
+    setCurrentLanguage(i18n.language);
+  });
 
   React.useEffect(() => {
     setNavigationItems(buildNavigationItems(config));
@@ -291,9 +298,9 @@ export default function DrawerAppBar(): React.ReactElement {
               <Button href={SIGN_IN_TARGET}>Login</Button>
             )}
             {/* Testing language tool */}
-            {config.enableLanguageToggle && (
+            {config.enableLanguageToggle && currentLanguage !== undefined && (
               <Select
-                value={i18n.language}
+                value={currentLanguage}
                 onChange={(lang) => {
                   void i18n.changeLanguage(lang.target.value);
                 }}
