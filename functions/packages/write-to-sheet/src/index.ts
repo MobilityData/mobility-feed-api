@@ -21,7 +21,7 @@ export const writeToSheet = onRequest(
   async (req, res) => {
     try {
       const jwt = new JWT({
-        email: "",
+        email: "TODO: replace with service account email",
         key: "TODO: replace with private key",
         scopes: SCOPES,
       });
