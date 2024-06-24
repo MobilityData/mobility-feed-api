@@ -35,7 +35,7 @@ gtfs_rt_feed_orm = Gtfsrealtimefeed(
             redirect_comment="redirect_comment",
         )
     ],
-    entitytypes=[Entitytype(name="entitytype")],
+    entitytypes=[Entitytype(name="sa"), Entitytype(name="tu"), Entitytype(name="vp")],
     locations=[
         Location(
             id="id",
@@ -68,7 +68,7 @@ expected_gtfs_rt_feed_result = GtfsRTFeedImpl(
             comment="redirect_comment",
         )
     ],
-    entity_types=[EntitytypeImpl(name="name")],
+    entity_types=[EntitytypeImpl("sa"), EntitytypeImpl("tu"), EntitytypeImpl("vp")],
     locations=[
         LocationImpl(
             country_code="country_code",
