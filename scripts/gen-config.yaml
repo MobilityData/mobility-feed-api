@@ -2,3 +2,5 @@
 additionalProperties:
   packageName: feeds_gen
   fastapiImplementationPackage: feeds.impl
+  # Adding this commented line for future reference as it is not currently supported by the fastApi generator
+  # legacyDiscriminatorBehavior: true

@@ -55,7 +55,7 @@ on:
         type: string
 
 env:
-  python_version: '3.10'
+  python_version: '3.11'
   java_version: '11' # needed by setup-openapi-generator.sh
   local_postgres_db: postgres_db
   local_postgres_user: postgres_user

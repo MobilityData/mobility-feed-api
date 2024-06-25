@@ -40,7 +40,7 @@ def create_test_notice(notice_code: str, total_notices: int, severity: str):
 
 gtfs_feed_orm = Gtfsfeed(
     id="id",
-    data_type="data_type",
+    data_type="gtfs",
     feed_name="feed_name",
     note="note",
     producer_url="producer_url",
@@ -49,7 +49,7 @@ gtfs_feed_orm = Gtfsfeed(
     api_key_parameter_name="api_key_parameter_name",
     license_url="license_url",
     stable_id="stable_id",
-    status="status",
+    status="active",
     feed_contact_email="feed_contact_email",
     provider="provider",
     locations=[
@@ -118,8 +118,8 @@ gtfs_feed_orm = Gtfsfeed(
 
 expected_gtfs_feed_result = GtfsFeedImpl(
     id="stable_id",
-    data_type="data_type",
-    status="status",
+    data_type="gtfs",
+    status="active",
     external_ids=[ExternalIdImpl(external_id="associated_id", source="source")],
     provider="provider",
     feed_name="feed_name",

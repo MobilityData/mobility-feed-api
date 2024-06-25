@@ -8,7 +8,7 @@
 #   api-gen.sh
 #
 
-GENERATOR_VERSION=7.0.1
+GENERATOR_VERSION=7.5.0
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"

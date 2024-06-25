@@ -19,7 +19,6 @@ class GtfsDatasetImpl(GtfsDataset):
         Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True
 
     @classmethod
     def from_orm_latest_validation_report(

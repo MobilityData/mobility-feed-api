@@ -10,7 +10,7 @@ on:
   workflow_call:
 
 env:
-  python_version: '3.10'
+  python_version: '3.11'
   java_version: '11' # needed by setup-openapi-generator.sh
 
 jobs:

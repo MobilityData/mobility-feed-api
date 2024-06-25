@@ -3,7 +3,6 @@ from datetime import datetime
 
 from database_gen.sqlacodegen_models import Validationreport, Notice, Feature
 from feeds.impl.models.validation_report_impl import ValidationReportImpl
-from feeds_gen.models.validation_report import ValidationReport
 
 
 class TestValidationReportImpl(unittest.TestCase):
@@ -29,7 +28,7 @@ class TestValidationReportImpl(unittest.TestCase):
 
         self.assertEqual(
             result,
-            ValidationReport(
+            ValidationReportImpl(
                 validated_at=datetime(2021, 1, 1, 1, 1, 1),
                 features=["feature1", "feature2"],
                 validator_version="1.0.0",
