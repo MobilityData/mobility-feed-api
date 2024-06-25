@@ -76,7 +76,7 @@ export default function Feed(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{ mt: 12, display: 'flex', flexDirection: 'column', m: 10 }}
-        margin={{ xs: '0', sm: '80px' }}
+        margin={{ xs: '20px', sm: '80px' }}
       >
         <Box
           sx={{
