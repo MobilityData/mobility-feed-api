@@ -3,6 +3,7 @@ import { ContentBox } from '../../components/ContentBox';
 import {
   Button,
   Chip,
+  Grid,
   Table,
   TableBody,
   TableCell,
@@ -155,18 +156,19 @@ export default function FeedSummary({
               <TableRow>
                 <TableCell sx={{ fontSize: 14, border: 'none' }}>
                   <b>Features</b>
-                  <div>
+                  <Grid container spacing={1}>
                     {latestDataset.validation_report?.features?.map(
                       (feature) => (
-                        <Chip
-                          key={feature}
-                          label={feature}
-                          color='primary'
-                          variant='filled'
-                        />
+                        <Grid item key={feature}>
+                          <Chip
+                            label={feature}
+                            color='primary'
+                            variant='filled'
+                          />
+                        </Grid>
                       ),
                     )}
-                  </div>
+                  </Grid>
                 </TableCell>
               </TableRow>
             )}
