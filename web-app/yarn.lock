@@ -3259,6 +3259,13 @@
   dependencies:
     "@types/node" "*"
 
+"@types/i18next@^13.0.0":
+  version "13.0.0"
+  resolved "https://registry.yarnpkg.com/@types/i18next/-/i18next-13.0.0.tgz#403ef338add0104e74d9759f1b39217e7c5d4084"
+  integrity sha512-gp/SIShAuf4WOqi8ey0nuI7qfWaVpMNCcs/xLygrh/QTQIXmlDC1E0TtVejweNW+7SGDY7g0lyxyKZIJuCKIJw==
+  dependencies:
+    i18next "*"
+
 "@types/istanbul-lib-coverage@*", "@types/istanbul-lib-coverage@^2.0.0", "@types/istanbul-lib-coverage@^2.0.1":
   version "2.0.6"
   resolved "https://registry.npmjs.org/@types/istanbul-lib-coverage/-/istanbul-lib-coverage-2.0.6.tgz"
@@ -5477,6 +5484,13 @@ cross-env@^5.1.3:
   integrity sha512-1yHhtcfAd1r4nwQgknowuUNfIT9E8dOMMspC36g45dN+iD1blloi7xp8X/xAIDnjHWyt1uQ8PHk2fkNaym7soQ==
   dependencies:
     cross-spawn "^6.0.5"
+
+cross-fetch@4.0.0:
+  version "4.0.0"
+  resolved "https://registry.yarnpkg.com/cross-fetch/-/cross-fetch-4.0.0.tgz#f037aef1580bb3a1a35164ea2a848ba81b445983"
+  integrity sha512-e4a5N8lVvuLgAWgnCrLr2PP0YyDOTHa9H/Rj54dirp61qXnNq46m82bRhNqIA5VccJtWBvPTFRV3TtvHUKPB1g==
+  dependencies:
+    node-fetch "^2.6.12"
 
 cross-spawn@^6.0.5:
   version "6.0.5"
@@ -8017,6 +8031,13 @@ html-minifier-terser@^6.0.2:
     relateurl "^0.2.7"
     terser "^5.10.0"
 
+html-parse-stringify@^3.0.1:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/html-parse-stringify/-/html-parse-stringify-3.0.1.tgz#dfc1017347ce9f77c8141a507f233040c59c55d2"
+  integrity sha512-KknJ50kTInJ7qIScF3jeaFRpMpE8/lfiTdzf/twXyPBLAGrLRTmkz3AdTnKeh40X8k9L2fdYwEp/42WGXIRGcg==
+  dependencies:
+    void-elements "3.1.0"
+
 html-webpack-plugin@^5.5.0:
   version "5.5.3"
   resolved "https://registry.npmjs.org/html-webpack-plugin/-/html-webpack-plugin-5.5.3.tgz"
@@ -8159,6 +8180,27 @@ human-signals@^4.3.0:
   version "4.3.1"
   resolved "https://registry.npmjs.org/human-signals/-/human-signals-4.3.1.tgz"
   integrity sha512-nZXjEF2nbo7lIw3mgYjItAfgQXog3OjJogSbKa2CQIIvSGWcKgeJnQlNXip6NglNzYH45nSRiEVimMvYL8DDqQ==
+
+i18next-browser-languagedetector@^8.0.0:
+  version "8.0.0"
+  resolved "https://registry.yarnpkg.com/i18next-browser-languagedetector/-/i18next-browser-languagedetector-8.0.0.tgz#b6fdd9b43af67c47f2c26c9ba27710a1eaf31e2f"
+  integrity sha512-zhXdJXTTCoG39QsrOCiOabnWj2jecouOqbchu3EfhtSHxIB5Uugnm9JaizenOy39h7ne3+fLikIjeW88+rgszw==
+  dependencies:
+    "@babel/runtime" "^7.23.2"
+
+i18next-http-backend@^2.5.2:
+  version "2.5.2"
+  resolved "https://registry.yarnpkg.com/i18next-http-backend/-/i18next-http-backend-2.5.2.tgz#3d846cc239987fe7700d1cf0f17975807bfd25d3"
+  integrity sha512-+K8HbDfrvc1/2X8jpb7RLhI9ZxBDpx3xogYkQwGKlWAUXLSEGXzgdt3EcUjLlBCdMwdQY+K+EUF6oh8oB6rwHw==
+  dependencies:
+    cross-fetch "4.0.0"
+
+i18next@*, i18next@^23.11.5:
+  version "23.11.5"
+  resolved "https://registry.yarnpkg.com/i18next/-/i18next-23.11.5.tgz#d71eb717a7e65498d87d0594f2664237f9e361ef"
+  integrity sha512-41pvpVbW9rhZPk5xjCX2TPJi2861LEig/YRhUkY+1FQ2IQPS0bKUDYnEqY8XPPbB48h1uIwLnP9iiEfuSl20CA==
+  dependencies:
+    "@babel/runtime" "^7.23.2"
 
 iconv-lite@0.4.24, iconv-lite@^0.4.24:
   version "0.4.24"
@@ -10438,7 +10480,7 @@ node-fetch@2.6.7:
   dependencies:
     whatwg-url "^5.0.0"
 
-node-fetch@^2.6.1, node-fetch@^2.6.7, node-fetch@^2.6.9:
+node-fetch@^2.6.1, node-fetch@^2.6.12, node-fetch@^2.6.7, node-fetch@^2.6.9:
   version "2.7.0"
   resolved "https://registry.npmjs.org/node-fetch/-/node-fetch-2.7.0.tgz"
   integrity sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==
@@ -12004,6 +12046,14 @@ react-google-recaptcha@^3.1.0:
   dependencies:
     prop-types "^15.5.0"
     react-async-script "^1.2.0"
+
+react-i18next@^14.1.2:
+  version "14.1.2"
+  resolved "https://registry.yarnpkg.com/react-i18next/-/react-i18next-14.1.2.tgz#cd57a755f25a32a5fcc3dbe546cf3cc62b4f3ebd"
+  integrity sha512-FSIcJy6oauJbGEXfhUgVeLzvWBhIBIS+/9c6Lj4niwKZyGaGb4V4vUbATXSlsHJDXXB+ociNxqFNiFuV1gmoqg==
+  dependencies:
+    "@babel/runtime" "^7.23.9"
+    html-parse-stringify "^3.0.1"
 
 react-is@^16.13.1, react-is@^16.7.0:
   version "16.13.1"
@@ -14100,6 +14150,11 @@ verror@1.10.0:
     assert-plus "^1.0.0"
     core-util-is "1.0.2"
     extsprintf "^1.2.0"
+
+void-elements@3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/void-elements/-/void-elements-3.1.0.tgz#614f7fbf8d801f0bb5f0661f5b2f5785750e4f09"
+  integrity sha512-Dhxzh5HZuiHQhbvTW9AMetFfBHDMYpo23Uo9btPXgdYP+3T5S+p+jgNy7spra+veYhBP2dCSgxR/i2Y02h5/6w==
 
 w3c-hr-time@^1.0.2:
   version "1.0.2"

@@ -7,22 +7,30 @@ import AppSpinner from './components/AppSpinner';
 import { RemoteConfigProvider } from './context/RemoteConfigProvider';
 import { useDispatch } from 'react-redux';
 import { anonymousLogin } from './store/profile-reducer';
+import i18n from '../i18n';
+import { Suspense } from 'react';
+import { I18nextProvider } from 'react-i18next';
 
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
   const dispatch = useDispatch();
   dispatch(anonymousLogin()); // Login anonymously at the start of the app
+
   return (
     <RemoteConfigProvider>
-      <div id='app-main-container'>
-        <AppSpinner>
-          <BrowserRouter>
-            <Header />
-            <AppRouter />
-          </BrowserRouter>
-        </AppSpinner>
-        <Footer />
-      </div>
+      <I18nextProvider i18n={i18n}>
+        <Suspense>
+          <div id='app-main-container'>
+            <AppSpinner>
+              <BrowserRouter>
+                <Header />
+                <AppRouter />
+              </BrowserRouter>
+            </AppSpinner>
+            <Footer />
+          </div>
+        </Suspense>
+      </I18nextProvider>
     </RemoteConfigProvider>
   );
 }

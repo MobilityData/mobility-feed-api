@@ -16,6 +16,7 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
+  Select,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -39,6 +40,7 @@ import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { OpenInNew } from '@mui/icons-material';
 import '../styles/Header.css';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
+import i18n from '../../i18n';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -149,7 +151,14 @@ export default function DrawerAppBar(): React.ReactElement {
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
   >([]);
+  const [currentLanguage, setCurrentLanguage] = React.useState<
+    string | undefined
+  >(i18n.language);
   const { config } = useRemoteConfig();
+
+  i18n.on('languageChanged', (lang) => {
+    setCurrentLanguage(i18n.language);
+  });
 
   React.useEffect(() => {
     setNavigationItems(buildNavigationItems(config));
@@ -287,6 +296,18 @@ export default function DrawerAppBar(): React.ReactElement {
               </>
             ) : (
               <Button href={SIGN_IN_TARGET}>Login</Button>
+            )}
+            {/* Testing language tool */}
+            {config.enableLanguageToggle && currentLanguage !== undefined && (
+              <Select
+                value={currentLanguage}
+                onChange={(lang) => {
+                  void i18n.changeLanguage(lang.target.value);
+                }}
+              >
+                <MenuItem value={'en'}>EN</MenuItem>
+                <MenuItem value={'fr'}>FR</MenuItem>
+              </Select>
             )}
           </Box>
         </Toolbar>
