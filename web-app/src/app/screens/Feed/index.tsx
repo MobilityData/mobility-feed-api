@@ -40,8 +40,7 @@ import {
 } from '../../store/dataset-selectors';
 import { Map } from '../../components/Map';
 import PreviousDatasets from './PreviousDatasets';
-import AssociatedGTFSFeeds from './AssociatedGTFSFeeds';
-import FeaturesList from './FeaturesList';
+import AssociatedGTFSRTFeeds from './AssociatedGTFSRTFeeds';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
 
