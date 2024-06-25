@@ -97,31 +97,71 @@ export default function Feed(): React.ReactElement {
           {feedLoadingStatus === 'loading' && 'Loading...'}
           {feedLoadingStatus === 'loaded' && (
             <Grid container spacing={2}>
-              <Grid item xs={12}></Grid>
+              <Grid container item xs={12} spacing={3}>
+                <Grid item>
+                  <Typography>{' < Back'}</Typography>
+                </Grid>
+                <Grid item>
+                  <Typography>
+                    Feeds /{' '}
+                    {feed?.data_type === 'gtfs'
+                      ? 'GTFS Schedule'
+                      : 'GTFS Realtime Schedule'}{' '}
+                    / {feed?.id}
+                  </Typography>
+                </Grid>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography
+                  sx={{
+                    color: colors.blue.A700,
+                    fontWeight: 'bold',
+                    fontSize: { xs: 24, sm: 36 },
+                  }}
+                >
+                  {feed?.provider?.substring(0, 100)}
+                  {feed?.data_type === 'gtfs_rt' && ` - ${feed?.feed_name}`}
+                </Typography>
+              </Grid>
+              {feed?.data_type === 'gtfs' && (
+                <Grid item xs={12}>
+                  <Typography
+                    sx={{
+                      fontWeight: 'bold',
+                      fontSize: { xs: 18, sm: 24 },
+                    }}
+                  >
+                    {feed?.feed_name}
+                  </Typography>
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <Typography>
-                  Feeds /{' '}
-                  {feedType === 'gtfs'
-                    ? 'GTFS Schedule'
-                    : 'GTFS Realtime Schedule'}{' '}
-                  / {feed?.id}
+                  {latestDataset?.downloaded_at !== undefined && (
+                    <span>{`Last updated on ${new Date(
+                      latestDataset.downloaded_at,
+                    ).toDateString()}`}</span>
+                  )}
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
-                <Typography sx={{ typography: { xs: 'h4', sm: 'h3' } }}>
-                  {feed?.provider?.substring(0, 100)}
-                </Typography>
-              </Grid>
-              {feed?.feed_name ?? (
-                <Grid item xs={12}>
-                  <Typography variant='h5'>{feed?.feed_name}</Typography>
-                </Grid>
-              )}
-              {feedType === 'gtfs_rt' && (
-                <Grid item xs={12}>
-                  <Typography variant='h5'>Vehicle Positions</Typography>
-                </Grid>
-              )}
+              {feed?.data_type === 'gtfs_rt' &&
+                feed.entity_types !== undefined && (
+                  <Grid item xs={12}>
+                    <Typography variant='h5'>
+                      {' '}
+                      {feed.entity_types
+                        .map(
+                          (entityType) =>
+                            ({
+                              tu: 'Trip Updates',
+                              vp: 'Vehicle Positions',
+                              sa: 'Service Alerts',
+                            })[entityType],
+                        )
+                        .join(' and ')}
+                    </Typography>
+                  </Grid>
+                )}
               <Grid item xs={12}>
                 {feed?.redirects !== undefined &&
                   feed?.redirects.length > 0 && (
@@ -196,28 +236,30 @@ export default function Feed(): React.ReactElement {
                     direction={{ xs: 'column-reverse', md: 'row' }}
                     justifyContent={'space-between'}
                   >
-                    <FeedSummary feed={feed} />
-                    <Box width={{ xs: '100%', md: '40%' }}>
-                      {boundingBox !== undefined && (
-                        <Map polygon={boundingBox} />
-                      )}
-                    </Box>
+                    {feed?.data_type === 'gtfs' && (
+                      <ContentBox
+                        title='Bounding box from stops.txt'
+                        width={{ xs: '100%', md: '40%' }}
+                        outlineColor={colors.blue[900]}
+                      >
+                        {boundingBox !== undefined && (
+                          <Box width={{ xs: '100%' }}>
+                            <Map polygon={boundingBox} />
+                          </Box>
+                        )}
+                        <DataQualitySummary latestDataset={latestDataset} />
+                      </ContentBox>
+                    )}
+                    <FeedSummary
+                      feed={feed}
+                      latestDataset={latestDataset}
+                      width={{ xs: '100%', md: '55%' }}
+                    />
+
+                    {feed?.data_type === 'gtfs_rt' && (
+                      <AssociatedGTFSRTFeeds feed={feed} />
+                    )}
                   </Grid>
-                  {feed?.data_type === 'gtfs' && (
-                    <Grid item xs={12}>
-                      <DataQualitySummary latestDataset={latestDataset} />
-                    </Grid>
-                  )}
-                  {feed?.data_type === 'gtfs' && (
-                    <Grid item xs={12}>
-                      <FeaturesList latestDataset={latestDataset} />
-                    </Grid>
-                  )}
-                  {feed?.data_type === 'gtfs_rt' && (
-                    <Grid item xs={12}>
-                      <AssociatedGTFSFeeds feed={feed} />
-                    </Grid>
-                  )}
                 </Grid>
               </Grid>
               {feed?.data_type === 'gtfs' && (
