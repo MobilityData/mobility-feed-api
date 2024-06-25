@@ -52,10 +52,11 @@ export default function PreviousDatasets({
       >
         <TableContainer>
           <TableBody sx={{ display: 'inline-table', width: '100%' }}>
-            {datasets?.map((dataset) => (
+            {datasets?.map((dataset, index) => (
               <TableRow key={dataset.id}>
                 {dataset.downloaded_at != null && (
                   <TableCell>
+                    {index === 0 && <b>Latest: </b>}
                     {new Date(dataset.downloaded_at).toDateString()}
                   </TableCell>
                 )}
