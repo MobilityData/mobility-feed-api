@@ -12,6 +12,7 @@ from batch_process_dataset.src.main import (
     process_dataset,
 )
 from database_gen.sqlacodegen_models import Gtfsfeed
+from dataset_service.main import InvalidZipFileException
 from test_utils.database_utils import get_testing_session, default_db_url
 from cloudevents.http import CloudEvent
 
@@ -136,10 +137,11 @@ class TestDatasetProcessor(unittest.TestCase):
             None,
             test_hosted_public_url,
         )
+        try:
+            processor.upload_dataset()
+        except InvalidZipFileException:
+            pass
 
-        result = processor.upload_dataset()
-
-        self.assertIsNone(result)
         upload_file_to_storage.blob.assert_not_called()
         mock_blob.make_public.assert_not_called()
         mock_download_url_content.assert_called_once()

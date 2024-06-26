@@ -14,9 +14,11 @@ src/feeds_gen/models/basic_feed.py
 src/feeds_gen/models/bounding_box.py
 src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
+src/feeds_gen/models/fetch_status.py
 src/feeds_gen/models/gtfs_dataset.py
 src/feeds_gen/models/gtfs_feed.py
 src/feeds_gen/models/gtfs_rt_feed.py
+src/feeds_gen/models/last_fetch_attempt.py
 src/feeds_gen/models/latest_dataset.py
 src/feeds_gen/models/latest_dataset_validation_report.py
 src/feeds_gen/models/location.py

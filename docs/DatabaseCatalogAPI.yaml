@@ -23,7 +23,7 @@ servers:
     description: Pre-prod environment
   - url: https://api-dev.mobilitydatabase.org/
     description: Development environment
-  - url: http://localhost:8080/
+  - url: http://localhost:8000/
     description: Local development environment
 
 tags:
@@ -371,6 +371,10 @@ components:
           properties:
             latest_dataset:
               $ref: "#/components/schemas/LatestDataset"
+        - type: object
+          properties:
+            last_fetch_attempt:
+              $ref: "#/components/schemas/LastFetchAttempt"
 
     GtfsRTFeed:
       allOf:
@@ -549,6 +553,35 @@ components:
           type: string
           format: url
           example: https://www.ladottransit.com/dla.html
+
+    FetchStatus:
+      type: string
+      description: >
+        Describes the status of the fetch operation. Should be one of
+          * `FAILED` - The fetch operation failed.
+          * `PUBLISHED` - The fetch operation was successful and the updated dataset was published.
+          * `NOT_PUBLISHED` - The fetch operation was successful but the updated dataset was not published because no 
+            changes were detected.
+          * `INVALID_ZIP_FILE` - The fetch operation failed because the response from the producer was not a valid ZIP file.
+      enum:
+        - FAILED
+        - PUBLISHED
+        - NOT_PUBLISHED
+        - INVALID_ZIP_FILE
+      example: FAILED
+
+    LastFetchAttempt:
+      type: object
+      description: >
+        Describes the last fetch attempt of the feed using the producer URL.
+      properties:
+        status:
+          $ref: "#/components/schemas/FetchStatus"
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp of the last fetch attempt.
+          example: 2023-06-26T12:00:00Z
 
     Locations:
       type: array

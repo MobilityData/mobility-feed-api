@@ -43,6 +43,7 @@ from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.location import Location as ApiLocation
 from feeds_gen.models.source_info import SourceInfo
 from feeds_gen.models.redirect import Redirect
+from utils.datastore_utils import get_by_stable_ids
 from utils.date_utils import valid_iso_date
 
 
@@ -169,6 +170,8 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         gtfs_feeds = []
         for feed_group in feed_groups:
+            stable_id = feed_group[0][0].stable_id
+            get_by_stable_ids(stable_id)
             feed_objects, redirect_ids, external_ids, redirect_comments, datasets, bounding_boxes, locations = zip(
                 *feed_group
             )
