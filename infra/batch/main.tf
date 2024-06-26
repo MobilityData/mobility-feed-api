@@ -200,7 +200,7 @@ resource "google_cloud_run_service_iam_member" "batch_datasets_cloud_run_invoker
 }
 
 
-ressource "google_datastore_index" "dataset_trace_index_execution_id_timestamp" {
+resource "google_datastore_index" "dataset_trace_index_execution_id_timestamp" {
   project = var.project_id
   kind    = "dataset_trace"
   properties {
