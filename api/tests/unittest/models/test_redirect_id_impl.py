@@ -1,12 +1,14 @@
 import unittest
 
 from database_gen.sqlacodegen_models import Redirectingid
+from database_gen.sqlacodegen_models import Feed
 from feeds.impl.models.redirect_impl import RedirectImpl
 
 redirect_orm = Redirectingid(
     source_id="source_id",
     target_id="target_id",
     redirect_comment="comment",
+    target=Feed(stable_id="target_id")
 )
 
 expected_redirect = RedirectImpl(
@@ -27,11 +29,12 @@ class TestRedirectImpl(unittest.TestCase):
             source_id="",
             target_id="",
             redirect_comment=None,
+            target=Feed(stable_id="target_id")
         )
 
         expected_redirect_empty = RedirectImpl(
             source_id="",
-            target_id="",
+            target_id="target_id",
             comment=None,
         )
 
