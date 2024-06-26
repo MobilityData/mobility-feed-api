@@ -22,6 +22,7 @@ class GtfsFeedImpl(BaseFeedImpl, GtfsFeed):
         gtfs_feed = super().from_orm(feed)
         if not gtfs_feed:
             return None
+        gtfs_feed.id = feed.stable_id
         gtfs_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations]
 
         latest_dataset = next(
