@@ -97,8 +97,20 @@ export default function Feed(): React.ReactElement {
           {feedLoadingStatus === 'loaded' && (
             <Grid container spacing={2}>
               <Grid container item xs={12} spacing={3}>
-                <Grid item>
-                  <Typography>{' < Back'}</Typography>
+                <Grid
+                  item
+                  sx={{
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    if (history.length === 1) {
+                      window.location.href = '/feeds';
+                    } else {
+                      history.back();
+                    }
+                  }}
+                >
+                  <Typography>{'< Back'}</Typography>
                 </Grid>
                 <Grid item>
                   <Typography>
