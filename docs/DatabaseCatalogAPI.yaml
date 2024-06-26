@@ -367,10 +367,62 @@ components:
           properties:
             locations:
               $ref: "#/components/schemas/Locations"
-        - type: object
-          properties:
             latest_dataset:
               $ref: "#/components/schemas/LatestDataset"
+            gtfs_rt_feeds:
+              type: array
+              items:
+                $ref: "#/components/schemas/BasicGtfsRTFeed"
+
+    BasicGtfsRTFeed:
+      type: object
+      properties:
+        id:
+          description: Unique identifier used as a key for the feeds table.
+          type: string
+          example: mdb-1210
+        status:
+          description: >
+            Describes status of the Feed. Should be one of
+              * `active` Feed should be used in public trip planners.
+              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+              * `development` Feed is being used for development purposes and should not be used in public trip planners.
+          type: string
+          enum:
+            - active
+            - deprecated
+            - inactive
+            - development
+          example: deprecated
+#           Have to put the enum inline because of a bug in openapi-generator
+#          $ref: "#/components/schemas/FeedStatus"
+        provider:
+          description: A commonly used name for the transit provider included in the feed.
+          type: string
+          example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
+        feed_name:
+          description: >
+            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+            multiple providers, or which network is represented by the feed.
+          type: string
+          example: Bus
+        source_info:
+          $ref: "#/components/schemas/SourceInfo"          
+        entity_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - vp
+              - tu
+              - sa
+            example: vp
+            description: >
+              The type of realtime entry:
+                * vp - vehicle positions
+                * tu - trip updates
+                * sa - service alerts
 
     GtfsRTFeed:
       allOf:
