@@ -53,10 +53,9 @@ export default function Feed(): React.ReactElement {
   });
   const [activeSearch, setActiveSearch] = useState('');
   const [activePagination, setActivePagination] = useState(
-    searchParams.get('o') !== undefined ? Number(searchParams.get('o')) : 1,
+    searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1,
   );
   const [triggerSearch, setTriggerSearch] = useState(false);
-
   const user = useSelector(selectUserProfile);
   const dispatch = useAppDispatch();
   const feedsData = useSelector(selectFeedsData);
@@ -64,7 +63,7 @@ export default function Feed(): React.ReactElement {
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
-      searchParams.get('o') !== undefined ? Number(searchParams.get('o')) : 1;
+      searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1;
     const pagination = activePagination ?? paginationParam;
     const paginationOffset = (pagination - 1) * searchLimit;
     return paginationOffset;
