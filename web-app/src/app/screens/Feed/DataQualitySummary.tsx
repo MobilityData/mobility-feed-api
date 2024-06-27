@@ -24,7 +24,7 @@ export default function DataQualitySummary({
   return (
     <>
       <div>Data Quality Summary</div>
-      <Grid container>
+      <Grid container spacing={2} padding={2}>
         <Grid
           item
           sx={{
@@ -102,11 +102,7 @@ export default function DataQualitySummary({
         </Grid>
         <Grid item>
           {latestDataset?.validation_report?.url_html !== undefined && (
-            <Button
-              variant='contained'
-              sx={{ m: 2 }}
-              endIcon={<LaunchOutlined />}
-            >
+            <Button variant='contained' endIcon={<LaunchOutlined />}>
               <a
                 href={`${latestDataset?.validation_report?.url_html}`}
                 target='_blank'
@@ -120,11 +116,7 @@ export default function DataQualitySummary({
         </Grid>
         <Grid item>
           {latestDataset?.validation_report?.url_json !== undefined && (
-            <Button
-              variant='contained'
-              sx={{ m: 2 }}
-              endIcon={<LaunchOutlined />}
-            >
+            <Button variant='contained' endIcon={<LaunchOutlined />}>
               <a
                 href={`${latestDataset?.validation_report?.url_json}`}
                 target='_blank'
