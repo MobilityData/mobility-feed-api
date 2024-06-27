@@ -21,7 +21,7 @@ import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
 import { useAppDispatch } from '../../hooks';
-import { loadingFeed } from '../../store/feed-reducer';
+import { loadingFeed, resetFeed } from '../../store/feed-reducer';
 import {
   selectIsAnonymous,
   selectIsAuthenticated,
@@ -69,6 +69,9 @@ export default function Feed(): React.ReactElement {
     ) {
       dispatch(loadingFeed({ feedId, accessToken: user?.accessToken }));
       dispatch(loadingDataset({ feedId, accessToken: user?.accessToken }));
+      return () => {
+        dispatch(resetFeed());
+      };
     }
   }, [isAuthenticatedOrAnonymous]);
 

@@ -30,6 +30,11 @@ export const feedSlice = createSlice({
     ) => {
       state.feedId = action.payload?.feedId;
     },
+    resetFeed: (state) => {
+      state = {
+        ...initialState,
+      };
+    },
     loadingFeed: (
       state,
       action: PayloadAction<{
@@ -67,6 +72,7 @@ export const feedSlice = createSlice({
 
 export const {
   updateFeedId,
+  resetFeed,
   loadingFeed,
   loadingFeedFail,
   loadingFeedSuccess,
