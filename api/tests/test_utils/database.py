@@ -14,6 +14,7 @@ from database_gen.sqlacodegen_models import (
     Validationreport,
     Notice,
     Feature,
+    Entitytype,
 )
 
 TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
@@ -78,6 +79,7 @@ def populate_database(db: Database):
                         feed_name=f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest Feed Name",
                     )
                 ],
+                entitytypes=[Entitytype(name="vp")],
             ),
             auto_commit=True,
         )
@@ -201,6 +203,8 @@ def populate_database(db: Database):
         print(e)
     finally:
         # clean up the testing data regardless of the test result
+        db.session.execute(text("DELETE FROM entitytypefeed"))
+        db.session.execute(text("DELETE FROM entitytype"))
         db.session.execute(text("DELETE FROM feedreference"))
         for dataset_id in dataset_ids:
             db.session.execute(text(f"DELETE FROM notice where dataset_id ='{dataset_id}'"))
@@ -224,5 +228,5 @@ def populate_database(db: Database):
         feature_ids_str = ", ".join([f"'{feature_id}'" for feature_id in FEATURE_IDS])
         # Delete referencing rows in featurevalidationreport
         db.session.execute(text(f"DELETE FROM featurevalidationreport WHERE feature IN ({feature_ids_str})"))
-        db.session.execute(text(f"""DELETE FROM feature where name in ({feature_ids_str})"""))
+        db.session.execute(text("DELETE FROM feature"))
         db.commit()

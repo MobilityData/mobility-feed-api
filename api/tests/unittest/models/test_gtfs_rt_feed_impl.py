@@ -85,6 +85,7 @@ expected_gtfs_rt_feed_result = GtfsRTFeedImpl(
             municipality="municipality",
         )
     ],
+    feed_references=[],
 )
 
 

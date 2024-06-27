@@ -22,4 +22,5 @@ class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
             return None
         gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations]
         gtfs_rt_feed.entity_types = [EntitytypeImpl.from_orm(item) for item in feed.entitytypes]
+        gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds]
         return gtfs_rt_feed
