@@ -1,7 +1,7 @@
 import unittest
 import copy
 
-from database_gen.sqlacodegen_models import Gtfsrealtimefeed, Entitytype, Externalid, Location, Redirectingid
+from database_gen.sqlacodegen_models import Gtfsrealtimefeed, Entitytype, Externalid, Location, Redirectingid, Feed
 from feeds_gen.models.source_info import SourceInfo
 from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds.impl.models.external_id_impl import ExternalIdImpl
@@ -10,6 +10,14 @@ from feeds.impl.models.redirect_impl import RedirectImpl
 from feeds.impl.models.entity_type_impl import EntitytypeImpl
 
 
+targetFeed = Feed(
+    id="id1",
+    stable_id="target_id",
+    locations=[],
+    externalids=[],
+    gtfsdatasets=[],
+    redirectingids=[],
+)
 gtfs_rt_feed_orm = Gtfsrealtimefeed(
     stable_id="id",
     data_type="data_type",
@@ -31,8 +39,9 @@ gtfs_rt_feed_orm = Gtfsrealtimefeed(
     license_url="license_url",
     redirectingids=[
         Redirectingid(
-            target_id="target_id",
+            target_id="id1",
             redirect_comment="redirect_comment",
+            target=targetFeed,
         )
     ],
     entitytypes=[Entitytype(name="sa"), Entitytype(name="tu"), Entitytype(name="vp")],
@@ -88,6 +97,9 @@ class TestGtfsRTFeedImpl(unittest.TestCase):
         """Test the `from_orm` method with not provided fields."""
         # Test with empty fields and None values
         # No error should be raised
+        # Target is set to None as deep copy is failing for unknown reasons
+        # At the end of the test, the target is set back to the original value
+        gtfs_rt_feed_orm.redirectingids[0].target = None
         target_feed_orm = copy.deepcopy(gtfs_rt_feed_orm)
         target_feed_orm.feed_name = ""
         target_feed_orm.provider = None
@@ -102,3 +114,5 @@ class TestGtfsRTFeedImpl(unittest.TestCase):
 
         result = GtfsRTFeedImpl.from_orm(target_feed_orm)
         assert result == target_expected_gtfs_rt_feed_result
+        #        Set the target back to the original value
+        gtfs_rt_feed_orm.redirectingids[0].target = targetFeed
