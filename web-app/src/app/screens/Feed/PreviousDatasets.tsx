@@ -3,6 +3,7 @@ import { ContentBox } from '../../components/ContentBox';
 import {
   Button,
   Chip,
+  Grid,
   TableBody,
   TableCell,
   TableContainer,
@@ -18,6 +19,7 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { type paths } from '../../services/feeds/types';
+import ChevronRight from '@mui/icons-material/ChevronRight';
 
 export interface PreviousDatasetsProps {
   datasets:
@@ -39,10 +41,10 @@ export default function PreviousDatasets({
       </Typography>
       <Typography>
         {datasets !== undefined && datasets.length > 0 && (
-          <div>
+          <Grid container>
             1-{datasets.length < 10 ? datasets.length : 10} of {datasets.length}{' '}
-            {'Datasets >'}
-          </div>
+            Datasets <ChevronRight />
+          </Grid>
         )}
       </Typography>
       <ContentBox

@@ -12,6 +12,7 @@ import {
   colors,
 } from '@mui/material';
 import {
+  ChevronLeft,
   Download,
   LaunchOutlined,
   WarningAmberOutlined,
@@ -96,7 +97,7 @@ export default function Feed(): React.ReactElement {
           {feedLoadingStatus === 'loading' && 'Loading...'}
           {feedLoadingStatus === 'loaded' && (
             <Grid container spacing={2}>
-              <Grid container item xs={12} spacing={3}>
+              <Grid container item xs={12} spacing={3} alignItems={'center'}>
                 <Grid
                   item
                   sx={{
@@ -110,7 +111,9 @@ export default function Feed(): React.ReactElement {
                     }
                   }}
                 >
-                  <Typography>{'< Back'}</Typography>
+                  <Grid container alignItems={'center'}>
+                    <ChevronLeft /> Back
+                  </Grid>
                 </Grid>
                 <Grid item>
                   <Typography>
