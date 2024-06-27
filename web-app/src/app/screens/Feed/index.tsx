@@ -193,11 +193,11 @@ export default function Feed(): React.ReactElement {
                     </ContentBox>
                   )}
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} marginBottom={2}>
                 {feedType === 'gtfs' && (
                   <Button
                     variant='contained'
-                    sx={{ m: 2 }}
+                    sx={{ marginRight: 2 }}
                     startIcon={<Download />}
                   >
                     <a
@@ -216,7 +216,7 @@ export default function Feed(): React.ReactElement {
                 )}
                 <Button
                   variant='contained'
-                  sx={{ m: 2 }}
+                  sx={{ marginRight: 2 }}
                   endIcon={<LaunchOutlined />}
                 >
                   <a
@@ -230,7 +230,7 @@ export default function Feed(): React.ReactElement {
                 </Button>
                 <Button
                   variant='contained'
-                  sx={{ m: 2 }}
+                  sx={{ marginRight: 2 }}
                   endIcon={<LaunchOutlined />}
                 >
                   <a
