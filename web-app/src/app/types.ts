@@ -58,6 +58,9 @@ export const FEED_PROFILE_RESET_FEED = `${FEED_PROFILE}/resetFeed`;
 export const FEED_PROFILE_LOADING_FEED = `${FEED_PROFILE}/loadingFeed`;
 export const FEED_PROFILE_LOADING_FEED_SUCCESS = `${FEED_PROFILE}/loadingFeedSuccess`;
 export const FEED_PROFILE_LOADING_FEED_FAIL = `${FEED_PROFILE}/loadingFeedFail`;
+export const FEED_PROFILE_LOADING_RELATED_FEEDS = `${FEED_PROFILE}/loadingRelatedFeeds`;
+export const FEED_PROFILE_LOADING_RELATED_FEEDS_SUCCESS = `${FEED_PROFILE}/loadingRelatedFeedsSuccess`;
+export const FEED_PROFILE_LOADING_RELATED_FEEDS_FAIL = `${FEED_PROFILE}/loadingRelatedFeedsFail`;
 
 export const FEEDS_RESET_FEEDS = `feeds/resetFeeds`;
 export const FEEDS_LOADING_FEEDS = `feeds/loadingFeeds`;

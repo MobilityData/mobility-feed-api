@@ -21,7 +21,11 @@ import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
 import { useAppDispatch } from '../../hooks';
-import { loadingFeed, resetFeed } from '../../store/feed-reducer';
+import {
+  loadingFeed,
+  loadingRelatedFeeds,
+  resetFeed,
+} from '../../store/feed-reducer';
 import {
   selectIsAnonymous,
   selectIsAuthenticated,
@@ -32,6 +36,7 @@ import {
   selectFeedLoadingStatus,
   selectGTFSFeedData,
   selectGTFSRTFeedData,
+  selectRelatedFeedsData,
 } from '../../store/feed-selectors';
 import { loadingDataset } from '../../store/dataset-reducer';
 import {
@@ -41,9 +46,9 @@ import {
 } from '../../store/dataset-selectors';
 import { Map } from '../../components/Map';
 import PreviousDatasets from './PreviousDatasets';
-import AssociatedGTFSRTFeeds from './AssociatedGTFSRTFeeds';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
+import AssociatedFeeds from './AssociatedFeeds';
 
 export default function Feed(): React.ReactElement {
   const { feedId } = useParams();
@@ -54,6 +59,7 @@ export default function Feed(): React.ReactElement {
     feedType === 'gtfs'
       ? useSelector(selectGTFSFeedData)
       : useSelector(selectGTFSRTFeedData);
+  const relatedFeeds = useSelector(selectRelatedFeedsData);
   const datasets = useSelector(selectDatasetsData);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
@@ -69,6 +75,18 @@ export default function Feed(): React.ReactElement {
     ) {
       dispatch(loadingFeed({ feedId, accessToken: user?.accessToken }));
       dispatch(loadingDataset({ feedId, accessToken: user?.accessToken }));
+      if (
+        feed?.data_type === 'gtfs_rt' &&
+        feedLoadingStatus === 'loaded' &&
+        feed.feed_references !== undefined
+      ) {
+        dispatch(
+          loadingRelatedFeeds({
+            feedIds: feed.feed_references,
+            accessToken: user?.accessToken,
+          }),
+        );
+      }
       return () => {
         dispatch(resetFeed());
       };
@@ -288,7 +306,7 @@ export default function Feed(): React.ReactElement {
                     />
 
                     {feed?.data_type === 'gtfs_rt' && (
-                      <AssociatedGTFSRTFeeds feed={feed} />
+                      <AssociatedFeeds feeds={relatedFeeds} />
                     )}
                   </Grid>
                 </Grid>
