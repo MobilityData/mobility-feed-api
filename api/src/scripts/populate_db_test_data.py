@@ -25,7 +25,7 @@ def set_up_configs():
     return args.filepath
 
 
-class DatabasePopulateHelper:
+class DatabasePopulateTestDataHelper:
     """
     Helper class to populate
     the database with test data
@@ -119,5 +119,5 @@ class DatabasePopulateHelper:
 
 
 if __name__ == "__main__":
-    db_helper = DatabasePopulateHelper(set_up_configs())
+    db_helper = DatabasePopulateTestDataHelper(set_up_configs())
     db_helper.populate()
