@@ -216,7 +216,6 @@ export const searchFeeds = async (
 > => {
   const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
   client.use(authMiddleware);
-  // debugger;
   return await client
     .GET('/v1/search', { params })
     .then((response) => {

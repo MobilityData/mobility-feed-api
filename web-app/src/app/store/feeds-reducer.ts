@@ -24,7 +24,7 @@ export const feedsSlice = createSlice({
   initialState,
   reducers: {
     resetFeeds: (state) => {
-      state.status = 'loading';
+      state.status = 'loaded';
       state.data = {
         total: 0,
         results: [],
