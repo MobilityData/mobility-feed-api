@@ -26,18 +26,22 @@ const renderAssociatedGTFSFeedRow = (
   }
   return (
     <TableRow key={assocFeed?.id}>
-      <TableCell>{assocFeed.feed_name}</TableCell>
-      <TableCell>
-        {assocFeed.latest_dataset?.downloaded_at !== undefined && (
-          <span style={{ display: 'flex' }}>
-            <a href={`/feeds/${assocFeed?.id}`} rel='noreferrer'>
+      <a
+        href={`/feeds/${assocFeed?.id}`}
+        rel='noreferrer'
+        style={{ display: 'contents' }}
+      >
+        <TableCell>{assocFeed.feed_name}</TableCell>
+        <TableCell>
+          {assocFeed.latest_dataset?.downloaded_at !== undefined && (
+            <span style={{ display: 'flex' }}>
               Last updated on{' '}
               {new Date(assocFeed.latest_dataset?.downloaded_at).toDateString()}
-            </a>
-            <OpenInNewOutlined />
-          </span>
-        )}
-      </TableCell>
+              <OpenInNewOutlined />
+            </span>
+          )}
+        </TableCell>
+      </a>
     </TableRow>
   );
 };
