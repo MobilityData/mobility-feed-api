@@ -15,6 +15,7 @@ from database_gen.sqlacodegen_models import (
     Notice,
     Feature,
     Entitytype,
+    Location,
 )
 
 TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
@@ -56,6 +57,14 @@ def populate_database(db: Database):
                     status="active",
                     provider=f"{stable_id}-MobilityDataTest provider",
                     feed_name=f"{stable_id}-MobilityDataTest Feed Name",
+                    locations=[
+                        Location(
+                            id=f"{stable_id}-location",
+                            country_code="CA",
+                            subdivision_name=f"{stable_id}-subdivision",
+                            municipality=f"{stable_id}-municipality",
+                        )
+                    ],
                 ),
                 auto_commit=True,
             )
@@ -79,6 +88,7 @@ def populate_database(db: Database):
                         feed_name=f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest Feed Name",
                     )
                 ],
+                # externalids=[Externalid(associated_id="gtfs_feed_id_0", source="source_0")],
                 entitytypes=[Entitytype(name="vp")],
             ),
             auto_commit=True,
@@ -116,6 +126,8 @@ def populate_database(db: Database):
                     validation_reports=[old_validation_report, new_validation_report],
                     # This makes downloaded_at predictable and unique for each dataset
                     downloaded_at=(datasets_download_first_date + idx * one_day),
+                    hosted_url=f"https://example.com/{TEST_DATASET_STABLE_IDS[idx]}",
+                    hash="hash",
                 ),
                 auto_commit=True,
             )
@@ -167,6 +179,13 @@ def populate_database(db: Database):
                     source="source" + str(idx + 1),
                 )
             )
+        db.merge(
+            Externalid(
+                feed_id=gtfs_rt_feed_id,
+                associated_id=TEST_EXTERNAL_IDS[0],
+                source="source_rt",
+            )
+        )
         db.session.execute(
             text(
                 f"INSERT INTO redirectingid (source_id, target_id) "
@@ -194,6 +213,12 @@ def populate_database(db: Database):
                 f"(source_id, target_id) VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[3]}')"
             )
         )
+        db.session.execute(
+            text(
+                f"INSERT INTO redirectingid "
+                f"(source_id, target_id) VALUES ('{gtfs_rt_feed_id}', '{gtfs_feed_ids[1]}')"
+            )
+        )
         # update the feed search materialized view after all the data is inserted
         db.session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY feedsearch"))
         db.commit()
@@ -206,6 +231,8 @@ def populate_database(db: Database):
         db.session.execute(text("DELETE FROM entitytypefeed"))
         db.session.execute(text("DELETE FROM entitytype"))
         db.session.execute(text("DELETE FROM feedreference"))
+        db.session.execute(text("DELETE FROM locationfeed"))
+        db.session.execute(text("DELETE FROM location"))
         for dataset_id in dataset_ids:
             db.session.execute(text(f"DELETE FROM notice where dataset_id ='{dataset_id}'"))
             db.session.execute(text(f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'"))

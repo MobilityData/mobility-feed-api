@@ -307,9 +307,10 @@ class FeedsApiImpl(BaseFeedsApi):
         self,
         id: str,
     ) -> GtfsFeed:
-        """Get the specified feed from the Mobility Database."""
-        if (ret := self._get_gtfs_feeds(GtfsFeedFilter(stable_id=id))) and len(ret) == 1:
-            return ret[0]
+        """Get the specified gtfs feed from the Mobility Database."""
+        feed = FeedFilter(stable_id=id).filter(Database().get_query_model(Gtfsfeed)).first()
+        if feed:
+            return GtfsFeedImpl.from_orm(feed)
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
@@ -384,10 +385,16 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
-        if (ret := self._get_gtfs_rt_feeds(GtfsRtFeedFilter(stable_id=id))) and len(ret) == 1:
-            return ret[0]
+        feed = GtfsRtFeedFilter(stable_id=id).filter(Database().get_query_model(Gtfsrealtimefeed)).first()
+        if feed:
+            return GtfsRTFeedImpl.from_orm(feed)
         else:
             raise_http_error(404, gtfs_rt_feed_not_found.format(id))
+
+        # if (ret := self._get_gtfs_rt_feeds(GtfsRtFeedFilter(stable_id=id))) and len(ret) == 1:
+        #     return ret[0]
+        # else:
+        #     raise_http_error(404, gtfs_rt_feed_not_found.format(id))
 
     def get_gtfs_rt_feeds(
         self,

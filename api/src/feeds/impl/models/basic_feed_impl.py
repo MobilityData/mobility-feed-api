@@ -39,7 +39,7 @@ class BaseFeedImpl(BasicFeed):
                 api_key_parameter_name=feed.api_key_parameter_name,
                 license_url=feed.license_url,
             ),
-            redirects=[RedirectImpl.from_orm(item) for item in feed.redirectingids],
+            redirects=sorted([RedirectImpl.from_orm(item) for item in feed.redirectingids], key=lambda x: x.target_id),
         )
 
 
