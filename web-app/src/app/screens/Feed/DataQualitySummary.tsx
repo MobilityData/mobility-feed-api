@@ -33,22 +33,25 @@ export default function DataQualitySummary({
         >
           <Chip
             icon={
-              latestDataset?.validation_report?.total_error !== undefined &&
-              latestDataset?.validation_report?.total_error > 0 ? (
+              latestDataset?.validation_report?.unique_error_count !==
+                undefined &&
+              latestDataset?.validation_report?.unique_error_count > 0 ? (
                 <ReportOutlined />
               ) : (
                 <CheckCircle />
               )
             }
             label={
-              latestDataset?.validation_report?.total_error !== undefined &&
-              latestDataset?.validation_report?.total_error > 0
-                ? `${latestDataset?.validation_report?.total_error} errors`
+              latestDataset?.validation_report?.unique_error_count !==
+                undefined &&
+              latestDataset?.validation_report?.unique_error_count > 0
+                ? `${latestDataset?.validation_report?.unique_error_count} errors`
                 : `No errors`
             }
             color={
-              latestDataset?.validation_report?.total_error !== undefined &&
-              latestDataset?.validation_report?.total_error > 0
+              latestDataset?.validation_report?.unique_error_count !==
+                undefined &&
+              latestDataset?.validation_report?.unique_error_count > 0
                 ? 'error'
                 : 'success'
             }
@@ -63,22 +66,25 @@ export default function DataQualitySummary({
         >
           <Chip
             icon={
-              latestDataset?.validation_report?.total_warning !== undefined &&
-              latestDataset?.validation_report?.total_warning > 0 ? (
+              latestDataset?.validation_report?.unique_warning_count !==
+                undefined &&
+              latestDataset?.validation_report?.unique_warning_count > 0 ? (
                 <ReportOutlined />
               ) : (
                 <CheckCircle />
               )
             }
             label={
-              latestDataset?.validation_report?.total_warning !== undefined &&
-              latestDataset?.validation_report?.total_warning > 0
-                ? `${latestDataset?.validation_report?.total_warning} warnings`
+              latestDataset?.validation_report?.unique_warning_count !==
+                undefined &&
+              latestDataset?.validation_report?.unique_warning_count > 0
+                ? `${latestDataset?.validation_report?.unique_warning_count} warnings`
                 : `No warnings`
             }
             color={
-              latestDataset?.validation_report?.total_warning !== undefined &&
-              latestDataset?.validation_report?.total_warning > 0
+              latestDataset?.validation_report?.unique_warning_count !==
+                undefined &&
+              latestDataset?.validation_report?.unique_warning_count > 0
                 ? 'warning'
                 : 'success'
             }
@@ -94,7 +100,7 @@ export default function DataQualitySummary({
           <Chip
             icon={<ErrorOutlineOutlined />}
             label={`${
-              latestDataset?.validation_report?.total_info ?? '0'
+              latestDataset?.validation_report?.unique_info_count ?? '0'
             } Info Notices`}
             color='primary'
             variant='outlined'
