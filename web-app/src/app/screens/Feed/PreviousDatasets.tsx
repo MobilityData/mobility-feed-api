@@ -74,25 +74,26 @@ export default function PreviousDatasets({
                       <>
                         <Chip
                           icon={
-                            dataset?.validation_report?.total_error !==
+                            dataset?.validation_report?.unique_error_count !==
                               undefined &&
-                            dataset?.validation_report?.total_error > 0 ? (
+                            dataset?.validation_report?.unique_error_count >
+                              0 ? (
                               <ReportOutlined />
                             ) : (
                               <CheckCircle />
                             )
                           }
                           label={
-                            dataset?.validation_report?.total_error !==
+                            dataset?.validation_report?.unique_error_count !==
                               undefined &&
-                            dataset?.validation_report?.total_error > 0
-                              ? `${dataset?.validation_report?.total_error} errors`
+                            dataset?.validation_report?.unique_error_count > 0
+                              ? `${dataset?.validation_report?.unique_error_count} errors`
                               : `No errors`
                           }
                           color={
-                            dataset?.validation_report?.total_error !==
+                            dataset?.validation_report?.unique_error_count !==
                               undefined &&
-                            dataset?.validation_report?.total_error > 0
+                            dataset?.validation_report?.unique_error_count > 0
                               ? 'error'
                               : 'success'
                           }
@@ -100,25 +101,26 @@ export default function PreviousDatasets({
                         />
                         <Chip
                           icon={
-                            dataset?.validation_report?.total_warning !==
+                            dataset?.validation_report?.unique_warning_count !==
                               undefined &&
-                            dataset?.validation_report?.total_warning > 0 ? (
+                            dataset?.validation_report?.unique_warning_count >
+                              0 ? (
                               <ReportOutlined />
                             ) : (
                               <CheckCircle />
                             )
                           }
                           label={
-                            dataset?.validation_report?.total_warning !==
+                            dataset?.validation_report?.unique_warning_count !==
                               undefined &&
-                            dataset?.validation_report?.total_warning > 0
-                              ? `${dataset?.validation_report?.total_warning} warnings`
+                            dataset?.validation_report?.unique_warning_count > 0
+                              ? `${dataset?.validation_report?.unique_warning_count} warnings`
                               : `No warnings`
                           }
                           color={
-                            dataset?.validation_report?.total_warning !==
+                            dataset?.validation_report?.unique_warning_count !==
                               undefined &&
-                            dataset?.validation_report?.total_warning > 0
+                            dataset?.validation_report?.unique_warning_count > 0
                               ? 'warning'
                               : 'success'
                           }
@@ -127,7 +129,7 @@ export default function PreviousDatasets({
                         <Chip
                           icon={<ErrorOutlineOutlined />}
                           label={`${
-                            dataset?.validation_report?.total_info ?? '0'
+                            dataset?.validation_report?.unique_info_count ?? '0'
                           } Info Notices`}
                           color='primary'
                           variant='outlined'
