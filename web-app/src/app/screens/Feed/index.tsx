@@ -72,6 +72,20 @@ export default function Feed(): React.ReactElement {
     }
   }, [isAuthenticatedOrAnonymous]);
 
+  useEffect(() => {
+    let newDocTitle = 'Mobility Database';
+    if (feed?.provider !== undefined) {
+      newDocTitle += ` | ${feed?.provider}`;
+    }
+    if (feed?.feed_name !== undefined) {
+      newDocTitle += ` | ${feed?.feed_name}`;
+    }
+    document.title = newDocTitle;
+    return () => {
+      document.title = 'Mobility Database';
+    };
+  }, [feed]);
+
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
       <CssBaseline />
