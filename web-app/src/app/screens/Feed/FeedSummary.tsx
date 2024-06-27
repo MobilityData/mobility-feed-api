@@ -9,6 +9,7 @@ import {
   TableCell,
   TableContainer,
   TableRow,
+  Typography,
   colors,
 } from '@mui/material';
 import {
@@ -44,7 +45,9 @@ export default function FeedSummary({
           <TableBody>
             <TableRow>
               <TableCell sx={{ fontSize: 14, border: 'none' }}>
-                <b>Location:</b>
+                <Typography variant='subtitle2' gutterBottom>
+                  Location
+                </Typography>
                 <div>
                   {feed?.locations !== undefined
                     ? Object.values(feed?.locations[0])
@@ -57,7 +60,9 @@ export default function FeedSummary({
             </TableRow>
             <TableRow>
               <TableCell sx={{ fontSize: 14, border: 'none' }}>
-                <b>Producer download URL:</b>
+                <Typography variant='subtitle2' gutterBottom>
+                  Producer download URL
+                </Typography>
                 <div>
                   <Button
                     sx={{ textOverflow: 'ellipsis', cursor: 'initial' }}
@@ -101,7 +106,9 @@ export default function FeedSummary({
             </TableRow>
             <TableRow>
               <TableCell sx={{ fontSize: 14, border: 'none' }}>
-                <b>Data type:</b>
+                <Typography variant='subtitle2' gutterBottom>
+                  Data type
+                </Typography>
                 <div>
                   <Button
                     sx={{ textOverflow: 'ellipsis', cursor: 'text' }}
@@ -121,7 +128,9 @@ export default function FeedSummary({
               feed?.feed_contact_email.length > 0 && (
                 <TableRow>
                   <TableCell sx={{ fontSize: 14, border: 'none' }}>
-                    <b>Feed contact email:</b>
+                    <Typography variant='subtitle2' gutterBottom>
+                      Feed contact email:
+                    </Typography>
                     <div>
                       {feed?.feed_contact_email !== undefined &&
                         feed?.feed_contact_email.length > 0 && (
@@ -155,7 +164,9 @@ export default function FeedSummary({
             {latestDataset?.validation_report?.features !== undefined && (
               <TableRow>
                 <TableCell sx={{ fontSize: 14, border: 'none' }}>
-                  <b>Features</b>
+                  <Typography variant='subtitle2' gutterBottom>
+                    Features
+                  </Typography>
                   <Grid container spacing={1}>
                     {latestDataset.validation_report?.features?.map(
                       (feature) => (
