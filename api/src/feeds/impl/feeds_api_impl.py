@@ -369,6 +369,9 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
         gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
+        gtfs_feed_query = DatasetsApiImpl.apply_bounding_filtering(
+            gtfs_feed_query, dataset_latitudes, dataset_longitudes, bounding_filter_method
+        )
         if limit is not None:
             gtfs_feed_query = gtfs_feed_query.limit(limit)
         if offset is not None:
