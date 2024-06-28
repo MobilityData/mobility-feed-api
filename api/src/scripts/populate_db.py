@@ -262,6 +262,9 @@ class DatabasePopulateHelper:
             f"New feeds added to the database: "
             f"{','.join([feed.stable_id for feed in self.added_gtfs_feeds] if self.added_gtfs_feeds else [])}"
         )
+
+        env = os.getenv("ENV")
+        self.logger.info(f"ENV = {env}")
         if os.getenv("ENV", "local") != "local":
             publish_all(self.added_gtfs_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
 
