@@ -11,9 +11,10 @@ def get_lts_traces(stable_ids: List[str]) -> Dict[str, Optional[LastFetchAttempt
         return {}
 
     results: Dict[str, Optional[LastFetchAttempt]] = {stable_id: None for stable_id in stable_ids}
-    client = datastore.Client()
 
     try:
+        client = datastore.Client()
+
         # Step 1: Get the latest timestamp for the first stable_id
         first_result = None
         n = 0
