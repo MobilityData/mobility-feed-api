@@ -1,9 +1,14 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { type FeedErrors, FeedErrorSource, type FeedError } from '../types';
+import {
+  type FeedErrors,
+  FeedErrorSource,
+  type FeedError,
+  type FeedStatus,
+} from '../types';
 import { type AllFeedType } from '../services/feeds/utils';
 
 interface FeedState {
-  status: 'loading' | 'loaded' | 'error';
+  status: FeedStatus;
   feedId: string | undefined;
   data: AllFeedType;
   relatedFeedIds: string[];
@@ -13,7 +18,7 @@ interface FeedState {
 }
 
 const initialState: FeedState = {
-  status: 'loading',
+  status: 'loaded',
   feedId: undefined,
   data: undefined,
   relatedFeedIds: [],
