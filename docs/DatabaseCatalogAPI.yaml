@@ -198,7 +198,7 @@ paths:
 
   /v1/gtfs_feeds/{id}/gtfs_rt_feeds:
     parameters:
-      - $ref: "#/components/parameters/feed_id_of_datasets_path_param"
+      - $ref: "#/components/parameters/feed_id_path_param"
     get:
       description: Get a list of GTFS Realtime related to a GTFS feed.
       tags:
