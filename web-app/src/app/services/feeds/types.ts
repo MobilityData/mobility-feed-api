@@ -101,6 +101,19 @@ export interface components {
        */
       comment?: string;
     };
+    LastFetchAttempt: {
+      /**
+       * @description The status of the last fetch attempt.
+       * @example PUBLISHED
+       */
+      status?: 'NOT_PUBLISHED' | 'PUBLISHED' | 'FAILED' | 'INVALID_ZIP_FILE';
+      /**
+       * Format: date-time
+       * @description The date and time of the last fetch attempt, in ISO 8601 date-time format.
+       * @example "2024-06-19T13:52:13.796248"
+       */
+      timestamp?: string;
+    };
     BasicFeed: {
       /**
        * @description Unique identifier used as a key for the feeds table.
@@ -153,6 +166,7 @@ export interface components {
       } & {
         data_type: 'gtfs';
         latest_dataset?: components['schemas']['LatestDataset'];
+        last_fetch_attempt?: components['schemas']['LastFetchAttempt'];
       };
     GtfsRTFeed: {
       data_type: 'gtfs_rt';

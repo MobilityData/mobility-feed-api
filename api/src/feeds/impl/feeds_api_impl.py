@@ -43,7 +43,7 @@ from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds_gen.models.location import Location as ApiLocation
 from feeds_gen.models.source_info import SourceInfo
 from feeds_gen.models.redirect import Redirect
-from utils.datastore_utils import get_by_stable_ids
+from utils.datastore_utils import get_lts_traces
 from utils.date_utils import valid_iso_date
 
 
@@ -169,9 +169,13 @@ class FeedsApiImpl(BaseFeedsApi):
             group_by=lambda x: x[0].stable_id,
         )
         gtfs_feeds = []
+        if feed_groups is None:
+            return gtfs_feeds
+        # Get the last fetch attempt for each feed
+        feed_stable_ids = [feed[0][0].stable_id for feed in feed_groups]
+        last_fetch_attempts = get_lts_traces(feed_stable_ids)
+
         for feed_group in feed_groups:
-            stable_id = feed_group[0][0].stable_id
-            get_by_stable_ids(stable_id)
             feed_objects, redirect_ids, external_ids, redirect_comments, datasets, bounding_boxes, locations = zip(
                 *feed_group
             )
@@ -190,6 +194,10 @@ class FeedsApiImpl(BaseFeedsApi):
             redirects_list = [Redirect(target_id=redirect, comment=comment) for redirect, comment in redirects_set]
 
             gtfs_feed = FeedsApiImpl._create_common_feed(feed_objects[0], GtfsFeed, redirects_list, set(external_ids))
+
+            # Add last fetch attempt to the feed
+            stable_id = feed_group[0][0].stable_id
+            gtfs_feed.last_fetch_attempt = last_fetch_attempts.get(stable_id)
 
             # Iterate over locations and put in a set to eliminate duplicates
             unique_locations = set()
