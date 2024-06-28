@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect } from 'react';
+import { type ReactElement, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -16,6 +16,9 @@ import {
   Download,
   LaunchOutlined,
   WarningAmberOutlined,
+  CheckCircleOutline,
+  ErrorOutline,
+  CancelOutlined,
 } from '@mui/icons-material';
 import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
@@ -49,6 +52,89 @@ import PreviousDatasets from './PreviousDatasets';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
 import AssociatedFeeds from './AssociatedFeeds';
+import { type GTFSFeedType } from '../../services/feeds/utils';
+import { formatDistanceToNow, parseISO } from 'date-fns';
+
+export const formatDate = (isoDate: string): string => {
+  const date = parseISO(isoDate);
+  return formatDistanceToNow(date, { addSuffix: true });
+};
+
+const getStatusProps = (
+  status?: FetchStatus,
+): { color: string; icon: ReactElement; label: string } => {
+  if (status === undefined) {
+    return {
+      icon: <WarningAmberOutlined />,
+      color: 'grey',
+      label: 'Unknown status',
+    };
+  }
+  switch (status) {
+    case 'PUBLISHED':
+      return {
+        icon: <CheckCircleOutline />,
+        color: 'green',
+        label: 'Dataset updated successfully',
+      };
+    case 'NOT_PUBLISHED':
+      return {
+        icon: <CheckCircleOutline />,
+        color: 'blue',
+        label: 'No change in dataset content detected',
+      };
+    case 'FAILED':
+      return {
+        icon: <ErrorOutline />,
+        color: 'red',
+        label: 'Failed to access producer URL',
+      };
+    case 'INVALID_ZIP_FILE':
+      return {
+        icon: <CancelOutlined />,
+        color: 'orange',
+        label: 'URL returns an invalid zip file',
+      };
+    default:
+      return {
+        icon: <WarningAmberOutlined />,
+        color: 'grey',
+        label: 'Unknown status',
+      };
+  }
+};
+type FetchStatus =
+  | 'NOT_PUBLISHED'
+  | 'PUBLISHED'
+  | 'FAILED'
+  | 'INVALID_ZIP_FILE';
+
+interface StatusBadgeProps {
+  status?: FetchStatus;
+  timestamp?: string;
+}
+const StatusBadge: React.FC<StatusBadgeProps> = ({ status, timestamp }) => {
+  const { icon, color, label } = getStatusProps(status);
+
+  return (
+    <Box
+      display='flex'
+      alignItems='center'
+      sx={{
+        color,
+        border: `1px solid ${color}`,
+        borderRadius: '4px',
+        padding: '4px 8px',
+        width: 'fit-content',
+      }}
+    >
+      {icon}
+      <Typography variant='body2' sx={{ marginLeft: '8px' }}>
+        {label} {timestamp !== undefined ? ` (${formatDate(timestamp)})` : ''}
+      </Typography>
+    </Box>
+  );
+};
 
 export default function Feed(): React.ReactElement {
   const { feedId } = useParams();
@@ -184,6 +270,16 @@ export default function Feed(): React.ReactElement {
                   </Typography>
                 </Grid>
               )}
+              {feed?.data_type === 'gtfs' && (
+                <Grid item xs={12}>
+                  <StatusBadge
+                    status={(feed as GTFSFeedType)?.last_fetch_attempt?.status}
+                    timestamp={
+                      (feed as GTFSFeedType)?.last_fetch_attempt?.timestamp
+                    }
+                  />
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <Typography>
                   {latestDataset?.downloaded_at !== undefined && (
@@ -228,11 +324,11 @@ export default function Feed(): React.ReactElement {
                     </ContentBox>
                   )}
               </Grid>
-              <Grid item xs={12} marginBottom={2}>
+              <Grid item xs={12}>
                 {feedType === 'gtfs' && (
                   <Button
                     variant='contained'
-                    sx={{ marginRight: 2 }}
+                    sx={{ m: 2 }}
                     startIcon={<Download />}
                   >
                     <a

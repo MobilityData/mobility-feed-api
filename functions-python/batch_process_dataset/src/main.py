@@ -31,7 +31,12 @@ from google.cloud import storage
 from sqlalchemy import func
 
 from database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
-from dataset_service.main import DatasetTraceService, DatasetTrace, Status
+from dataset_service.main import (
+    DatasetTraceService,
+    DatasetTrace,
+    Status,
+    InvalidZipFileException,
+)
 from helpers.database import (
     start_db_session,
     close_db_session,
@@ -133,7 +138,7 @@ class DatasetProcessor:
                 logging.error(
                     f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
                 )
-                return None
+                raise InvalidZipFileException(self.feed_stable_id, self.producer_url)
 
             logging.info(f"[{self.feed_stable_id}] File hash is {file_sha256_hash}.")
 
@@ -304,6 +309,7 @@ def process_dataset(cloud_event: CloudEvent):
     trace_service = None
     dataset_file: DatasetFile = None
     error_message = None
+    status = None
     try:
         #  Extract  data from message
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
@@ -315,6 +321,7 @@ def process_dataset(cloud_event: CloudEvent):
         execution_id = json_payload["execution_id"]
         trace_service = DatasetTraceService()
 
+        # Check if the dataset has already been processed by reading the trace
         trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
         logging.info(f"[{stable_id}] Dataset trace: {trace}")
         executions = len(trace) if trace else 0
@@ -323,11 +330,10 @@ def process_dataset(cloud_event: CloudEvent):
             f"in execution=[{execution_id}] "
         )
 
-        if executions > 0:
-            if executions >= maximum_executions:
-                error_message = f"[{stable_id}] Function already executed maximum times in execution: [{execution_id}]"
-                logging.error(error_message)
-                return error_message
+        if executions >= maximum_executions:
+            error_message = f"[{stable_id}] Function already executed maximum times in execution: [{execution_id}]"
+            logging.error(error_message)
+            return error_message
 
         processor = DatasetProcessor(
             json_payload["producer_url"],
@@ -341,6 +347,8 @@ def process_dataset(cloud_event: CloudEvent):
             public_hosted_datasets_url,
         )
         dataset_file = processor.process()
+    except InvalidZipFileException:
+        status = Status.INVALID_ZIP_FILE
     except Exception as e:
         logging.error(e)
         error_message = f"[{stable_id}] Error execution: [{execution_id}] error: [{e}]"
@@ -348,9 +356,12 @@ def process_dataset(cloud_event: CloudEvent):
         logging.error(f"Function completed with error:{error_message}")
     finally:
         if stable_id and execution_id:
-            status = (
-                Status.PUBLISHED if dataset_file is not None else Status.NOT_PUBLISHED
-            )
+            if status is None:
+                status = (
+                    Status.PUBLISHED
+                    if dataset_file is not None
+                    else Status.NOT_PUBLISHED
+                )
             if error_message:
                 status = Status.FAILED
             record_trace(

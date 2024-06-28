@@ -22,6 +22,7 @@ from typing import Optional, Final
 from google.cloud import datastore
 from google.cloud.datastore import Client
 
+
 # This files contains the dataset trace and batch execution models and services.
 # The dataset trace is used to store the trace of a dataset and the batch execution
 # One batch execution can have multiple dataset traces.
@@ -34,6 +35,7 @@ class Status(Enum):
     FAILED = "FAILED"
     PUBLISHED = "PUBLISHED"
     NOT_PUBLISHED = "NOT_PUBLISHED"
+    INVALID_ZIP_FILE = "INVALID_ZIP_FILE"
 
 
 # Dataset trace class to store the trace of a dataset
@@ -153,3 +155,23 @@ class BatchExecutionService:
         entity.update(asdict(execution))
 
         return entity
+
+
+class InvalidZipFileException(Exception):
+    """Exception raised for errors in the dataset being not a valid ZIP file."""
+
+    def __init__(
+        self,
+        stable_id,
+        producer_url,
+        message="Producer URL response is not a valid ZIP file",
+    ):
+        self.stable_id = stable_id
+        self.producer_url = producer_url
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self):
+        return (
+            f"[{self.stable_id}] {self.message} with producer URL: {self.producer_url}"
+        )

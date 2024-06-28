@@ -109,8 +109,7 @@ export const getGtfsFeed = async (
   return await client
     .GET('/v1/gtfs_feeds/{id}', { params: { path: { id } } })
     .then((response) => {
-      const data = response.data;
-      return data;
+      return response.data;
     })
     .catch(function (error) {
       throw error;
