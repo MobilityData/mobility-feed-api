@@ -88,7 +88,6 @@ def populate_database(db: Database):
                         feed_name=f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest Feed Name",
                     )
                 ],
-                # externalids=[Externalid(associated_id="gtfs_feed_id_0", source="source_0")],
                 entitytypes=[Entitytype(name="vp")],
             ),
             auto_commit=True,
