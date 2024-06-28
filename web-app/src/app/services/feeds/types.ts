@@ -5,7 +5,7 @@
 
 export interface paths {
   '/v1/feeds': {
-    /** @description Get some (or all) feeds from the Mobility Database. */
+    /** @description Get some (or all) feeds from the Mobility Database. The items are sorted by provider in alphabetical ascending order. */
     get: operations['getFeeds'];
   };
   '/v1/feeds/{id}': {
@@ -463,7 +463,7 @@ export interface external {
 }
 
 export interface operations {
-  /** @description Get some (or all) feeds from the Mobility Database. */
+  /** @description Get some (or all) feeds from the Mobility Database. The items are sorted by provider in alphabetical ascending order. */
   getFeeds: {
     parameters: {
       query?: {

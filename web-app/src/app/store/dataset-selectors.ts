@@ -13,9 +13,7 @@ export const selectDatasetsData = (
 export const selectLatestDatasetsData = (
   state: RootState,
 ): components['schemas']['GtfsDataset'] | undefined => {
-  return state.dataset.data !== undefined
-    ? state.dataset.data[state.dataset.data.length - 1]
-    : undefined;
+  return state.dataset.data !== undefined ? state.dataset.data[0] : undefined;
 };
 
 export const selectBoundingBoxFromLatestDataset = (
