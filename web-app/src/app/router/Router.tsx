@@ -11,7 +11,6 @@ import Home from '../screens/Home';
 import ForgotPassword from '../screens/ForgotPassword';
 import FAQ from '../screens/FAQ';
 import About from '../screens/About';
-import Contribute from '../screens/Contribute';
 import PostRegistration from '../screens/PostRegistration';
 import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
@@ -25,6 +24,7 @@ import {
 } from '../services/channel-service';
 import { useAppDispatch } from '../hooks';
 import { logout } from '../store/profile-reducer';
+import FeedSubmission from '../screens/FeedSubmission';
 
 export const AppRouter: React.FC = () => {
   const navigateTo = useNavigate();
@@ -82,7 +82,7 @@ export const AppRouter: React.FC = () => {
       <Route path='about' element={<About />} />
       <Route path='feeds' element={<Feeds />} />
       <Route path='feeds/:feedId' element={<Feed />} />
-      <Route path='contribute' element={<Contribute />} />
+      <Route path='contribute' element={<FeedSubmission />} />
       <Route path='privacy-policy' element={<PrivacyPolicy />} />
       <Route path='terms-and-conditions' element={<TermsAndConditions />} />
     </Routes>
