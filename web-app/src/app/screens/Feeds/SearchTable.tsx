@@ -1,6 +1,7 @@
 import * as React from 'react';
 import {
   Box,
+  Chip,
   Table,
   TableBody,
   TableCell,
@@ -12,6 +13,7 @@ import { type AllFeedsType } from '../../services/feeds/utils';
 import { type FeedLocations } from '../../types';
 import BusAlertIcon from '@mui/icons-material/BusAlert';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useNavigate } from 'react-router-dom';
 
 export interface SearchTableProps {
@@ -153,9 +155,22 @@ export default function SearchTable({
               navigate(`/feeds/${feed.id}`);
             }}
           >
-            <TableCell>{feed.provider}</TableCell>
+            <TableCell>
+              {feed.provider}
+              {feed.status === 'deprecated' && (
+                <Box sx={{ mt: '5px' }}>
+                  <Chip
+                    label='Deprecated'
+                    icon={<ErrorOutlineIcon />}
+                    color='error'
+                    size='small'
+                    variant='outlined'
+                  />
+                </Box>
+              )}
+            </TableCell>
             <TableCell>{getLocationName(feed.locations)}</TableCell>
-            <TableCell align='right'>{feed.note}</TableCell>
+            <TableCell align='right'>{feed.feed_name}</TableCell>
             <TableCell align='left'>
               {getDataTypeElement(feed.data_type)}
             </TableCell>
