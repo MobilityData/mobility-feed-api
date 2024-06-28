@@ -2,29 +2,41 @@ import * as React from 'react';
 import { ContentBox } from '../../components/ContentBox';
 import {
   Button,
+  Chip,
+  Grid,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableRow,
+  Typography,
   colors,
 } from '@mui/material';
-import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
+import {
+  ContentCopy,
+  ContentCopyOutlined,
+  Download,
+} from '@mui/icons-material';
 import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
+import { type components } from '../../services/feeds/types';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
+  latestDataset?: components['schemas']['GtfsDataset'] | undefined;
+  width: Record<string, string>;
 }
 
 export default function FeedSummary({
   feed,
+  latestDataset,
+  width,
 }: FeedSummaryProps): React.ReactElement {
   return (
     <ContentBox
-      width={{ xs: '100%', md: '50%' }}
+      width={width}
       title={'Feed Summary'}
       outlineColor={colors.indigo[500]}
     >
@@ -32,110 +44,142 @@ export default function FeedSummary({
         <Table>
           <TableBody>
             <TableRow>
-              <TableCell
-                sx={{ fontSize: 14, fontWeight: 'bold', border: 'none' }}
-              >
-                Producer download URL:
+              <TableCell sx={{ fontSize: 14, border: 'none' }}>
+                <Typography variant='subtitle2' gutterBottom>
+                  Location
+                </Typography>
+                <div>
+                  {feed?.locations !== undefined
+                    ? Object.values(feed?.locations[0])
+                        .filter((v) => v !== null)
+                        .reverse()
+                        .join(', ')
+                    : ''}
+                </div>
               </TableCell>
-              <TableCell sx={{ border: 'none' }}>
-                <Button
-                  sx={{ textOverflow: 'ellipsis' }}
-                  variant='outlined'
-                  endIcon={<ContentCopy />}
-                  onClick={() => {
-                    if (feed?.source_info?.producer_url !== undefined) {
-                      void navigator.clipboard
-                        .writeText(feed?.source_info?.producer_url)
-                        .then((value) => {});
+            </TableRow>
+            <TableRow>
+              <TableCell sx={{ fontSize: 14, border: 'none' }}>
+                <Typography variant='subtitle2' gutterBottom>
+                  Producer download URL
+                </Typography>
+                <div>
+                  <Button
+                    sx={{ textOverflow: 'ellipsis', cursor: 'initial' }}
+                    variant='outlined'
+                    disableRipple={true}
+                    disableFocusRipple={true}
+                    focusRipple={false}
+                    endIcon={
+                      <>
+                        <Download
+                          titleAccess='Download feed'
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (feed?.source_info?.producer_url !== undefined) {
+                              window.open(
+                                feed?.source_info?.producer_url,
+                                '_blank',
+                                'rel=noopener noreferrer',
+                              );
+                            }
+                          }}
+                        />
+                        <ContentCopy
+                          titleAccess='Copy download URL'
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (feed?.source_info?.producer_url !== undefined) {
+                              void navigator.clipboard
+                                .writeText(feed?.source_info?.producer_url)
+                                .then((value) => {});
+                            }
+                          }}
+                        />
+                      </>
                     }
-                  }}
-                >
-                  {feed?.source_info?.producer_url}
-                </Button>
+                  >
+                    {feed?.source_info?.producer_url}
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
             <TableRow>
-              <TableCell
-                sx={{ fontSize: 14, fontWeight: 'bold', border: 'none' }}
-              >
-                Data type:
-              </TableCell>
-              <TableCell sx={{ border: 'none' }}>
-                <Button sx={{ textOverflow: 'ellipsis' }} variant='outlined'>
-                  {feed?.data_type === 'gtfs' && 'GTFS'}
-                  {feed?.data_type === 'gtfs_rt' && 'GTFS Realtime'}
-                </Button>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell
-                sx={{ fontSize: 14, fontWeight: 'bold', border: 'none' }}
-              >
-                Location:
-              </TableCell>
-              <TableCell sx={{ border: 'none' }}>
-                {feed?.locations !== undefined
-                  ? Object.values(feed?.locations[0])
-                      .filter((v) => v !== null)
-                      .reverse()
-                      .join(', ')
-                  : ''}
+              <TableCell sx={{ fontSize: 14, border: 'none' }}>
+                <Typography variant='subtitle2' gutterBottom>
+                  Data type
+                </Typography>
+                <div>
+                  <Button
+                    sx={{ textOverflow: 'ellipsis', cursor: 'text' }}
+                    variant='outlined'
+                    disableRipple={true}
+                    disableFocusRipple={true}
+                    focusRipple={false}
+                  >
+                    {feed?.data_type === 'gtfs' && 'GTFS Schedule'}
+                    {feed?.data_type === 'gtfs_rt' && 'GTFS Realtime'}
+                  </Button>
+                </div>
               </TableCell>
             </TableRow>
-            {feed?.data_type === 'gtfs' && (
+            {feed?.data_type === 'gtfs' &&
+              feed?.feed_contact_email !== undefined &&
+              feed?.feed_contact_email.length > 0 && (
+                <TableRow>
+                  <TableCell sx={{ fontSize: 14, border: 'none' }}>
+                    <Typography variant='subtitle2' gutterBottom>
+                      Feed contact email:
+                    </Typography>
+                    <div>
+                      {feed?.feed_contact_email !== undefined &&
+                        feed?.feed_contact_email.length > 0 && (
+                          <Button
+                            sx={{ textOverflow: 'ellipsis', cursor: 'initial' }}
+                            variant='outlined'
+                            disableRipple={true}
+                            disableFocusRipple={true}
+                            focusRipple={false}
+                            endIcon={
+                              <ContentCopyOutlined
+                                titleAccess='Copy feed contact email'
+                                sx={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  if (feed?.feed_contact_email !== undefined) {
+                                    void navigator.clipboard
+                                      .writeText(feed?.feed_contact_email)
+                                      .then((value) => {});
+                                  }
+                                }}
+                              />
+                            }
+                          >
+                            {feed?.feed_contact_email}
+                          </Button>
+                        )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            {latestDataset?.validation_report?.features !== undefined && (
               <TableRow>
-                <TableCell
-                  sx={{ fontSize: 14, fontWeight: 'bold', border: 'none' }}
-                >
-                  Last downloaded at:
-                </TableCell>
-                <TableCell sx={{ border: 'none' }}>
-                  {feed?.data_type === 'gtfs' &&
-                  feed.latest_dataset?.downloaded_at != null
-                    ? new Date(
-                        feed?.latest_dataset?.downloaded_at,
-                      ).toUTCString()
-                    : undefined}
-                </TableCell>
-              </TableRow>
-            )}
-            <TableRow>
-              <TableCell
-                sx={{ fontSize: 14, fontWeight: 'bold', border: 'none' }}
-              >
-                HTTP Auth Parameter:
-              </TableCell>
-              <TableCell sx={{ border: 'none' }}>
-                {feed?.source_info?.api_key_parameter_name !== null
-                  ? feed?.source_info?.api_key_parameter_name
-                  : 'N/A'}
-              </TableCell>
-            </TableRow>
-            {feed?.data_type === 'gtfs' && (
-              <TableRow>
-                <TableCell
-                  sx={{ fontSize: 14, fontWeight: 'bold', border: 'none' }}
-                >
-                  Feed contact email:
-                </TableCell>
-                <TableCell sx={{ border: 'none' }}>
-                  {feed?.feed_contact_email !== undefined &&
-                    feed?.feed_contact_email.length > 0 && (
-                      <Button
-                        onClick={() => {
-                          if (feed?.feed_contact_email !== undefined) {
-                            void navigator.clipboard
-                              .writeText(feed?.feed_contact_email)
-                              .then((value) => {});
-                          }
-                        }}
-                        sx={{ textOverflow: 'ellipsis' }}
-                        variant='outlined'
-                        endIcon={<ContentCopyOutlined />}
-                      >
-                        {feed?.feed_contact_email}
-                      </Button>
+                <TableCell sx={{ fontSize: 14, border: 'none' }}>
+                  <Typography variant='subtitle2' gutterBottom>
+                    Features
+                  </Typography>
+                  <Grid container spacing={1}>
+                    {latestDataset.validation_report?.features?.map(
+                      (feature) => (
+                        <Grid item key={feature}>
+                          <Chip
+                            label={feature}
+                            color='primary'
+                            variant='filled'
+                          />
+                        </Grid>
+                      ),
                     )}
+                  </Grid>
                 </TableCell>
               </TableRow>
             )}

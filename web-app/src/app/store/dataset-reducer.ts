@@ -53,7 +53,14 @@ export const datasetSlice = createSlice({
       }>,
     ) => {
       state.status = 'loaded';
-      state.data = action.payload?.data;
+      state.data = action.payload?.data.sort((a, b) => {
+        if (a.downloaded_at !== undefined && b.downloaded_at !== undefined) {
+          const dateB = new Date(b.downloaded_at).getTime();
+          const dateA = new Date(a.downloaded_at).getTime();
+          return dateB - dateA;
+        }
+        return 0;
+      });
       // state.datasetId = action.payload.data?.id;
       state.errors = {
         ...state.errors,
