@@ -266,7 +266,7 @@ class DatabasePopulateHelper:
             publish_all(self.added_gtfs_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
 
     # Extracted the following code from main so it can be executed as a library function
-    def initialize(self):
+    def initialize(self, trigger_downstream_tasks: bool = True):
         try:
             configure_polymorphic_mappers()
             self.populate_db()
@@ -277,7 +277,8 @@ class DatabasePopulateHelper:
             self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
             self.db.session.commit()
             self.logger.info("\n----- Database populated with sources.csv data. -----")
-            self.trigger_downstream_tasks()
+            if trigger_downstream_tasks:
+                self.trigger_downstream_tasks()
         except Exception as e:
             self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
             self.db.session.rollback()

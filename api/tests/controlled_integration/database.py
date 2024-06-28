@@ -50,7 +50,7 @@ def populate_database(db: Database):
             raise Exception("Not connected to localhost, aborting operation")
 
         db_helper = DatabasePopulateHelper(pwd + "/test_data/sources.csv")
-        db_helper.initialize()
+        db_helper.initialize(trigger_downstream_tasks=False)
         db_helper = DatabasePopulateTestDataHelper(pwd + "/test_data/test_datasets.json")
         db_helper.populate()
 
