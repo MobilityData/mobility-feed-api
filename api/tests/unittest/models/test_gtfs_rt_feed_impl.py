@@ -7,7 +7,6 @@ from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds.impl.models.external_id_impl import ExternalIdImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds.impl.models.redirect_impl import RedirectImpl
-from feeds.impl.models.entity_type_impl import EntitytypeImpl
 
 
 targetFeed = Feed(
@@ -77,7 +76,7 @@ expected_gtfs_rt_feed_result = GtfsRTFeedImpl(
             comment="redirect_comment",
         )
     ],
-    entity_types=[EntitytypeImpl("sa"), EntitytypeImpl("tu"), EntitytypeImpl("vp")],
+    entity_types=["sa", "tu", "vp"],
     locations=[
         LocationImpl(
             country_code="country_code",
