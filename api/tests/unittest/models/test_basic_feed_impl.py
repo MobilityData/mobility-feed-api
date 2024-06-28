@@ -16,6 +16,14 @@ from feeds.impl.models.external_id_impl import ExternalIdImpl
 from feeds_gen.models.redirect import Redirect
 from feeds_gen.models.source_info import SourceInfo
 
+targetFeed = Feed(
+    id="id1",
+    stable_id="target_id",
+    locations=[],
+    externalids=[],
+    gtfsdatasets=[],
+    redirectingids=[],
+)
 feed_orm = Feed(
     id="id",
     data_type="data_type",
@@ -69,11 +77,7 @@ feed_orm = Feed(
         )
     ],
     redirectingids=[
-        Redirectingid(
-            source_id="source_id",
-            target_id="target_id",
-            redirect_comment="redirect_comment",
-        )
+        Redirectingid(source_id="source_id", target_id="id1", redirect_comment="redirect_comment", target=targetFeed)
     ],
 )
 
@@ -114,6 +118,9 @@ class TestBasicFeedImpl(unittest.TestCase):
         """Test the `from_orm` method with not provided fields."""
         # Test with empty fields and None values
         # No error should be raised
+        # Target is set to None as deep copy is failing for unknown reasons
+        # At the end of the test, the target is set back to the original value
+        feed_orm.redirectingids[0].target = None
         target_feed_orm = copy.deepcopy(feed_orm)
         target_feed_orm.feed_name = ""
         target_feed_orm.provider = None
@@ -140,6 +147,8 @@ class TestBasicFeedImpl(unittest.TestCase):
         )
         empty_result = BasicFeedImpl.from_orm(empty_feed_orm)
         assert empty_result == expected_empty_feed
+        # Setting the target at the end of the test
+        feed_orm.redirectingids[0].target = targetFeed
 
     def test_from_orm_none(self):
         """Test the `from_orm` method with None."""

@@ -19,6 +19,6 @@ class RedirectImpl(Redirect):
         if not redirect:
             return None
         return cls(
-            target_id=redirect.target_id,
+            target_id=redirect.target.stable_id,
             comment=redirect.redirect_comment,
         )
