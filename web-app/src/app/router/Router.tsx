@@ -11,12 +11,12 @@ import Home from '../screens/Home';
 import ForgotPassword from '../screens/ForgotPassword';
 import FAQ from '../screens/FAQ';
 import About from '../screens/About';
-import Contribute from '../screens/Contribute';
 import PostRegistration from '../screens/PostRegistration';
 import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
 import Feed from '../screens/Feed';
 import Feeds from '../screens/Feeds';
+import FeedSubmission from '../screens/FeedSubmission';
 
 export const AppRouter: React.FC = () => {
   return (
@@ -45,7 +45,7 @@ export const AppRouter: React.FC = () => {
       <Route path='about' element={<About />} />
       <Route path='feeds' element={<Feeds />} />
       <Route path='feeds/:feedId' element={<Feed />} />
-      <Route path='contribute' element={<Contribute />} />
+      <Route path='contribute' element={<FeedSubmission />} />
       <Route path='privacy-policy' element={<PrivacyPolicy />} />
       <Route path='terms-and-conditions' element={<TermsAndConditions />} />
     </Routes>
