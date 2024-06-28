@@ -70,13 +70,9 @@ export default function Feed(): React.ReactElement {
   };
 
   const handleSearch = (): void => {
-    const searchQuery = searchParams.get('q') ?? undefined;
+    const searchQuery = searchParams.get('q') ?? '';
     const paginationOffset = getPaginationOffset();
-    if (
-      user?.accessToken !== undefined &&
-      searchQuery !== undefined &&
-      searchQuery.trim() !== ''
-    ) {
+    if (user?.accessToken !== undefined) {
       dispatch(
         loadingFeeds({
           accessToken: user?.accessToken,
