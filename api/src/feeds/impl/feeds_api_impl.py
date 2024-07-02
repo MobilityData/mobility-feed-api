@@ -199,6 +199,6 @@ class FeedsApiImpl(BaseFeedsApi):
         """Get a list of GTFS Realtime related to a GTFS feed."""
         feed = FeedFilter(stable_id=id).filter(Database().get_query_model(Gtfsfeed)).first()
         if feed:
-            return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_realtime_feeds]
+            return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
