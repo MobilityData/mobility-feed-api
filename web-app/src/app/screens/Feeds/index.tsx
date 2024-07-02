@@ -92,17 +92,12 @@ export default function Feed(): React.ReactElement {
   };
 
   useEffect(() => {
-    const searchQuery = searchParams.get('q') ?? undefined;
-    if (
-      user?.accessToken === undefined ||
-      searchQuery === undefined ||
-      searchQuery.trim() === ''
-    ) {
+    if (user?.accessToken === undefined) {
       dispatch(resetFeeds());
     } else {
       handleSearch();
     }
-  }, []);
+  }, [user?.accessToken]);
 
   useEffect(() => {
     if (!triggerSearch) return;
