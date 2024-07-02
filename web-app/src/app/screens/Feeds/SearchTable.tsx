@@ -62,6 +62,10 @@ const getDataTypeElement = (dataType: 'gtfs' | 'gtfs_rt'): JSX.Element => {
   }
 };
 
+const getProviderName = (provider: string): string => {
+  return provider.split(',')[0];
+};
+
 const getLocationName = (locations: FeedLocations): string => {
   if (locations?.[0] === undefined) {
     return '';
@@ -103,7 +107,7 @@ export default function SearchTable({
         <TableRow>
           <HeaderTableCell>Transit Provider</HeaderTableCell>
           <HeaderTableCell>Location</HeaderTableCell>
-          <HeaderTableCell align='right'>Feed Description</HeaderTableCell>
+          <HeaderTableCell>Feed Description</HeaderTableCell>
           <HeaderTableCell align='right'>Data Type</HeaderTableCell>
         </TableRow>
       </TableHead>
@@ -156,7 +160,7 @@ export default function SearchTable({
             }}
           >
             <TableCell>
-              {feed.provider}
+              {getProviderName(feed.provider ?? '')}
               {feed.status === 'deprecated' && (
                 <Box sx={{ mt: '5px' }}>
                   <Chip
@@ -170,7 +174,7 @@ export default function SearchTable({
               )}
             </TableCell>
             <TableCell>{getLocationName(feed.locations)}</TableCell>
-            <TableCell align='right'>{feed.feed_name}</TableCell>
+            <TableCell>{feed.feed_name}</TableCell>
             <TableCell align='left'>
               {getDataTypeElement(feed.data_type)}
             </TableCell>
