@@ -29,6 +29,7 @@ import {
 } from '../../store/feeds-selectors';
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
+import { useTranslation } from 'react-i18next';
 
 const getDataTypeParamFromSelectedFeedTypes = (
   selectedFeedTypes: Record<string, boolean>,
@@ -45,6 +46,7 @@ const getDataTypeParamFromSelectedFeedTypes = (
 };
 
 export default function Feed(): React.ReactElement {
+  const { t } = useTranslation('feeds');
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchLimit] = useState(20); // leaving possibility to edit in future
   const [selectedFeedTypes, setSelectedFeedTypes] = useState({
@@ -113,9 +115,11 @@ export default function Feed(): React.ReactElement {
     if (feedsData?.total !== undefined && feedsData?.total > 0) {
       const offset = getPaginationOffset(activePagination);
       const limit = offset + searchLimit;
-      return `${1 + offset}-${
-        limit > feedsData.total ? feedsData.total : limit
-      } of ${feedsData.total} results`;
+
+      const startResult = 1 + offset;
+      const endResult = limit > feedsData?.total ? feedsData.total : limit;
+      const totalResults = feedsData?.total ?? '';
+      return t('resultsFor', { startResult, endResult, totalResults });
     } else {
       return '';
     }
@@ -136,9 +140,9 @@ export default function Feed(): React.ReactElement {
         <Grid container spacing={2}>
           <Grid item xs={12}>
             <Typography variant='h4' color='primary'>
-              Feeds
+              {t('feeds')}
             </Typography>
-            <Typography variant='subtitle1'>Search for</Typography>
+            <Typography variant='subtitle1'>{t('searchFor')}</Typography>
           </Grid>
           <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center' }}>
             <Box
@@ -155,7 +159,7 @@ export default function Feed(): React.ReactElement {
                   width: 'calc(100% - 100px)',
                 }}
                 value={searchParams.get('q') ?? ''}
-                placeholder='Transit provider, feed name, or location'
+                placeholder={t('searchPlaceholder')}
                 onChange={(e) => {
                   const searchValue = e.target.value;
                   setSearchParams({ q: searchValue });
@@ -182,7 +186,7 @@ export default function Feed(): React.ReactElement {
                 type='submit'
                 sx={{ m: 1, height: '55px' }}
               >
-                Search
+                {t('common:search')}
               </Button>
             </Box>
           </Grid>
@@ -203,7 +207,7 @@ export default function Feed(): React.ReactElement {
               <Grid container spacing={1}>
                 <Grid item xs={12} sm={2}>
                   <div>
-                    <div>Data Type</div>
+                    <div>{t('dataType')}</div>
                     <FormGroup>
                       <FormControlLabel
                         control={
@@ -219,7 +223,7 @@ export default function Feed(): React.ReactElement {
                             }}
                           />
                         }
-                        label='GTFS Schedule'
+                        label={t('common:gtfsSchedule')}
                       />
                       <FormControlLabel
                         control={
@@ -235,7 +239,7 @@ export default function Feed(): React.ReactElement {
                             }}
                           />
                         }
-                        label='GTFS Realtime'
+                        label={t('common:gtfsRealtime')}
                       />
                     </FormGroup>
                   </div>
@@ -245,20 +249,20 @@ export default function Feed(): React.ReactElement {
                 <Grid item xs={12} sm={10}>
                   {feedStatus === 'loading' && (
                     <Grid item xs={12}>
-                      <h3>Loading...</h3>
+                      <h3>{t('common:loading')}</h3>
                     </Grid>
                   )}
 
                   {feedStatus === 'error' && (
                     <Grid item xs={12}>
-                      <h3>
-                        We are unable to complete your request at the moment.
-                      </h3>
+                      <h3>{t('common:errors.generic')}</h3>
                       <Typography>
-                        Please check your internet connection and try again. If
-                        the problem persists,{' '}
-                        <a href='mailto:api@mobilitydata.org'>contact us</a> for
-                        further assistance.
+                        {t('common:errors.checkInternet')},{' '}
+                        <a href='mailto:api@mobilitydata.org'>
+                          {t('common:contactUs')}
+                        </a>{' '}
+                        for
+                        {t('common:errors.forAssistance')}
                       </Typography>
                     </Grid>
                   )}
@@ -268,28 +272,22 @@ export default function Feed(): React.ReactElement {
                       {feedsData?.results?.length === 0 &&
                         activeSearch.trim().length > 0 && (
                           <Grid item xs={12}>
-                            <h3>
-                              We&#39;re sorry, we found no search results for “
-                              {activeSearch}”.
-                            </h3>
-                            <Typography>Search suggestions: </Typography>
+                            <h3>{t('noResults', { activeSearch })}</h3>
+                            <Typography>{t('searchSuggestions')}</Typography>
                             <ul>
                               <li>
                                 <Typography>
-                                  Use a two digit code to search for country,
-                                  e.g “FR” for France
+                                  {t('searchTips.twoDigit')}
                                 </Typography>
                               </li>
                               <li>
                                 <Typography>
-                                  Include the full name for transit provider,
-                                  e.g “Toronto Transit Commission” instead of
-                                  “TTC”
+                                  {t('searchTips.fullName')}
                                 </Typography>
                               </li>
                               <li>
                                 <Typography>
-                                  Double check the spelling
+                                  {t('searchTips.checkSpelling')}
                                 </Typography>
                               </li>
                             </ul>

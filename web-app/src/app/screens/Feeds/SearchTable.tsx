@@ -15,6 +15,7 @@ import BusAlertIcon from '@mui/icons-material/BusAlert';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -27,6 +28,7 @@ const HeaderTableCell = styled(TableCell)(() => ({
 }));
 
 const getDataTypeElement = (dataType: 'gtfs' | 'gtfs_rt'): JSX.Element => {
+  const { t } = useTranslation('feeds');
   const DataTypeHolder = ({
     children,
   }: {
@@ -49,14 +51,14 @@ const getDataTypeElement = (dataType: 'gtfs' | 'gtfs_rt'): JSX.Element => {
     return (
       <DataTypeHolder>
         <DirectionsBusIcon sx={{ m: 1 }}></DirectionsBusIcon>
-        GTFS Schedule
+        {t('common:gtfsSchedule')}
       </DataTypeHolder>
     );
   } else {
     return (
       <DataTypeHolder>
         <BusAlertIcon sx={{ m: 1 }}></BusAlertIcon>
-        GTFS Realtime
+        {t('common:gtfsRealtime')}
       </DataTypeHolder>
     );
   }
@@ -88,6 +90,7 @@ const getLocationName = (locations: FeedLocations): string => {
 export default function SearchTable({
   feedsData,
 }: SearchTableProps): React.ReactElement {
+  const { t } = useTranslation('feeds');
   if (feedsData === undefined) return <></>;
   const navigate = useNavigate();
   return (
@@ -105,10 +108,10 @@ export default function SearchTable({
         }}
       >
         <TableRow>
-          <HeaderTableCell>Transit Provider</HeaderTableCell>
-          <HeaderTableCell>Location</HeaderTableCell>
-          <HeaderTableCell>Feed Description</HeaderTableCell>
-          <HeaderTableCell align='right'>Data Type</HeaderTableCell>
+          <HeaderTableCell>{t('transitProvider')}</HeaderTableCell>
+          <HeaderTableCell>{t('location')}</HeaderTableCell>
+          <HeaderTableCell>{t('feedDescription')}</HeaderTableCell>
+          <HeaderTableCell align='right'>{t('dataType')}</HeaderTableCell>
         </TableRow>
       </TableHead>
 
@@ -164,7 +167,7 @@ export default function SearchTable({
               {feed.status === 'deprecated' && (
                 <Box sx={{ mt: '5px' }}>
                   <Chip
-                    label='Deprecated'
+                    label={t('deprecated')}
                     icon={<ErrorOutlineIcon />}
                     color='error'
                     size='small'

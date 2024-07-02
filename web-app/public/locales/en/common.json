@@ -5,5 +5,16 @@
     "email": "Email",
     "organization": "Organization",
     "signOut": "Sign out",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "search": "Search",
+    "feeds": "Feeds",
+    "gtfsSchedule": "GTFS Schedule",
+    "gtfsRealtime": "GTFS Realtime",
+    "loading": "Loading...",
+    "errors": {
+        "generic": "We are unable to complete your request at the moment.",
+        "checkInternet": "Please check your internet connection and try again. If the problem persists",
+        "forAssistance": "for further assistance."
+    },
+    "contactUs": "contact us"
 }
