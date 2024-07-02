@@ -25,7 +25,9 @@ class BaseFeedImpl(BasicFeed):
             id=feed.stable_id,
             data_type=feed.data_type,
             status=feed.status,
-            external_ids=[ExternalIdImpl.from_orm(item) for item in feed.externalids],
+            external_ids=sorted(
+                [ExternalIdImpl.from_orm(item) for item in feed.externalids], key=lambda x: x.external_id
+            ),
             provider=feed.provider,
             feed_name=feed.feed_name,
             note=feed.note,
@@ -37,7 +39,7 @@ class BaseFeedImpl(BasicFeed):
                 api_key_parameter_name=feed.api_key_parameter_name,
                 license_url=feed.license_url,
             ),
-            redirects=[RedirectImpl.from_orm(item) for item in feed.redirectingids],
+            redirects=sorted([RedirectImpl.from_orm(item) for item in feed.redirectingids], key=lambda x: x.target_id),
         )
 
 

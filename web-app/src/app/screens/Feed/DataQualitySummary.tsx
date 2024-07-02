@@ -1,18 +1,11 @@
 import * as React from 'react';
-import { ContentBox } from '../../components/ContentBox';
-import {
-  Chip,
-  TableCell,
-  TableContainer,
-  TableRow,
-  colors,
-} from '@mui/material';
+import { Button, Chip, Grid } from '@mui/material';
 
 import {
+  CheckCircle,
   ErrorOutlineOutlined,
-  OpenInNewOutlined,
+  LaunchOutlined,
   ReportOutlined,
-  ReportProblemOutlined,
 } from '@mui/icons-material';
 import { type components } from '../../services/feeds/types';
 
@@ -23,72 +16,129 @@ export interface DataQualitySummaryProps {
 export default function DataQualitySummary({
   latestDataset,
 }: DataQualitySummaryProps): React.ReactElement {
+  if (
+    latestDataset?.validation_report === undefined ||
+    latestDataset.validation_report === null
+  )
+    return <></>;
   return (
-    <ContentBox
-      width={{ xs: '100%', md: '50%' }}
-      title={'Data Quality Summary'}
-      outlineColor={colors.indigo[500]}
-    >
-      <TableContainer>
-        <TableRow>
-          <TableCell>
+    <>
+      <div>Data Quality Summary</div>
+      <Grid container direction={'column'} spacing={2} padding={2}>
+        <Grid item container direction={'row'} spacing={2} padding={2}>
+          <Grid
+            item
+            sx={{
+              alignContent: 'center',
+            }}
+          >
             <Chip
-              icon={<ReportOutlined />}
-              label={`${
-                latestDataset?.validation_report?.total_error ?? '0'
-              } Error`}
-              color='error'
+              icon={
+                latestDataset?.validation_report?.unique_error_count !==
+                  undefined &&
+                latestDataset?.validation_report?.unique_error_count > 0 ? (
+                  <ReportOutlined />
+                ) : (
+                  <CheckCircle />
+                )
+              }
+              label={
+                latestDataset?.validation_report?.unique_error_count !==
+                  undefined &&
+                latestDataset?.validation_report?.unique_error_count > 0
+                  ? `${latestDataset?.validation_report?.unique_error_count} errors`
+                  : `No errors`
+              }
+              color={
+                latestDataset?.validation_report?.unique_error_count !==
+                  undefined &&
+                latestDataset?.validation_report?.unique_error_count > 0
+                  ? 'error'
+                  : 'success'
+              }
               variant='outlined'
             />
+          </Grid>
+          <Grid
+            item
+            sx={{
+              alignContent: 'center',
+            }}
+          >
             <Chip
-              icon={<ReportProblemOutlined />}
-              label={`${
-                latestDataset?.validation_report?.total_warning ?? '0'
-              } Warning`}
-              color='warning'
+              icon={
+                latestDataset?.validation_report?.unique_warning_count !==
+                  undefined &&
+                latestDataset?.validation_report?.unique_warning_count > 0 ? (
+                  <ReportOutlined />
+                ) : (
+                  <CheckCircle />
+                )
+              }
+              label={
+                latestDataset?.validation_report?.unique_warning_count !==
+                  undefined &&
+                latestDataset?.validation_report?.unique_warning_count > 0
+                  ? `${latestDataset?.validation_report?.unique_warning_count} warnings`
+                  : `No warnings`
+              }
+              color={
+                latestDataset?.validation_report?.unique_warning_count !==
+                  undefined &&
+                latestDataset?.validation_report?.unique_warning_count > 0
+                  ? 'warning'
+                  : 'success'
+              }
               variant='outlined'
             />
+          </Grid>
+          <Grid
+            item
+            sx={{
+              alignContent: 'center',
+            }}
+          >
             <Chip
               icon={<ErrorOutlineOutlined />}
               label={`${
-                latestDataset?.validation_report?.total_info ?? '0'
+                latestDataset?.validation_report?.unique_info_count ?? '0'
               } Info Notices`}
               color='primary'
               variant='outlined'
             />
-          </TableCell>
-        </TableRow>
-        <TableRow>
-          {latestDataset?.validation_report?.url_html !== undefined && (
-            <TableCell>
-              <span style={{ display: 'flex' }}>
+          </Grid>
+        </Grid>
+        <Grid item container direction={'row'} spacing={2} padding={2}>
+          <Grid item>
+            {latestDataset?.validation_report?.url_html !== undefined && (
+              <Button variant='contained' endIcon={<LaunchOutlined />}>
                 <a
                   href={`${latestDataset?.validation_report?.url_html}`}
                   target='_blank'
+                  className='btn-link'
                   rel='noreferrer'
                 >
                   Open Full Report
                 </a>
-                <OpenInNewOutlined />
-              </span>
-            </TableCell>
-          )}
-          {latestDataset?.validation_report?.url_json !== undefined && (
-            <TableCell>
-              <span style={{ display: 'flex' }}>
+              </Button>
+            )}
+          </Grid>
+          <Grid item>
+            {latestDataset?.validation_report?.url_json !== undefined && (
+              <Button variant='contained' endIcon={<LaunchOutlined />}>
                 <a
                   href={`${latestDataset?.validation_report?.url_json}`}
                   target='_blank'
+                  className='btn-link'
                   rel='noreferrer'
                 >
                   Open JSON Report
                 </a>
-                <OpenInNewOutlined />
-              </span>
-            </TableCell>
-          )}
-        </TableRow>
-      </TableContainer>
-    </ContentBox>
+              </Button>
+            )}
+          </Grid>
+        </Grid>
+      </Grid>
+    </>
   );
 }

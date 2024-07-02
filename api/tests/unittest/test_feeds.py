@@ -1,17 +1,16 @@
 import copy
-import json
 from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
 from database.database import Database
-from database_gen.sqlacodegen_models import Feed, Externalid, Location, Gtfsdataset, Redirectingid
+from database_gen.sqlacodegen_models import Feed, Externalid, Gtfsdataset, Redirectingid, Gtfsfeed, Gtfsrealtimefeed
 from feeds.filters.feed_filter import FeedFilter
 from feeds.impl.models.basic_feed_impl import BaseFeedImpl
+from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 from tests.test_utils.token import authHeaders
 
-from geoalchemy2 import WKTElement
-
+target_feed = Feed(stable_id="test_target_id")
 redirect_target_id = "test_target_id"
 redirect_comment = "Some comment"
 expected_redirect_response = {"target_id": redirect_target_id, "comment": redirect_comment}
@@ -29,8 +28,20 @@ mock_feed = Feed(
     authentication_info_url="test_authentication_info_url",
     api_key_parameter_name="test_api_key_parameter_name",
     license_url="test_license_url",
-    externalids=[Externalid(associated_id="test_associated_id", source="test_source")],
-    redirectingids=[Redirectingid(source_id="source_id", target_id="test_target_id", redirect_comment="Some comment")],
+    externalids=[
+        Externalid(
+            associated_id="test_associated_id",
+            source="test_source",
+        )
+    ],
+    redirectingids=[
+        Redirectingid(
+            source_id="source_id",
+            target_id="test_target_id",
+            redirect_comment="Some comment",
+            target=Feed(stable_id="test_target_id"),
+        )
+    ],
 )
 
 expected_feed_response = BaseFeedImpl(
@@ -68,8 +79,14 @@ def test_feeds_get(client: TestClient, mocker):
     mock_filter_order_by = Mock()
     mock_filter.return_value.order_by.return_value = mock_filter_order_by
     mock_filter_order_by.offset.return_value = mock_filter_offset
+    # Target is set to None as deep copy is failing for unknown reasons
+    # At the end of the test, the target is set back to the original value
+    mock_feed.redirectingids[0].target = None
     mock_feed_2 = copy.deepcopy(mock_feed)
+    # Target is set back to the original value
+    mock_feed.redirectingids[0].target = target_feed
     mock_feed_2.stable_id = "test_id_2"
+    mock_feed_2.redirectingids[0].target = target_feed
     mock_filter_offset.all.return_value = [mock_feed, mock_feed_2]
 
     response = client.request(
@@ -117,77 +134,16 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
     """
     Unit test for get_gtfs_feeds
     """
-    mock_select = mocker.patch.object(Database(), "select")
-    mock_feed = Feed(stable_id="test_gtfs_id")
-    mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_locations = Location(
-        id="test_location_id",
-        country_code="test_country_code",
-        subdivision_name="test_subdivision_name",
-        municipality="test_municipality",
-    )
-    mock_bounding_box = WKTElement("POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))")
-
-    mock_latest_datasets = Gtfsdataset(
-        stable_id="test_latest_dataset_id", hosted_url="test_hosted_url", latest=True, bounding_box=mock_bounding_box
-    )
-
-    mock_select.return_value = [
-        [
-            (
-                mock_feed,
-                redirect_target_id,
-                mock_external_id,
-                redirect_comment,
-                mock_latest_datasets,
-                mock_bounding_box,
-                mock_locations,
-            )
-        ]
-    ]
-
     response = client.request(
         "GET",
         "/v1/gtfs_feeds",
         headers=authHeaders,
     )
 
-    assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
+    feed_mdb_10 = Database().get_query_model(Gtfsfeed).filter(Gtfsfeed.stable_id == "mdb-10").first()
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     response_gtfs_feed = response.json()[0]
-    assert (
-        response_gtfs_feed["id"] == "test_gtfs_id"
-    ), f"Response feed id was {response_gtfs_feed.id} instead of test_gtfs_id"
-    assert (
-        response_gtfs_feed["external_ids"][0]["external_id"] == "test_associated_id"
-    ), f'Response feed external id was {response_gtfs_feed["external_ids"][0]["external_id"]} \
-        instead of test_associated_id'
-    assert (
-        response_gtfs_feed["external_ids"][0]["source"] == "test_source"
-    ), f'Response feed source was {response_gtfs_feed["external_ids"][0]["source"]} instead of test_source'
-    check_redirect(response_gtfs_feed)
-    assert (
-        response_gtfs_feed["locations"][0]["country_code"] == "test_country_code"
-    ), f'Response feed country code was {response_gtfs_feed["locations"][0]["country_code"]} \
-        instead of test_country_code'
-    assert (
-        response_gtfs_feed["locations"][0]["subdivision_name"] == "test_subdivision_name"
-    ), f'Response feed subdivision name was {response_gtfs_feed["locations"][0]["subdivision_name"]} \
-        instead of test_subdivision_name'
-    assert (
-        response_gtfs_feed["locations"][0]["municipality"] == "test_municipality"
-    ), f'Response feed municipality was {response_gtfs_feed["locations"][0]["municipality"]} \
-        instead of test_municipality'
-    assert response_gtfs_feed["latest_dataset"] is not None, "Response feed latest dataset was None"
-    assert (
-        response_gtfs_feed["latest_dataset"]["id"] == "test_latest_dataset_id"
-    ), f'Response feed latest dataset id was {response_gtfs_feed["latest_dataset"]["id"]} \
-        instead of test_latest_dataset_id'
-    assert (
-        response_gtfs_feed["latest_dataset"]["hosted_url"] == "test_hosted_url"
-    ), f'Response feed hosted url was {response_gtfs_feed["latest_dataset"]["hosted_url"]} \
-        instead of test_hosted_url'
-    assert response_gtfs_feed["latest_dataset"]["bounding_box"] is not None, "Response feed bounding_box was None"
+    assert_gtfs(feed_mdb_10, response_gtfs_feed)
 
 
 def test_gtfs_feeds_get_no_bounding_box(client: TestClient, mocker):
@@ -226,169 +182,129 @@ def test_gtfs_feed_get(client: TestClient, mocker):
     """
     Unit test for get_gtfs_feed
     """
-    mock_select = mocker.patch.object(Database(), "select")
-    mock_feed = Feed(stable_id="test_gtfs_id")
-    mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_latest_datasets = Gtfsdataset(stable_id="test_latest_dataset_id", hosted_url="test_hosted_url", latest=True)
-    mock_locations = Location(
-        id="test_location_id",
-        country_code="test_country_code",
-        subdivision_name="test_subdivision_name",
-        municipality="test_municipality",
-    )
-    mock_bounding_box = json.dumps(
-        {
-            "type": "Polygon",
-            "coordinates": [
-                [
-                    [-70.248666, 43.655373],
-                    [-70.248666, 43.71619],
-                    [-70.11018, 43.71619],
-                    [-70.11018, 43.655373],
-                    [-70.248666, 43.655373],
-                ]
-            ],
-        }
-    )
-    mock_select.return_value = [
-        [
-            (
-                mock_feed,
-                redirect_target_id,
-                mock_external_id,
-                redirect_comment,
-                mock_latest_datasets,
-                mock_bounding_box,
-                mock_locations,
-            )
-        ]
-    ]
-
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/test_gtfs_id",
+        f"/v1/gtfs_feeds/{TEST_GTFS_FEED_STABLE_IDS[0]}",
         headers=authHeaders,
     )
 
-    assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
+    gtfs_feed = Database().get_query_model(Gtfsfeed).filter(Gtfsfeed.stable_id == TEST_GTFS_FEED_STABLE_IDS[0]).first()
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     response_gtfs_feed = response.json()
-    assert (
-        response_gtfs_feed["id"] == "test_gtfs_id"
-    ), f"Response feed id was {response_gtfs_feed.id} instead of test_gtfs_id"
-    assert (
-        response_gtfs_feed["external_ids"][0]["external_id"] == "test_associated_id"
-    ), f'Response feed external id was {response_gtfs_feed["external_ids"][0]["external_id"]} \
-        instead of test_associated_id'
-    assert (
-        response_gtfs_feed["external_ids"][0]["source"] == "test_source"
-    ), f'Response feed source was {response_gtfs_feed["external_ids"][0]["source"]} instead of test_source'
-
-    check_redirect(response_gtfs_feed)
-
-    assert (
-        response_gtfs_feed["locations"][0]["country_code"] == "test_country_code"
-    ), f'Response feed country code was {response_gtfs_feed["locations"][0]["country_code"]} \
-        instead of test_country_code'
-    assert (
-        response_gtfs_feed["locations"][0]["subdivision_name"] == "test_subdivision_name"
-    ), f'Response feed subdivision name was {response_gtfs_feed["locations"][0]["subdivision_name"]} \
-        instead of test_subdivision_name'
-    assert (
-        response_gtfs_feed["locations"][0]["municipality"] == "test_municipality"
-    ), f'Response feed municipality was {response_gtfs_feed["locations"][0]["municipality"]} \
-        instead of test_municipality'
-    assert (
-        response_gtfs_feed["latest_dataset"]["id"] == "test_latest_dataset_id"
-    ), f'Response feed latest dataset id was {response_gtfs_feed["latest_dataset"]["id"]} \
-        instead of test_latest_dataset_id'
-    assert (
-        response_gtfs_feed["latest_dataset"]["hosted_url"] == "test_hosted_url"
-    ), f'Response feed hosted url was {response_gtfs_feed["latest_dataset"]["hosted_url"]} \
-        instead of test_hosted_url'
+    assert_gtfs(gtfs_feed, response_gtfs_feed)
 
 
 def test_gtfs_rt_feeds_get(client: TestClient, mocker):
     """
     Unit test for get_gtfs_rt_feeds
     """
-    mock_select = mocker.patch.object(Database(), "select")
-    mock_feed = Feed(stable_id="test_gtfs_rt_id")
-    mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_entity_types = "tu"
-    mock_feed_references = "test_feed_reference"
-    mock_select.return_value = [
-        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_entity_types, mock_feed_references)]
-    ]
-
     response = client.request(
         "GET",
         "/v1/gtfs_rt_feeds",
         headers=authHeaders,
     )
 
-    assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
+    gtfs_rt_feed = (
+        Database()
+        .get_query_model(Gtfsrealtimefeed)
+        .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
+        .first()
+    )
+
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     response_gtfs_rt_feed = response.json()[0]
-    assert (
-        response_gtfs_rt_feed["id"] == "test_gtfs_rt_id"
-    ), f"Response feed id was {response_gtfs_rt_feed.id} instead of test_gtfs_id"
-    assert (
-        response_gtfs_rt_feed["external_ids"][0]["external_id"] == "test_associated_id"
-    ), f'Response feed external id was {response_gtfs_rt_feed["external_ids"][0]["external_id"]} \
-        instead of test_associated_id'
-    assert (
-        response_gtfs_rt_feed["external_ids"][0]["source"] == "test_source"
-    ), f'Response feed source was {response_gtfs_rt_feed["external_ids"][0]["source"]} instead of test_source'
-
-    check_redirect(response_gtfs_rt_feed)
-
-    assert (
-        response_gtfs_rt_feed["entity_types"][0] == "tu"
-    ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of tu'
-    assert (
-        response_gtfs_rt_feed["feed_references"][0] == "test_feed_reference"
-    ), f'Response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'
+    assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
 
 
 def test_gtfs_rt_feed_get(client: TestClient, mocker):
     """
     Unit test for get_gtfs_rt_feed
     """
-    mock_select = mocker.patch.object(Database(), "select")
-    mock_feed = Feed(stable_id="test_gtfs_rt_id")
-    mock_external_id = Externalid(associated_id="test_associated_id", source="test_source")
-    mock_entity_types = "tu"
-    mock_feed_references = "test_feed_reference"
-    mock_select.return_value = [
-        [(mock_feed, redirect_target_id, mock_external_id, redirect_comment, mock_entity_types, mock_feed_references)]
-    ]
-
     response = client.request(
         "GET",
-        "/v1/gtfs_rt_feeds/test_gtfs_id",
+        f"/v1/gtfs_rt_feeds/{TEST_GTFS_RT_FEED_STABLE_ID}",
         headers=authHeaders,
     )
 
-    assert mock_select.call_count == 1, f"select() was called {mock_select.call_count} times instead of 3 times"
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     response_gtfs_rt_feed = response.json()
+    gtfs_rt_feed = (
+        Database()
+        .get_query_model(Gtfsrealtimefeed)
+        .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
+        .first()
+    )
+    assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
+
+
+def assert_gtfs(gtfs_feed, response_gtfs_feed):
     assert (
-        response_gtfs_rt_feed["id"] == "test_gtfs_rt_id"
+        response_gtfs_feed["id"] == gtfs_feed.stable_id
+    ), f"Response feed id was {response_gtfs_feed.id} instead of {gtfs_feed.stable_id}"
+    assert (
+        response_gtfs_feed["external_ids"][0]["external_id"]
+        == sorted(gtfs_feed.externalids, key=lambda x: x.associated_id)[0].associated_id
+    ), f'Response feed external id was {response_gtfs_feed["external_ids"][0]["external_id"]} \
+        instead of {gtfs_feed.externalids[0].associated_id}'
+    assert response_gtfs_feed["external_ids"][0]["source"] == gtfs_feed.externalids[0].source, (
+        f'Response feed source was {response_gtfs_feed["external_ids"][0]["source"]} instead of '
+        f"{gtfs_feed.externalids[0].source}"
+    )
+    assert (
+        response_gtfs_feed["redirects"][0]["target_id"]
+        == sorted(gtfs_feed.redirectingids, key=lambda x: x.target.stable_id)[0].target.stable_id
+    ), (
+        f'Response feed redirect was {response_gtfs_feed["redirects"][0]["target_id"]} instead of '
+        f"{gtfs_feed.redirectingids[0].target.stable_id}"
+    )
+    assert (
+        response_gtfs_feed["locations"][0]["country_code"] == gtfs_feed.locations[0].country_code
+    ), f'Response feed country code was {response_gtfs_feed["locations"][0]["country_code"]} \
+        instead of {gtfs_feed.locations[0].country_code}'
+    assert (
+        response_gtfs_feed["locations"][0]["subdivision_name"] == gtfs_feed.locations[0].subdivision_name
+    ), f'Response feed subdivision name was {response_gtfs_feed["locations"][0]["subdivision_name"]} \
+        instead of {gtfs_feed.locations[0].subdivision_name}'
+    assert (
+        response_gtfs_feed["locations"][0]["municipality"] == gtfs_feed.locations[0].municipality
+    ), f'Response feed municipality was {response_gtfs_feed["locations"][0]["municipality"]} \
+        instead of {gtfs_feed.locations[0].municipality}'
+    assert (
+        response_gtfs_feed["latest_dataset"]["id"] == gtfs_feed.gtfsdatasets[1].stable_id
+    ), f'Response feed latest dataset id was {response_gtfs_feed["latest_dataset"]["id"]} \
+        instead of {gtfs_feed.gtfsdatasets[0].stable_id}'
+    latest_dataset = next(filter(lambda x: x.latest, gtfs_feed.gtfsdatasets))
+    assert (
+        response_gtfs_feed["latest_dataset"]["hosted_url"] == latest_dataset.hosted_url
+    ), f'Response feed hosted url was {response_gtfs_feed["latest_dataset"]["hosted_url"]} \
+        instead of test_hosted_url'
+    assert response_gtfs_feed["latest_dataset"]["bounding_box"] is not None, "Response feed bounding_box was None"
+
+
+def assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed):
+    assert (
+        response_gtfs_rt_feed["id"] == gtfs_rt_feed.stable_id
     ), f"Response feed id was {response_gtfs_rt_feed.id} instead of test_gtfs_id"
     assert (
-        response_gtfs_rt_feed["external_ids"][0]["external_id"] == "test_associated_id"
+        response_gtfs_rt_feed["external_ids"][0]["external_id"]
+        == sorted(gtfs_rt_feed.externalids, key=lambda x: x.associated_id)[0].associated_id
     ), f'Response feed external id was {response_gtfs_rt_feed["external_ids"][0]["external_id"]} \
-        instead of test_associated_id'
+        instead of {gtfs_rt_feed.externalids[0].associated_id}'
+    assert response_gtfs_rt_feed["external_ids"][0]["source"] == gtfs_rt_feed.externalids[0].source, (
+        f'Response feed source was {response_gtfs_rt_feed["external_ids"][0]["source"]} instead of '
+        f"{gtfs_rt_feed.externalids[0].source}"
+    )
     assert (
-        response_gtfs_rt_feed["external_ids"][0]["source"] == "test_source"
-    ), f'Response feed source was {response_gtfs_rt_feed["external_ids"][0]["source"]} instead of test_source'
-
-    check_redirect(response_gtfs_rt_feed)
-
+        response_gtfs_rt_feed["redirects"][0]["target_id"]
+        == sorted(gtfs_rt_feed.redirectingids, key=lambda x: x.target_id)[0].target.stable_id
+    ), (
+        f'Response feed redirect was {response_gtfs_rt_feed["redirects"][0]["target_id"]} instead of '
+        f"{gtfs_rt_feed.redirectingids[0].target.stable_id}"
+    )
+    assert response_gtfs_rt_feed["entity_types"][0] == gtfs_rt_feed.entitytypes[0].name, (
+        f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]}'
+        f"instead of {gtfs_rt_feed.entitytypes[0].name}"
+    )
     assert (
-        response_gtfs_rt_feed["entity_types"][0] == "tu"
-    ), f'Response feed entity type was {response_gtfs_rt_feed["entity_types"][0]} instead of tu'
-    assert (
-        response_gtfs_rt_feed["feed_references"][0] == "test_feed_reference"
+        response_gtfs_rt_feed["feed_references"][0] == gtfs_rt_feed.gtfs_feeds[0].stable_id
     ), f'Response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'
