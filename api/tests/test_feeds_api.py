@@ -212,6 +212,16 @@ def test_feeds_id_get(client: TestClient):
 
     assert response.status_code == 200
 
+def test_non_existent_feed_get(client: TestClient):
+    """Test case for feeds_id_get with a non-existent feed"""
+    response = client.request(
+        "GET",
+        "/v1/feeds/{id}".format(id="mdb-2090"),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 404
+
 
 def test_get_gtfs_feed_datasets_with_downloaded_before_before(client: TestClient):
     """Test case for get_gtfs_feed_datasets filter by downloaded_before with date before all downloads
