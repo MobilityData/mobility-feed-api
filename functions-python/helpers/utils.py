@@ -101,10 +101,9 @@ def download_and_get_hash(
 
         # authentication_type == 1 -> the credentials are passed in the header
         headers = {
-            'User-Agent':
-                'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) '
-                'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/126.0.0.0 Mobile Safari/537.36'
+            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/126.0.0.0 Mobile Safari/537.36"
         }
         if authentication_type == 1 and api_key_parameter_name and credentials:
             headers[api_key_parameter_name] = credentials
