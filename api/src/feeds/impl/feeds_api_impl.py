@@ -84,7 +84,16 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> GtfsFeed:
         """Get the specified gtfs feed from the Mobility Database."""
-        feed = FeedFilter(stable_id=id).filter(Database().get_query_model(Gtfsfeed)).first()
+        feed = (
+            FeedFilter(
+                stable_id=id,
+                status=None,
+                provider__ilike=None,
+                producer_url__ilike=None,
+            )
+            .filter(Database().get_query_model(Gtfsfeed))
+            .first()
+        )
         if feed:
             return GtfsFeedImpl.from_orm(feed)
         else:
@@ -136,6 +145,7 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         gtfs_feed_filter = GtfsFeedFilter(
+            stable_id=None,
             provider__ilike=provider,
             producer_url__ilike=producer_url,
             location=LocationFilter(
@@ -161,7 +171,17 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
-        feed = GtfsRtFeedFilter(stable_id=id).filter(Database().get_query_model(Gtfsrealtimefeed)).first()
+        feed = (
+            GtfsRtFeedFilter(
+                stable_id=id,
+                provider__ilike=None,
+                producer_url__ilike=None,
+                entity_types=None,
+                location=None,
+            )
+            .filter(Database().get_query_model(Gtfsrealtimefeed))
+            .first()
+        )
         if feed:
             return GtfsRTFeedImpl.from_orm(feed)
         else:
@@ -180,6 +200,7 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
         gtfs_rt_feed_filter = GtfsRtFeedFilter(
+            stable_id=None,
             provider__ilike=provider,
             producer_url__ilike=producer_url,
             entity_types=EntityTypeFilter(name__in=entity_types),
