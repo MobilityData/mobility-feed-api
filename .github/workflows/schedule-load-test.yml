@@ -11,6 +11,7 @@ env:
   LOCUST_USERS: 100
   LOCUST_RATE: 10
   LOCUST_DURATION: 180
+  python_version: '3.11'
 
 jobs:
   load-test:
@@ -23,7 +24,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.x"
+          python-version: ${{ env.python_version }}
 
       - name: Install dependencies
         run: |

@@ -12,10 +12,9 @@ class BaseFeedImpl(BasicFeed):
 
     class Config:
         """Pydantic configuration.
-        Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
+        Enabling `from_attributes` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True
 
     @classmethod
     def from_orm(cls, feed: Feed | None) -> BasicFeed | None:
@@ -34,7 +33,7 @@ class BaseFeedImpl(BasicFeed):
             feed_contact_email=feed.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed.producer_url,
-                authentication_type=feed.authentication_type,
+                authentication_type=None if feed.authentication_type is None else int(feed.authentication_type),
                 authentication_info_url=feed.authentication_info_url,
                 api_key_parameter_name=feed.api_key_parameter_name,
                 license_url=feed.license_url,
