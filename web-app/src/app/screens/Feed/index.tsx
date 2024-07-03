@@ -11,12 +11,7 @@ import {
   Grid,
   colors,
 } from '@mui/material';
-import {
-  ChevronLeft,
-  Download,
-  LaunchOutlined,
-  WarningAmberOutlined,
-} from '@mui/icons-material';
+import { ChevronLeft, WarningAmberOutlined } from '@mui/icons-material';
 import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
@@ -167,18 +162,20 @@ export default function Feed(): React.ReactElement {
                   {feed?.data_type === 'gtfs_rt' && ` - ${feed?.feed_name}`}
                 </Typography>
               </Grid>
-              {feed?.feed_name && feed?.data_type === 'gtfs' && (
-                <Grid item xs={12}>
-                  <Typography
-                    sx={{
-                      fontWeight: 'bold',
-                      fontSize: { xs: 18, sm: 24 },
-                    }}
-                  >
-                    {feed?.feed_name}
-                  </Typography>
-                </Grid>
-              )}
+              {feed !== undefined &&
+                feed.feed_name !== '' &&
+                feed?.data_type === 'gtfs' && (
+                  <Grid item xs={12}>
+                    <Typography
+                      sx={{
+                        fontWeight: 'bold',
+                        fontSize: { xs: 18, sm: 24 },
+                      }}
+                    >
+                      {feed?.feed_name}
+                    </Typography>
+                  </Grid>
+                )}
               {latestDataset?.downloaded_at !== undefined && (
                 <Grid item xs={12}>
                   <Typography>
@@ -277,6 +274,7 @@ export default function Feed(): React.ReactElement {
                   <Grid
                     container
                     direction={{ xs: 'column-reverse', md: 'row' }}
+                    sx={{ gap: '10px' }}
                     justifyContent={'space-between'}
                   >
                     {feed?.data_type === 'gtfs' && (

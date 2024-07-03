@@ -4,7 +4,6 @@ import { Button, Chip, Grid, Typography } from '@mui/material';
 import {
   CheckCircle,
   ErrorOutlineOutlined,
-  LaunchOutlined,
   ReportOutlined,
 } from '@mui/icons-material';
 import { type components } from '../../services/feeds/types';

@@ -5,15 +5,11 @@ import {
   Button,
   Chip,
   Grid,
-  SxProps,
+  type SxProps,
   Typography,
   colors,
 } from '@mui/material';
-import {
-  ContentCopy,
-  ContentCopyOutlined,
-  Download,
-} from '@mui/icons-material';
+import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
   type GTFSFeedType,
   type GTFSRTFeedType,
@@ -70,42 +66,35 @@ export default function FeedSummary({
           Producer download URL
         </Typography>
         <Box>
-          <Button
-            sx={{ overflowWrap: 'anywhere' }}
-            variant='outlined'
-            disableRipple={true}
-            disableFocusRipple={true}
-            focusRipple={false}
-            endIcon={
-              <>
-                <Download
-                  titleAccess='Download feed'
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => {
-                    if (feed?.source_info?.producer_url !== undefined) {
-                      window.open(
-                        feed?.source_info?.producer_url,
-                        '_blank',
-                        'rel=noopener noreferrer',
-                      );
-                    }
-                  }}
-                />
-                <ContentCopy
-                  titleAccess='Copy download URL'
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => {
-                    if (feed?.source_info?.producer_url !== undefined) {
-                      void navigator.clipboard
-                        .writeText(feed?.source_info?.producer_url)
-                        .then((value) => {});
-                    }
-                  }}
-                />
-              </>
-            }
-          >
+          <Typography sx={{ display: 'flex', overflowWrap: 'anywhere' }}>
             {feed?.source_info?.producer_url}
+            <ContentCopy
+              titleAccess='Copy download URL'
+              sx={{ cursor: 'pointer', ml: 1 }}
+              onClick={() => {
+                if (feed?.source_info?.producer_url !== undefined) {
+                  void navigator.clipboard
+                    .writeText(feed?.source_info?.producer_url)
+                    .then((value) => {});
+                }
+              }}
+            />
+          </Typography>
+          <Button
+            sx={{ mt: 1 }}
+            variant='contained'
+            disableElevation
+            onClick={() => {
+              if (feed?.source_info?.producer_url !== undefined) {
+                window.open(
+                  feed?.source_info?.producer_url,
+                  '_blank',
+                  'rel=noopener noreferrer',
+                );
+              }
+            }}
+          >
+            Download
           </Button>
         </Box>
       </Box>
