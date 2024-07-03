@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { ContentBox } from '../../components/ContentBox';
 import {
+  Box,
   Button,
   Chip,
-  Grid,
   TableBody,
   TableCell,
   TableContainer,
@@ -32,21 +32,25 @@ export default function PreviousDatasets({
 }: PreviousDatasetsProps): React.ReactElement {
   return (
     <>
-      <Typography sx={{ fontSize: { xs: 18, sm: 24 }, fontWeight: 'bold' }}>
+      <Typography
+        sx={{ fontSize: { xs: 18, sm: 24 }, fontWeight: 'bold', mb: 1 }}
+      >
         Dataset History
       </Typography>
       <Typography>
         The Mobility Database fetches and stores new datasets once a week, at
         11:59 EST on Sundays.{' '}
       </Typography>
-      <Typography>
-        {datasets !== undefined && datasets.length > 0 && (
-          <Grid container>
+
+      {datasets !== undefined && datasets.length > 0 && (
+        <Typography sx={{ fontWeight: 'bold' }}>
+          <Box sx={{ mt: 2, mb: 2, display: 'flex' }}>
             1-{datasets.length < 10 ? datasets.length : 10} of {datasets.length}{' '}
             Datasets <ChevronRight />
-          </Grid>
-        )}
-      </Typography>
+          </Box>
+        </Typography>
+      )}
+
       <ContentBox
         width={{ xs: '100%' }}
         title={''}
@@ -58,21 +62,28 @@ export default function PreviousDatasets({
               <TableRow key={dataset.id}>
                 {dataset.downloaded_at != null && (
                   <TableCell>
-                    {index === 0 && <b>Latest: </b>}
-                    {new Date(dataset.downloaded_at).toDateString()}
+                    <Typography variant='body1'>
+                      {index === 0 && <b>Latest: </b>}
+                      {new Date(dataset.downloaded_at).toDateString()}
+                    </Typography>
                   </TableCell>
                 )}
                 <TableCell>
-                  <span style={{ display: 'flex' }}>
-                    <a href={dataset.hosted_url}>Download Dataset</a>
-                    <DownloadOutlined />
-                  </span>
+                  <Button
+                    variant='text'
+                    disableElevation
+                    endIcon={<DownloadOutlined />}
+                    href={dataset.hosted_url}
+                  >
+                    Download
+                  </Button>
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ textAlign: { xs: 'left', xl: 'center' } }}>
                   {dataset.validation_report !== null &&
                     dataset.validation_report !== undefined && (
                       <>
                         <Chip
+                          sx={{ m: '4px' }}
                           icon={
                             dataset?.validation_report?.unique_error_count !==
                               undefined &&
@@ -100,6 +111,7 @@ export default function PreviousDatasets({
                           variant='outlined'
                         />
                         <Chip
+                          sx={{ m: '4px' }}
                           icon={
                             dataset?.validation_report?.unique_warning_count !==
                               undefined &&
@@ -127,6 +139,7 @@ export default function PreviousDatasets({
                           variant='outlined'
                         />
                         <Chip
+                          sx={{ m: '4px' }}
                           icon={<ErrorOutlineOutlined />}
                           label={`${
                             dataset?.validation_report?.unique_info_count ?? '0'
@@ -137,12 +150,13 @@ export default function PreviousDatasets({
                       </>
                     )}
                 </TableCell>
-                <TableCell>
+                <TableCell sx={{ textAlign: 'center' }}>
                   {dataset.validation_report != null &&
                     dataset.validation_report !== undefined && (
                       <Button
                         variant='contained'
-                        sx={{ m: 2 }}
+                        sx={{ mx: 2 }}
+                        disableElevation
                         endIcon={<LaunchOutlined />}
                       >
                         <a
@@ -155,14 +169,13 @@ export default function PreviousDatasets({
                         </a>
                       </Button>
                     )}
-                </TableCell>
-                <TableCell>
                   {dataset.validation_report != null &&
                     dataset.validation_report !== undefined && (
                       <Button
                         variant='contained'
-                        sx={{ m: 2 }}
+                        sx={{ mx: 2, my: { xs: 1, xl: 0 } }}
                         endIcon={<LaunchOutlined />}
+                        disableElevation
                       >
                         <a
                           href={`${dataset?.validation_report?.url_json}`}

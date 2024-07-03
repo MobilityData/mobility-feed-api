@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Button, Chip, Grid } from '@mui/material';
+import { Button, Chip, Grid, Typography } from '@mui/material';
 
 import {
   CheckCircle,
@@ -23,9 +23,11 @@ export default function DataQualitySummary({
     return <></>;
   return (
     <>
-      <div>Data Quality Summary</div>
-      <Grid container direction={'column'} spacing={2} padding={2}>
-        <Grid item container direction={'row'} spacing={2} padding={2}>
+      <Typography variant='h6' gutterBottom>
+        Data Quality Summary
+      </Typography>
+      <Grid container direction={'column'} spacing={2}>
+        <Grid item container direction={'row'} spacing={2}>
           <Grid
             item
             sx={{
@@ -108,10 +110,10 @@ export default function DataQualitySummary({
             />
           </Grid>
         </Grid>
-        <Grid item container direction={'row'} spacing={2} padding={2}>
+        <Grid item container direction={'row'} spacing={2}>
           <Grid item>
             {latestDataset?.validation_report?.url_html !== undefined && (
-              <Button variant='contained' endIcon={<LaunchOutlined />}>
+              <Button variant='contained' disableElevation>
                 <a
                   href={`${latestDataset?.validation_report?.url_html}`}
                   target='_blank'
@@ -125,7 +127,7 @@ export default function DataQualitySummary({
           </Grid>
           <Grid item>
             {latestDataset?.validation_report?.url_json !== undefined && (
-              <Button variant='contained' endIcon={<LaunchOutlined />}>
+              <Button variant='contained' disableElevation>
                 <a
                   href={`${latestDataset?.validation_report?.url_json}`}
                   target='_blank'

@@ -8,7 +8,6 @@ import {
   TableRow,
   colors,
 } from '@mui/material';
-import { OpenInNewOutlined } from '@mui/icons-material';
 import {
   type GTFSFeedType,
   type AllFeedType,
@@ -25,19 +24,25 @@ const renderAssociatedGTFSFeedRow = (
     return undefined;
   }
   return (
-    <TableRow key={assocFeed?.id}>
+    <TableRow
+      key={assocFeed?.id}
+      sx={{
+        '&:hover': {
+          backgroundColor: colors.grey[200],
+        },
+      }}
+    >
       <a
         href={`/feeds/${assocFeed?.id}`}
         rel='noreferrer'
         style={{ display: 'contents' }}
       >
-        <TableCell>{assocFeed.feed_name}</TableCell>
-        <TableCell>
+        <TableCell sx={{ paddingLeft: 0 }}>{assocFeed.feed_name}</TableCell>
+        <TableCell sx={{ paddingRight: 0 }}>
           {assocFeed.latest_dataset?.downloaded_at !== undefined && (
             <span style={{ display: 'flex' }}>
               Last updated on{' '}
               {new Date(assocFeed.latest_dataset?.downloaded_at).toDateString()}
-              <OpenInNewOutlined />
             </span>
           )}
         </TableCell>
