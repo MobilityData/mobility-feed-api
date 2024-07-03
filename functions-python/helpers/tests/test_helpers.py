@@ -11,6 +11,10 @@ from helpers.logger import Logger
 from helpers.utils import create_bucket, download_and_get_hash, download_url_content
 
 responses = urllib3_mock.Responses("requests.packages.urllib3")
+expected_user_agent = (
+    "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/126.0.0.0 Mobile Safari/537.36"
+)
 
 
 class TestHelpers(unittest.TestCase):
@@ -91,7 +95,10 @@ class TestHelpers(unittest.TestCase):
                 "GET",
                 url,
                 preload_content=False,
-                headers={api_key_parameter_name: credentials},
+                headers={
+                    "User-Agent": expected_user_agent,
+                    api_key_parameter_name: credentials,
+                },
             )
 
             if os.path.exists(file_path):
@@ -132,7 +139,10 @@ class TestHelpers(unittest.TestCase):
             )
 
             mock_request.assert_called_with(
-                "GET", modified_url, preload_content=False, headers={}
+                "GET",
+                modified_url,
+                preload_content=False,
+                headers={"User-Agent": expected_user_agent},
             )
 
         if os.path.exists(file_path):
