@@ -19,8 +19,8 @@ targetFeed = Feed(
 )
 gtfs_rt_feed_orm = Gtfsrealtimefeed(
     stable_id="id",
-    data_type="data_type",
-    status="status",
+    data_type="gtfs_rt",
+    status="active",
     externalids=[
         Externalid(
             associated_id="associated_id",
@@ -56,8 +56,8 @@ gtfs_rt_feed_orm = Gtfsrealtimefeed(
 
 expected_gtfs_rt_feed_result = GtfsRTFeedImpl(
     id="id",
-    data_type="data_type",
-    status="status",
+    data_type="gtfs_rt",
+    status="active",
     external_ids=[ExternalIdImpl(external_id="associated_id", source="source")],
     provider="provider",
     feed_name="feed_name",

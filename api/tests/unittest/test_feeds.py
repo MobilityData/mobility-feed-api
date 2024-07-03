@@ -17,8 +17,8 @@ expected_redirect_response = {"target_id": redirect_target_id, "comment": redire
 
 mock_feed = Feed(
     stable_id="test_id",
-    data_type="test_data_type",
-    status="test_status",
+    data_type="gtfs",
+    status="active",
     provider="test_provider",
     feed_name="test_feed_name",
     note="test_note",
@@ -46,8 +46,8 @@ mock_feed = Feed(
 
 expected_feed_response = BaseFeedImpl(
     id="test_id",
-    data_type="test_data_type",
-    status="test_status",
+    data_type="gtfs",
+    status="active",
     provider="test_provider",
     feed_name="test_feed_name",
     note="test_note",

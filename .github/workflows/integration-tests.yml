@@ -12,6 +12,8 @@ on:
         required: true
         description: 'Refresh token for API authentication'
 
+env:
+  python_version: '3.11'
 
 jobs:
   integration-tests:
@@ -27,7 +29,7 @@ jobs:
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: ${{ env.python_version }}
 
     - name: Download csv version of the database
       run: wget -O sources.csv https://bit.ly/catalogs-csv

@@ -13,7 +13,7 @@ i18n
     fallbackLng: 'en',
     debug: false,
     supportedLngs: supportedLanguages,
-    ns: ['common', 'account'], // List your namespaces here
+    ns: ['common', 'account', 'feeds'], // List your namespaces here
     defaultNS: 'common', // Default namespace
     interpolation: {
       escapeValue: false, // React already escapes by default
