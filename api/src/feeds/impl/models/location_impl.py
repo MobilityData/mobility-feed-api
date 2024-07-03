@@ -5,10 +5,9 @@ from database_gen.sqlacodegen_models import Location as LocationOrm
 class LocationImpl(Location):
     class Config:
         """Pydantic configuration.
-        Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
+        Enabling `from_attributes` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True
 
     @classmethod
     def from_orm(cls, location: LocationOrm | None) -> Location | None:
