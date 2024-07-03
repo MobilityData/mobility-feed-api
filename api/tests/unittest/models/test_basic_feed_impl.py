@@ -13,7 +13,7 @@ from database_gen.sqlacodegen_models import (
 )
 from feeds.impl.models.basic_feed_impl import BasicFeedImpl
 from feeds.impl.models.external_id_impl import ExternalIdImpl
-from feeds_gen.models.redirect import Redirect
+from feeds.impl.models.redirect_impl import RedirectImpl
 from feeds_gen.models.source_info import SourceInfo
 
 targetFeed = Feed(
@@ -26,16 +26,16 @@ targetFeed = Feed(
 )
 feed_orm = Feed(
     id="id",
-    data_type="data_type",
+    data_type="gtfs",
     feed_name="feed_name",
     note="note",
     producer_url="producer_url",
-    authentication_type=1,
+    authentication_type="1",
     authentication_info_url="authentication_info_url",
     api_key_parameter_name="api_key_parameter_name",
     license_url="license_url",
     stable_id="stable_id",
-    status="status",
+    status="active",
     feed_contact_email="feed_contact_email",
     provider="provider",
     locations=[
@@ -83,8 +83,8 @@ feed_orm = Feed(
 
 expected_base_feed_result = BasicFeedImpl(
     id="stable_id",
-    data_type="data_type",
-    status="status",
+    data_type="gtfs",
+    status="active",
     external_ids=[ExternalIdImpl(external_id="associated_id", source="source")],
     provider="provider",
     feed_name="feed_name",
@@ -98,7 +98,7 @@ expected_base_feed_result = BasicFeedImpl(
         license_url="license_url",
     ),
     redirects=[
-        Redirect(
+        RedirectImpl(
             target_id="target_id",
             comment="redirect_comment",
         )
