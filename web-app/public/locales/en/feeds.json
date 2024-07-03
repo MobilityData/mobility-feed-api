@@ -14,5 +14,6 @@
         "twoDigit": "Use a two digit code to search for country, e.g “FR” for France",
         "fullName": "Include the full name for transit provider, e.g “Toronto Transit Commission” instead of “TTC”",
         "checkSpelling": "Double check the spelling"
-    }
+    },
+    "errorAndContact": "Please check your internet connection and try again. If the problem persists <1>contact us</1> for for further assistance."
 }

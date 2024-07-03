@@ -29,7 +29,7 @@ import {
 } from '../../store/feeds-selectors';
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 const getDataTypeParamFromSelectedFeedTypes = (
   selectedFeedTypes: Record<string, boolean>,
@@ -257,12 +257,12 @@ export default function Feed(): React.ReactElement {
                     <Grid item xs={12}>
                       <h3>{t('common:errors.generic')}</h3>
                       <Typography>
-                        {t('common:errors.checkInternet')},{' '}
-                        <a href='mailto:api@mobilitydata.org'>
-                          {t('common:contactUs')}
-                        </a>{' '}
-                        for
-                        {t('common:errors.forAssistance')}
+                        <Trans i18nKey='errorAndContact'>
+                          Please check your internet connection and try again.
+                          If the problem persists{' '}
+                          <a href='mailto:api@mobilitydata.org'>contact us</a>{' '}
+                          for for further assistance.
+                        </Trans>
                       </Typography>
                     </Grid>
                   )}
