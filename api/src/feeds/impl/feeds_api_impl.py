@@ -224,7 +224,16 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> List[GtfsRTFeed]:
         """Get a list of GTFS Realtime related to a GTFS feed."""
-        feed = FeedFilter(stable_id=id).filter(Database().get_query_model(Gtfsfeed)).first()
+        feed = (
+            FeedFilter(
+                stable_id=id,
+                status=None,
+                provider__ilike=None,
+                producer_url__ilike=None,
+            )
+            .filter(Database().get_query_model(Gtfsfeed))
+            .first()
+        )
         if feed:
             return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
