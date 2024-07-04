@@ -42,6 +42,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Health Check
+      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
+
     - name: Run Integration Tests
       run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH
       env:
