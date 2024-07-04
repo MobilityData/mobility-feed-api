@@ -80,6 +80,7 @@ def test_feeds_gtfs_id_get(client: TestClient):
 
     assert response.status_code == 200
 
+
 def test_non_existent_gtfs_feed_get(client: TestClient):
     """Test case for feeds_gtfs_id_get with a non-existent feed"""
     response = client.request(
@@ -90,6 +91,7 @@ def test_non_existent_gtfs_feed_get(client: TestClient):
 
     assert response.status_code == 404
 
+
 def test_non_existent_dataset_get(client: TestClient):
     """Test case for datasets/gtfs with a non-existent dataset"""
     response = client.request(
@@ -99,6 +101,7 @@ def test_non_existent_dataset_get(client: TestClient):
     )
 
     assert response.status_code == 404
+
 
 def test_fetch_gtfs_feeds_with_complete_bounding_box_enclosure(client: TestClient):
     """Test fetching GTFS feeds with a bounding box filter set to 'completely_enclosed', ensuring that feeds strictly
@@ -220,6 +223,7 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
 
     assert response.status_code == 200
 
+
 def test_non_existent_gtfs_rt_feed_get(client: TestClient):
     """Test case for feeds_gtfs_rt_id_get with a non-existent feed"""
     response = client.request(
@@ -240,6 +244,7 @@ def test_feeds_id_get(client: TestClient):
     )
 
     assert response.status_code == 200
+
 
 def test_non_existent_feed_get(client: TestClient):
     """Test case for feeds_id_get with a non-existent feed"""
