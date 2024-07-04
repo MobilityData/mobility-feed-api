@@ -14,8 +14,8 @@ jobs:
       REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       ENVIRONMENT: 'prod'
       DEPLOYER_SERVICE_ACCOUNT: ${{ vars.PROD_MOBILITY_FEEDS_DEPLOYER_SERVICE_ACCOUNT }}
-      # every week on monday at 00:00
-      JOB_SCHEDULE: '0 0 * * 1'
+      # every week on monday and thursday at 00:00
+      JOB_SCHEDULE: '0 0 * * 1,4'
       DATASETS_BUCKET_NAME: 'mobilitydata-datasets-prod'
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
