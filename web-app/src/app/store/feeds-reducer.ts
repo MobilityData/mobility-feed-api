@@ -34,7 +34,6 @@ export const feedsSlice = createSlice({
       state,
       action: PayloadAction<{
         params: AllFeedsParams;
-        accessToken: string;
       }>,
     ) => {
       state.status = 'loading';

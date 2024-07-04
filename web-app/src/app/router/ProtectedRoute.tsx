@@ -27,6 +27,8 @@ export const ProtectedRoute = ({
     return <Navigate to={redirect} />;
   }
 
+  // This is triggered when user logs in or out
+  // https://firebase.google.com/docs/reference/js/v8/firebase.auth.Auth#onauthstatechanged
   app.auth().onAuthStateChanged((user) => {
     if (user != null) {
       dispatch(refreshAppSuccess());

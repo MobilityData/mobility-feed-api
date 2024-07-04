@@ -33,7 +33,6 @@ import {
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
 import {
-  generateUserAccessToken,
   getUserFromSession,
   populateUserWithAdditionalInfo,
   retrieveUserInformation,
@@ -199,7 +198,14 @@ function* anonymousLoginSaga(): Generator {
     if (user === null) {
       throw new Error('User not found');
     }
-    const currentUser = yield call(generateUserAccessToken, user as User);
+    const firebaseUser = app.auth().currentUser;
+    if (firebaseUser === null) {
+      throw new Error('Firebase user not found');
+    }
+    const currentUser = {
+      ...user,
+      refreshToken: firebaseUser.refreshToken,
+    };
     yield put(loginSuccess(currentUser as User));
   } catch (error) {
     yield put(anonymousLoginFailed()); // fails silently

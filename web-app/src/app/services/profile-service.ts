@@ -35,6 +35,22 @@ export const getUserFromSession = async (): Promise<User | null> => {
   };
 };
 
+/**
+ * Retrieve the current Firebase user's Access token.
+ * If the access token is expired, this function will refresh it and return it.
+ * If the access token is not available, an error is thrown.
+ */
+export async function getUserAccessToken(): Promise<string> {
+  const currentUser = app.auth().currentUser;
+
+  if (currentUser === null) {
+    throw new Error('Cannot retrieve access token');
+  }
+  const idTokenResult = await currentUser.getIdTokenResult();
+
+  return idTokenResult.token;
+}
+
 export const generateUserAccessToken = async (
   user: User,
 ): Promise<User | null> => {
