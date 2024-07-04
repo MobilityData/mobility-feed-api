@@ -8,6 +8,7 @@ import {
   type SxProps,
   Typography,
   colors,
+  Snackbar,
 } from '@mui/material';
 import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
@@ -33,6 +34,8 @@ export default function FeedSummary({
   latestDataset,
   width,
 }: FeedSummaryProps): React.ReactElement {
+  const [snackbarOpen, setSnackbarOpen] = React.useState(false);
+
   return (
     <ContentBox
       width={width}
@@ -73,6 +76,7 @@ export default function FeedSummary({
               sx={{ cursor: 'pointer', ml: 1 }}
               onClick={() => {
                 if (feed?.source_info?.producer_url !== undefined) {
+                  setSnackbarOpen(true);
                   void navigator.clipboard
                     .writeText(feed?.source_info?.producer_url)
                     .then((value) => {});
@@ -96,6 +100,13 @@ export default function FeedSummary({
           >
             Download
           </Button>
+          <Snackbar
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            open={snackbarOpen}
+            autoHideDuration={2000}
+            onClose={() => setSnackbarOpen(false)}
+            message="Producer url copied to clipboard"
+          />
         </Box>
       </Box>
 
