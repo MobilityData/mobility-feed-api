@@ -36,7 +36,6 @@ export const datasetSlice = createSlice({
       state,
       action: PayloadAction<{
         feedId: string;
-        accessToken: string;
       }>,
     ) => {
       state.status = 'loading';

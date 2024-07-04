@@ -22,7 +22,7 @@ import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { selectUserProfile } from '../../store/profile-selectors';
 import { useAppDispatch } from '../../hooks';
-import { loadingFeeds, resetFeeds } from '../../store/feeds-reducer';
+import { loadingFeeds } from '../../store/feeds-reducer';
 import {
   selectFeedsData,
   selectFeedsStatus,
@@ -74,10 +74,9 @@ export default function Feed(): React.ReactElement {
   const handleSearch = (): void => {
     const searchQuery = searchParams.get('q') ?? '';
     const paginationOffset = getPaginationOffset();
-    if (user?.accessToken !== undefined) {
+    if (user !== undefined) {
       dispatch(
         loadingFeeds({
-          accessToken: user?.accessToken,
           params: {
             query: {
               limit: searchLimit,
@@ -94,12 +93,8 @@ export default function Feed(): React.ReactElement {
   };
 
   useEffect(() => {
-    if (user?.accessToken === undefined) {
-      dispatch(resetFeeds());
-    } else {
-      handleSearch();
-    }
-  }, [user?.accessToken]);
+    handleSearch();
+  }, [user]);
 
   useEffect(() => {
     if (!triggerSearch) return;

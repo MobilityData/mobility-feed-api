@@ -68,13 +68,9 @@ export default function Feed(): React.ReactElement {
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
 
   useEffect(() => {
-    if (
-      isAuthenticatedOrAnonymous &&
-      user?.accessToken !== undefined &&
-      feedId !== undefined
-    ) {
-      dispatch(loadingFeed({ feedId, accessToken: user?.accessToken }));
-      dispatch(loadingDataset({ feedId, accessToken: user?.accessToken }));
+    if (user !== undefined && feedId !== undefined) {
+      dispatch(loadingFeed({ feedId }));
+      dispatch(loadingDataset({ feedId }));
       if (
         feed?.data_type === 'gtfs_rt' &&
         feedLoadingStatus === 'loaded' &&
@@ -83,7 +79,6 @@ export default function Feed(): React.ReactElement {
         dispatch(
           loadingRelatedFeeds({
             feedIds: feed.feed_references,
-            accessToken: user?.accessToken,
           }),
         );
       }

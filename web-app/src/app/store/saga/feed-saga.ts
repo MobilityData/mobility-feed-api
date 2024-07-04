@@ -20,16 +20,18 @@ import {
 import { type PayloadAction } from '@reduxjs/toolkit';
 import { getFeed, getGtfsFeed, getGtfsRtFeed } from '../../services/feeds';
 import { type AllFeedType } from '../../services/feeds/utils';
+import { getUserAccessToken } from '../../services';
 
 function* getFeedSaga({
-  payload: { feedId, accessToken },
-}: PayloadAction<{ feedId: string; accessToken: string }>): Generator<
+  payload: { feedId },
+}: PayloadAction<{ feedId: string }>): Generator<
   StrictEffect,
   void,
   AllFeedType
 > {
   try {
     if (feedId !== undefined) {
+      const accessToken = (yield call(getUserAccessToken)) as string;
       const basicFeed = yield call(getFeed, feedId, accessToken);
       const feed =
         basicFeed?.data_type === 'gtfs'
@@ -43,15 +45,12 @@ function* getFeedSaga({
 }
 
 function* getRelatedFeedsSaga({
-  payload: { feedIds, accessToken },
-}: PayloadAction<{ feedIds: string[]; accessToken: string }>): Generator<
-  StrictEffect,
-  void,
-  AllFeedType[]
-> {
+  payload: { feedIds },
+}: PayloadAction<{ feedIds: string[] }>): Generator {
   try {
     if (feedIds.length > 0) {
-      const feedsData: AllFeedType[] = yield all(
+      const accessToken = (yield call(getUserAccessToken)) as string;
+      const feedsData: AllFeedType[] = (yield all(
         feedIds.map((feedId) =>
           call(
             function* (
@@ -69,7 +68,7 @@ function* getRelatedFeedsSaga({
             accessToken,
           ),
         ),
-      );
+      )) as AllFeedType[];
       yield put(loadingRelatedFeedsSuccess({ data: feedsData }));
     }
   } catch (error) {
