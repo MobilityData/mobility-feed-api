@@ -103,7 +103,7 @@ export default function FeedSummary({
           <Snackbar
             anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             open={snackbarOpen}
-            autoHideDuration={2000}
+            autoHideDuration={5000}
             onClose={() => setSnackbarOpen(false)}
             message="Producer url copied to clipboard"
           />
