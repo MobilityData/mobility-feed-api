@@ -31,9 +31,7 @@ function* getFeedSaga({
 > {
   try {
     if (feedId !== undefined) {
-      const accessToken: string | null = (yield call(
-        getUserAccessToken,
-      )) as string;
+      const accessToken = (yield call(getUserAccessToken)) as string;
       const basicFeed = yield call(getFeed, feedId, accessToken);
       const feed =
         basicFeed?.data_type === 'gtfs'
@@ -51,9 +49,7 @@ function* getRelatedFeedsSaga({
 }: PayloadAction<{ feedIds: string[] }>): Generator {
   try {
     if (feedIds.length > 0) {
-      const accessToken: string | null = (yield call(
-        getUserAccessToken,
-      )) as string;
+      const accessToken = (yield call(getUserAccessToken)) as string;
       const feedsData: AllFeedType[] = (yield all(
         feedIds.map((feedId) =>
           call(

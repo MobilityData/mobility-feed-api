@@ -17,9 +17,7 @@ function* getFeedsSaga({
   accessToken: string;
 }>): Generator {
   try {
-    const accessToken: string | null = (yield call(
-      getUserAccessToken,
-    )) as string;
+    const accessToken = (yield call(getUserAccessToken)) as string;
     const searchData: AllFeedsType = (yield call(
       searchFeeds,
       params,

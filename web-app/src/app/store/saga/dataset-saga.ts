@@ -13,9 +13,7 @@ function* getDatasetSaga({
 }: PayloadAction<{ feedId: string }>): Generator {
   try {
     if (feedId !== undefined) {
-      const accessToken: string | null = (yield call(
-        getUserAccessToken,
-      )) as string;
+      const accessToken = (yield call(getUserAccessToken)) as string;
       const datasets = (yield call(
         getGtfsFeedDatasets,
         feedId,
