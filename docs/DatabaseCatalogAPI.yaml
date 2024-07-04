@@ -196,6 +196,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsDatasets"
 
+  /v1/gtfs_feeds/{id}/gtfs_rt_feeds:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: Get a list of GTFS Realtime related to a GTFS feed.
+      tags:
+        - "feeds"
+      operationId: getGtfsFeedGtfsRtFeeds
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Successful pull of the GTFS Realtime feeds info related to a GTFS feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GtfsRTFeeds"
+
   /v1/datasets/gtfs/{id}:
     get:
       description: Get the specified dataset from the Mobility Database.
@@ -275,19 +293,13 @@ paths:
                   total:
                     type: integer
                     description: The total number of matching entities found regardless the limit and offset parameters.
-
                   results:
                     type: array
                     items:
-                      oneOf:
+                      allOf:
                         - $ref: '#/components/schemas/GtfsFeed'
                         - $ref: '#/components/schemas/GtfsRTFeed'
-                      discriminator:
-                        propertyName: data_type
-                        mapping:
-                          gtfs: '#/components/schemas/GtfsFeed'
-                          gtfs_rt: '#/components/schemas/GtfsRTFeed'
-
+               
 
 components:
   schemas:
@@ -367,8 +379,6 @@ components:
           properties:
             locations:
               $ref: "#/components/schemas/Locations"
-        - type: object
-          properties:
             latest_dataset:
               $ref: "#/components/schemas/LatestDataset"
 

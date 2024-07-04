@@ -1,3 +1,4 @@
+src/feeds/impl/__init__.py
 src/feeds_gen/apis/__init__.py
 src/feeds_gen/apis/datasets_api.py
 src/feeds_gen/apis/datasets_api_base.py

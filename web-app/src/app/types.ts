@@ -54,9 +54,13 @@ export const USER_PROFILE_ANONYMOUS_LOGIN = `${USER_PROFILE}/anonymousLogin`;
 export const FEED_PROFILE = 'feedProfile';
 
 export const FEED_PROFILE_UPDATE_FEED_ID = `${FEED_PROFILE}/updateFeedId`;
+export const FEED_PROFILE_RESET_FEED = `${FEED_PROFILE}/resetFeed`;
 export const FEED_PROFILE_LOADING_FEED = `${FEED_PROFILE}/loadingFeed`;
 export const FEED_PROFILE_LOADING_FEED_SUCCESS = `${FEED_PROFILE}/loadingFeedSuccess`;
 export const FEED_PROFILE_LOADING_FEED_FAIL = `${FEED_PROFILE}/loadingFeedFail`;
+export const FEED_PROFILE_LOADING_RELATED_FEEDS = `${FEED_PROFILE}/loadingRelatedFeeds`;
+export const FEED_PROFILE_LOADING_RELATED_FEEDS_SUCCESS = `${FEED_PROFILE}/loadingRelatedFeedsSuccess`;
+export const FEED_PROFILE_LOADING_RELATED_FEEDS_FAIL = `${FEED_PROFILE}/loadingRelatedFeedsFail`;
 
 export const FEEDS_RESET_FEEDS = `feeds/resetFeeds`;
 export const FEEDS_LOADING_FEEDS = `feeds/loadingFeeds`;
@@ -105,6 +109,16 @@ export type FeedsErrors = {
 export type FeedErrors = {
   [Property in FeedErrorSource]: FeedError | null;
 };
+
+export type FeedStatus = 'loading' | 'loaded' | 'error';
+
+interface FeedLocation {
+  country_code?: string | undefined;
+  subdivision_name?: string | undefined;
+  municipality?: string | undefined;
+}
+
+export type FeedLocations = FeedLocation[] | undefined;
 
 export enum OauthProvider {
   Google = 'Google',

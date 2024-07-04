@@ -64,6 +64,10 @@ on:
         description: GCP region
         required: true
         type: string
+
+env:
+  python_version: '3.11'
+
 jobs:
   db-schema-update:
     name: 'Database Schema Update'
@@ -135,7 +139,7 @@ jobs:
     - name: Setup python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: ${{ env.python_version }}
 
     - name: Authenticate to Google Cloud QA/PROD
       uses: google-github-actions/auth@v2

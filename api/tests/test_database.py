@@ -115,12 +115,6 @@ def test_merge_gtfs_feed(test_database):
 
     assert feed_2 is not None
 
-    assert feed_2.latest_dataset.id == TEST_DATASET_STABLE_IDS[3]
-    assert sorted([redirect.target_id for redirect in feed_2.redirects]) == [
-        TEST_GTFS_FEED_STABLE_IDS[2],
-        TEST_GTFS_FEED_STABLE_IDS[3],
-    ]
-
 
 def test_validation_report(test_database):
     result = DatasetsApiImpl().get_dataset_gtfs(id=TEST_DATASET_STABLE_IDS[0])

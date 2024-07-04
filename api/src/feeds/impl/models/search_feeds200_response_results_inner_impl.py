@@ -13,7 +13,6 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
         Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True
 
     @classmethod
     def from_orm_gtfs(cls, feed_search_row):
@@ -29,7 +28,9 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
-                authentication_type=feed_search_row.authentication_type,
+                authentication_type=int(feed_search_row.authentication_type)
+                if feed_search_row.authentication_type
+                else None,
                 authentication_info_url=feed_search_row.authentication_info_url,
                 api_key_parameter_name=feed_search_row.api_key_parameter_name,
                 license_url=feed_search_row.license_url,
@@ -60,7 +61,9 @@ class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner)
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
-                authentication_type=feed_search_row.authentication_type,
+                authentication_type=int(feed_search_row.authentication_type)
+                if feed_search_row.authentication_type
+                else None,
                 authentication_info_url=feed_search_row.authentication_info_url,
                 api_key_parameter_name=feed_search_row.api_key_parameter_name,
                 license_url=feed_search_row.license_url,

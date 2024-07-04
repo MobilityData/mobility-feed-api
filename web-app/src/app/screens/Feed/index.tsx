@@ -12,6 +12,7 @@ import {
   colors,
 } from '@mui/material';
 import {
+  ChevronLeft,
   Download,
   LaunchOutlined,
   WarningAmberOutlined,
@@ -20,7 +21,11 @@ import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
 import { useAppDispatch } from '../../hooks';
-import { loadingFeed } from '../../store/feed-reducer';
+import {
+  loadingFeed,
+  loadingRelatedFeeds,
+  resetFeed,
+} from '../../store/feed-reducer';
 import {
   selectIsAnonymous,
   selectIsAuthenticated,
@@ -31,6 +36,7 @@ import {
   selectFeedLoadingStatus,
   selectGTFSFeedData,
   selectGTFSRTFeedData,
+  selectRelatedFeedsData,
 } from '../../store/feed-selectors';
 import { loadingDataset } from '../../store/dataset-reducer';
 import {
@@ -40,10 +46,9 @@ import {
 } from '../../store/dataset-selectors';
 import { Map } from '../../components/Map';
 import PreviousDatasets from './PreviousDatasets';
-import AssociatedGTFSFeeds from './AssociatedGTFSFeeds';
-import FeaturesList from './FeaturesList';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
+import AssociatedFeeds from './AssociatedFeeds';
 
 export default function Feed(): React.ReactElement {
   const { feedId } = useParams();
@@ -54,6 +59,7 @@ export default function Feed(): React.ReactElement {
     feedType === 'gtfs'
       ? useSelector(selectGTFSFeedData)
       : useSelector(selectGTFSRTFeedData);
+  const relatedFeeds = useSelector(selectRelatedFeedsData);
   const datasets = useSelector(selectDatasetsData);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
@@ -69,15 +75,44 @@ export default function Feed(): React.ReactElement {
     ) {
       dispatch(loadingFeed({ feedId, accessToken: user?.accessToken }));
       dispatch(loadingDataset({ feedId, accessToken: user?.accessToken }));
+      if (
+        feed?.data_type === 'gtfs_rt' &&
+        feedLoadingStatus === 'loaded' &&
+        feed.feed_references !== undefined
+      ) {
+        dispatch(
+          loadingRelatedFeeds({
+            feedIds: feed.feed_references,
+            accessToken: user?.accessToken,
+          }),
+        );
+      }
+      return () => {
+        dispatch(resetFeed());
+      };
     }
   }, [isAuthenticatedOrAnonymous]);
+
+  useEffect(() => {
+    let newDocTitle = 'Mobility Database';
+    if (feed?.provider !== undefined) {
+      newDocTitle += ` | ${feed?.provider}`;
+    }
+    if (feed?.feed_name !== undefined) {
+      newDocTitle += ` | ${feed?.feed_name}`;
+    }
+    document.title = newDocTitle;
+    return () => {
+      document.title = 'Mobility Database';
+    };
+  }, [feed]);
 
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
       <CssBaseline />
       <Box
         sx={{ mt: 12, display: 'flex', flexDirection: 'column', m: 10 }}
-        margin={{ xs: '0', sm: '80px' }}
+        margin={{ xs: '20px', sm: '80px' }}
       >
         <Box
           sx={{
@@ -97,31 +132,85 @@ export default function Feed(): React.ReactElement {
           {feedLoadingStatus === 'loading' && 'Loading...'}
           {feedLoadingStatus === 'loaded' && (
             <Grid container spacing={2}>
-              <Grid item xs={12}></Grid>
+              <Grid container item xs={12} spacing={3} alignItems={'center'}>
+                <Grid
+                  item
+                  sx={{
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    if (history.length === 1) {
+                      window.location.href = '/feeds';
+                    } else {
+                      history.back();
+                    }
+                  }}
+                >
+                  <Grid container alignItems={'center'}>
+                    <ChevronLeft /> Back
+                  </Grid>
+                </Grid>
+                <Grid item>
+                  <Typography>
+                    Feeds /{' '}
+                    {feed?.data_type === 'gtfs'
+                      ? 'GTFS Schedule'
+                      : 'GTFS Realtime Schedule'}{' '}
+                    / {feed?.id}
+                  </Typography>
+                </Grid>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography
+                  sx={{
+                    color: colors.blue.A700,
+                    fontWeight: 'bold',
+                    fontSize: { xs: 24, sm: 36 },
+                  }}
+                >
+                  {feed?.provider?.substring(0, 100)}
+                  {feed?.data_type === 'gtfs_rt' && ` - ${feed?.feed_name}`}
+                </Typography>
+              </Grid>
+              {feed?.data_type === 'gtfs' && (
+                <Grid item xs={12}>
+                  <Typography
+                    sx={{
+                      fontWeight: 'bold',
+                      fontSize: { xs: 18, sm: 24 },
+                    }}
+                  >
+                    {feed?.feed_name}
+                  </Typography>
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <Typography>
-                  Feeds /{' '}
-                  {feedType === 'gtfs'
-                    ? 'GTFS Schedule'
-                    : 'GTFS Realtime Schedule'}{' '}
-                  / {feed?.id}
+                  {latestDataset?.downloaded_at !== undefined && (
+                    <span>{`Last updated on ${new Date(
+                      latestDataset.downloaded_at,
+                    ).toDateString()}`}</span>
+                  )}
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
-                <Typography sx={{ typography: { xs: 'h4', sm: 'h3' } }}>
-                  {feed?.provider?.substring(0, 100)}
-                </Typography>
-              </Grid>
-              {feed?.feed_name ?? (
-                <Grid item xs={12}>
-                  <Typography variant='h5'>{feed?.feed_name}</Typography>
-                </Grid>
-              )}
-              {feedType === 'gtfs_rt' && (
-                <Grid item xs={12}>
-                  <Typography variant='h5'>Vehicle Positions</Typography>
-                </Grid>
-              )}
+              {feed?.data_type === 'gtfs_rt' &&
+                feed.entity_types !== undefined && (
+                  <Grid item xs={12}>
+                    <Typography variant='h5'>
+                      {' '}
+                      {feed.entity_types
+                        .map(
+                          (entityType) =>
+                            ({
+                              tu: 'Trip Updates',
+                              vp: 'Vehicle Positions',
+                              sa: 'Service Alerts',
+                            })[entityType],
+                        )
+                        .join(' and ')}
+                    </Typography>
+                  </Grid>
+                )}
               <Grid item xs={12}>
                 {feed?.redirects !== undefined &&
                   feed?.redirects.length > 0 && (
@@ -139,11 +228,11 @@ export default function Feed(): React.ReactElement {
                     </ContentBox>
                   )}
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} marginBottom={2}>
                 {feedType === 'gtfs' && (
                   <Button
                     variant='contained'
-                    sx={{ m: 2 }}
+                    sx={{ marginRight: 2 }}
                     startIcon={<Download />}
                   >
                     <a
@@ -162,7 +251,7 @@ export default function Feed(): React.ReactElement {
                 )}
                 <Button
                   variant='contained'
-                  sx={{ m: 2 }}
+                  sx={{ marginRight: 2 }}
                   endIcon={<LaunchOutlined />}
                 >
                   <a
@@ -176,7 +265,7 @@ export default function Feed(): React.ReactElement {
                 </Button>
                 <Button
                   variant='contained'
-                  sx={{ m: 2 }}
+                  sx={{ marginRight: 2 }}
                   endIcon={<LaunchOutlined />}
                 >
                   <a
@@ -196,28 +285,30 @@ export default function Feed(): React.ReactElement {
                     direction={{ xs: 'column-reverse', md: 'row' }}
                     justifyContent={'space-between'}
                   >
-                    <FeedSummary feed={feed} />
-                    <Box width={{ xs: '100%', md: '40%' }}>
-                      {boundingBox !== undefined && (
-                        <Map polygon={boundingBox} />
-                      )}
-                    </Box>
+                    {feed?.data_type === 'gtfs' && (
+                      <ContentBox
+                        title='Bounding box from stops.txt'
+                        width={{ xs: '100%', md: '40%' }}
+                        outlineColor={colors.blue[900]}
+                      >
+                        {boundingBox !== undefined && (
+                          <Box width={{ xs: '100%' }}>
+                            <Map polygon={boundingBox} />
+                          </Box>
+                        )}
+                        <DataQualitySummary latestDataset={latestDataset} />
+                      </ContentBox>
+                    )}
+                    <FeedSummary
+                      feed={feed}
+                      latestDataset={latestDataset}
+                      width={{ xs: '100%', md: '55%' }}
+                    />
+
+                    {feed?.data_type === 'gtfs_rt' && (
+                      <AssociatedFeeds feeds={relatedFeeds} />
+                    )}
                   </Grid>
-                  {feed?.data_type === 'gtfs' && (
-                    <Grid item xs={12}>
-                      <DataQualitySummary latestDataset={latestDataset} />
-                    </Grid>
-                  )}
-                  {feed?.data_type === 'gtfs' && (
-                    <Grid item xs={12}>
-                      <FeaturesList latestDataset={latestDataset} />
-                    </Grid>
-                  )}
-                  {feed?.data_type === 'gtfs_rt' && (
-                    <Grid item xs={12}>
-                      <AssociatedGTFSFeeds feed={feed} />
-                    </Grid>
-                  )}
                 </Grid>
               </Grid>
               {feed?.data_type === 'gtfs' && (

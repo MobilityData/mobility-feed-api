@@ -9,16 +9,15 @@ class RedirectImpl(Redirect):
 
     class Config:
         """Pydantic configuration.
-        Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
+        Enabling `from_attributes` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True
 
     @classmethod
     def from_orm(cls, redirect: Redirectingid | None) -> Redirect | None:
         if not redirect:
             return None
         return cls(
-            target_id=redirect.target_id,
+            target_id=redirect.target.stable_id,
             comment=redirect.redirect_comment,
         )

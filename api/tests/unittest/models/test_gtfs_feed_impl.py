@@ -15,6 +15,7 @@ from database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Entitytype,
     Notice,
+    Feed,
 )
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.external_id_impl import ExternalIdImpl
@@ -26,6 +27,15 @@ from feeds_gen.models.latest_dataset_validation_report import LatestDatasetValid
 from feeds_gen.models.source_info import SourceInfo
 
 POLYGON = "POLYGON ((3.0 1.0, 4.0 1.0, 4.0 2.0, 3.0 2.0, 3.0 1.0))"
+
+targetFeed = Feed(
+    id="id1",
+    stable_id="target_id",
+    locations=[],
+    externalids=[],
+    gtfsdatasets=[],
+    redirectingids=[],
+)
 
 
 def create_test_notice(notice_code: str, total_notices: int, severity: str):
@@ -40,7 +50,7 @@ def create_test_notice(notice_code: str, total_notices: int, severity: str):
 
 gtfs_feed_orm = Gtfsfeed(
     id="id",
-    data_type="data_type",
+    data_type="gtfs",
     feed_name="feed_name",
     note="note",
     producer_url="producer_url",
@@ -49,7 +59,7 @@ gtfs_feed_orm = Gtfsfeed(
     api_key_parameter_name="api_key_parameter_name",
     license_url="license_url",
     stable_id="stable_id",
-    status="status",
+    status="active",
     feed_contact_email="feed_contact_email",
     provider="provider",
     locations=[
@@ -102,11 +112,7 @@ gtfs_feed_orm = Gtfsfeed(
         )
     ],
     redirectingids=[
-        Redirectingid(
-            source_id="source_id",
-            target_id="target_id",
-            redirect_comment="redirect_comment",
-        )
+        Redirectingid(source_id="source_id", target_id="id1", redirect_comment="redirect_comment", target=targetFeed)
     ],
     gtfs_rt_feeds=[
         Gtfsrealtimefeed(
@@ -118,8 +124,8 @@ gtfs_feed_orm = Gtfsfeed(
 
 expected_gtfs_feed_result = GtfsFeedImpl(
     id="stable_id",
-    data_type="data_type",
-    status="status",
+    data_type="gtfs",
+    status="active",
     external_ids=[ExternalIdImpl(external_id="associated_id", source="source")],
     provider="provider",
     feed_name="feed_name",
@@ -177,6 +183,9 @@ class TestGtfsFeedImpl(unittest.TestCase):
         """Test the `from_orm` method with not provided fields."""
         # Test with empty fields and None values
         # No error should be raised
+        # Target is set to None as deep copy is failing for unknown reasons
+        # At the end of the test, the target is set back to the original value
+        gtfs_feed_orm.redirectingids[0].target = None
         target_feed_orm = copy.deepcopy(gtfs_feed_orm)
         target_feed_orm.feed_name = ""
         target_feed_orm.provider = None
@@ -191,3 +200,5 @@ class TestGtfsFeedImpl(unittest.TestCase):
 
         result = GtfsFeedImpl.from_orm(target_feed_orm)
         assert result == target_expected_gtfs_feed_result
+        # Set the target back to the original value
+        gtfs_feed_orm.redirectingids[0].target = targetFeed

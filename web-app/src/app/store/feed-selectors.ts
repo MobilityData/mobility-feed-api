@@ -4,6 +4,7 @@ import {
   isGtfsFeedType,
   isGtfsRtFeedType,
   type BasicFeedType,
+  type AllFeedType,
 } from '../services/feeds/utils';
 import { type RootState } from './store';
 
@@ -27,4 +28,8 @@ export const selectGTFSRTFeedData = (state: RootState): GTFSRTFeedType => {
 
 export const selectFeedId = (state: RootState): string => {
   return state.feedProfile.feedId ?? 'mdb-1';
+};
+
+export const selectRelatedFeedsData = (state: RootState): AllFeedType[] => {
+  return state.feedProfile.relatedFeedsData;
 };

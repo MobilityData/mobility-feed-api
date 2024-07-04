@@ -81,6 +81,28 @@ def test_feeds_gtfs_id_get(client: TestClient):
     assert response.status_code == 200
 
 
+def test_non_existent_gtfs_feed_get(client: TestClient):
+    """Test case for feeds_gtfs_id_get with a non-existent feed"""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}".format(id="mdb-4000"),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 404
+
+
+def test_non_existent_dataset_get(client: TestClient):
+    """Test case for datasets/gtfs with a non-existent dataset"""
+    response = client.request(
+        "GET",
+        "/v1/datasets/gtfs/{id}".format(id="mdb-1210-202402121801"),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 404
+
+
 def test_fetch_gtfs_feeds_with_complete_bounding_box_enclosure(client: TestClient):
     """Test fetching GTFS feeds with a bounding box filter set to 'completely_enclosed', ensuring that feeds strictly
     within the specified coordinates are fetched."""
@@ -202,6 +224,17 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
     assert response.status_code == 200
 
 
+def test_non_existent_gtfs_rt_feed_get(client: TestClient):
+    """Test case for feeds_gtfs_rt_id_get with a non-existent feed"""
+    response = client.request(
+        "GET",
+        "/v1/gtfs_rt_feeds/{id}".format(id="mdb-3000"),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 404
+
+
 def test_feeds_id_get(client: TestClient):
     """Test case for feeds_id_get"""
     response = client.request(
@@ -211,6 +244,17 @@ def test_feeds_id_get(client: TestClient):
     )
 
     assert response.status_code == 200
+
+
+def test_non_existent_feed_get(client: TestClient):
+    """Test case for feeds_id_get with a non-existent feed"""
+    response = client.request(
+        "GET",
+        "/v1/feeds/{id}".format(id="mdb-2090"),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 404
 
 
 def test_get_gtfs_feed_datasets_with_downloaded_before_before(client: TestClient):
@@ -379,3 +423,33 @@ def test_get_gtfs_feed_datasets_with_downloaded_date_between(client: TestClient)
 
     assert response.status_code == 200
     assert response.json() == datasets
+
+
+def test_get_gtfs_feed_gtfs_rt_feeds_valid_id(client: TestClient):
+    """Test case for get_gtfs_feed_gtfs_rt_feeds with a valid GTFS feed ID
+    Expected result: a list of GTFS RT feeds related to the GTFS feed
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/gtfs_rt_feeds".format(id=TEST_GTFS_FEED_STABLE_IDS[0]),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == TEST_GTFS_RT_FEED_STABLE_ID
+    assert response.json()[0]["feed_references"][0] == TEST_GTFS_FEED_STABLE_IDS[0]
+
+
+def test_get_gtfs_feed_gtfs_rt_feeds_invalid_id(client: TestClient):
+    """Test case for get_gtfs_feed_gtfs_rt_feeds with an invalid GTFS feed ID
+    Expected result: 404 HTTP error
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/THIS_IS_NOT_VALID/gtfs_rt_feeds",
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "GTFS feed 'THIS_IS_NOT_VALID' not found"}
