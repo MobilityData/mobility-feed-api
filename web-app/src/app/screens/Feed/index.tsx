@@ -240,34 +240,41 @@ export default function Feed(): React.ReactElement {
                     </a>
                   </Button>
                 )}
-                <Button
-                  disableElevation
-                  variant='contained'
-                  sx={{ marginRight: 2 }}
-                >
-                  <a
-                    href={feed?.source_info?.license_url}
-                    target='_blank'
-                    className='btn-link'
-                    rel='noreferrer'
-                  >
-                    See License
-                  </a>
-                </Button>
-                <Button
-                  disableElevation
-                  variant='contained'
-                  sx={{ marginRight: 2 }}
-                >
-                  <a
-                    href={feed?.source_info?.authentication_info_url}
-                    target='_blank'
-                    className='btn-link'
-                    rel='noreferrer'
-                  >
-                    See Authentication info
-                  </a>
-                </Button>
+                {feed?.source_info?.license_url !== undefined &&
+                  feed?.source_info?.license_url !== '' && (
+                    <Button
+                      disableElevation
+                      variant='contained'
+                      sx={{ marginRight: 2 }}
+                    >
+                      <a
+                        href={feed?.source_info?.license_url}
+                        target='_blank'
+                        className='btn-link'
+                        rel='noreferrer'
+                      >
+                        See License
+                      </a>
+                    </Button>
+                  )}
+
+                {feed?.source_info?.authentication_info_url !== undefined &&
+                  feed?.source_info?.authentication_info_url !== '' && (
+                    <Button
+                      disableElevation
+                      variant='contained'
+                      sx={{ marginRight: 2 }}
+                    >
+                      <a
+                        href={feed?.source_info?.authentication_info_url}
+                        target='_blank'
+                        className='btn-link'
+                        rel='noreferrer'
+                      >
+                        See Authentication info
+                      </a>
+                    </Button>
+                  )}
               </Grid>
               <Grid item xs={12}>
                 <Grid item xs={12} container rowSpacing={2}>
