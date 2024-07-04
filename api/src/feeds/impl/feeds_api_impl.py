@@ -218,3 +218,23 @@ class FeedsApiImpl(BaseFeedsApi):
             gtfs_rt_feed_query = gtfs_rt_feed_query.offset(offset)
         results = gtfs_rt_feed_query.all()
         return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in results]
+
+    def get_gtfs_feed_gtfs_rt_feeds(
+        self,
+        id: str,
+    ) -> List[GtfsRTFeed]:
+        """Get a list of GTFS Realtime related to a GTFS feed."""
+        feed = (
+            FeedFilter(
+                stable_id=id,
+                status=None,
+                provider__ilike=None,
+                producer_url__ilike=None,
+            )
+            .filter(Database().get_query_model(Gtfsfeed))
+            .first()
+        )
+        if feed:
+            return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
+        else:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
