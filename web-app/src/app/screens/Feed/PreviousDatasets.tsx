@@ -18,7 +18,6 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { type paths } from '../../services/feeds/types';
-import ChevronRight from '@mui/icons-material/ChevronRight';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export interface PreviousDatasetsProps {
@@ -46,7 +45,7 @@ export default function PreviousDatasets({
         <Typography sx={{ fontWeight: 'bold' }}>
           <Box sx={{ mt: 2, mb: 2, display: 'flex' }}>
             1-{datasets.length < 10 ? datasets.length : 10} of {datasets.length}{' '}
-            Datasets <ChevronRight />
+            Datasets
           </Box>
         </Typography>
       )}
