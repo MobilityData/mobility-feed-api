@@ -63,7 +63,7 @@ export default function AssociatedGTFSRTFeeds({
 }: AssociatedFeedsProps): React.ReactElement {
   return (
     <Box width={{ xs: '100%', md: '40%' }}>
-      {feeds === undefined && (<Typography>Loading...</Typography>)}
+      {feeds === undefined && <Typography>Loading...</Typography>}
       {feeds !== undefined && (
         <ContentBox
           width={{ xs: '100%' }}
