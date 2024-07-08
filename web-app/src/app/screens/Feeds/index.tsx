@@ -45,14 +45,32 @@ const getDataTypeParamFromSelectedFeedTypes = (
   return dataTypeQueryParam;
 };
 
+const getInitialSelectedFeedTypes = (
+  searchParams: URLSearchParams,
+): Record<string, boolean> => {
+  const gtfsSearch = searchParams.get('gtfs');
+  const gtfsRtSearch = searchParams.get('gtfs_rt');
+
+  if (gtfsSearch === null && gtfsRtSearch === null) {
+    return {
+      gtfs: true,
+      gtfs_rt: true,
+    };
+  } else {
+    return {
+      gtfs: gtfsSearch === 'true',
+      gtfs_rt: gtfsRtSearch === 'true',
+    };
+  }
+};
+
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchLimit] = useState(20); // leaving possibility to edit in future
-  const [selectedFeedTypes, setSelectedFeedTypes] = useState({
-    gtfs: true,
-    gtfs_rt: true,
-  });
+  const [selectedFeedTypes, setSelectedFeedTypes] = useState(
+    getInitialSelectedFeedTypes(searchParams),
+  );
   const [activeSearch, setActiveSearch] = useState('');
   const [activePagination, setActivePagination] = useState(
     searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1,
