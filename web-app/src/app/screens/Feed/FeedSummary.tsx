@@ -84,22 +84,17 @@ export default function FeedSummary({
               }}
             />
           </Typography>
-          <Button
-            sx={{ mt: 1 }}
-            variant='contained'
-            disableElevation
-            onClick={() => {
-              if (feed?.source_info?.producer_url !== undefined) {
-                window.open(
-                  feed?.source_info?.producer_url,
-                  '_blank',
-                  'rel=noopener noreferrer',
-                );
-              }
-            }}
-          >
-            Download
-          </Button>
+          {feed?.source_info?.producer_url !== undefined && (
+            <a
+              href={feed?.source_info?.producer_url}
+              download
+              style={{ textDecoration: 'none' }}
+            >
+              <Button sx={{ mt: 1 }} variant='contained' disableElevation>
+                Download 2
+              </Button>
+            </a>
+          )}
           <Snackbar
             anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             open={snackbarOpen}

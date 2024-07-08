@@ -44,8 +44,7 @@ export default function PreviousDatasets({
       {datasets !== undefined && datasets.length > 0 && (
         <Typography sx={{ fontWeight: 'bold' }}>
           <Box sx={{ mt: 2, mb: 2, display: 'flex' }}>
-            1-{datasets.length < 10 ? datasets.length : 10} of {datasets.length}{' '}
-            Datasets
+            {datasets.length} Datasets
           </Box>
         </Typography>
       )}

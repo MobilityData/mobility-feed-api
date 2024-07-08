@@ -66,17 +66,7 @@ export default function Feed(): React.ReactElement {
     if (user !== undefined && feedId !== undefined) {
       dispatch(loadingFeed({ feedId }));
       dispatch(loadingDataset({ feedId }));
-      if (
-        feed?.data_type === 'gtfs_rt' &&
-        feedLoadingStatus === 'loaded' &&
-        feed.feed_references !== undefined
-      ) {
-        dispatch(
-          loadingRelatedFeeds({
-            feedIds: feed.feed_references,
-          }),
-        );
-      }
+
       return () => {
         dispatch(resetFeed());
       };
@@ -92,6 +82,17 @@ export default function Feed(): React.ReactElement {
       newDocTitle += ` | ${feed?.feed_name}`;
     }
     document.title = newDocTitle;
+    if (
+      feed?.data_type === 'gtfs_rt' &&
+      feedLoadingStatus === 'loaded' &&
+      feed.feed_references !== undefined
+    ) {
+      dispatch(
+        loadingRelatedFeeds({
+          feedIds: feed.feed_references,
+        }),
+      );
+    }
     return () => {
       document.title = 'Mobility Database';
     };
@@ -245,7 +246,7 @@ export default function Feed(): React.ReactElement {
                       className='btn-link'
                       rel='noreferrer'
                     >
-                      Download latest
+                      Download Latest
                     </a>
                   </Button>
                 )}

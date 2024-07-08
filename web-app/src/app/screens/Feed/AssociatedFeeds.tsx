@@ -61,26 +61,29 @@ const renderAssociatedGTFSFeedRow = (
 export default function AssociatedGTFSRTFeeds({
   feeds,
 }: AssociatedFeedsProps): React.ReactElement {
+  const gtfsFeeds =
+    feeds?.filter((assocFeed) => assocFeed?.data_type === 'gtfs') ?? [];
   return (
     <Box width={{ xs: '100%', md: '40%' }}>
-      {feeds === undefined && <Typography>Loading...</Typography>}
-      {feeds !== undefined && (
-        <ContentBox
-          width={{ xs: '100%' }}
-          title={'Related Schedule Feeds'}
-          outlineColor={colors.indigo[500]}
-        >
+      <ContentBox
+        width={{ xs: '100%' }}
+        title={'Related Schedule Feeds'}
+        outlineColor={colors.indigo[500]}
+      >
+        {feeds === undefined && <Typography>Loading...</Typography>}
+        {feeds !== undefined && gtfsFeeds?.length === 0 && (
+          <Typography sx={{ mt: 1 }}>No associated feeds found.</Typography>
+        )}
+        {feeds !== undefined && gtfsFeeds.length > 0 && (
           <TableContainer>
             <TableBody sx={{ display: 'inline-table', width: '100%' }}>
-              {feeds
-                .filter((assocFeed) => assocFeed?.data_type === 'gtfs')
-                .map((assocFeed) =>
-                  renderAssociatedGTFSFeedRow(assocFeed as GTFSFeedType),
-                )}
+              {gtfsFeeds?.map((assocFeed) =>
+                renderAssociatedGTFSFeedRow(assocFeed as GTFSFeedType),
+              )}
             </TableBody>
           </TableContainer>
-        </ContentBox>
-      )}
+        )}
+      </ContentBox>
     </Box>
   );
 }
