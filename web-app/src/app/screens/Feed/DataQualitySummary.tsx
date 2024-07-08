@@ -1,12 +1,9 @@
 import * as React from 'react';
 import { Button, Chip, Grid, Typography } from '@mui/material';
 
-import {
-  CheckCircle,
-  ErrorOutlineOutlined,
-  ReportOutlined,
-} from '@mui/icons-material';
+import { CheckCircle, ReportOutlined } from '@mui/icons-material';
 import { type components } from '../../services/feeds/types';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export interface DataQualitySummaryProps {
   latestDataset: components['schemas']['GtfsDataset'] | undefined;
@@ -100,10 +97,10 @@ export default function DataQualitySummary({
             }}
           >
             <Chip
-              icon={<ErrorOutlineOutlined />}
+              icon={<InfoOutlinedIcon />}
               label={`${
                 latestDataset?.validation_report?.unique_info_count ?? '0'
-              } Info Notices`}
+              } info notices`}
               color='primary'
               variant='outlined'
             />
@@ -120,20 +117,6 @@ export default function DataQualitySummary({
                   rel='noreferrer'
                 >
                   Open Full Report
-                </a>
-              </Button>
-            )}
-          </Grid>
-          <Grid item>
-            {latestDataset?.validation_report?.url_json !== undefined && (
-              <Button variant='contained' disableElevation>
-                <a
-                  href={`${latestDataset?.validation_report?.url_json}`}
-                  target='_blank'
-                  className='btn-link'
-                  rel='noreferrer'
-                >
-                  Open JSON Report
                 </a>
               </Button>
             )}

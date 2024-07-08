@@ -120,16 +120,10 @@ export default function FeedSummary({
         >
           Data type
         </Typography>
-        <Button
-          sx={{ textOverflow: 'ellipsis', cursor: 'text' }}
-          variant='outlined'
-          disableRipple={true}
-          disableFocusRipple={true}
-          focusRipple={false}
-        >
+        <Typography>
           {feed?.data_type === 'gtfs' && 'GTFS Schedule'}
           {feed?.data_type === 'gtfs_rt' && 'GTFS Realtime'}
-        </Button>
+        </Typography>
       </Box>
 
       {feed?.data_type === 'gtfs' &&

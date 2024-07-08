@@ -137,15 +137,24 @@ export default function Feed(): React.ReactElement {
                   }}
                 >
                   <Grid container alignItems={'center'}>
-                    <ChevronLeft /> Back
+                    <ChevronLeft fontSize='small' sx={{ ml: '-20px' }} />{' '}
+                    <Typography>Back</Typography>
                   </Grid>
                 </Grid>
                 <Grid item>
-                  <Typography>
-                    Feeds /{' '}
-                    {feed?.data_type === 'gtfs'
-                      ? 'GTFS Schedule'
-                      : 'GTFS Realtime Schedule'}{' '}
+                  <Typography
+                    sx={{
+                      a: {
+                        textDecoration: 'none',
+                      },
+                    }}
+                  >
+                    <a href='/feeds'>Feeds</a> /{' '}
+                    <a href={`/feeds?${feed?.data_type}=true`}>
+                      {feed?.data_type === 'gtfs'
+                        ? 'GTFS Schedule'
+                        : 'GTFS Realtime'}
+                    </a>{' '}
                     / {feed?.id}
                   </Typography>
                 </Grid>

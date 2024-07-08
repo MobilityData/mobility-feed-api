@@ -6,6 +6,7 @@ import {
   TableCell,
   TableContainer,
   TableRow,
+  Typography,
   colors,
 } from '@mui/material';
 import {
@@ -23,6 +24,8 @@ const renderAssociatedGTFSFeedRow = (
   if (assocFeed === undefined) {
     return undefined;
   }
+  const hasFeedName =
+    assocFeed.feed_name !== undefined && assocFeed.feed_name !== '';
   return (
     <TableRow
       key={assocFeed?.id}
@@ -37,8 +40,12 @@ const renderAssociatedGTFSFeedRow = (
         rel='noreferrer'
         style={{ display: 'contents' }}
       >
-        <TableCell sx={{ paddingLeft: 0 }}>{assocFeed.feed_name}</TableCell>
-        <TableCell sx={{ paddingRight: 0 }}>
+        {hasFeedName && (
+          <TableCell sx={{ paddingLeft: 0 }}>{assocFeed.feed_name}</TableCell>
+        )}
+        <TableCell
+          sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
+        >
           {assocFeed.latest_dataset?.downloaded_at !== undefined && (
             <span style={{ display: 'flex' }}>
               Last updated on{' '}
@@ -56,6 +63,7 @@ export default function AssociatedGTFSRTFeeds({
 }: AssociatedFeedsProps): React.ReactElement {
   return (
     <Box width={{ xs: '100%', md: '40%' }}>
+      {feeds === undefined && (<Typography>Loading...</Typography>)}
       {feeds !== undefined && (
         <ContentBox
           width={{ xs: '100%' }}

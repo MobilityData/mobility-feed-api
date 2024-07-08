@@ -13,13 +13,13 @@ import {
 } from '@mui/material';
 import {
   DownloadOutlined,
-  ErrorOutlineOutlined,
   ReportOutlined,
   LaunchOutlined,
   CheckCircle,
 } from '@mui/icons-material';
 import { type paths } from '../../services/feeds/types';
 import ChevronRight from '@mui/icons-material/ChevronRight';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export interface PreviousDatasetsProps {
   datasets:
@@ -38,8 +38,8 @@ export default function PreviousDatasets({
         Dataset History
       </Typography>
       <Typography>
-        The Mobility Database fetches and stores new datasets once a week, at
-        11:59 EST on Sundays.{' '}
+        The Mobility Database fetches and stores new datasets twice a week, on
+        Mondays and Thursdays at midnight EST.{' '}
       </Typography>
 
       {datasets !== undefined && datasets.length > 0 && (
@@ -140,10 +140,10 @@ export default function PreviousDatasets({
                         />
                         <Chip
                           sx={{ m: '4px' }}
-                          icon={<ErrorOutlineOutlined />}
+                          icon={<InfoOutlinedIcon />}
                           label={`${
                             dataset?.validation_report?.unique_info_count ?? '0'
-                          } Info Notices`}
+                          } info notices`}
                           color='primary'
                           variant='outlined'
                         />
