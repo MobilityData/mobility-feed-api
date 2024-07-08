@@ -91,7 +91,7 @@ export default function FeedSummary({
               style={{ textDecoration: 'none' }}
             >
               <Button sx={{ mt: 1 }} variant='contained' disableElevation>
-                Download 2
+                Download
               </Button>
             </a>
           )}
