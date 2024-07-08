@@ -1,12 +1,13 @@
 from typing import List, Union
 from datetime import datetime
-
+from sqlalchemy.orm import joinedload
 from database.database import Database
 from database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
     Gtfsfeed,
     Gtfsrealtimefeed,
+    Location,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -155,6 +156,7 @@ class FeedsApiImpl(BaseFeedsApi):
             ),
         )
         gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
+        gtfs_feed_query = gtfs_feed_query.join(Location, Feed.locations).options(joinedload(Feed.locations))
         gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
         gtfs_feed_query = DatasetsApiImpl.apply_bounding_filtering(
             gtfs_feed_query, dataset_latitudes, dataset_longitudes, bounding_filter_method
