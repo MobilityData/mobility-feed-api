@@ -93,6 +93,7 @@ export const userProfileSlice = createSlice({
       state.status = 'unauthenticated';
       state.isSignedInWithProvider = false;
       state.isAppRefreshing = false;
+      state.user = undefined;
     },
     logoutFail: (state) => {
       state.status = 'unauthenticated';

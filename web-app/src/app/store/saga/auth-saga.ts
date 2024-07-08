@@ -28,7 +28,6 @@ import {
   resetPasswordSuccess,
   verifyFail,
   verifySuccess,
-  anonymousLogin,
   anonymousLoginFailed,
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
@@ -80,10 +79,9 @@ function* logoutSaga({
   navigateTo: NavigateFunction;
 }>): Generator {
   try {
+    navigateTo(redirectScreen);
     yield app.auth().signOut();
     yield put(logoutSuccess());
-    yield put(anonymousLogin()); // Use anonymous login to keep the user signed in
-    navigateTo(redirectScreen);
   } catch (error) {
     yield put(loginFail(getAppError(error) as ProfileError));
   }

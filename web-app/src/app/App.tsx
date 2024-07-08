@@ -8,13 +8,24 @@ import { RemoteConfigProvider } from './context/RemoteConfigProvider';
 import { useDispatch } from 'react-redux';
 import { anonymousLogin } from './store/profile-reducer';
 import i18n from '../i18n';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
+import { app } from '../firebase';
 
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
   const dispatch = useDispatch();
+  const [isAppReady, setIsAppReady] = useState(false);
+
   useEffect(() => {
+    app.auth().onAuthStateChanged((user) => {
+      if (user != null) {
+        setIsAppReady(true);
+      } else {
+        setIsAppReady(false);
+        dispatch(anonymousLogin());
+      }
+    });
     dispatch(anonymousLogin());
   }, [dispatch]);
 
@@ -26,7 +37,7 @@ function App(): React.ReactElement {
             <AppSpinner>
               <BrowserRouter>
                 <Header />
-                <AppRouter />
+                {isAppReady ? <AppRouter /> : null}
               </BrowserRouter>
             </AppSpinner>
             <Footer />
