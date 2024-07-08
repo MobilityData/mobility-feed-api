@@ -13,7 +13,7 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
 
     def test_all_datasets(self):
         warnings = []
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             # Prepare a list of feed IDs to process
             feed_ids = self.gtfs_feeds.mdb_source_id.values
 
