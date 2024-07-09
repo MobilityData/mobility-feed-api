@@ -81,6 +81,7 @@ export enum ProfileErrorSource {
   Registration = 'Registration',
   ResetPassword = 'ResetPassword',
   VerifyEmail = 'VerifyEmail',
+  AnonymousLogin = 'AnonymousLogin',
 }
 export enum FeedErrorSource {
   DatabaseAPI = 'DatabaseAPI',

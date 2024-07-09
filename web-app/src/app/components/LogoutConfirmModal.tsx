@@ -10,7 +10,7 @@ import {
 import React from 'react';
 import { useAppDispatch } from '../hooks';
 import { logout } from '../store/profile-reducer';
-import { SIGN_IN_TARGET } from '../constants/Navigation';
+import { SIGN_OUT_TARGET } from '../constants/Navigation';
 import { useNavigate } from 'react-router-dom';
 
 interface ConfirmModalProps {
@@ -25,7 +25,9 @@ export default function ConfirmModal({
   const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
   const confirmLogout = (): void => {
-    dispatch(logout({ redirectScreen: SIGN_IN_TARGET, navigateTo }));
+    dispatch(
+      logout({ redirectScreen: SIGN_OUT_TARGET, navigateTo, propagate: true }),
+    );
     setOpenDialog(false);
   };
 

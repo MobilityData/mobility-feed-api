@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import SignIn from '../screens/SignIn';
 import SignUp from '../screens/SignUp';
 import Account from '../screens/Account';
@@ -17,8 +17,34 @@ import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
 import Feed from '../screens/Feed';
 import Feeds from '../screens/Feeds';
+import { SIGN_OUT_TARGET } from '../constants/Navigation';
+import {
+  LOGIN_CHANNEL,
+  LOGOUT_CHANNEL,
+  createDispatchChannel,
+} from '../services/channel-service';
+import { useAppDispatch } from '../hooks';
+import { logout } from '../store/profile-reducer';
 
 export const AppRouter: React.FC = () => {
+  const navigateTo = useNavigate();
+  const dispatch = useAppDispatch();
+  const logoutUser = (): void => {
+    dispatch(
+      logout({ redirectScreen: SIGN_OUT_TARGET, navigateTo, propagate: false }),
+    );
+  };
+
+  const loginUser = (): void => {
+    // Refresh the page to ensure the user is authenticated
+    window.location.reload();
+  };
+
+  useEffect(() => {
+    createDispatchChannel(LOGOUT_CHANNEL, logoutUser);
+    createDispatchChannel(LOGIN_CHANNEL, loginUser);
+  }, [dispatch]);
+
   return (
     <Routes>
       <Route path='/' element={<Home />} />

@@ -14,6 +14,7 @@ import {
   USER_PROFILE_SEND_VERIFICATION_EMAIL,
   USER_PROFILE_ANONYMOUS_LOGIN,
   type ProfileError,
+  ProfileErrorSource,
 } from '../../types';
 import 'firebase/compat/auth';
 import {
@@ -29,6 +30,7 @@ import {
   verifyFail,
   verifySuccess,
   anonymousLoginFailed,
+  anonymousLoginSkipped,
 } from '../profile-reducer';
 import { type NavigateFunction } from 'react-router-dom';
 import {
@@ -48,7 +50,12 @@ import {
   signInAnonymously,
 } from 'firebase/auth';
 import { getAppError } from '../../utils/error';
-import { selectIsAuthenticated } from '../profile-selectors';
+import { selectIsAnonymous, selectIsAuthenticated } from '../profile-selectors';
+import {
+  LOGIN_CHANNEL,
+  LOGOUT_CHANNEL,
+  broadcastMessage,
+} from '../../services/channel-service';
 
 function* emailLoginSaga({
   payload: { email, password },
@@ -67,21 +74,26 @@ function* emailLoginSaga({
       undefined,
     );
     yield put(loginSuccess(userEnhanced));
+    broadcastMessage(LOGIN_CHANNEL);
   } catch (error) {
     yield put(loginFail(getAppError(error) as ProfileError));
   }
 }
 
 function* logoutSaga({
-  payload: { redirectScreen, navigateTo },
+  payload: { redirectScreen, navigateTo, propagate },
 }: PayloadAction<{
   redirectScreen: string;
   navigateTo: NavigateFunction;
+  propagate: boolean;
 }>): Generator {
   try {
     navigateTo(redirectScreen);
     yield app.auth().signOut();
     yield put(logoutSuccess());
+    if (propagate) {
+      broadcastMessage(LOGOUT_CHANNEL);
+    }
   } catch (error) {
     yield put(loginFail(getAppError(error) as ProfileError));
   }
@@ -157,6 +169,7 @@ function* loginWithProviderSaga({
       additionalUserInfo,
     );
     yield put(loginSuccess(userEnhanced));
+    broadcastMessage(LOGIN_CHANNEL);
   } catch (error) {
     yield put(loginFail(getAppError(error) as ProfileError));
   }
@@ -183,7 +196,13 @@ function* anonymousLoginSaga(): Generator {
       selectIsAuthenticated,
     )) as boolean;
     if (isAuthenticated) {
-      yield put(anonymousLoginFailed()); // fails silently
+      yield put(
+        anonymousLoginSkipped({
+          code: 'unknown',
+          message: 'User is already authenticated',
+          source: ProfileErrorSource.AnonymousLogin,
+        }),
+      );
       return;
     }
 
@@ -192,13 +211,39 @@ function* anonymousLoginSaga(): Generator {
     yield call(async () => {
       await signInAnonymously(auth);
     });
+
+    const hasStateAnonymousSet: boolean = (yield select(
+      selectIsAnonymous,
+    )) as boolean;
+    if (hasStateAnonymousSet) {
+      yield put(
+        anonymousLoginSkipped({
+          code: 'unknown',
+          message: 'User had already login as anonymous before.',
+          source: ProfileErrorSource.AnonymousLogin,
+        }),
+      );
+      return;
+    }
     const user = yield call(getUserFromSession);
     if (user === null) {
-      throw new Error('User not found');
+      anonymousLoginSkipped({
+        code: 'unknown',
+        message: 'User not found',
+        source: ProfileErrorSource.AnonymousLogin,
+      });
+      return;
     }
     const firebaseUser = app.auth().currentUser;
     if (firebaseUser === null) {
-      throw new Error('Firebase user not found');
+      yield put(
+        anonymousLoginFailed({
+          code: 'unknown',
+          message: 'User not found',
+          source: ProfileErrorSource.AnonymousLogin,
+        }),
+      );
+      return;
     }
     const currentUser = {
       ...user,
@@ -206,7 +251,13 @@ function* anonymousLoginSaga(): Generator {
     };
     yield put(loginSuccess(currentUser as User));
   } catch (error) {
-    yield put(anonymousLoginFailed()); // fails silently
+    yield put(
+      anonymousLoginFailed({
+        code: 'unknown',
+        message: 'Critical error while login as anonymous.',
+        source: ProfileErrorSource.AnonymousLogin,
+      }),
+    );
   }
 }
 
