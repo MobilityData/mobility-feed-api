@@ -167,7 +167,7 @@ class FeedsApiImpl(BaseFeedsApi):
         latest_datasets = aliased(Gtfsdataset, latest_datasets_subquery)
 
         gtfs_feed_query = (
-            gtfs_feed_query.join(Location, Feed.locations)
+            gtfs_feed_query.outerjoin(Location, Feed.locations)
             .outerjoin(latest_datasets, Gtfsfeed.gtfsdatasets)
             .options(
                 contains_eager(Gtfsfeed.gtfsdatasets, alias=latest_datasets)
@@ -232,7 +232,7 @@ class FeedsApiImpl(BaseFeedsApi):
             ),
         )
         gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed))
-        gtfs_rt_feed_query = gtfs_rt_feed_query.join(Location, Feed.locations).options(
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Location, Feed.locations).options(
             *BasicFeedImpl.get_joinedload_options(),
             joinedload(Gtfsrealtimefeed.entitytypes),
             joinedload(Gtfsrealtimefeed.gtfs_feeds),

@@ -206,7 +206,7 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    (
+    gtfs_rt_feed = (
         Database()
         .get_query_model(Gtfsrealtimefeed)
         .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
@@ -214,8 +214,8 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
     )
 
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    # response_gtfs_rt_feed = response.json()[0]
-    # assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
+    response_gtfs_rt_feed = response.json()[0]
+    assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
 
 
 def test_gtfs_rt_feed_get(client: TestClient, mocker):
