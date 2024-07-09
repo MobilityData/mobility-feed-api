@@ -1,8 +1,7 @@
 from datetime import datetime
 from typing import List, Union
 
-from sqlalchemy import select
-from sqlalchemy.orm import aliased, contains_eager, joinedload
+from sqlalchemy.orm import joinedload
 
 from database.database import Database
 from database_gen.sqlacodegen_models import (
@@ -162,15 +161,10 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
 
-        # Create a subquery for the latest datasets to avoid loading all datasets
-        latest_datasets_subquery = select(Gtfsdataset).filter(Gtfsdataset.latest).subquery()
-        latest_datasets = aliased(Gtfsdataset, latest_datasets_subquery)
-
         gtfs_feed_query = (
             gtfs_feed_query.outerjoin(Location, Feed.locations)
-            .outerjoin(latest_datasets, Gtfsfeed.gtfsdatasets)
             .options(
-                contains_eager(Gtfsfeed.gtfsdatasets, alias=latest_datasets)
+                joinedload(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
                 .joinedload(Validationreport.notices),
                 *BasicFeedImpl.get_joinedload_options(),
