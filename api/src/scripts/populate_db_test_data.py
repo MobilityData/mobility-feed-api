@@ -57,7 +57,7 @@ class DatabasePopulateTestDataHelper:
             gtfs_dataset = Gtfsdataset(
                 id=dataset["id"],
                 feed_id=gtfsfeed[0].id,
-                stable_id=f"{gtfsfeed[0].stable_id}-{dataset['id']}",
+                stable_id=dataset["id"],
                 latest=dataset["latest"],
                 hosted_url=dataset["hosted_url"],
                 hash=dataset["hash"],
