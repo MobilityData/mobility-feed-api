@@ -63,6 +63,10 @@ export default function Feed(): React.ReactElement {
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
   const hasDatasets = datasets !== undefined && datasets.length > 0;
+  const downloadLatestUrl =
+    feed?.data_type === 'gtfs'
+      ? feed?.latest_dataset?.hosted_url
+      : feed?.source_info?.producer_url;
 
   useEffect(() => {
     if (user !== undefined && feedId !== undefined) {
@@ -236,18 +240,14 @@ export default function Feed(): React.ReactElement {
                 </Grid>
               )}
               <Grid item xs={12} marginBottom={2}>
-                {feedType === 'gtfs' && (
+                {feedType === 'gtfs' && downloadLatestUrl !== undefined && (
                   <Button
                     disableElevation
                     variant='contained'
                     sx={{ marginRight: 2 }}
                   >
                     <a
-                      href={
-                        feed?.data_type === 'gtfs'
-                          ? feed?.latest_dataset?.hosted_url
-                          : feed?.source_info?.producer_url
-                      }
+                      href={downloadLatestUrl}
                       target='_blank'
                       className='btn-link'
                       rel='noreferrer'
