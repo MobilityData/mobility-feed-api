@@ -5,7 +5,7 @@ from typing import Final
 
 from sqlalchemy.engine.url import make_url
 
-from tests.test_utils.db_utils import dump_database, is_localhost, empty_database, dump_raw_database
+from tests.test_utils.db_utils import dump_database, is_test_db, empty_database, dump_raw_database
 from database.database import Database
 
 from scripts.populate_db import DatabasePopulateHelper
@@ -25,13 +25,12 @@ datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, d
 
 @contextlib.contextmanager
 def populate_database(db: Database):
-    url = None
     try:
 
         # Check if connected to localhost
         url = make_url(db.engine.url)
-        if not is_localhost(url):
-            raise Exception("Not connected to localhost, aborting operation")
+        if not is_test_db(url):
+            raise Exception("Not connected to MobilityDatabaseTest, aborting operation")
 
         pwd = os.path.dirname(os.path.abspath(__file__))
 

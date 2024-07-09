@@ -171,12 +171,12 @@ def dump_database(db, file_name):
         json.dump(data, f, cls=CustomEncoder)
 
 
-def is_localhost(url):
-    return url is None or url.host == "localhost"
+def is_test_db(url):
+    return url is None or "MobilityDatabaseTest" in url
 
 
 def empty_database(db, url):
-    if is_localhost(url):
+    if is_test_db(url):
         db.session.execute(text("DELETE FROM feedreference"))
         db.session.execute(text("DELETE FROM notice"))
         db.session.execute(text("DELETE FROM validationreportgtfsdataset"))
