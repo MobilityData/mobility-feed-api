@@ -1,6 +1,9 @@
-from typing import List, Union
 from datetime import datetime
-from sqlalchemy.orm import joinedload
+from typing import List, Union
+
+from sqlalchemy import select
+from sqlalchemy.orm import aliased, contains_eager, joinedload
+
 from database.database import Database
 from database_gen.sqlacodegen_models import (
     Feed,
@@ -8,6 +11,7 @@ from database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Location,
+    Validationreport,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -72,6 +76,7 @@ class FeedsApiImpl(BaseFeedsApi):
         feed_query = feed_filter.filter(Database().get_query_model(Feed))
         # Results are sorted by provider
         feed_query = feed_query.order_by(Feed.provider, Feed.stable_id)
+        feed_query = feed_query.options(*BasicFeedImpl.get_joinedload_options())
         if limit is not None:
             feed_query = feed_query.limit(limit)
         if offset is not None:
@@ -156,7 +161,21 @@ class FeedsApiImpl(BaseFeedsApi):
             ),
         )
         gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
-        gtfs_feed_query = gtfs_feed_query.join(Location, Feed.locations).options(joinedload(Feed.locations))
+
+        # Create a subquery for the latest datasets to avoid loading all datasets
+        latest_datasets_subquery = select(Gtfsdataset).filter(Gtfsdataset.latest).subquery()
+        latest_datasets = aliased(Gtfsdataset, latest_datasets_subquery)
+
+        gtfs_feed_query = (
+            gtfs_feed_query.join(Location, Feed.locations)
+            .outerjoin(latest_datasets, Gtfsfeed.gtfsdatasets)
+            .options(
+                contains_eager(Gtfsfeed.gtfsdatasets, alias=latest_datasets)
+                .joinedload(Gtfsdataset.validation_reports)
+                .joinedload(Validationreport.notices),
+                *BasicFeedImpl.get_joinedload_options(),
+            )
+        )
         gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
         gtfs_feed_query = DatasetsApiImpl.apply_bounding_filtering(
             gtfs_feed_query, dataset_latitudes, dataset_longitudes, bounding_filter_method
@@ -213,6 +232,11 @@ class FeedsApiImpl(BaseFeedsApi):
             ),
         )
         gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed))
+        gtfs_rt_feed_query = gtfs_rt_feed_query.join(Location, Feed.locations).options(
+            *BasicFeedImpl.get_joinedload_options(),
+            joinedload(Gtfsrealtimefeed.entitytypes),
+            joinedload(Gtfsrealtimefeed.gtfs_feeds),
+        )
         gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         if limit is not None:
             gtfs_rt_feed_query = gtfs_rt_feed_query.limit(limit)
