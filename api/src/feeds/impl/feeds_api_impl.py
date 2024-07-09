@@ -161,14 +161,11 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
 
-        gtfs_feed_query = (
-            gtfs_feed_query.outerjoin(Location, Feed.locations)
-            .options(
-                joinedload(Gtfsfeed.gtfsdatasets)
-                .joinedload(Gtfsdataset.validation_reports)
-                .joinedload(Validationreport.notices),
-                *BasicFeedImpl.get_joinedload_options(),
-            )
+        gtfs_feed_query = gtfs_feed_query.outerjoin(Location, Feed.locations).options(
+            joinedload(Gtfsfeed.gtfsdatasets)
+            .joinedload(Gtfsdataset.validation_reports)
+            .joinedload(Validationreport.notices),
+            *BasicFeedImpl.get_joinedload_options(),
         )
         gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
         gtfs_feed_query = DatasetsApiImpl.apply_bounding_filtering(
