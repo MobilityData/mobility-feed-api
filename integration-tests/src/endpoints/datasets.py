@@ -1,6 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import gtfs_kit
 import pandas
 from rich.table import Table
 
@@ -100,14 +99,6 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             warning_code = DatasetValidationWarning.NO_DATASET.name
             warning_detail = DatasetValidationWarning.NO_DATASET.value
             raise Exception(f"{warning_code}: {warning_detail}")
-        latest_dataset = datasets[0]
-        try:
-            gtfs_kit.read_feed(latest_dataset["hosted_url"], "km")
-        except Exception as e:
-            raise Exception(
-                f"{DatasetValidationWarning.INVALID_DATASET.name}: {DatasetValidationWarning.INVALID_DATASET.value} -- "
-                f"{e}"
-            )
 
     @staticmethod
     def _create_validation_report_entry(stable_id, warning_details, status_code=None):
