@@ -5,7 +5,7 @@ from typing import Final
 
 from sqlalchemy.engine.url import make_url
 
-from tests.test_utils.db_utils import dump_database, is_test_db, empty_database, dump_raw_database
+from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, clean_testing_db
 from database.database import Database
 
 from scripts.populate_db import DatabasePopulateHelper
@@ -38,7 +38,7 @@ def populate_database(db: Database):
         if (keep_db_before_populating := os.getenv("KEEP_DB_BEFORE_POPULATING")) is None or not strtobool(
             keep_db_before_populating
         ):
-            empty_database(db, url)
+            clean_testing_db(db)
 
         db_helper = DatabasePopulateHelper(pwd + "/../test_data/sources_test.csv")
         db_helper.initialize(trigger_downstream_tasks=False)

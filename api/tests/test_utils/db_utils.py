@@ -1,3 +1,7 @@
+import contextlib
+import logging
+from typing import Final
+
 import pandas as pd
 
 from geoalchemy2 import WKBElement
@@ -6,6 +10,8 @@ from sqlalchemy import Inspector
 import json
 
 from sqlalchemy import text
+
+from database_gen.sqlacodegen_models import Base
 
 
 class CustomEncoder(json.JSONEncoder):
@@ -136,7 +142,7 @@ def dump_database(db, file_name):
 
     del dfs["feature"]
 
-    featurevalidationreports = dfs["featurevalidationreport"]
+    featurevalidationreports = dfs.get("featurevalidationreport")
 
     featurevalidationreports["validation_report_id"] = featurevalidationreports["validation_id"].replace(
         validationreport_id_to_name
@@ -145,7 +151,7 @@ def dump_database(db, file_name):
     dfs["validation_report_features"] = featurevalidationreports.drop(columns=["validation_id", "feature"])
     del dfs["featurevalidationreport"]
 
-    notices = dfs["notice"]
+    notices = dfs.get("notice")
     notices["dataset_id"] = notices["dataset_id"].replace(dataset_id_to_stable_id)
     notices["validation_report_id"] = notices["validation_report_id"].replace(validationreport_id_to_name)
     dfs["notices"] = notices
@@ -175,21 +181,43 @@ def is_test_db(url):
     return url is None or "MobilityDatabaseTest" in url
 
 
-def empty_database(db, url):
-    if is_test_db(url):
-        db.session.execute(text("DELETE FROM feedreference"))
-        db.session.execute(text("DELETE FROM notice"))
-        db.session.execute(text("DELETE FROM validationreportgtfsdataset"))
-        db.session.execute(text("DELETE FROM gtfsdataset"))
-        db.session.execute(text("DELETE FROM externalid"))
-        db.session.execute(text("DELETE from redirectingid"))
-        db.session.execute(text("DELETE FROM gtfsfeed"))
-        db.session.execute(text("DELETE FROM entitytypefeed"))
-        db.session.execute(text("DELETE FROM gtfsrealtimefeed"))
-        db.session.execute(text("DELETE FROM locationfeed"))
-        db.session.execute(text("DELETE FROM feed"))
-        db.session.execute(text("DELETE FROM location"))
-        db.session.execute(text("DELETE FROM featurevalidationreport"))
-        db.session.execute(text("DELETE FROM feature"))
-        db.session.execute(text("DELETE FROM validationreport"))
-        db.commit()
+excluded_tables: Final[list[str]] = [
+    "databasechangelog",
+    "databasechangeloglock",
+    "geography_columns",
+    "geometry_columns",
+    "spatial_ref_sys",
+    # Excluding the materialized view
+    "feedsearch",
+]
+
+
+def clean_testing_db(db):
+    """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
+    engine = db.engine
+    url = engine.url
+    if not is_test_db(url):
+        return
+    with contextlib.closing(engine.connect()) as con:
+        trans = con.begin()
+        try:
+            tables_to_delete = [
+                table.name for table in reversed(Base.metadata.sorted_tables) if table.name not in excluded_tables
+            ]
+            # Disable triggers for each table
+            for table_name in tables_to_delete:
+                con.execute(text(f"ALTER TABLE {table_name} DISABLE TRIGGER ALL;"))
+
+            # Delete all rows from each table
+            for table_name in tables_to_delete:
+                delete_query = f"DELETE FROM {table_name};"
+                con.execute(text(delete_query))
+
+            # Re-enable triggers for each table
+            for table_name in tables_to_delete:
+                con.execute(text(f"ALTER TABLE {table_name} ENABLE TRIGGER ALL;"))
+
+            trans.commit()
+        except Exception as error:
+            trans.rollback()
+            logging.error(f"Error while deleting from test db: {error}")
