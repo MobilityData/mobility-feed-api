@@ -52,7 +52,8 @@ def populate_database(db: Database):
             dump_database(db, test_db_dump_filename)
         if (test_raw_db_dump_filename := os.getenv("TEST_RAW_DB_DUMP_FILENAME")) is not None:
             dump_raw_database(db, test_raw_db_dump_filename)
-        # Note that the DB is cleaned before the test, if requested, not after.
+        # Note that the DB is cleaned before the test, if requested, not after so the DB can be manually examined
+        # if the tests fail.
     except Exception as e:
         print(e)
         raise e

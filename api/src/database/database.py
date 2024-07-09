@@ -68,6 +68,8 @@ class Database:
         In case of errors, the exceptions will still contain relevant information about the failing queries.
         """
 
+        # This init function is called each time we call Database(), but in the case of a singleton, we only want to
+        # initialize once, so we need to use a lock and a flag
         with Database.lock:
             if Database.initialized:
                 return
