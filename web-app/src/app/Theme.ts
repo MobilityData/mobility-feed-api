@@ -50,6 +50,13 @@ export const theme = createTheme({
     fontFamily: '"Muli"',
   },
   components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+        },
+      },
+    },
     MuiTypography: {
       variants: [
         {

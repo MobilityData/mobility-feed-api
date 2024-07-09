@@ -11,12 +11,7 @@ import {
   Grid,
   colors,
 } from '@mui/material';
-import {
-  ChevronLeft,
-  Download,
-  LaunchOutlined,
-  WarningAmberOutlined,
-} from '@mui/icons-material';
+import { ChevronLeft, WarningAmberOutlined } from '@mui/icons-material';
 import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
@@ -71,17 +66,7 @@ export default function Feed(): React.ReactElement {
     if (user !== undefined && feedId !== undefined) {
       dispatch(loadingFeed({ feedId }));
       dispatch(loadingDataset({ feedId }));
-      if (
-        feed?.data_type === 'gtfs_rt' &&
-        feedLoadingStatus === 'loaded' &&
-        feed.feed_references !== undefined
-      ) {
-        dispatch(
-          loadingRelatedFeeds({
-            feedIds: feed.feed_references,
-          }),
-        );
-      }
+
       return () => {
         dispatch(resetFeed());
       };
@@ -97,28 +82,39 @@ export default function Feed(): React.ReactElement {
       newDocTitle += ` | ${feed?.feed_name}`;
     }
     document.title = newDocTitle;
+    if (
+      feed?.data_type === 'gtfs_rt' &&
+      feedLoadingStatus === 'loaded' &&
+      feed.feed_references !== undefined
+    ) {
+      dispatch(
+        loadingRelatedFeeds({
+          feedIds: feed.feed_references,
+        }),
+      );
+    }
     return () => {
       document.title = 'Mobility Database';
     };
   }, [feed]);
 
   return (
-    <Container component='main' sx={{ width: '100vw', m: 0 }}>
+    <Container component='main' sx={{ width: '100%', m: 'auto' }} maxWidth='xl'>
       <CssBaseline />
       <Box
-        sx={{ mt: 12, display: 'flex', flexDirection: 'column', m: 10 }}
-        margin={{ xs: '20px', sm: '80px' }}
+        sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
+        margin={{ xs: '20px' }}
       >
         <Box
           sx={{
-            width: '90vw',
+            width: '100%',
             background: '#F8F5F5',
             borderRadius: '6px 0px 0px 6px',
             p: 5,
             color: 'black',
             fontSize: '18px',
             fontWeight: 700,
-            mr: 0,
+            mt: 4,
           }}
         >
           {feedLoadingStatus === 'error' && (
@@ -142,15 +138,24 @@ export default function Feed(): React.ReactElement {
                   }}
                 >
                   <Grid container alignItems={'center'}>
-                    <ChevronLeft /> Back
+                    <ChevronLeft fontSize='small' sx={{ ml: '-20px' }} />{' '}
+                    <Typography>Back</Typography>
                   </Grid>
                 </Grid>
                 <Grid item>
-                  <Typography>
-                    Feeds /{' '}
-                    {feed?.data_type === 'gtfs'
-                      ? 'GTFS Schedule'
-                      : 'GTFS Realtime Schedule'}{' '}
+                  <Typography
+                    sx={{
+                      a: {
+                        textDecoration: 'none',
+                      },
+                    }}
+                  >
+                    <a href='/feeds'>Feeds</a> /{' '}
+                    <a href={`/feeds?${feed?.data_type}=true`}>
+                      {feed?.data_type === 'gtfs'
+                        ? 'GTFS Schedule'
+                        : 'GTFS Realtime'}
+                    </a>{' '}
                     / {feed?.id}
                   </Typography>
                 </Grid>
@@ -167,27 +172,29 @@ export default function Feed(): React.ReactElement {
                   {feed?.data_type === 'gtfs_rt' && ` - ${feed?.feed_name}`}
                 </Typography>
               </Grid>
-              {feed?.data_type === 'gtfs' && (
+              {feed !== undefined &&
+                feed.feed_name !== '' &&
+                feed?.data_type === 'gtfs' && (
+                  <Grid item xs={12}>
+                    <Typography
+                      sx={{
+                        fontWeight: 'bold',
+                        fontSize: { xs: 18, sm: 24 },
+                      }}
+                    >
+                      {feed?.feed_name}
+                    </Typography>
+                  </Grid>
+                )}
+              {latestDataset?.downloaded_at !== undefined && (
                 <Grid item xs={12}>
-                  <Typography
-                    sx={{
-                      fontWeight: 'bold',
-                      fontSize: { xs: 18, sm: 24 },
-                    }}
-                  >
-                    {feed?.feed_name}
+                  <Typography>
+                    {`Last updated on ${new Date(
+                      latestDataset.downloaded_at,
+                    ).toDateString()}`}
                   </Typography>
                 </Grid>
               )}
-              <Grid item xs={12}>
-                <Typography>
-                  {latestDataset?.downloaded_at !== undefined && (
-                    <span>{`Last updated on ${new Date(
-                      latestDataset.downloaded_at,
-                    ).toDateString()}`}</span>
-                  )}
-                </Typography>
-              </Grid>
               {feed?.data_type === 'gtfs_rt' &&
                 feed.entity_types !== undefined && (
                   <Grid item xs={12}>
@@ -206,29 +213,28 @@ export default function Feed(): React.ReactElement {
                     </Typography>
                   </Grid>
                 )}
-              <Grid item xs={12}>
-                {feed?.redirects !== undefined &&
-                  feed?.redirects.length > 0 && (
-                    <ContentBox
-                      title={''}
-                      width={{ xs: '100%' }}
-                      outlineColor={colors.yellow[900]}
-                    >
-                      <WarningAmberOutlined />
-                      This feed has been replaced with a different producer URL.
-                      <a href={`/feeds/${feed.redirects[0].target_id}`}>
-                        Go to the new feed here
-                      </a>
-                      .
-                    </ContentBox>
-                  )}
-              </Grid>
+              {feed?.redirects !== undefined && feed?.redirects.length > 0 && (
+                <Grid item xs={12}>
+                  <ContentBox
+                    title={''}
+                    width={{ xs: '100%' }}
+                    outlineColor={colors.yellow[900]}
+                  >
+                    <WarningAmberOutlined />
+                    This feed has been replaced with a different producer URL.
+                    <a href={`/feeds/${feed.redirects[0].target_id}`}>
+                      Go to the new feed here
+                    </a>
+                    .
+                  </ContentBox>
+                </Grid>
+              )}
               <Grid item xs={12} marginBottom={2}>
                 {feedType === 'gtfs' && (
                   <Button
+                    disableElevation
                     variant='contained'
                     sx={{ marginRight: 2 }}
-                    startIcon={<Download />}
                   >
                     <a
                       href={
@@ -240,54 +246,63 @@ export default function Feed(): React.ReactElement {
                       className='btn-link'
                       rel='noreferrer'
                     >
-                      Download latest
+                      Download Latest
                     </a>
                   </Button>
                 )}
-                <Button
-                  variant='contained'
-                  sx={{ marginRight: 2 }}
-                  endIcon={<LaunchOutlined />}
-                >
-                  <a
-                    href={feed?.source_info?.license_url}
-                    target='_blank'
-                    className='btn-link'
-                    rel='noreferrer'
-                  >
-                    See License
-                  </a>
-                </Button>
-                <Button
-                  variant='contained'
-                  sx={{ marginRight: 2 }}
-                  endIcon={<LaunchOutlined />}
-                >
-                  <a
-                    href={feed?.source_info?.authentication_info_url}
-                    target='_blank'
-                    className='btn-link'
-                    rel='noreferrer'
-                  >
-                    See Authentication info
-                  </a>
-                </Button>
+                {feed?.source_info?.license_url !== undefined &&
+                  feed?.source_info?.license_url !== '' && (
+                    <Button
+                      disableElevation
+                      variant='contained'
+                      sx={{ marginRight: 2 }}
+                    >
+                      <a
+                        href={feed?.source_info?.license_url}
+                        target='_blank'
+                        className='btn-link'
+                        rel='noreferrer'
+                      >
+                        See License
+                      </a>
+                    </Button>
+                  )}
+
+                {feed?.source_info?.authentication_info_url !== undefined &&
+                  feed?.source_info?.authentication_info_url !== '' && (
+                    <Button
+                      disableElevation
+                      variant='contained'
+                      sx={{ marginRight: 2 }}
+                    >
+                      <a
+                        href={feed?.source_info?.authentication_info_url}
+                        target='_blank'
+                        className='btn-link'
+                        rel='noreferrer'
+                      >
+                        See Authentication info
+                      </a>
+                    </Button>
+                  )}
               </Grid>
               <Grid item xs={12}>
                 <Grid item xs={12} container rowSpacing={2}>
                   <Grid
                     container
                     direction={{ xs: 'column-reverse', md: 'row' }}
+                    sx={{ gap: '10px' }}
                     justifyContent={'space-between'}
                   >
                     {feed?.data_type === 'gtfs' && (
                       <ContentBox
                         title='Bounding box from stops.txt'
-                        width={{ xs: '100%', md: '40%' }}
+                        width={{ xs: '100%', md: '42%' }}
                         outlineColor={colors.blue[900]}
+                        padding={2}
                       >
                         {boundingBox !== undefined && (
-                          <Box width={{ xs: '100%' }}>
+                          <Box width={{ xs: '100%' }} sx={{ mt: 2, mb: 2 }}>
                             <Map polygon={boundingBox} />
                           </Box>
                         )}

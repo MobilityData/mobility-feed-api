@@ -5,6 +5,7 @@ export interface ContentBoxProps {
   title: string;
   width: Record<string, string>;
   outlineColor: string;
+  padding?: string | number;
 }
 
 export const ContentBox = (
@@ -17,7 +18,7 @@ export const ContentBox = (
         background: '#FFFFFF',
         borderRadius: '6px',
         border: `2px solid ${props.outlineColor}`,
-        p: 5,
+        p: props.padding ?? 5,
         fontSize: '18px',
         fontWeight: 700,
         mr: 0,
