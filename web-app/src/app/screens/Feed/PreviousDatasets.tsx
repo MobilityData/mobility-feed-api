@@ -79,7 +79,7 @@ export default function PreviousDatasets({
                 <TableCell sx={{ textAlign: { xs: 'left', xl: 'center' } }}>
                   {(dataset.validation_report === null ||
                     dataset.validation_report === undefined) && (
-                    <Typography>
+                    <Typography sx={{ ml: '4px' }}>
                       Unable to generate data quality report
                     </Typography>
                   )}
@@ -154,7 +154,7 @@ export default function PreviousDatasets({
                       </>
                     )}
                 </TableCell>
-                <TableCell sx={{ textAlign: 'center' }}>
+                <TableCell>
                   {(dataset.validation_report === null ||
                     dataset.validation_report === undefined) && (
                     <Button
