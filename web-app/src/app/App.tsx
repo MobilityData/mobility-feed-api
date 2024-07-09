@@ -8,13 +8,15 @@ import { RemoteConfigProvider } from './context/RemoteConfigProvider';
 import { useDispatch } from 'react-redux';
 import { anonymousLogin } from './store/profile-reducer';
 import i18n from '../i18n';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { I18nextProvider } from 'react-i18next';
 
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
   const dispatch = useDispatch();
-  dispatch(anonymousLogin()); // Login anonymously at the start of the app
+  useEffect(() => {
+    dispatch(anonymousLogin());
+  }, [dispatch]);
 
   return (
     <RemoteConfigProvider>

@@ -50,7 +50,6 @@ export const feedSlice = createSlice({
       state,
       action: PayloadAction<{
         feedId: string;
-        accessToken: string;
       }>,
     ) => {
       state.status = 'loading';
@@ -82,7 +81,6 @@ export const feedSlice = createSlice({
       state,
       action: PayloadAction<{
         feedIds: string[];
-        accessToken: string;
       }>,
     ) => {
       state.relatedFeedsStatus = 'loading';
