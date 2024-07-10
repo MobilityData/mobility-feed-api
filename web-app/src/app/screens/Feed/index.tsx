@@ -11,7 +11,7 @@ import {
   Grid,
   colors,
 } from '@mui/material';
-import { ChevronLeft, WarningAmberOutlined } from '@mui/icons-material';
+import { ChevronLeft } from '@mui/icons-material';
 import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
@@ -44,6 +44,7 @@ import PreviousDatasets from './PreviousDatasets';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
 import AssociatedFeeds from './AssociatedFeeds';
+import { WarningContentBox } from '../../components/WarningContentBox';
 
 export default function Feed(): React.ReactElement {
   const { feedId } = useParams();
@@ -61,6 +62,11 @@ export default function Feed(): React.ReactElement {
   const dispatch = useAppDispatch();
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
+  const hasDatasets = datasets !== undefined && datasets.length > 0;
+  const downloadLatestUrl =
+    feed?.data_type === 'gtfs'
+      ? feed?.latest_dataset?.hosted_url
+      : feed?.source_info?.producer_url;
 
   useEffect(() => {
     if (user !== undefined && feedId !== undefined) {
@@ -213,35 +219,35 @@ export default function Feed(): React.ReactElement {
                     </Typography>
                   </Grid>
                 )}
+              {!hasDatasets && (
+                <Grid item xs={12}>
+                  <WarningContentBox>
+                    Unable to download this feed. If there is a more recent URL
+                    for this feed,{' '}
+                    <a href='/contribute'>please submit it here</a>
+                  </WarningContentBox>
+                </Grid>
+              )}
               {feed?.redirects !== undefined && feed?.redirects.length > 0 && (
                 <Grid item xs={12}>
-                  <ContentBox
-                    title={''}
-                    width={{ xs: '100%' }}
-                    outlineColor={colors.yellow[900]}
-                  >
-                    <WarningAmberOutlined />
-                    This feed has been replaced with a different producer URL.
+                  <WarningContentBox>
+                    This feed has been replaced with a different producer URL.{' '}
                     <a href={`/feeds/${feed.redirects[0].target_id}`}>
                       Go to the new feed here
                     </a>
                     .
-                  </ContentBox>
+                  </WarningContentBox>
                 </Grid>
               )}
               <Grid item xs={12} marginBottom={2}>
-                {feedType === 'gtfs' && (
+                {feedType === 'gtfs' && downloadLatestUrl !== undefined && (
                   <Button
                     disableElevation
                     variant='contained'
                     sx={{ marginRight: 2 }}
                   >
                     <a
-                      href={
-                        feed?.data_type === 'gtfs'
-                          ? feed?.latest_dataset?.hosted_url
-                          : feed?.source_info?.producer_url
-                      }
+                      href={downloadLatestUrl}
                       target='_blank'
                       className='btn-link'
                       rel='noreferrer'
@@ -301,6 +307,11 @@ export default function Feed(): React.ReactElement {
                         outlineColor={colors.blue[900]}
                         padding={2}
                       >
+                        {boundingBox === undefined && (
+                          <WarningContentBox>
+                            Unable to generate bounding box.
+                          </WarningContentBox>
+                        )}
                         {boundingBox !== undefined && (
                           <Box width={{ xs: '100%' }} sx={{ mt: 2, mb: 2 }}>
                             <Map polygon={boundingBox} />
@@ -321,7 +332,7 @@ export default function Feed(): React.ReactElement {
                   </Grid>
                 </Grid>
               </Grid>
-              {feed?.data_type === 'gtfs' && (
+              {feed?.data_type === 'gtfs' && hasDatasets && (
                 <Grid item xs={12}>
                   <PreviousDatasets datasets={datasets} />
                 </Grid>

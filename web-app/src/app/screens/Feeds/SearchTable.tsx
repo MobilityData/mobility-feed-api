@@ -16,6 +16,7 @@ import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import GtfsRtEntities from './GtfsRtEntities';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -39,8 +40,7 @@ const getDataTypeElement = (dataType: 'gtfs' | 'gtfs_rt'): JSX.Element => {
         sx={{
           display: 'flex',
           alignItems: 'center',
-          p: 1,
-          justifyContent: 'flex-end',
+          justifyContent: 'flex-start',
         }}
       >
         {children}
@@ -50,14 +50,14 @@ const getDataTypeElement = (dataType: 'gtfs' | 'gtfs_rt'): JSX.Element => {
   if (dataType === 'gtfs') {
     return (
       <DataTypeHolder>
-        <DirectionsBusIcon sx={{ m: 1 }}></DirectionsBusIcon>
+        <DirectionsBusIcon sx={{ m: 1, ml: 0 }}></DirectionsBusIcon>
         {t('common:gtfsSchedule')}
       </DataTypeHolder>
     );
   } else {
     return (
       <DataTypeHolder>
-        <BusAlertIcon sx={{ m: 1 }}></BusAlertIcon>
+        <BusAlertIcon sx={{ m: 1, ml: 0 }}></BusAlertIcon>
         {t('common:gtfsRealtime')}
       </DataTypeHolder>
     );
@@ -111,7 +111,7 @@ export default function SearchTable({
           <HeaderTableCell>{t('transitProvider')}</HeaderTableCell>
           <HeaderTableCell>{t('location')}</HeaderTableCell>
           <HeaderTableCell>{t('feedDescription')}</HeaderTableCell>
-          <HeaderTableCell align='right'>{t('dataType')}</HeaderTableCell>
+          <HeaderTableCell>{t('dataType')}</HeaderTableCell>
         </TableRow>
       </TableHead>
 
@@ -140,7 +140,7 @@ export default function SearchTable({
           },
           'tr td:last-child': {
             borderRight: '1px solid black',
-            minWidth: '205px',
+            minWidth: '210px',
           },
         }}
       >
@@ -178,8 +178,13 @@ export default function SearchTable({
             </TableCell>
             <TableCell>{getLocationName(feed.locations)}</TableCell>
             <TableCell>{feed.feed_name}</TableCell>
-            <TableCell align='left'>
-              {getDataTypeElement(feed.data_type)}
+            <TableCell>
+              <Box sx={{ display: 'flex' }}>
+                {getDataTypeElement(feed.data_type)}
+                {feed.data_type === 'gtfs_rt' && (
+                  <GtfsRtEntities entities={feed.entity_types}></GtfsRtEntities>
+                )}
+              </Box>
             </TableCell>
           </TableRow>
         ))}

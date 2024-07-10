@@ -22,7 +22,6 @@ class DatasetValidationWarning(Enum):
     NOT_FOUND = "Feed not returned from the API"
     API_ERROR = "API returned an error code"
     NO_DATASET = "No dataset found for feed"
-    INVALID_DATASET = "Invalid dataset format"
 
 
 class IntegrationTests:
