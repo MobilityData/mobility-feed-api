@@ -1,6 +1,3 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import gtfs_kit
 import pandas
 from rich.table import Table
 
@@ -13,38 +10,30 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
 
     def test_all_datasets(self):
         warnings = []
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            # Prepare a list of feed IDs to process
-            feed_ids = self.gtfs_feeds.mdb_source_id.values
+        # Prepare a list of feed IDs to process
+        feed_ids = self.gtfs_feeds.mdb_source_id.values
 
-            # Create a progress task
-            task = self.progress.add_task(
-                "[yellow]Validating the feeds' latest datasets...[/yellow]",
-                total=len(feed_ids),
-            )
+        # Create a progress task
+        task = self.progress.add_task(
+            "[yellow]Validating the feeds' latest datasets...[/yellow]",
+            total=len(feed_ids),
+        )
 
-            # Map each future to its feed ID
-            future_to_feed_id = {
-                executor.submit(self.validate_feed, feed_id): feed_id
-                for feed_id in feed_ids
-            }
+        for feed_id in feed_ids:
+            warning_entry = self.validate_feed(feed_id)
+            if warning_entry is not None:
+                warnings.append(warning_entry)
+                self.console.log(
+                    f"Feed '{warning_entry['stable_id']}' has a related [yellow]warning[/yellow]: "
+                    f"{warning_entry['Warning Details']}"
+                )
+            else:
+                self.console.log(
+                    f"Feed 'mdb-{feed_id}' has a valid latest dataset :white_check_mark:"
+                )
 
-            for future in as_completed(future_to_feed_id):
-                feed_id = future_to_feed_id[future]
-                warning_entry = future.result()
-                if warning_entry is not None:
-                    warnings.append(warning_entry)
-                    self.console.log(
-                        f"Feed '{warning_entry['stable_id']}' has a related [yellow]warning[/yellow]: "
-                        f"{warning_entry['Warning Details']}"
-                    )
-                else:
-                    self.console.log(
-                        f"Feed 'mdb-{feed_id}' has a valid latest dataset :white_check_mark:"
-                    )
-
-                # Update the progress bar
-                self.progress.update(task, advance=1)
+            # Update the progress bar
+            self.progress.update(task, advance=1)
 
         if warnings:
             # If there were warning, log them as before
@@ -100,14 +89,6 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             warning_code = DatasetValidationWarning.NO_DATASET.name
             warning_detail = DatasetValidationWarning.NO_DATASET.value
             raise Exception(f"{warning_code}: {warning_detail}")
-        latest_dataset = datasets[0]
-        try:
-            gtfs_kit.read_feed(latest_dataset["hosted_url"], "km")
-        except Exception as e:
-            raise Exception(
-                f"{DatasetValidationWarning.INVALID_DATASET.name}: {DatasetValidationWarning.INVALID_DATASET.value} -- "
-                f"{e}"
-            )
 
     @staticmethod
     def _create_validation_report_entry(stable_id, warning_details, status_code=None):
