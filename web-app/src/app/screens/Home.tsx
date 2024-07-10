@@ -119,7 +119,7 @@ export default function Home(): React.ReactElement {
               setSearchInputValue(e.target.value);
             }}
             onKeyDown={handleKeyDown}
-            placeholder='ex. Boston'
+            placeholder='e.g. "New York" or "Carris Metropolitana"'
             InputProps={{
               startAdornment: (
                 <InputAdornment position={'start'}>
