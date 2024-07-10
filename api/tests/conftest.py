@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -15,6 +17,8 @@ def app() -> FastAPI:
 
 @pytest.fixture(scope="session")
 def test_database():
+    # Restrict the tests to the test database
+    os.environ["FEEDS_DATABASE_URL"] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
     with populate_database(Database()) as db:
         yield db
 

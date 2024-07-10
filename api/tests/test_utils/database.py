@@ -1,39 +1,21 @@
 import contextlib
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from distutils.util import strtobool
 from typing import Final
 
-from geoalchemy2 import WKTElement
-from sqlalchemy import text
+from sqlalchemy.engine.url import make_url
 
-from database.database import Database, generate_unique_id
-from database_gen.sqlacodegen_models import (
-    Gtfsfeed,
-    Gtfsrealtimefeed,
-    Gtfsdataset,
-    Externalid,
-    Validationreport,
-    Notice,
-    Feature,
-    Entitytype,
-    Location,
-)
+from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, clean_testing_db
+from database.database import Database
+
+from scripts.populate_db import DatabasePopulateHelper
+from scripts.populate_db_test_data import DatabasePopulateTestDataHelper
+
+import os
 
 TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
-
 TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
-TEST_EXTERNAL_IDS = ["external_id_1", "external_id_2", "external_id_3", "external_id_4"]
-OLD_VALIDATION_VERSION = "1.0.0"
-NEW_VALIDATION_TIME: Final[datetime] = datetime(2023, 2, 1, 10, 10, 10, tzinfo=timezone.utc)
-OLD_VALIDATION_TIME = NEW_VALIDATION_TIME - timedelta(hours=1)
-NEW_VALIDATION_VERSION = "2.0.0"
-VALIDATION_INFO_COUNT_PER_NOTICE = 5
-VALIDATION_INFO_NOTICES = 10
-VALIDATION_WARNING_COUNT_PER_NOTICE = 3
-VALIDATION_WARNING_NOTICES = 4
-VALIDATION_ERROR_COUNT_PER_NOTICE = 2
-VALIDATION_ERROR_NOTICES = 7
-FEATURE_IDS = ["Route Colors", "Bike Allowed", "Headsigns"]
 
 date_string: Final[str] = "2024-01-31 00:00:00"
 date_format: Final[str] = "%Y-%m-%d %H:%M:%S"
@@ -43,216 +25,34 @@ datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, d
 
 @contextlib.contextmanager
 def populate_database(db: Database):
-    gtfs_feed_ids = [generate_unique_id() for _ in range(len(TEST_GTFS_FEED_STABLE_IDS))]
-    dataset_ids = [generate_unique_id() for _ in range(len(TEST_DATASET_STABLE_IDS))]
-    gtfs_rt_feed_id = generate_unique_id()
-
     try:
-        for stable_id, gtfs_feed_id in zip(TEST_GTFS_FEED_STABLE_IDS, gtfs_feed_ids):
-            db.merge(
-                Gtfsfeed(
-                    id=gtfs_feed_id,
-                    stable_id=stable_id,
-                    data_type="gtfs",
-                    status="active",
-                    provider=f"{stable_id}-MobilityDataTest provider",
-                    feed_name=f"{stable_id}-MobilityDataTest Feed Name",
-                    locations=[
-                        Location(
-                            id=f"{stable_id}-location",
-                            country_code="CA",
-                            subdivision_name=f"{stable_id}-subdivision",
-                            municipality=f"{stable_id}-municipality",
-                        )
-                    ],
-                ),
-                auto_commit=True,
-            )
-        for feature_id in FEATURE_IDS:
-            db.merge(Feature(name=feature_id), auto_commit=True)
-        # Need to flush the session to create the relationship between the gtfs feed and the gtfs-rt feed
-        db.session.flush()
-        db.merge(
-            Gtfsrealtimefeed(
-                id=gtfs_rt_feed_id,
-                stable_id=TEST_GTFS_RT_FEED_STABLE_ID,
-                data_type="gtfs_rt",
-                status="active",
-                gtfs_feeds=[
-                    Gtfsfeed(
-                        id=gtfs_feed_ids[0],
-                        stable_id=TEST_GTFS_FEED_STABLE_IDS[0],
-                        data_type="gtfs",
-                        status="active",
-                        provider=f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest provider",
-                        feed_name=f"{TEST_GTFS_FEED_STABLE_IDS[0]}-MobilityDataTest Feed Name",
-                    )
-                ],
-                entitytypes=[Entitytype(name="vp")],
-            ),
-            auto_commit=True,
-        )
 
-        min_lat = 37.615264
-        max_lat = 38.2321
-        min_lon = -84.8984452721203
-        max_lon = -84.4789953029549
-        polygon = (
-            f"POLYGON(({min_lon} {min_lat}, {min_lon} {max_lat}, {max_lon} {max_lat}, {max_lon} {min_lat}, "
-            f"{min_lon} {min_lat}))"
-        )
+        # Check if connected to localhost
+        url = make_url(db.engine.url)
+        if not is_test_db(url):
+            raise Exception("Not connected to MobilityDatabaseTest, aborting operation")
 
-        for idx, dataset_id in enumerate(dataset_ids):
-            # for each dataset, create two validation reports, one old and one new
-            old_validation_report = Validationreport(
-                id=generate_unique_id(),
-                validator_version=OLD_VALIDATION_VERSION,
-                validated_at=OLD_VALIDATION_TIME,
-            )
-            new_validation_report = Validationreport(
-                id=generate_unique_id(),
-                validator_version=NEW_VALIDATION_VERSION,
-                validated_at=NEW_VALIDATION_TIME,
-            )
+        pwd = os.path.dirname(os.path.abspath(__file__))
 
-            db.merge(
-                Gtfsdataset(
-                    id=dataset_id,
-                    stable_id=TEST_DATASET_STABLE_IDS[idx],
-                    feed_id=gtfs_feed_ids[idx // 2],
-                    latest=idx % 2 == 1,
-                    bounding_box=WKTElement(polygon, srid=4326),
-                    validation_reports=[old_validation_report, new_validation_report],
-                    # This makes downloaded_at predictable and unique for each dataset
-                    downloaded_at=(datasets_download_first_date + idx * one_day),
-                    hosted_url=f"https://example.com/{TEST_DATASET_STABLE_IDS[idx]}",
-                    hash="hash",
-                ),
-                auto_commit=True,
-            )
+        # Default is to empty the database before populating. To not empty the database, set the environment variable
+        if (keep_db_before_populating := os.getenv("KEEP_DB_BEFORE_POPULATING")) is None or not strtobool(
+            keep_db_before_populating
+        ):
+            clean_testing_db(db)
 
-            # create multiple notices for each severity level
-            for _ in range(VALIDATION_INFO_NOTICES):
-                db.merge(
-                    Notice(
-                        dataset_id=dataset_id,
-                        validation_report_id=new_validation_report.id,
-                        notice_code=generate_unique_id(),
-                        severity="INFO",
-                        total_notices=VALIDATION_INFO_COUNT_PER_NOTICE,
-                    ),
-                )
-            for _ in range(VALIDATION_WARNING_NOTICES):
-                db.merge(
-                    Notice(
-                        dataset_id=dataset_id,
-                        validation_report_id=new_validation_report.id,
-                        notice_code=generate_unique_id(),
-                        severity="WARNING",
-                        total_notices=VALIDATION_WARNING_COUNT_PER_NOTICE,
-                    ),
-                )
-            for _ in range(VALIDATION_ERROR_NOTICES):
-                db.merge(
-                    Notice(
-                        dataset_id=dataset_id,
-                        validation_report_id=new_validation_report.id,
-                        notice_code=generate_unique_id(),
-                        severity="ERROR",
-                        total_notices=VALIDATION_ERROR_COUNT_PER_NOTICE,
-                    ),
-                )
-            for feature_id in FEATURE_IDS:
-                db.session.execute(
-                    text(
-                        f"INSERT INTO featurevalidationreport (feature, validation_id) "
-                        f"VALUES ('{feature_id}', '{new_validation_report.id}')"
-                    )
-                )
-
-        for idx, external_id in enumerate(TEST_EXTERNAL_IDS):
-            db.merge(
-                Externalid(
-                    feed_id=gtfs_feed_ids[idx // 2],
-                    associated_id=external_id,
-                    source="source" + str(idx + 1),
-                )
-            )
-        db.merge(
-            Externalid(
-                feed_id=gtfs_rt_feed_id,
-                associated_id=TEST_EXTERNAL_IDS[0],
-                source="source_rt",
-            )
-        )
-        db.session.execute(
-            text(
-                f"INSERT INTO redirectingid (source_id, target_id) "
-                f"VALUES ('{gtfs_feed_ids[0]}', '{gtfs_feed_ids[1]}')"
-            )
-        )
-
-        db.session.execute(
-            text(
-                f"INSERT INTO redirectingid (source_id, target_id) "
-                f"VALUES ('{gtfs_feed_ids[0]}', '{gtfs_feed_ids[2]}')"
-            )
-        )
-
-        db.session.execute(
-            text(
-                f"INSERT INTO redirectingid (source_id, target_id) "
-                f"VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[2]}')"
-            )
-        )
-
-        db.session.execute(
-            text(
-                f"INSERT INTO redirectingid "
-                f"(source_id, target_id) VALUES ('{gtfs_feed_ids[1]}', '{gtfs_feed_ids[3]}')"
-            )
-        )
-        db.session.execute(
-            text(
-                f"INSERT INTO redirectingid "
-                f"(source_id, target_id) VALUES ('{gtfs_rt_feed_id}', '{gtfs_feed_ids[1]}')"
-            )
-        )
-        # update the feed search materialized view after all the data is inserted
-        db.session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY feedsearch"))
-        db.commit()
+        db_helper = DatabasePopulateHelper(pwd + "/../test_data/sources_test.csv")
+        db_helper.initialize(trigger_downstream_tasks=False)
+        db_helper = DatabasePopulateTestDataHelper(pwd + "/../test_data/extra_test_data.json")
+        db_helper.populate()
         db.flush()
         yield db
+        # Dump the DB data if requested by providing a file name for the dump
+        if (test_db_dump_filename := os.getenv("TEST_DB_DUMP_FILENAME")) is not None:
+            dump_database(db, test_db_dump_filename)
+        if (test_raw_db_dump_filename := os.getenv("TEST_RAW_DB_DUMP_FILENAME")) is not None:
+            dump_raw_database(db, test_raw_db_dump_filename)
+        # Note that the DB is cleaned before the test, if requested, not after so the DB can be manually examined
+        # if the tests fail.
     except Exception as e:
         print(e)
-    finally:
-        # clean up the testing data regardless of the test result
-        db.session.execute(text("DELETE FROM entitytypefeed"))
-        db.session.execute(text("DELETE FROM entitytype"))
-        db.session.execute(text("DELETE FROM feedreference"))
-        db.session.execute(text("DELETE FROM locationfeed"))
-        db.session.execute(text("DELETE FROM location"))
-        for dataset_id in dataset_ids:
-            db.session.execute(text(f"DELETE FROM notice where dataset_id ='{dataset_id}'"))
-            db.session.execute(text(f"DELETE FROM validationreportgtfsdataset where dataset_id ='{dataset_id}'"))
-            db.session.execute(text(f"DELETE FROM gtfsdataset where id ='{dataset_id}'"))
-        for external_id in TEST_EXTERNAL_IDS:
-            db.session.execute(text(f"DELETE FROM externalid where associated_id = '{external_id}'"))
-        for gtfs_feed_id in gtfs_feed_ids:
-            db.session.execute(
-                text(
-                    f"DELETE from redirectingid where "
-                    f"source_id = '{gtfs_feed_id}' "
-                    f"OR target_id = '{gtfs_feed_id}'"
-                )
-            )
-            db.session.execute(text(f"DELETE FROM gtfsfeed where id = '{gtfs_feed_id}'"))
-
-        db.session.execute(text(f"DELETE FROM gtfsrealtimefeed where id = '{gtfs_rt_feed_id}'"))
-        for feed_id in [*gtfs_feed_ids, gtfs_rt_feed_id]:
-            db.session.execute(text(f"DELETE FROM feed where id = '{feed_id}'"))
-        feature_ids_str = ", ".join([f"'{feature_id}'" for feature_id in FEATURE_IDS])
-        # Delete referencing rows in featurevalidationreport
-        db.session.execute(text(f"DELETE FROM featurevalidationreport WHERE feature IN ({feature_ids_str})"))
-        db.session.execute(text("DELETE FROM feature"))
-        db.commit()
+        raise e
