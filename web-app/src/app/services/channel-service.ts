@@ -4,16 +4,16 @@ export const LOGOUT_CHANNEL = 'logout-channel';
 export const LOGIN_CHANNEL = 'login-channel';
 
 /**
- * Creates a new channel with the specified name and dispatcher. The dispatcher is called when a message is received.
+ * Creates a new broadcast channel with the specified name and callback. The callback is called when a message is received.
  * If the channel already exists, the function returns false.
  * @param channelName name of the channel
- * @param dispatcher function to be called when a message is received
+ * @param callback function to be called when a message is received
  * @returns true if the channel was created, false if the channel already exists
  * @see broadcastMessage
  */
-export const createDispatchChannel = (
+export const createBroadcastChannel = (
   channelName: string,
-  dispatcher: () => void,
+  callback: () => void,
 ): boolean => {
   if (channels === undefined) {
     channels = new Map<string, BroadcastChannel>();
@@ -24,7 +24,7 @@ export const createDispatchChannel = (
   }
   channel = new BroadcastChannel(channelName);
   channel.onmessage = () => {
-    dispatcher();
+    callback();
   };
   channels.set(channelName, channel);
   return true;
