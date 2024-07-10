@@ -133,6 +133,8 @@ export default function Home(): React.ReactElement {
               mt: 6,
               py: 1.5,
               ml: 1,
+              height: 55,
+              boxShadow: 0,
             }}
             variant='contained'
             color='primary'
