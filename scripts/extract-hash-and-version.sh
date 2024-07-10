@@ -37,19 +37,20 @@ get_latest_commit_in_main() {
     git rev-parse origin/main
 }
 
-get_latest_version_tag() {
+get_latest_release_tag() {
     git fetch --tags
-    git tag --sort=-v:refname | egrep -v 'SNAPSHOT' | head -1
+    # Get the latest tag that is not a SNAPSHOT or a release candidate
+    git tag --sort=-creatordate | egrep -v 'SNAPSHOT|rc' | head -1
 }
 
 if [ -n "$env" ]; then
   if [ "$env" == "qa" ]; then
     LONG_COMMIT_HASH=$(get_latest_commit_in_main)
   elif [ "$env" == "prod" ]; then
-    LONG_COMMIT_HASH=$(git rev-list -n 1 "$(get_latest_version_tag)")
+    latest_tag=$(get_latest_release_tag)
+    LONG_COMMIT_HASH=$(git rev-list -n 1 $latest_tag)
   else
-    echo "Invalid environment: $env. Use 'qa' or 'prod'."
-    exit 1
+    LONG_COMMIT_HASH=$(git rev-parse HEAD) # Default to the current commit
   fi
 else
   LONG_COMMIT_HASH=$(git rev-parse HEAD)
