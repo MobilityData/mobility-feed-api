@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import SignIn from '../screens/SignIn';
 import SignUp from '../screens/SignUp';
 import Account from '../screens/Account';
@@ -17,8 +17,45 @@ import TermsAndConditions from '../screens/TermsAndConditions';
 import PrivacyPolicy from '../screens/PrivacyPolicy';
 import Feed from '../screens/Feed';
 import Feeds from '../screens/Feeds';
+import { SIGN_OUT_TARGET } from '../constants/Navigation';
+import {
+  LOGIN_CHANNEL,
+  LOGOUT_CHANNEL,
+  createBroadcastChannel,
+} from '../services/channel-service';
+import { useAppDispatch } from '../hooks';
+import { logout } from '../store/profile-reducer';
 
 export const AppRouter: React.FC = () => {
+  const navigateTo = useNavigate();
+  const dispatch = useAppDispatch();
+
+  /**
+   * Logs out the user and redirects to the sign-out target screen after a logout event is received on the other sessions.
+   */
+  const logoutUserCallback = (): void => {
+    dispatch(
+      logout({ redirectScreen: SIGN_OUT_TARGET, navigateTo, propagate: false }),
+    );
+  };
+
+  /**
+   * Refreshes the page to ensure the user is authenticated after a login event is received on the other sessions.
+   */
+  const loginUserCallback = (): void => {
+    window.location.reload();
+  };
+
+  /**
+   * The channel creation is placed in this component rather than the App.tsx file due to the need of the navigateTo instance.
+   * The navigateTo instance is only available within the scope the Router including its children.
+   * The callback functions are used to handle the logout and login events received from other sessions.
+   */
+  useEffect(() => {
+    createBroadcastChannel(LOGOUT_CHANNEL, logoutUserCallback);
+    createBroadcastChannel(LOGIN_CHANNEL, loginUserCallback);
+  }, []);
+
   return (
     <Routes>
       <Route path='/' element={<Home />} />

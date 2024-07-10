@@ -1,7 +1,7 @@
 import type NavigationItem from '../interface/Navigation';
 import { type RemoteConfigValues } from '../interface/RemoteConfig';
 
-export const SIGN_OUT_TARGET = '/sign-out';
+export const SIGN_OUT_TARGET = '/';
 export const SIGN_IN_TARGET = '/sign-in';
 export const ACCOUNT_TARGET = '/account';
 export const POST_REGISTRATION_TARGET = '/verify-email';

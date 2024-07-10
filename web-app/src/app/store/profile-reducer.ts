@@ -43,6 +43,7 @@ const initialState: UserProfileState = {
     Registration: null,
     ResetPassword: null,
     VerifyEmail: null,
+    AnonymousLogin: null,
   },
   isRefreshingAccessToken: false,
   isVerificationEmailSent: false,
@@ -83,6 +84,7 @@ export const userProfileSlice = createSlice({
       action: PayloadAction<{
         redirectScreen: string;
         navigateTo: NavigateFunction;
+        propagate: boolean;
       }>,
     ) => {
       state.status = 'login_out';
@@ -93,6 +95,7 @@ export const userProfileSlice = createSlice({
       state.status = 'unauthenticated';
       state.isSignedInWithProvider = false;
       state.isAppRefreshing = false;
+      state.user = undefined;
     },
     logoutFail: (state) => {
       state.status = 'unauthenticated';
@@ -253,9 +256,15 @@ export const userProfileSlice = createSlice({
     },
     anonymousLogin: (state) => {
       state.isAppRefreshing = true;
+      state.errors.AnonymousLogin = null;
     },
-    anonymousLoginFailed: (state) => {
+    anonymousLoginFailed: (state, action: PayloadAction<ProfileError>) => {
       state.isAppRefreshing = false;
+      state.errors.AnonymousLogin = action.payload;
+    },
+    anonymousLoginSkipped: (state, action: PayloadAction<ProfileError>) => {
+      state.isAppRefreshing = false;
+      state.errors.AnonymousLogin = action.payload;
     },
   },
 });
@@ -293,6 +302,7 @@ export const {
   emailVerified,
   anonymousLogin,
   anonymousLoginFailed,
+  anonymousLoginSkipped,
 } = userProfileSlice.actions;
 
 export default userProfileSlice.reducer;
