@@ -195,7 +195,7 @@ jobs:
     - name: Upload log file for verification
       uses: actions/upload-artifact@v4
       with:
-        name: populate.log
+        name: populate-${{ inputs.ENVIRONMENT }}.log
         path: populate.log
 
   update-gcp-secret:
