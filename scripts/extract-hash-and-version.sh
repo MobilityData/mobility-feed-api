@@ -40,7 +40,7 @@ get_latest_commit_in_main() {
 get_latest_release_tag() {
     git fetch --tags
     # Get the latest tag that is not a SNAPSHOT or a release candidate
-    git tag --sort=-creatordate | egrep -v 'SNAPSHOT|rc' | head -1
+    git tag --sort=-creatordate | egrep '^v[0-9]+\.[0-9]+\.[0-9]+' | egrep -v 'SNAPSHOT|rc' | head -1
 }
 
 if [ -n "$env" ]; then
