@@ -53,9 +53,7 @@ export default function Home(): React.ReactElement {
   const navigate = useNavigate();
 
   const handleSearch = (): void => {
-    if (searchInputValue.trim().length > 0) {
-      navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
-    }
+    navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
   };
 
   const handleKeyDown = (
