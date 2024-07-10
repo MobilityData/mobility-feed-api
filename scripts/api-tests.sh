@@ -86,7 +86,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-cat $ABS_SCRIPTPATH/../config/.env.local > $ABS_SCRIPTPATH/../.env
+cat $ABS_SCRIPTPATH/../config/.env.local.fortest > $ABS_SCRIPTPATH/../.env
 
 execute_tests() {
   printf "\nExecuting tests in $1\n"
