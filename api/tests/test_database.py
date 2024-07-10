@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+from typing import Final
+
 import pytest
 from sqlalchemy.orm import Query
 import os
@@ -8,20 +11,19 @@ from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker
 
-
-from .test_utils.database import (
-    NEW_VALIDATION_VERSION,
-    NEW_VALIDATION_TIME,
-    VALIDATION_INFO_COUNT_PER_NOTICE,
-    VALIDATION_INFO_NOTICES,
-    VALIDATION_WARNING_COUNT_PER_NOTICE,
-    VALIDATION_WARNING_NOTICES,
-    VALIDATION_ERROR_NOTICES,
-    VALIDATION_ERROR_COUNT_PER_NOTICE,
-)
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import patch
 from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
+
+VALIDATION_ERROR_NOTICES = 7
+NEW_VALIDATION_VERSION = "2.0.0"
+NEW_VALIDATION_TIME: Final[datetime] = datetime(2023, 2, 1, 10, 10, 10, tzinfo=timezone.utc)
+VALIDATION_INFO_COUNT_PER_NOTICE = 5
+VALIDATION_INFO_NOTICES = 10
+VALIDATION_WARNING_COUNT_PER_NOTICE = 3
+VALIDATION_WARNING_NOTICES = 4
+VALIDATION_ERROR_COUNT_PER_NOTICE = 2
+
 
 BASE_QUERY = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
     Gtfsdataset.stable_id == TEST_DATASET_STABLE_IDS[0]

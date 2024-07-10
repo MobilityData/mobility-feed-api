@@ -262,24 +262,32 @@ class DatabasePopulateHelper:
             f"New feeds added to the database: "
             f"{','.join([feed.stable_id for feed in self.added_gtfs_feeds] if self.added_gtfs_feeds else [])}"
         )
+
+        env = os.getenv("ENV")
+        self.logger.info(f"ENV = {env}")
         if os.getenv("ENV", "local") != "local":
             publish_all(self.added_gtfs_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
+
+    # Extracted the following code from main so it can be executed as a library function
+    def initialize(self, trigger_downstream_tasks: bool = True):
+        try:
+            configure_polymorphic_mappers()
+            self.populate_db()
+            self.db.session.commit()
+
+            self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
+            self.db.session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+            self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
+            self.db.session.commit()
+            self.logger.info("\n----- Database populated with sources.csv data. -----")
+            if trigger_downstream_tasks:
+                self.trigger_downstream_tasks()
+        except Exception as e:
+            self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
+            self.db.session.rollback()
+            exit(1)
 
 
 if __name__ == "__main__":
     db_helper = DatabasePopulateHelper(set_up_configs())
-    try:
-        configure_polymorphic_mappers()
-        db_helper.populate_db()
-        db_helper.db.session.commit()
-
-        db_helper.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-        db_helper.db.session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
-        db_helper.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
-        db_helper.db.session.commit()
-        db_helper.logger.info("\n----- Database populated with sources.csv data. -----")
-        db_helper.trigger_downstream_tasks()
-    except Exception as e:
-        db_helper.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
-        db_helper.db.session.rollback()
-        exit(1)
+    db_helper.initialize()

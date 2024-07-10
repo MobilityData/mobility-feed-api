@@ -4,12 +4,20 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
-import { Button, Grid } from '@mui/material';
+import {
+  Button,
+  Divider,
+  Grid,
+  InputAdornment,
+  TextField,
+} from '@mui/material';
 import {
   Search,
   CheckCircleOutlineOutlined,
   PowerOutlined,
 } from '@mui/icons-material';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -41,32 +49,32 @@ const ActionBox = ({
 );
 
 export default function Home(): React.ReactElement {
-  // const [searchInputValue, setSearchInputValue] = useState('');
-  // const navigate = useNavigate();
+  const [searchInputValue, setSearchInputValue] = useState('');
+  const navigate = useNavigate();
 
-  // const handleSearch = (): void => {
-  //   if (searchInputValue.trim().length > 0) {
-  //     navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
-  //   }
-  // };
+  const handleSearch = (): void => {
+    navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
+  };
 
-  // const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-  //   if (event.key === 'Enter') {
-  //     handleSearch();
-  //   }
-  // };
+  const handleKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ): void => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+  };
 
   return (
-    <Container component='main' sx={{ width: '100vw', m: 0 }}>
+    <Container component='main'>
       <CssBaseline />
       <Box
         sx={{
           mt: 12,
-          px: 6,
           display: 'flex',
           flexDirection: 'column',
-          width: '100vw',
         }}
+        margin={{ xs: '80px 20px', m: '80px auto' }}
+        maxWidth={{ xs: '100%', m: '1600px' }}
       >
         <Typography
           sx={{
@@ -94,7 +102,7 @@ export default function Home(): React.ReactElement {
           GTFS feeds from <span style={{ color: '#3859FA' }}>70</span>{' '}
           countries.
         </Typography>
-        {/* <Box
+        <Box
           sx={{
             display: 'flex',
             justifyContent: 'center',
@@ -111,7 +119,7 @@ export default function Home(): React.ReactElement {
               setSearchInputValue(e.target.value);
             }}
             onKeyDown={handleKeyDown}
-            placeholder='ex. Boston'
+            placeholder='e.g. "New York" or "Carris Metropolitana"'
             InputProps={{
               startAdornment: (
                 <InputAdornment position={'start'}>
@@ -125,6 +133,8 @@ export default function Home(): React.ReactElement {
               mt: 6,
               py: 1.5,
               ml: 1,
+              height: 55,
+              boxShadow: 0,
             }}
             variant='contained'
             color='primary'
@@ -132,7 +142,7 @@ export default function Home(): React.ReactElement {
           >
             Search
           </Button>
-        </Box> */}
+        </Box>
         <Box
           sx={{
             display: 'flex',
@@ -141,7 +151,7 @@ export default function Home(): React.ReactElement {
             position: 'relative',
           }}
         >
-          {/* <Divider
+          <Divider
             sx={{
               flexGrow: 1,
               backgroundColor: 'text.primary',
@@ -153,20 +163,20 @@ export default function Home(): React.ReactElement {
             variant='body1'
           >
             or
-          </Typography> */}
-          {/* <Divider
+          </Typography>
+          <Divider
             sx={{
               flexGrow: 1,
               backgroundColor: 'text.primary',
               mx: '16',
             }}
             variant='middle'
-          /> */}
+          />
         </Box>
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'center',
+            justifyContent: 'space-around',
           }}
         >
           <ActionBox

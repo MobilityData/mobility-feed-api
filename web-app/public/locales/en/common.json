@@ -10,6 +10,11 @@
     "feeds": "Feeds",
     "gtfsSchedule": "GTFS Schedule",
     "gtfsRealtime": "GTFS Realtime",
+    "gtfsRealtimeEntities": {
+        "tripUpdates": "Trip Updates",
+        "vehiclePositions": "Vehicle Positions",
+        "serviceAlerts": "Service Alerts"
+    },
     "loading": "Loading...",
     "errors": {
         "generic": "We are unable to complete your request at the moment."

@@ -25,7 +25,7 @@ def set_up_configs():
     return args.filepath
 
 
-class DatabasePopulateHelper:
+class DatabasePopulateTestDataHelper:
     """
     Helper class to populate
     the database with test data
@@ -57,7 +57,7 @@ class DatabasePopulateHelper:
             gtfs_dataset = Gtfsdataset(
                 id=dataset["id"],
                 feed_id=gtfsfeed[0].id,
-                stable_id=f"{gtfsfeed[0].stable_id}-{dataset['id']}",
+                stable_id=dataset["id"],
                 latest=dataset["latest"],
                 hosted_url=dataset["hosted_url"],
                 hash=dataset["hash"],
@@ -119,5 +119,5 @@ class DatabasePopulateHelper:
 
 
 if __name__ == "__main__":
-    db_helper = DatabasePopulateHelper(set_up_configs())
+    db_helper = DatabasePopulateTestDataHelper(set_up_configs())
     db_helper.populate()

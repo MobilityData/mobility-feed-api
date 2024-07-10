@@ -50,6 +50,8 @@ class Database:
     """
 
     instance = None
+    initialized = False
+    lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         if not isinstance(cls.instance, cls):
@@ -65,12 +67,19 @@ class Database:
         echo_sql set to False reduces the amount of information and noise going to the logs.
         In case of errors, the exceptions will still contain relevant information about the failing queries.
         """
-        load_dotenv()
-        self.engine = None
-        self.connection_attempts = 0
-        self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
-        self.echo_sql = echo_sql
-        self.start_session()
+
+        # This init function is called each time we call Database(), but in the case of a singleton, we only want to
+        # initialize once, so we need to use a lock and a flag
+        with Database.lock:
+            if Database.initialized:
+                return
+            Database.initialized = True
+            load_dotenv()
+            self.engine = None
+            self.connection_attempts = 0
+            self.SQLALCHEMY_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
+            self.echo_sql = echo_sql
+            self.start_session()
 
     def is_connected(self):
         """
