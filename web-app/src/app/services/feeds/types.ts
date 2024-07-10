@@ -52,6 +52,15 @@ export interface paths {
       };
     };
   };
+  '/v1/gtfs_feeds/{id}/gtfs_rt_feeds': {
+    /** @description Get a list of GTFS Realtime related to a GTFS feed. */
+    get: operations['getGtfsFeedGtfsRtFeeds'];
+    parameters: {
+      path: {
+        id: components['parameters']['feed_id_path_param'];
+      };
+    };
+  };
   '/v1/datasets/gtfs/{id}': {
     /** @description Get the specified dataset from the Mobility Database. */
     get: operations['getDatasetGtfs'];
@@ -147,17 +156,13 @@ export interface components {
     };
     GtfsFeed: {
       data_type: 'gtfs';
-    } & components['schemas']['BasicFeed'] & {
-        data_type: 'gtfs';
+    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
         locations?: components['schemas']['Locations'];
-      } & {
-        data_type: 'gtfs';
         latest_dataset?: components['schemas']['LatestDataset'];
       };
     GtfsRTFeed: {
       data_type: 'gtfs_rt';
-    } & components['schemas']['BasicFeed'] & {
-        data_type: 'gtfs_rt';
+    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
         entity_types?: Array<'vp' | 'tu' | 'sa'>;
         /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
         feed_references?: string[];
@@ -602,6 +607,22 @@ export interface operations {
       };
     };
   };
+  /** @description Get a list of GTFS Realtime related to a GTFS feed. */
+  getGtfsFeedGtfsRtFeeds: {
+    parameters: {
+      path: {
+        id: components['parameters']['feed_id_path_param'];
+      };
+    };
+    responses: {
+      /** @description Successful pull of the GTFS Realtime feeds info related to a GTFS feed. */
+      200: {
+        content: {
+          'application/json': components['schemas']['GtfsRTFeeds'];
+        };
+      };
+    };
+  };
   /** @description Get the specified dataset from the Mobility Database. */
   getDatasetGtfs: {
     parameters: {
@@ -668,8 +689,8 @@ export interface operations {
             /** @description The total number of matching entities found regardless the limit and offset parameters. */
             total?: number;
             results?: Array<
-              | components['schemas']['GtfsFeed']
-              | components['schemas']['GtfsRTFeed']
+              components['schemas']['GtfsFeed'] &
+                components['schemas']['GtfsRTFeed']
             >;
           };
         };

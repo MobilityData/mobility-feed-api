@@ -316,6 +316,11 @@ components:
           example: Redirected because of a change of URL.
     BasicFeed:
       type: object
+      discriminator:
+        propertyName: data_type
+        mapping:
+          gtfs: '#/components/schemas/GtfsFeed'
+          gtfs_rt: '#/components/schemas/GtfsRTFeed'
       properties:
         id:
           description: Unique identifier used as a key for the feeds table.
