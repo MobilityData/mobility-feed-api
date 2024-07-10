@@ -63,6 +63,8 @@ export default function Feed(): React.ReactElement {
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
   const hasDatasets = datasets !== undefined && datasets.length > 0;
+  const hasFeedRedirect =
+    feed?.redirects !== undefined && feed?.redirects.length > 0;
   const downloadLatestUrl =
     feed?.data_type === 'gtfs'
       ? feed?.latest_dataset?.hosted_url
@@ -219,7 +221,7 @@ export default function Feed(): React.ReactElement {
                     </Typography>
                   </Grid>
                 )}
-              {!hasDatasets && (
+              {!hasDatasets && !hasFeedRedirect && (
                 <Grid item xs={12}>
                   <WarningContentBox>
                     Unable to download this feed. If there is a more recent URL
@@ -228,11 +230,11 @@ export default function Feed(): React.ReactElement {
                   </WarningContentBox>
                 </Grid>
               )}
-              {feed?.redirects !== undefined && feed?.redirects.length > 0 && (
+              {hasFeedRedirect && (
                 <Grid item xs={12}>
                   <WarningContentBox>
                     This feed has been replaced with a different producer URL.{' '}
-                    <a href={`/feeds/${feed.redirects[0].target_id}`}>
+                    <a href={`/feeds/${feed?.redirects?.[0]?.target_id}`}>
                       Go to the new feed here
                     </a>
                     .
