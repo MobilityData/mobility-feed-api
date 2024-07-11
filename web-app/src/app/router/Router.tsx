@@ -25,6 +25,8 @@ import {
 import { useAppDispatch } from '../hooks';
 import { logout } from '../store/profile-reducer';
 import FeedSubmission from '../screens/FeedSubmission';
+import FeedSubmissionFAQ from '../screens/FeedSubmissionFAQ';
+import FeedSubmitted from '../screens/FeedSubmitted';
 
 export const AppRouter: React.FC = () => {
   const navigateTo = useNavigate();
@@ -83,6 +85,8 @@ export const AppRouter: React.FC = () => {
       <Route path='feeds' element={<Feeds />} />
       <Route path='feeds/:feedId' element={<Feed />} />
       <Route path='contribute' element={<FeedSubmission />} />
+      <Route path='contribute/submitted' element={<FeedSubmitted />} />
+      <Route path='contribute-faq' element={<FeedSubmissionFAQ />} />
       <Route path='privacy-policy' element={<PrivacyPolicy />} />
       <Route path='terms-and-conditions' element={<TermsAndConditions />} />
     </Routes>
