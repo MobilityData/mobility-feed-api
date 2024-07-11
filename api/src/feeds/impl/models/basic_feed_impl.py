@@ -27,6 +27,7 @@ class BaseFeedImpl(BasicFeed):
             id=feed.stable_id,
             data_type=feed.data_type,
             status=feed.status,
+            created_at=feed.created_at,
             external_ids=sorted(
                 [ExternalIdImpl.from_orm(item) for item in feed.externalids], key=lambda x: x.external_id
             ),
