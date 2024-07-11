@@ -3,6 +3,8 @@ name: PR - Run Integration Tests
 on:
   pull_request:
   push:
+    branches:
+      - feat/549
 
 env:
   python_version: '3.11'
