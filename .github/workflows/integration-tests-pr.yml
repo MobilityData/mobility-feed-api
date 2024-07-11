@@ -20,6 +20,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Authenticate to Google Cloud QA
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
     - name: Extract commit hash and version from git
       run: ./scripts/extract-hash-and-version.sh
 
