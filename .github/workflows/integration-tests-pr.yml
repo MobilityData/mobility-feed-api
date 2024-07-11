@@ -1,0 +1,130 @@
+name: PR - Run Integration Tests
+
+on:
+  pull_request:
+  push:
+
+env:
+  python_version: '3.11'
+  java_version: '11' # needed by setup-openapi-generator.sh
+  API_URL: 'http://localhost:8080'
+
+jobs:
+  integration-tests-pr:
+    name: Integration Tests
+    runs-on:
+      labels: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Extract commit hash and version from git
+      run: ./scripts/extract-hash-and-version.sh
+
+    - name: Set up Python ${{ env.python_version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.python_version }}
+
+    - name: Download csv version of the database
+      run: wget -O sources.csv https://bit.ly/catalogs-csv
+
+    - name: Get full path of sources.csv
+      id: getpath
+      run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r integration-tests/requirements.txt
+        pip install -r api/requirements.txt
+
+    - name: Set up JDK ${{ env.java_version }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.java_version }}
+        distribution: 'temurin'
+
+    - name: Docker Compose DB
+      run: |
+        docker-compose --env-file ./config/.env.local up -d postgres
+      working-directory: ${{ github.workspace }}
+
+    - name: Install Liquibase
+      run: |
+        wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
+        cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
+        echo 'deb [trusted=yes arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
+
+        sudo apt-get update
+        sudo apt-get install liquibase=4.25.1
+
+    - name: Run Liquibase on API local DB
+      run: |
+        export LIQUIBASE_CLASSPATH="liquibase"
+        export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+        export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/MobilityDatabase
+        export LIQUIBASE_COMMAND_USERNAME=postgres
+        export LIQUIBASE_COMMAND_PASSWORD=postgres
+        export LIQUIBASE_LOG_LEVEL=FINE
+
+        liquibase update
+
+    - name: Generate code
+      run: |
+        scripts/db-gen.sh
+        scripts/setup-openapi-generator.sh
+        scripts/api-gen.sh
+
+    - name: Load secrets from 1Password
+      uses: 1password/load-secrets-action@v1.3.1
+      with:
+        export-env: true # Export loaded secrets as environment variables
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
+        GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
+        GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
+
+    - name: Tunnel
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa             
+        ./scripts/tunnel-create.sh -project_id ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }} -zone ${{ vars.MOBILITY_FEEDS_REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.DEV_POSTGRE_USER_NAME }}
+        sleep 10 # Wait for the tunnel to establish
+
+    - name: Test Database Connection Through Tunnel
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        PGPASSWORD=${{ secrets.DEV_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DEV_POSTGRE_USER_NAME }} -d $${{ vars.DEV_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
+
+    - name: Set FEEDS_DB_URL
+      run: |
+        echo "FEEDS_DB_URL=postgresql://${{ secrets.DEV_POSTGRE_USER_NAME }:${{ secrets.DEV_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
+
+    - name: Start API
+      run: |
+        scripts/api-start.sh &
+        sleep 10
+
+    - name: Health Check
+      run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
+      env:
+        FILE_PATH: ${{ env.FILE_PATH }}
+        REFRESH_TOKEN: DUMMY_TOKEN
+
+    - name: Run Integration Tests
+      run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH
+      env:
+        FILE_PATH: ${{ env.FILE_PATH }}
+        REFRESH_TOKEN: DUMMY_TOKEN
+
+    - name: Upload Test Logs
+      if: ${{ always() }} # always upload the available logs even if the integration tests failed.
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-tests-results
+        path: |
+          integration-tests/src/integration_tests_log.html
+          integration-tests/src/datasets_validation.csv
