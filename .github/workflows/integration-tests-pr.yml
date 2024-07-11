@@ -104,11 +104,11 @@ jobs:
     - name: Test Database Connection Through Tunnel
       run: |
         sudo apt-get update && sudo apt-get install -y postgresql-client
-        PGPASSWORD=${{ secrets.DEV_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DEV_POSTGRE_USER_NAME }} -d $${{ vars.DEV_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
+        PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d $${{ vars.DEV_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
 
     - name: Set FEEDS_DB_URL
       run: |
-        echo "FEEDS_DB_URL=postgresql://${{ secrets.DEV_POSTGRE_USER_NAME }}:${{ secrets.DEV_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
+        echo "FEEDS_DB_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
 
     - name: Start API
       run: |
