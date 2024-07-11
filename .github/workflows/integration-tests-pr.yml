@@ -103,7 +103,7 @@ jobs:
 
     - name: Set FEEDS_DB_URL
       run: |
-        echo "FEEDS_DB_URL=postgresql://${{ secrets.DEV_POSTGRE_USER_NAME }:${{ secrets.DEV_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
+        echo "FEEDS_DB_URL=postgresql://${{ secrets.DEV_POSTGRE_USER_NAME }}:${{ secrets.DEV_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
 
     - name: Start API
       run: |
