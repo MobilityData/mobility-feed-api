@@ -30,7 +30,7 @@ const palette = {
   },
   text: {
     primary: '#474747',
-    secondary: '#95a4f4',
+    secondary: 'rgba(71, 71, 71, 0.8)',
     disabled: 'rgba(0,0,0,0.3)',
   },
 };
@@ -50,10 +50,35 @@ export const theme = createTheme({
     fontFamily: '"Muli"',
   },
   components: {
+    MuiFormLabel: {
+      styleOverrides: {
+        root: {
+          color: '#474747',
+          fontWeight: 'bold',
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '&.md-small-input': {
+            input: { paddingTop: '7px', paddingBottom: '7px' },
+          },
+        },
+      },
+    },
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          '.MuiSelect-select': { paddingTop: '7px', paddingBottom: '7px' },
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: 'none',
+          boxShadow: 'none',
         },
       },
     },
