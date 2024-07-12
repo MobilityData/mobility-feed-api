@@ -119,13 +119,13 @@ jobs:
       run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
-        REFRESH_TOKEN: DUMMY_TOKEN
+        DUMMY_TOKEN: DUMMY_TOKEN
 
     - name: Run Integration Tests
       run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
-        REFRESH_TOKEN: DUMMY_TOKEN
+        DUMMY_TOKEN: DUMMY_TOKEN
 
     - name: Upload Test Logs
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
