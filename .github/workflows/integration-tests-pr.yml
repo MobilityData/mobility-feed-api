@@ -108,7 +108,15 @@ jobs:
 
     - name: Set FEEDS_DB_URL
       run: |
-        echo "FEEDS_DB_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
+        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
+
+    - name: Update .env.local
+      run: |
+        if grep -q "FEEDS_DATABASE_URL" config/.env.local; then
+          sed -i 's|FEEDS_DATABASE_URL=.*|FEEDS_DATABASE_URL=${FEEDS_DATABASE_URL}|' config/.env.local
+        else
+          echo "FEEDS_DATABASE_URL=${FEEDS_DATABASE_URL}" >> config/.env.local
+        fi
 
     - name: Start API
       run: |
