@@ -61,7 +61,7 @@
     "lint:fix": "eslint 'src/app/**/*.{js,ts,tsx}' --fix",
     "cypress:run": "cypress run",
     "cypress:open": "cypress open",
-    "generate:api-types:output": "npx openapi-typescript ../docs/DatabaseCatalogAPI.yaml -o $OUTPUT_PATH_TYPES && eslint src/app/services/feeds/types.ts --fix",
+    "generate:api-types:output": "npx openapi-typescript ../docs/DatabaseCatalogAPI.yaml -o $OUTPUT_PATH_TYPES && eslint $OUTPUT_PATH_TYPES --fix",
     "generate:api-types": "OUTPUT_PATH_TYPES=src/app/services/feeds/types.ts npm run generate:api-types:output"
   },
   "eslintConfig": {
