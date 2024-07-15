@@ -24,6 +24,10 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             feed_ids = feed_ids.sample(
                 n=int(os.getenv("DATASETS_LIMIT")), random_state=0
             )
+            self.console.log(
+                f"Limiting the number of datasets to {len(feed_ids)} for testing purposes"
+            )
+            self.console.log(f"Selected feeds: {feed_ids}")
 
         for feed_id in feed_ids:
             warning_entry = self.validate_feed(feed_id)
