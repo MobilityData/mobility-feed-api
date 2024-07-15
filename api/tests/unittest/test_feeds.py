@@ -1,5 +1,7 @@
 import copy
+from datetime import datetime
 from unittest.mock import Mock
+import json
 
 from fastapi.testclient import TestClient
 
@@ -21,6 +23,7 @@ mock_feed = Feed(
     status="active",
     provider="test_provider",
     feed_name="test_feed_name",
+    created_at=datetime.fromisoformat("2023-07-10T22:06:00Z"),
     note="test_note",
     feed_contact_email="test_feed_contact_email",
     producer_url="test_producer_url",
@@ -44,23 +47,26 @@ mock_feed = Feed(
     ],
 )
 
-expected_feed_response = BaseFeedImpl(
-    id="test_id",
-    data_type="gtfs",
-    status="active",
-    provider="test_provider",
-    feed_name="test_feed_name",
-    note="test_note",
-    feed_contact_email="test_feed_contact_email",
-    source_info={
-        "authentication_type": 1,
-        "authentication_info_url": "test_authentication_info_url",
-        "api_key_parameter_name": "test_api_key_parameter_name",
-        "license_url": "test_license_url",
-        "producer_url": "test_producer_url",
-    },
-    external_ids=[{"external_id": "test_associated_id", "source": "test_source"}],
-    redirects=[{"comment": "Some comment", "target_id": "test_target_id"}],
+expected_feed_response = json.loads(
+    BaseFeedImpl(
+        id="test_id",
+        data_type="gtfs",
+        created_at="2023-07-10T22:06:00Z",
+        status="active",
+        provider="test_provider",
+        feed_name="test_feed_name",
+        note="test_note",
+        feed_contact_email="test_feed_contact_email",
+        source_info={
+            "authentication_type": 1,
+            "authentication_info_url": "test_authentication_info_url",
+            "api_key_parameter_name": "test_api_key_parameter_name",
+            "license_url": "test_license_url",
+            "producer_url": "test_producer_url",
+        },
+        external_ids=[{"external_id": "test_associated_id", "source": "test_source"}],
+        redirects=[{"comment": "Some comment", "target_id": "test_target_id"}],
+    ).model_dump_json()
 )
 
 
@@ -101,11 +107,11 @@ def test_feeds_get(client: TestClient, mocker):
     response_feeds = response.json()
     assert len(response_feeds) == 2, f"Response feeds length was {len(response_feeds)} instead of 2"
     assert (
-        response_feeds[0] == expected_feed_response.dict()
-    ), f"Response feed was {response_feeds[0]} instead of {expected_feed_response.dict()}"
+        response_feeds[0] == expected_feed_response
+    ), f"Response feed was {response_feeds[0]} instead of {expected_feed_response}"
     assert (
         response_feeds[1]["id"] == "test_id_2"
-    ), f"Response feed was {response_feeds[0]} instead of {expected_feed_response.dict()}"
+    ), f"Response feed id was {response_feeds[1]['id']} instead of test_id_2"
 
 
 def test_feed_get(client: TestClient, mocker):
@@ -128,7 +134,7 @@ def test_feed_get(client: TestClient, mocker):
     response_feed = response.json()
 
     assert (
-        response_feed == expected_feed_response.dict()
+        response_feed == expected_feed_response
     ), f"Response feed was {response_feed} instead of {expected_feed_response.dict()}"
 
 
@@ -281,6 +287,7 @@ def assert_gtfs(gtfs_feed, response_gtfs_feed):
     ), f'Response feed hosted url was {response_gtfs_feed["latest_dataset"]["hosted_url"]} \
         instead of test_hosted_url'
     assert response_gtfs_feed["latest_dataset"]["bounding_box"] is not None, "Response feed bounding_box was None"
+    assert response_gtfs_feed["created_at"] is not None, "Response feed created_at was None"
 
 
 def assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed):
@@ -310,3 +317,4 @@ def assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed):
     assert (
         response_gtfs_rt_feed["feed_references"][0] == gtfs_rt_feed.gtfs_feeds[0].stable_id
     ), f'Response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'
+    assert response_gtfs_rt_feed["created_at"] is not None, "Response feed created_at was None"

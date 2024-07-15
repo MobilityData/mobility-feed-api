@@ -345,6 +345,11 @@ components:
           example: deprecated
 #           Have to put the enum inline because of a bug in openapi-generator
 #          $ref: "#/components/schemas/FeedStatus"
+        created_at:
+          description: The date and time the feed was added to the database, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
 
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
