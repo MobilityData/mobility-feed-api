@@ -296,9 +296,11 @@ paths:
                   results:
                     type: array
                     items:
+                    # The items should be anyOf but allOf is not fully supported by openapi-generator for fastAPI server code generation.
                       allOf:
-                        - $ref: '#/components/schemas/GtfsFeed'
-                        - $ref: '#/components/schemas/GtfsRTFeed'
+                        - $ref: "#/components/schemas/BasicFeed"
+                        - $ref: "#/components/schemas/GtfsFeed"
+                        - $ref: "#/components/schemas/GtfsRTFeed"
                
 
 components:

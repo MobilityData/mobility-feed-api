@@ -689,7 +689,10 @@ export interface operations {
             /** @description The total number of matching entities found regardless the limit and offset parameters. */
             total?: number;
             results?: Array<
-              components['schemas']['GtfsFeed'] &
+              {
+                data_type: 'json';
+              } & Omit<components['schemas']['BasicFeed'], 'data_type'> &
+                components['schemas']['GtfsFeed'] &
                 components['schemas']['GtfsRTFeed']
             >;
           };
