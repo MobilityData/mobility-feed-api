@@ -46,4 +46,4 @@ jobs:
           OUTPUT_PATH_TYPES: ../generated/types.ts
 
       - name: Compare TypeScript types with existing types
-        run: diff -q generated/types.ts web-app/src/app/services/feeds/types.ts || (echo "Types are different!" && exit 1)
+        run: diff generated/types.ts web-app/src/app/services/feeds/types.ts || (echo "Types are different!" && exit 1)
