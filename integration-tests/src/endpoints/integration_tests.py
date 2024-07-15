@@ -40,6 +40,7 @@ class IntegrationTests:
         self, country_code, endpoint, validate_location=False, task_id=None, index="1/1"
     ):
         """Helper function for filtering the response by country code."""
+        country_code = country_code.strip()
         response = self.get_response(endpoint, params={"country_code": country_code})
         assert response.status_code == 200, (
             f"Expected 200 status code for country code filter '{country_code}', got "
@@ -86,6 +87,7 @@ class IntegrationTests:
 
     def _test_filter_by_provider(self, provider, endpoint, task_id, index):
         """Helper function for filtering the response by provider."""
+        provider = provider.strip()
         response = self.get_response(endpoint, params={"provider": provider})
         assert response.status_code == 200, (
             f"Expected 200 status code for provider filter '{provider}', got "
@@ -105,6 +107,7 @@ class IntegrationTests:
         self, municipality, endpoint, validate_location=False, task_id=None, index="1/1"
     ):
         """Helper function for filtering the response by municipality."""
+        municipality = municipality.strip()
         response = self.get_response(endpoint, params={"municipality": municipality})
         assert response.status_code == 200, (
             f"Expected 200 status code for municipality filter '{municipality}', got "
