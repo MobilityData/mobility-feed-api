@@ -43,7 +43,8 @@ jobs:
         working-directory: web-app
         run: yarn generate:api-types:output
         env:
-          OUTPUT_PATH_TYPES: ../generated/types.ts
+          OUTPUT_PATH_TYPES: src/app/services/feeds/generated/types.ts
 
       - name: Compare TypeScript types with existing types
-        run: diff generated/types.ts web-app/src/app/services/feeds/types.ts || (echo "Types are different!" && exit 1)
+        working-directory: web-app
+        run: diff src/app/services/feeds/generated/types.ts src/app/services/feeds/types.ts || (echo "Types are different!" && exit 1)
