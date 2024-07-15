@@ -1,0 +1,48 @@
+name: Verify TypeScript Types Generation
+on:
+  pull_request:
+    branches: 
+        - main
+    paths:
+      - "docs/DatabaseCatalogAPI.yaml"
+
+env:
+  NODE_VERSION: "18"
+
+jobs:
+  generate-and-compare:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'yarn'
+          cache-dependency-path: 'web-app/yarn.lock'
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v4
+        id: yarn-cache
+        with:
+          path: |
+            **/node_modules
+            **/.eslintcache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('web-app/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        working-directory: web-app
+        run: yarn install --frozen-lockfile --prefer-offline
+
+      - name: Generate TypeScript types
+        run: yarn generate:api-types:output
+        env:
+          OUTPUT_PATH_TYPES: generated/types.ts
+
+      - name: Compare TypeScript types with existing types
+        run: diff -q generated/types.ts web-app/src/app/services/feeds/types.ts || (echo "Types are different!" && exit 1)
