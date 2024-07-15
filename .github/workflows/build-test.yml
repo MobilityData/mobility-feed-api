@@ -8,6 +8,9 @@ on:
       - "functions/**"
       - ".github/workflows/web-*.yml"
   workflow_call:
+  push:
+    branches:
+      - 551-tests-should-be-using-the-test-database
 
 env:
   python_version: '3.11'
@@ -70,19 +73,20 @@ jobs:
           export LIQUIBASE_COMMAND_PASSWORD=postgres
           liquibase update
 
-      - name: Run Liquibase on API test DB
-        run: |
-          export LIQUIBASE_CLASSPATH="liquibase"
-          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
-          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/MobilityDatabase
-          export LIQUIBASE_COMMAND_USERNAME=postgres
-          export LIQUIBASE_COMMAND_PASSWORD=postgres
-          export LIQUIBASE_LOG_LEVEL=FINE
-
-          liquibase update
+#      - name: Run Liquibase on API test DB
+#        run: |
+#          export LIQUIBASE_CLASSPATH="liquibase"
+#          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+#          export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/MobilityDatabase
+#          export LIQUIBASE_COMMAND_USERNAME=postgres
+#          export LIQUIBASE_COMMAND_PASSWORD=postgres
+#          export LIQUIBASE_LOG_LEVEL=FINE
+#
+#          liquibase update
 
       - name: Generate DB code
         run: |
+          export USE_TEST_DB=true
           scripts/db-gen.sh
 
       - name: Generate API code

@@ -36,15 +36,15 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}Test
+      - POSTGRES_DB=${POSTGRES_TEST_DB}
       - POSTGRES_PORT=${POSTGRES_PORT}
       - PGUSER=${PGUSER}
     volumes:
       - ./data-test:/var/lib/postgresql/data
     expose:
-      - ${POSTGRES_PORT}0
+      - ${POSTGRES_TEST_PORT}
     ports:
-      - ${POSTGRES_PORT}0:${POSTGRES_PORT}
+      - ${POSTGRES_TEST_PORT}:${POSTGRES_PORT}
     networks:
       - local      
   liquibase:
@@ -73,7 +73,7 @@ services:
     volumes:
       - ./liquibase:/liquibase/changelog
     command:
-      - --url=jdbc:postgresql://postgres-test:${POSTGRES_PORT}/${POSTGRES_DB}Test
+      - --url=jdbc:postgresql://postgres-test:${POSTGRES_PORT}/${POSTGRES_TEST_DB}
       - --changeLogFile=changelog.xml
       - --searchpath=changelog
       - --username=${POSTGRES_USER}
@@ -85,17 +85,17 @@ services:
         condition: service_healthy
     networks:
       - local      
-  schemaspy:
-    image: andrewjones/schemaspy-postgres:latest
-    container_name: schema_generation
-    command: [ "-db", "${POSTGRES_DB}", "-host", "postgres", "-port", "${POSTGRES_PORT}", "-s", "public", "-u", "${POSTGRES_USER}", "-p", "${POSTGRES_PASSWORD}" ]
-    volumes:
-      - ./docs/${SCHEMA_SPY_DOC}:/output
-    depends_on:
-      liquibase:
-       condition: service_completed_successfully
-    networks:
-      - local
+#  schemaspy:
+#    image: andrewjones/schemaspy-postgres:latest
+#    container_name: schema_generation
+#    command: [ "-db", "${POSTGRES_DB}", "-host", "postgres", "-port", "${POSTGRES_PORT}", "-s", "public", "-u", "${POSTGRES_USER}", "-p", "${POSTGRES_PASSWORD}" ]
+#    volumes:
+#      - ./docs/${SCHEMA_SPY_DOC}:/output
+#    depends_on:
+#      liquibase:
+#       condition: service_completed_successfully
+#    networks:
+#      - local
 networks:
   local:
     driver: bridge

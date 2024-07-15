@@ -10,6 +10,8 @@
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 
+echo "USE_TEST_DB = $USE_TEST_DB"
+
 # Default filename for OUT_FILE
 DEFAULT_FILENAME="api/src/database_gen/sqlacodegen_models.py"
 # Use the first argument as the filename for OUT_FILE; if not provided, use the default filename
@@ -19,6 +21,7 @@ COPY_TO_PATH=$SCRIPT_PATH/../functions-python/database_gen/
 
 ENV_PATH=$SCRIPT_PATH/../config/.env.local
 source "$ENV_PATH"
+
 rm -rf "$SCRIPT_PATH/../api/src/database_gen/"
 mkdir "$SCRIPT_PATH/../api/src/database_gen/"
 pip3 install -r "${SCRIPT_PATH}/../api/requirements.txt" > /dev/null
@@ -29,9 +32,16 @@ then
   rm ${SCRIPT_PATH}/sqlacodegen.log
 fi
 
+PORT=$POSTGRES_PORT
+DB=$POSTGRES_DB
+if [ "$USE_TEST_DB" = true ]; then
+    PORT=$POSTGRES_TEST_PORT
+    DB=$POSTGRES_TEST_DB
+fi
+
 echo "Generating SQLAlchemy models using sqlacodegen..."
 # Running sqlacodegen and capturing errors and warnings in the sqlacodegen.log file
-sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?options=-csearch_path%3Dpublic" --outfile "${OUT_FILE}" --options use_inflect &> ${SCRIPT_PATH}/sqlacodegen.log
+sqlacodegen "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${PORT}/${DB}?options=-csearch_path%3Dpublic" --outfile "${OUT_FILE}" --options use_inflect &> ${SCRIPT_PATH}/sqlacodegen.log
 sqlacodegen_error=($?)
 echo "Completed SQLAlchemy models generation"
 
