@@ -420,6 +420,10 @@ components:
               $ref: "#/components/schemas/Locations"
 
     SearchFeedItemResult:
+    # The following schema is used to represent the search results for feeds.
+    # The schema is a union of all the possible types(BasicFeed, GtfsFeed and GtfsRTFeed) of feeds that can be returned.
+    # This union is not based on its original types due to the limitations of openapi-generator.
+    # For the same reason it's not defined as anyOf, but as a single object with all the possible properties.
       type: object
       required:
         - id
