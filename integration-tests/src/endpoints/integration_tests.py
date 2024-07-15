@@ -87,7 +87,6 @@ class IntegrationTests:
 
     def _test_filter_by_provider(self, provider, endpoint, task_id, index):
         """Helper function for filtering the response by provider."""
-        provider = provider.strip()
         response = self.get_response(endpoint, params={"provider": provider})
         assert response.status_code == 200, (
             f"Expected 200 status code for provider filter '{provider}', got "
