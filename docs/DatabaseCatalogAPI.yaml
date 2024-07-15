@@ -296,12 +296,7 @@ paths:
                   results:
                     type: array
                     items:
-                    # The items should be anyOf but allOf is not fully supported by openapi-generator for fastAPI server code generation.
-                      allOf:
-                        - $ref: "#/components/schemas/BasicFeed"
-                        - $ref: "#/components/schemas/GtfsFeed"
-                        - $ref: "#/components/schemas/GtfsRTFeed"
-               
+                      $ref: "#/components/schemas/SearchFeedItemResult"
 
 components:
   schemas:
@@ -352,7 +347,6 @@ components:
           example: deprecated
 #           Have to put the enum inline because of a bug in openapi-generator
 #          $ref: "#/components/schemas/FeedStatus"
-
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
         provider:
@@ -419,6 +413,94 @@ components:
                 example: "mdb-20"
             locations:
               $ref: "#/components/schemas/Locations"
+
+    SearchFeedItemResult:
+      type: object
+      required:
+        - id
+        - data_type
+        - status
+      properties:
+        id:
+          description: Unique identifier used as a key for the feeds table.
+          type: string
+          example: mdb-1210
+        data_type:
+          type: string
+          enum:
+            - gtfs
+            - gtfs_rt
+          example: gtfs
+#    Have to put the enum inline because of a bug in openapi-generator
+#          $ref: "#/components/schemas/DataType"
+        status:
+          description: >
+            Describes status of the Feed. Should be one of
+              * `active` Feed should be used in public trip planners.
+              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+              * `development` Feed is being used for development purposes and should not be used in public trip planners.
+          type: string
+          enum:
+            - active
+            - deprecated
+            - inactive
+            - development
+          example: deprecated
+#           Have to put the enum inline because of a bug in openapi-generator
+#          $ref: "#/components/schemas/FeedStatus"
+        external_ids:
+          $ref: "#/components/schemas/ExternalIds"
+        provider:
+          description: A commonly used name for the transit provider included in the feed.
+          type: string
+          example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
+        feed_name:
+          description: >
+            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+            multiple providers, or which network is represented by the feed.
+          type: string
+          example: Bus
+        note:
+         description: A note to clarify complex use cases for consumers.
+         type: string
+        feed_contact_email:
+          description: Use to contact the feed producer.
+          type: string
+          example: someEmail@ladotbus.com
+        source_info:
+          $ref: "#/components/schemas/SourceInfo"
+        redirects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Redirect"
+        locations:
+          $ref: "#/components/schemas/Locations"
+        latest_dataset:
+          $ref: "#/components/schemas/LatestDataset"
+        entity_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - vp
+              - tu
+              - sa
+            example: vp
+            description: >
+              The type of realtime entry:
+                * vp - vehicle positions
+                * tu - trip updates
+                * sa - service alerts
+#              Have to put the enum inline because of a bug in openapi-generator
+#              $ref: "#/components/schemas/EntityTypes"
+        feed_references:
+          description:
+            A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+          type: array
+          items:
+            type: string
+            example: "mdb-20"
 
     BasicFeeds:
       type: array

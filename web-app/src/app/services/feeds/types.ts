@@ -168,6 +168,55 @@ export interface components {
         feed_references?: string[];
         locations?: components['schemas']['Locations'];
       };
+    SearchFeedItemResult: {
+      /**
+       * @description Unique identifier used as a key for the feeds table.
+       * @example mdb-1210
+       */
+      id: string;
+      /**
+       * @example gtfs
+       * @enum {string}
+       */
+      data_type: 'gtfs' | 'gtfs_rt';
+      /**
+       * @description Describes status of the Feed. Should be one of
+       *   * `active` Feed should be used in public trip planners.
+       *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+       *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+       *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
+       *
+       * @example deprecated
+       * @enum {string}
+       */
+      status: 'active' | 'deprecated' | 'inactive' | 'development';
+      external_ids?: components['schemas']['ExternalIds'];
+      /**
+       * @description A commonly used name for the transit provider included in the feed.
+       * @example Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
+       */
+      provider?: string;
+      /**
+       * @description An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
+       *
+       * @example Bus
+       */
+      feed_name?: string;
+      /** @description A note to clarify complex use cases for consumers. */
+      note?: string;
+      /**
+       * @description Use to contact the feed producer.
+       * @example someEmail@ladotbus.com
+       */
+      feed_contact_email?: string;
+      source_info?: components['schemas']['SourceInfo'];
+      redirects?: Array<components['schemas']['Redirect']>;
+      locations?: components['schemas']['Locations'];
+      latest_dataset?: components['schemas']['LatestDataset'];
+      entity_types?: Array<'vp' | 'tu' | 'sa'>;
+      /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
+      feed_references?: string[];
+    };
     BasicFeeds: Array<components['schemas']['BasicFeed']>;
     GtfsFeeds: Array<components['schemas']['GtfsFeed']>;
     GtfsRTFeeds: Array<components['schemas']['GtfsRTFeed']>;
@@ -688,13 +737,7 @@ export interface operations {
           'application/json': {
             /** @description The total number of matching entities found regardless the limit and offset parameters. */
             total?: number;
-            results?: Array<
-              {
-                data_type: 'json';
-              } & Omit<components['schemas']['BasicFeed'], 'data_type'> &
-                components['schemas']['GtfsFeed'] &
-                components['schemas']['GtfsRTFeed']
-            >;
+            results?: Array<components['schemas']['SearchFeedItemResult']>;
           };
         };
       };
