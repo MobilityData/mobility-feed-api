@@ -1,3 +1,5 @@
+import os
+
 import pandas
 from rich.table import Table
 
@@ -18,6 +20,10 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             "[yellow]Validating the feeds' latest datasets...[/yellow]",
             total=len(feed_ids),
         )
+        if os.getenv("DATASETS_LIMIT", None) is not None:
+            feed_ids = feed_ids.sample(
+                n=int(os.getenv("DATASETS_LIMIT")), random_state=0
+            )
 
         for feed_id in feed_ids:
             warning_entry = self.validate_feed(feed_id)

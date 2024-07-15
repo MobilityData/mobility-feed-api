@@ -63,6 +63,11 @@ fi
 
 export ACCESS_TOKEN
 
+# Check if DATASETS_LIMIT is set as an environment variable and use it if provided
+if [ -n "${DATASETS_LIMIT}" ]; then
+    export DATASETS_LIMIT
+fi
+
 SCRIPT_PATH=$(realpath "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
 PARENT_DIR=$(dirname "$SCRIPT_DIR")

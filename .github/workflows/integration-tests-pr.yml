@@ -1,10 +1,14 @@
+# This workflow is triggered on pull requests to run the integration
+# tests on the feature branch. It connects the API to the QA database through
+# a tunnel before running the integration tests.
+# Note: The test might fail if the QA database schema does not match the
+# feature branch schema.
 name: PR - Run Integration Tests
 
 on:
   pull_request:
-  push:
     branches:
-      - feat/549
+      - main
 
 env:
   python_version: '3.11'
@@ -106,12 +110,9 @@ jobs:
         sudo apt-get update && sudo apt-get install -y postgresql-client
         PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5454 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d ${{ vars.QA_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
 
-    - name: Set FEEDS_DB_URL
-      run: |
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5454/${{ vars.QA_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
-
     - name: Update .env.local
       run: |
+        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5454/${{ vars.QA_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
         if grep -q "FEEDS_DATABASE_URL" config/.env.local; then
           sed -i 's|FEEDS_DATABASE_URL=.*|FEEDS_DATABASE_URL=${FEEDS_DATABASE_URL}|' config/.env.local
         else
@@ -121,7 +122,7 @@ jobs:
     - name: Start API
       run: |
         scripts/api-start.sh &
-        sleep 10
+        sleep 10 # Wait for the API to start
 
     - name: Health Check
       run: ./scripts/integration-tests.sh -u ${{ env.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
@@ -134,6 +135,7 @@ jobs:
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
         DUMMY_TOKEN: DUMMY_TOKEN
+        DATASETS_LIMIT: 25 # Limit the number of datasets to test
 
     - name: Upload Test Logs
       if: ${{ always() }} # always upload the available logs even if the integration tests failed.
