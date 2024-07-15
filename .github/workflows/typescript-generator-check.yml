@@ -40,9 +40,10 @@ jobs:
         run: yarn install --frozen-lockfile --prefer-offline
 
       - name: Generate TypeScript types
+        working-directory: web-app
         run: yarn generate:api-types:output
         env:
-          OUTPUT_PATH_TYPES: generated/types.ts
+          OUTPUT_PATH_TYPES: ../generated/types.ts
 
       - name: Compare TypeScript types with existing types
         run: diff -q generated/types.ts web-app/src/app/services/feeds/types.ts || (echo "Types are different!" && exit 1)
