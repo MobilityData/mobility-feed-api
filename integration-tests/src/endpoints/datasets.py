@@ -25,7 +25,9 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
         datasets_limit = os.getenv("DATASETS_LIMIT", None)
         if datasets_limit is not None:
             datasets_limit = int(datasets_limit)
-            feed_ids = pd.Series(feed_ids).sample(n=datasets_limit, random_state=0).values
+            feed_ids = (
+                pd.Series(feed_ids).sample(n=datasets_limit, random_state=0).values
+            )
             self.console.log(
                 f"Limiting the number of datasets to {len(feed_ids)} for testing purposes"
             )
