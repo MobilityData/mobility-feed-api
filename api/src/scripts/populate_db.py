@@ -21,6 +21,8 @@ from database_gen.sqlacodegen_models import (
 from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
 from utils.logger import Logger
+from datetime import datetime
+import pytz
 
 import logging
 
@@ -219,7 +221,12 @@ class DatabasePopulateHelper:
             if feed:
                 self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
             else:
-                feed = self.get_model(data_type)(id=generate_unique_id(), data_type=data_type, stable_id=stable_id)
+                feed = self.get_model(data_type)(
+                    id=generate_unique_id(),
+                    data_type=data_type,
+                    stable_id=stable_id,
+                    created_at=datetime.now(pytz.utc),  # Current timestamp with UTC timezone
+                )
                 self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 self.db.session.add(feed)
                 if data_type == "gtfs":

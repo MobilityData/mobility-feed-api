@@ -113,7 +113,6 @@ class DatabasePopulateTestDataHelper:
         Populate the database with the test data
         """
         self.logger.info("Populating the database with test data")
-        # set_up_defaults(self.db)
         self.populate_test_datasets()
         self.logger.info("Database populated with test data")
 
