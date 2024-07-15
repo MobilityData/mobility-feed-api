@@ -98,17 +98,17 @@ jobs:
         mkdir -p ~/.ssh
         echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa             
-        ./scripts/tunnel-create.sh -project_id ${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }} -zone ${{ vars.MOBILITY_FEEDS_REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.DB_INSTANCE_NAME }}
+        ./scripts/tunnel-create.sh -project_id ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }} -zone ${{ vars.MOBILITY_FEEDS_REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.DB_INSTANCE_NAME }}
         sleep 10 # Wait for the tunnel to establish
 
-#    - name: Test Database Connection Through Tunnel
-#      run: |
-#        sudo apt-get update && sudo apt-get install -y postgresql-client
-#        PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d $${{ vars.DEV_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
+    - name: Test Database Connection Through Tunnel
+      run: |
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+        PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d $${{ vars.DEV_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
 
     - name: Set FEEDS_DB_URL
       run: |
-        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.DEV_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
+        echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5432/${{ vars.QA_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
 
     - name: Update .env.local
       run: |
