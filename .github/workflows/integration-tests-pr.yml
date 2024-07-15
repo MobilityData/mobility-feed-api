@@ -104,7 +104,7 @@ jobs:
     - name: Test Database Connection Through Tunnel
       run: |
         sudo apt-get update && sudo apt-get install -y postgresql-client
-        PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5454 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d $${{ vars.DEV_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
+        PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5454 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d ${{ vars.QA_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
 
     - name: Set FEEDS_DB_URL
       run: |
