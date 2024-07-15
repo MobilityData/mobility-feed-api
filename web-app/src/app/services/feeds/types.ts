@@ -132,6 +132,12 @@ export interface components {
        * @enum {string}
        */
       status?: 'active' | 'deprecated' | 'inactive' | 'development';
+      /**
+       * Format: date-time
+       * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      created_at?: string;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
@@ -190,6 +196,12 @@ export interface components {
        * @enum {string}
        */
       status: 'active' | 'deprecated' | 'inactive' | 'development';
+      /**
+       * Format: date-time
+       * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      created_at?: string;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
