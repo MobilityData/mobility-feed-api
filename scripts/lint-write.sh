@@ -13,7 +13,7 @@ execute_lint() {
     printf "\nExecuting lint write in $1\n" 
     cd $ABS_SCRIPTPATH/$1 || exit 1
     pip3 install --disable-pip-version-check virtualenv > /dev/null
-    python -m virtualenv venv > /dev/null
+    python3 -m virtualenv venv > /dev/null
     venv/bin/python -m pip install -r requirements_dev.txt > /dev/null
     venv/bin/python -m flake8 && venv/bin/python -m black .
     if [ $? -ne 0 ]; then
