@@ -85,17 +85,17 @@ services:
         condition: service_healthy
     networks:
       - local      
-#  schemaspy:
-#    image: andrewjones/schemaspy-postgres:latest
-#    container_name: schema_generation
-#    command: [ "-db", "${POSTGRES_DB}", "-host", "postgres", "-port", "${POSTGRES_PORT}", "-s", "public", "-u", "${POSTGRES_USER}", "-p", "${POSTGRES_PASSWORD}" ]
-#    volumes:
-#      - ./docs/${SCHEMA_SPY_DOC}:/output
-#    depends_on:
-#      liquibase:
-#       condition: service_completed_successfully
-#    networks:
-#      - local
+  schemaspy:
+    image: andrewjones/schemaspy-postgres:latest
+    container_name: schema_generation
+    command: [ "-db", "${POSTGRES_DB}", "-host", "postgres", "-port", "${POSTGRES_PORT}", "-s", "public", "-u", "${POSTGRES_USER}", "-p", "${POSTGRES_PASSWORD}" ]
+    volumes:
+      - ./docs/${SCHEMA_SPY_DOC}:/output
+    depends_on:
+      liquibase:
+       condition: service_completed_successfully
+    networks:
+      - local
 networks:
   local:
     driver: bridge
