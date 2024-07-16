@@ -9,6 +9,11 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - "web-app/**"
+      - "functions/**"
+      - ".github/workflows/web-*.yml"
 
 env:
   python_version: '3.11'
