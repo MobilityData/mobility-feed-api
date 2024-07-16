@@ -10,8 +10,6 @@
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 
-echo "USE_TEST_DB = $USE_TEST_DB"
-
 # Default filename for OUT_FILE
 DEFAULT_FILENAME="api/src/database_gen/sqlacodegen_models.py"
 # Use the first argument as the filename for OUT_FILE; if not provided, use the default filename
