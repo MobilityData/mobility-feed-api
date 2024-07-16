@@ -8,9 +8,6 @@ on:
       - "functions/**"
       - ".github/workflows/web-*.yml"
   workflow_call:
-  push:
-    branches:
-      - 551-tests-should-be-using-the-test-database
 
 env:
   python_version: '3.11'
