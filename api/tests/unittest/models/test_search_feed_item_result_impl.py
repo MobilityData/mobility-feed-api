@@ -3,7 +3,7 @@ import unittest
 import copy
 from faker import Faker
 
-from feeds.impl.models.search_feeds200_response_results_inner_impl import SearchFeeds200ResponseResultsInnerImpl
+from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.source_info import SourceInfo
 
@@ -50,9 +50,9 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
     def test_from_orm_gtfs(self):
         item = copy.deepcopy(search_item)
         item.data_type = "gtfs"
-        result = SearchFeeds200ResponseResultsInnerImpl.from_orm_gtfs(item)
+        result = SearchFeedItemResultImpl.from_orm_gtfs(item)
         assert result.data_type == "gtfs"
-        expected = SearchFeeds200ResponseResultsInnerImpl(
+        expected = SearchFeedItemResultImpl(
             id=item.feed_stable_id,
             data_type=item.data_type,
             status=item.status,
@@ -82,9 +82,9 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
     def test_from_orm_gtfs_rt(self):
         item = copy.deepcopy(search_item)
         item.data_type = "gtfs_rt"
-        result = SearchFeeds200ResponseResultsInnerImpl.from_orm_gtfs_rt(item)
+        result = SearchFeedItemResultImpl.from_orm_gtfs_rt(item)
         assert result.data_type == "gtfs_rt"
-        expected = SearchFeeds200ResponseResultsInnerImpl(
+        expected = SearchFeedItemResultImpl(
             id=item.feed_stable_id,
             data_type=item.data_type,
             status=item.status,
@@ -110,17 +110,17 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
     def test_from_orm(self):
         item = copy.deepcopy(search_item)
         item.data_type = "gtfs"
-        result = SearchFeeds200ResponseResultsInnerImpl.from_orm(item)
+        result = SearchFeedItemResultImpl.from_orm(item)
         assert result.data_type == "gtfs"
 
         item = copy.deepcopy(search_item)
         item.data_type = "gtfs_rt"
-        result = SearchFeeds200ResponseResultsInnerImpl.from_orm(item)
+        result = SearchFeedItemResultImpl.from_orm(item)
         assert result.data_type == "gtfs_rt"
 
-        assert SearchFeeds200ResponseResultsInnerImpl.from_orm(None) is None
+        assert SearchFeedItemResultImpl.from_orm(None) is None
 
         with pytest.raises(ValueError):
             item = copy.deepcopy(search_item)
             item.data_type = "unknown"
-            SearchFeeds200ResponseResultsInnerImpl.from_orm(item)
+            SearchFeedItemResultImpl.from_orm(item)

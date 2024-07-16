@@ -52,6 +52,15 @@ export interface paths {
       };
     };
   };
+  '/v1/gtfs_feeds/{id}/gtfs_rt_feeds': {
+    /** @description Get a list of GTFS Realtime related to a GTFS feed. */
+    get: operations['getGtfsFeedGtfsRtFeeds'];
+    parameters: {
+      path: {
+        id: components['parameters']['feed_id_path_param'];
+      };
+    };
+  };
   '/v1/datasets/gtfs/{id}': {
     /** @description Get the specified dataset from the Mobility Database. */
     get: operations['getDatasetGtfs'];
@@ -123,6 +132,12 @@ export interface components {
        * @enum {string}
        */
       status?: 'active' | 'deprecated' | 'inactive' | 'development';
+      /**
+       * Format: date-time
+       * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      created_at?: string;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
@@ -147,22 +162,73 @@ export interface components {
     };
     GtfsFeed: {
       data_type: 'gtfs';
-    } & components['schemas']['BasicFeed'] & {
-        data_type: 'gtfs';
+    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
         locations?: components['schemas']['Locations'];
-      } & {
-        data_type: 'gtfs';
         latest_dataset?: components['schemas']['LatestDataset'];
       };
     GtfsRTFeed: {
       data_type: 'gtfs_rt';
-    } & components['schemas']['BasicFeed'] & {
-        data_type: 'gtfs_rt';
+    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
         entity_types?: Array<'vp' | 'tu' | 'sa'>;
         /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
         feed_references?: string[];
         locations?: components['schemas']['Locations'];
       };
+    SearchFeedItemResult: {
+      /**
+       * @description Unique identifier used as a key for the feeds table.
+       * @example mdb-1210
+       */
+      id: string;
+      /**
+       * @example gtfs
+       * @enum {string}
+       */
+      data_type: 'gtfs' | 'gtfs_rt';
+      /**
+       * @description Describes status of the Feed. Should be one of
+       *   * `active` Feed should be used in public trip planners.
+       *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+       *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+       *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
+       *
+       * @example deprecated
+       * @enum {string}
+       */
+      status: 'active' | 'deprecated' | 'inactive' | 'development';
+      /**
+       * Format: date-time
+       * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      created_at?: string;
+      external_ids?: components['schemas']['ExternalIds'];
+      /**
+       * @description A commonly used name for the transit provider included in the feed.
+       * @example Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
+       */
+      provider?: string;
+      /**
+       * @description An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
+       *
+       * @example Bus
+       */
+      feed_name?: string;
+      /** @description A note to clarify complex use cases for consumers. */
+      note?: string;
+      /**
+       * @description Use to contact the feed producer.
+       * @example someEmail@ladotbus.com
+       */
+      feed_contact_email?: string;
+      source_info?: components['schemas']['SourceInfo'];
+      redirects?: Array<components['schemas']['Redirect']>;
+      locations?: components['schemas']['Locations'];
+      latest_dataset?: components['schemas']['LatestDataset'];
+      entity_types?: Array<'vp' | 'tu' | 'sa'>;
+      /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
+      feed_references?: string[];
+    };
     BasicFeeds: Array<components['schemas']['BasicFeed']>;
     GtfsFeeds: Array<components['schemas']['GtfsFeed']>;
     GtfsRTFeeds: Array<components['schemas']['GtfsRTFeed']>;
@@ -602,6 +668,22 @@ export interface operations {
       };
     };
   };
+  /** @description Get a list of GTFS Realtime related to a GTFS feed. */
+  getGtfsFeedGtfsRtFeeds: {
+    parameters: {
+      path: {
+        id: components['parameters']['feed_id_path_param'];
+      };
+    };
+    responses: {
+      /** @description Successful pull of the GTFS Realtime feeds info related to a GTFS feed. */
+      200: {
+        content: {
+          'application/json': components['schemas']['GtfsRTFeeds'];
+        };
+      };
+    };
+  };
   /** @description Get the specified dataset from the Mobility Database. */
   getDatasetGtfs: {
     parameters: {
@@ -667,10 +749,7 @@ export interface operations {
           'application/json': {
             /** @description The total number of matching entities found regardless the limit and offset parameters. */
             total?: number;
-            results?: Array<
-              | components['schemas']['GtfsFeed']
-              | components['schemas']['GtfsRTFeed']
-            >;
+            results?: Array<components['schemas']['SearchFeedItemResult']>;
           };
         };
       };
