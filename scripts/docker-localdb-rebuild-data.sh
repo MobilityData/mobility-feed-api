@@ -25,7 +25,9 @@
 # Dependencies:
 #      docker, docker-compose, wget
 
-container_name="database"
+#ENV_PATH=$SCRIPT_PATH/../config/.env.local
+#source "$ENV_PATH"
+
 target_csv_file="catalogs.csv"
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
@@ -35,14 +37,16 @@ display_usage() {
   printf "\nScript Usage:\n"
   echo "Usage: $0 [options]"
   echo "Options:"
-  echo "  --populate-db <TEST_FILE>   Populate the database with the latest csv file."
-  echo "  --populate-test-data  Populate the database with the test data."
+  echo "  --populate-db <TEST_FILE> Populate the database with the latest csv file."
+  echo "  --populate-test-data      Populate the database with the test data."
+  echo "  --use-test-db             Populate the test database."
   echo "  --help                    Display help content."
   exit 1
 }
 
 POPULATE_DB=false
 POPULATE_TEST_DATA=false
+USE_TEST_DB=false
 while [[ $# -gt 0 ]]; do
   key="$1"
 
@@ -58,25 +62,38 @@ while [[ $# -gt 0 ]]; do
     POPULATE_TEST_DATA=true
     shift # past argument
     ;;
+  --use-test-db)
+    export USE_TEST_DB=true
+    shift # past argument
+    ;;
   *)      # unknown option
     shift # past argument
     ;;
   esac
 done
 
+container_name="database"
+docker_service="liquibase"
+data_dir="$SCRIPT_PATH/../data"
+
+if [ "$USE_TEST_DB" = true ]; then
+    container_name="database_test"
+    docker_service="liquibase-test"
+    data_dir="$SCRIPT_PATH/../data-test"
+fi
 
 # Stop and remove the container
 docker stop $container_name
 docker rm $container_name
 
 # delete the data
-rm -rf $SCRIPT_PATH/../data
+rm -rf $data_dir
 
 # Add a slight delay because sometimes Docker does not seem ready after the rm.
 sleep 5
 
 # Start the container and run the liquibase
-docker-compose -f $SCRIPT_PATH/../docker-compose.yaml up -d liquibase
+docker-compose --env-file $SCRIPT_PATH/../config/.env.local -f $SCRIPT_PATH/../docker-compose.yaml up -d $docker_service
 # wait for the liquibase to finish
 sleep 20
 
