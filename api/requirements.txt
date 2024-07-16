@@ -32,7 +32,7 @@ six==1.16.0
 starlette==0.36.3
 typing-extensions==4.8.0
 ujson==5.4.0
-urllib3==1.26.18
+urllib3==1.26.19
 uvicorn==0.15.0
 uvloop==0.17.0
 watchgod==0.7
