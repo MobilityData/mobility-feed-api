@@ -42,21 +42,31 @@ if [ -z "${FILE_PATH}" ]; then
     print_help
 fi
 
-# Check if REFRESH_TOKEN is set as an environment variable
-if [ -z "${REFRESH_TOKEN}" ]; then
-    echo "Error: REFRESH_TOKEN environment variable is not set."
-    echo "Please ensure the REFRESH_TOKEN is set as an environment variable."
-    exit 1
-fi
+# Check if DUMMY_TOKEN is set as an environment variable and use it if provided
+if [ -n "${DUMMY_TOKEN}" ]; then
+    ACCESS_TOKEN=${DUMMY_TOKEN}
+else
+    # Check if REFRESH_TOKEN is set as an environment variable
+    if [ -z "${REFRESH_TOKEN}" ]; then
+        echo "Error: REFRESH_TOKEN environment variable is not set."
+        echo "Please ensure the REFRESH_TOKEN is set as an environment variable."
+        exit 1
+    fi
 
-# Get the access token
-ACCESS_TOKEN=$(curl -X POST -H "Content-Type: application/json" -d "{\"refresh_token\": \"${REFRESH_TOKEN}\"}" "${URL}/v1/tokens" | jq -r '.access_token')
-if [ -z "${ACCESS_TOKEN}" ] || [ "${ACCESS_TOKEN}" == "null" ]; then
-    echo "Failed to obtain access token."
-    exit 1
+    # Get the access token
+    ACCESS_TOKEN=$(curl -X POST -H "Content-Type: application/json" -d "{\"refresh_token\": \"${REFRESH_TOKEN}\"}" "${URL}/v1/tokens" | jq -r '.access_token')
+    if [ -z "${ACCESS_TOKEN}" ] || [ "${ACCESS_TOKEN}" == "null" ]; then
+        echo "Failed to obtain access token."
+        exit 1
+    fi
 fi
 
 export ACCESS_TOKEN
+
+# Check if DATASETS_LIMIT is set as an environment variable and use it if provided
+if [ -n "${DATASETS_LIMIT}" ]; then
+    export DATASETS_LIMIT
+fi
 
 SCRIPT_PATH=$(realpath "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
