@@ -3,7 +3,7 @@ from sqlalchemy.orm import Query
 
 from database.database import Database
 from database_gen.sqlacodegen_models import t_feedsearch
-from feeds.impl.models.search_feeds200_response_results_inner_impl import SearchFeeds200ResponseResultsInnerImpl
+from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
 
@@ -92,7 +92,7 @@ class SearchApiImpl(BaseSearchApi):
                 total=0,
             )
 
-        results = list(map(lambda feed: SearchFeeds200ResponseResultsInnerImpl.from_orm(feed), feed_rows))
+        results = list(map(lambda feed: SearchFeedItemResultImpl.from_orm(feed), feed_rows))
         return SearchFeeds200Response(
             results=results,
             total=feed_total_count[0][0] if feed_total_count and feed_total_count[0] else 0,
