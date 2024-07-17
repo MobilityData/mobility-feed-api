@@ -1,4 +1,5 @@
 # coding: utf-8
+
 from fastapi.testclient import TestClient
 from datetime import timedelta
 
@@ -527,6 +528,7 @@ def test_filter_by_wrong_location(client):
     """Test filter by wrong location"""
 
     params = {"country_code": "US", "municipality": "Barrie"}
+
     response = client.request(
         "GET",
         "/v1/gtfs_feeds",
@@ -545,6 +547,7 @@ def test_filter_by_subdivision_and_municipality(client):
     """Test filter by location"""
 
     params = {"subdivision_name": "British Columbia", "municipality": "Whistler"}
+
     response = client.request(
         "GET",
         "/v1/gtfs_feeds",
@@ -560,19 +563,3 @@ def test_filter_by_subdivision_and_municipality(client):
         len(feeds) == 1
     ), f"Expected 1 feed for subdivision_name British Columbia and municipality Whistler, got {len(feeds)}."
     assert any(feed["id"] == "mdb-702" for feed in feeds)
-
-
-# def test_gtfs_feeds_get_no_bounding_box(client: TestClient, mocker):
-#     """
-#     Testing for issue #431 where latest_dataset would be None if bounding_box was None.
-#     """
-#
-#
-#     response = client.request(
-#         "GET",
-#         "/v1/gtfs_feeds/{id}".format(id="mdb-10"),
-#         headers=authHeaders,
-#     )
-#
-#     response_gtfs_feed = response.json()
-#     assert response_gtfs_feed["latest_dataset"] is not None, "Response feed latest dataset was None"

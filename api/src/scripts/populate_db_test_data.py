@@ -31,18 +31,18 @@ class DatabasePopulateTestDataHelper:
     the database with test data
     """
 
-    def __init__(self, filepath):
+    def __init__(self, filepaths):
         self.logger = Logger(self.__class__.__module__).get_logger()
         self.db = Database()
 
-        self.filepath = filepath
+        self.filepaths = filepaths
 
-    def populate_test_datasets(self):
+    def populate_test_datasets(self, filepath):
         """
         Populate the database with the test datasets
         """
         # Load the JSON file
-        with open(self.filepath) as f:
+        with open(filepath) as f:
             data = json.load(f)
 
         # GTFS Datasets
@@ -62,7 +62,9 @@ class DatabasePopulateTestDataHelper:
                 hosted_url=dataset["hosted_url"],
                 hash=dataset["hash"],
                 downloaded_at=dataset["downloaded_at"],
-                bounding_box=WKTElement(dataset["bounding_box"], srid=4326),
+                bounding_box=None
+                if dataset.get("bounding_box") is None
+                else WKTElement(dataset["bounding_box"], srid=4326),
                 validation_reports=[],
             )
             dataset_dict[dataset["id"]] = gtfs_dataset
@@ -113,7 +115,16 @@ class DatabasePopulateTestDataHelper:
         Populate the database with the test data
         """
         self.logger.info("Populating the database with test data")
-        self.populate_test_datasets()
+
+        if not self.filepaths:
+            self.logger.error("No file paths provided")
+            return
+        if not isinstance(self.filepaths, list):
+            self.filepaths = [self.filepaths]
+        # set_up_defaults(self.db)
+        for filepath in self.filepaths:
+            self.populate_test_datasets(filepath)
+
         self.logger.info("Database populated with test data")
 
 

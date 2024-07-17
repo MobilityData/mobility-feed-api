@@ -15,19 +15,16 @@ def app() -> FastAPI:
     return application
 
 
-# @pytest.fixture(scope="session")
-# def current_test_directory():
-#     return None
-
-
 @pytest.fixture(scope="module")
 def test_database():
+
     # Restrict the tests to the test database
     os.environ["FEEDS_DATABASE_URL"] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
 
     current_path = os.path.dirname(os.path.abspath(__file__))
 
     data_dirs = [current_path + "/../test_data"]
+
     with populate_database(Database(), data_dirs) as db:
         yield db
 

@@ -14,7 +14,7 @@ from scripts.populate_db_test_data import DatabasePopulateTestDataHelper
 import os
 
 TEST_GTFS_FEED_STABLE_IDS = ["mdb-1", "mdb-10", "mdb-20", "mdb-30"]
-TEST_DATASET_STABLE_IDS = ["mdb-2", "mdb-3", "mdb-11", "mdb-12"]
+TEST_DATASET_STABLE_IDS = ["dataset-1", "dataset-2", "dataset-3", "dataset-4"]
 TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
 
 date_string: Final[str] = "2024-01-31 00:00:00"
@@ -39,6 +39,7 @@ def populate_database(db: Database, data_dirs: str):
             clean_testing_db(db)
 
         # Make a list of all the sources_test.csv in test_data and keep only if the file exists
+
         csv_filepaths = [
             filepath
             for dir in data_dirs
@@ -55,7 +56,9 @@ def populate_database(db: Database, data_dirs: str):
         # Make a list of all the sources_test.csv in test_data and keep only if the file exists
         json_filepaths = []
         for dir in data_dirs:
+
             if (filepath := os.path.join(dir, "extra_test_data.json")) and os.path.isfile(filepath):
+
                 json_filepaths.append(filepath)
 
         if len(json_filepaths) == 0:

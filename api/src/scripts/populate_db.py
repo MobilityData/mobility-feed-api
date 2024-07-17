@@ -60,7 +60,8 @@ class DatabasePopulateHelper:
             filepaths = [filepaths]
 
         for filepath in filepaths:
-            self.df = pandas.concat([self.df, pandas.read_csv(filepath, low_memory=False)])
+            new_df = pandas.read_csv(filepath, low_memory=False)
+            self.df = pandas.concat([self.df, new_df])
 
         # Filter unsupported data types
         self.df = self.df[(self.df.data_type == "gtfs") | (self.df.data_type == "gtfs-rt")]
