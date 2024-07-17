@@ -1,4 +1,6 @@
-import pandas
+import os
+
+import pandas as pd
 from rich.table import Table
 
 from endpoints.integration_tests import IntegrationTests, DatasetValidationWarning
@@ -19,6 +21,18 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             total=len(feed_ids),
         )
 
+        # Apply dataset limit if set
+        datasets_limit = os.getenv("DATASETS_LIMIT", None)
+        if datasets_limit is not None:
+            datasets_limit = int(datasets_limit)
+            feed_ids = (
+                pd.Series(feed_ids).sample(n=datasets_limit, random_state=0).values
+            )
+            self.console.log(
+                f"Limiting the number of datasets to {len(feed_ids)} for testing purposes"
+            )
+            self.console.log(f"Selected feeds: {feed_ids}")
+
         for feed_id in feed_ids:
             warning_entry = self.validate_feed(feed_id)
             if warning_entry is not None:
@@ -36,7 +50,7 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
             self.progress.update(task, advance=1)
 
         if warnings:
-            # If there were warning, log them as before
+            # If there were warnings, log them as before
             self._log_warnings(warnings)
 
     def validate_feed(self, feed_id):
@@ -120,7 +134,7 @@ class GTFSDatasetsEndpointTests(IntegrationTests):
                 warning["Warning Details"],
             )
         self.console.print(table)
-        pandas.DataFrame(warnings).to_csv("datasets_validation.csv")
+        pd.DataFrame(warnings).to_csv("datasets_validation.csv")
         self.console.log(
             'Datasets validation report saved to "datasets_validation.csv"'
         )
