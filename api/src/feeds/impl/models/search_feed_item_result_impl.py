@@ -1,10 +1,10 @@
 from feeds_gen.models.latest_dataset import LatestDataset
-from feeds_gen.models.search_feeds200_response_results_inner import SearchFeeds200ResponseResultsInner
+from feeds_gen.models.search_feed_item_result import SearchFeedItemResult
 from feeds_gen.models.source_info import SourceInfo
 
 
-class SearchFeeds200ResponseResultsInnerImpl(SearchFeeds200ResponseResultsInner):
-    """Implementation of the `SearchFeeds200ResponseResultsInner` model.
+class SearchFeedItemResultImpl(SearchFeedItemResult):
+    """Implementation of the `SearchFeedItemResult` model.
     This class converts a SQLAlchemy row object to a Pydantic model instance taking in consideration the data type.
     """
 
