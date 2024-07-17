@@ -1,9 +1,3 @@
-# @pytest.fixture(scope="session")
-# def current_test_directory():
-#     current_dir = os.path.dirname(os.path.abspath(__file__))
-#     return current_dir
-
-
 import os
 
 import pytest
@@ -19,11 +13,6 @@ from tests.test_utils.database import populate_database
 def app() -> FastAPI:
     application.dependency_overrides = {}
     return application
-
-
-# @pytest.fixture(scope="session")
-# def current_test_directory():
-#     return None
 
 
 @pytest.fixture(scope="module")

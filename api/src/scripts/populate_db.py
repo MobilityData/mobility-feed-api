@@ -133,6 +133,10 @@ class DatabasePopulateHelper:
                     municipality=municipality,
                 )
             )
+            # Add the new location to the session
+            self.db.session.add(location)
+            # Commit the session to insert the new location into the database
+            self.db.session.commit()
             feed.locations = [location]
 
     def process_entity_types(self, feed: Gtfsrealtimefeed, row, stable_id):
