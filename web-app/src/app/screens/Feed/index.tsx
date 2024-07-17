@@ -32,6 +32,7 @@ import {
   selectGTFSFeedData,
   selectGTFSRTFeedData,
   selectRelatedFeedsData,
+  selectRelatedGtfsRTFeedsData,
 } from '../../store/feed-selectors';
 import { loadingDataset } from '../../store/dataset-reducer';
 import {
@@ -56,6 +57,7 @@ export default function Feed(): React.ReactElement {
       ? useSelector(selectGTFSFeedData)
       : useSelector(selectGTFSRTFeedData);
   const relatedFeeds = useSelector(selectRelatedFeedsData);
+  const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
   const datasets = useSelector(selectDatasetsData);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
@@ -298,7 +300,13 @@ export default function Feed(): React.ReactElement {
                 <Grid item xs={12} container rowSpacing={2}>
                   <Grid
                     container
-                    direction={{ xs: 'column-reverse', md: 'row' }}
+                    direction={{
+                      xs:
+                        feed?.data_type === 'gtfs'
+                          ? 'column-reverse'
+                          : 'column',
+                      md: 'row',
+                    }}
                     sx={{ gap: '10px' }}
                     justifyContent={'space-between'}
                   >
@@ -329,7 +337,10 @@ export default function Feed(): React.ReactElement {
                     />
 
                     {feed?.data_type === 'gtfs_rt' && (
-                      <AssociatedFeeds feeds={relatedFeeds} />
+                      <AssociatedFeeds
+                        feeds={relatedFeeds}
+                        gtfsRtFeeds={relatedGtfsRtFeeds}
+                      />
                     )}
                   </Grid>
                 </Grid>

@@ -31,5 +31,10 @@ export const selectFeedId = (state: RootState): string => {
 };
 
 export const selectRelatedFeedsData = (state: RootState): AllFeedType[] => {
-  return state.feedProfile.relatedFeedsData;
+  return state.feedProfile.relatedFeedsData.gtfs;
+};
+export const selectRelatedGtfsRTFeedsData = (
+  state: RootState,
+): GTFSRTFeedType[] => {
+  return state.feedProfile.relatedFeedsData.gtfsRt;
 };
