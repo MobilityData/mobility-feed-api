@@ -99,7 +99,7 @@ execute_tests() {
   venv/bin/python -m pip install --disable-pip-version-check coverage >/dev/null
 
   # Run tests with coverage
-  venv/bin/coverage run --branch -m pytest -W 'ignore::DeprecationWarning' tests
+  venv/bin/coverage run --branch -m pytest -s -W 'ignore::DeprecationWarning' tests
 
   # Fail if tests fail
   if [ $? -ne 0 ]; then
