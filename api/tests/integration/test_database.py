@@ -13,7 +13,7 @@ from faker import Faker
 
 from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import patch
-from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
+from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
 
 VALIDATION_ERROR_NOTICES = 7
 NEW_VALIDATION_VERSION = "2.0.0"
