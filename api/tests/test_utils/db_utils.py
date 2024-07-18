@@ -221,3 +221,47 @@ def clean_testing_db(db):
         except Exception as error:
             trans.rollback()
             logging.error(f"Error while deleting from test db: {error}")
+
+
+def empty_database(db, url):
+    if is_test_db(url):
+        metadata_tables = Base.metadata.tables
+
+        # Get all table names excluding those in the excluded_tables list
+        all_table_names = [table_name for table_name in metadata_tables.keys() if table_name not in excluded_tables]
+
+        # Sort the table names in reverse order of dependencies
+        tables_to_delete = sorted(
+            all_table_names, key=lambda name: len(metadata_tables[name].foreign_keys), reverse=True
+        )
+        with contextlib.closing(db.engine.connect()) as con:
+            trans = con.begin()
+            try:
+                for table_name in tables_to_delete:
+                    db.session.execute(text(f"DELETE FROM {table_name}"))
+                trans.commit()
+
+            except Exception as error:
+                trans.rollback()
+                logging.error(f"Error while deleting from test db: {error}")
+
+        # for table_name in tables_to_delete:
+        #     db.session.execute(text(f"DELETE FROM {table_name}"))
+
+        # db.session.execute(text("DELETE FROM feedreference"))
+        # db.session.execute(text("DELETE FROM notice"))
+        # db.session.execute(text("DELETE FROM validationreportgtfsdataset"))
+        # db.session.execute(text("DELETE FROM gtfsdataset"))
+        # db.session.execute(text("DELETE FROM externalid"))
+        # db.session.execute(text("DELETE from redirectingid"))
+        # db.session.execute(text("DELETE FROM gtfsfeed"))
+        # db.session.execute(text("DELETE FROM entitytypefeed"))
+        # db.session.execute(text("DELETE FROM gtfsrealtimefeed"))
+        # db.session.execute(text("DELETE FROM locationfeed"))
+        # db.session.execute(text("DELETE FROM feed"))
+        # db.session.execute(text("DELETE FROM location"))
+        # db.session.execute(text("DELETE FROM featurevalidationreport"))
+        # db.session.execute(text("DELETE FROM feature"))
+        # db.session.execute(text("DELETE FROM validationreport"))
+
+        db.commit()

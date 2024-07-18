@@ -5,7 +5,7 @@ from typing import Final
 
 from sqlalchemy.engine.url import make_url
 
-from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, clean_testing_db
+from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, empty_database
 from database.database import Database
 
 from scripts.populate_db import DatabasePopulateHelper
@@ -36,7 +36,7 @@ def populate_database(db: Database, data_dirs: str):
         if (keep_db_before_populating := os.getenv("KEEP_DB_BEFORE_POPULATING")) is None or not strtobool(
             keep_db_before_populating
         ):
-            clean_testing_db(db)
+            empty_database(db, url)
 
         # Make a list of all the sources_test.csv in test_data and keep only if the file exists
 
