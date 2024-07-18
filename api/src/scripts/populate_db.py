@@ -298,3 +298,4 @@ class DatabasePopulateHelper:
 if __name__ == "__main__":
     db_helper = DatabasePopulateHelper(set_up_configs())
     db_helper.initialize()
+    print('This is just a test message to check if the script is working fine.')
