@@ -1,4 +1,3 @@
-import contextlib
 import logging
 from typing import Final
 
@@ -6,10 +5,8 @@ import pandas as pd
 
 from geoalchemy2 import WKBElement
 from geoalchemy2.shape import to_shape
-from sqlalchemy import Inspector
+from sqlalchemy import Inspector, delete
 import json
-
-from sqlalchemy import text
 
 from database_gen.sqlacodegen_models import Base
 
@@ -192,39 +189,9 @@ excluded_tables: Final[list[str]] = [
 ]
 
 
-def clean_testing_db(db):
-    """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
-    engine = db.engine
-    url = engine.url
-    if not is_test_db(url):
-        return
-    with contextlib.closing(engine.connect()) as con:
-        trans = con.begin()
-        try:
-            tables_to_delete = [
-                table.name for table in reversed(Base.metadata.sorted_tables) if table.name not in excluded_tables
-            ]
-            # Disable triggers for each table
-            for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} DISABLE TRIGGER ALL;"))
-
-            # Delete all rows from each table
-            for table_name in tables_to_delete:
-                delete_query = f"DELETE FROM {table_name};"
-                con.execute(text(delete_query))
-
-            # Re-enable triggers for each table
-            for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} ENABLE TRIGGER ALL;"))
-
-            trans.commit()
-        except Exception as error:
-            trans.rollback()
-            logging.error(f"Error while deleting from test db: {error}")
-
-
 def empty_database(db, url):
     if is_test_db(url):
+
         metadata_tables = Base.metadata.tables
 
         # Get all table names excluding those in the excluded_tables list
@@ -234,34 +201,15 @@ def empty_database(db, url):
         tables_to_delete = sorted(
             all_table_names, key=lambda name: len(metadata_tables[name].foreign_keys), reverse=True
         )
-        with contextlib.closing(db.engine.connect()) as con:
-            trans = con.begin()
-            try:
-                for table_name in tables_to_delete:
-                    db.session.execute(text(f"DELETE FROM {table_name}"))
-                trans.commit()
 
-            except Exception as error:
-                trans.rollback()
-                logging.error(f"Error while deleting from test db: {error}")
+        try:
+            for table_name in tables_to_delete:
+                table = Base.metadata.tables[table_name]
+                delete_stmt = delete(table)
+                db.session.execute(delete_stmt)
 
-        # for table_name in tables_to_delete:
-        #     db.session.execute(text(f"DELETE FROM {table_name}"))
+            db.commit()
 
-        # db.session.execute(text("DELETE FROM feedreference"))
-        # db.session.execute(text("DELETE FROM notice"))
-        # db.session.execute(text("DELETE FROM validationreportgtfsdataset"))
-        # db.session.execute(text("DELETE FROM gtfsdataset"))
-        # db.session.execute(text("DELETE FROM externalid"))
-        # db.session.execute(text("DELETE from redirectingid"))
-        # db.session.execute(text("DELETE FROM gtfsfeed"))
-        # db.session.execute(text("DELETE FROM entitytypefeed"))
-        # db.session.execute(text("DELETE FROM gtfsrealtimefeed"))
-        # db.session.execute(text("DELETE FROM locationfeed"))
-        # db.session.execute(text("DELETE FROM feed"))
-        # db.session.execute(text("DELETE FROM location"))
-        # db.session.execute(text("DELETE FROM featurevalidationreport"))
-        # db.session.execute(text("DELETE FROM feature"))
-        # db.session.execute(text("DELETE FROM validationreport"))
-
-        db.commit()
+        except Exception as error:
+            db.session.rollback()
+            logging.error(f"Error while deleting from test db: {error}")

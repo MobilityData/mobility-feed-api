@@ -121,7 +121,7 @@ class DatabasePopulateTestDataHelper:
             return
         if not isinstance(self.filepaths, list):
             self.filepaths = [self.filepaths]
-        # set_up_defaults(self.db)
+
         for filepath in self.filepaths:
             self.populate_test_datasets(filepath)
 

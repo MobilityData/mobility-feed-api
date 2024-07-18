@@ -20,6 +20,7 @@ CONFIG_FILE=$SCRIPT_PATH/gen-config.yaml
 
 sed 's%$ref: "./BearerTokenSchema.yaml#/components/securitySchemes/Authentication"%$ref: "./IAPAuthenticationSchema.yaml#/components/securitySchemes/Authentication"%g' $OPENAPI_SCHEMA > $OPENAPI_SCHEMA_IAP
 
+# Keep the "--global-property apiTests=false" at the end, otherwise it will generate test files that we already have
 OPENAPI_GENERATOR_VERSION=$GENERATOR_VERSION $SCRIPT_PATH/bin/openapitools/openapi-generator-cli generate -g python-fastapi -i $OPENAPI_SCHEMA_IAP  -o $OUTPUT_PATH -c $CONFIG_FILE --global-property apiTests=false
 
 rm -f $OPENAPI_SCHEMA_IAP

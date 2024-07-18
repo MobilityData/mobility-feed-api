@@ -116,7 +116,6 @@ class Database:
             else:
                 logging.info("Starting new global database session.")
                 self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=self.echo_sql)
-                # self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo="debug")
                 global_session = sessionmaker(bind=self.engine)()
                 global_session.expire_on_commit = False
                 self.session = global_session

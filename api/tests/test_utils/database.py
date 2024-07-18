@@ -39,7 +39,6 @@ def populate_database(db: Database, data_dirs: str):
             empty_database(db, url)
 
         # Make a list of all the sources_test.csv in test_data and keep only if the file exists
-
         csv_filepaths = [
             filepath
             for dir in data_dirs
