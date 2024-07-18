@@ -18,6 +18,8 @@ import {
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LegacyHome from './LegacyHome';
+import { useRemoteConfig } from '../context/RemoteConfigProvider';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -48,7 +50,7 @@ const ActionBox = ({
   </Box>
 );
 
-export default function Home(): React.ReactElement {
+function Component(): React.ReactElement {
   const [searchInputValue, setSearchInputValue] = useState('');
   const navigate = useNavigate();
 
@@ -227,4 +229,12 @@ export default function Home(): React.ReactElement {
       </Box>
     </Container>
   );
+}
+
+export default function Home(): React.ReactElement {
+  const { config } = useRemoteConfig();
+  if (config.enableFeedsPage) {
+    return <Component />;
+  }
+  return <LegacyHome />;
 }
