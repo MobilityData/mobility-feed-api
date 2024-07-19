@@ -1,8 +1,8 @@
 # coding: utf-8
 from fastapi.testclient import TestClient
 
-from .test_utils.database import TEST_DATASET_STABLE_IDS, TEST_GTFS_FEED_STABLE_IDS
-from .test_utils.token import authHeaders
+from tests.test_utils.database import TEST_DATASET_STABLE_IDS, TEST_GTFS_FEED_STABLE_IDS
+from tests.test_utils.token import authHeaders
 
 
 def test_datasets_gtfs_id_get(client: TestClient):
