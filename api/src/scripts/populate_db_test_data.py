@@ -32,10 +32,17 @@ class DatabasePopulateTestDataHelper:
     """
 
     def __init__(self, filepaths):
+        """
+        Specify a list of files to load the json data from.
+        Can also be a single string with a file name.
+        """
         self.logger = Logger(self.__class__.__module__).get_logger()
         self.db = Database()
 
-        self.filepaths = filepaths
+        if not isinstance(filepaths, list):
+            self.filepaths = [filepaths]
+        else:
+            self.filepaths = filepaths
 
     def populate_test_datasets(self, filepath):
         """
@@ -119,8 +126,6 @@ class DatabasePopulateTestDataHelper:
         if not self.filepaths:
             self.logger.error("No file paths provided")
             return
-        if not isinstance(self.filepaths, list):
-            self.filepaths = [self.filepaths]
 
         for filepath in self.filepaths:
             self.populate_test_datasets(filepath)

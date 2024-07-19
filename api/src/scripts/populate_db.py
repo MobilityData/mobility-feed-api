@@ -50,6 +50,10 @@ class DatabasePopulateHelper:
     """
 
     def __init__(self, filepaths):
+        """
+        Specify a list of files to load the csv data from.
+        Can also be a single string with a file name.
+        """
         self.logger = Logger(self.__class__.__name__).get_logger()
         self.logger.setLevel(logging.INFO)
         self.db = Database(echo_sql=False)
