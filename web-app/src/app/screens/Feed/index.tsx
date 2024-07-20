@@ -175,6 +175,7 @@ export default function Feed(): React.ReactElement {
                     fontWeight: 'bold',
                     fontSize: { xs: 24, sm: 36 },
                   }}
+                  data-testid='feed-provider'
                 >
                   {feed?.provider?.substring(0, 100)}
                   {feed?.data_type === 'gtfs_rt' && ` - ${feed?.feed_name}`}
@@ -189,6 +190,7 @@ export default function Feed(): React.ReactElement {
                         fontWeight: 'bold',
                         fontSize: { xs: 18, sm: 24 },
                       }}
+                      data-testid='feed-name'
                     >
                       {feed?.feed_name}
                     </Typography>
@@ -196,7 +198,7 @@ export default function Feed(): React.ReactElement {
                 )}
               {latestDataset?.downloaded_at !== undefined && (
                 <Grid item xs={12}>
-                  <Typography>
+                  <Typography data-testid='last-updated'>
                     {`Last updated on ${new Date(
                       latestDataset.downloaded_at,
                     ).toDateString()}`}
@@ -253,6 +255,7 @@ export default function Feed(): React.ReactElement {
                       target='_blank'
                       className='btn-link'
                       rel='noreferrer'
+                      id='download-latest-button'
                     >
                       Download Latest
                     </a>

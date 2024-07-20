@@ -14,7 +14,7 @@ export default function DataQualitySummary({
   latestDataset,
 }: DataQualitySummaryProps): React.ReactElement {
   return (
-    <>
+    <div data-testid='data-quality-summary'>
       <Typography variant='h6' gutterBottom>
         Data Quality Summary
       </Typography>
@@ -35,6 +35,7 @@ export default function DataQualitySummary({
                 }}
               >
                 <Chip
+                  data-testid='error-count'
                   icon={
                     latestDataset?.validation_report?.unique_error_count !==
                       undefined &&
@@ -68,6 +69,7 @@ export default function DataQualitySummary({
                 }}
               >
                 <Chip
+                  data-testid='warning-count'
                   icon={
                     latestDataset?.validation_report?.unique_warning_count !==
                       undefined &&
@@ -102,6 +104,7 @@ export default function DataQualitySummary({
                 }}
               >
                 <Chip
+                  data-testid='info-count'
                   icon={<InfoOutlinedIcon />}
                   label={`${
                     latestDataset?.validation_report?.unique_info_count ?? '0'
@@ -129,6 +132,6 @@ export default function DataQualitySummary({
             </Grid>
           </Grid>
         )}
-    </>
+    </div>
   );
 }
