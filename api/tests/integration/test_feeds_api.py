@@ -1,10 +1,11 @@
 # coding: utf-8
+
 from fastapi.testclient import TestClient
 from datetime import timedelta
 
-from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID, TEST_DATASET_STABLE_IDS
-from .test_utils.token import authHeaders
-from .test_utils.database import datasets_download_first_date
+from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID, TEST_DATASET_STABLE_IDS
+from tests.test_utils.token import authHeaders
+from tests.test_utils.database import datasets_download_first_date
 
 
 def get_all_datasets(client):
@@ -453,3 +454,112 @@ def test_get_gtfs_feed_gtfs_rt_feeds_invalid_id(client: TestClient):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "GTFS feed 'THIS_IS_NOT_VALID' not found"}
+
+
+def test_filter_by_country(client):
+    """Test filter by country"""
+
+    params = [
+        ("country_code", "CA"),
+    ]
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=params,
+    )
+    assert response.status_code == 200
+
+    # Response should be a list of 3 feeds (according to the test data)
+    feeds = response.json()
+    assert isinstance(feeds, list), "Response should be a list."
+    assert len(feeds) == 3, f"Expected 3 feeds for country_code CA, got {len(feeds)}."
+    assert any(feed["id"] == "mdb-50" for feed in feeds)
+    assert any(feed["id"] == "mdb-40" for feed in feeds)
+    assert any(feed["id"] == "mdb-702" for feed in feeds)
+
+
+def test_filter_by_subdivision(client):
+    """Test filter by subdivision"""
+
+    params = [
+        ("subdivision_name", "Ontario"),
+    ]
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=params,
+    )
+    assert response.status_code == 200
+
+    # Response should be a list of 2 feeds (according to the test data)
+    feeds = response.json()
+    assert isinstance(feeds, list), "Response should be a list."
+    assert len(feeds) == 2, f"Expected 2 feeds for subdivision Ontario, got {len(feeds)}."
+    assert any(feed["id"] == "mdb-50" for feed in feeds)
+    assert any(feed["id"] == "mdb-40" for feed in feeds)
+
+
+def test_filter_by_municipality(client):
+    """Test filter by municipality"""
+
+    # params = [
+    #     ("municipality", "Barrie"),
+    # ]
+
+    params = {"municipality": "Barrie"}
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=params,
+    )
+    assert response.status_code == 200
+
+    # Response should be a list of 2 feeds (according to the test data)
+    feeds = response.json()
+    assert isinstance(feeds, list), "Response should be a list."
+    assert len(feeds) == 1, f"Expected 1 feeds for municipality Barrie, got {len(feeds)}."
+    assert any(feed["id"] == "mdb-50" for feed in feeds)
+
+
+def test_filter_by_wrong_location(client):
+    """Test filter by wrong location"""
+
+    params = {"country_code": "US", "municipality": "Barrie"}
+
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=params,
+    )
+    assert response.status_code == 200
+
+    # Response should be an empty list (according to the test data)
+    feeds = response.json()
+    assert isinstance(feeds, list), "Response should be a list."
+    assert len(feeds) == 0, f"Expected no feed for country US and municipality Barrie, got {len(feeds)}."
+
+
+def test_filter_by_subdivision_and_municipality(client):
+    """Test filter by location"""
+
+    params = {"subdivision_name": "British Columbia", "municipality": "Whistler"}
+
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds",
+        headers=authHeaders,
+        params=params,
+    )
+    assert response.status_code == 200
+
+    # Response should be a list of 1 feed (according to the test data)
+    feeds = response.json()
+    assert isinstance(feeds, list), "Response should be a list."
+    assert (
+        len(feeds) == 1
+    ), f"Expected 1 feed for subdivision_name British Columbia and municipality Whistler, got {len(feeds)}."
+    assert any(feed["id"] == "mdb-702" for feed in feeds)

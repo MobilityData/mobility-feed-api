@@ -49,11 +49,23 @@ class DatabasePopulateHelper:
     Helper class to populate the database
     """
 
-    def __init__(self, filepath):
+    def __init__(self, filepaths):
+        """
+        Specify a list of files to load the csv data from.
+        Can also be a single string with a file name.
+        """
         self.logger = Logger(self.__class__.__name__).get_logger()
         self.logger.setLevel(logging.INFO)
         self.db = Database(echo_sql=False)
-        self.df = pandas.read_csv(filepath, low_memory=False)  # contains the data to populate the database
+        self.df = pandas.DataFrame()
+
+        # If filepaths is a string, convert it to a list
+        if isinstance(filepaths, str):
+            filepaths = [filepaths]
+
+        for filepath in filepaths:
+            new_df = pandas.read_csv(filepath, low_memory=False)
+            self.df = pandas.concat([self.df, new_df])
 
         # Filter unsupported data types
         self.df = self.df[(self.df.data_type == "gtfs") | (self.df.data_type == "gtfs-rt")]

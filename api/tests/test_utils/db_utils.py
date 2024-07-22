@@ -1,4 +1,3 @@
-import contextlib
 import logging
 from typing import Final
 
@@ -6,10 +5,8 @@ import pandas as pd
 
 from geoalchemy2 import WKBElement
 from geoalchemy2.shape import to_shape
-from sqlalchemy import Inspector
+from sqlalchemy import Inspector, delete
 import json
-
-from sqlalchemy import text
 
 from database_gen.sqlacodegen_models import Base
 
@@ -192,32 +189,27 @@ excluded_tables: Final[list[str]] = [
 ]
 
 
-def clean_testing_db(db):
-    """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
-    engine = db.engine
-    url = engine.url
-    if not is_test_db(url):
-        return
-    with contextlib.closing(engine.connect()) as con:
-        trans = con.begin()
+def empty_database(db, url):
+    if is_test_db(url):
+
+        metadata_tables = Base.metadata.tables
+
+        # Get all table names excluding those in the excluded_tables list
+        all_table_names = [table_name for table_name in metadata_tables.keys() if table_name not in excluded_tables]
+
+        # Sort the table names in reverse order of dependencies
+        tables_to_delete = sorted(
+            all_table_names, key=lambda name: len(metadata_tables[name].foreign_keys), reverse=True
+        )
+
         try:
-            tables_to_delete = [
-                table.name for table in reversed(Base.metadata.sorted_tables) if table.name not in excluded_tables
-            ]
-            # Disable triggers for each table
             for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} DISABLE TRIGGER ALL;"))
+                table = Base.metadata.tables[table_name]
+                delete_stmt = delete(table)
+                db.session.execute(delete_stmt)
 
-            # Delete all rows from each table
-            for table_name in tables_to_delete:
-                delete_query = f"DELETE FROM {table_name};"
-                con.execute(text(delete_query))
+            db.commit()
 
-            # Re-enable triggers for each table
-            for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} ENABLE TRIGGER ALL;"))
-
-            trans.commit()
         except Exception as error:
-            trans.rollback()
+            db.session.rollback()
             logging.error(f"Error while deleting from test db: {error}")
