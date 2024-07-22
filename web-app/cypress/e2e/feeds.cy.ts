@@ -2,6 +2,7 @@ describe('Feed page', () => {
   beforeEach(() => {
     // (API mocking code remains the same)
     cy.visit('/feeds/mdb-516');
+    cy.wait(100);
   });
 
   it('should render feed title and provider', () => {
