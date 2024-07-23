@@ -341,8 +341,10 @@ export default function Feed(): React.ReactElement {
 
                     {feed?.data_type === 'gtfs_rt' && (
                       <AssociatedFeeds
-                        feeds={relatedFeeds}
-                        gtfsRtFeeds={relatedGtfsRtFeeds}
+                        feeds={relatedFeeds.filter((f) => f?.id !== feed.id)}
+                        gtfsRtFeeds={relatedGtfsRtFeeds.filter(
+                          (f) => f?.id !== feed.id,
+                        )}
                       />
                     )}
                   </Grid>
