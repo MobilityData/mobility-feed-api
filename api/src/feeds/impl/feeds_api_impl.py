@@ -106,7 +106,7 @@ class FeedsApiImpl(BaseFeedsApi):
 
     def get_gtfs_feed_datasets(
         self,
-        id: str,
+        gtfs_feed_id: str,
         latest: bool,
         limit: int,
         offset: int,
@@ -119,6 +119,21 @@ class FeedsApiImpl(BaseFeedsApi):
         if downloaded_after and not valid_iso_date(downloaded_after):
             raise_http_validation_error(invalid_date_message.format("downloaded_after"))
 
+        # First make sure the feed exists. If not it's an error 404
+        feed = (
+            FeedFilter(
+                stable_id=gtfs_feed_id,
+                status=None,
+                provider__ilike=None,
+                producer_url__ilike=None,
+            )
+            .filter(Database().get_query_model(Gtfsfeed))
+            .first()
+        )
+
+        if not feed:
+            raise_http_error(404, f"Feed with id {gtfs_feed_id} not found")
+
         # Replace Z with +00:00 to make the datetime object timezone aware
         # Due to https://github.com/python/cpython/issues/80010, once migrate to Python 3.11, we can use fromisoformat
         query = GtfsDatasetFilter(
@@ -128,7 +143,7 @@ class FeedsApiImpl(BaseFeedsApi):
             downloaded_at__gte=datetime.fromisoformat(downloaded_after.replace("Z", "+00:00"))
             if downloaded_after
             else None,
-        ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == id))
+        ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == gtfs_feed_id))
 
         if latest:
             query = query.filter(Gtfsdataset.latest)
