@@ -5,7 +5,7 @@ google-cloud-datastore
 psycopg2-binary==2.9.6
 aiohttp~=3.8.6
 asyncio~=3.4.3
-urllib3~=2.1.0
+urllib3~=2.2.2
 SQLAlchemy==2.0.23
 geoalchemy2==0.14.7
 requests~=2.31.0
