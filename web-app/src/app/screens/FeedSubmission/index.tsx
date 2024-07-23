@@ -8,8 +8,10 @@ import {
   selectUserProfile,
 } from '../../store/profile-selectors';
 import FeedSubmissionStepper from './FeedSubmissionStepper';
+import { useRemoteConfig } from '../../context/RemoteConfigProvider';
+import Contribute from '../Contribute';
 
-export default function FeedSubmission(): React.ReactElement {
+function Component(): React.ReactElement {
   const user = useSelector(selectUserProfile);
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
@@ -63,4 +65,12 @@ export default function FeedSubmission(): React.ReactElement {
       </Box>
     </Container>
   );
+}
+
+export default function Home(): React.ReactElement {
+  const { config } = useRemoteConfig();
+  if (config.enableFeedSubmissionStepper) {
+    return <Component />;
+  }
+  return <Contribute />;
 }

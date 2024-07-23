@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response  # noqa: F401
-from .test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
+from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 
 
 @pytest.mark.parametrize(
@@ -131,7 +131,7 @@ def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
 @pytest.mark.parametrize(
     "data_type, expected_results_total",
     [
-        ("gtfs", len(TEST_GTFS_FEED_STABLE_IDS)),
+        ("gtfs", 7),
         ("not_valid_gtfs", 0),
         ("gtfs_rt", 1),
     ],
@@ -174,7 +174,7 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
 @pytest.mark.parametrize(
     "status, expected_results_total",
     [
-        ("active", len(TEST_GTFS_FEED_STABLE_IDS) + 1),  # +1 for a GTFS-RT feed
+        ("active", 8),  # 7 GTFS feeds and 1 GTFS-rt feed
         ("not_valid_status", 0),
         ("inactive", 0),
     ],
