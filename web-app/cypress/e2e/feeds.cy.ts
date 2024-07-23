@@ -1,13 +1,25 @@
+import feedJson from '../fixtures/feed_test-516.json';
+import gtfsFeedJson from '../fixtures/gtfs_feed_test-516.json';
+import datasetsFeedJson from '../fixtures/feed_datasets_test-516.json';
+
+const apiBaseUrl = '**';
+
 describe('Feed page', () => {
   beforeEach(() => {
-    // (API mocking code remains the same)
-    cy.visit('/feeds/mdb-516');
+    cy.intercept('GET', `${apiBaseUrl}/v1/feeds/test-516`, feedJson);
+    cy.intercept('GET', `${apiBaseUrl}/v1/gtfs_feeds/test-516`, gtfsFeedJson);
+    cy.intercept(
+      'GET',
+      `${apiBaseUrl}/v1/gtfs_feeds/test-516/datasets`,
+      datasetsFeedJson,
+    );
+    cy.visit('feeds/test-516');
   });
 
   it('should render feed title and provider', () => {
     cy.get('[data-testid="feed-provider"]').should(
       'contain',
-      'MTA New York City Transit (MTA)',
+      'Metropolitan Transit Authority (MTA)',
     );
     cy.get('[data-testid="feed-name"]').should('contain', 'NYC Subway');
   });
