@@ -51,7 +51,7 @@ export default function FeedSummary({
         >
           Location
         </Typography>
-        <Typography variant='body1'>
+        <Typography variant='body1' data-testid='location'>
           {feed?.locations !== undefined
             ? Object.values(feed?.locations[0])
                 .filter((v) => v !== null)
@@ -69,7 +69,10 @@ export default function FeedSummary({
           Producer download URL
         </Typography>
         <Box>
-          <Typography sx={{ display: 'flex', overflowWrap: 'anywhere' }}>
+          <Typography
+            sx={{ display: 'flex', overflowWrap: 'anywhere' }}
+            data-testid='producer-url'
+          >
             {feed?.source_info?.producer_url}
             <ContentCopy
               titleAccess='Copy download URL'
@@ -115,7 +118,7 @@ export default function FeedSummary({
         >
           Data type
         </Typography>
-        <Typography>
+        <Typography data-testid='data-type'>
           {feed?.data_type === 'gtfs' && 'GTFS Schedule'}
           {feed?.data_type === 'gtfs_rt' && 'GTFS Realtime'}
         </Typography>
@@ -171,7 +174,7 @@ export default function FeedSummary({
           </Typography>
           <Grid container spacing={1}>
             {latestDataset.validation_report?.features?.map((feature) => (
-              <Grid item key={feature}>
+              <Grid item key={feature} data-testid='feature-chips'>
                 <Chip
                   label={feature}
                   variant='filled'

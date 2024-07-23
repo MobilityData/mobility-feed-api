@@ -86,7 +86,7 @@ jobs:
       uses: google-github-actions/setup-gcloud@v2
    
     - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v1.3.1
+      uses: 1password/load-secrets-action@v2.0.0
       with:
         export-env: true # Export loaded secrets as environment variables
       env:
@@ -162,7 +162,7 @@ jobs:
         cat config/.env.local
 
     - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v1.3.1
+      uses: 1password/load-secrets-action@v2.0.0
       with:
         export-env: true # Export loaded secrets as environment variables
       env:

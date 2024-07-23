@@ -248,7 +248,7 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
 def assert_gtfs(gtfs_feed, response_gtfs_feed):
     assert (
         response_gtfs_feed["id"] == gtfs_feed.stable_id
-    ), f"Response feed id was {response_gtfs_feed.id} instead of {gtfs_feed.stable_id}"
+    ), f"Response feed id was {response_gtfs_feed['id']} instead of {gtfs_feed.stable_id}"
     assert (
         response_gtfs_feed["external_ids"][0]["external_id"]
         == sorted(gtfs_feed.externalids, key=lambda x: x.associated_id)[0].associated_id
@@ -277,10 +277,16 @@ def assert_gtfs(gtfs_feed, response_gtfs_feed):
         response_gtfs_feed["locations"][0]["municipality"] == gtfs_feed.locations[0].municipality
     ), f'Response feed municipality was {response_gtfs_feed["locations"][0]["municipality"]} \
         instead of {gtfs_feed.locations[0].municipality}'
-    assert (
-        response_gtfs_feed["latest_dataset"]["id"] == gtfs_feed.gtfsdatasets[1].stable_id
-    ), f'Response feed latest dataset id was {response_gtfs_feed["latest_dataset"]["id"]} \
-        instead of {gtfs_feed.gtfsdatasets[0].stable_id}'
+    # It seems the resulting are not always in the same order, so find the latest instead of using a hardcoded index
+    latest_dataset = next((dataset for dataset in gtfs_feed.gtfsdatasets if dataset.latest), None)
+    if latest_dataset is not None:
+        assert (
+            response_gtfs_feed["latest_dataset"]["id"] == latest_dataset.stable_id
+        ), f'Response feed latest dataset id was {response_gtfs_feed["latest_dataset"]["id"]} \
+            instead of {latest_dataset.stable_id}'
+    else:
+        raise Exception("No latest dataset found")
+
     latest_dataset = next(filter(lambda x: x.latest, gtfs_feed.gtfsdatasets))
     assert (
         response_gtfs_feed["latest_dataset"]["hosted_url"] == latest_dataset.hosted_url

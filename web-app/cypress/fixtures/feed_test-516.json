@@ -1,0 +1,24 @@
+{
+    "id": "mdb-516",
+    "data_type": "gtfs",
+    "status": "active",
+    "created_at": "2024-02-08T00:00:00Z",
+    "external_ids": [
+        {
+            "external_id": "516",
+            "source": "mdb"
+        }
+    ],
+    "provider": "Metropolitan Transit Authority (MTA)",
+    "feed_name": "NYC Subway",
+    "note": "",
+    "feed_contact_email": "",
+    "source_info": {
+        "producer_url": "http://web.mta.info/developers/data/nyct/subway/google_transit.zip",
+        "authentication_type": 0,
+        "authentication_info_url": "",
+        "api_key_parameter_name": "",
+        "license_url": ""
+    },
+    "redirects": []
+}

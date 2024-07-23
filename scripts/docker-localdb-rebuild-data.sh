@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #
 #
 #  MobilityData 2024
@@ -24,9 +23,6 @@
 #       --populate-db: populate the database with the latest csv file
 # Dependencies:
 #      docker, docker-compose, wget
-
-#ENV_PATH=$SCRIPT_PATH/../config/.env.local
-#source "$ENV_PATH"
 
 target_csv_file="catalogs.csv"
 # relative path
