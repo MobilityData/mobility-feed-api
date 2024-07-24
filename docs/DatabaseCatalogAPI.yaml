@@ -851,12 +851,16 @@ components:
       description: Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema)
       required: false
       schema:
-        type: string
-        enum:
-          - active
-          - deprecated
-          - inactive
-          - development
+        type: array
+        items:
+          type: string
+          enum:
+            - active
+            - deprecated
+            - inactive
+            - development
+      style: form
+      explode: true
     provider:
       name: provider
       in: query
