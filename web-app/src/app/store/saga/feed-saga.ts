@@ -18,8 +18,16 @@ import {
   type FeedError,
 } from '../../types';
 import { type PayloadAction } from '@reduxjs/toolkit';
-import { getFeed, getGtfsFeed, getGtfsRtFeed } from '../../services/feeds';
-import { type AllFeedType } from '../../services/feeds/utils';
+import {
+  getFeed,
+  getGtfsFeed,
+  getGtfsFeedAssociatedGtfsRtFeeds,
+  getGtfsRtFeed,
+} from '../../services/feeds';
+import {
+  type GTFSRTFeedType,
+  type AllFeedType,
+} from '../../services/feeds/utils';
 import { getUserAccessToken } from '../../services';
 
 function* getFeedSaga({
@@ -69,7 +77,22 @@ function* getRelatedFeedsSaga({
           ),
         ),
       )) as AllFeedType[];
-      yield put(loadingRelatedFeedsSuccess({ data: feedsData }));
+
+      const gtfsRtFeedsData = (yield all(
+        feedIds.map((feedId) =>
+          call(getGtfsFeedAssociatedGtfsRtFeeds, feedId, accessToken),
+        ),
+      )) as GTFSRTFeedType[];
+
+      const flattenedGtfsRtFeedsData = gtfsRtFeedsData.flat();
+      yield put(
+        loadingRelatedFeedsSuccess({
+          data: {
+            gtfs: feedsData,
+            gtfsRt: flattenedGtfsRtFeedsData,
+          },
+        }),
+      );
     }
   } catch (error) {
     yield put(loadingRelatedFeedsFail(getAppError(error) as FeedError));
