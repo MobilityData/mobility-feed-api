@@ -139,16 +139,72 @@ resource "google_cloudfunctions2_function" "tokens" {
   }
 }
 
-# 2. functions/extract_bb cloud function
+# 2.1 functions/extract_bb cloud function
 resource "google_cloudfunctions2_function" "extract_bb" {
   name        = local.function_extract_bb_config.name
   description = local.function_extract_bb_config.description
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
-  trigger_http = true
+  event_trigger {
+    event_type = "google.cloud.audit.log.v1.written"
+    service_account_email = google_service_account.functions_service_account.email
+    event_filters {
+      attribute = "serviceName"
+      value = "storage.googleapis.com"
+    }
+    event_filters {
+      attribute = "methodName"
+      value = "storage.objects.create"
+    }
+    event_filters {
+      attribute = "resourceName"
+      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
+      operator = "match-path-pattern"
+    }
+  }
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_extract_bb_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_extract_bb_zip_object.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_extract_bb_config.memory
+    timeout_seconds = local.function_extract_bb_config.timeout
+    available_cpu = local.function_extract_bb_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_bb_config.max_instance_count
+    min_instance_count = local.function_extract_bb_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_extract_bb_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_extract_bb_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 2.2 functions/extract_bb cloud function http triggered
+resource "google_cloudfunctions2_function" "extract_bb_http" {
+  name        = "${local.function_extract_bb_config.name}-http"
+  description = local.function_extract_bb_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_extract_bb_config.entry_point}_http"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name

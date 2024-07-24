@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 import functions_framework
 import gtfs_kit
@@ -12,6 +12,14 @@ from helpers.database import start_db_session
 from helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
+
+
+class Request:
+    def __init__(self, json):
+        self.json = json
+
+    def get_json(self):
+        return self.json
 
 
 def parse_resource_data(data: dict) -> tuple:
@@ -83,19 +91,31 @@ def update_dataset_bounding_box(session, dataset_id, geometry_polygon):
     session.commit()
 
 
-@functions_framework.cloud_event
-def extract_bounding_box(cloud_event: CloudEvent) -> None:
+@functions_framework.http
+def extract_bounding_box_http(request):
     """
     Main function triggered by a GTFS dataset upload to extract and update the bounding box in the database.
-    @:param cloud_event (CloudEvent): The CloudEvent that triggered this function.
+    @:param request (Request): The HTTP request.
     """
     Logger.init_logger()
-    data = cloud_event.data
-    logging.info(f"Function Triggered with event data: {data}")
+    request_json = request.get_json()
+    logging.info(f"Function Triggered with request data: {request_json}")
+    if (
+        request_json is None
+        or "stable_id" not in request_json
+        or "dataset_id" not in request_json
+        or "url" not in request_json
+    ):
+        logging.error("Invalid request data.")
+        return (
+            "Invalid request data. Expected 'stable_id', 'dataset_id', and 'url' in the request.",
+            400,
+        )
+    stable_id = request_json["stable_id"]
+    dataset_id = request_json["dataset_id"]
+    url = request_json["url"]
 
-    stable_id, dataset_id, url = parse_resource_data(data)
     logging.info(f"[{dataset_id}] accessing url: {url}")
-
     bounds = get_gtfs_feed_bounds(url, dataset_id)
     logging.info(f"[{dataset_id}] extracted bounding = {bounds}")
 
@@ -114,3 +134,14 @@ def extract_bounding_box(cloud_event: CloudEvent) -> None:
         if session is not None:
             session.close()
     logging.info(f"[{stable_id} - {dataset_id}] Bounding box updated successfully.")
+
+
+@functions_framework.cloud_event
+def extract_bounding_box(cloud_event: CloudEvent):
+    Logger.init_logger()
+    data = cloud_event.data
+    logging.info(f"Function Triggered with event data: {data}")
+    stable_id, dataset_id, url = parse_resource_data(data)
+    return extract_bounding_box_http(
+        Request({"stable_id": stable_id, "dataset_id": dataset_id, "url": url})
+    )
