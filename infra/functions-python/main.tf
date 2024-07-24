@@ -146,24 +146,6 @@ resource "google_cloudfunctions2_function" "extract_bb" {
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
 
-  event_trigger {
-    event_type = "google.cloud.audit.log.v1.written"
-    service_account_email = google_service_account.functions_service_account.email
-    event_filters {
-      attribute = "serviceName"
-      value = "storage.googleapis.com"
-    }
-    event_filters {
-      attribute = "methodName"
-      value = "storage.objects.create"
-    }
-    event_filters {
-      attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
-      operator = "match-path-pattern"
-    }
-  }
-
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_extract_bb_config.entry_point
