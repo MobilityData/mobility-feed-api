@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import unittest
 from unittest import mock
@@ -12,9 +14,11 @@ from extract_bb.src.main import (
     update_dataset_bounding_box,
     get_gtfs_feed_bounds,
     extract_bounding_box,
-    extract_bounding_box_http,
+    extract_bounding_box_pubsub,
 )
 from test_utils.database_utils import default_db_url
+from cloudevents.http import CloudEvent
+
 
 faker = Faker()
 
@@ -66,23 +70,31 @@ class TestExtractBoundingBox(unittest.TestCase):
 
     @patch("extract_bb.src.main.Logger")
     def test_extract_bb_exception(self, _):
-        file_name = faker.file_name()
-        resource_name = (
-            f"{faker.uri_path()}/{faker.pystr()}/{faker.pystr()}/{file_name}"
-        )
-        bucket_name = faker.pystr()
-
         data = {
-            "protoPayload": {"resourceName": resource_name},
-            "resource": {"labels": {"bucket_name": bucket_name}},
+            "stable_id": faker.pystr(),
+            "dataset_id": faker.pystr(),
+            "url": faker.url(),
         }
-        request = MagicMock()
-        request.get_json.return_value = data
+        message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
+            "utf-8"
+        )
+
+        # Creating attributes for CloudEvent, including required fields
+        attributes = {
+            "type": "com.example.someevent",
+            "source": "https://example.com/event-source",
+        }
+
+        # Constructing the CloudEvent object
+        cloud_event = CloudEvent(
+            attributes=attributes, data={"message": {"data": message_data}}
+        )
+
         try:
-            extract_bounding_box_http(request)
-            assert False
+            extract_bounding_box_pubsub(cloud_event)
+            self.assertTrue(False)
         except Exception:
-            assert True
+            self.assertTrue(True)
 
     @mock.patch.dict(
         os.environ,
@@ -103,9 +115,21 @@ class TestExtractBoundingBox(unittest.TestCase):
             "dataset_id": faker.pystr(),
             "url": faker.url(),
         }
-        request = MagicMock()
-        request.get_json.return_value = data
-        extract_bounding_box_http(request)
+        message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
+            "utf-8"
+        )
+
+        # Creating attributes for CloudEvent, including required fields
+        attributes = {
+            "type": "com.example.someevent",
+            "source": "https://example.com/event-source",
+        }
+
+        # Constructing the CloudEvent object
+        cloud_event = CloudEvent(
+            attributes=attributes, data={"message": {"data": message_data}}
+        )
+        extract_bounding_box_pubsub(cloud_event)
         update_bb_mock.assert_called_once()
 
     @mock.patch.dict(
@@ -134,8 +158,36 @@ class TestExtractBoundingBox(unittest.TestCase):
         }
         cloud_event = MagicMock()
         cloud_event.data = data
+
         extract_bounding_box(cloud_event)
         update_bb_mock.assert_called_once()
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+        },
+    )
+    @patch("extract_bb.src.main.get_gtfs_feed_bounds")
+    @patch("extract_bb.src.main.update_dataset_bounding_box")
+    @patch("extract_bb.src.main.Logger")
+    def test_extract_bb_cloud_event_error(
+        self, _, update_bb_mock, get_gtfs_feed_bounds_mock
+    ):
+        get_gtfs_feed_bounds_mock.return_value = np.array(
+            [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
+        )
+        bucket_name = faker.pystr()
+
+        # data with missing protoPayload
+        data = {
+            "resource": {"labels": {"bucket_name": bucket_name}},
+        }
+        cloud_event = MagicMock()
+        cloud_event.data = data
+
+        extract_bounding_box(cloud_event)
+        update_bb_mock.assert_not_called()
 
     @mock.patch.dict(
         os.environ,
@@ -157,10 +209,21 @@ class TestExtractBoundingBox(unittest.TestCase):
             "url": faker.url(),
         }
         update_bb_mock.side_effect = Exception(faker.pystr())
-        request = MagicMock()
-        request.get_json.return_value = data
+        message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
+            "utf-8"
+        )
+        attributes = {
+            "type": "com.example.someevent",
+            "source": "https://example.com/event-source",
+        }
+
+        # Constructing the CloudEvent object
+        cloud_event = CloudEvent(
+            attributes=attributes, data={"message": {"data": message_data}}
+        )
+
         try:
-            extract_bounding_box_http(request)
+            extract_bounding_box_pubsub(cloud_event)
             assert False
         except Exception:
             assert True
