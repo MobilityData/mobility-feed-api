@@ -220,7 +220,7 @@ resource "google_cloudfunctions2_function" "extract_bb_http" {
     max_instance_count = local.function_extract_bb_config.max_instance_count
     min_instance_count = local.function_extract_bb_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_extract_bb_config.ingress_settings
+    ingress_settings = "ALLOW_ALL"
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
