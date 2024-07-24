@@ -8,6 +8,7 @@ import gtfs_kit
 import numpy
 from cloudevents.http import CloudEvent
 from geoalchemy2 import WKTElement
+from google.cloud import pubsub_v1
 
 from database_gen.sqlacodegen_models import Gtfsdataset
 from helpers.database import start_db_session
@@ -191,42 +192,49 @@ def extract_bounding_box(cloud_event: CloudEvent):
     return extract_bounding_box_pubsub(new_cloud_event)
 
 
-# @functions_framework.cloud_event
-# def extract_bounding_box_batch():
-#     Logger.init_logger()
-#     logging.info("Batch function triggered.")
-#
-#     pubsub_topic_name = os.getenv('PUBSUB_TOPIC_NAME', None)
-#     if pubsub_topic_name is None:
-#         logging.error("TARGET_FUNCTION_URL not set.")
-#         return "TARGET_FUNCTION_URL not set.", 500
-#
-#     # Get latest GTFS dataset with no bounding boxes
-#     session = None
-#     datasets_data = []
-#     try:
-#         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-#         datasets = (
-#             session.query(Gtfsdataset)
-#             .filter(Gtfsdataset.bounding_box is None)
-#             .filter(Gtfsdataset.latest)
-#             .all()
-#         )
-#         for dataset in datasets:
-#             data = {
-#                 "stable_id": dataset.feed_id,
-#                 "dataset_id": dataset.stable_id,
-#                 "url": dataset.url,
-#             }
-#             datasets_data.append(data)
-#
-#     except Exception as e:
-#         logging.error(f"Error while fetching datasets: {e}")
-#         return "Error while fetching datasets.", 500
-#     finally:
-#         if session is not None:
-#             session.close()
-#
-#     # Trigger update bounding box for each dataset by publishing to Pub/Sub
-#
-#     return "Batch function triggered.", 200
+@functions_framework.cloud_event
+def extract_bounding_box_batch():
+    Logger.init_logger()
+    logging.info("Batch function triggered.")
+
+    pubsub_topic_name = os.getenv('PUBSUB_TOPIC_NAME', None)
+    if pubsub_topic_name is None:
+        logging.error("PUBSUB_TOPIC_NAME environment variable not set.")
+        return "PUBSUB_TOPIC_NAME environment variable not set.", 500
+
+    # Get latest GTFS dataset with no bounding boxes
+    session = None
+    datasets_data = []
+    try:
+        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        datasets = (
+            session.query(Gtfsdataset)
+            .filter(Gtfsdataset.bounding_box is None)
+            .filter(Gtfsdataset.latest)
+            .all()
+        )
+        for dataset in datasets:
+            data = {
+                "stable_id": dataset.feed_id,
+                "dataset_id": dataset.stable_id,
+                "url": dataset.hosted_url,
+            }
+            datasets_data.append(data)
+            logging.info(f"Dataset {dataset.stable_id} added to the batch.")
+
+    except Exception as e:
+        logging.error(f"Error while fetching datasets: {e}")
+        return "Error while fetching datasets.", 500
+    finally:
+        if session is not None:
+            session.close()
+
+    # Trigger update bounding box for each dataset by publishing to Pub/Sub
+    publisher = pubsub_v1.PublisherClient()
+    topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
+    for data in datasets_data:
+        message_data = json.dumps(data).encode("utf-8")
+        future = publisher.publish(topic_path, message_data)
+        logging.info(f"Published message to Pub/Sub with ID: {future.result()}")
+
+    return f"Batch function triggered for {len(datasets_data)} datasets.", 200
