@@ -197,7 +197,7 @@ def extract_bounding_box_batch():
     Logger.init_logger()
     logging.info("Batch function triggered.")
 
-    pubsub_topic_name = os.getenv('PUBSUB_TOPIC_NAME', None)
+    pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
     if pubsub_topic_name is None:
         logging.error("PUBSUB_TOPIC_NAME environment variable not set.")
         return "PUBSUB_TOPIC_NAME environment variable not set.", 500

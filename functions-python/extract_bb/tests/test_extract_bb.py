@@ -15,7 +15,8 @@ from extract_bb.src.main import (
     update_dataset_bounding_box,
     get_gtfs_feed_bounds,
     extract_bounding_box,
-    extract_bounding_box_pubsub, extract_bounding_box_batch,
+    extract_bounding_box_pubsub,
+    extract_bounding_box_batch,
 )
 from test_utils.database_utils import default_db_url
 from cloudevents.http import CloudEvent
@@ -229,23 +230,40 @@ class TestExtractBoundingBox(unittest.TestCase):
         except Exception:
             assert True
 
-    @mock.patch.dict(os.environ, {
-        'FEEDS_DATABASE_URL': default_db_url,
-        'PUBSUB_TOPIC_NAME': 'test-topic',
-        'PROJECT_ID': 'test-project'
-    })
-    @patch('extract_bb.src.main.start_db_session')
-    @patch('extract_bb.src.main.pubsub_v1.PublisherClient')
-    @patch('extract_bb.src.main.Logger')
-    def test_extract_bounding_box_batch(self, logger_mock, publisher_client_mock, start_db_session_mock):
+    @mock.patch.dict(
+        os.environ,
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+            "PUBSUB_TOPIC_NAME": "test-topic",
+            "PROJECT_ID": "test-project",
+        },
+    )
+    @patch("extract_bb.src.main.start_db_session")
+    @patch("extract_bb.src.main.pubsub_v1.PublisherClient")
+    @patch("extract_bb.src.main.Logger")
+    def test_extract_bounding_box_batch(
+        self, logger_mock, publisher_client_mock, start_db_session_mock
+    ):
         # Mock the database session and query
         mock_session = MagicMock()
-        mock_dataset1 = Gtfsdataset(feed_id="1", stable_id="stable_1", hosted_url="http://example.com/1", latest=True,
-                                    bounding_box=None)
-        mock_dataset2 = Gtfsdataset(feed_id="2", stable_id="stable_2", hosted_url="http://example.com/2", latest=True,
-                                    bounding_box=None)
-        mock_session.query.return_value.filter.return_value.filter.return_value.all.return_value = [mock_dataset1,
-                                                                                                    mock_dataset2]
+        mock_dataset1 = Gtfsdataset(
+            feed_id="1",
+            stable_id="stable_1",
+            hosted_url="http://example.com/1",
+            latest=True,
+            bounding_box=None,
+        )
+        mock_dataset2 = Gtfsdataset(
+            feed_id="2",
+            stable_id="stable_2",
+            hosted_url="http://example.com/2",
+            latest=True,
+            bounding_box=None,
+        )
+        mock_session.query.return_value.filter.return_value.filter.return_value.all.return_value = [
+            mock_dataset1,
+            mock_dataset2,
+        ]
         start_db_session_mock.return_value = mock_session
 
         # Mock the Pub/Sub client
@@ -262,38 +280,52 @@ class TestExtractBoundingBox(unittest.TestCase):
         logger_mock.init_logger.assert_called_once()
         mock_publisher.publish.assert_any_call(
             mock.ANY,
-            json.dumps({
-                "stable_id": "1",
-                "dataset_id": "stable_1",
-                "url": "http://example.com/1"
-            }).encode("utf-8")
+            json.dumps(
+                {
+                    "stable_id": "1",
+                    "dataset_id": "stable_1",
+                    "url": "http://example.com/1",
+                }
+            ).encode("utf-8"),
         )
         mock_publisher.publish.assert_any_call(
             mock.ANY,
-            json.dumps({
-                "stable_id": "2",
-                "dataset_id": "stable_2",
-                "url": "http://example.com/2"
-            }).encode("utf-8")
+            json.dumps(
+                {
+                    "stable_id": "2",
+                    "dataset_id": "stable_2",
+                    "url": "http://example.com/2",
+                }
+            ).encode("utf-8"),
         )
         self.assertEqual(response, ("Batch function triggered for 2 datasets.", 200))
 
-    @mock.patch.dict(os.environ, {
-        'FEEDS_DATABASE_URL': default_db_url,
-    })
-    @patch('extract_bb.src.main.Logger')
+    @mock.patch.dict(
+        os.environ,
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+        },
+    )
+    @patch("extract_bb.src.main.Logger")
     def test_extract_bounding_box_batch_no_topic_name(self, logger_mock):
         response = extract_bounding_box_batch()
-        self.assertEqual(response, ("PUBSUB_TOPIC_NAME environment variable not set.", 500))
+        self.assertEqual(
+            response, ("PUBSUB_TOPIC_NAME environment variable not set.", 500)
+        )
 
-    @mock.patch.dict(os.environ, {
-        'FEEDS_DATABASE_URL': default_db_url,
-        'PUBSUB_TOPIC_NAME': 'test-topic',
-        'PROJECT_ID': 'test-project'
-    })
-    @patch('extract_bb.src.main.start_db_session')
-    @patch('extract_bb.src.main.Logger')
-    def test_extract_bounding_box_batch_exception(self, logger_mock, start_db_session_mock):
+    @mock.patch.dict(
+        os.environ,
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+            "PUBSUB_TOPIC_NAME": "test-topic",
+            "PROJECT_ID": "test-project",
+        },
+    )
+    @patch("extract_bb.src.main.start_db_session")
+    @patch("extract_bb.src.main.Logger")
+    def test_extract_bounding_box_batch_exception(
+        self, logger_mock, start_db_session_mock
+    ):
         # Mock the database session to raise an exception
         start_db_session_mock.side_effect = Exception("Database error")
 
