@@ -274,7 +274,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         mock_publisher.publish.return_value = mock_future
 
         # Call the function
-        response = extract_bounding_box_batch()
+        response = extract_bounding_box_batch(None)
 
         # Assert logs and function responses
         logger_mock.init_logger.assert_called_once()
@@ -308,7 +308,7 @@ class TestExtractBoundingBox(unittest.TestCase):
     )
     @patch("extract_bb.src.main.Logger")
     def test_extract_bounding_box_batch_no_topic_name(self, logger_mock):
-        response = extract_bounding_box_batch()
+        response = extract_bounding_box_batch(None)
         self.assertEqual(
             response, ("PUBSUB_TOPIC_NAME environment variable not set.", 500)
         )
@@ -329,5 +329,5 @@ class TestExtractBoundingBox(unittest.TestCase):
         # Mock the database session to raise an exception
         start_db_session_mock.side_effect = Exception("Database error")
 
-        response = extract_bounding_box_batch()
+        response = extract_bounding_box_batch(None)
         self.assertEqual(response, ("Error while fetching datasets.", 500))
