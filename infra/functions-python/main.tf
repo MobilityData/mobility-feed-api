@@ -245,7 +245,7 @@ resource "google_cloudfunctions2_function" "extract_bb_pubsub" {
 }
 
 # 2.3 functions/extract_bb cloud function batch
-resource "google_cloudfunctions2_function" "extract_bb_pubsub" {
+resource "google_cloudfunctions2_function" "extract_bb_batch" {
   name        = "${local.function_extract_bb_config.name}-batch"
   description = local.function_extract_bb_config.description
   location    = var.gcp_region
