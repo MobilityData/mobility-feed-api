@@ -250,9 +250,15 @@ class FeedsApiImpl(BaseFeedsApi):
         gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed)).options(
             *BasicFeedImpl.get_joinedload_options()
         )
-        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Entitytype, Gtfsrealtimefeed.entitytypes)
-        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Location, Feed.locations)
-
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Entitytype, Gtfsrealtimefeed.entitytypes).options(
+            joinedload(Gtfsrealtimefeed.entitytypes)
+        )
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Location, Feed.locations).options(
+            joinedload(Gtfsrealtimefeed.locations)
+        )
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Gtfsfeed, Gtfsrealtimefeed.gtfs_feeds).options(
+            joinedload(Gtfsrealtimefeed.gtfs_feeds)
+        )
         gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         if limit is not None:
             gtfs_rt_feed_query = gtfs_rt_feed_query.limit(limit)
