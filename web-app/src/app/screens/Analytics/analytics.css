@@ -1,0 +1,8 @@
+.navigable-list-item:hover {
+  text-decoration: underline;
+  color: #000;
+}
+
+.navigable-list-item{
+  cursor: pointer;
+}
