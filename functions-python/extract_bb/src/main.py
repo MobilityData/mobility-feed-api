@@ -192,7 +192,7 @@ def extract_bounding_box(cloud_event: CloudEvent):
     return extract_bounding_box_pubsub(new_cloud_event)
 
 
-@functions_framework.cloud_event
+@functions_framework.http
 def extract_bounding_box_batch():
     Logger.init_logger()
     logging.info("Batch function triggered.")
