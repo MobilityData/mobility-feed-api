@@ -382,7 +382,7 @@ def test_get_gtfs_feed_datasets_with_downloaded_before_invalid_date(client: Test
     assert response.status_code == 422
     assert response.json() == {
         "detail": "Invalid date format for 'downloaded_before'. Expected ISO 8601 format, example: "
-                  "'2021-01-01T00:00:00Z'"
+        "'2021-01-01T00:00:00Z'"
     }
 
 
@@ -402,7 +402,7 @@ def test_get_gtfs_feed_datasets_with_downloaded_after_invalid_date(client: TestC
     assert response.status_code == 422
     assert response.json() == {
         "detail": "Invalid date format for 'downloaded_after'. Expected ISO 8601 format, example: "
-                  "'2021-01-01T00:00:00Z'"
+        "'2021-01-01T00:00:00Z'"
     }
 
 
@@ -560,7 +560,7 @@ def test_filter_by_subdivision_and_municipality(client):
     feeds = response.json()
     assert isinstance(feeds, list), "Response should be a list."
     assert (
-            len(feeds) == 1
+        len(feeds) == 1
     ), f"Expected 1 feed for subdivision_name British Columbia and municipality Whistler, got {len(feeds)}."
     assert any(feed["id"] == "mdb-702" for feed in feeds)
 
@@ -568,91 +568,23 @@ def test_filter_by_subdivision_and_municipality(client):
 @pytest.mark.parametrize(
     "values",
     [
-        {
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "entity_types": "vp",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561"]
-        },
-        {
-            "entity_types": "sa,vp",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "entity_types": "",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "entity_types": "not_valid",
-            "response_code": 422,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "country_code": "CA",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1562"]
-        },
-        {
-            "country_code": "CA",
-            "entity_types": "sa,vp",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1562"]
-        },
-        {
-            "country_code": "",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "provider": "no-found-provider",
-            "response_code": 200,
-            "expected_feed_ids": []
-        },
-        {
-            "provider": "transit",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1562"]
-        },
-        {
-            "provider": "",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "producer_url": "foo.org",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1562"]
-        },
-        {
-            "producer_url": "",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "subdivision_name": "bc",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1562"]
-        },
-        {
-            "subdivision_name": "",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        },
-        {
-            "municipality": "vanco",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1562"]
-        },
-        {
-            "municipality": "",
-            "response_code": 200,
-            "expected_feed_ids": ["mdb-1561", "mdb-1562"]
-        }
+        {"response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"entity_types": "vp", "response_code": 200, "expected_feed_ids": ["mdb-1561"]},
+        {"entity_types": "sa,vp", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"entity_types": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"entity_types": "not_valid", "response_code": 422, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"country_code": "CA", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
+        {"country_code": "CA", "entity_types": "sa,vp", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
+        {"country_code": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"provider": "no-found-provider", "response_code": 200, "expected_feed_ids": []},
+        {"provider": "transit", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
+        {"provider": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"producer_url": "foo.org", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
+        {"producer_url": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"subdivision_name": "bc", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
+        {"subdivision_name": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"municipality": "vanco", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
+        {"municipality": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
     ],
     ids=[
         "all_empty",
@@ -671,8 +603,8 @@ def test_filter_by_subdivision_and_municipality(client):
         "subdivision_name_bc",
         "empty_subdivision_name",
         "municipality_vanco",
-        "empty_municipality"
-    ]
+        "empty_municipality",
+    ],
 )
 def test_gtfs_rt_filter_by_entity_types(client, values):
     """Test filter by entity types"""
