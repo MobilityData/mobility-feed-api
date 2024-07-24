@@ -260,12 +260,12 @@ resource "google_cloudfunctions2_function" "extract_bb_batch" {
         object = google_storage_bucket_object.function_extract_bb_zip_object.name
       }
     }
+  }
+  service_config {
     environment_variables = {
       PROJECT_ID = var.project_id
       PUBSUB_TOPIC_NAME = google_pubsub_topic.dataset_updates.name
     }
-  }
-  service_config {
     available_memory = local.function_extract_bb_config.memory
     timeout_seconds = local.function_extract_bb_config.timeout
     available_cpu = local.function_extract_bb_config.available_cpu
