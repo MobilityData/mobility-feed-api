@@ -145,7 +145,7 @@ resource "google_cloudfunctions2_function" "extract_bb" {
   description = local.function_extract_bb_config.description
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
-
+  trigger_http = true
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_extract_bb_config.entry_point
