@@ -11,6 +11,7 @@ from database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Validationreport,
+    Entitytype,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -211,23 +212,32 @@ class FeedsApiImpl(BaseFeedsApi):
         municipality: str,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
+        entity_types_list = entity_types.split(",") if entity_types else None
+
+        # Validate entity types are in [vp, sa, tu]
+        if entity_types_list and not all(entity_type in ["vp", "sa", "tu"] for entity_type in entity_types_list):
+            raise_http_validation_error(
+                "Entity types must be the value 'vp,' 'sa,' or 'tu,'. "
+                "When provided a list values must be separated by commas."
+            )
+
         gtfs_rt_feed_filter = GtfsRtFeedFilter(
             stable_id=None,
             provider__ilike=provider,
             producer_url__ilike=producer_url,
-            entity_types=EntityTypeFilter(name__in=entity_types),
+            entity_types=EntityTypeFilter(name__in=entity_types_list),
             location=LocationFilter(
                 country_code=country_code,
                 subdivision_name__ilike=subdivision_name,
                 municipality__ilike=municipality,
             ),
         )
-        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed))
-        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Location, Feed.locations).options(
-            *BasicFeedImpl.get_joinedload_options(),
-            joinedload(Gtfsrealtimefeed.entitytypes),
-            joinedload(Gtfsrealtimefeed.gtfs_feeds),
+        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed)).options(
+            *BasicFeedImpl.get_joinedload_options()
         )
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Entitytype, Gtfsrealtimefeed.entitytypes)
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Location, Feed.locations)
+
         gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         if limit is not None:
             gtfs_rt_feed_query = gtfs_rt_feed_query.limit(limit)
