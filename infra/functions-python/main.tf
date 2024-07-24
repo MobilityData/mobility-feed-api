@@ -265,6 +265,7 @@ resource "google_cloudfunctions2_function" "extract_bb_batch" {
     environment_variables = {
       PROJECT_ID = var.project_id
       PUBSUB_TOPIC_NAME = google_pubsub_topic.dataset_updates.name
+      PYTHONNODEBUGRANGES = 0
     }
     available_memory = local.function_extract_bb_config.memory
     timeout_seconds = local.function_extract_bb_config.timeout

@@ -209,7 +209,7 @@ def extract_bounding_box_batch(_):
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         datasets = (
             session.query(Gtfsdataset)
-            .filter(Gtfsdataset.bounding_box is None)
+            .filter(Gtfsdataset.bounding_box == None)  # noqa: E711
             .filter(Gtfsdataset.latest)
             .all()
         )
