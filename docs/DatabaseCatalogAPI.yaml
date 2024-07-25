@@ -253,7 +253,7 @@ paths:
       description: |
         Search feeds on feed name, location and provider's information.
         <br>
-        The current implemation leverage the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
+        The current implementation leverages the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
         <br><br>
         Points to consider while using search endpoint:
         <br>

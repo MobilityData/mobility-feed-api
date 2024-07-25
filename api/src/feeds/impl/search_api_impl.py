@@ -1,3 +1,5 @@
+from typing import List
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Query
 
@@ -36,7 +38,10 @@ class SearchApiImpl(BaseSearchApi):
         if data_type:
             query = query.where(t_feedsearch.c.data_type == data_type.strip().lower())
         if status:
-            query = query.where(t_feedsearch.c.status == status.strip().lower())
+            status_list = [s.strip().lower() for s in status[0].split(",") if s]
+            if status_list:
+                # status_list = [s.strip().lower() for s in status[0].split(',') if s.strip()]
+                query = query.where(t_feedsearch.c.status.in_([s.strip().lower() for s in status_list]))
         if search_query and len(search_query.strip()) > 0:
             query = query.filter(
                 t_feedsearch.c.document.op("@@")(SearchApiImpl.get_parsed_search_tsquery(search_query))
@@ -52,7 +57,7 @@ class SearchApiImpl(BaseSearchApi):
         return SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
 
     @staticmethod
-    def create_search_query(status: str, feed_id: str, data_type: str, search_query: str) -> Query:
+    def create_search_query(status: List[str], feed_id: str, data_type: str, search_query: str) -> Query:
         """
         Create a search query for the database.
         """
@@ -71,7 +76,7 @@ class SearchApiImpl(BaseSearchApi):
         self,
         limit: int,
         offset: int,
-        status: str,
+        status: List[str],
         feed_id: str,
         data_type: str,
         search_query: str,
