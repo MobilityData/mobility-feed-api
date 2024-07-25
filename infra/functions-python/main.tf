@@ -485,3 +485,10 @@ resource "google_pubsub_topic_iam_binding" "functions_subscriber" {
   topic   = google_pubsub_topic.dataset_updates.name
   members = ["serviceAccount:${google_service_account.functions_service_account.email}"]
 }
+
+# Grant permissions to the service account to write/read in datastore
+resource "google_project_iam_member" "datastore_owner" {
+  project = var.project_id
+  role    = "roles/datastore.owner"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}

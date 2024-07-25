@@ -72,11 +72,8 @@ class TestExtractBoundingBox(unittest.TestCase):
 
     @patch("extract_bb.src.main.Logger")
     def test_extract_bb_exception(self, _):
-        data = {
-            "stable_id": faker.pystr(),
-            "dataset_id": faker.pystr(),
-            "url": faker.url(),
-        }
+        # Data with missing url
+        data = {"stable_id": faker.pystr(), "dataset_id": faker.pystr()}
         message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
             "utf-8"
         )
@@ -97,6 +94,18 @@ class TestExtractBoundingBox(unittest.TestCase):
             self.assertTrue(False)
         except Exception:
             self.assertTrue(True)
+        data = {}  # empty data
+        message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
+            "utf-8"
+        )
+        cloud_event = CloudEvent(
+            attributes=attributes, data={"message": {"data": message_data}}
+        )
+        try:
+            extract_bounding_box_pubsub(cloud_event)
+            self.assertTrue(False)
+        except Exception:
+            self.assertTrue(True)
 
     @mock.patch.dict(
         os.environ,
@@ -107,10 +116,15 @@ class TestExtractBoundingBox(unittest.TestCase):
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
     @patch("extract_bb.src.main.update_dataset_bounding_box")
     @patch("extract_bb.src.main.Logger")
-    def test_extract_bb(self, _, update_bb_mock, get_gtfs_feed_bounds_mock):
+    @patch("extract_bb.src.main.DatasetTraceService")
+    def test_extract_bb(
+        self, __, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
+    ):
         get_gtfs_feed_bounds_mock.return_value = np.array(
             [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
         )
+        mock_dataset_trace.save.return_value = None
+        mock_dataset_trace.get_by_execution_and_stable_ids.return_value = 0
 
         data = {
             "stable_id": faker.pystr(),
@@ -138,15 +152,61 @@ class TestExtractBoundingBox(unittest.TestCase):
         os.environ,
         {
             "FEEDS_DATABASE_URL": default_db_url,
+            "MAXIMUM_EXECUTIONS": "1",
         },
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
     @patch("extract_bb.src.main.update_dataset_bounding_box")
+    @patch("extract_bb.src.main.DatasetTraceService.get_by_execution_and_stable_ids")
     @patch("extract_bb.src.main.Logger")
-    def test_extract_bb_cloud_event(self, _, update_bb_mock, get_gtfs_feed_bounds_mock):
+    def test_extract_bb_max_executions(
+        self, _, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
+    ):
         get_gtfs_feed_bounds_mock.return_value = np.array(
             [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
         )
+        mock_dataset_trace.return_value = [1, 2, 3]
+
+        data = {
+            "stable_id": faker.pystr(),
+            "dataset_id": faker.pystr(),
+            "url": faker.url(),
+        }
+        message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
+            "utf-8"
+        )
+
+        # Creating attributes for CloudEvent, including required fields
+        attributes = {
+            "type": "com.example.someevent",
+            "source": "https://example.com/event-source",
+        }
+
+        # Constructing the CloudEvent object
+        cloud_event = CloudEvent(
+            attributes=attributes, data={"message": {"data": message_data}}
+        )
+        extract_bounding_box_pubsub(cloud_event)
+        update_bb_mock.assert_not_called()
+
+    @mock.patch.dict(
+        os.environ,
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+        },
+    )
+    @patch("extract_bb.src.main.get_gtfs_feed_bounds")
+    @patch("extract_bb.src.main.update_dataset_bounding_box")
+    @patch("extract_bb.src.main.DatasetTraceService")
+    @patch("extract_bb.src.main.Logger")
+    def test_extract_bb_cloud_event(
+        self, _, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
+    ):
+        get_gtfs_feed_bounds_mock.return_value = np.array(
+            [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
+        )
+        mock_dataset_trace.save.return_value = None
+        mock_dataset_trace.get_by_execution_and_stable_ids.return_value = 0
 
         file_name = faker.file_name()
         resource_name = (

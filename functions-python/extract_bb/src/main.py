@@ -2,6 +2,8 @@ import base64
 import json
 import logging
 import os
+import uuid
+from datetime import datetime
 
 import functions_framework
 import gtfs_kit
@@ -13,16 +15,14 @@ from google.cloud import pubsub_v1
 from database_gen.sqlacodegen_models import Gtfsdataset
 from helpers.database import start_db_session
 from helpers.logger import Logger
+from dataset_service.main import (
+    DatasetTraceService,
+    DatasetTrace,
+    Status,
+    PipelineStage,
+)
 
 logging.basicConfig(level=logging.INFO)
-
-
-class Request:
-    def __init__(self, json):
-        self.json = json
-
-    def get_json(self):
-        return self.json
 
 
 def parse_resource_data(data: dict) -> tuple:
@@ -101,6 +101,10 @@ def extract_bounding_box_pubsub(cloud_event: CloudEvent):
     @param cloud_event: The CloudEvent containing the Pub/Sub message.
     """
     Logger.init_logger()
+    try:
+        maximum_executions = int(os.getenv("MAXIMUM_EXECUTIONS", 1))
+    except ValueError:
+        maximum_executions = 1
     data = cloud_event.data
     logging.info(f"Function triggered with Pub/Sub event data: {data}")
 
@@ -110,7 +114,7 @@ def extract_bounding_box_pubsub(cloud_event: CloudEvent):
         message_json = json.loads(base64.b64decode(message_data).decode("utf-8"))
     except Exception as e:
         logging.error(f"Error parsing message data: {e}")
-        return "Invalid Pub/Sub message data.", 400
+        return "Invalid Pub/Sub message data."
 
     logging.info(f"Parsed message data: {message_json}")
 
@@ -121,37 +125,73 @@ def extract_bounding_box_pubsub(cloud_event: CloudEvent):
         or "url" not in message_json
     ):
         logging.error("Invalid message data.")
-        return (
-            "Invalid message data. Expected 'stable_id', 'dataset_id', and 'url' in the message.",
-            400,
-        )
+        return "Invalid message data. Expected 'stable_id', 'dataset_id', and 'url' in the message."
 
     stable_id = message_json["stable_id"]
     dataset_id = message_json["dataset_id"]
     url = message_json["url"]
-
-    logging.info(f"[{dataset_id}] accessing url: {url}")
+    execution_id = message_json.get("execution_id", None)
+    if execution_id is None:
+        logging.warning(f"[{dataset_id}] No execution ID found in message")
+        execution_id = str(uuid.uuid4())
+        logging.info(f"[{dataset_id}] Generated execution ID: {execution_id}")
+    trace_service = DatasetTraceService()
+    trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
+    logging.info(f"[{dataset_id}] Trace: {trace}")
+    executions = len(trace) if trace else 0
+    print(f"[{dataset_id}] Executions: {executions}")
+    print(trace_service.get_by_execution_and_stable_ids(execution_id, stable_id))
+    logging.info(f"[{dataset_id}] Executions: {executions}")
+    if executions > 0 and executions >= maximum_executions:
+        logging.warning(
+            f"[{dataset_id}] Maximum executions reached. Skipping processing."
+        )
+        return f"Maximum executions reached for {dataset_id}."
+    trace_id = str(uuid.uuid4())
+    error = None
+    # Saving trace before starting in case we run into memory problems or uncatchable errors
+    trace = DatasetTrace(
+        trace_id=trace_id,
+        stable_id=stable_id,
+        execution_id=execution_id,
+        status=Status.PROCESSING,
+        timestamp=datetime.now(),
+        hosted_url=url,
+        dataset_id=dataset_id,
+        pipeline_stage=PipelineStage.LOCATION_EXTRACTION,
+    )
+    trace_service.save(trace)
     try:
-        bounds = get_gtfs_feed_bounds(url, dataset_id)
-    except Exception as e:
-        return f"Error processing GTFS feed: {e}", 500
-    logging.info(f"[{dataset_id}] extracted bounding box = {bounds}")
+        logging.info(f"[{dataset_id}] accessing url: {url}")
+        try:
+            bounds = get_gtfs_feed_bounds(url, dataset_id)
+        except Exception as e:
+            error = f"Error processing GTFS feed: {e}"
+            raise e
+        logging.info(f"[{dataset_id}] extracted bounding box = {bounds}")
 
-    geometry_polygon = create_polygon_wkt_element(bounds)
+        geometry_polygon = create_polygon_wkt_element(bounds)
 
-    session = None
-    try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        update_dataset_bounding_box(session, dataset_id, geometry_polygon)
-    except Exception as e:
-        logging.error(f"[{dataset_id}] Error while processing: {e}")
-        if session is not None:
-            session.rollback()
-        raise e
+        session = None
+        try:
+            session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+            update_dataset_bounding_box(session, dataset_id, geometry_polygon)
+        except Exception as e:
+            error = f"Error updating bounding box in database: {e}"
+            logging.error(f"[{dataset_id}] Error while processing: {e}")
+            if session is not None:
+                session.rollback()
+            raise e
+        finally:
+            if session is not None:
+                session.close()
+        logging.info(f"[{stable_id} - {dataset_id}] Bounding box updated successfully.")
+    except Exception:
+        pass
     finally:
-        if session is not None:
-            session.close()
-    logging.info(f"[{stable_id} - {dataset_id}] Bounding box updated successfully.")
+        trace.status = Status.FAILED if error is not None else Status.SUCCESS
+        trace.error_message = error
+        trace_service.save(trace)
 
 
 @functions_framework.cloud_event

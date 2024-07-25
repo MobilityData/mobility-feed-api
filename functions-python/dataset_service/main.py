@@ -22,6 +22,7 @@ from typing import Optional, Final
 from google.cloud import datastore
 from google.cloud.datastore import Client
 
+
 # This files contains the dataset trace and batch execution models and services.
 # The dataset trace is used to store the trace of a dataset and the batch execution
 # One batch execution can have multiple dataset traces.
@@ -32,8 +33,16 @@ from google.cloud.datastore import Client
 # Status of the dataset trace
 class Status(Enum):
     FAILED = "FAILED"
+    SUCCESS = "SUCCESS"
     PUBLISHED = "PUBLISHED"
     NOT_PUBLISHED = "NOT_PUBLISHED"
+    PROCESSING = "PROCESSING"
+
+
+# Stage of the pipeline
+class PipelineStage(Enum):
+    DATASET_PROCESSING = "DATASET_PROCESSING"
+    LOCATION_EXTRACTION = "LOCATION_EXTRACTION"
 
 
 # Dataset trace class to store the trace of a dataset
@@ -42,10 +51,12 @@ class DatasetTrace:
     stable_id: str
     status: Status
     timestamp: datetime
+    dataset_id: Optional[str] = None
     trace_id: Optional[str] = None
     execution_id: Optional[str] = None
     file_sha256_hash: Optional[str] = None
     hosted_url: Optional[str] = None
+    pipeline_stage: PipelineStage = PipelineStage.DATASET_PROCESSING
     error_message: Optional[str] = None
 
 
@@ -98,7 +109,9 @@ class DatasetTraceService:
 
     # Transform the dataset trace to entity
     def _dataset_trace_to_entity(self, dataset_trace: DatasetTrace) -> datastore.Entity:
-        trace_id = str(uuid.uuid4())
+        trace_id = (
+            str(uuid.uuid4()) if not dataset_trace.trace_id else dataset_trace.trace_id
+        )
         key = self.client.key(dataset_trace_collection, trace_id)
         entity = datastore.Entity(key=key)
 
