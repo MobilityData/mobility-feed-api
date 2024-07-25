@@ -112,7 +112,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         os.environ,
         {
             "FEEDS_DATABASE_URL": default_db_url,
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
@@ -155,7 +155,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         {
             "FEEDS_DATABASE_URL": default_db_url,
             "MAXIMUM_EXECUTIONS": "1",
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
@@ -197,7 +197,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         os.environ,
         {
             "FEEDS_DATABASE_URL": default_db_url,
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
@@ -233,7 +233,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         os.environ,
         {
             "FEEDS_DATABASE_URL": default_db_url,
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
@@ -261,7 +261,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         os.environ,
         {
             "FEEDS_DATABASE_URL": default_db_url,
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.get_gtfs_feed_bounds")
@@ -303,7 +303,7 @@ class TestExtractBoundingBox(unittest.TestCase):
             "FEEDS_DATABASE_URL": default_db_url,
             "PUBSUB_TOPIC_NAME": "test-topic",
             "PROJECT_ID": "test-project",
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.start_db_session")
@@ -376,7 +376,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         os.environ,
         {
             "FEEDS_DATABASE_URL": default_db_url,
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.Logger")
@@ -392,7 +392,7 @@ class TestExtractBoundingBox(unittest.TestCase):
             "FEEDS_DATABASE_URL": default_db_url,
             "PUBSUB_TOPIC_NAME": "test-topic",
             "PROJECT_ID": "test-project",
-            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
     @patch("extract_bb.src.main.start_db_session")
