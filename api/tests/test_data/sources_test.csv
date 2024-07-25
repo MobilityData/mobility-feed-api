@@ -3,4 +3,4 @@ mdb_source_id,data_type,entity_type,location.country_code,location.subdivision_n
 10,gtfs,,US,mdb-10-subdivision,mdb-10-municipality,mdb-10-MobilityDataTest provider,mdb-10-MobilityDataTest Feed Name,,,,,0,,,,,,,,,,active,,20|30,
 20,gtfs,,US,mdb-20-subdivision,mdb-20-municipality,mdb-20-MobilityDataTest provider,mdb-20-MobilityDataTest Feed Name,,,,,0,,,,,,,,,,active,,,
 30,gtfs,,US,mdb-30-subdivision,mdb-30-municipality,mdb-30-MobilityDataTest provider,mdb-30-MobilityDataTest Feed Name,,,,,0,,,,,,,,,,active,,,
-1561,gtfs-rt,vp,,,,,,,,1,,0,,,,,,,,,,active,,10,
+1561,gtfs-rt,vp,US,,,,,,,1,,0,,,,,,,,,,active,,10,

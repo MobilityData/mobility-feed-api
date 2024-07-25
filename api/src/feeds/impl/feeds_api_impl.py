@@ -11,6 +11,7 @@ from database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Validationreport,
+    Entitytype,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -26,6 +27,7 @@ from feeds.impl.error_handling import (
     gtfs_rt_feed_not_found,
 )
 from feeds.impl.models.basic_feed_impl import BasicFeedImpl
+from feeds.impl.models.entity_type_enum import EntityType
 from feeds.impl.models.gtfs_feed_impl import GtfsFeedImpl
 from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
@@ -226,22 +228,40 @@ class FeedsApiImpl(BaseFeedsApi):
         municipality: str,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
+        entity_types_list = entity_types.split(",") if entity_types else None
+
+        # Validate entity types using the EntityType enum
+        if entity_types_list:
+            try:
+                entity_types_list = [EntityType(et.strip()).value for et in entity_types_list]
+            except ValueError:
+                raise_http_validation_error(
+                    "Entity types must be the value 'vp,' 'sa,' or 'tu,'. "
+                    "When provided a list values must be separated by commas."
+                )
+
         gtfs_rt_feed_filter = GtfsRtFeedFilter(
             stable_id=None,
             provider__ilike=provider,
             producer_url__ilike=producer_url,
-            entity_types=EntityTypeFilter(name__in=entity_types),
+            entity_types=EntityTypeFilter(name__in=entity_types_list),
             location=LocationFilter(
                 country_code=country_code,
                 subdivision_name__ilike=subdivision_name,
                 municipality__ilike=municipality,
             ),
         )
-        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed))
+        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed)).options(
+            *BasicFeedImpl.get_joinedload_options()
+        )
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Entitytype, Gtfsrealtimefeed.entitytypes).options(
+            joinedload(Gtfsrealtimefeed.entitytypes)
+        )
         gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Location, Feed.locations).options(
-            *BasicFeedImpl.get_joinedload_options(),
-            joinedload(Gtfsrealtimefeed.entitytypes),
-            joinedload(Gtfsrealtimefeed.gtfs_feeds),
+            joinedload(Gtfsrealtimefeed.locations)
+        )
+        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Gtfsfeed, Gtfsrealtimefeed.gtfs_feeds).options(
+            joinedload(Gtfsrealtimefeed.gtfs_feeds)
         )
         gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         if limit is not None:
