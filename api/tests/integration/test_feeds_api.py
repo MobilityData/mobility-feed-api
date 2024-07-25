@@ -587,7 +587,7 @@ def test_filter_by_subdivision_and_municipality(client):
         {"municipality": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
     ],
     ids=[
-        "all_empty",
+        "all_none",
         "single_entity_type_vp",
         "multiple_entity_types_sa_vp",
         "empty_entity_types",
@@ -627,7 +627,6 @@ def test_gtfs_rt_filter_by_entity_types(client, values):
     if int(values["response_code"]) != 200:
         assert response.status_code == values["response_code"]
         return
-    # assert response.status_code == 200 if "response_code" not in values else values["response_code"]
 
     feeds = response.json()
     assert isinstance(feeds, list), "Response should be a list."
