@@ -5,14 +5,17 @@ import {
   type FeedError,
   type FeedStatus,
 } from '../types';
-import { type AllFeedType } from '../services/feeds/utils';
+import { type GTFSRTFeedType, type AllFeedType } from '../services/feeds/utils';
 
 interface FeedState {
   status: FeedStatus;
   feedId: string | undefined;
   data: AllFeedType;
   relatedFeedIds: string[];
-  relatedFeedsData: AllFeedType[];
+  relatedFeedsData: {
+    gtfs: AllFeedType[];
+    gtfsRt: GTFSRTFeedType[];
+  };
   relatedFeedsStatus: 'loading' | 'loaded' | 'error';
   errors: FeedErrors;
 }
@@ -22,7 +25,10 @@ const initialState: FeedState = {
   feedId: undefined,
   data: undefined,
   relatedFeedIds: [],
-  relatedFeedsData: [],
+  relatedFeedsData: {
+    gtfs: [],
+    gtfsRt: [],
+  },
   relatedFeedsStatus: 'loading',
   errors: {
     [FeedErrorSource.DatabaseAPI]: null,
@@ -84,7 +90,10 @@ export const feedSlice = createSlice({
       }>,
     ) => {
       state.relatedFeedsStatus = 'loading';
-      state.relatedFeedsData = [];
+      state.relatedFeedsData = {
+        gtfs: [],
+        gtfsRt: [],
+      };
       state.errors = {
         ...state.errors,
         DatabaseAPI: initialState.errors.DatabaseAPI,
@@ -93,7 +102,10 @@ export const feedSlice = createSlice({
     loadingRelatedFeedsSuccess: (
       state,
       action: PayloadAction<{
-        data: AllFeedType[];
+        data: {
+          gtfs: AllFeedType[];
+          gtfsRt: GTFSRTFeedType[];
+        };
       }>,
     ) => {
       state.relatedFeedsStatus = 'loaded';

@@ -57,7 +57,7 @@ export default function PreviousDatasets({
         <TableContainer>
           <TableBody sx={{ display: 'inline-table', width: '100%' }}>
             {datasets?.map((dataset, index) => (
-              <TableRow key={dataset.id}>
+              <TableRow data-testid='dataset-item' key={dataset.id}>
                 {dataset.downloaded_at != null && (
                   <TableCell>
                     <Typography variant='body1'>
@@ -187,6 +187,7 @@ export default function PreviousDatasets({
                             target='_blank'
                             className='btn-link'
                             rel='noreferrer'
+                            data-testid='validation-report-html'
                           >
                             View Report
                           </a>
@@ -202,6 +203,7 @@ export default function PreviousDatasets({
                             target='_blank'
                             className='btn-link'
                             rel='noreferrer'
+                            data-testid='validation-report-json'
                           >
                             JSON Version
                           </a>
