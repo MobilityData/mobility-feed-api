@@ -131,7 +131,10 @@ def extract_bounding_box_pubsub(cloud_event: CloudEvent):
     url = message_json["url"]
 
     logging.info(f"[{dataset_id}] accessing url: {url}")
-    bounds = get_gtfs_feed_bounds(url, dataset_id)
+    try:
+        bounds = get_gtfs_feed_bounds(url, dataset_id)
+    except Exception as e:
+        return f"Error processing GTFS feed: {e}", 500
     logging.info(f"[{dataset_id}] extracted bounding box = {bounds}")
 
     geometry_polygon = create_polygon_wkt_element(bounds)
