@@ -606,7 +606,7 @@ def test_filter_by_subdivision_and_municipality(client):
         "empty_municipality",
     ],
 )
-def test_gtfs_rt_filter_by_entity_types(client, values):
+def test_gtfs_rt_filters(client, values):
     """Test /v1/gtfs_rt_feeds filters by entity types, country code, provider, producer URL, subdivision name, and
     municipality."""
 
