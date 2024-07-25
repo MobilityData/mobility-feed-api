@@ -118,6 +118,7 @@ class DatasetTraceService:
         entity.update(asdict(dataset_trace))
         entity["trace_id"] = trace_id
         entity["status"] = dataset_trace.status.value
+        entity["pipeline_stage"] = dataset_trace.pipeline_stage.value
 
         return entity
 
@@ -133,6 +134,10 @@ class DatasetTraceService:
             file_sha256_hash=entity.get("file_sha256_hash"),
             hosted_url=entity.get("hosted_url"),
             error_message=entity.get("error_message"),
+            pipeline_stage=PipelineStage(entity["pipeline_stage"])
+            if "pipeline_stage" in entity
+            else None,
+            dataset_id=entity.get("dataset_id"),
         )
 
 
