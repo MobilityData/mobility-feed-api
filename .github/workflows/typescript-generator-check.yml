@@ -5,6 +5,8 @@ on:
         - main
     paths:
       - "docs/DatabaseCatalogAPI.yaml"
+  push:
+    branches: [ 612-filter-out-deprecated-feeds-from-search ]
 
 env:
   NODE_VERSION: "18"
