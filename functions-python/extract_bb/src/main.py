@@ -1,17 +1,28 @@
-import os
+import base64
+import json
 import logging
+import os
 
 import functions_framework
 import gtfs_kit
 import numpy
 from cloudevents.http import CloudEvent
 from geoalchemy2 import WKTElement
+from google.cloud import pubsub_v1
 
 from database_gen.sqlacodegen_models import Gtfsdataset
 from helpers.database import start_db_session
 from helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
+
+
+class Request:
+    def __init__(self, json):
+        self.json = json
+
+    def get_json(self):
+        return self.json
 
 
 def parse_resource_data(data: dict) -> tuple:
@@ -84,20 +95,44 @@ def update_dataset_bounding_box(session, dataset_id, geometry_polygon):
 
 
 @functions_framework.cloud_event
-def extract_bounding_box(cloud_event: CloudEvent) -> None:
+def extract_bounding_box_pubsub(cloud_event: CloudEvent):
     """
-    Main function triggered by a GTFS dataset upload to extract and update the bounding box in the database.
-    @:param cloud_event (CloudEvent): The CloudEvent that triggered this function.
+    Main function triggered by a Pub/Sub message to extract and update the bounding box in the database.
+    @param cloud_event: The CloudEvent containing the Pub/Sub message.
     """
     Logger.init_logger()
     data = cloud_event.data
-    logging.info(f"Function Triggered with event data: {data}")
+    logging.info(f"Function triggered with Pub/Sub event data: {data}")
 
-    stable_id, dataset_id, url = parse_resource_data(data)
+    # Extract the Pub/Sub message data
+    try:
+        message_data = data["message"]["data"]
+        message_json = json.loads(base64.b64decode(message_data).decode("utf-8"))
+    except Exception as e:
+        logging.error(f"Error parsing message data: {e}")
+        return "Invalid Pub/Sub message data.", 400
+
+    logging.info(f"Parsed message data: {message_json}")
+
+    if (
+        message_json is None
+        or "stable_id" not in message_json
+        or "dataset_id" not in message_json
+        or "url" not in message_json
+    ):
+        logging.error("Invalid message data.")
+        return (
+            "Invalid message data. Expected 'stable_id', 'dataset_id', and 'url' in the message.",
+            400,
+        )
+
+    stable_id = message_json["stable_id"]
+    dataset_id = message_json["dataset_id"]
+    url = message_json["url"]
+
     logging.info(f"[{dataset_id}] accessing url: {url}")
-
     bounds = get_gtfs_feed_bounds(url, dataset_id)
-    logging.info(f"[{dataset_id}] extracted bounding = {bounds}")
+    logging.info(f"[{dataset_id}] extracted bounding box = {bounds}")
 
     geometry_polygon = create_polygon_wkt_element(bounds)
 
@@ -106,7 +141,7 @@ def extract_bounding_box(cloud_event: CloudEvent) -> None:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         update_dataset_bounding_box(session, dataset_id, geometry_polygon)
     except Exception as e:
-        logging.error(f"{dataset_id}] Error while processing: {e}")
+        logging.error(f"[{dataset_id}] Error while processing: {e}")
         if session is not None:
             session.rollback()
         raise e
@@ -114,3 +149,92 @@ def extract_bounding_box(cloud_event: CloudEvent) -> None:
         if session is not None:
             session.close()
     logging.info(f"[{stable_id} - {dataset_id}] Bounding box updated successfully.")
+
+
+@functions_framework.cloud_event
+def extract_bounding_box(cloud_event: CloudEvent):
+    """
+    Wrapper function to extract necessary data from the CloudEvent and call the core function.
+    @param cloud_event: The CloudEvent containing the Pub/Sub message.
+    """
+    Logger.init_logger()
+    data = cloud_event.data
+    logging.info(f"Function Triggered with event data: {data}")
+
+    try:
+        stable_id, dataset_id, url = parse_resource_data(data)
+    except KeyError as e:
+        logging.error(f"Missing key in event data: {e}")
+        return "Invalid event data.", 400
+    except Exception as e:
+        logging.error(f"Error parsing resource data: {e}")
+        return "Error processing event data.", 500
+
+    # Construct a CloudEvent-like dictionary with the necessary information
+    new_cloud_event_data = {
+        "message": {
+            "data": base64.b64encode(
+                json.dumps(
+                    {"stable_id": stable_id, "dataset_id": dataset_id, "url": url}
+                ).encode("utf-8")
+            ).decode("utf-8")
+        }
+    }
+    attributes = {
+        "type": None,
+        "source": None,
+    }
+
+    # Create a new CloudEvent object to pass to the PubSub function
+    new_cloud_event = CloudEvent(attributes=attributes, data=new_cloud_event_data)
+
+    # Call the pubsub function with the constructed CloudEvent
+    return extract_bounding_box_pubsub(new_cloud_event)
+
+
+@functions_framework.http
+def extract_bounding_box_batch(_):
+    Logger.init_logger()
+    logging.info("Batch function triggered.")
+
+    pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
+    if pubsub_topic_name is None:
+        logging.error("PUBSUB_TOPIC_NAME environment variable not set.")
+        return "PUBSUB_TOPIC_NAME environment variable not set.", 500
+
+    # Get latest GTFS dataset with no bounding boxes
+    session = None
+    datasets_data = []
+    try:
+        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        datasets = (
+            session.query(Gtfsdataset)
+            .filter(Gtfsdataset.bounding_box == None)  # noqa: E711
+            .filter(Gtfsdataset.latest)
+            .all()
+        )
+        for dataset in datasets:
+            data = {
+                "stable_id": dataset.feed_id,
+                "dataset_id": dataset.stable_id,
+                "url": dataset.hosted_url,
+            }
+            datasets_data.append(data)
+            logging.info(f"Dataset {dataset.stable_id} added to the batch.")
+
+    except Exception as e:
+        logging.error(f"Error while fetching datasets: {e}")
+        return "Error while fetching datasets.", 500
+    finally:
+        if session is not None:
+            session.close()
+
+    # Trigger update bounding box for each dataset by publishing to Pub/Sub
+    publisher = pubsub_v1.PublisherClient()
+    topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
+    for data in datasets_data:
+        message_data = json.dumps(data).encode("utf-8")
+        future = publisher.publish(topic_path, message_data)
+        logging.info(f"Published message to Pub/Sub with ID: {future.result()}")
+
+    return f"Batch function triggered for {len(datasets_data)} datasets.", 200

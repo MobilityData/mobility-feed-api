@@ -16,9 +16,9 @@ import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useAppDispatch } from '../hooks';
 import {
-  loginFail,
   loginWithProvider,
   signUp,
+  signUpFail,
   verifyEmail,
 } from '../store/profile-reducer';
 import {
@@ -137,7 +137,7 @@ export default function SignUp(): React.ReactElement {
       })
       .catch((error) => {
         dispatch(
-          loginFail({
+          signUpFail({
             code: error.code,
             message: error.message,
             source: ProfileErrorSource.Login,
