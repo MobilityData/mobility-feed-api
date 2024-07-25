@@ -137,6 +137,7 @@ export default function FeedAnalytics(): React.ReactElement {
         country: false,
         subdivision_name: false,
         municipality: false,
+        provider: false,
       },
     },
     enableStickyHeader: true,

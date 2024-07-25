@@ -80,6 +80,11 @@ export const useTableColumns = (
         size: 100,
       },
       {
+        accessorKey: 'provider',
+        header: 'Provider',
+        size: 100,
+      },
+      {
         accessorKey: 'notices.errors',
         header: 'Errors',
         enableSorting: false,
