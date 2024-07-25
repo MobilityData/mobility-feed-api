@@ -572,7 +572,7 @@ def test_filter_by_subdivision_and_municipality(client):
         {"entity_types": "vp", "response_code": 200, "expected_feed_ids": ["mdb-1561"]},
         {"entity_types": "sa,vp", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
         {"entity_types": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
-        {"entity_types": "not_valid", "response_code": 422, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"entity_types": "not_valid", "response_code": 422},
         {"country_code": "CA", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
         {"country_code": "CA", "entity_types": "sa,vp", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
         {"country_code": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
