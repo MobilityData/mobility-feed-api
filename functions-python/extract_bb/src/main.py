@@ -247,6 +247,7 @@ def extract_bounding_box_batch(_):
 
     # Get latest GTFS dataset with no bounding boxes
     session = None
+    execution_id = str(uuid.uuid4())
     datasets_data = []
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
@@ -261,6 +262,7 @@ def extract_bounding_box_batch(_):
                 "stable_id": dataset.feed_id,
                 "dataset_id": dataset.stable_id,
                 "url": dataset.hosted_url,
+                "execution_id": execution_id,
             }
             datasets_data.append(data)
             logging.info(f"Dataset {dataset.stable_id} added to the batch.")
