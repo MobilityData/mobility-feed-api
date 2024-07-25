@@ -16,5 +16,5 @@
   "max_instance_request_concurrency": 1,
   "max_instance_count": 5,
   "min_instance_count": 0,
-  "available_cpu": 1
+  "available_cpu": 3
 }
