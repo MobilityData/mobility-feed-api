@@ -267,7 +267,7 @@ resource "google_cloudfunctions2_function" "extract_bb_batch" {
       PUBSUB_TOPIC_NAME = google_pubsub_topic.dataset_updates.name
       PYTHONNODEBUGRANGES = 0
     }
-    available_memory = local.function_extract_bb_config.memory
+    available_memory = '1Gi'
     timeout_seconds = local.function_extract_bb_config.timeout
     available_cpu = local.function_extract_bb_config.available_cpu
     max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
