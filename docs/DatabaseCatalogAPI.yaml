@@ -860,7 +860,7 @@ components:
             - inactive
             - development
       style: form
-      explode: true
+      explode: false
     provider:
       name: provider
       in: query
