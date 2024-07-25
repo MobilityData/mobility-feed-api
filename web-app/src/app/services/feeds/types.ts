@@ -73,7 +73,7 @@ export interface paths {
     /**
      * @description Search feeds on feed name, location and provider's information.
      * <br>
-     * The current implemation leverage the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
+     * The current implementation leverages the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
      * <br><br>
      * Points to consider while using search endpoint:
      * <br>
@@ -450,6 +450,8 @@ export interface components {
   parameters: {
     /** @description Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
     status?: 'active' | 'deprecated' | 'inactive' | 'development';
+    /** @description QAZ Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
+    status2?: Array<'active' | 'deprecated' | 'inactive' | 'development'>;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
@@ -714,7 +716,7 @@ export interface operations {
   /**
    * @description Search feeds on feed name, location and provider's information.
    * <br>
-   * The current implemation leverage the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
+   * The current implementation leverages the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
    * <br><br>
    * Points to consider while using search endpoint:
    * <br>
@@ -736,7 +738,7 @@ export interface operations {
       query?: {
         limit?: components['parameters']['limit_query_param'];
         offset?: components['parameters']['offset'];
-        status?: components['parameters']['status'];
+        status?: components['parameters']['status2'];
         feed_id?: components['parameters']['feed_id_query_param'];
         data_type?: components['parameters']['data_type_query_param'];
         search_query?: components['parameters']['search_text_query_param'];
