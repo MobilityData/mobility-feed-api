@@ -4,7 +4,7 @@
 # Note: The test might fail if the QA database schema does not match the
 # feature branch schema.
 name: PR - Run Integration Tests
-
+# Allo
 on:
   pull_request:
     branches:
