@@ -40,7 +40,6 @@ class SearchApiImpl(BaseSearchApi):
         if status:
             status_list = [s.strip().lower() for s in status[0].split(",") if s]
             if status_list:
-                # status_list = [s.strip().lower() for s in status[0].split(',') if s.strip()]
                 query = query.where(t_feedsearch.c.status.in_([s.strip().lower() for s in status_list]))
         if search_query and len(search_query.strip()) > 0:
             query = query.filter(
