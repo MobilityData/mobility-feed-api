@@ -139,13 +139,12 @@ resource "google_cloudfunctions2_function" "tokens" {
   }
 }
 
-# 2. functions/extract_bb cloud function
+# 2.1 functions/extract_bb cloud function
 resource "google_cloudfunctions2_function" "extract_bb" {
   name        = local.function_extract_bb_config.name
   description = local.function_extract_bb_config.description
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
-
   event_trigger {
     event_type = "google.cloud.audit.log.v1.written"
     service_account_email = google_service_account.functions_service_account.email
@@ -163,7 +162,6 @@ resource "google_cloudfunctions2_function" "extract_bb" {
       operator = "match-path-pattern"
     }
   }
-
   build_config {
     runtime     = var.python_runtime
     entry_point = local.function_extract_bb_config.entry_point
@@ -183,6 +181,100 @@ resource "google_cloudfunctions2_function" "extract_bb" {
     min_instance_count = local.function_extract_bb_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
     ingress_settings = local.function_extract_bb_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_extract_bb_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 2.2 functions/extract_bb cloud function pub/sub triggered
+resource "google_pubsub_topic" "dataset_updates" {
+  name = "dataset-updates"
+}
+resource "google_cloudfunctions2_function" "extract_bb_pubsub" {
+  name        = "${local.function_extract_bb_config.name}-pubsub"
+  description = local.function_extract_bb_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+  event_trigger {
+    trigger_region        = var.gcp_region
+    service_account_email = google_service_account.functions_service_account.email
+    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic          = google_pubsub_topic.dataset_updates.id
+    retry_policy          = "RETRY_POLICY_RETRY"
+  }
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_extract_bb_config.entry_point}_pubsub"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_extract_bb_zip_object.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_extract_bb_config.memory
+    timeout_seconds = local.function_extract_bb_config.timeout
+    available_cpu = local.function_extract_bb_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_bb_config.max_instance_count
+    min_instance_count = local.function_extract_bb_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = "ALLOW_ALL"
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_extract_bb_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 2.3 functions/extract_bb cloud function batch
+resource "google_cloudfunctions2_function" "extract_bb_batch" {
+  name        = "${local.function_extract_bb_config.name}-batch"
+  description = local.function_extract_bb_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_extract_bb_config.entry_point}_batch"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_extract_bb_zip_object.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID = var.project_id
+      PUBSUB_TOPIC_NAME = google_pubsub_topic.dataset_updates.name
+      PYTHONNODEBUGRANGES = 0
+    }
+    available_memory = local.function_extract_bb_config.memory
+    timeout_seconds = local.function_extract_bb_config.timeout
+    available_cpu = local.function_extract_bb_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_bb_config.max_instance_count
+    min_instance_count = local.function_extract_bb_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = "ALLOW_ALL"
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
@@ -376,4 +468,20 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   project  = var.project_id
   location = var.gcp_region
   name     = "update-validation-report-task-queue"
+}
+
+# Grant permissions to the service account to publish to the pubsub topic
+resource "google_pubsub_topic_iam_binding" "functions_publisher" {
+  project = var.project_id
+  role    = "roles/pubsub.publisher"
+  topic   = google_pubsub_topic.dataset_updates.name
+  members = ["serviceAccount:${google_service_account.functions_service_account.email}"]
+}
+
+# Grant permissions to the service account to subscribe to the pubsub topic
+resource "google_pubsub_topic_iam_binding" "functions_subscriber" {
+  project = var.project_id
+  role    = "roles/pubsub.subscriber"
+  topic   = google_pubsub_topic.dataset_updates.name
+  members = ["serviceAccount:${google_service_account.functions_service_account.email}"]
 }
