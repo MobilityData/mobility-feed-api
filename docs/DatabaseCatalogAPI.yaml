@@ -276,7 +276,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/status2"
+        - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/feed_id_query_param"
         - $ref: "#/components/parameters/data_type_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
@@ -845,22 +845,22 @@ components:
 #      example: gtfs
   parameters:
 
+#    status:
+#      name: status
+#      in: query
+#      description: Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema)
+#      required: false
+#      schema:
+#        type: string
+#        enum:
+#          - active
+#          - deprecated
+#          - inactive
+#          - development
     status:
       name: status
       in: query
       description: Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema)
-      required: false
-      schema:
-        type: string
-        enum:
-          - active
-          - deprecated
-          - inactive
-          - development
-    status2:
-      name: status
-      in: query
-      description: QAZ Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema)
       required: false
       schema:
         type: array

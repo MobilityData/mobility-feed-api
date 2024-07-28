@@ -449,9 +449,7 @@ export interface components {
   responses: never;
   parameters: {
     /** @description Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
-    status?: 'active' | 'deprecated' | 'inactive' | 'development';
-    /** @description QAZ Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
-    status2?: Array<'active' | 'deprecated' | 'inactive' | 'development'>;
+    status?: Array<'active' | 'deprecated' | 'inactive' | 'development'>;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
@@ -738,7 +736,7 @@ export interface operations {
       query?: {
         limit?: components['parameters']['limit_query_param'];
         offset?: components['parameters']['offset'];
-        status?: components['parameters']['status2'];
+        status?: components['parameters']['status'];
         feed_id?: components['parameters']['feed_id_query_param'];
         data_type?: components['parameters']['data_type_query_param'];
         search_query?: components['parameters']['search_text_query_param'];
