@@ -11,12 +11,14 @@ from geoalchemy2 import WKTElement
 
 from database_gen.sqlacodegen_models import Gtfsdataset
 from extract_location.src.main import (
-    create_polygon_wkt_element,
-    update_dataset_bounding_box,
-    get_gtfs_feed_bounds,
     extract_location,
     extract_location_pubsub,
     extract_location_batch,
+)
+from extract_location.src.bounding_box_extractor import (
+    get_gtfs_feed_bounds,
+    create_polygon_wkt_element,
+    update_dataset_bounding_box,
 )
 from test_utils.database_utils import default_db_url
 from cloudevents.http import CloudEvent
