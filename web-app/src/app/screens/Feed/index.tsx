@@ -225,7 +225,7 @@ export default function Feed(): React.ReactElement {
                     </Typography>
                   </Grid>
                 )}
-              {!hasDatasets && !hasFeedRedirect && (
+              {feedType === 'gtfs' && !hasDatasets && !hasFeedRedirect && (
                 <Grid item xs={12}>
                   <WarningContentBox>
                     Unable to download this feed. If there is a more recent URL
