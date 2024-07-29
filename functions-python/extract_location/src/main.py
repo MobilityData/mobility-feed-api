@@ -23,6 +23,7 @@ from .bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
 )
+from .location_extractor import update_location, reverse_coords
 from .stops_utils import get_gtfs_feed_bounds_and_points
 
 logging.basicConfig(level=logging.INFO)
@@ -114,7 +115,7 @@ def extract_location_pubsub(cloud_event: CloudEvent):
     try:
         logging.info(f"[{dataset_id}] accessing url: {url}")
         try:
-            bounds, _ = get_gtfs_feed_bounds_and_points(
+            bounds, location_geo_points = get_gtfs_feed_bounds_and_points(
                 url, dataset_id, location_extraction_n_points
             )
         except Exception as e:
@@ -128,6 +129,7 @@ def extract_location_pubsub(cloud_event: CloudEvent):
         try:
             session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
             update_dataset_bounding_box(session, dataset_id, geometry_polygon)
+            update_location(reverse_coords(location_geo_points), dataset_id, session)
         except Exception as e:
             error = f"Error updating bounding box in database: {e}"
             logging.error(f"[{dataset_id}] Error while processing: {e}")

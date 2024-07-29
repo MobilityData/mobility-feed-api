@@ -10,11 +10,18 @@ import pandas
 from cloudevents.http import CloudEvent
 from faker import Faker
 from geoalchemy2 import WKTElement
+from sqlalchemy.orm import Session
 
 from database_gen.sqlacodegen_models import Gtfsdataset
 from extract_location.src.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
+)
+from extract_location.src.location_extractor import (
+    reverse_coord,
+    reverse_coords,
+    LocationInfo,
+    update_location,
 )
 from extract_location.src.main import (
     extract_location,
@@ -28,6 +35,81 @@ faker = Faker()
 
 
 class TestExtractBoundingBox(unittest.TestCase):
+    def test_reverse_coord(self):
+        lat, lon = 34.0522, -118.2437  # Coordinates for Los Angeles, California, USA
+        result = reverse_coord(lat, lon)
+
+        self.assertEqual(result, ("US", "United States", "California", "Los Angeles"))
+
+    @patch("requests.get")
+    def test_reverse_coords(self, mock_get):
+        # Mocking the response from the API for multiple calls
+        mock_response = MagicMock()
+        mock_response.json.side_effect = [
+            {
+                "address": {
+                    "country_code": "us",
+                    "country": "United States",
+                    "state": "California",
+                    "city": "Los Angeles",
+                }
+            },
+            {
+                "address": {
+                    "country_code": "us",
+                    "country": "United States",
+                    "state": "California",
+                    "city": "San Francisco",
+                }
+            },
+            {
+                "address": {
+                    "country_code": "us",
+                    "country": "United States",
+                    "state": "California",
+                    "city": "Los Angeles",
+                }
+            },
+        ]
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        points = [(34.0522, -118.2437), (37.7749, -122.4194)]
+        location_info = reverse_coords(points)
+
+        self.assertEqual(location_info.country_codes, ["US", "US"])
+        self.assertEqual(location_info.countries, ["United States", "United States"])
+        self.assertEqual(location_info.most_common_subdivision_name, "California")
+        self.assertEqual(location_info.most_common_municipality, "Los Angeles")
+
+    def test_update_location(self):
+        # Setup mock database session and models
+        mock_session = MagicMock(spec=Session)
+        mock_dataset = MagicMock()
+        mock_dataset.stable_id = "123"
+        mock_dataset.feed = MagicMock()
+
+        mock_session.query.return_value.filter.return_value.one_or_none.return_value = (
+            mock_dataset
+        )
+
+        location_info = LocationInfo(
+            country_codes=["us"],
+            countries=["United States"],
+            most_common_subdivision_name="California",
+            most_common_municipality="Los Angeles",
+        )
+        dataset_id = "123"
+
+        update_location(location_info, dataset_id, mock_session)
+
+        # Verify if dataset and feed locations are set correctly
+        mock_session.add.assert_called_once_with(mock_dataset)
+        mock_session.commit.assert_called_once()
+
+        self.assertEqual(mock_dataset.locations[0].country, "United States")
+        self.assertEqual(mock_dataset.feed.locations[0].country, "United States")
+
     def test_create_polygon_wkt_element(self):
         bounds = np.array(
             [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
