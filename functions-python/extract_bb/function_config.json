@@ -3,9 +3,9 @@
   "description": "Extracts the bounding box from a dataset",
   "entry_point": "extract_bounding_box",
   "timeout": 540,
-  "memory": "2Gi",
+  "memory": "8Gi",
   "trigger_http": false,
-  "include_folders": ["database_gen", "helpers"],
+  "include_folders": ["database_gen", "helpers", "dataset_service"],
   "environment_variables": [],
   "secret_environment_variables": [
     {
@@ -16,5 +16,5 @@
   "max_instance_request_concurrency": 1,
   "max_instance_count": 5,
   "min_instance_count": 0,
-  "available_cpu": 1
+  "available_cpu": 2
 }
