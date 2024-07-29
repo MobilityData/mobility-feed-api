@@ -863,7 +863,7 @@ components:
       in: query
       description: Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema)
       required: false
-      style: simple
+      style: form
       explode: false
       schema:
         type: array
