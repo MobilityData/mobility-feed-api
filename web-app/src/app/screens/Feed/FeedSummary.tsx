@@ -76,8 +76,8 @@ export default function FeedSummary({
             {feed?.source_info?.producer_url !== undefined && (
               <a
                 href={feed?.source_info?.producer_url}
-                target="_blank"
-                rel="noopener noreferrer"
+                target='_blank'
+                rel='noopener noreferrer'
                 style={{ textDecoration: 'none' }}
               >
                 {feed?.source_info?.producer_url}
