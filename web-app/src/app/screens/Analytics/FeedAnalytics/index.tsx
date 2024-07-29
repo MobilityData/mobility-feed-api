@@ -1,11 +1,10 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   MaterialReactTable,
   useMaterialReactTable,
 } from 'material-react-table';
 import { Box, Typography } from '@mui/material';
-import { useFetchData, useFetchMetrics } from './hooks';
-import { useTableColumns } from './FeedAnalyticsTable';
 import { format } from 'date-fns';
 import { useTheme } from '@mui/material/styles';
 import {
@@ -21,6 +20,13 @@ import {
 } from 'recharts';
 import '../analytics.css';
 import { useLocation } from 'react-router-dom';
+import { fetchDataStart } from '../../../store/analytics-reducer';
+import {
+  selectFeedMetrics,
+  selectAnalyticsStatus,
+  selectAnalyticsError,
+} from '../../../store/analytics-selector';
+import { useTableColumns } from './FeedAnalyticsTable';
 
 export default function FeedAnalytics(): React.ReactElement {
   const { search } = useLocation();
@@ -30,36 +36,28 @@ export default function FeedAnalytics(): React.ReactElement {
   const noticeCode = params.get('noticeCode');
   const featureName = params.get('featureName');
 
-  const { data, loading } = useFetchData(
-    'https://storage.googleapis.com/mobilitydata-analytics-dev/analytics_2024_07.json',
-  );
-  const metrics = useFetchMetrics(
-    'https://storage.googleapis.com/mobilitydata-analytics-dev/feed_metrics.json',
-  );
+  const dispatch = useDispatch();
+  const data = useSelector(selectFeedMetrics);
+  const status = useSelector(selectAnalyticsStatus);
+  const error = useSelector(selectAnalyticsError);
 
-  const dataWithMetrics = useMemo(() => {
-    return data.map((feed) => ({
-      ...feed,
-      metrics: metrics.find((metric) => metric.feed_id === feed.feed_id),
-    }));
-  }, [data, metrics]);
+  React.useEffect(() => {
+    dispatch(fetchDataStart());
+  }, [dispatch]);
 
   const uniqueErrors = useMemo(() => {
-    const errors = data.map((item) => item.notices.errors).flat();
-    errors.sort();
-    return Array.from(new Set(errors));
+    const errors = data.flatMap((item) => item.notices.errors);
+    return Array.from(new Set(errors)).sort();
   }, [data]);
 
   const uniqueWarnings = useMemo(() => {
-    const warnings = data.map((item) => item.notices.warnings).flat();
-    warnings.sort();
-    return Array.from(new Set(warnings));
+    const warnings = data.flatMap((item) => item.notices.warnings);
+    return Array.from(new Set(warnings)).sort();
   }, [data]);
 
   const uniqueInfos = useMemo(() => {
-    const infos = data.map((item) => item.notices.infos).flat();
-    infos.sort();
-    return Array.from(new Set(infos));
+    const infos = data.flatMap((item) => item.notices.infos);
+    return Array.from(new Set(infos)).sort();
   }, [data]);
 
   const avgErrors = useMemo(() => {
@@ -88,10 +86,12 @@ export default function FeedAnalytics(): React.ReactElement {
 
   const initialFilters = useMemo(() => {
     const filters = [];
-    filters.push({
-      id: 'features',
-      value: featureName,
-    });
+    if (featureName != null) {
+      filters.push({
+        id: 'features',
+        value: featureName,
+      });
+    }
     if (severity != null && noticeCode != null) {
       const id =
         severity === 'ERROR'
@@ -101,14 +101,13 @@ export default function FeedAnalytics(): React.ReactElement {
             : severity === 'INFO'
               ? 'notices.infos'
               : undefined;
-      if (id !== undefined) {
+      if (id != null) {
         filters.push({
           id,
           value: [noticeCode],
         });
       }
     }
-    console.log('filters', filters);
     return filters;
   }, [severity, noticeCode, featureName]);
 
@@ -123,7 +122,7 @@ export default function FeedAnalytics(): React.ReactElement {
 
   const table = useMaterialReactTable({
     columns,
-    data: dataWithMetrics,
+    data,
     initialState: {
       showColumnFilters: initialFilters.length > 0,
       columnPinning: { left: ['mrt-row-expand', 'feed_id'] },
@@ -147,7 +146,7 @@ export default function FeedAnalytics(): React.ReactElement {
       const theme = useTheme();
       const metrics = row.original.metrics;
 
-      if (metrics === undefined) {
+      if (metrics == null) {
         return <div>No metrics available</div>;
       }
 
@@ -158,7 +157,7 @@ export default function FeedAnalytics(): React.ReactElement {
         infos: metrics.infos_count[index],
       }));
       const domain = [
-        new Date(metrics.computed_on[0]).getTime(),
+        new Date(metrics?.computed_on[0]).getTime(),
         new Date().getTime(),
       ];
 
@@ -174,7 +173,6 @@ export default function FeedAnalytics(): React.ReactElement {
                 tickFormatter={(date) => format(new Date(date), 'yyyy-MM')}
                 domain={domain}
               />
-
               <YAxis />
               <Tooltip
                 labelFormatter={(label) => format(new Date(label), 'yyyy-MM')}
@@ -193,15 +191,14 @@ export default function FeedAnalytics(): React.ReactElement {
         </Box>
       );
     },
-    muiTableBodyCellProps: ({ cell }) => ({
-      onClick: (event) => {
-        console.info(event, cell.id);
-      },
-    }),
   });
 
-  if (loading) {
+  if (status === 'loading') {
     return <div>Loading...</div>;
+  }
+
+  if (status === 'failed') {
+    return <div>Error: {error}</div>;
   }
 
   return (

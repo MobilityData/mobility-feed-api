@@ -4,7 +4,7 @@ export interface Notices {
   infos: string[];
 }
 
-export interface Feed {
+export interface FeedMetrics {
   feed_id: string;
   dataset_id: string;
   notices: Notices;
@@ -32,4 +32,12 @@ export interface NoticeMetrics {
   computed_on: string[];
   feeds_count: number[];
   latest_feed_count: number;
+}
+
+export interface FeatureMetrics {
+  feature: string;
+  computed_on: string[];
+  feeds_count: number[];
+  latest_feed_count: number;
+  feature_group?: string; // Add a property to handle feature grouping
 }

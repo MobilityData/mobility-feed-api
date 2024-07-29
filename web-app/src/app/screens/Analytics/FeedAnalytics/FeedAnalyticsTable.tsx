@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { type MRT_Cell, type MRT_ColumnDef } from 'material-react-table';
 import { format } from 'date-fns';
-import { type Feed } from '../types';
+import { type FeedMetrics } from '../types';
 import { groupFeatures, getGroupColor } from '../../../utils/analytics';
 import { useNavigate } from 'react-router-dom';
 import { Box, Stack } from '@mui/material';
@@ -23,10 +23,10 @@ export const useTableColumns = (
   avgErrors: number,
   avgWarnings: number,
   avgInfos: number,
-): Array<MRT_ColumnDef<Feed>> => {
+): Array<MRT_ColumnDef<FeedMetrics>> => {
   const navigate = useNavigate();
 
-  return useMemo<Array<MRT_ColumnDef<Feed>>>(
+  return useMemo<Array<MRT_ColumnDef<FeedMetrics>>>(
     () => [
       {
         accessorKey: 'feed_id',
@@ -38,7 +38,7 @@ export const useTableColumns = (
           cell,
           renderedCellValue,
         }: {
-          cell: MRT_Cell<Feed>;
+          cell: MRT_Cell<FeedMetrics>;
           renderedCellValue: React.ReactNode;
         }) => (
           <div
@@ -88,7 +88,7 @@ export const useTableColumns = (
         accessorKey: 'notices.errors',
         header: 'Errors',
         enableSorting: false,
-        Cell: ({ cell }: { cell: MRT_Cell<Feed> }) => (
+        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
           <div>
             {cell.getValue<string[]>().map((error, index) => (
               <div
@@ -138,7 +138,7 @@ export const useTableColumns = (
         accessorKey: 'notices.warnings',
         header: 'Warnings',
         enableSorting: false,
-        Cell: ({ cell }: { cell: MRT_Cell<Feed> }) => (
+        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
           <div>
             {cell.getValue<string[]>().map((warning, index) => (
               <div
@@ -204,7 +204,7 @@ export const useTableColumns = (
             </span>
           </span>
         ),
-        Cell: ({ cell }: { cell: MRT_Cell<Feed> }) => (
+        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
           <div>
             {cell.getValue<string[]>().map((info, index) => (
               <div
@@ -238,7 +238,7 @@ export const useTableColumns = (
         accessorKey: 'features',
         header: 'Features',
         enableSorting: false,
-        Cell: ({ cell }: { cell: MRT_Cell<Feed> }) => {
+        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => {
           const { groupedFeatures, otherFeatures } = groupFeatures(
             cell.getValue<string[]>(),
           );

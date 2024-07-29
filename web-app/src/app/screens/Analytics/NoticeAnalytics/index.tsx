@@ -11,16 +11,18 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
   Brush,
   Line,
   LineChart,
+  Tooltip,
 } from 'recharts';
 import { format } from 'date-fns';
 import Box from '@mui/material/Box';
-import { Typography, Button } from '@mui/material';
+import MUITooltip from '@mui/material/Tooltip';
+
+import { Typography, Button, IconButton } from '@mui/material';
 import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
@@ -62,7 +64,34 @@ export default function NoticeAnalytics(): React.ReactElement {
         accessorKey: 'notice',
         header: 'Notice',
         size: 300,
-        enableClickToCopy: true,
+        Cell: ({
+          cell,
+          renderedCellValue,
+        }: {
+          cell: MRT_Cell<NoticeMetrics>;
+          renderedCellValue: React.ReactNode;
+        }) => {
+          return (
+            <div>
+              {renderedCellValue}
+              <MUITooltip
+                title={`View ${cell.getValue<string>()} definition`}
+                arrow
+              >
+                <IconButton
+                  onClick={() => {
+                    window.open(
+                      `https://gtfs-validator.mobilitydata.org/rules.html#${cell.getValue<string>()}-rule`,
+                      '_blank',
+                    );
+                  }}
+                >
+                  <InfoOutlined />
+                </IconButton>
+              </MUITooltip>
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'severity',

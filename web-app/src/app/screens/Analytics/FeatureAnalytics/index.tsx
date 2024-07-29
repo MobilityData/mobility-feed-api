@@ -24,14 +24,7 @@ import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
 import { featureGroups, getGroupColor } from '../../../utils/analytics';
-
-interface FeatureMetrics {
-  feature: string;
-  computed_on: string[];
-  feeds_count: number[];
-  latest_feed_count: number;
-  feature_group?: string; // Add a property to handle feature grouping
-}
+import { type FeatureMetrics } from '../types';
 
 export default function FeatureAnalytics(): React.ReactElement {
   const navigateTo = useNavigate();
