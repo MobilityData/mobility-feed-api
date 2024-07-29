@@ -20,10 +20,10 @@ from dataset_service.main import (
 from helpers.database import start_db_session
 from helpers.logger import Logger
 from .bounding_box_extractor import (
-    get_gtfs_feed_bounds,
     create_polygon_wkt_element,
     update_dataset_bounding_box,
 )
+from .stops_utils import get_gtfs_feed_bounds_and_points
 
 logging.basicConfig(level=logging.INFO)
 
@@ -55,6 +55,7 @@ def extract_location_pubsub(cloud_event: CloudEvent):
     except ValueError:
         maximum_executions = 1
     data = cloud_event.data
+    location_extraction_n_points = os.getenv("LOCATION_EXTRACTION_N_POINTS", 5)
     logging.info(f"Function triggered with Pub/Sub event data: {data}")
 
     # Extract the Pub/Sub message data
@@ -113,7 +114,9 @@ def extract_location_pubsub(cloud_event: CloudEvent):
     try:
         logging.info(f"[{dataset_id}] accessing url: {url}")
         try:
-            bounds = get_gtfs_feed_bounds(url, dataset_id)
+            bounds, _ = get_gtfs_feed_bounds_and_points(
+                url, dataset_id, location_extraction_n_points
+            )
         except Exception as e:
             error = f"Error processing GTFS feed: {e}"
             raise e

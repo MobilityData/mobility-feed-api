@@ -1,26 +1,7 @@
-import logging
-
-import gtfs_kit
 import numpy
 from geoalchemy2 import WKTElement
 
 from database_gen.sqlacodegen_models import Gtfsdataset
-
-
-def get_gtfs_feed_bounds(url: str, dataset_id: str) -> numpy.ndarray:
-    """
-    Retrieve the bounding box coordinates from the GTFS feed.
-    @:param url (str): URL to the GTFS feed.
-    @:param dataset_id (str): ID of the dataset for logs
-    @:return numpy.ndarray: An array containing the bounds (min_longitude, min_latitude, max_longitude, max_latitude).
-    @:raises Exception: If the GTFS feed is invalid
-    """
-    try:
-        feed = gtfs_kit.read_feed(url, "km")
-        return feed.compute_bounds()
-    except Exception as e:
-        logging.error(f"[{dataset_id}] Error retrieving GTFS feed from {url}: {e}")
-        raise Exception(e)
 
 
 def create_polygon_wkt_element(bounds: numpy.ndarray) -> WKTElement:

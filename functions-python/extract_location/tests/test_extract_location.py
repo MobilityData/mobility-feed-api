@@ -6,23 +6,23 @@ from unittest import mock
 from unittest.mock import patch, MagicMock
 
 import numpy as np
+import pandas
+from cloudevents.http import CloudEvent
 from faker import Faker
 from geoalchemy2 import WKTElement
 
 from database_gen.sqlacodegen_models import Gtfsdataset
+from extract_location.src.bounding_box_extractor import (
+    create_polygon_wkt_element,
+    update_dataset_bounding_box,
+)
 from extract_location.src.main import (
     extract_location,
     extract_location_pubsub,
     extract_location_batch,
 )
-from extract_location.src.bounding_box_extractor import (
-    get_gtfs_feed_bounds,
-    create_polygon_wkt_element,
-    update_dataset_bounding_box,
-)
+from extract_location.src.stops_utils import get_gtfs_feed_bounds_and_points
 from test_utils.database_utils import default_db_url
-from cloudevents.http import CloudEvent
-
 
 faker = Faker()
 
@@ -54,23 +54,34 @@ class TestExtractBoundingBox(unittest.TestCase):
     def test_get_gtfs_feed_bounds_exception(self, mock_gtfs_kit):
         mock_gtfs_kit.side_effect = Exception(faker.pystr())
         try:
-            get_gtfs_feed_bounds(faker.url(), faker.pystr())
+            get_gtfs_feed_bounds_and_points(faker.url(), faker.pystr())
             assert False
         except Exception:
             assert True
 
     @patch("gtfs_kit.read_feed")
-    def test_get_gtfs_feed_bounds(self, mock_gtfs_kit):
+    def test_get_gtfs_feed_bounds_and_points(self, mock_gtfs_kit):
         expected_bounds = np.array(
             [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
         )
+
+        # Create a mock feed with a compute_bounds method
         feed_mock = MagicMock()
+        feed_mock.stops = pandas.DataFrame(
+            {
+                "stop_lat": [faker.latitude() for _ in range(10)],
+                "stop_lon": [faker.longitude() for _ in range(10)],
+            }
+        )
         feed_mock.compute_bounds.return_value = expected_bounds
         mock_gtfs_kit.return_value = feed_mock
-        bounds = get_gtfs_feed_bounds(faker.url(), faker.pystr())
-        self.assertEqual(len(bounds), len(expected_bounds))
-        for i in range(4):
-            self.assertEqual(bounds[i], expected_bounds[i])
+        bounds, points = get_gtfs_feed_bounds_and_points(
+            faker.url(), "test_dataset_id", num_points=7
+        )
+        self.assertEqual(len(points), 7)
+        for point in points:
+            self.assertIsInstance(point, tuple)
+            self.assertEqual(len(point), 2)
 
     @patch("extract_location.src.main.Logger")
     @patch("extract_location.src.main.DatasetTraceService")
@@ -117,15 +128,23 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
     @patch("extract_location.src.main.update_dataset_bounding_box")
     @patch("extract_location.src.main.Logger")
     @patch("extract_location.src.main.DatasetTraceService")
     def test_extract_location(
         self, __, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
-        get_gtfs_feed_bounds_mock.return_value = np.array(
-            [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
+        get_gtfs_feed_bounds_mock.return_value = (
+            np.array(
+                [
+                    faker.longitude(),
+                    faker.latitude(),
+                    faker.longitude(),
+                    faker.latitude(),
+                ]
+            ),
+            None,
         )
         mock_dataset_trace.save.return_value = None
         mock_dataset_trace.get_by_execution_and_stable_ids.return_value = 0
@@ -160,7 +179,7 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
     @patch("extract_location.src.main.update_dataset_bounding_box")
     @patch(
         "extract_location.src.main.DatasetTraceService.get_by_execution_and_stable_ids"
@@ -204,15 +223,23 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
     @patch("extract_location.src.main.update_dataset_bounding_box")
     @patch("extract_location.src.main.DatasetTraceService")
     @patch("extract_location.src.main.Logger")
     def test_extract_location_cloud_event(
         self, _, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
-        get_gtfs_feed_bounds_mock.return_value = np.array(
-            [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
+        get_gtfs_feed_bounds_mock.return_value = (
+            np.array(
+                [
+                    faker.longitude(),
+                    faker.latitude(),
+                    faker.longitude(),
+                    faker.latitude(),
+                ]
+            ),
+            None,
         )
         mock_dataset_trace.save.return_value = None
         mock_dataset_trace.get_by_execution_and_stable_ids.return_value = 0
@@ -240,7 +267,7 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
     @patch("extract_location.src.main.update_dataset_bounding_box")
     @patch("extract_location.src.main.Logger")
     def test_extract_location_cloud_event_error(
@@ -268,7 +295,7 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.stops_utils.get_gtfs_feed_bounds_and_points")
     @patch("extract_location.src.main.update_dataset_bounding_box")
     @patch("extract_location.src.main.Logger")
     def test_extract_location_exception_2(
