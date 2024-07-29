@@ -56,7 +56,6 @@ export default function Feed(): React.ReactElement {
     feedType === 'gtfs'
       ? useSelector(selectGTFSFeedData)
       : useSelector(selectGTFSRTFeedData);
-  console.log('FeedType', feedType);
   const relatedFeeds = useSelector(selectRelatedFeedsData);
   const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
   const datasets = useSelector(selectDatasetsData);
