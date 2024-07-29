@@ -48,7 +48,7 @@ class SearchApiImpl(BaseSearchApi):
         return query
 
     @staticmethod
-    def create_count_search_query(status: str, feed_id: str, data_type: str, search_query: str) -> Query:
+    def create_count_search_query(status: List[str], feed_id: str, data_type: str, search_query: str) -> Query:
         """
         Create a search query for the database.
         """
