@@ -134,7 +134,7 @@ class DatasetTraceService:
             file_sha256_hash=entity.get("file_sha256_hash"),
             hosted_url=entity.get("hosted_url"),
             error_message=entity.get("error_message"),
-            pipeline_stage=PipelineStage(entity.get("pipeline_stage")),
+            pipeline_stage=PipelineStage(entity.get("pipeline_stage")) if entity.get("pipeline_stage") else None,
             dataset_id=entity.get("dataset_id"),
         )
 
