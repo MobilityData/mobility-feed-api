@@ -73,7 +73,16 @@ export default function FeedSummary({
             sx={{ display: 'flex', overflowWrap: 'anywhere' }}
             data-testid='producer-url'
           >
-            {feed?.source_info?.producer_url}
+            {feed?.source_info?.producer_url !== undefined && (
+              <a
+                href={feed?.source_info?.producer_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none' }}
+              >
+                {feed?.source_info?.producer_url}
+              </a>
+            )}
             <ContentCopy
               titleAccess='Copy download URL'
               sx={{ cursor: 'pointer', ml: 1 }}
@@ -87,17 +96,6 @@ export default function FeedSummary({
               }}
             />
           </Typography>
-          {feed?.source_info?.producer_url !== undefined && (
-            <a
-              href={feed?.source_info?.producer_url}
-              download
-              style={{ textDecoration: 'none' }}
-            >
-              <Button sx={{ mt: 1 }} variant='contained' disableElevation>
-                Download
-              </Button>
-            </a>
-          )}
           <Snackbar
             anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             open={snackbarOpen}
