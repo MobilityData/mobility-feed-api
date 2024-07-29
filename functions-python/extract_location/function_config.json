@@ -1,5 +1,5 @@
 {
-  "name": "extract-bounding-box",
+  "name": "extract-location",
   "description": "Extracts the bounding box from a dataset",
   "entry_point": "extract_location",
   "timeout": 540,
