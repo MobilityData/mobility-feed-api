@@ -95,9 +95,9 @@ def update_dataset_bounding_box(session, dataset_id, geometry_polygon):
 
 
 @functions_framework.cloud_event
-def extract_bounding_box_pubsub(cloud_event: CloudEvent):
+def extract_location_pubsub(cloud_event: CloudEvent):
     """
-    Main function triggered by a Pub/Sub message to extract and update the bounding box in the database.
+    Main function triggered by a Pub/Sub message to extract and update the location information in the database.
     @param cloud_event: The CloudEvent containing the Pub/Sub message.
     """
     Logger.init_logger()
@@ -195,7 +195,7 @@ def extract_bounding_box_pubsub(cloud_event: CloudEvent):
 
 
 @functions_framework.cloud_event
-def extract_bounding_box(cloud_event: CloudEvent):
+def extract_location(cloud_event: CloudEvent):
     """
     Wrapper function to extract necessary data from the CloudEvent and call the core function.
     @param cloud_event: The CloudEvent containing the Pub/Sub message.
@@ -232,11 +232,11 @@ def extract_bounding_box(cloud_event: CloudEvent):
     new_cloud_event = CloudEvent(attributes=attributes, data=new_cloud_event_data)
 
     # Call the pubsub function with the constructed CloudEvent
-    return extract_bounding_box_pubsub(new_cloud_event)
+    return extract_location_pubsub(new_cloud_event)
 
 
 @functions_framework.http
-def extract_bounding_box_batch(_):
+def extract_location_batch(_):
     Logger.init_logger()
     logging.info("Batch function triggered.")
 
@@ -274,7 +274,7 @@ def extract_bounding_box_batch(_):
         if session is not None:
             session.close()
 
-    # Trigger update bounding box for each dataset by publishing to Pub/Sub
+    # Trigger update location for each dataset by publishing to Pub/Sub
     publisher = pubsub_v1.PublisherClient()
     topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
     for data in datasets_data:

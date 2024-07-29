@@ -10,13 +10,13 @@ from faker import Faker
 from geoalchemy2 import WKTElement
 
 from database_gen.sqlacodegen_models import Gtfsdataset
-from extract_bb.src.main import (
+from extract_location.src.main import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
     get_gtfs_feed_bounds,
-    extract_bounding_box,
-    extract_bounding_box_pubsub,
-    extract_bounding_box_batch,
+    extract_location,
+    extract_location_pubsub,
+    extract_location_batch,
 )
 from test_utils.database_utils import default_db_url
 from cloudevents.http import CloudEvent
@@ -70,9 +70,9 @@ class TestExtractBoundingBox(unittest.TestCase):
         for i in range(4):
             self.assertEqual(bounds[i], expected_bounds[i])
 
-    @patch("extract_bb.src.main.Logger")
-    @patch("extract_bb.src.main.DatasetTraceService")
-    def test_extract_bb_exception(self, _, __):
+    @patch("extract_location.src.main.Logger")
+    @patch("extract_location.src.main.DatasetTraceService")
+    def test_extract_location_exception(self, _, __):
         # Data with missing url
         data = {"stable_id": faker.pystr(), "dataset_id": faker.pystr()}
         message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
@@ -91,7 +91,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         )
 
         try:
-            extract_bounding_box_pubsub(cloud_event)
+            extract_location_pubsub(cloud_event)
             self.assertTrue(False)
         except Exception:
             self.assertTrue(True)
@@ -103,7 +103,7 @@ class TestExtractBoundingBox(unittest.TestCase):
             attributes=attributes, data={"message": {"data": message_data}}
         )
         try:
-            extract_bounding_box_pubsub(cloud_event)
+            extract_location_pubsub(cloud_event)
             self.assertTrue(False)
         except Exception:
             self.assertTrue(True)
@@ -115,11 +115,11 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.get_gtfs_feed_bounds")
-    @patch("extract_bb.src.main.update_dataset_bounding_box")
-    @patch("extract_bb.src.main.Logger")
-    @patch("extract_bb.src.main.DatasetTraceService")
-    def test_extract_bb(
+    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.update_dataset_bounding_box")
+    @patch("extract_location.src.main.Logger")
+    @patch("extract_location.src.main.DatasetTraceService")
+    def test_extract_location(
         self, __, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
         get_gtfs_feed_bounds_mock.return_value = np.array(
@@ -147,7 +147,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         cloud_event = CloudEvent(
             attributes=attributes, data={"message": {"data": message_data}}
         )
-        extract_bounding_box_pubsub(cloud_event)
+        extract_location_pubsub(cloud_event)
         update_bb_mock.assert_called_once()
 
     @mock.patch.dict(
@@ -158,12 +158,14 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.get_gtfs_feed_bounds")
-    @patch("extract_bb.src.main.update_dataset_bounding_box")
-    @patch("extract_bb.src.main.DatasetTraceService.get_by_execution_and_stable_ids")
-    @patch("extract_bb.src.main.Logger")
+    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.update_dataset_bounding_box")
+    @patch(
+        "extract_location.src.main.DatasetTraceService.get_by_execution_and_stable_ids"
+    )
+    @patch("extract_location.src.main.Logger")
     @patch("google.cloud.datastore.Client")
-    def test_extract_bb_max_executions(
+    def test_extract_location_max_executions(
         self, _, __, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
         get_gtfs_feed_bounds_mock.return_value = np.array(
@@ -190,7 +192,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         cloud_event = CloudEvent(
             attributes=attributes, data={"message": {"data": message_data}}
         )
-        extract_bounding_box_pubsub(cloud_event)
+        extract_location_pubsub(cloud_event)
         update_bb_mock.assert_not_called()
 
     @mock.patch.dict(
@@ -200,11 +202,11 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.get_gtfs_feed_bounds")
-    @patch("extract_bb.src.main.update_dataset_bounding_box")
-    @patch("extract_bb.src.main.DatasetTraceService")
-    @patch("extract_bb.src.main.Logger")
-    def test_extract_bb_cloud_event(
+    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.update_dataset_bounding_box")
+    @patch("extract_location.src.main.DatasetTraceService")
+    @patch("extract_location.src.main.Logger")
+    def test_extract_location_cloud_event(
         self, _, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
         get_gtfs_feed_bounds_mock.return_value = np.array(
@@ -226,7 +228,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         cloud_event = MagicMock()
         cloud_event.data = data
 
-        extract_bounding_box(cloud_event)
+        extract_location(cloud_event)
         update_bb_mock.assert_called_once()
 
     @mock.patch.dict(
@@ -236,10 +238,10 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.get_gtfs_feed_bounds")
-    @patch("extract_bb.src.main.update_dataset_bounding_box")
-    @patch("extract_bb.src.main.Logger")
-    def test_extract_bb_cloud_event_error(
+    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.update_dataset_bounding_box")
+    @patch("extract_location.src.main.Logger")
+    def test_extract_location_cloud_event_error(
         self, _, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
         get_gtfs_feed_bounds_mock.return_value = np.array(
@@ -254,7 +256,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         cloud_event = MagicMock()
         cloud_event.data = data
 
-        extract_bounding_box(cloud_event)
+        extract_location(cloud_event)
         update_bb_mock.assert_not_called()
 
     @mock.patch.dict(
@@ -264,10 +266,12 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.get_gtfs_feed_bounds")
-    @patch("extract_bb.src.main.update_dataset_bounding_box")
-    @patch("extract_bb.src.main.Logger")
-    def test_extract_bb_exception_2(self, _, update_bb_mock, get_gtfs_feed_bounds_mock):
+    @patch("extract_location.src.main.get_gtfs_feed_bounds")
+    @patch("extract_location.src.main.update_dataset_bounding_box")
+    @patch("extract_location.src.main.Logger")
+    def test_extract_location_exception_2(
+        self, _, update_bb_mock, get_gtfs_feed_bounds_mock
+    ):
         get_gtfs_feed_bounds_mock.return_value = np.array(
             [faker.longitude(), faker.latitude(), faker.longitude(), faker.latitude()]
         )
@@ -292,7 +296,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         )
 
         try:
-            extract_bounding_box_pubsub(cloud_event)
+            extract_location_pubsub(cloud_event)
             assert False
         except Exception:
             assert True
@@ -306,11 +310,11 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.start_db_session")
-    @patch("extract_bb.src.main.pubsub_v1.PublisherClient")
-    @patch("extract_bb.src.main.Logger")
+    @patch("extract_location.src.main.start_db_session")
+    @patch("extract_location.src.main.pubsub_v1.PublisherClient")
+    @patch("extract_location.src.main.Logger")
     @patch("uuid.uuid4")
-    def test_extract_bounding_box_batch(
+    def test_extract_location_batch(
         self, uuid_mock, logger_mock, publisher_client_mock, start_db_session_mock
     ):
         # Mock the database session and query
@@ -344,7 +348,7 @@ class TestExtractBoundingBox(unittest.TestCase):
         mock_publisher.publish.return_value = mock_future
 
         # Call the function
-        response = extract_bounding_box_batch(None)
+        response = extract_location_batch(None)
 
         # Assert logs and function responses
         logger_mock.init_logger.assert_called_once()
@@ -379,9 +383,9 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.Logger")
-    def test_extract_bounding_box_batch_no_topic_name(self, logger_mock):
-        response = extract_bounding_box_batch(None)
+    @patch("extract_location.src.main.Logger")
+    def test_extract_location_batch_no_topic_name(self, logger_mock):
+        response = extract_location_batch(None)
         self.assertEqual(
             response, ("PUBSUB_TOPIC_NAME environment variable not set.", 500)
         )
@@ -395,13 +399,11 @@ class TestExtractBoundingBox(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_bb.src.main.start_db_session")
-    @patch("extract_bb.src.main.Logger")
-    def test_extract_bounding_box_batch_exception(
-        self, logger_mock, start_db_session_mock
-    ):
+    @patch("extract_location.src.main.start_db_session")
+    @patch("extract_location.src.main.Logger")
+    def test_extract_location_batch_exception(self, logger_mock, start_db_session_mock):
         # Mock the database session to raise an exception
         start_db_session_mock.side_effect = Exception("Database error")
 
-        response = extract_bounding_box_batch(None)
+        response = extract_location_batch(None)
         self.assertEqual(response, ("Error while fetching datasets.", 500))
