@@ -88,7 +88,7 @@ export default function Feed(): React.ReactElement {
     feedType === 'gtfs'
       ? useSelector(selectGTFSFeedData)
       : useSelector(selectGTFSRTFeedData);
-  const needsToLoadFeed = feed === undefined || feed.id !== feedId;
+  const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
 
@@ -140,9 +140,8 @@ export default function Feed(): React.ReactElement {
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
 
-  // The feedId parameter doesn't match the feedId in the store,
-  // so we need to load the new feed data
-  if (feed === undefined || feed?.id !== feedId) {
+  // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
+  if (needsToLoadFeed) {
     return wrapComponent(feedLoadingStatus, <span>Loading...</span>);
   }
   const hasDatasets = datasets !== undefined && datasets.length > 0;
