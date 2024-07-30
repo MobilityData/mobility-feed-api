@@ -90,6 +90,13 @@ def reverse_coords(
             subdivision_name,
             municipality,
         ) = reverse_coord(lat, lon, include_lang_header)
+        logging.info(
+            f"Reverse geocoding result for point lat={lat}, lon={lon}: "
+            f"country_code={country_code}, "
+            f"country={country}, "
+            f"subdivision={subdivision_name}, "
+            f"municipality={municipality}"
+        )
         if country_code is not None:
             municipalities.append(municipality) if municipality else None
             subdivisions.append(subdivision_name) if subdivision_name else None
@@ -118,17 +125,23 @@ def reverse_coords(
         most_common_subdivision, subdivision_count = Counter(subdivisions).most_common(
             1
         )[0]
+    logging.info(
+        f"Most common municipality: {most_common_municipality} with count {municipality_count}"
+    )
+    logging.info(
+        f"Most common subdivision: {most_common_subdivision} with count {subdivision_count}"
+    )
 
     # Apply decision threshold to determine final values
-    if municipality_count / len(points) < decision_threshold:
+    if municipality_count / len(results) < decision_threshold:
         most_common_municipality = None
 
-    if subdivision_count / len(points) < decision_threshold:
+    if subdivision_count / len(results) < decision_threshold:
         most_common_subdivision = None
 
     return LocationInfo(
-        country_codes=country_codes,
-        countries=countries,
+        country_codes=list(set(country_codes)),
+        countries=list(set(countries)),
         most_common_subdivision_name=most_common_subdivision,
         most_common_municipality=most_common_municipality,
     )
@@ -151,18 +164,41 @@ def update_location(location_info: LocationInfo, dataset_id: str, session: Sessi
         raise Exception(f"Dataset {dataset_id} does not exist in the database.")
     locations = []
     for i in range(len(location_info.country_codes)):
-        location = Location(
-            country_code=location_info.country_codes[i],
-            country=location_info.countries[i],
-            subdivision_name=location_info.most_common_subdivision_name,
-            municipality=location_info.most_common_municipality,
+        logging.info(
+            f"[{dataset_id}] Extracted location: "
+            f"country={location_info.countries[i]}, "
+            f"country_code={location_info.country_codes[i]}, "
+            f"subdivision={location_info.most_common_subdivision_name}, "
+            f"municipality={location_info.most_common_municipality}"
         )
+        # Check if location already exists
+        location_id = (
+            f"{location_info.country_codes[i] or ''}-"
+            f"{location_info.most_common_subdivision_name or ''}-"
+            f"{location_info.most_common_municipality or ''}"
+        ).replace(" ", "_")
+        location = (
+            session.query(Location).filter(Location.id == location_id).one_or_none()
+        )
+        if location is not None:
+            logging.info(f"[{dataset_id}] Location already exists: {location_id}")
+        else:
+            logging.info(f"[{dataset_id}] Creating new location: {location_id}")
+            location = Location(
+                id=location_id,
+            )
+        location.country = location_info.countries[i]
+        location.country_code = location_info.country_codes[i]
+        location.subdivision = location_info.most_common_subdivision_name
+        location.municipality = location_info.most_common_municipality
         locations.append(location)
     if len(locations) == 0:
         raise Exception("No locations found for the dataset.")
+    dataset.locations.clear()
     dataset.locations = locations
 
     # Update the location of the related feed as well
+    dataset.feed.locations.clear()
     dataset.feed.locations = locations
 
     session.add(dataset)

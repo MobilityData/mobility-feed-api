@@ -77,10 +77,34 @@ class TestExtractBoundingBox(unittest.TestCase):
         points = [(34.0522, -118.2437), (37.7749, -122.4194)]
         location_info = reverse_coords(points)
 
-        self.assertEqual(location_info.country_codes, ["US", "US"])
-        self.assertEqual(location_info.countries, ["United States", "United States"])
+        self.assertEqual(location_info.country_codes, ["US"])
+        self.assertEqual(location_info.countries, ["United States"])
         self.assertEqual(location_info.most_common_subdivision_name, "California")
         self.assertEqual(location_info.most_common_municipality, "Los Angeles")
+
+    @patch("extract_location.src.location_extractor.reverse_coord")
+    def test_reverse_coords_decision(self, mock_reverse_coord):
+        # Mock data for known lat/lon points
+        mock_reverse_coord.side_effect = [
+            ("us", "United States", "California", "Los Angeles"),
+            ("us", "United States", "California", "San Francisco"),
+            ("us", "United States", "California", "San Diego"),
+            ("us", "United States", "California", "San Francisco"),
+        ]
+
+        points = [
+            (34.0522, -118.2437),  # Los Angeles
+            (37.7749, -122.4194),  # San Francisco
+            (32.7157, -117.1611),  # San Diego
+            (37.7749, -122.4194),  # San Francisco (duplicate to test counting)
+        ]
+
+        location_info = reverse_coords(points, decision_threshold=0.5)
+
+        self.assertEqual(location_info.country_codes, ["us"])
+        self.assertEqual(location_info.countries, ["United States"])
+        self.assertEqual(location_info.most_common_subdivision_name, "California")
+        self.assertEqual(location_info.most_common_municipality, "San Francisco")
 
     def test_update_location(self):
         # Setup mock database session and models
