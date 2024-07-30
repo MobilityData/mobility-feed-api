@@ -42,9 +42,9 @@ const renderAssociatedGTFSFeedRow = (
         rel='noreferrer'
         style={{ display: 'contents' }}
       >
-        {hasFeedName && (
-          <TableCell sx={{ paddingLeft: 0 }}>{assocFeed.feed_name}</TableCell>
-        )}
+        <TableCell sx={{ paddingLeft: 0 }}>
+          {hasFeedName ? assocFeed.feed_name : 'GTFS Schedule feed'}
+        </TableCell>
         <TableCell
           sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
         >
