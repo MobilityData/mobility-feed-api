@@ -44,7 +44,7 @@ const renderAssociatedGTFSFeedRow = (
         style={{ display: 'contents' }}
       >
         <TableCell sx={{ paddingLeft: 0 }}>
-          {hasFeedName && hasLatestDataset
+          {hasFeedName && !hasLatestDataset
             ? assocFeed.feed_name
             : 'GTFS Schedule feed'}
         </TableCell>
