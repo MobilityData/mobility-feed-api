@@ -13,16 +13,15 @@ from geoalchemy2 import WKTElement
 from sqlalchemy.orm import Session
 
 from database_gen.sqlacodegen_models import Gtfsdataset
-from extract_location.src.bounding_box_extractor import (
+from extract_location.src.bounding_box.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
 )
-from extract_location.src.location_extractor import (
-    reverse_coord,
+from extract_location.src.reverse_geolocation.location_extractor import (
     reverse_coords,
-    LocationInfo,
     update_location,
 )
+from extract_location.src.reverse_geolocation.geocoded_location import GeocodedLocation
 from extract_location.src.main import (
     extract_location,
     extract_location_pubsub,
@@ -37,7 +36,7 @@ faker = Faker()
 class TestExtractBoundingBox(unittest.TestCase):
     def test_reverse_coord(self):
         lat, lon = 34.0522, -118.2437  # Coordinates for Los Angeles, California, USA
-        result = reverse_coord(lat, lon)
+        result = GeocodedLocation.reverse_coord(lat, lon)
 
         self.assertEqual(result, ("US", "United States", "California", "Los Angeles"))
 
@@ -45,32 +44,14 @@ class TestExtractBoundingBox(unittest.TestCase):
     def test_reverse_coords(self, mock_get):
         # Mocking the response from the API for multiple calls
         mock_response = MagicMock()
-        mock_response.json.side_effect = [
-            {
-                "address": {
-                    "country_code": "us",
-                    "country": "United States",
-                    "state": "California",
-                    "city": "Los Angeles",
-                }
-            },
-            {
-                "address": {
-                    "country_code": "us",
-                    "country": "United States",
-                    "state": "California",
-                    "city": "San Francisco",
-                }
-            },
-            {
-                "address": {
-                    "country_code": "us",
-                    "country": "United States",
-                    "state": "California",
-                    "city": "Los Angeles",
-                }
-            },
-        ]
+        mock_response.json.return_value = {
+            "address": {
+                "country_code": "us",
+                "country": "United States",
+                "state": "California",
+                "city": "Los Angeles",
+            }
+        }
         mock_response.status_code = 200
         mock_get.return_value = mock_response
 
@@ -84,7 +65,110 @@ class TestExtractBoundingBox(unittest.TestCase):
         self.assertEqual(location_info.subdivision_name, "California")
         self.assertEqual(location_info.municipality, "Los Angeles")
 
-    @patch("extract_location.src.location_extractor.reverse_coord")
+    @patch.object(GeocodedLocation, "reverse_coord")
+    def test_generate_translation_no_translation(self, mock_reverse_coord):
+        # Mock response for the reverse geocoding
+        mock_reverse_coord.return_value = (
+            "US",
+            "United States",
+            "California",
+            "San Francisco",
+        )
+
+        # Create an instance of GeocodedLocation with default language
+        location = GeocodedLocation(
+            country_code="US",
+            country="United States",
+            municipality="San Francisco",
+            subdivision_name="California",
+            stop_coords=(37.7749, -122.4194),
+        )
+
+        # Generate translation (should add a new translation to the translations list)
+        location.generate_translation(language="en")
+        self.assertEqual(
+            len(location.translations), 0
+        )  # No translation since the location is already in English
+
+    @patch.object(GeocodedLocation, "reverse_coord")
+    def test_generate_translation(self, mock_reverse_coord):
+        # Mock response for reverse geocoding in English
+        mock_reverse_coord.return_value = ("JP", "Japan", "Tokyo", "Shibuya")
+
+        # Create an instance of GeocodedLocation with a default Japanese location
+        location = GeocodedLocation(
+            country_code="JP",
+            country="日本",  # Japanese for Japan
+            municipality="渋谷区",  # Shibuya
+            subdivision_name="東京都",  # Tokyo
+            stop_coords=(35.6895, 139.6917),  # Tokyo coordinates
+        )
+
+        self.assertEqual(len(location.translations), 1)
+        self.assertEqual(location.translations[0].country, "Japan")
+        self.assertEqual(location.translations[0].language, "en")
+        self.assertEqual(location.translations[0].municipality, "Shibuya")
+        self.assertEqual(location.translations[0].subdivision_name, "Tokyo")
+
+    @patch.object(GeocodedLocation, "reverse_coord")
+    def test_no_duplicate_translation(self, mock_reverse_coord):
+        # Mock response for the reverse geocoding
+        mock_reverse_coord.return_value = (
+            "US",
+            "United States",
+            "California",
+            "San Francisco",
+        )
+
+        # Create an instance of GeocodedLocation with the same data as the mock
+        location = GeocodedLocation(
+            country_code="US",
+            country="United States",
+            municipality="San Francisco",
+            subdivision_name="California",
+            stop_coords=(37.7749, -122.4194),
+        )
+
+        # First translation generation
+        location.generate_translation(language="en")
+        initial_translation_count = len(location.translations)
+
+        # Try generating translation again with the same data
+        location.generate_translation(language="en")
+        self.assertEqual(len(location.translations), initial_translation_count)
+
+    @patch.object(GeocodedLocation, "reverse_coord")
+    def test_generate_translation_different_language(self, mock_reverse_coord):
+        # Mock response for the reverse geocoding in a different language
+        mock_reverse_coord.return_value = (
+            "US",
+            "États-Unis",
+            "Californie",
+            "San Francisco",
+        )
+
+        # Create an instance of GeocodedLocation with the default language
+        location = GeocodedLocation(
+            country_code="US",
+            country="United States",
+            municipality="San Francisco",
+            subdivision_name="California",
+            stop_coords=(37.7749, -122.4194),
+        )
+
+        # Generate translation in French
+        location.generate_translation(language="fr")
+        self.assertEqual(
+            len(location.translations), 2
+        )  # English (default) and French translations
+        self.assertEqual(location.translations[1].country, "États-Unis")
+        self.assertEqual(location.translations[1].language, "fr")
+        self.assertEqual(location.translations[1].municipality, "San Francisco")
+        self.assertEqual(location.translations[1].subdivision_name, "Californie")
+
+    @patch(
+        "extract_location.src.reverse_geolocation.geocoded_location.GeocodedLocation.reverse_coord"
+    )
     def test_reverse_coords_decision(self, mock_reverse_coord):
         # Mock data for known lat/lon points
         mock_reverse_coord.side_effect = [
@@ -93,10 +177,14 @@ class TestExtractBoundingBox(unittest.TestCase):
             ("US", "United States", "California", "San Francisco"),
             ("US", "United States", "California", "San Diego"),
             ("US", "United States", "California", "San Francisco"),
+            # Translation call
+            ("US", "United States", "California", "San Francisco"),
             # Second iteration (same as previous)
             ("US", "United States", "California", "Los Angeles"),
             ("US", "United States", "California", "San Francisco"),
             ("US", "United States", "California", "San Diego"),
+            ("US", "United States", "California", "San Francisco"),
+            # Translation call
             ("US", "United States", "California", "San Francisco"),
         ]
 
@@ -134,11 +222,12 @@ class TestExtractBoundingBox(unittest.TestCase):
         )
 
         location_info = [
-            LocationInfo(
+            GeocodedLocation(
                 country_code="US",
                 country="United States",
                 subdivision_name="California",
                 municipality="Los Angeles",
+                stop_coords=(34.0522, -118.2437),
             )
         ]
         dataset_id = "123"
