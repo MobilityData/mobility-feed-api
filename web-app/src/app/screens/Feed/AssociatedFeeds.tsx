@@ -28,7 +28,9 @@ const renderAssociatedGTFSFeedRow = (
   }
   const hasFeedName =
     assocFeed.feed_name !== undefined && assocFeed.feed_name !== '';
-  const hasLatestDataset = assocFeed.latest_dataset !== undefined;
+  const noFeedName =
+    assocFeed.feed_name === undefined || assocFeed.feed_name === '';
+  const noLatestDataset = assocFeed.latest_dataset === undefined;
   return (
     <TableRow
       key={assocFeed?.id}
@@ -44,7 +46,7 @@ const renderAssociatedGTFSFeedRow = (
         style={{ display: 'contents' }}
       >
         <TableCell sx={{ paddingLeft: 0 }}>
-          {!hasFeedName && !hasLatestDataset
+          {noFeedName && noLatestDataset
             ? assocFeed.feed_name
             : 'GTFS Schedule feed'}
         </TableCell>
