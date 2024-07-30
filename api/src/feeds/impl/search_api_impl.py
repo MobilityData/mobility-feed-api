@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Query
 
 from database.database import Database
+from database.sql_functions.unaccent import unaccent
 from database_gen.sqlacodegen_models import t_feedsearch
 from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.apis.search_api_base import BaseSearchApi
@@ -25,13 +26,14 @@ class SearchApiImpl(BaseSearchApi):
         Spaces are trimmed from the search query.
         """
         parsed_query = f"{search_query.strip()}:*" if search_query and len(search_query.strip()) > 0 else ""
-        return func.plainto_tsquery("english", parsed_query)
+        return func.plainto_tsquery("english", unaccent(parsed_query))
 
     @staticmethod
     def add_search_query_filters(query, search_query, data_type, feed_id, status) -> Query:
         """
         Add filters to the search query.
         Filter values are trimmed and converted to lowercase.
+        The search query is also converted to its unaccented version.
         """
         if feed_id:
             query = query.where(t_feedsearch.c.feed_stable_id == feed_id.strip().lower())

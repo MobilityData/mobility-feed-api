@@ -343,3 +343,48 @@ def test_search_feeds_filter_reference_id(client: TestClient):
     assert response_body.results[0].status == "active"
     assert len(response_body.results[0].feed_references) == 1
     assert response_body.results[0].feed_references[0] == TEST_GTFS_FEED_STABLE_IDS[0]
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"search_query": "éèàçíóúč", "expected_ids": ["mdb-1562"]},
+        {"search_query": "eeaciouc", "expected_ids": ["mdb-1562"]},
+        {"search_query": "ŘŤÜî", "expected_ids": ["mdb-1562"]},
+        {"search_query": "rtui", "expected_ids": ["mdb-1562"]},
+    ],
+    ids=[
+        "Search query with accents and special characters against a provider",
+        "Search query with the normalized version of the accents against a provider",
+        "Search query with accents and special characters against the feed name",
+        "Search query with the normalized version of the accents against the feed name",
+    ],
+)
+def test_search_feeds_filter_accents(client: TestClient, values: dict):
+    """
+    Retrieve feeds with accents in the provider name and/or feed name.
+    """
+    params = [
+        ("limit", 100),
+        ("offset", 0),
+        ("search_query", values["search_query"]),
+    ]
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+
+    assert len(response_body.results) == len(values["expected_ids"])
+    assert response_body.total == len(values["expected_ids"])
+    assert all(result.id in values["expected_ids"] for result in response_body.results)
