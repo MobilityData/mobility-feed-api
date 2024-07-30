@@ -1,7 +1,8 @@
-import requests
 import logging
-from typing import Tuple, Optional, List, NamedTuple
 from collections import Counter
+from typing import Tuple, Optional, List
+
+import requests
 from sqlalchemy.orm import Session
 
 from database_gen.sqlacodegen_models import Gtfsdataset, Location
@@ -22,11 +23,39 @@ EN_LANG_HEADER = {
 logging.basicConfig(level=logging.INFO)
 
 
-class LocationInfo(NamedTuple):
-    country_codes: List[str]
-    countries: List[str]
-    most_common_subdivision_name: Optional[str]
-    most_common_municipality: Optional[str]
+class LocationInfo:
+    def __init__(
+        self,
+        country_code: str,
+        country: str,
+        municipality: Optional[str] = None,
+        subdivision_name: Optional[str] = None,
+        language: Optional[str] = "en",
+        translations: Optional[List["LocationInfo"]] = None,
+    ):
+        self.country_code = country_code
+        self.country = country
+        self.municipality = municipality
+        self.subdivision_name = subdivision_name
+        self.language = language
+        self.translations = translations if translations is not None else []
+
+    def get_location_entity(self):
+        return Location(
+            id=self.get_location_id(),
+            country_code=self.country_code,
+            country=self.country,
+            municipality=self.municipality,
+            subdivision_name=self.subdivision_name,
+        )
+
+    def get_location_id(self):
+        location_id = (
+            f"{self.country_code or ''}-"
+            f"{self.subdivision_name or ''}-"
+            f"{self.municipality or ''}"
+        ).replace(" ", "_")
+        return location_id
 
 
 def reverse_coord(
@@ -67,7 +96,7 @@ def reverse_coords(
     points: List[Tuple[float, float]],
     include_lang_header: bool = False,
     decision_threshold: float = 0.5,
-) -> LocationInfo:
+) -> List[LocationInfo]:
     """
     Retrieves location details for multiple latitude and longitude points.
 
@@ -134,20 +163,69 @@ def reverse_coords(
 
     # Apply decision threshold to determine final values
     if municipality_count / len(results) < decision_threshold:
-        most_common_municipality = None
+        if subdivision_count / len(results) < decision_threshold:
+            # No common municipality or subdivision
+            unique_countries = list(set(countries))
+            unique_country_codes = list(set(country_codes))
+            logging.info(
+                f"No common municipality or subdivision found. Setting location to country level with countries "
+                f"{unique_countries} and country codes {unique_country_codes}"
+            )
+            locations = [
+                LocationInfo(
+                    country_code=unique_country_codes[i],
+                    country=unique_countries[i],
+                    municipality=None,
+                    subdivision_name=None,
+                )
+                for i in range(len(unique_country_codes))
+            ]
+        else:
+            # No common municipality but common subdivision
+            related_country = countries[subdivisions.index(most_common_subdivision)]
+            related_country_code = country_codes[
+                subdivisions.index(most_common_subdivision)
+            ]
+            logging.info(
+                f"No common municipality found. Setting location to subdivision level with country {related_country} "
+                f",country code {related_country_code} and subdivision {most_common_subdivision}"
+            )
+            locations = [
+                LocationInfo(
+                    country_code=related_country_code,
+                    country=related_country,
+                    municipality=None,
+                    subdivision_name=most_common_subdivision,
+                )
+            ]
+    else:
+        # Common municipality
+        most_common_subdivision = subdivisions[
+            municipalities.index(most_common_municipality)
+        ]
+        related_country = countries[municipalities.index(most_common_municipality)]
+        related_country_code = country_codes[
+            municipalities.index(most_common_municipality)
+        ]
+        logging.info(
+            f"Common municipality found. Setting location to municipality level with country {related_country}, "
+            f"country code {related_country_code}, subdivision {most_common_subdivision} and municipality "
+            f"{most_common_municipality}"
+        )
+        locations = [
+            LocationInfo(
+                country_code=related_country_code,
+                country=related_country,
+                municipality=most_common_municipality,
+                subdivision_name=most_common_subdivision,
+            )
+        ]
+    return locations
 
-    if subdivision_count / len(results) < decision_threshold:
-        most_common_subdivision = None
 
-    return LocationInfo(
-        country_codes=list(set(country_codes)),
-        countries=list(set(countries)),
-        most_common_subdivision_name=most_common_subdivision,
-        most_common_municipality=most_common_municipality,
-    )
-
-
-def update_location(location_info: LocationInfo, dataset_id: str, session: Session):
+def update_location(
+    location_info: List[LocationInfo], dataset_id: str, session: Session
+):
     """
     Update the location details of a dataset in the database.
 
@@ -163,34 +241,24 @@ def update_location(location_info: LocationInfo, dataset_id: str, session: Sessi
     if dataset is None:
         raise Exception(f"Dataset {dataset_id} does not exist in the database.")
     locations = []
-    for i in range(len(location_info.country_codes)):
+    for location in location_info:
         logging.info(
-            f"[{dataset_id}] Extracted location: "
-            f"country={location_info.countries[i]}, "
-            f"country_code={location_info.country_codes[i]}, "
-            f"subdivision={location_info.most_common_subdivision_name}, "
-            f"municipality={location_info.most_common_municipality}"
+            f"Extracted location with country code {location.country_code}, country {location.country}, "
+            f"subdivision {location.subdivision_name}, and municipality {location.municipality}"
         )
         # Check if location already exists
-        location_id = (
-            f"{location_info.country_codes[i] or ''}-"
-            f"{location_info.most_common_subdivision_name or ''}-"
-            f"{location_info.most_common_municipality or ''}"
-        ).replace(" ", "_")
-        location = (
+        location_id = location.get_location_id()
+        location_entity = (
             session.query(Location).filter(Location.id == location_id).one_or_none()
         )
-        if location is not None:
+        if location_entity is not None:
             logging.info(f"[{dataset_id}] Location already exists: {location_id}")
         else:
             logging.info(f"[{dataset_id}] Creating new location: {location_id}")
-            location = Location(
-                id=location_id,
-            )
-        location.country = location_info.countries[i]
-        location.country_code = location_info.country_codes[i]
-        location.subdivision = location_info.most_common_subdivision_name
-        location.municipality = location_info.most_common_municipality
+            location_entity = location.get_location_entity()
+        location_entity.country = (
+            location.country
+        )  # Update the country name as it's a later addition
         locations.append(location)
     if len(locations) == 0:
         raise Exception("No locations found for the dataset.")
