@@ -53,12 +53,15 @@ def reverse_coords(
             point_mapping.append((lat, lon))
 
     if not municipalities and not subdivisions:
-        unique_countries = list(set(countries))
-        unique_country_codes = list(set(country_codes))
+        unique_countries, unique_country_codes, point_mapping = get_unique_countries(
+            countries, country_codes, point_mapping
+        )
+
         logging.info(
             f"No common municipality or subdivision found. Setting location to country level with countries "
             f"{unique_countries} and country codes {unique_country_codes}"
         )
+
         return GeocodedLocation.from_country_level(
             unique_country_codes, unique_countries, point_mapping
         )
@@ -118,8 +121,9 @@ def reverse_coords(
             point,
         )
 
-    unique_countries = list(set(countries))
-    unique_country_codes = list(set(country_codes))
+    unique_countries, unique_country_codes, point_mapping = get_unique_countries(
+        countries, country_codes, point_mapping
+    )
     logging.info(
         f"No common municipality or subdivision found. Setting location to country level with countries "
         f"{unique_countries} and country codes {unique_country_codes}"
@@ -127,6 +131,35 @@ def reverse_coords(
     return GeocodedLocation.from_country_level(
         unique_country_codes, unique_countries, point_mapping
     )
+
+
+def get_unique_countries(
+    countries: List[str], country_codes: List[str], points: List[Tuple[float, float]]
+) -> Tuple[List[str], List[str], List[Tuple[float, float]]]:
+    """
+    Get unique countries, country codes, and their corresponding points from a list.
+    :param countries: List of countries.
+    :param country_codes: List of country codes.
+    :param points: List of (latitude, longitude) tuples.
+    :return: Unique countries, country codes, and corresponding points.
+    """
+    # Initialize a dictionary to store unique country codes and their corresponding countries and points
+    unique_country_dict = {}
+    point_mapping = []
+
+    # Iterate over the country codes, countries, and points
+    for code, country, point in zip(country_codes, countries, points):
+        if code not in unique_country_dict:
+            unique_country_dict[code] = country
+            point_mapping.append(
+                point
+            )  # Append the point associated with the unique country code
+
+    # Extract the keys (country codes), values (countries), and points from the dictionary in order
+    unique_country_codes = list(unique_country_dict.keys())
+    unique_countries = list(unique_country_dict.values())
+
+    return unique_countries, unique_country_codes, point_mapping
 
 
 def update_location(
@@ -187,11 +220,14 @@ def get_or_create_location(location: GeocodedLocation, session: Session) -> Loca
         logging.info(f"Location already exists: {location_id}")
     else:
         logging.info(f"Creating new location: {location_id}")
-        location_entity = location.get_location_entity()
+        location_entity = Location(id=location_id)
         session.add(location_entity)
 
-    # Ensure the country name is updated
+    # Ensure the elements are up-to-date
     location_entity.country = location.country
+    location_entity.country_code = location.country_code
+    location_entity.municipality = location.municipality
+    location_entity.subdivision_name = location.subdivision_name
 
     return location_entity
 

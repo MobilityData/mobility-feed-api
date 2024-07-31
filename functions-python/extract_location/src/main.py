@@ -9,6 +9,7 @@ import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 
 from database_gen.sqlacodegen_models import Gtfsdataset
 from dataset_service.main import (
@@ -197,7 +198,7 @@ def extract_location_batch(_):
     logging.info("Batch function triggered.")
 
     pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
-    force_datasets_update = os.getenv("FORCE_DATASETS_UPDATE", False)
+    force_datasets_update = bool(os.getenv("FORCE_DATASETS_UPDATE", False))
     if pubsub_topic_name is None:
         logging.error("PUBSUB_TOPIC_NAME environment variable not set.")
         return "PUBSUB_TOPIC_NAME environment variable not set.", 500
@@ -218,11 +219,12 @@ def extract_location_batch(_):
                 )
             )
             .filter(Gtfsdataset.latest)
+            .options(joinedload(Gtfsdataset.feed))
             .all()
         )
         for dataset in datasets:
             data = {
-                "stable_id": dataset.feed_id,
+                "stable_id": dataset.feed.stable_id,
                 "dataset_id": dataset.stable_id,
                 "url": dataset.hosted_url,
                 "execution_id": execution_id,

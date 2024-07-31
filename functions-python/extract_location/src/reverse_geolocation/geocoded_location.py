@@ -3,8 +3,6 @@ from typing import Tuple, Optional, List
 
 import requests
 
-from database_gen.sqlacodegen_models import Location
-
 NOMINATIM_ENDPOINT = (
     "https://nominatim.openstreetmap.org/reverse?format=json&zoom=13&addressdetails=1"
 )
@@ -34,16 +32,6 @@ class GeocodedLocation:
         self.stop_coord = stop_coords if stop_coords is not None else []
         if language == "local":
             self.generate_translation("en")  # Generate English translation by default
-
-    def get_location_entity(self) -> Location:
-        logging.info("Generating location entity")
-        return Location(
-            id=self.get_location_id(),
-            country_code=self.country_code,
-            country=self.country,
-            municipality=self.municipality,
-            subdivision_name=self.subdivision_name,
-        )
 
     def get_location_id(self) -> str:
         location_id = (
