@@ -1,12 +1,12 @@
 {
-    "id": "mdb-516",
+    "id": "test-516",
     "data_type": "gtfs",
     "status": "active",
     "created_at": "2024-02-08T00:00:00Z",
     "external_ids": [
         {
             "external_id": "516",
-            "source": "mdb"
+            "source": "test"
         }
     ],
     "provider": "Metropolitan Transit Authority (MTA)",
