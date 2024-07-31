@@ -3,10 +3,10 @@ on:
   pull_request:
     branches: 
         - main
-    paths:
-      - "web-app/**"
-      - "functions/**"
-      - ".github/workflows/web-*.yml"
+#    paths:
+#      - "web-app/**"
+#      - "functions/**"
+#      - ".github/workflows/web-*.yml"
 jobs:
   deploy-web-app:
     name: Deploy Web App

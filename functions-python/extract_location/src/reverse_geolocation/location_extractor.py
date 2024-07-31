@@ -248,8 +248,10 @@ def update_translation_record(
     :param language_code: The language code of the translation.
     :param translation_type: The type of translation (e.g., 'country', 'subdivision_name', 'municipality').
     """
-    if not key:
+    if not key or not value or value == key:
+        logging.info(f"Skipping translation for key {key} and value {value}")
         return
+    value = value.strip()
     translation = (
         session.query(Translation)
         .filter(Translation.key == key)
