@@ -1,6 +1,20 @@
-CREATE TYPE TranslationType AS ENUM ('country', 'subdivision_name', 'municipality');
+--liquibase formatted sql
 
-CREATE TABLE Translation (
+--changeset feat_618_2:1
+--validCheckSum: 1:any
+
+
+DO
+'
+    DECLARE
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = ''translationtype'') THEN
+            CREATE TYPE TranslationType AS ENUM (''country'', ''subdivision_name'', ''municipality'');
+        END IF;
+    END;
+'  LANGUAGE PLPGSQL;
+
+CREATE TABLE IF NOT EXISTS Translation (
     type TranslationType NOT NULL,
     language_code VARCHAR(3) NOT NULL, -- ISO 639-2
     key VARCHAR(255) NOT NULL,
@@ -49,16 +63,37 @@ SELECT
     FeedSubdivisionNameTranslationJoin.translations AS subdivision_name_translations,
     FeedMunicipalityTranslationJoin.translations AS municipality_translations,
     -- full-text searchable document
-    setweight(to_tsvector('english', coalesce(unaccent(Feed.feed_name), '')), 'C') ||
-    setweight(to_tsvector('english', coalesce(unaccent(Feed.provider), '')), 'C') ||
-    COALESCE(setweight(to_tsvector('english', coalesce((FeedLocationJoin.locations #>> '{0,country_code}'), '')), 'A'), '') ||
-    COALESCE(setweight(to_tsvector('english', coalesce(unaccent(FeedLocationJoin.locations #>> '{0,country}'), '')), 'A'), '') ||
-    COALESCE(setweight(to_tsvector('english', coalesce(unaccent(FeedLocationJoin.locations #>> '{0,subdivision_name}'), '')), 'A'), '') ||
-    COALESCE(setweight(to_tsvector('english', coalesce(unaccent(FeedLocationJoin.locations #>> '{0,municipality}'), '')), 'A'), '') ||
-    COALESCE(setweight(to_tsvector('english', coalesce((FeedCountryTranslationJoin.translations #>> '{0,value}'), '')), 'A'), '') ||
-    COALESCE(setweight(to_tsvector('english', coalesce((FeedSubdivisionNameTranslationJoin.translations #>> '{0,value}'), '')), 'A'), '') ||
-    COALESCE(setweight(to_tsvector('english', coalesce((FeedMunicipalityTranslationJoin.translations #>> '{0,value}'), '')), 'A'), '')
-    AS document
+    setweight(to_tsvector('english', coalesce(unaccent((
+        SELECT string_agg(
+            coalesce(location->>'country_code', '') || ' ' ||
+            coalesce(location->>'country', '') || ' ' ||
+            coalesce(location->>'subdivision_name', '') || ' ' ||
+            coalesce(location->>'municipality', ''),
+            ' '
+        )
+        FROM json_array_elements(FeedLocationJoin.locations) AS location
+    )), '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(unaccent((
+        SELECT string_agg(
+            coalesce(translation->>'value', ''),
+            ' '
+        )
+        FROM json_array_elements(FeedCountryTranslationJoin.translations) AS translation
+    )), '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(unaccent((
+        SELECT string_agg(
+            coalesce(translation->>'value', ''),
+            ' '
+        )
+        FROM json_array_elements(FeedSubdivisionNameTranslationJoin.translations) AS translation
+    )), '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(unaccent((
+        SELECT string_agg(
+            coalesce(translation->>'value', ''),
+            ' '
+        )
+        FROM json_array_elements(FeedMunicipalityTranslationJoin.translations) AS translation
+    )), '')), 'A') AS document
 FROM Feed
 LEFT JOIN (
     SELECT *
