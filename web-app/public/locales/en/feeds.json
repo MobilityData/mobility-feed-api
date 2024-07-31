@@ -1,19 +1,25 @@
 {
-    "feeds": "Feeds",
-    "dataType": "Data Type",
-    "transitProvider": "Transit Provider",
-    "location": "Location",
-    "feedDescription": "Feed Description",
-    "searchFor": "Search For",
-    "resultsFor": "{{startResult}}-{{endResult}} of {{totalResults}} results",
-    "deprecated": "Deprecated",
-    "searchPlaceholder": "Transit provider, feed name, or location",
-    "noResults": "We're sorry, we found no search results for “{{activeSearch}}”.",
-    "searchSuggestions": "Search suggestions: ",
-    "searchTips": {
-        "twoDigit": "Use a two digit code to search for country, e.g “FR” for France",
-        "fullName": "Include the full name for transit provider, e.g “Toronto Transit Commission” instead of “TTC”",
-        "checkSpelling": "Double check the spelling"
-    },
-    "errorAndContact": "Please check your internet connection and try again. If the problem persists <1>contact us</1> for for further assistance."
+  "feeds": "Feeds",
+  "dataType": "Data Type",
+  "transitProvider": "Transit Provider",
+  "location": "Location",
+  "feedDescription": "Feed Description",
+  "searchFor": "Search For",
+  "resultsFor": "{{startResult}}-{{endResult}} of {{totalResults}} results",
+  "deprecated": "Deprecated",
+  "searchPlaceholder": "Transit provider, feed name, or location",
+  "noResults": "We're sorry, we found no search results for “{{activeSearch}}”.",
+  "searchSuggestions": "Search suggestions: ",
+  "searchTips": {
+    "twoDigit": "Use a two digit code to search for country, e.g “FR” for France",
+    "fullName": "Include the full name for transit provider, e.g “Toronto Transit Commission” instead of “TTC”",
+    "checkSpelling": "Double check the spelling"
+  },
+  "errorAndContact": "Please check your internet connection and try again. If the problem persists <1>contact us</1> for for further assistance.",
+  "form": {
+    "addOrUpdateFeed": "Add or Update a Feed",
+    "signUp": "Sign up for a Mobility Database account to add or update a GTFS feed.",
+    "signUpAction": "Sign up for an account",
+    "loginSuccess": "You were successfully logged in, you can now add or update a feed."
+  }
 }

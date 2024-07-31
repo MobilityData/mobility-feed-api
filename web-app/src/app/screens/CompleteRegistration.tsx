@@ -16,13 +16,13 @@ import {
 } from '@mui/material';
 import { useAppDispatch } from '../hooks';
 import { refreshUserInformation } from '../store/profile-reducer';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   selectUserProfileStatus,
   selectRegistrationError,
 } from '../store/profile-selectors';
 import { useSelector } from 'react-redux';
-import { ACCOUNT_TARGET } from '../constants/Navigation';
+import { ACCOUNT_TARGET, ADD_FEED_TARGET } from '../constants/Navigation';
 
 export default function CompleteRegistration(): React.ReactElement {
   const auth = getAuth();
@@ -34,6 +34,7 @@ export default function CompleteRegistration(): React.ReactElement {
   const registrationError = useSelector(selectRegistrationError);
 
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const [searchParams] = useSearchParams();
 
   const termsAndConditionsElement = (
     <span>
@@ -59,7 +60,11 @@ export default function CompleteRegistration(): React.ReactElement {
 
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
-      navigateTo(ACCOUNT_TARGET);
+      if (searchParams.has('add_feed')) {
+        navigateTo(ADD_FEED_TARGET, {state: {from: 'registration'}});
+      } else {
+        navigateTo(ACCOUNT_TARGET);
+      }
     }
   }, [userProfileStatus]);
 
