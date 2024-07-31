@@ -63,6 +63,8 @@ SELECT
     FeedSubdivisionNameTranslationJoin.translations AS subdivision_name_translations,
     FeedMunicipalityTranslationJoin.translations AS municipality_translations,
     -- full-text searchable document
+    setweight(to_tsvector('english', coalesce(unaccent(Feed.feed_name), '')), 'C') ||
+    setweight(to_tsvector('english', coalesce(unaccent(Feed.provider), '')), 'C') ||
     setweight(to_tsvector('english', coalesce(unaccent((
         SELECT string_agg(
             coalesce(location->>'country_code', '') || ' ' ||
