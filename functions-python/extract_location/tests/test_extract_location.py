@@ -238,8 +238,8 @@ class TestExtractBoundingBox(unittest.TestCase):
         mock_session.add.assert_called_once_with(mock_dataset)
         mock_session.commit.assert_called_once()
 
-        self.assertEqual(mock_dataset.locations[0].country, "United States")
-        self.assertEqual(mock_dataset.feed.locations[0].country, "United States")
+        self.assertEqual(mock_dataset.locations[0].country, "日本")
+        self.assertEqual(mock_dataset.feed.locations[0].country, "日本")
 
     def test_create_polygon_wkt_element(self):
         bounds = np.array(

@@ -131,7 +131,7 @@ def extract_location_pubsub(cloud_event: CloudEvent):
             update_dataset_bounding_box(session, dataset_id, geometry_polygon)
             update_location(reverse_coords(location_geo_points), dataset_id, session)
         except Exception as e:
-            error = f"Error updating bounding box in database: {e}"
+            error = f"Error updating location information in database: {e}"
             logging.error(f"[{dataset_id}] Error while processing: {e}")
             if session is not None:
                 session.rollback()
@@ -139,7 +139,9 @@ def extract_location_pubsub(cloud_event: CloudEvent):
         finally:
             if session is not None:
                 session.close()
-        logging.info(f"[{stable_id} - {dataset_id}] Bounding box updated successfully.")
+        logging.info(
+            f"[{stable_id} - {dataset_id}] Location information updated successfully."
+        )
     except Exception:
         pass
     finally:

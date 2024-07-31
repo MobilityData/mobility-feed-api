@@ -4,7 +4,13 @@ from typing import Tuple, List
 
 from sqlalchemy.orm import Session
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Location, Translation
+from database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    Location,
+    Translation,
+    t_feedsearch,
+)
+from helpers.database import refresh_materialized_view
 from .geocoded_location import GeocodedLocation
 
 
@@ -161,6 +167,7 @@ def update_location(
     dataset.feed.locations = locations
 
     session.add(dataset)
+    refresh_materialized_view(session, t_feedsearch.name)
     session.commit()
 
 
