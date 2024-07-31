@@ -12,11 +12,6 @@ DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/126.0.0.0 Mobile Safari/537.36"
 }
-EN_LANG_HEADER = {
-    "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/126.0.0.0 Mobile Safari/537.36",
-    "Accept-Language": "en",
-}
 
 
 class GeocodedLocation:
@@ -41,6 +36,7 @@ class GeocodedLocation:
             self.generate_translation("en")  # Generate English translation by default
 
     def get_location_entity(self) -> Location:
+        logging.info("Generating location entity")
         return Location(
             id=self.get_location_id(),
             country_code=self.country_code,
@@ -55,7 +51,7 @@ class GeocodedLocation:
             f"{self.subdivision_name or ''}-"
             f"{self.municipality or ''}"
         ).replace(" ", "_")
-        return location_id.lower()
+        return location_id
 
     def generate_translation(self, language: str = "en"):
         """
@@ -80,7 +76,7 @@ class GeocodedLocation:
         ):
             return  # No need to add the same location
         logging.info(
-            f"The location {self.country}, {self.subdivision_name}, {self.municipality} is"
+            f"The location {self.country}, {self.subdivision_name}, {self.municipality} is "
             f"translated to {country}, {subdivision_name}, {municipality} in {language}"
         )
         self.translations.append(

@@ -223,11 +223,11 @@ class TestExtractBoundingBox(unittest.TestCase):
 
         location_info = [
             GeocodedLocation(
-                country_code="US",
-                country="United States",
-                subdivision_name="California",
-                municipality="Los Angeles",
-                stop_coords=(34.0522, -118.2437),
+                country_code="JP",
+                country="日本",
+                subdivision_name="東京都",
+                municipality="渋谷区",
+                stop_coords=(35.6895, 139.6917),
             )
         ]
         dataset_id = "123"

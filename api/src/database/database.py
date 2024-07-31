@@ -60,7 +60,7 @@ class Database:
                     cls.instance = object.__new__(cls)
         return cls.instance
 
-    def __init__(self, echo_sql=False):
+    def __init__(self, echo_sql=True):
         """
         Initializes the database instance
         :param echo_sql: whether to echo the SQL queries or not

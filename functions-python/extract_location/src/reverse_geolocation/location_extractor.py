@@ -4,7 +4,7 @@ from typing import Tuple, List
 
 from sqlalchemy.orm import Session
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Location
+from database_gen.sqlacodegen_models import Gtfsdataset, Location, Translation
 from .geocoded_location import GeocodedLocation
 
 
@@ -129,7 +129,7 @@ def update_location(
     """
     Update the location details of a dataset in the database.
 
-    :param location_info: A LocationInfo object containing location details.
+    :param location_info: A list of GeocodedLocation objects containing location details.
     :param dataset_id: The ID of the dataset.
     :param session: The database session.
     """
@@ -140,26 +140,17 @@ def update_location(
     )
     if dataset is None:
         raise Exception(f"Dataset {dataset_id} does not exist in the database.")
+
     locations = []
     for location in location_info:
-        logging.info(
-            f"Extracted location with country code {location.country_code}, country {location.country}, "
-            f"subdivision {location.subdivision_name}, and municipality {location.municipality}"
-        )
-        # Check if location already exists
-        location_id = location.get_location_id()
-        location_entity = (
-            session.query(Location).filter(Location.id == location_id).one_or_none()
-        )
-        if location_entity is not None:
-            logging.info(f"[{dataset_id}] Location already exists: {location_id}")
-        else:
-            logging.info(f"[{dataset_id}] Creating new location: {location_id}")
-            location_entity = location.get_location_entity()
-        location_entity.country = (
-            location.country
-        )  # Update the country name as it's a later addition
-        locations.append(location)
+        location_entity = get_or_create_location(location, session)
+        locations.append(location_entity)
+
+        for translation in location.translations:
+            if translation.language != "en":
+                continue
+            update_translation(location, translation, session)
+
     if len(locations) == 0:
         raise Exception("No locations found for the dataset.")
     dataset.locations.clear()
@@ -171,3 +162,99 @@ def update_location(
 
     session.add(dataset)
     session.commit()
+
+
+def get_or_create_location(location: GeocodedLocation, session: Session) -> Location:
+    """
+    Get an existing location or create a new one.
+
+    :param location: A GeocodedLocation object.
+    :param session: The database session.
+    :return: The Location entity.
+    """
+    location_id = location.get_location_id()
+    location_entity = (
+        session.query(Location).filter(Location.id == location_id).one_or_none()
+    )
+    if location_entity is not None:
+        logging.info(f"Location already exists: {location_id}")
+    else:
+        logging.info(f"Creating new location: {location_id}")
+        location_entity = location.get_location_entity()
+        session.add(location_entity)
+
+    # Ensure the country name is updated
+    location_entity.country = location.country
+
+    return location_entity
+
+
+def update_translation(
+    location: GeocodedLocation, translation: GeocodedLocation, session: Session
+):
+    """
+    Update or create a translation for a location.
+
+    :param location: The original location entity.
+    :param translation: The translated location information.
+    :param session: The database session.
+    """
+    translated_country = translation.country
+    translated_subdivision = translation.subdivision_name
+    translated_municipality = translation.municipality
+
+    if translated_country is not None:
+        update_translation_record(
+            session,
+            location.country,
+            translated_country,
+            translation.language,
+            "country",
+        )
+    if translated_subdivision is not None:
+        update_translation_record(
+            session,
+            location.subdivision_name,
+            translated_subdivision,
+            translation.language,
+            "subdivision_name",
+        )
+    if translated_municipality is not None:
+        update_translation_record(
+            session,
+            location.municipality,
+            translated_municipality,
+            translation.language,
+            "municipality",
+        )
+
+
+def update_translation_record(
+    session: Session, key: str, value: str, language_code: str, translation_type: str
+):
+    """
+    Update or create a translation record in the database.
+
+    :param session: The database session.
+    :param key: The key value for the translation (e.g., original location name).
+    :param value: The translated value.
+    :param language_code: The language code of the translation.
+    :param translation_type: The type of translation (e.g., 'country', 'subdivision_name', 'municipality').
+    """
+    if not key:
+        return
+    translation = (
+        session.query(Translation)
+        .filter(Translation.key == key)
+        .filter(Translation.language_code == language_code)
+        .filter(Translation.type == translation_type)
+        .one_or_none()
+    )
+    if translation is None:
+        translation = Translation(
+            key=key,
+            value=value,
+            language_code=language_code,
+            type=translation_type,
+        )
+        session.add(translation)

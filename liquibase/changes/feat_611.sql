@@ -1,7 +1,7 @@
 -- Install the unaccent extension to allow accent-insensitive search
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
--- Droping the materialized view is not possible to edit it
+-- Dropping the materialized view is not possible to edit it
 DROP MATERIALIZED VIEW IF EXISTS FeedSearch;
 
 CREATE MATERIALIZED VIEW FeedSearch AS

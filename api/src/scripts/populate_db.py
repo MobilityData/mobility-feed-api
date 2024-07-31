@@ -117,7 +117,8 @@ class DatabasePopulateHelper:
         """
         Populate the location for the feed
         """
-        if feed.locations:
+        # TODO: validate behaviour for gtfs-rt feeds
+        if feed.locations and feed.data_type == "gtfs":
             self.logger.warning(f"Location already exists for feed {stable_id}")
             return
 
