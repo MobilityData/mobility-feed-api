@@ -1,6 +1,6 @@
 --liquibase formatted sql
 
---changeset feat_618_2:1
+--changeset feat_618_2:1 runOnChange:true
 --validCheckSum: 1:any
 
 
