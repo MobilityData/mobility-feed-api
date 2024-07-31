@@ -102,6 +102,9 @@ export default function Feed(): React.ReactElement {
               search_query: searchQuery,
               data_type:
                 getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
+              // Fixed status values for now, until a status filter is implemented
+              // Filtering out deprecated feeds
+              status: ['active', 'inactive', 'development'],
             },
           },
         }),
