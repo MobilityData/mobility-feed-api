@@ -11,8 +11,7 @@ import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
-import { useSearchParams } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useAppDispatch } from '../hooks';
@@ -115,7 +114,7 @@ export default function SignUp(): React.ReactElement {
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
       if (searchParams.has('add_feed')) {
-        navigateTo(ADD_FEED_TARGET, {state: {from: 'registration'}});
+        navigateTo(ADD_FEED_TARGET, { state: { from: 'registration' } });
       } else {
         navigateTo(ACCOUNT_TARGET);
       }

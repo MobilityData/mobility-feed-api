@@ -73,7 +73,9 @@ function Component(): React.ReactElement {
                 icon={<CheckIcon fontSize='inherit' />}
                 severity='success'
                 sx={{ mb: 2 }}
-                onClose={() => setShowLoginSuccess(false)}
+                onClose={() => {
+                  setShowLoginSuccess(false);
+                }}
               >
                 {t('form.loginSuccess')}
               </Alert>

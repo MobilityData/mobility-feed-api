@@ -61,7 +61,7 @@ export default function CompleteRegistration(): React.ReactElement {
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
       if (searchParams.has('add_feed')) {
-        navigateTo(ADD_FEED_TARGET, {state: {from: 'registration'}});
+        navigateTo(ADD_FEED_TARGET, { state: { from: 'registration' } });
       } else {
         navigateTo(ACCOUNT_TARGET);
       }

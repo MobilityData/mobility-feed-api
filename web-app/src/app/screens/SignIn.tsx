@@ -91,17 +91,17 @@ export default function SignIn(): React.ReactElement {
 
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
-      if(searchParams.has('add_feed')) {
-        navigateTo(ADD_FEED_TARGET, {state: {from: 'registration'}});
+      if (searchParams.has('add_feed')) {
+        navigateTo(ADD_FEED_TARGET, { state: { from: 'registration' } });
       } else {
         navigateTo(ACCOUNT_TARGET);
       }
     }
     if (userProfileStatus === 'authenticated') {
-      navigateTo(COMPLETE_REGISTRATION_TARGET+"?"+searchParams.toString());
+      navigateTo(COMPLETE_REGISTRATION_TARGET + '?' + searchParams.toString());
     }
     if (userProfileStatus === 'unverified') {
-      navigateTo(POST_REGISTRATION_TARGET+"?"+searchParams.toString());
+      navigateTo(POST_REGISTRATION_TARGET + '?' + searchParams.toString());
     }
   }, [userProfileStatus]);
 

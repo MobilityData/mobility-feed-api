@@ -60,7 +60,7 @@ export default function PostRegistration(): React.ReactElement {
       userProfileStatus === 'authenticated'
     ) {
       if (searchParams.has('add_feed')) {
-        navigateTo(ADD_FEED_TARGET, {state: {from: 'registration'}});
+        navigateTo(ADD_FEED_TARGET, { state: { from: 'registration' } });
       } else {
         navigateTo(ACCOUNT_TARGET);
       }
