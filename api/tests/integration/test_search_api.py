@@ -174,9 +174,10 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
 @pytest.mark.parametrize(
     "status, expected_results_total",
     [
-        ("active", 9),  # 7 GTFS feeds and 2 GTFS-rt feeds
+        ("active", 6),
         ("not_valid_status", 0),
-        ("inactive", 0),
+        ("inactive", 1),
+        ("active,inactive", 7),
     ],
 )
 def test_search_feeds_filter_status(client: TestClient, status: str, expected_results_total: int):
@@ -209,9 +210,9 @@ def test_search_feeds_filter_status(client: TestClient, status: str, expected_re
 
     assert response_body.total == expected_results_total
     assert len(response_body.results) == expected_results_total
-    if expected_results_total > 1:
+    if expected_results_total > 0:
         for result in response_body.results:
-            assert result.status == status
+            assert result.status in status
 
 
 @pytest.mark.parametrize(
