@@ -36,7 +36,9 @@ export default function FeedSummary({
 }: FeedSummaryProps): React.ReactElement {
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
 
-  const hasAuthenticationInfo = !!feed?.source_info?.authentication_info_url;
+  const hasAuthenticationInfo =
+    feed?.source_info?.authentication_info_url !== undefined &&
+    feed?.source_info.authentication_info_url.trim() !== '';
 
   return (
     <ContentBox
