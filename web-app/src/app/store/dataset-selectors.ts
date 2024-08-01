@@ -10,6 +10,10 @@ export const selectDatasetsData = (
   return state.dataset.data;
 };
 
+export const selectDatasetsLoadingStatus = (
+  state: RootState,
+): 'loading' | 'loaded' => state.dataset.status;
+
 export const selectLatestDatasetsData = (
   state: RootState,
 ): components['schemas']['GtfsDataset'] | undefined => {

@@ -5,7 +5,17 @@ import { getEnvConfig } from '../../utils/config';
 
 const API_BASE_URL = getEnvConfig('REACT_APP_FEED_API_BASE_URL');
 
-const client = createClient<paths>({ baseUrl: `${API_BASE_URL}` });
+const client = createClient<paths>({
+  baseUrl: `${API_BASE_URL}`,
+  querySerializer: {
+    // serialize arrays as comma-separated values
+    // More info: https://swagger.io/docs/specification/serialization/#query
+    array: {
+      style: 'form',
+      explode: false,
+    },
+  },
+});
 
 const throwOnError: Middleware = {
   async onResponse(res) {

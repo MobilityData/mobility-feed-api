@@ -23,17 +23,13 @@ class MetadataApiImpl(BaseMetadataApi):
             # Create a configparser object
             config = configparser.ConfigParser()
 
-            # The version_info file is in api/src subdirectory. We're not sure which directory this code is running
-            # (and it's different for tests), but we will assume api is in the path.
             current_directory = os.getcwd()
 
-            root_directory = current_directory.split("/api", 1)[0]
-            if root_directory is None:
-                raise Exception(
-                    "Cannot find version_info file. "
-                    + f"Cannot find api in the path to the current working directory = {current_directory}"
-                )
-            file = root_directory + "/api/src/version_info"
+            file = "version_info"
+            # The config file is on api/src. Normally the cwd is api/src, but with unit tests it's api. In that case
+            # add /src
+            if current_directory.endswith("api"):
+                file = os.path.join("src", file)
 
             # Read the properties file. This file should have been filled as part of the build.
             config.read(file)
