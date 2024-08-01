@@ -36,6 +36,8 @@ export default function FeedSummary({
 }: FeedSummaryProps): React.ReactElement {
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
 
+  const hasAuthenticationInfo = !!feed?.source_info?.authentication_info_url;
+
   return (
     <ContentBox
       width={width}
@@ -121,6 +123,33 @@ export default function FeedSummary({
           {feed?.data_type === 'gtfs_rt' && 'GTFS Realtime'}
         </Typography>
       </Box>
+
+      <Box sx={boxElementStyle}>
+        <Typography
+          variant='subtitle1'
+          gutterBottom
+          sx={{ fontWeight: 'bold' }}
+        >
+          Authentication type
+        </Typography>
+        <Typography data-testid='data-type'>
+          {feed?.source_info?.authentication_type === 1 && 'API Key'}
+          {feed?.source_info?.authentication_type === 2 && 'HTTP Header'}
+        </Typography>
+      </Box>
+
+      {hasAuthenticationInfo && (
+        <Button disableElevation variant='contained' sx={{ marginRight: 2 }}>
+          <a
+            href={feed?.source_info?.authentication_info_url}
+            target='_blank'
+            className='btn-link'
+            rel='noreferrer'
+          >
+            Register to download this feed
+          </a>
+        </Button>
+      )}
 
       {feed?.data_type === 'gtfs' &&
         feed?.feed_contact_email !== undefined &&
