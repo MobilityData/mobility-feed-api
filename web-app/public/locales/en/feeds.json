@@ -18,7 +18,7 @@
   "errorAndContact": "Please check your internet connection and try again. If the problem persists <1>contact us</1> for for further assistance.",
   "form": {
     "addOrUpdateFeed": "Add or Update a Feed",
-    "signUp": "Sign up for a Mobility Database account to add or update a GTFS feed.",
+    "signUp": "Sign up for a Mobility Database account or login to add or update a GTFS feed.",
     "signUpAction": "Sign up for an account",
     "loginSuccess": "You were successfully logged in, you can now add or update a feed."
   }
