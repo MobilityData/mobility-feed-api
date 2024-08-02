@@ -6,3 +6,27 @@
 .navigable-list-item{
   cursor: pointer;
 }
+
+.notice-severity-label {
+  border-radius: 5px;
+  padding: 5px;
+  margin-left: 5px;
+  margin-bottom: 2px;
+  width: fit-content;
+
+}
+
+.notice-severity-label.notice-severity-error {
+  background-color: #d54402;
+  color: white;
+}
+
+.notice-severity-label.notice-severity-warning {
+  background-color: #f3c280;
+  color: black;
+}
+
+.notice-severity-label.notice-severity-info {
+  background-color: #badfb7;
+  color: black;
+}

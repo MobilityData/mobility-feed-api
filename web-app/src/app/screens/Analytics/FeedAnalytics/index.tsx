@@ -4,29 +4,30 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
 } from 'material-react-table';
-import { Box, Typography } from '@mui/material';
-import { format } from 'date-fns';
-import { useTheme } from '@mui/material/styles';
 import {
-  Bar,
-  BarChart,
-  Brush,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+  Box,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  type SelectChangeEvent,
+  Typography,
+} from '@mui/material';
+
 import '../analytics.css';
 import { useLocation } from 'react-router-dom';
-import { fetchDataStart } from '../../../store/analytics-reducer';
+import {
+  fetchAvailableFilesStart,
+  selectFile,
+} from '../../../store/analytics-reducer';
 import {
   selectFeedMetrics,
   selectAnalyticsStatus,
   selectAnalyticsError,
 } from '../../../store/analytics-selector';
 import { useTableColumns } from './FeedAnalyticsTable';
+import DetailPanel from './DetailPanel';
+import { type RootState } from '../../../store/store';
 
 export default function FeedAnalytics(): React.ReactElement {
   const { search } = useLocation();
@@ -41,28 +42,45 @@ export default function FeedAnalytics(): React.ReactElement {
   const status = useSelector(selectAnalyticsStatus);
   const error = useSelector(selectAnalyticsError);
 
+  const availableFiles = useSelector(
+    (state: RootState) => state.analytics.availableFiles,
+  );
+  const selectedFile = useSelector(
+    (state: RootState) => state.analytics.selectedFile,
+  );
+
   React.useEffect(() => {
-    dispatch(fetchDataStart());
+    dispatch(fetchAvailableFilesStart());
   }, [dispatch]);
 
+  const handleFileChange = (event: SelectChangeEvent<unknown>): void => {
+    const fileName = event.target.value as string;
+    dispatch(selectFile(fileName));
+  };
+
   const uniqueErrors = useMemo(() => {
-    const errors = data.flatMap((item) => item.notices.errors);
+    const errors = data.flatMap((item) => item.notices?.errors);
     return Array.from(new Set(errors)).sort();
   }, [data]);
 
   const uniqueWarnings = useMemo(() => {
-    const warnings = data.flatMap((item) => item.notices.warnings);
+    const warnings = data.flatMap((item) => item.notices?.warnings);
     return Array.from(new Set(warnings)).sort();
   }, [data]);
 
   const uniqueInfos = useMemo(() => {
-    const infos = data.flatMap((item) => item.notices.infos);
+    const infos = data.flatMap((item) => item.notices?.infos);
     return Array.from(new Set(infos)).sort();
+  }, [data]);
+
+  const uniqueFeatures = useMemo(() => {
+    const features = data.flatMap((item) => item?.features);
+    return Array.from(new Set(features)).sort();
   }, [data]);
 
   const avgErrors = useMemo(() => {
     const totalErrors = data.reduce(
-      (acc, item) => acc + item.notices.errors.length,
+      (acc, item) => acc + item.notices?.errors.length,
       0,
     );
     return Math.round(totalErrors / data.length);
@@ -70,7 +88,7 @@ export default function FeedAnalytics(): React.ReactElement {
 
   const avgWarnings = useMemo(() => {
     const totalWarnings = data.reduce(
-      (acc, item) => acc + item.notices.warnings.length,
+      (acc, item) => acc + item.notices?.warnings.length,
       0,
     );
     return Math.round(totalWarnings / data.length);
@@ -78,7 +96,7 @@ export default function FeedAnalytics(): React.ReactElement {
 
   const avgInfos = useMemo(() => {
     const totalInfos = data.reduce(
-      (acc, item) => acc + item.notices.infos.length,
+      (acc, item) => acc + item.notices?.infos.length,
       0,
     );
     return Math.round(totalInfos / data.length);
@@ -115,6 +133,7 @@ export default function FeedAnalytics(): React.ReactElement {
     uniqueErrors,
     uniqueWarnings,
     uniqueInfos,
+    uniqueFeatures,
     avgErrors,
     avgWarnings,
     avgInfos,
@@ -142,61 +161,39 @@ export default function FeedAnalytics(): React.ReactElement {
     enableStickyHeader: true,
     enableStickyFooter: true,
     muiTableContainerProps: { sx: { maxHeight: '70vh' } },
-    renderDetailPanel: ({ row }) => {
-      const theme = useTheme();
-      const metrics = row.original.metrics;
-
-      if (metrics == null) {
-        return <div>No metrics available</div>;
-      }
-
-      const chartData = metrics.computed_on.map((date, index) => ({
-        date: format(new Date(date), 'yyyy-MM'),
-        errors: metrics.errors_count[index],
-        warnings: metrics.warnings_count[index],
-        infos: metrics.infos_count[index],
-      }));
-      const domain = [
-        new Date(metrics?.computed_on[0]).getTime(),
-        new Date().getTime(),
-      ];
-
-      return (
-        <Box sx={{ maxWidth: '600px', margin: 'auto' }}>
-          <Typography gutterBottom>Monthly Feed Validation Metrics</Typography>
-          <ResponsiveContainer width='100%' height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray='3 3' />
-              <XAxis
-                dataKey='date'
-                tick={false}
-                tickFormatter={(date) => format(new Date(date), 'yyyy-MM')}
-                domain={domain}
-              />
-              <YAxis />
-              <Tooltip
-                labelFormatter={(label) => format(new Date(label), 'yyyy-MM')}
-              />
-              <Legend />
-              <Brush
-                dataKey='date'
-                height={30}
-                stroke={theme.palette.primary.main}
-              />
-              <Bar dataKey='errors' fill={theme.palette.error.main} />
-              <Bar dataKey='warnings' fill={'#fbba18'} />
-              <Bar dataKey='infos' fill={'#9ee199'} />
-            </BarChart>
-          </ResponsiveContainer>
-        </Box>
-      );
-    },
+    renderDetailPanel: ({ row }) => <DetailPanel row={row} />,
+    renderTopToolbarCustomActions: ({ table }) => (
+      <Box sx={{ minWidth: 200 }}>
+        <FormControl fullWidth variant='outlined' sx={{ marginBottom: 2 }}>
+          <InputLabel id='select-file-label'>Analytics Compute Date</InputLabel>
+          <Select
+            labelId='select-file-label'
+            value={selectedFile ?? ''}
+            onChange={(event) => {
+              handleFileChange(event);
+            }}
+            label='Analytics Compute Date'
+          >
+            {availableFiles.map((file) => (
+              <MenuItem key={file.file_name} value={file.file_name}>
+                {new Date(file.created_on).toLocaleDateString('en-CA', {
+                  year: 'numeric',
+                  month: 'long',
+                })}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Box>
+    ),
   });
 
+  // TODO improve this code
   if (status === 'loading') {
     return <div>Loading...</div>;
   }
 
+  // TODO improve this code
   if (status === 'failed') {
     return <div>Error: {error}</div>;
   }
@@ -206,6 +203,7 @@ export default function FeedAnalytics(): React.ReactElement {
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
         Feeds Analytics{' '}
       </Typography>
+
       <MaterialReactTable table={table} />
     </Box>
   );

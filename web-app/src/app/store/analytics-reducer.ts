@@ -3,6 +3,7 @@ import {
   type NoticeMetrics,
   type FeatureMetrics,
   type FeedMetrics,
+  type AnalyticsFile,
 } from '../screens/Analytics/types';
 
 interface AnalyticsState {
@@ -12,6 +13,8 @@ interface AnalyticsState {
   featuresMetrics: FeatureMetrics[];
   status: 'loading' | 'loaded' | 'failed';
   error?: string;
+  availableFiles: AnalyticsFile[];
+  selectedFile?: string;
 }
 
 const initialState: AnalyticsState = {
@@ -21,6 +24,8 @@ const initialState: AnalyticsState = {
   featuresMetrics: [],
   status: 'loading',
   error: undefined,
+  availableFiles: [],
+  selectedFile: undefined,
 };
 
 const AnalyticsSlice = createSlice({
@@ -76,6 +81,18 @@ const AnalyticsSlice = createSlice({
       state.error = action.payload;
       state.featuresMetrics = [];
     },
+    fetchAvailableFilesStart(state) {
+      state.availableFiles = [];
+      state.selectedFile = undefined;
+      state.status = 'loading';
+    },
+    fetchAvailableFilesSuccess(state, action: PayloadAction<AnalyticsFile[]>) {
+      state.availableFiles = action.payload;
+      state.status = 'loaded';
+    },
+    selectFile(state, action: PayloadAction<string>) {
+      state.selectedFile = action.payload;
+    },
   },
 });
 
@@ -89,6 +106,9 @@ export const {
   fetchHistoricalMetricsFailure,
   fetchNoticeMetricsFailure,
   fetchFeaturesMetricsFailure,
+  fetchAvailableFilesSuccess,
+  fetchAvailableFilesStart,
+  selectFile,
 } = AnalyticsSlice.actions;
 
 export default AnalyticsSlice.reducer;

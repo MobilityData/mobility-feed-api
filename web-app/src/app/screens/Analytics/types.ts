@@ -14,6 +14,7 @@ export interface FeedMetrics {
   country_code: string;
   country: string;
   subdivision_name: string;
+  municipality: string;
   provider: string;
   metrics?: Metrics;
 }
@@ -40,4 +41,9 @@ export interface FeatureMetrics {
   feeds_count: number[];
   latest_feed_count: number;
   feature_group?: string; // Add a property to handle feature grouping
+}
+
+export interface AnalyticsFile {
+  file_name: string;
+  created_on: string;
 }

@@ -23,7 +23,7 @@ export function groupFeatures(features: string[]): {
   const groupedFeatures: Record<string, string[]> = {};
   const otherFeatures: string[] = [];
 
-  features.forEach((feature) => {
+  features?.forEach((feature) => {
     let found = false;
     for (const [group, groupFeatures] of Object.entries(featureGroups)) {
       if (groupFeatures.includes(feature)) {

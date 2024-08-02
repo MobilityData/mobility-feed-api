@@ -11,6 +11,7 @@ import { Box, Stack } from '@mui/material';
  * @param uniqueErrors list of unique errors
  * @param uniqueWarnings list of unique warnings
  * @param uniqueInfos list of unique infos
+ * @param uniqueFeatures list of unique features
  * @param avgErrors average number of errors
  * @param avgWarnings average number of warnings
  * @param avgInfos average number of infos
@@ -20,6 +21,7 @@ export const useTableColumns = (
   uniqueErrors: string[],
   uniqueWarnings: string[],
   uniqueInfos: string[],
+  uniqueFeatures: string[],
   avgErrors: number,
   avgWarnings: number,
   avgInfos: number,
@@ -90,7 +92,7 @@ export const useTableColumns = (
         enableSorting: false,
         Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
           <div>
-            {cell.getValue<string[]>().map((error, index) => (
+            {cell.getValue<string[]>()?.map((error, index) => (
               <div
                 key={index}
                 style={{
@@ -114,15 +116,7 @@ export const useTableColumns = (
         Header: (
           <span>
             Notice Severity :
-            <span
-              style={{
-                background: '#d54402',
-                color: 'white',
-                borderRadius: '5px',
-                padding: 5,
-                marginLeft: 5,
-              }}
-            >
+            <span className='notice-severity-error notice-severity-label'>
               ERROR
             </span>
           </span>
@@ -140,7 +134,7 @@ export const useTableColumns = (
         enableSorting: false,
         Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
           <div>
-            {cell.getValue<string[]>().map((warning, index) => (
+            {cell.getValue<string[]>()?.map((warning, index) => (
               <div
                 key={index}
                 style={{
@@ -164,15 +158,7 @@ export const useTableColumns = (
         Header: (
           <span>
             Notice Severity :
-            <span
-              style={{
-                background: '#fdba06',
-                color: 'black',
-                borderRadius: '5px',
-                padding: 5,
-                marginLeft: 5,
-              }}
-            >
+            <span className='notice-severity-warning notice-severity-label'>
               WARNING
             </span>
           </span>
@@ -191,22 +177,14 @@ export const useTableColumns = (
         Header: (
           <span>
             Notice Severity :
-            <span
-              style={{
-                background: '#9ae095',
-                color: 'black',
-                borderRadius: '5px',
-                padding: 5,
-                marginLeft: 5,
-              }}
-            >
+            <span className='notice-severity-info notice-severity-label'>
               INFO
             </span>
           </span>
         ),
         Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
           <div>
-            {cell.getValue<string[]>().map((info, index) => (
+            {cell.getValue<string[]>()?.map((info, index) => (
               <div
                 key={index}
                 style={{
@@ -237,6 +215,13 @@ export const useTableColumns = (
       {
         accessorKey: 'features',
         header: 'Features',
+        filterFn: (value, _, filterValue) => {
+          const originalValue = value.original;
+          const features = originalValue.features;
+          return features.some((feature) => {
+            return feature.toLowerCase().includes(filterValue.toLowerCase());
+          });
+        },
         enableSorting: false,
         Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => {
           const { groupedFeatures, otherFeatures } = groupFeatures(
@@ -266,7 +251,7 @@ export const useTableColumns = (
                         style={{ cursor: 'pointer', marginLeft: '10px' }}
                         className={'navigable-list-item'}
                         onClick={() => {
-                          navigate(`/features/${feature}`);
+                          navigate(`/analytics/features/${feature}`);
                         }}
                       >
                         {feature}
@@ -320,6 +305,7 @@ export const useTableColumns = (
       uniqueErrors,
       uniqueWarnings,
       uniqueInfos,
+      uniqueFeatures,
       avgErrors,
       avgWarnings,
       avgInfos,
