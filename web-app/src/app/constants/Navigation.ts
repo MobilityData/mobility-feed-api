@@ -4,6 +4,7 @@ import { type RemoteConfigValues } from '../interface/RemoteConfig';
 export const SIGN_OUT_TARGET = '/';
 export const SIGN_IN_TARGET = '/sign-in';
 export const ACCOUNT_TARGET = '/account';
+export const ADD_FEED_TARGET = '/contribute';
 export const POST_REGISTRATION_TARGET = '/verify-email';
 export const COMPLETE_REGISTRATION_TARGET = '/complete-registration';
 

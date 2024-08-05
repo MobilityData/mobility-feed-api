@@ -9,7 +9,7 @@ import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
@@ -37,6 +37,7 @@ import {
 import { getAuth, signInWithPopup, type UserCredential } from 'firebase/auth';
 import {
   ACCOUNT_TARGET,
+  ADD_FEED_TARGET,
   COMPLETE_REGISTRATION_TARGET,
   POST_REGISTRATION_TARGET,
 } from '../constants/Navigation';
@@ -52,6 +53,7 @@ export default function SignIn(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showNoEmailSnackbar, setShowNoEmailSnackbar] = React.useState(false);
   const [enableAppleSSO, setEnableAppleSSO] = React.useState(false);
+  const [searchParams] = useSearchParams();
   const { config } = useRemoteConfig();
 
   useEffect(() => {
@@ -89,13 +91,17 @@ export default function SignIn(): React.ReactElement {
 
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
-      navigateTo(ACCOUNT_TARGET);
+      if (searchParams.has('add_feed')) {
+        navigateTo(ADD_FEED_TARGET, { state: { from: 'registration' } });
+      } else {
+        navigateTo(ACCOUNT_TARGET);
+      }
     }
     if (userProfileStatus === 'authenticated') {
-      navigateTo(COMPLETE_REGISTRATION_TARGET);
+      navigateTo(COMPLETE_REGISTRATION_TARGET + '?' + searchParams.toString());
     }
     if (userProfileStatus === 'unverified') {
-      navigateTo(POST_REGISTRATION_TARGET);
+      navigateTo(POST_REGISTRATION_TARGET + '?' + searchParams.toString());
     }
   }, [userProfileStatus]);
 
