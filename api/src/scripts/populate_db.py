@@ -117,6 +117,11 @@ class DatabasePopulateHelper:
         """
         Populate the location for the feed
         """
+        # TODO: validate behaviour for gtfs-rt feeds
+        if feed.locations and feed.data_type == "gtfs":
+            self.logger.warning(f"Location already exists for feed {stable_id}")
+            return
+
         country_code = self.get_safe_value(row, "location.country_code", "")
         subdivision_name = self.get_safe_value(row, "location.subdivision_name", "")
         municipality = self.get_safe_value(row, "location.municipality", "")

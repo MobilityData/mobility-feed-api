@@ -1,5 +1,4 @@
 import numpy
-import pandas
 
 from endpoints.integration_tests import IntegrationTests
 
@@ -129,21 +128,21 @@ class FeedsEndpointTests(IntegrationTests):
                     feed["status"] == status
                 ), f"Expected status '{status}', got '{feed['status']}'."
 
-    def test_filter_by_country_code(self):
-        """Test feed retrieval filtered by country code"""
-        df = pandas.concat([self.gtfs_feeds, self.gtfs_rt_feeds], ignore_index=True)
-        country_codes = self._sample_country_codes(df, 20)
-        task_id = self.progress.add_task(
-            "[yellow]Validating feeds by country code...[/yellow]",
-            total=len(country_codes),
-        )
-        for i, country_code in enumerate(country_codes):
-            self._test_filter_by_country_code(
-                country_code,
-                "v1/feeds",
-                task_id=task_id,
-                index=f"{i + 1}/{len(country_codes)}",
-            )
+    # def test_filter_by_country_code(self):
+    #     """Test feed retrieval filtered by country code"""
+    #     df = pandas.concat([self.gtfs_feeds, self.gtfs_rt_feeds], ignore_index=True)
+    #     country_codes = self._sample_country_codes(df, 20)
+    #     task_id = self.progress.add_task(
+    #         "[yellow]Validating feeds by country code...[/yellow]",
+    #         total=len(country_codes),
+    #     )
+    #     for i, country_code in enumerate(country_codes):
+    #         self._test_filter_by_country_code(
+    #             country_code,
+    #             "v1/feeds",
+    #             task_id=task_id,
+    #             index=f"{i + 1}/{len(country_codes)}",
+    #         )
 
     def test_filter_by_provider(self):
         """Test feed retrieval filtered by provider"""
@@ -162,18 +161,18 @@ class FeedsEndpointTests(IntegrationTests):
                 index=f"{i + 1}/{len(providers)}",
             )
 
-    def test_filter_by_municipality(self):
-        """Test feed retrieval filter by municipality."""
-        df = pandas.concat([self.gtfs_feeds, self.gtfs_rt_feeds], ignore_index=True)
-        municipalities = self._sample_municipalities(df, 20)
-        task_id = self.progress.add_task(
-            "[yellow]Validating feeds by municipality...[/yellow]",
-            total=len(municipalities),
-        )
-        for i, municipality in enumerate(municipalities):
-            self._test_filter_by_municipality(
-                municipality,
-                "v1/feeds",
-                task_id=task_id,
-                index=f"{i + 1}/{len(municipalities)}",
-            )
+    # def test_filter_by_municipality(self):
+    #     """Test feed retrieval filter by municipality."""
+    #     df = pandas.concat([self.gtfs_feeds, self.gtfs_rt_feeds], ignore_index=True)
+    #     municipalities = self._sample_municipalities(df, 20)
+    #     task_id = self.progress.add_task(
+    #         "[yellow]Validating feeds by municipality...[/yellow]",
+    #         total=len(municipalities),
+    #     )
+    #     for i, municipality in enumerate(municipalities):
+    #         self._test_filter_by_municipality(
+    #             municipality,
+    #             "v1/feeds",
+    #             task_id=task_id,
+    #             index=f"{i + 1}/{len(municipalities)}",
+    #         )

@@ -18,8 +18,8 @@ locals {
   function_tokens_config = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
   function_tokens_zip    = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
 
-  function_extract_bb_config = jsondecode(file("${path.module}../../../functions-python/extract_bb/function_config.json"))
-  function_extract_bb_zip    = "${path.module}/../../functions-python/extract_bb/.dist/extract_bb.zip"
+  function_extract_location_config = jsondecode(file("${path.module}../../../functions-python/extract_location/function_config.json"))
+  function_extract_location_zip    = "${path.module}/../../functions-python/extract_location/.dist/extract_location.zip"
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
@@ -37,7 +37,7 @@ locals {
   # Combine all keys into a list
   all_secret_keys_list = concat(
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
-    [for x in local.function_extract_bb_config.secret_environment_variables : x.key],
+    [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key]
   )
@@ -72,10 +72,10 @@ resource "google_storage_bucket_object" "function_token_zip" {
   source = local.function_tokens_zip
 }
 # 2. Bucket extract bounding box
-resource "google_storage_bucket_object" "function_extract_bb_zip_object" {
-  name   = "bucket-extract-bb-${substr(filebase64sha256(local.function_extract_bb_zip),0,10)}.zip"
+resource "google_storage_bucket_object" "function_extract_location_zip_object" {
+  name   = "bucket-extract-bb-${substr(filebase64sha256(local.function_extract_location_zip),0,10)}.zip"
   bucket = google_storage_bucket.functions_bucket.name
-  source = local.function_extract_bb_zip
+  source = local.function_extract_location_zip
 }
 # 3. Process validation report
 resource "google_storage_bucket_object" "process_validation_report_zip" {
@@ -139,10 +139,10 @@ resource "google_cloudfunctions2_function" "tokens" {
   }
 }
 
-# 2.1 functions/extract_bb cloud function
-resource "google_cloudfunctions2_function" "extract_bb" {
-  name        = local.function_extract_bb_config.name
-  description = local.function_extract_bb_config.description
+# 2.1 functions/extract_location cloud function
+resource "google_cloudfunctions2_function" "extract_location" {
+  name        = local.function_extract_location_config.name
+  description = local.function_extract_location_config.description
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
   event_trigger {
@@ -164,27 +164,27 @@ resource "google_cloudfunctions2_function" "extract_bb" {
   }
   build_config {
     runtime     = var.python_runtime
-    entry_point = local.function_extract_bb_config.entry_point
+    entry_point = local.function_extract_location_config.entry_point
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_extract_bb_zip_object.name
+        object = google_storage_bucket_object.function_extract_location_zip_object.name
       }
     }
   }
   service_config {
-    available_memory = local.function_extract_bb_config.memory
-    timeout_seconds = local.function_extract_bb_config.timeout
-    available_cpu = local.function_extract_bb_config.available_cpu
-    max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
-    max_instance_count = local.function_extract_bb_config.max_instance_count
-    min_instance_count = local.function_extract_bb_config.min_instance_count
+    available_memory = local.function_extract_location_config.memory
+    timeout_seconds = local.function_extract_location_config.timeout
+    available_cpu = local.function_extract_location_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_location_config.max_instance_count
+    min_instance_count = local.function_extract_location_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_extract_bb_config.ingress_settings
+    ingress_settings = local.function_extract_location_config.ingress_settings
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_extract_bb_config.secret_environment_variables
+      for_each = local.function_extract_location_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -195,13 +195,13 @@ resource "google_cloudfunctions2_function" "extract_bb" {
   }
 }
 
-# 2.2 functions/extract_bb cloud function pub/sub triggered
+# 2.2 functions/extract_location cloud function pub/sub triggered
 resource "google_pubsub_topic" "dataset_updates" {
   name = "dataset-updates"
 }
-resource "google_cloudfunctions2_function" "extract_bb_pubsub" {
-  name        = "${local.function_extract_bb_config.name}-pubsub"
-  description = local.function_extract_bb_config.description
+resource "google_cloudfunctions2_function" "extract_location_pubsub" {
+  name        = "${local.function_extract_location_config.name}-pubsub"
+  description = local.function_extract_location_config.description
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
   event_trigger {
@@ -213,27 +213,27 @@ resource "google_cloudfunctions2_function" "extract_bb_pubsub" {
   }
   build_config {
     runtime     = var.python_runtime
-    entry_point = "${local.function_extract_bb_config.entry_point}_pubsub"
+    entry_point = "${local.function_extract_location_config.entry_point}_pubsub"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_extract_bb_zip_object.name
+        object = google_storage_bucket_object.function_extract_location_zip_object.name
       }
     }
   }
   service_config {
-    available_memory = local.function_extract_bb_config.memory
-    timeout_seconds = local.function_extract_bb_config.timeout
-    available_cpu = local.function_extract_bb_config.available_cpu
-    max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
-    max_instance_count = local.function_extract_bb_config.max_instance_count
-    min_instance_count = local.function_extract_bb_config.min_instance_count
+    available_memory = local.function_extract_location_config.memory
+    timeout_seconds = local.function_extract_location_config.timeout
+    available_cpu = local.function_extract_location_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_location_config.max_instance_count
+    min_instance_count = local.function_extract_location_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
     ingress_settings = "ALLOW_ALL"
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_extract_bb_config.secret_environment_variables
+      for_each = local.function_extract_location_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -244,20 +244,20 @@ resource "google_cloudfunctions2_function" "extract_bb_pubsub" {
   }
 }
 
-# 2.3 functions/extract_bb cloud function batch
-resource "google_cloudfunctions2_function" "extract_bb_batch" {
-  name        = "${local.function_extract_bb_config.name}-batch"
-  description = local.function_extract_bb_config.description
+# 2.3 functions/extract_location cloud function batch
+resource "google_cloudfunctions2_function" "extract_location_batch" {
+  name        = "${local.function_extract_location_config.name}-batch"
+  description = local.function_extract_location_config.description
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
 
   build_config {
     runtime     = var.python_runtime
-    entry_point = "${local.function_extract_bb_config.entry_point}_batch"
+    entry_point = "${local.function_extract_location_config.entry_point}_batch"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_extract_bb_zip_object.name
+        object = google_storage_bucket_object.function_extract_location_zip_object.name
       }
     }
   }
@@ -268,17 +268,17 @@ resource "google_cloudfunctions2_function" "extract_bb_batch" {
       PYTHONNODEBUGRANGES = 0
     }
     available_memory = "1Gi"
-    timeout_seconds = local.function_extract_bb_config.timeout
-    available_cpu = local.function_extract_bb_config.available_cpu
-    max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
-    max_instance_count = local.function_extract_bb_config.max_instance_count
-    min_instance_count = local.function_extract_bb_config.min_instance_count
+    timeout_seconds = local.function_extract_location_config.timeout
+    available_cpu = local.function_extract_location_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_location_config.max_instance_count
+    min_instance_count = local.function_extract_location_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
     ingress_settings = "ALLOW_ALL"
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_extract_bb_config.secret_environment_variables
+      for_each = local.function_extract_location_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -447,18 +447,18 @@ output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
 
-resource "google_cloudfunctions2_function_iam_member" "extract_bb_invoker" {
+resource "google_cloudfunctions2_function_iam_member" "extract_location_invoker" {
   project        = var.project_id
   location       = var.gcp_region
-  cloud_function = google_cloudfunctions2_function.extract_bb.name
+  cloud_function = google_cloudfunctions2_function.extract_location.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
-resource "google_cloud_run_service_iam_member" "extract_bb_cloud_run_invoker" {
+resource "google_cloud_run_service_iam_member" "extract_location_cloud_run_invoker" {
   project        = var.project_id
   location       = var.gcp_region
-  service        = google_cloudfunctions2_function.extract_bb.name
+  service        = google_cloudfunctions2_function.extract_location.name
   role           = "roles/run.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
