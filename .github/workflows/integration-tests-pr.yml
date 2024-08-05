@@ -63,7 +63,7 @@ jobs:
 
     - name: Docker Compose DB
       run: |
-        docker-compose --env-file ./config/.env.local up -d postgres
+        docker compose --env-file ./config/.env.local up -d postgres
       working-directory: ${{ github.workspace }}
 
     - name: Install Liquibase
