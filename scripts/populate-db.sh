@@ -11,4 +11,4 @@
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 
-(cd $SCRIPT_PATH/../api/ && pip3 install -r requirements.txt && PYTHONPATH=src python src/scripts/populate_db.py --filepath "$1")
+(cd $SCRIPT_PATH/../api/ && pip3 install -r requirements.txt && PYTHONPATH=src python src/scripts/populate_db_gtfs.py --filepath "$1")

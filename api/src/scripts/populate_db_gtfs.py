@@ -1,13 +1,12 @@
-import argparse
 import os
-from pathlib import Path
+from datetime import datetime
 from typing import Type
 
 import pandas
-from dotenv import load_dotenv
+import pytz
 from sqlalchemy import text
 
-from database.database import Database, generate_unique_id, configure_polymorphic_mappers
+from database.database import generate_unique_id, configure_polymorphic_mappers
 from database_gen.sqlacodegen_models import (
     Entitytype,
     Externalid,
@@ -18,35 +17,14 @@ from database_gen.sqlacodegen_models import (
     t_feedsearch,
     Feed,
 )
+from scripts.database_populate_helper import DatabasePopulateHelper, set_up_configs
 from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
-from utils.logger import Logger
-from datetime import datetime
-import pytz
-
-import logging
-
-logging.basicConfig()
-logging.getLogger("sqlalchemy.engine").setLevel(logging.ERROR)
 
 
-def set_up_configs():
+class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
     """
-    Set up function
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--env", help="Environment to use", default="local")
-    parser.add_argument("--filepath", help="Absolute path for the data file", required=True)
-    args = parser.parse_args()
-    current_path = Path(__file__).resolve()
-    dotenv_path = os.path.join(current_path.parents[3], "config", f".env.{args.env}")
-    load_dotenv(dotenv_path=dotenv_path)
-    return args.filepath
-
-
-class DatabasePopulateHelper:
-    """
-    Helper class to populate the database
+    GTFS - Helper class to populate the database
     """
 
     def __init__(self, filepaths):
@@ -54,20 +32,10 @@ class DatabasePopulateHelper:
         Specify a list of files to load the csv data from.
         Can also be a single string with a file name.
         """
-        self.logger = Logger(self.__class__.__name__).get_logger()
-        self.logger.setLevel(logging.INFO)
-        self.db = Database(echo_sql=False)
-        self.df = pandas.DataFrame()
+        super().__init__(filepaths)
+        self.added_gtfs_feeds = []  # Keep track of the feeds that have been added to the database
 
-        # If filepaths is a string, convert it to a list
-        if isinstance(filepaths, str):
-            filepaths = [filepaths]
-
-        for filepath in filepaths:
-            new_df = pandas.read_csv(filepath, low_memory=False)
-            self.df = pandas.concat([self.df, new_df])
-
-        # Filter unsupported data types
+    def filter_data(self):
         self.df = self.df[(self.df.data_type == "gtfs") | (self.df.data_type == "gtfs-rt")]
         self.df = set_up_defaults(self.df)
         self.added_gtfs_feeds = []  # Keep track of the feeds that have been added to the database
@@ -308,5 +276,5 @@ class DatabasePopulateHelper:
 
 
 if __name__ == "__main__":
-    db_helper = DatabasePopulateHelper(set_up_configs())
+    db_helper = GTFSDatabasePopulateHelper(set_up_configs())
     db_helper.initialize()
