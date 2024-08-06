@@ -10,6 +10,37 @@ export interface FeedSubmissionFormProps {
   handleNext: () => void;
 }
 
+// This is the request body required for the API
+// FeedSubmissionFormFormInput should extend this
+export interface FeedSubmissionFormBody{
+  name: string;
+  isOfficialProducer: boolean; // updated
+  dataType: string;
+  transitProviderName?: string;
+  feedLink: string;
+  isNewFeed: boolean; // new
+  oldFeedLink?: string; // new - not used
+  licensePath?: string;
+  userId: string; // new
+  country: string;
+  region?: string;
+  municipality?: string;
+  tripUpdates?: boolean;
+  vehiclePositions?: boolean;
+  serviceAlerts?: boolean;
+  gtfsRealtimeLink: string;
+  gtfsRelatedScheduleLink?: string;
+  note: string;
+  authType?: string; // new
+  authSignupLink?: string; // new
+  authParameterName?: string; // new
+  dataProducerEmail?: string;
+  isInterestedInQualityAudit: boolean;
+  userInterviewEmail?: string; // new
+  whatToolsUsedText?: string;
+  hasLogoPermission: boolean; // new
+}
+
 export interface FeedSubmissionFormFormInput {
   name: string;
   isOfficialProducer: string;
