@@ -14,11 +14,7 @@ from utils.logger import Logger
 logging.basicConfig()
 logging.getLogger("sqlalchemy.engine").setLevel(logging.ERROR)
 
-feed_mapping = {
-    "gtfs_rt": Gtfsrealtimefeed,
-    "gtfs": Gtfsfeed,
-    "gbfs": GbfsFeed
-}
+feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": GbfsFeed}
 
 
 def set_up_configs():

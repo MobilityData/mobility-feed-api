@@ -1,8 +1,6 @@
 import os
 from datetime import datetime
-from typing import Type
 
-import pandas
 import pytz
 from sqlalchemy import text
 
@@ -10,12 +8,10 @@ from database.database import generate_unique_id, configure_polymorphic_mappers
 from database_gen.sqlacodegen_models import (
     Entitytype,
     Externalid,
-    Gtfsfeed,
     Gtfsrealtimefeed,
     Location,
     Redirectingid,
     t_feedsearch,
-    Feed,
 )
 from scripts.database_populate_helper import DatabasePopulateHelper, set_up_configs
 from scripts.load_dataset_on_create import publish_all
