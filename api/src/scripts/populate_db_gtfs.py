@@ -40,24 +40,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         self.df = set_up_defaults(self.df)
         self.added_gtfs_feeds = []  # Keep track of the feeds that have been added to the database
 
-    @staticmethod
-    def get_model(data_type: str | None) -> Type[Gtfsrealtimefeed | Gtfsfeed | Feed]:
-        """
-        Get the model based on the data type
-        """
-        if data_type is None:
-            return Feed
-        return Gtfsrealtimefeed if data_type == "gtfs_rt" else Gtfsfeed
-
-    @staticmethod
-    def get_safe_value(row, column_name, default_value):
-        """
-        Get a safe value from the row
-        """
-        if not row[column_name] or pandas.isna(row[column_name]) or f"{row[column_name]}".strip() == "":
-            return default_value if default_value is not None else None
-        return f"{row[column_name]}".strip()
-
     def get_data_type(self, row):
         """
         Get the data type from the row
@@ -67,13 +49,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             self.logger.warning(f"Unsupported data type: {data_type}")
             return None
         return data_type.replace("-", "_")
-
-    def query_feed_by_stable_id(self, stable_id: str, data_type: str | None) -> Gtfsrealtimefeed | Gtfsfeed | None:
-        """
-        Query the feed by stable id
-        """
-        model = self.get_model(data_type)
-        return self.db.session.query(model).filter(model.stable_id == stable_id).first()
 
     def get_stable_id(self, row):
         """
@@ -93,8 +68,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         country_code = self.get_safe_value(row, "location.country_code", "")
         subdivision_name = self.get_safe_value(row, "location.subdivision_name", "")
         municipality = self.get_safe_value(row, "location.municipality", "")
-        composite_id = f"{country_code}-{subdivision_name}-{municipality}".replace(" ", "_")
-        location_id = composite_id if len(composite_id) > 2 else None
+        location_id = self.get_location_id(country_code, subdivision_name, municipality)
         if not location_id:
             self.logger.warning(f"Location ID is empty for feed {stable_id}")
             feed.locations.clear()
@@ -260,7 +234,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         if os.getenv("ENV", "local") != "local":
             publish_all(self.added_gtfs_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
 
-    # Extracted the following code from main so it can be executed as a library function
+    # Extracted the following code from main, so it can be executed as a library function
     def initialize(self, trigger_downstream_tasks: bool = True):
         try:
             configure_polymorphic_mappers()
