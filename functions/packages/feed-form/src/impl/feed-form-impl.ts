@@ -67,7 +67,7 @@ type RawRowData = RowCellData[] | Record<string, RowCellData>;
 
 /* eslint-disable max-len */
 // Google Sheets columns titles
-enum SheetCol {
+export enum SheetCol {
   Status = "Status",
   Timestamp = "Timestamp",
   TransitProvider = "Transit Provider",
