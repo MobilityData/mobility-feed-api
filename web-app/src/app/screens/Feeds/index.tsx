@@ -91,7 +91,9 @@ export default function Feed(): React.ReactElement {
   };
 
   const handleSearch = (): void => {
-    setSearchParams({ q: searchQuery });
+    if (searchQuery !== '') {
+      setSearchParams({ q: searchQuery });
+    }
     const paginationOffset = getPaginationOffset();
     if (user !== undefined) {
       dispatch(
