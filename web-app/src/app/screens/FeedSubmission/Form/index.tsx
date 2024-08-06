@@ -12,7 +12,7 @@ export interface FeedSubmissionFormProps {
 
 // This is the request body required for the API
 // FeedSubmissionFormFormInput should extend this
-export interface FeedSubmissionFormBody{
+export interface FeedSubmissionFormBody {
   name: string;
   isOfficialProducer: boolean; // updated
   dataType: string;
