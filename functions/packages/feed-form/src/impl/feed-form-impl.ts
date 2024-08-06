@@ -1,8 +1,8 @@
-import { GoogleSpreadsheet } from "google-spreadsheet";
-import { JWT } from "google-auth-library";
-import { Response, Request } from "firebase-functions/v1";
+import {GoogleSpreadsheet} from "google-spreadsheet";
+import {JWT} from "google-auth-library";
+import {Response, Request} from "firebase-functions/v1";
 
-export interface FeedSubmissionFormRequestBody{
+export interface FeedSubmissionFormRequestBody {
   name: string;
   isOfficialProducer: boolean;
   dataType: string;
@@ -52,7 +52,7 @@ export const writeToSheet = async (
     const rawDataSheet = doc.sheetsByIndex[0];
     const formData: FeedSubmissionFormRequestBody = request.body;
     const row = buildFeedRow(formData);
-    await rawDataSheet.addRow(row, { insert: true });
+    await rawDataSheet.addRow(row, {insert: true});
 
     response.status(200).send("Data written to the new sheet successfully!");
   } catch (error) {
@@ -65,6 +65,7 @@ export const writeToSheet = async (
 type RowCellData = string | number | boolean | Date;
 type RawRowData = RowCellData[] | Record<string, RowCellData>;
 
+/* eslint-disable max-len */
 // Google Sheets columns titles
 enum SheetCol {
   Status = "Status",
@@ -95,9 +96,15 @@ enum SheetCol {
   LogoPermission = "Do we have permission to share your logo on https://mobilitydatabase.org/contribute?",
 }
 
+/**
+ * Takes the request body from the feed submission form and formats it into a row
+ * @param {FeedSubmissionFormRequestBody} formData The request body from the feed submission form
+ * @return {RawRowData} Formatted row data to be written to the Google Sheet
+ */
 export function buildFeedRow(
   formData: FeedSubmissionFormRequestBody
 ): RawRowData {
+  /* eslint-enable max-len */
   const dateNow = new Date();
   return {
     [SheetCol.Status]: "Feed Submitted",
