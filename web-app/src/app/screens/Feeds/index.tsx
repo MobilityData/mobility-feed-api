@@ -80,6 +80,7 @@ export default function Feed(): React.ReactElement {
   const dispatch = useAppDispatch();
   const feedsData = useSelector(selectFeedsData);
   const feedStatus = useSelector(selectFeedsStatus);
+  let searchQuery = '';
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
@@ -90,7 +91,7 @@ export default function Feed(): React.ReactElement {
   };
 
   const handleSearch = (): void => {
-    const searchQuery = searchParams.get('q') ?? '';
+    searchParams.set('q', searchQuery);
     const paginationOffset = getPaginationOffset();
     if (user !== undefined) {
       dispatch(
@@ -174,11 +175,9 @@ export default function Feed(): React.ReactElement {
                 sx={{
                   width: 'calc(100% - 100px)',
                 }}
-                value={searchParams.get('q') ?? ''}
                 placeholder={t('searchPlaceholder')}
                 onChange={(e) => {
-                  const searchValue = e.target.value;
-                  setSearchParams({ q: searchValue });
+                  searchQuery = e.target.value;
                 }}
                 InputProps={{
                   startAdornment: (
