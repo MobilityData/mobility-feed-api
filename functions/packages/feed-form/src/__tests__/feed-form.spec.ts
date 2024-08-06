@@ -39,7 +39,7 @@ describe("Feed Form Implementation", () => {
     const googleSheetRow = buildFeedRow(sampleRequestBody);
     expect(googleSheetRow).toEqual({
       [SheetCol.Status]: "Feed Submitted",
-      [SheetCol.Timestamp]: "7/31/2023, 8:00:00 PM EDT",
+      [SheetCol.Timestamp]: "8/1/2023, 12:00:00 AM UTC",
       [SheetCol.TransitProvider]: sampleRequestBody.transitProviderName,
       [SheetCol.CurrentUrl]: sampleRequestBody.oldFeedLink,
       [SheetCol.DataType]: sampleRequestBody.dataType,

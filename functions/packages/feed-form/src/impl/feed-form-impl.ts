@@ -110,6 +110,7 @@ export function buildFeedRow(
     [SheetCol.Status]: "Feed Submitted",
     [SheetCol.Timestamp]: dateNow.toLocaleString("en-US", {
       timeZoneName: "short",
+      timeZone: "UTC",
     }),
     [SheetCol.TransitProvider]: formData.transitProviderName ?? "",
     [SheetCol.CurrentUrl]: formData.oldFeedLink ?? "",
