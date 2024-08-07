@@ -1,3 +1,8 @@
+import pycountry
+
+from database_gen.sqlacodegen_models import Location as LocationOrm
+
+
 def create_location_translation_object(row):
     """Create a location translation object from a row."""
     return LocationTranslation(
@@ -12,17 +17,32 @@ def create_location_translation_object(row):
     )
 
 
+def set_country_name(location: LocationOrm, country_name: str) -> LocationOrm:
+    """
+    Set the country name of a location
+    :param location: The location object
+    :param country_name: The english translation of the country name
+    :return: Modified location object
+    """
+    try:
+        if country_name is not None:
+            location.country = country_name
+        else:
+            location.country = pycountry.countries.get(alpha_2=location.country_code).name
+    except AttributeError:
+        pass
+    return location
+
+
 def translate_feed_locations(feed, location_translations):
     """Translate the locations of a feed."""
     for location in feed.locations:
         location_translation = location_translations.get(location.id)
+        location = set_country_name(
+            location, location_translation.country_translation if location_translation else None
+        )
         if location_translation:
             location.country_code = location_translation.country_code
-            location.country = (
-                location_translation.country_translation
-                if location_translation.country_translation
-                else location.country
-            )
             location.subdivision_name = (
                 location_translation.subdivision_name_translation
                 if location_translation.subdivision_name_translation

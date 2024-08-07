@@ -26,21 +26,21 @@ class GTFSFeedsEndpointTests(IntegrationTests):
                 f"({i + 1}/{len(gtfs_feeds)})",
             )
 
-    # def test_filter_by_country_code_gtfs(self):
-    #     """Test GTFS feed retrieval filtered by country code"""
-    #     country_codes = self._sample_country_codes(self.gtfs_feeds, 100)
-    #     task_id = self.progress.add_task(
-    #         "[yellow]Validating GTFS feeds by country code...[/yellow]",
-    #         len(country_codes),
-    #     )
-    #     for i, country_code in enumerate(country_codes):
-    #         self._test_filter_by_country_code(
-    #             country_code,
-    #             "v1/gtfs_feeds",
-    #             validate_location=True,
-    #             task_id=task_id,
-    #             index=f"{i + 1}/{len(country_codes)}",
-    #         )
+    def test_filter_by_country_code_gtfs(self):
+        """Test GTFS feed retrieval filtered by country code"""
+        country_codes = self._sample_country_codes(self.gtfs_feeds, 100)
+        task_id = self.progress.add_task(
+            "[yellow]Validating GTFS feeds by country code...[/yellow]",
+            len(country_codes),
+        )
+        for i, country_code in enumerate(country_codes):
+            self._test_filter_by_country_code(
+                country_code,
+                "v1/gtfs_feeds",
+                validate_location=True,
+                task_id=task_id,
+                index=f"{i + 1}/{len(country_codes)}",
+            )
 
     def test_filter_by_provider_gtfs(self):
         """Test GTFS feed retrieval filtered by provider"""
@@ -57,21 +57,23 @@ class GTFSFeedsEndpointTests(IntegrationTests):
                 index=f"{i + 1}/{len(providers)}",
             )
 
-    # def test_filter_by_municipality_gtfs(self):
-    #     """Test GTFS feed retrieval filter by municipality."""
-    #     municipalities = self._sample_municipalities(self.gtfs_feeds, 100)
-    #     task_id = self.progress.add_task(
-    #         "[yellow]Validating GTFS feeds by municipality...[/yellow]",
-    #         total=len(municipalities),
-    #     )
-    #     for i, municipality in enumerate(municipalities):
-    #         self._test_filter_by_municipality(
-    #             municipality,
-    #             "v1/gtfs_feeds",
-    #             validate_location=True,
-    #             task_id=task_id,
-    #             index=f"{i + 1}/{len(municipalities)}",
-    #         )
+    def test_filter_by_municipality_gtfs(self):
+        """Test GTFS feed retrieval filter by municipality."""
+        # TODO: the value will need to be updated to their english
+        # translation once the filtering feature is fixed
+        municipalities = ["Roma", "Québec", "Montréal", "Venezia"]
+        task_id = self.progress.add_task(
+            "[yellow]Validating GTFS feeds by municipality...[/yellow]",
+            total=len(municipalities),
+        )
+        for i, municipality in enumerate(municipalities):
+            self._test_filter_by_municipality(
+                municipality,
+                "v1/gtfs_feeds",
+                validate_location=True,
+                task_id=task_id,
+                index=f"{i + 1}/{len(municipalities)}",
+            )
 
     def test_invalid_bb_input_followed_by_valid_request(self):
         """Tests the API's resilience by first sending invalid input parameters and then a valid request to ensure the

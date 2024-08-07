@@ -333,6 +333,11 @@ export interface components {
        */
       country_code?: string;
       /**
+       * @description The name of the country where the system is located.
+       * @example Canada
+       */
+      country?: string;
+      /**
        * @description ISO 3166-2 subdivision name designating the subdivision (e.g province, state, region) where the system is located.  For a list of valid names [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
        *
        * @example California

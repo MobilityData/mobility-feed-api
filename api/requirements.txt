@@ -48,3 +48,4 @@ fastapi-filter[sqlalchemy]==1.0.0
 PyJWT
 shapely
 google-cloud-pubsub
+pycountry
