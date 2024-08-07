@@ -65,7 +65,8 @@ gtfs_feed_orm = Gtfsfeed(
     locations=[
         Location(
             id="id",
-            country_code="country_code",
+            country_code="CA",
+            country=None,
             subdivision_name="subdivision_name",
             municipality="municipality",
         )
@@ -146,7 +147,8 @@ expected_gtfs_feed_result = GtfsFeedImpl(
     ],
     locations=[
         LocationImpl(
-            country_code="country_code",
+            country_code="CA",
+            country="Canada",
             subdivision_name="subdivision_name",
             municipality="municipality",
         )
@@ -176,7 +178,7 @@ class TestGtfsFeedImpl(unittest.TestCase):
 
     def test_from_orm_all_fields(self):
         """Test the `from_orm` method with all fields."""
-        result = GtfsFeedImpl.from_orm(gtfs_feed_orm)
+        result = GtfsFeedImpl.from_orm(gtfs_feed_orm, {})
         assert result == expected_gtfs_feed_result
 
     def test_from_orm_empty_fields(self):

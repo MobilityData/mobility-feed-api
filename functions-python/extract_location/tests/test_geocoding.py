@@ -186,7 +186,7 @@ class TestGeocoding(unittest.TestCase):
 
         update_location(location_info, dataset_id, mock_session)
 
-        mock_session.add.assert_called_once_with(mock_dataset)
+        mock_session.add.assert_called_with(mock_dataset)
         mock_session.commit.assert_called_once()
 
         self.assertEqual(mock_dataset.locations[0].country, "日本")

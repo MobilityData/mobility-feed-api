@@ -16,6 +16,7 @@ class LocationImpl(Location):
             return None
         return cls(
             country_code=location.country_code,
+            country=location.country,
             subdivision_name=location.subdivision_name,
             municipality=location.municipality,
         )

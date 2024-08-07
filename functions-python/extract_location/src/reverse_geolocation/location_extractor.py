@@ -199,8 +199,8 @@ def update_location(
     dataset.feed.locations.clear()
     dataset.feed.locations = locations
 
-    session.add(dataset)
     refresh_materialized_view(session, t_feedsearch.name)
+    session.add(dataset)
     session.commit()
 
 
@@ -228,6 +228,7 @@ def get_or_create_location(location: GeocodedLocation, session: Session) -> Loca
     location_entity.country_code = location.country_code
     location_entity.municipality = location.municipality
     location_entity.subdivision_name = location.subdivision_name
+    session.add(location_entity)
 
     return location_entity
 
