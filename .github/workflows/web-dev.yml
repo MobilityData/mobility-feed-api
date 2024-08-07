@@ -9,4 +9,5 @@ jobs:
         uses: ./.github/workflows/web-app-deployer.yml
         with:
           FIREBASE_PROJECT: dev
+          FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
         secrets: inherit
