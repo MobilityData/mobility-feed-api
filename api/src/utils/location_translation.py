@@ -1,11 +1,40 @@
 import pycountry
-
+from sqlalchemy.engine.result import Row
 from database_gen.sqlacodegen_models import Location as LocationOrm
 from database_gen.sqlacodegen_models import Feed as FeedOrm
-from utils.location_translation import LocationTranslation
 
 
-def create_location_translation_object(row):
+class LocationTranslation:
+    def __init__(
+            self,
+            location_id,
+            country_code,
+            country,
+            subdivision_name,
+            municipality,
+            country_translation,
+            subdivision_name_translation,
+            municipality_translation,
+    ):
+        self.location_id = location_id
+        self.country_code = country_code
+        self.country = country
+        self.subdivision_name = subdivision_name
+        self.municipality = municipality
+        self.country_translation = country_translation
+        self.subdivision_name_translation = subdivision_name_translation
+        self.municipality_translation = municipality_translation
+
+    def __repr__(self):
+        return (
+            f"LocationTranslation(location_id={self.location_id}, country_code={self.country_code}, "
+            f"country={self.country}, subdivision_name={self.subdivision_name}, municipality={self.municipality}, "
+            f"country_translation={self.country_translation}, subdivision_name_translation="
+            f"{self.subdivision_name_translation}, municipality_translation={self.municipality_translation})"
+        )
+
+
+def create_location_translation_object(row: Row):
     """Create a location translation object from a row."""
     return LocationTranslation(
         location_id=row[1],
@@ -39,7 +68,8 @@ def set_country_name(location: LocationOrm, country_name: str) -> LocationOrm:
 def translate_feed_locations(feed: FeedOrm, location_translations: dict[str, LocationTranslation]):
     """
     Translate the locations of a feed.
-
+    :param feed: The feed object
+    :param location_translations: The location translations
     """
     for location in feed.locations:
         location_translation = location_translations.get(location.id)
@@ -58,33 +88,3 @@ def translate_feed_locations(feed: FeedOrm, location_translations: dict[str, Loc
                 if location_translation.municipality_translation
                 else location.municipality
             )
-
-
-class LocationTranslation:
-    def __init__(
-        self,
-        location_id,
-        country_code,
-        country,
-        subdivision_name,
-        municipality,
-        country_translation,
-        subdivision_name_translation,
-        municipality_translation,
-    ):
-        self.location_id = location_id
-        self.country_code = country_code
-        self.country = country
-        self.subdivision_name = subdivision_name
-        self.municipality = municipality
-        self.country_translation = country_translation
-        self.subdivision_name_translation = subdivision_name_translation
-        self.municipality_translation = municipality_translation
-
-    def __repr__(self):
-        return (
-            f"LocationTranslation(location_id={self.location_id}, country_code={self.country_code}, "
-            f"country={self.country}, subdivision_name={self.subdivision_name}, municipality={self.municipality}, "
-            f"country_translation={self.country_translation}, subdivision_name_translation="
-            f"{self.subdivision_name_translation}, municipality_translation={self.municipality_translation})"
-        )
