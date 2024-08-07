@@ -677,6 +677,10 @@ components:
             For a list of valid codes [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
           type: string
           example: US
+        country:
+            description: The name of the country where the system is located.
+            type: string
+            example: Canada
         subdivision_name:
           description: >
             ISO 3166-2 subdivision name designating the subdivision (e.g province, state, region) where the system is located. 
