@@ -1,6 +1,8 @@
 import pycountry
 
 from database_gen.sqlacodegen_models import Location as LocationOrm
+from database_gen.sqlacodegen_models import Feed as FeedOrm
+from utils.location_translation import LocationTranslation
 
 
 def create_location_translation_object(row):
@@ -34,8 +36,11 @@ def set_country_name(location: LocationOrm, country_name: str) -> LocationOrm:
     return location
 
 
-def translate_feed_locations(feed, location_translations):
-    """Translate the locations of a feed."""
+def translate_feed_locations(feed: FeedOrm, location_translations: dict[str, LocationTranslation]):
+    """
+    Translate the locations of a feed.
+
+    """
     for location in feed.locations:
         location_translation = location_translations.get(location.id)
         location = set_country_name(
