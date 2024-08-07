@@ -6,15 +6,15 @@ from database_gen.sqlacodegen_models import Feed as FeedOrm
 
 class LocationTranslation:
     def __init__(
-            self,
-            location_id,
-            country_code,
-            country,
-            subdivision_name,
-            municipality,
-            country_translation,
-            subdivision_name_translation,
-            municipality_translation,
+        self,
+        location_id,
+        country_code,
+        country,
+        subdivision_name,
+        municipality,
+        country_translation,
+        subdivision_name_translation,
+        municipality_translation,
     ):
         self.location_id = location_id
         self.country_code = country_code
