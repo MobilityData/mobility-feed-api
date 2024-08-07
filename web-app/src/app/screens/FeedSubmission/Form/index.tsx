@@ -14,31 +14,30 @@ export interface FeedSubmissionFormProps {
 // FeedSubmissionFormFormInput should extend this
 export interface FeedSubmissionFormBody {
   name: string;
-  isOfficialProducer: boolean; // updated
-  dataType: string;
+  isOfficialProducer: boolean;
+  dataType: 'gtfs' | 'gtfs-rt';
   transitProviderName?: string;
-  feedLink: string;
-  isNewFeed: boolean; // new
-  oldFeedLink?: string; // new - not used
+  feedLink?: string;
+  isNewFeed: boolean;
+  oldFeedLink?: string;
   licensePath?: string;
-  userId: string; // new
+  userId: string;
   country: string;
   region?: string;
   municipality?: string;
-  tripUpdates?: boolean;
-  vehiclePositions?: boolean;
-  serviceAlerts?: boolean;
-  gtfsRealtimeLink: string;
+  tripUpdates?: string;
+  vehiclePositions?: string;
+  serviceAlerts?: string;
   gtfsRelatedScheduleLink?: string;
   note: string;
-  authType?: string; // new
-  authSignupLink?: string; // new
-  authParameterName?: string; // new
+  authType?: string;
+  authSignupLink?: string;
+  authParameterName?: string;
   dataProducerEmail?: string;
   isInterestedInQualityAudit: boolean;
-  userInterviewEmail?: string; // new
+  userInterviewEmail?: string;
   whatToolsUsedText?: string;
-  hasLogoPermission: boolean; // new
+  hasLogoPermission: boolean;
 }
 
 export interface FeedSubmissionFormFormInput {

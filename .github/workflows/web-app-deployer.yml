@@ -22,6 +22,12 @@ on:
         # defaulting to a placeholder to keep the GA ID empty if parameter is not passed
         default: '{{REACT_APP_GOOGLE_ANALYTICS_ID}}'
         required: false
+      FEED_SUBMIT_GOOGLE_SHEET_ID:
+        description: The google sheet id for the feed submit form
+        type: string
+        # defaulting to the dev environment
+        default: '1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE'
+        required: false
     outputs:
       hosting_url:
         description: "The URL of the deployed web app"
@@ -231,6 +237,10 @@ jobs:
         run: |
           yarn build
           node lib/index.js
+
+      - name: Set Firebase Feed Form Environment
+        working-directory: functions/packages/feed-form
+        run: echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
 
       - name: Deploy Firebase Functions
         working-directory: functions

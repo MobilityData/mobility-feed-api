@@ -1,9 +1,14 @@
-import {buildFeedRow, SheetCol} from "../impl/feed-form-impl";
+import {
+  buildFeedRow,
+  buildFeedRows,
+  FeedSubmissionFormRequestBody,
+  SheetCol,
+} from "../impl/feed-form-impl";
 
-const sampleRequestBody = {
+const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
   name: "Sample Feed",
   isOfficialProducer: true,
-  dataType: "GTFS",
+  dataType: "gtfs",
   transitProviderName: "Sample Transit Provider",
   feedLink: "https://example.com/feed",
   isNewFeed: true,
@@ -13,10 +18,9 @@ const sampleRequestBody = {
   country: "USA",
   region: "California",
   municipality: "San Francisco",
-  tripUpdates: true,
-  vehiclePositions: true,
-  serviceAlerts: true,
-  gtfsRealtimeLink: "https://example.com/gtfs-realtime",
+  tripUpdates: "",
+  vehiclePositions: "",
+  serviceAlerts: "",
   gtfsRelatedScheduleLink: "https://example.com/gtfs-schedule",
   note: "This is a sample note.",
   authType: "OAuth",
@@ -29,43 +33,86 @@ const sampleRequestBody = {
   hasLogoPermission: true,
 };
 
+const sampleRequestBodyGTFSRT: FeedSubmissionFormRequestBody = {
+  ...sampleRequestBodyGTFS,
+  dataType: "gtfs-rt",
+  feedLink: "",
+  tripUpdates: "https://example.com/gtfs-realtime-trip-update",
+  vehiclePositions: "https://example.com/gtfs-realtime-vehicle-position",
+  serviceAlerts: "https://example.com/gtfs-realtime-service-alerts",
+};
+
 describe("Feed Form Implementation", () => {
   beforeAll(() => {
     const mockDate = new Date("2023-08-01T00:00:00Z");
     jest.spyOn(global, "Date").mockImplementation(() => mockDate);
   });
 
+  it("should build the rows if gtfs schedule", () => {
+    buildFeedRows(sampleRequestBodyGTFS);
+    const expectedRows = [
+      buildFeedRow(
+        sampleRequestBodyGTFS,
+        "GTFS Schedule",
+        sampleRequestBodyGTFS.feedLink ?? ""
+      ),
+    ];
+    expect(buildFeedRows(sampleRequestBodyGTFS)).toEqual(expectedRows);
+  });
+
+  it("should build the rows if gtfs realtime", () => {
+    const expectedRows = [
+      buildFeedRow(
+        sampleRequestBodyGTFSRT,
+        "GTFS Realtime - Trip Updates",
+        sampleRequestBodyGTFSRT.tripUpdates ?? ""
+      ),
+      buildFeedRow(
+        sampleRequestBodyGTFSRT,
+        "GTFS Realtime - Vehicle Positions",
+        sampleRequestBodyGTFSRT.vehiclePositions ?? ""
+      ),
+      buildFeedRow(
+        sampleRequestBodyGTFSRT,
+        "GTFS Realtime - Service Alerts",
+        sampleRequestBodyGTFSRT.serviceAlerts ?? ""
+      ),
+    ];
+    expect(buildFeedRows(sampleRequestBodyGTFSRT)).toEqual(expectedRows);
+  });
+
   it("should format request body to row format", () => {
-    const googleSheetRow = buildFeedRow(sampleRequestBody);
+    const googleSheetRow = buildFeedRow(
+      sampleRequestBodyGTFS,
+      "GTFS Schedule",
+      "https://example.com/gtfs-schedule"
+    );
     expect(googleSheetRow).toEqual({
       [SheetCol.Status]: "Feed Submitted",
       [SheetCol.Timestamp]: "8/1/2023, 12:00:00 AM UTC",
-      [SheetCol.TransitProvider]: sampleRequestBody.transitProviderName,
-      [SheetCol.CurrentUrl]: sampleRequestBody.oldFeedLink,
-      [SheetCol.DataType]: sampleRequestBody.dataType,
+      [SheetCol.TransitProvider]: sampleRequestBodyGTFS.transitProviderName,
+      [SheetCol.CurrentUrl]: sampleRequestBodyGTFS.oldFeedLink,
+      [SheetCol.DataType]: "GTFS Schedule",
       [SheetCol.IssueType]: "New feed",
-      [SheetCol.DownloadUrl]: sampleRequestBody.feedLink,
-      [SheetCol.Country]: sampleRequestBody.country,
-      [SheetCol.Subdivision]: sampleRequestBody.region,
-      [SheetCol.Municipality]: sampleRequestBody.municipality,
-      [SheetCol.Name]: sampleRequestBody.name,
-      [SheetCol.UserId]: sampleRequestBody.userId,
-      [SheetCol.LinkToDatasetLicense]: sampleRequestBody.licensePath,
-      [SheetCol.TripUpdatesUrl]: sampleRequestBody.tripUpdates,
-      [SheetCol.ServiceAlertsUrl]: sampleRequestBody.serviceAlerts,
-      [SheetCol.VehiclePositionUrl]: sampleRequestBody.vehiclePositions,
-      [SheetCol.AuthenticationType]: sampleRequestBody.authType,
-      [SheetCol.AuthenticationSignupLink]: sampleRequestBody.authSignupLink,
+      [SheetCol.DownloadUrl]: "https://example.com/gtfs-schedule",
+      [SheetCol.Country]: sampleRequestBodyGTFS.country,
+      [SheetCol.Subdivision]: sampleRequestBodyGTFS.region,
+      [SheetCol.Municipality]: sampleRequestBodyGTFS.municipality,
+      [SheetCol.Name]: sampleRequestBodyGTFS.name,
+      [SheetCol.UserId]: sampleRequestBodyGTFS.userId,
+      [SheetCol.LinkToDatasetLicense]: sampleRequestBodyGTFS.licensePath,
+      [SheetCol.AuthenticationType]: sampleRequestBodyGTFS.authType,
+      [SheetCol.AuthenticationSignupLink]: sampleRequestBodyGTFS.authSignupLink,
       [SheetCol.AuthenticationParameterName]:
-        sampleRequestBody.authParameterName,
-      [SheetCol.Note]: sampleRequestBody.note,
-      [SheetCol.UserInterview]: sampleRequestBody.userInterviewEmail,
-      [SheetCol.DataProducerEmail]: sampleRequestBody.dataProducerEmail,
-      [SheetCol.OfficialProducer]: sampleRequestBody.isOfficialProducer,
-      [SheetCol.ToolsAndSupport]: sampleRequestBody.whatToolsUsedText,
+        sampleRequestBodyGTFS.authParameterName,
+      [SheetCol.Note]: sampleRequestBodyGTFS.note,
+      [SheetCol.UserInterview]: sampleRequestBodyGTFS.userInterviewEmail,
+      [SheetCol.DataProducerEmail]: sampleRequestBodyGTFS.dataProducerEmail,
+      [SheetCol.OfficialProducer]: sampleRequestBodyGTFS.isOfficialProducer,
+      [SheetCol.ToolsAndSupport]: sampleRequestBodyGTFS.whatToolsUsedText,
       [SheetCol.LinkToAssociatedGTFS]:
-        sampleRequestBody.gtfsRelatedScheduleLink,
-      [SheetCol.LogoPermission]: sampleRequestBody.hasLogoPermission,
+        sampleRequestBodyGTFS.gtfsRelatedScheduleLink,
+      [SheetCol.LogoPermission]: sampleRequestBodyGTFS.hasLogoPermission,
     });
   });
 });
