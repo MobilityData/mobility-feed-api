@@ -9,6 +9,7 @@ from database_gen.sqlacodegen_models import (
     Location,
     Translation,
     t_feedsearch,
+    Gtfsfeed,
 )
 from helpers.database import refresh_materialized_view
 from .geocoded_location import GeocodedLocation
@@ -192,12 +193,26 @@ def update_location(
 
     if len(locations) == 0:
         raise Exception("No locations found for the dataset.")
+    logging.info(f"Updating dataset with stable ID {dataset.stable_id}")
     dataset.locations.clear()
     dataset.locations = locations
 
-    # Update the location of the related feed as well
+    # Update the location of the related feeds as well
+    logging.info(f"Updating feed with stable ID {dataset.feed.stable_id}")
     dataset.feed.locations.clear()
     dataset.feed.locations = locations
+
+    gtfs_feed: Gtfsfeed | None = (
+        session.query(Gtfsfeed)
+        .filter(Gtfsfeed.stable_id == dataset.feed.stable_id)
+        .one_or_none()
+    )
+
+    for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
+        logging.info(f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}")
+        gtfs_rt_feed.locations.clear()
+        gtfs_rt_feed.locations = locations
+        session.add(gtfs_rt_feed)
 
     refresh_materialized_view(session, t_feedsearch.name)
     session.add(dataset)

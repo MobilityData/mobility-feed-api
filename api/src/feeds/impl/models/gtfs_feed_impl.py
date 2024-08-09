@@ -25,7 +25,7 @@ class GtfsFeedImpl(BaseFeedImpl, GtfsFeed):
     ) -> GtfsFeed | None:
         if location_translations is not None:
             translate_feed_locations(feed, location_translations)
-        gtfs_feed = super().from_orm(feed)
+        gtfs_feed: GtfsFeed = super().from_orm(feed)
         if not gtfs_feed:
             return None
         gtfs_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations]

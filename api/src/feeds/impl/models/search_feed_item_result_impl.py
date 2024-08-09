@@ -75,10 +75,37 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
         )
 
     @classmethod
+    def _translate_locations(cls, feed_search_row):
+        """Translate location information in the feed search row."""
+        country_translations = cls._create_translation_dict(feed_search_row.country_translations)
+        subdivision_translations = cls._create_translation_dict(feed_search_row.subdivision_name_translations)
+        municipality_translations = cls._create_translation_dict(feed_search_row.municipality_translations)
+
+        for location in feed_search_row.locations:
+            location["country"] = country_translations.get(location["country"], location["country"])
+            location["subdivision_name"] = subdivision_translations.get(
+                location["subdivision_name"], location["subdivision_name"]
+            )
+            location["municipality"] = municipality_translations.get(location["municipality"], location["municipality"])
+
+    @staticmethod
+    def _create_translation_dict(translations):
+        """Helper method to create a translation dictionary."""
+        if translations:
+            return {
+                elem.get("key"): elem.get("value") for elem in translations if elem.get("key") and elem.get("value")
+            }
+        return {}
+
+    @classmethod
     def from_orm(cls, feed_search_row):
         """Create a model instance from a SQLAlchemy row object."""
         if feed_search_row is None:
             return None
+
+        # Translate location data
+        cls._translate_locations(feed_search_row)
+
         match feed_search_row.data_type:
             case "gtfs":
                 return cls.from_orm_gtfs(feed_search_row)
