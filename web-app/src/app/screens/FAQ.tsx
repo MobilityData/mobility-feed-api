@@ -80,7 +80,7 @@ export default function FAQ(): React.ReactElement {
             What about TransitFeeds?
           </Typography>
           <Typography className='answer'>
-            TransitFeeds.com is still available to access historical data before February 2024 and see feed visualizations. It will be deprecated once both these features are available on the Mobility Database. 
+            TransitFeeds.com is still available to access historical data before February 2024 and see feed visualizations. It will be deprecated once both these features are available on the Mobility Database. We commit to giving 6 months notice once the decision is finalized.
             <br /> <br />
            How quickly we scale the architecture to add these features depends on how much
             engagement and contribution we get from the community in this phase.
