@@ -134,6 +134,15 @@ class IntegrationTests:
             task_id, f"Validated municipality {municipality}", index
         )
 
+    @staticmethod
+    def _sample_municipalities(df, n):
+        """Helper function for sampling random unique country codes."""
+        unique_country_codes = df["location.municipality"].unique()
+
+        # Sample min(n, len(unique values)) municipalities
+        num_samples = min(len(unique_country_codes), n)
+        return pandas.Series(unique_country_codes).sample(n=num_samples, random_state=1)
+
     def get_response(self, url_suffix, params=None, timeout=10):
         """Helper function to get response from the API."""
         url = self.base_url + "/" + url_suffix
