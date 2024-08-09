@@ -1,6 +1,6 @@
 {
     "feeds": "Feeds",
-    "dataType": "Data Type",
+    "dataType": "Data Format",
     "transitProvider": "Transit Provider",
     "location": "Location",
     "feedDescription": "Description",
