@@ -218,8 +218,8 @@ function Component(): React.ReactElement {
             }}
           >
             The Mobility Database catalogs is a repository of 2000+ mobility
-            feeds across the world. It has over 150 updated feeds previously
-            unavailable on TransitFeeds (OpenMobilityData).
+            feeds across the world. It has over 250 updated feeds previously
+            unavailable on TransitFeeds (OpenMobilityData) and shares data quality reports from <a href="https://gtfs-validator.mobilitydata.org/">the Canonical GTFS Schedule Validator</a>.
             <br />
             <br />
             We’re in the first phase of building a sustainable, central hub for
