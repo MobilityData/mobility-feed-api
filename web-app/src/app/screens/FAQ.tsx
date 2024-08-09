@@ -35,11 +35,21 @@ export default function FAQ(): React.ReactElement {
             Why would I use the Mobility Database?
           </Typography>
           <Typography className='answer'>
-            The Mobility Database catalogs has over 100 feeds that were
-            inaccurate on TransitFeeds, and over 150 new feeds. It&apos;s a more
+            The Mobility Database has over 100 feeds that were
+            inaccurate on TransitFeeds, and over 250 new feeds. It&apos;s a more
             accurate and comprehensive resource for ensuring your data is
             discoverable and for scraping the data you need. The community
-            regularly adds and updates feeds using Github.
+            regularly adds and updates feeds using Github. The Mobility Database integrates with <a href="https://gtfs-validator.mobilitydata.org/"  target="_blank">the Canonical GTFS Schedule Validator</a> to display data quality information about each feed. 
+          </Typography>
+          <Typography className='question'>
+            How do I use the Mobility Database?
+          </Typography>
+          <Typography className='answer'>
+            There are 3 ways to use the Mobility Database: 
+            <br /><br />
+            1. The feed search on the website, where you can discover feeds and see details on their bounding box, data quality, and historical data. 
+            2. The API, where you can pull feed information to display in your own application or for research analysis 
+            3. The <a href="https://bit.ly/catalogs-csv">spreadsheet export available here</a>. You can find <a href="https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#schemas">the GTFS Schedule and Realtime schemas for the spreadsheet here</a>.
           </Typography>
           <Typography className='question'>
             Why are you making this change?
@@ -67,18 +77,12 @@ export default function FAQ(): React.ReactElement {
             community investment.
           </Typography>
           <Typography className='question'>
-            What about the TransitFeeds user interface?
+            What about TransitFeeds?
           </Typography>
           <Typography className='answer'>
-            We plan to develop a new user interface as part of the Mobility
-            Database by summer 2024, since this is critical for making data
-            discoverable and fostering collaboration on data quality
-            improvements.
+            TransitFeeds.com is still available to access historical data before February 2024 and see feed visualizations. It will be deprecated once both these features are available on the Mobility Database. 
             <br /> <br />
-            In order to ensure the community has access to more up-to-date data
-            as soon as possible, we&apos;ve focused on providing a catalog of
-            data without an interface as a first step. How quickly we scale the
-            architecture to build the user interface depends on how much
+           How quickly we scale the architecture to add these features depends on how much
             engagement and contribution we get from the community in this phase.
           </Typography>
           <Typography className='question'>
@@ -100,15 +104,7 @@ export default function FAQ(): React.ReactElement {
           </Typography>
           <Typography className='question'>What’s coming next?</Typography>
           <Typography className='answer'>
-            The MobilityData team is working to add validation info from the{' '}
-            <a
-              href='https://gtfs-validator.mobilitydata.org/'
-              target='_blank'
-              rel='noreferrer'
-            >
-              Canonical GTFS Schedule Validator
-            </a>{' '}
-            for each feed, and create a user interface.
+            The MobilityData team is working to add historical data before 2024 and route and stop visualizations to the Mobility Database.
             <br /> <br />
             <a
               href='https://mobilitydata.org/roadmaps/'
@@ -127,8 +123,8 @@ export default function FAQ(): React.ReactElement {
             How often do you check for feed updates?
           </Typography>
           <Typography className='answer'>
-            The Mobility Database checks for feed updates every week using the
-            producer&apos;s URL. We store the new feed version if we detect a
+            The Mobility Database checks for feed updates twice a week using the
+            producer&apos;s URL, on Mondays and Thursdays. We store the new feed version if we detect a
             change.
           </Typography>
         </Box>
