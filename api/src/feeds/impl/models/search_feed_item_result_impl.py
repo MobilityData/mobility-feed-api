@@ -1,6 +1,7 @@
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.search_feed_item_result import SearchFeedItemResult
 from feeds_gen.models.source_info import SourceInfo
+import pycountry
 
 
 class SearchFeedItemResultImpl(SearchFeedItemResult):
@@ -83,6 +84,8 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
 
         for location in feed_search_row.locations:
             location["country"] = country_translations.get(location["country"], location["country"])
+            if location["country"] is None:
+                location["country"] = pycountry.countries.get(alpha_2=location["country_code"]).name
             location["subdivision_name"] = subdivision_translations.get(
                 location["subdivision_name"], location["subdivision_name"]
             )
