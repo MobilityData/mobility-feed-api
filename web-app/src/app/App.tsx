@@ -11,6 +11,8 @@ import i18n from '../i18n';
 import { Suspense, useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { app } from '../firebase';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 
 function App(): React.ReactElement {
   require('typeface-muli'); // Load font
@@ -33,15 +35,17 @@ function App(): React.ReactElement {
     <RemoteConfigProvider>
       <I18nextProvider i18n={i18n}>
         <Suspense>
-          <div id='app-main-container'>
-            <AppSpinner>
-              <BrowserRouter>
-                <Header />
-                {isAppReady ? <AppRouter /> : null}
-              </BrowserRouter>
-            </AppSpinner>
-            <Footer />
-          </div>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <div id='app-main-container'>
+              <AppSpinner>
+                <BrowserRouter>
+                  <Header />
+                  {isAppReady ? <AppRouter /> : null}
+                </BrowserRouter>
+              </AppSpinner>
+              <Footer />
+            </div>
+          </LocalizationProvider>
         </Suspense>
       </I18nextProvider>
     </RemoteConfigProvider>

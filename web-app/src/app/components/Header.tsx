@@ -95,6 +95,38 @@ const DrawerContent: React.FC<{
           </ListItem>
         ))}
         <Divider sx={{ mt: 2, mb: 2 }} />
+        <TreeView
+          defaultCollapseIcon={<ExpandMoreIcon />}
+          defaultExpandIcon={<ChevronRightIcon />}
+          sx={{ textAlign: 'left' }}
+        >
+          <TreeItem nodeId='1' label='Analytics' sx={{ color: '#3959fa' }}>
+            <TreeItem
+              nodeId='2'
+              label='Feed Analytics'
+              sx={{ color: '#7c7c7c', cursor: 'pointer' }}
+              onClick={() => {
+                onNavigationClick('/analytics/feed');
+              }}
+            />
+            <TreeItem
+              nodeId='3'
+              label='Notice Analytics'
+              sx={{ color: '#7c7c7c', cursor: 'pointer' }}
+              onClick={() => {
+                onNavigationClick('/analytics/notice');
+              }}
+            />
+            <TreeItem
+              nodeId='4'
+              label='Feature Analytics'
+              sx={{ color: '#7c7c7c', cursor: 'pointer' }}
+              onClick={() => {
+                onNavigationClick('/analytics/feature');
+              }}
+            />
+          </TreeItem>
+        </TreeView>
         {isAuthenticated ? (
           <TreeView
             defaultCollapseIcon={<ExpandMoreIcon />}
@@ -193,6 +225,7 @@ export default function DrawerAppBar(): React.ReactElement {
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>): void => {
     setAnchorEl(event.currentTarget);
+    console.log('event.currentTarget', event.currentTarget);
   };
 
   const handleMenuClose = (): void => {
@@ -260,6 +293,46 @@ export default function DrawerAppBar(): React.ReactElement {
                 {item.title}
               </Button>
             ))}
+            <Button
+              aria-controls='analytics-menu'
+              aria-haspopup='true'
+              endIcon={<ArrowDropDownIcon />}
+              onClick={handleMenuOpen}
+              sx={{ color: 'black' }}
+              id='analytics-button-menu'
+            >
+              Analytics
+            </Button>
+            <Menu
+              id='analytics-menu'
+              anchorEl={anchorEl}
+              open={
+                anchorEl !== null && anchorEl.id === 'analytics-button-menu'
+              }
+              onClose={handleMenuClose}
+            >
+              <MenuItem
+                onClick={() => {
+                  handleNavigation('/analytics/feeds');
+                }}
+              >
+                Feed Analytics
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  handleNavigation('/analytics/notices');
+                }}
+              >
+                Notice Analytics
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  handleNavigation('/analytics/features');
+                }}
+              >
+                Feature Analytics
+              </MenuItem>
+            </Menu>
             {isAuthenticated ? (
               <>
                 <Button
@@ -267,13 +340,16 @@ export default function DrawerAppBar(): React.ReactElement {
                   aria-haspopup='true'
                   onClick={handleMenuOpen}
                   endIcon={<ArrowDropDownIcon />}
+                  id='account-button-menu'
                 >
                   Account
                 </Button>
                 <Menu
                   id='account-menu'
                   anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
+                  open={
+                    anchorEl !== null && anchorEl.id === 'account-button-menu'
+                  }
                   onClose={handleMenuClose}
                 >
                   <MenuItem

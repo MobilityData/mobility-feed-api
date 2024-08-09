@@ -27,6 +27,9 @@ import { logout } from '../store/profile-reducer';
 import FeedSubmission from '../screens/FeedSubmission';
 import FeedSubmissionFAQ from '../screens/FeedSubmissionFAQ';
 import FeedSubmitted from '../screens/FeedSubmitted';
+import FeedAnalytics from '../screens/Analytics/FeedAnalytics';
+import NoticeAnalytics from '../screens/Analytics/NoticeAnalytics';
+import FeatureAnalytics from '../screens/Analytics/FeatureAnalytics';
 
 export const AppRouter: React.FC = () => {
   const navigateTo = useNavigate();
@@ -89,6 +92,14 @@ export const AppRouter: React.FC = () => {
       <Route path='contribute-faq' element={<FeedSubmissionFAQ />} />
       <Route path='privacy-policy' element={<PrivacyPolicy />} />
       <Route path='terms-and-conditions' element={<TermsAndConditions />} />
+      <Route path='analytics'>
+        <Route index element={<FeedAnalytics />} />
+        <Route path='feeds/*' element={<FeedAnalytics />} />
+        <Route path='notices' element={<NoticeAnalytics />} />
+        <Route path='notices/:noticeCode' element={<NoticeAnalytics />} />
+        <Route path='features' element={<FeatureAnalytics />} />
+        <Route path='features/:featureName' element={<FeatureAnalytics />} />
+      </Route>
     </Routes>
   );
 };
