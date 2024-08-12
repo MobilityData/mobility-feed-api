@@ -25,8 +25,6 @@ on:
       FEED_SUBMIT_GOOGLE_SHEET_ID:
         description: The google sheet id for the feed submit form
         type: string
-        # defaulting to the dev environment
-        default: '1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE'
         required: false
     outputs:
       hosting_url:
