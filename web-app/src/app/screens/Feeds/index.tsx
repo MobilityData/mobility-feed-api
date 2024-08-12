@@ -126,6 +126,13 @@ export default function Feed(): React.ReactElement {
     setSearchParams(newSearchParams);
   }, [activeSearch, activePagination]);
 
+  useEffect(() => {
+    const newQeury = searchParams.get('q') ?? '';
+    if (newQeury !== searchQuery) {
+      setSearchQuery(newQeury);
+    }
+  }, [searchParams]);
+
   const getSearchResultNumbers = (): string => {
     if (feedsData?.total !== undefined && feedsData?.total > 0) {
       const offset = getPaginationOffset(activePagination);
@@ -173,7 +180,7 @@ export default function Feed(): React.ReactElement {
                 sx={{
                   width: 'calc(100% - 100px)',
                 }}
-                defaultValue={searchQuery}
+                value={searchQuery}
                 placeholder={t('searchPlaceholder')}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
