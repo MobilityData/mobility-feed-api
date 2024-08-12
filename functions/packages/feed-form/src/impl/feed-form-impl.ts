@@ -1,6 +1,7 @@
 import {GoogleSpreadsheet} from "google-spreadsheet";
 import {GoogleAuth} from "google-auth-library";
 import {Response, Request} from "firebase-functions/v1";
+import * as logger from "firebase-functions/logger";
 
 export interface FeedSubmissionFormRequestBody {
   name: string;
@@ -53,7 +54,7 @@ export const writeToSheet = async (request: Request, response: Response) => {
 
     response.status(200).send("Data written to the new sheet successfully!");
   } catch (error) {
-    console.error("Error writing to sheet:", error);
+    logger.error("Error writing to sheet:", error);
     response.status(500).send("An error occurred while writing to the sheet.");
   }
 };
