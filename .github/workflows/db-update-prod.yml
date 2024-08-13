@@ -5,6 +5,9 @@ on:
   workflow_call:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated-test ]
+  push: # Update on merge on main branch if the changelog file has been updated
+    branches:
+      - 655-integration-tests-is-blocking-catalog-update-in-prod
 jobs:
   update-qa: # Update the QA database first
     uses: ./.github/workflows/db-update.yml
@@ -23,7 +26,7 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
   integration-tests-qa: # Run integration tests on QA
-    if: github.event_name == 'repository_dispatch'
+    if: github.event_name == 'push'
     uses: ./.github/workflows/integration-tests.yml
     needs:
       - update-qa
