@@ -39,6 +39,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
         """Filter out rows with Authentication Info and duplicate System IDs"""
         self.df = self.df[pd.isna(self.df["Authentication Info"])]
         self.df = self.df[~self.df.duplicated(subset="System ID", keep=False)]
+        self.logger.info(f"Data = {self.df}")
 
     @staticmethod
     def get_stable_id(row):
@@ -50,6 +51,9 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
 
     def deprecate_feeds(self, deprecated_feeds):
         """Deprecate feeds that are no longer in systems.csv"""
+        if not deprecated_feeds or deprecated_feeds.empty:
+            self.logger.info("No feeds to deprecate.")
+            return
         self.logger.info(f"Deprecating {len(deprecated_feeds)} feed(s).")
         for index, row in deprecated_feeds.iterrows():
             stable_id = self.get_stable_id(row)
