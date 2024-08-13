@@ -6,8 +6,7 @@ on:
       - main
     paths:
       - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db_gtfs.py'
-      - 'api/src/scripts/populate_db_gbfs.py'
+      - 'api/src/scripts/populate_db*'
   workflow_dispatch:
 jobs:
   update:
