@@ -43,6 +43,9 @@ search_item = FeedSearchRow(
     feed_reference_ids=[],
     entities=["sa"],
     locations=[],
+    country_translations=[],
+    subdivision_name_translations=[],
+    municipality_translations=[],
 )
 
 
