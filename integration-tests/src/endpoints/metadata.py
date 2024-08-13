@@ -5,6 +5,11 @@ from endpoints.integration_tests import IntegrationTests
 
 
 class BasicMetadataEndpointTests(IntegrationTests):
+    """
+    This class is used to perform basic tests on the metadata endpoint of the API.
+    It will check if the format of the hash and version obtained from the API is correct.
+    """
+
     def __init__(self, file_path, access_token, url, progress):
         super().__init__(file_path, access_token, url, progress=progress)
 
@@ -44,6 +49,12 @@ class BasicMetadataEndpointTests(IntegrationTests):
 
 
 class MetadataEndpointTests(IntegrationTests):
+    """
+    This class is used to perform more detailed tests on the metadata endpoint of the API.
+    It check if the hash and version from the API are the proper ones.
+    Don't call this if the API and tests run on different versions.
+    """
+
     def __init__(self, file_path, access_token, url, progress):
         super().__init__(file_path, access_token, url, progress=progress)
         self.version_info_path = os.path.join(
@@ -69,7 +80,6 @@ class MetadataEndpointTests(IntegrationTests):
             expected_long_commit_hash,
             expected_extracted_version,
         ) = self.read_version_info_from_file()
-        expected_extracted_version += "Allo"
 
         # Verify that the commit hash matches the long commit hash from the version_info file
         assert api_commit_hash == expected_long_commit_hash, (

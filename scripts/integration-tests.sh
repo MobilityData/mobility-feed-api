@@ -84,7 +84,6 @@ pip install -r "$PARENT_DIR"/integration-tests/requirements.txt &> /dev/null
 export PYTHONPATH="${PARENT_DIR}:${PARENT_DIR}/integration-tests/src:${PARENT_DIR}/api/src"
 
 classes_args=""
-# Pass include_classes if it's not empty
 if [ -n "${INCLUDE_CLASSES}" ]; then
   classes_args="--include_classes ${INCLUDE_CLASSES}"
 fi
