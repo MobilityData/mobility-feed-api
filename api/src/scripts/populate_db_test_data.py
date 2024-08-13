@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 from database.database import Database
 from database_gen.sqlacodegen_models import Gtfsdataset, Validationreport, Gtfsfeed, Notice, Feature, t_feedsearch
-from scripts.database_populate_helper import set_up_configs
+from scripts.populate_db import set_up_configs
 from utils.logger import Logger
 
 

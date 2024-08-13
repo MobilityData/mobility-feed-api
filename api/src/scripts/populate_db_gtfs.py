@@ -13,7 +13,7 @@ from database_gen.sqlacodegen_models import (
     Redirectingid,
     t_feedsearch,
 )
-from scripts.database_populate_helper import DatabasePopulateHelper, set_up_configs
+from scripts.populate_db import DatabasePopulateHelper, set_up_configs
 from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
 
@@ -56,8 +56,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         """
         Populate the location for the feed
         """
-        # TODO: validate behaviour for gtfs-rt feeds
-        if feed.locations and feed.data_type == "gtfs":
+        if feed.locations:
             self.logger.warning(f"Location already exists for feed {stable_id}")
             return
 
