@@ -127,9 +127,15 @@ export default function Feed(): React.ReactElement {
   }, [activeSearch, activePagination]);
 
   useEffect(() => {
-    const newQeury = searchParams.get('q') ?? '';
-    if (newQeury !== searchQuery) {
-      setSearchQuery(newQeury);
+    const newQuery = searchParams.get('q') ?? '';
+    if (newQuery !== searchQuery) {
+      setSearchQuery(newQuery);
+      setActiveSearch(newQuery);
+    }
+    const newOffset =
+      searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1;
+    if (newOffset !== activePagination) {
+      setActivePagination(newOffset);
     }
   }, [searchParams]);
 
