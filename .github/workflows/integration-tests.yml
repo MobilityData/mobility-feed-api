@@ -51,7 +51,6 @@ jobs:
 
     - name: Health Check
       if: github.event_name == 'push'
-      uses: ./.github/workflows/integration-tests.yml
       run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
