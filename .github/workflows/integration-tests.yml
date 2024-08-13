@@ -50,8 +50,14 @@ jobs:
         pip install -r requirements.txt
 
     - name: Health Check
-      if: github.event_name == 'repository_dispatch'
-      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
+      # When triggered by a repo dispatch the API code is not deployed so there could be discrepencies
+      # between the code running the tests and the code running the API. Do do the Meta
+      run: |
+        heath_check_classes="BasicMetadataEndpointTests"
+        if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
+          health_check_classes += ",MetadataEndpointTests"
+        fi
+        ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c $health_check_classes
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
