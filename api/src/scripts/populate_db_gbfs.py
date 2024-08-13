@@ -73,7 +73,8 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
         added_or_updated_feeds, deprecated_feeds = compare_db_to_csv(df_from_db, self.df, self.logger)
 
         self.deprecate_feeds(deprecated_feeds)
-
+        if added_or_updated_feeds is None:
+            added_or_updated_feeds = self.df
         for index, row in added_or_updated_feeds.iterrows():
             self.logger.info(f"Processing row {index + 1} of {len(added_or_updated_feeds)}")
             stable_id = self.get_stable_id(row)
