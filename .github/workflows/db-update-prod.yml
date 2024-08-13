@@ -4,7 +4,10 @@ on:
   workflow_dispatch:
   workflow_call:
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
-    types: [ catalog-sources-updated ]
+    types: [ catalog-sources-updated-test ]
+  push: # Update on merge on main branch if the changelog file has been updated
+    branches:
+      - 655-integration-tests-is-blocking-catalog-update-in-prod-2
 jobs:
   update-qa: # Update the QA database first
     uses: ./.github/workflows/db-update.yml
@@ -23,7 +26,7 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
   integration-tests-qa: # Run integration tests on QA
-    if: github.event_name == 'repository_dispatch'
+    if: github.event_name == 'push'
     uses: ./.github/workflows/integration-tests.yml
     needs:
       - update-qa
@@ -32,30 +35,30 @@ jobs:
       ENVIRONMENT: 'qa'
     secrets:
       REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
-  update:
-    uses: ./.github/workflows/db-update.yml
-    needs:
-      - integration-tests-qa
-    with:
-      PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
-      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
-      DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
-      ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
-      DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
-    secrets:
-      DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
-      DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
-      DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
-  integration-tests-prod:
-    if: github.event_name == 'repository_dispatch'
-    uses: ./.github/workflows/integration-tests.yml
-    needs: update
-    with:
-      API_URL: "https://api.mobilitydatabase.org"
-      ENVIRONMENT: 'prod'
-    secrets:
-      REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
+#  update:
+#    uses: ./.github/workflows/db-update.yml
+#    needs:
+#      - integration-tests-qa
+#    with:
+#      PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+#      REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+#      DB_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
+#      ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+#      DB_ENVIRONMENT: ${{ vars.PROD_MOBILITY_FEEDS_ENVIRONMENT }}
+#    secrets:
+#      DB_USER_PASSWORD: ${{ secrets.PROD_POSTGRE_USER_PASSWORD }}
+#      DB_USER_NAME: ${{ secrets.PROD_POSTGRE_USER_NAME }}
+#      DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+#      GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+#      DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+#      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+#      POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+#  integration-tests-prod:
+#    if: github.event_name == 'repository_dispatch'
+#    uses: ./.github/workflows/integration-tests.yml
+#    needs: update
+#    with:
+#      API_URL: "https://api.mobilitydatabase.org"
+#      ENVIRONMENT: 'prod'
+#    secrets:
+#      REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
