@@ -53,6 +53,8 @@ jobs:
       # When triggered by a repo dispatch the API code is not deployed so there could be discrepencies
       # between the code running the tests and the code running the API. Do do the Meta
       run: |
+        set -x
+        set -v
         heath_check_classes="BasicMetadataEndpointTests"
         if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then
           health_check_classes += ",MetadataEndpointTests"
