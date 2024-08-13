@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import List, Union
+from typing import List, Union, TypeVar
 
 from sqlalchemy.orm import joinedload
-
+from sqlalchemy.orm.query import Query
 from database.database import Database
 from database_gen.sqlacodegen_models import (
     Feed,
@@ -12,6 +12,7 @@ from database_gen.sqlacodegen_models import (
     Location,
     Validationreport,
     Entitytype,
+    t_location_with_translations_en,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -36,6 +37,9 @@ from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from utils.date_utils import valid_iso_date
+from utils.location_translation import create_location_translation_object, LocationTranslation
+
+T = TypeVar("T", bound="BasicFeed")
 
 
 class FeedsApiImpl(BaseFeedsApi):
@@ -91,20 +95,35 @@ class FeedsApiImpl(BaseFeedsApi):
         id: str,
     ) -> GtfsFeed:
         """Get the specified gtfs feed from the Mobility Database."""
-        feed = (
+        feed, translations = self._get_gtfs_feed(id)
+        if feed:
+            return GtfsFeedImpl.from_orm(feed, translations)
+        else:
+            raise_http_error(404, gtfs_feed_not_found.format(id))
+
+    @staticmethod
+    def _get_gtfs_feed(stable_id: str) -> tuple[Gtfsfeed | None, dict[str, LocationTranslation]]:
+        results = (
             FeedFilter(
-                stable_id=id,
+                stable_id=stable_id,
                 status=None,
                 provider__ilike=None,
                 producer_url__ilike=None,
             )
-            .filter(Database().get_query_model(Gtfsfeed))
-            .first()
-        )
-        if feed:
-            return GtfsFeedImpl.from_orm(feed)
-        else:
-            raise_http_error(404, gtfs_feed_not_found.format(id))
+            .filter(Database().get_session().query(Gtfsfeed, t_location_with_translations_en))
+            .outerjoin(Location, Feed.locations)
+            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
+            .options(
+                joinedload(Gtfsfeed.gtfsdatasets)
+                .joinedload(Gtfsdataset.validation_reports)
+                .joinedload(Validationreport.notices),
+                *BasicFeedImpl.get_joinedload_options(),
+            )
+        ).all()
+        if len(results) > 0 and results[0].Gtfsfeed:
+            translations = {result[1]: create_location_translation_object(result) for result in results}
+            return results[0].Gtfsfeed, translations
+        return None, {}
 
     def get_gtfs_feed_datasets(
         self,
@@ -176,43 +195,54 @@ class FeedsApiImpl(BaseFeedsApi):
                 municipality__ilike=municipality,
             ),
         )
-        gtfs_feed_query = gtfs_feed_filter.filter(Database().get_query_model(Gtfsfeed))
-
-        gtfs_feed_query = gtfs_feed_query.outerjoin(Location, Feed.locations).options(
-            joinedload(Gtfsfeed.gtfsdatasets)
-            .joinedload(Gtfsdataset.validation_reports)
-            .joinedload(Validationreport.notices),
-            *BasicFeedImpl.get_joinedload_options(),
+        gtfs_feed_query = gtfs_feed_filter.filter(
+            Database().get_session().query(Gtfsfeed, t_location_with_translations_en)
+        )
+        gtfs_feed_query = (
+            gtfs_feed_query.outerjoin(Location, Feed.locations)
+            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
+            .options(
+                joinedload(Gtfsfeed.gtfsdatasets)
+                .joinedload(Gtfsdataset.validation_reports)
+                .joinedload(Validationreport.notices),
+                *BasicFeedImpl.get_joinedload_options(),
+            )
+            .order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
         )
         gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
         gtfs_feed_query = DatasetsApiImpl.apply_bounding_filtering(
             gtfs_feed_query, dataset_latitudes, dataset_longitudes, bounding_filter_method
         )
-        if limit is not None:
-            gtfs_feed_query = gtfs_feed_query.limit(limit)
-        if offset is not None:
-            gtfs_feed_query = gtfs_feed_query.offset(offset)
-        results = gtfs_feed_query.all()
-        return [GtfsFeedImpl.from_orm(gtfs_feed) for gtfs_feed in results]
+        return self._get_response(gtfs_feed_query, limit, offset, GtfsFeedImpl)
 
     def get_gtfs_rt_feed(
         self,
         id: str,
     ) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
-        feed = (
-            GtfsRtFeedFilter(
-                stable_id=id,
-                provider__ilike=None,
-                producer_url__ilike=None,
-                entity_types=None,
-                location=None,
-            )
-            .filter(Database().get_query_model(Gtfsrealtimefeed))
-            .first()
+        gtfs_rt_feed_filter = GtfsRtFeedFilter(
+            stable_id=id,
+            provider__ilike=None,
+            producer_url__ilike=None,
+            entity_types=None,
+            location=None,
         )
-        if feed:
-            return GtfsRTFeedImpl.from_orm(feed)
+        results = gtfs_rt_feed_filter.filter(
+            Database()
+            .get_session()
+            .query(Gtfsrealtimefeed, t_location_with_translations_en)
+            .outerjoin(Location, Gtfsrealtimefeed.locations)
+            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
+            .options(
+                joinedload(Gtfsrealtimefeed.entitytypes),
+                joinedload(Gtfsrealtimefeed.gtfs_feeds),
+                *BasicFeedImpl.get_joinedload_options(),
+            )
+        ).all()
+
+        if len(results) > 0 and results[0].Gtfsrealtimefeed:
+            translations = {result[1]: create_location_translation_object(result) for result in results}
+            return GtfsRTFeedImpl.from_orm(results[0].Gtfsrealtimefeed, translations)
         else:
             raise_http_error(404, gtfs_rt_feed_not_found.format(id))
 
@@ -251,42 +281,41 @@ class FeedsApiImpl(BaseFeedsApi):
                 municipality__ilike=municipality,
             ),
         )
-        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(Database().get_query_model(Gtfsrealtimefeed)).options(
-            *BasicFeedImpl.get_joinedload_options()
+        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(
+            Database().get_session().query(Gtfsrealtimefeed, t_location_with_translations_en)
         )
-        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Entitytype, Gtfsrealtimefeed.entitytypes).options(
-            joinedload(Gtfsrealtimefeed.entitytypes)
+        gtfs_rt_feed_query = (
+            gtfs_rt_feed_query.outerjoin(Location, Gtfsrealtimefeed.locations)
+            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
+            .outerjoin(Entitytype, Gtfsrealtimefeed.entitytypes)
+            .options(
+                joinedload(Gtfsrealtimefeed.entitytypes),
+                joinedload(Gtfsrealtimefeed.gtfs_feeds),
+                *BasicFeedImpl.get_joinedload_options(),
+            )
+            .order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         )
-        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Location, Feed.locations).options(
-            joinedload(Gtfsrealtimefeed.locations)
-        )
-        gtfs_rt_feed_query = gtfs_rt_feed_query.outerjoin(Gtfsfeed, Gtfsrealtimefeed.gtfs_feeds).options(
-            joinedload(Gtfsrealtimefeed.gtfs_feeds)
-        )
-        gtfs_rt_feed_query = gtfs_rt_feed_query.order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
+        return self._get_response(gtfs_rt_feed_query, limit, offset, GtfsRTFeedImpl)
+
+    @staticmethod
+    def _get_response(feed_query: Query, limit: int, offset: int, impl_cls: type[T]) -> List[T]:
+        """Get the response for the feed query."""
         if limit is not None:
-            gtfs_rt_feed_query = gtfs_rt_feed_query.limit(limit)
+            feed_query = feed_query.limit(limit)
         if offset is not None:
-            gtfs_rt_feed_query = gtfs_rt_feed_query.offset(offset)
-        results = gtfs_rt_feed_query.all()
-        return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in results]
+            feed_query = feed_query.offset(offset)
+        results = feed_query.all()
+        location_translations = {row[1]: create_location_translation_object(row) for row in results}
+        response = [impl_cls.from_orm(feed[0], location_translations) for feed in results]
+        return list({feed.id: feed for feed in response}.values())
 
     def get_gtfs_feed_gtfs_rt_feeds(
         self,
         id: str,
     ) -> List[GtfsRTFeed]:
         """Get a list of GTFS Realtime related to a GTFS feed."""
-        feed = (
-            FeedFilter(
-                stable_id=id,
-                status=None,
-                provider__ilike=None,
-                producer_url__ilike=None,
-            )
-            .filter(Database().get_query_model(Gtfsfeed))
-            .first()
-        )
+        feed, translations = self._get_gtfs_feed(id)
         if feed:
-            return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
+            return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed, translations) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))

@@ -39,8 +39,9 @@ excluded_tables: Final[list[str]] = [
     "geography_columns",
     "geometry_columns",
     "spatial_ref_sys",
-    # Excluding the materialized view
+    # Excluding the views
     "feedsearch",
+    "location_with_translations_en",
 ]
 
 
