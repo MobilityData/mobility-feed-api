@@ -48,6 +48,7 @@ class MetadataEndpointTests(IntegrationTests):
 
         # Read the expected values from the version_info file
         expected_long_commit_hash, expected_extracted_version = self.read_version_info()
+        expected_extracted_version += "Allo"
 
         # Verify that the commit hash matches the long commit hash from the version_info file
         assert commit_hash == expected_long_commit_hash, (
