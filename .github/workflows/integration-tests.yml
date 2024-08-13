@@ -56,8 +56,6 @@ jobs:
       # The BasicMetadataEndpointTests just looks at the hash and version format, without looking
       # at the exact values, so always do these tests.
       run: |
-        set -x
-        set -v
         health_check_classes="BasicMetadataEndpointTests"
         if [[ "${{ github.event_name }}" != "repository_dispatch" ]]; then
           health_check_classes+=",MetadataEndpointTests"
