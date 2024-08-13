@@ -333,18 +333,18 @@ export interface components {
        */
       country_code?: string;
       /**
-       * @description The name of the country where the system is located.
-       * @example Canada
+       * @description The english name of the country where the system is located.
+       * @example United States
        */
       country?: string;
       /**
-       * @description ISO 3166-2 subdivision name designating the subdivision (e.g province, state, region) where the system is located.  For a list of valid names [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
+       * @description ISO 3166-2 english subdivision name designating the subdivision (e.g province, state, region) where the system is located.  For a list of valid names [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
        *
        * @example California
        */
       subdivision_name?: string;
       /**
-       * @description Primary municipality in which the transit system is located.
+       * @description Primary municipality in english in which the transit system is located.
        * @example Los Angeles
        */
       municipality?: string;

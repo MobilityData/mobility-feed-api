@@ -1,5 +1,6 @@
 DROP VIEW IF EXISTS location_with_translations;
-CREATE VIEW location_with_translations AS
+DROP VIEW IF EXISTS location_with_translations_en;
+CREATE VIEW location_with_translations_en AS
 SELECT
     l.id AS location_id,
     l.country_code,
