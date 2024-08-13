@@ -50,13 +50,15 @@ jobs:
         pip install -r requirements.txt
 
     - name: Health Check
+      if: github.event_name == 'repository_dispatch'
+      uses: ./.github/workflows/integration-tests.yml
       run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
 
     - name: Run Integration Tests
-      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH
+      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -x MetadataEndpointTests
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -69,7 +71,3 @@ jobs:
         path: |
           integration-tests/src/integration_tests_log.html
           integration-tests/src/datasets_validation.csv
-          
-          
-          
-

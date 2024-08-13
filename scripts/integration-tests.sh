@@ -8,25 +8,28 @@
 #   -u  URL of the API to test against
 #   -f  File path for the data file to be used in tests
 #   -c  Optional, comma-separated list of test class names to include
+#   -x  Optional, comma-separated list of test class names to exclude
 
 function print_help() {
-  echo "Usage: $0 -u <API URL> -f <FILE PATH> [-c <CLASS NAMES>]"
+  echo "Usage: $0 -u <API URL> -f <FILE PATH> [-c <CLASS NAMES>] [-x <CLASS NAMES>]"
   echo ""
   echo "Options:"
   echo "  -u  URL of the API to test against"
   echo "  -f  File path for the data file to be used in tests"
   echo "  -c  Optional, comma-separated list of test class names to include"
+  echo "  -x  Optional, comma-separated list of test class names to exclude."
   exit 1
 }
 
 # Initialize include_classes as an empty string
 INCLUDE_CLASSES=""
 
-while getopts ":u:f:c:h" opt; do
+while getopts ":u:f:c:x:h" opt; do
   case ${opt} in
     u ) URL=$OPTARG ;;
     f ) FILE_PATH=$OPTARG ;;
     c ) INCLUDE_CLASSES=$OPTARG ;;
+    x ) EXCLUDE_CLASSES=$OPTARG ;;
     h ) print_help ;;
     \? ) print_help ;;
   esac
@@ -80,9 +83,16 @@ pip install -r "$PARENT_DIR"/integration-tests/requirements.txt &> /dev/null
 
 export PYTHONPATH="${PARENT_DIR}:${PARENT_DIR}/integration-tests/src:${PARENT_DIR}/api/src"
 
+classes_args=""
 # Pass include_classes if it's not empty
-if [ -z "${INCLUDE_CLASSES}" ]; then
-  (cd "$PARENT_DIR"/integration-tests/src && python "$PARENT_DIR"/integration-tests/src/main.py --file_path "${FILE_PATH}" --url "$URL")
-else
-  (cd "$PARENT_DIR"/integration-tests/src && python "$PARENT_DIR"/integration-tests/src/main.py --file_path "${FILE_PATH}" --url "$URL" --include_classes "${INCLUDE_CLASSES}")
+if [ -n "${INCLUDE_CLASSES}" ]; then
+  classes_args="--include_classes ${INCLUDE_CLASSES}"
 fi
+
+if [ -n "${EXCLUDE_CLASSES}" ]; then
+  classes_args+=" --exclude_classes ${EXCLUDE_CLASSES}"
+fi
+
+(cd "$PARENT_DIR"/integration-tests/src && python "$PARENT_DIR"/integration-tests/src/main.py --file_path "${FILE_PATH}" --url "$URL" $classes_args)
+
+
