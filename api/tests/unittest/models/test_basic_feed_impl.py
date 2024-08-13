@@ -41,7 +41,8 @@ feed_orm = Feed(
     locations=[
         Location(
             id="id",
-            country_code="country_code",
+            country_code="CA",
+            country=None,
             subdivision_name="subdivision_name",
             municipality="municipality",
         )
