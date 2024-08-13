@@ -196,24 +196,25 @@ jobs:
       id: getsyspath
       run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
 
-    - name: [GTFS] Update Database Content
+    - name: GTFS - Update Database Content
       run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
-    - name: [GBFS] Update Database Content
+    - name: GBFS - Update Database Content
       run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
 
-    - name: [GTFS] Upload log file for verification
+    - name: GTFS - Upload log file for verification
       if: ${{ always() }}
       uses: actions/upload-artifact@v4
       with:
         name: populate-${{ inputs.ENVIRONMENT }}.log
         path: populate.log
 
-    - name: [GBFS] Upload log file for verification
+    - name: GBFS - Upload log file for verification
       if: ${{ always() }}
       uses: actions/upload-artifact@v4
       with:
           name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
+          path: populate-gbfs.log
 
   update-gcp-secret:
     name: Update GCP Secrets
