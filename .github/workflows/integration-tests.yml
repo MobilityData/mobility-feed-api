@@ -60,7 +60,7 @@ jobs:
         set -v
         health_check_classes="BasicMetadataEndpointTests"
         if [[ "${{ github.event_name }}" != "repository_dispatch" ]]; then
-          health_check_classes += ",MetadataEndpointTests"
+          health_check_classes+=",MetadataEndpointTests"
         fi
         ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c $health_check_classes
       env:
