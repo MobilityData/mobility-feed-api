@@ -183,7 +183,7 @@ class FeedsApiImpl(BaseFeedsApi):
         dataset_latitudes: str,
         dataset_longitudes: str,
         bounding_filter_method: str,
-    ) -> List[Gtfsfeed]:
+    ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         gtfs_feed_filter = GtfsFeedFilter(
             stable_id=None,
