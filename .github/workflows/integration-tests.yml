@@ -52,9 +52,9 @@ jobs:
     - name: Health Check
       # When triggered by a repo dispatch the API code is not deployed so there could be discrepancies
       # between the code running the tests and the code running the API. In that case don't do the
-      # MetadataEndpointTests since it make exact comparisons of the hash and version.
+      # MetadataEndpointTests since it makes exact comparisons of the hash and version.
       # The BasicMetadataEndpointTests just looks at the hash and version format, without looking
-      # at the exact values, so always do them.
+      # at the exact values, so always do these tests.
       run: |
         health_check_classes="BasicMetadataEndpointTests"
         if [[ "${{ github.event_name }}" == "repository_dispatch" ]]; then

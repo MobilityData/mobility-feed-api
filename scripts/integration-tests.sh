@@ -93,5 +93,3 @@ if [ -n "${EXCLUDE_CLASSES}" ]; then
 fi
 
 (cd "$PARENT_DIR"/integration-tests/src && python "$PARENT_DIR"/integration-tests/src/main.py --file_path "${FILE_PATH}" --url "$URL" $classes_args)
-
-
