@@ -36,6 +36,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
         super().__init__(file_path)
 
     def filter_data(self):
+        """Filter out rows with Authentication Info and duplicate System IDs"""
         self.df = self.df[pd.isna(self.df["Authentication Info"])]
         self.df = self.df[~self.df.duplicated(subset="System ID", keep=False)]
 
@@ -48,6 +49,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
         return Externalid(feed_id=feed_id, associated_id=str(system_id), source="gbfs")
 
     def deprecate_feeds(self, deprecated_feeds):
+        """Deprecate feeds that are no longer in systems.csv"""
         self.logger.info(f"Deprecating {len(deprecated_feeds)} feed(s).")
         for index, row in deprecated_feeds.iterrows():
             stable_id = self.get_stable_id(row)
@@ -58,11 +60,16 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                 self.db.session.flush()
 
     def populate_db(self):
+        """Populate the database with the GBFS feeds"""
         start_time = datetime.now()
         configure_polymorphic_mappers()
+
+        # Compare the database to the CSV file
         df_from_db = generate_system_csv_from_db(self.df, self.db.session)
         added_or_updated_feeds, deprecated_feeds = compare_db_to_csv(df_from_db, self.df, self.logger)
+
         self.deprecate_feeds(deprecated_feeds)
+
         for index, row in added_or_updated_feeds.iterrows():
             self.logger.info(f"Processing row {index + 1} of {len(added_or_updated_feeds)}")
             stable_id = self.get_stable_id(row)
@@ -70,7 +77,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             fetched_data = fetch_data(
                 row["Auto-Discovery URL"], self.logger, ["system_information", "gbfs_versions"], ["version"]
             )
-
+            # If the feed already exists, update it. Otherwise, create a new feed.
             if gbfs_feed:
                 feed_id = gbfs_feed.id
                 self.logger.info(f"Updating feed {stable_id} - {row['Name']}")
@@ -107,6 +114,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             gbfs_feed.locations.clear()
             gbfs_feed.locations = [location]
 
+            # Add the GBFS versions
             versions = get_gbfs_versions(
                 fetched_data.get("gbfs_versions"), row["Auto-Discovery URL"], fetched_data.get("version"), self.logger
             )

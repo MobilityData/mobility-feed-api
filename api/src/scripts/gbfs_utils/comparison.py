@@ -4,6 +4,7 @@ from database_gen.sqlacodegen_models import GbfsFeed
 
 
 def generate_system_csv_from_db(df, db_session):
+    """Generate a DataFrame from the database with the same columns as the CSV file."""
     stable_ids = "gbfs-" + df["System ID"]
     query = db_session.query(GbfsFeed)
     query = query.filter(GbfsFeed.stable_id.in_(stable_ids.to_list()))
@@ -32,6 +33,7 @@ def generate_system_csv_from_db(df, db_session):
 
 
 def compare_db_to_csv(df_from_db, df_from_csv, logger):
+    """Compare the database to the CSV file and return the differences."""
     df_from_csv = df_from_csv[df_from_db.columns]
     df_from_db = df_from_db.fillna("")
     df_from_csv = df_from_csv.fillna("")
@@ -78,4 +80,3 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
     all_differing_or_new_rows = pd.concat([differing_rows, missing_in_db]).reset_index()
 
     return all_differing_or_new_rows, missing_in_csv
-

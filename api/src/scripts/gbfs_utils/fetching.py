@@ -2,6 +2,7 @@ import requests
 
 
 def fetch_data(auto_discovery_url, logger, urls=[], fields=[]):
+    """Fetch data from the auto-discovery URL and return the specified fields."""
     fetched_data = {}
     if not auto_discovery_url:
         return
@@ -33,6 +34,7 @@ def fetch_data(auto_discovery_url, logger, urls=[], fields=[]):
 
 
 def get_data_content(url, logger):
+    """Utility function to fetch data content from a URL."""
     try:
         if url:
             response = requests.get(url)
@@ -45,7 +47,7 @@ def get_data_content(url, logger):
 
 
 def get_field_url(fields, field_name):
-    """Helper function to get the URL of a specific feed by name."""
+    """Utility function to get the URL of a specific feed by name."""
     for field in fields:
         if field.get("name") == field_name:
             return field.get("url")
@@ -53,6 +55,8 @@ def get_field_url(fields, field_name):
 
 
 def get_gbfs_versions(gbfs_versions_url, auto_discovery_url, auto_discovery_version, logger):
+    """Get the GBFS versions from the gbfs_versions_url."""
+    # Default version info extracted from auto-discovery url
     version_info = {
         "version": auto_discovery_version if auto_discovery_version else "1.0",
         "url": auto_discovery_url,

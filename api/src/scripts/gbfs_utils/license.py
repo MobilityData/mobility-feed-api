@@ -9,6 +9,7 @@ DEFAULT_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/"
 
 
 def get_license_url(system_info, logger):
+    """Get the license URL from the system information."""
     try:
         if system_info is None:
             return None
