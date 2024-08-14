@@ -25,7 +25,7 @@ describe('Change Password Screen', () => {
     }
   });
 
-  it('should render components', () => {\
+  it('should render components', () => {
     if (beforeEachFailed) {
       cy.log('Skipping test due to beforeEach failure');
       return;
