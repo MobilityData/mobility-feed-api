@@ -18,5 +18,10 @@
     "loading": "Loading...",
     "errors": {
         "generic": "We are unable to complete your request at the moment."
-    }
+    },
+    "others": "others",
+    "apiKey": "API Key",
+    "httpHeader": "HTTP Header",
+    "back": "Back",
+    "and": "and"
 }
