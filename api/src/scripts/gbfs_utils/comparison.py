@@ -16,8 +16,8 @@ def generate_system_csv_from_db(df, db_session):
     for feed in feeds:
         system_id = feed.externalids[0].associated_id
         auto_discovery_url = feed.auto_discovery_url
-        feed.gbfs_versions.sort(key=lambda x: x.version, reverse=False)
-        supported_versions = [version.version for version in feed.gbfs_versions]
+        feed.gbfsversions.sort(key=lambda x: x.version, reverse=False)
+        supported_versions = [version.version for version in feed.gbfsversions]
         data.append(
             {
                 "System ID": system_id,
