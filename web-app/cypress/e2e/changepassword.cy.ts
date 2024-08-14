@@ -9,9 +9,9 @@ describe('Change Password Screen', () => {
 
   beforeEach(() => {
     beforeEachFailed = false;
-    # As per issue #458 the beforeEach of this test file sometimes fail.
-    # Instead of failing the tests in that case issue a warning.
-    # This should be removed once the issue is resolved.
+    // As per issue #458 the beforeEach of this test file sometimes fail.
+    // Instead of failing the tests in that case issue a warning.
+    // This should be removed once the issue is resolved.
     try {
       // Visit the login page and login
       cy.visit('/sign-in');
