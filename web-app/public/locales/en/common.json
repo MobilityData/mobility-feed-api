@@ -21,5 +21,7 @@
     },
     "others": "others",
     "apiKey": "API Key",
-    "httpHeader": "HTTP Header"
+    "httpHeader": "HTTP Header",
+    "back": "Back",
+    "and": "and"
 }

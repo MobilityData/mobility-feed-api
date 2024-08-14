@@ -47,7 +47,7 @@ import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -105,6 +105,7 @@ const wrapComponent = (
   feedLoadingStatus: string,
   child: React.ReactElement,
 ): React.ReactElement => {
+  const { t } = useTranslation('feeds');
   return (
     <Container component='main' sx={{ width: '100%', m: 'auto' }} maxWidth='xl'>
       <CssBaseline />
@@ -124,9 +125,7 @@ const wrapComponent = (
             mt: 4,
           }}
         >
-          {feedLoadingStatus === 'error' && (
-            <>There was an error loading the feed.</>
-          )}
+          {feedLoadingStatus === 'error' && <>{t('errorLoadingFeed')}</>}
           {feedLoadingStatus !== 'error' ? child : null}
         </Box>
       </Box>
@@ -135,6 +134,7 @@ const wrapComponent = (
 };
 
 export default function Feed(): React.ReactElement {
+  const { t } = useTranslation('feeds');
   const dispatch = useAppDispatch();
   const { feedId } = useParams();
   const user = useSelector(selectUserProfile);
@@ -200,7 +200,7 @@ export default function Feed(): React.ReactElement {
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
   if (needsToLoadFeed) {
-    return wrapComponent(feedLoadingStatus, <span>Loading...</span>);
+    return wrapComponent(feedLoadingStatus, <span>{t('common:loading')}</span>);
   }
   const hasDatasets = datasets !== undefined && datasets.length > 0;
   const hasFeedRedirect =
@@ -229,7 +229,7 @@ export default function Feed(): React.ReactElement {
         >
           <Grid container alignItems={'center'}>
             <ChevronLeft fontSize='small' sx={{ ml: '-20px' }} />{' '}
-            <Typography>Back</Typography>
+            <Typography>{t('common:back')}</Typography>
           </Grid>
         </Grid>
         <Grid item>
@@ -240,9 +240,11 @@ export default function Feed(): React.ReactElement {
               },
             }}
           >
-            <a href='/feeds'>Feeds</a> /{' '}
+            <a href='/feeds'>{t('common:feeds')}</a> /{' '}
             <a href={`/feeds?${feed?.data_type}=true`}>
-              {feed?.data_type === 'gtfs' ? 'GTFS Schedule' : 'GTFS Realtime'}
+              {feed?.data_type === 'gtfs'
+                ? t('common:gtfsSchedule')
+                : t('common:gtfsRealtime')}
             </a>{' '}
             / {feed?.id}
           </Typography>
@@ -283,12 +285,12 @@ export default function Feed(): React.ReactElement {
               .map(
                 (entityType) =>
                   ({
-                    tu: 'Trip Updates',
-                    vp: 'Vehicle Positions',
-                    sa: 'Service Alerts',
+                    tu: t('common:gtfsRealtimeEntities.tripUpdates'),
+                    vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
+                    sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
                   })[entityType],
               )
-              .join(' and ')}
+              .join(' ' + t('common:and') + ' ')}
           </Typography>
         </Grid>
       )}
@@ -298,19 +300,23 @@ export default function Feed(): React.ReactElement {
         !hasFeedRedirect && (
           <Grid item xs={12}>
             <WarningContentBox>
-              Unable to download this feed. If there is a more recent URL for
-              this feed, <a href='/contribute'>please submit it here</a>
+              <Trans i18nKey='unableToDownloadFeed'>
+                Unable to download this feed. If there is a more recent URL for
+                this feed, <a href='/contribute'>please submit it here</a>
+              </Trans>
             </WarningContentBox>
           </Grid>
         )}
       {hasFeedRedirect && (
         <Grid item xs={12}>
           <WarningContentBox>
-            This feed has been replaced with a different producer URL.{' '}
-            <a href={`/feeds/${feed?.redirects?.[0]?.target_id}`}>
-              Go to the new feed here
-            </a>
-            .
+            <Trans i18nKey='feedHasBeenReplaced'>
+              This feed has been replaced with a different producer URL.{' '}
+              <a href={`/feeds/${feed?.redirects?.[0]?.target_id}`}>
+                Go to the new feed here
+              </a>
+              .
+            </Trans>
           </WarningContentBox>
         </Grid>
       )}
@@ -324,7 +330,7 @@ export default function Feed(): React.ReactElement {
               rel='noreferrer'
               id='download-latest-button'
             >
-              Download Latest
+              {t('downloadLatest')}
             </a>
           </Button>
         )}
@@ -341,7 +347,7 @@ export default function Feed(): React.ReactElement {
                 className='btn-link'
                 rel='noreferrer'
               >
-                See License
+                {t('seeLicense')}
               </a>
             </Button>
           )}
@@ -359,14 +365,14 @@ export default function Feed(): React.ReactElement {
           >
             {feed?.data_type === 'gtfs' && (
               <ContentBox
-                title='Bounding box from stops.txt'
+                title={t('boundingBoxTitle')}
                 width={{ xs: '100%', md: '42%' }}
                 outlineColor={colors.blue[900]}
                 padding={2}
               >
                 {boundingBox === undefined && (
                   <WarningContentBox>
-                    Unable to generate bounding box.
+                    {t('unableToGenerateBoundingBox')}
                   </WarningContentBox>
                 )}
                 {boundingBox !== undefined && (

@@ -16,6 +16,7 @@
     "checkSpelling": "Double check the spelling"
   },
   "errorAndContact": "Please check your internet connection and try again. If the problem persists <1>contact us</1> for for further assistance.",
+  "errorLoadingFeed": "There was an error loading the feed.",
   "form": {
     "addOrUpdateFeed": "Add or Update a Feed",
     "signUp": "Sign up for a Mobility Database account or login to add or update a GTFS feed.",
@@ -31,5 +32,11 @@
   "registerToDownloadFeed": "Register to download feed",
   "feedContactEmail": "Feed contact email",
   "copyFeedContactEmail": "Copy feed contact email",
-  "features": "Features"
+  "features": "Features",
+  "unableToDownloadFeed": "Unable to download this feed. If there is a more recent URL forthis feed, <1>please submit it here</1>",
+  "feedHasBeenReplaced": "This feed has been replaced with a different producer URL.{' '}<1> Go to the new feed here</1>.",
+  "downloadLatest": "Download Latest",
+  "seeLicense": "See License",
+  "boundingBoxTitle": "Bounding box from stops.txt",
+  "unableToGenerateBoundingBox": "Unable to generate bounding box."
 }
