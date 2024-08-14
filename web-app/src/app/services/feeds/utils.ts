@@ -55,16 +55,19 @@ export function getLocationName(locations: FeedLocation | undefined): string {
   }
   let displayLocation = '';
   locations.forEach((location, index) => {
-    if (location.country_code !== undefined) {
+    if (location.country_code !== undefined && location.country_code !== null) {
       displayLocation += `${countryCodeEmoji(location.country_code)} `;
     }
-    if (location.country !== undefined) {
+    if (location.country !== undefined && location.country !== null) {
       displayLocation += `${location.country}`;
     }
-    if (location.subdivision_name !== undefined) {
+    if (
+      location.subdivision_name !== undefined &&
+      location.subdivision_name !== null
+    ) {
       displayLocation += `, ${location.subdivision_name}`;
     }
-    if (location.municipality !== undefined) {
+    if (location.municipality !== undefined && location.municipality !== null) {
       displayLocation += `, ${location.municipality}`;
     }
 
