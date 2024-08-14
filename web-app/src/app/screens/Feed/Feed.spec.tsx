@@ -4,6 +4,7 @@ import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
+import { type TFunction } from 'i18next';
 
 const mockFeed: GTFSFeedType = {
   id: 'mdb-x',
@@ -99,17 +100,25 @@ describe('Feed page', () => {
   });
 
   it('should format the page title correctly when there are more than one and gtfs', () => {
+    const mockT = jest.fn((key) => key) as unknown as TFunction<
+      'feeds',
+      undefined
+    >;
     const formattedProviders = formatProvidersSorted(mockFeed?.provider ?? '');
-    render(getFeedTitleElement(formattedProviders, mockFeed));
+    render(getFeedTitleElement(formattedProviders, mockFeed, mockT));
     expect(screen.getByText('AVL')).toBeTruthy();
     expect(screen.getByText('+6 common:others')).toBeTruthy();
   });
 
   it('should format the page title correctly when there are more than one and gtfs_rt', () => {
+    const mockT = jest.fn((key) => key) as unknown as TFunction<
+      'feeds',
+      undefined
+    >;
     const formattedProviders = formatProvidersSorted(
       mockFeedRT?.provider ?? '',
     );
-    render(getFeedTitleElement(formattedProviders, mockFeedRT));
+    render(getFeedTitleElement(formattedProviders, mockFeedRT, mockT));
     expect(
       screen.getByText('AT Metro - Auckland Transport Developer'),
     ).toBeTruthy();
@@ -117,10 +126,14 @@ describe('Feed page', () => {
   });
 
   it('should format the page title correctly when there is only one provider', () => {
+    const mockT = jest.fn((key) => key) as unknown as TFunction<
+      'feeds',
+      undefined
+    >;
     const formattedProviders = formatProvidersSorted(
       mockFeedOneProvider?.provider ?? '',
     );
-    render(getFeedTitleElement(formattedProviders, mockFeedOneProvider));
+    render(getFeedTitleElement(formattedProviders, mockFeedOneProvider, mockT));
     expect(screen.getByText('AVL')).toBeTruthy();
     expect(screen.queryByText('+')).toBeNull();
   });

@@ -48,6 +48,7 @@ import {
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import { Trans, useTranslation } from 'react-i18next';
+import { type TFunction } from 'i18next';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -59,14 +60,17 @@ export function formatProvidersSorted(provider: string): string[] {
 export function getFeedTitleElement(
   sortedProviders: string[],
   feed: GTFSFeedType | GTFSRTFeedType,
+  translationFunction: TFunction<'feeds', undefined>,
 ): JSX.Element {
-  const { t } = useTranslation('feeds');
   const mainProvider = sortedProviders[0];
   let extraProviders: string | undefined;
   let realtimeFeedName: string | undefined;
   if (sortedProviders.length > 1) {
     extraProviders =
-      '+' + (sortedProviders.length - 1) + ' ' + t('common:others');
+      '+' +
+      (sortedProviders.length - 1) +
+      ' ' +
+      translationFunction('common:others');
   }
   if (
     feed?.data_type === 'gtfs_rt' &&
@@ -141,6 +145,11 @@ export default function Feed(): React.ReactElement {
   const feedLoadingStatus = useSelector(selectFeedLoadingStatus);
   const datasetLoadingStatus = useSelector(selectDatasetsLoadingStatus);
   const feedType = useSelector(selectFeedData)?.data_type;
+  const relatedFeeds = useSelector(selectRelatedFeedsData);
+  const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
+  const datasets = useSelector(selectDatasetsData);
+  const latestDataset = useSelector(selectLatestDatasetsData);
+  const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
   const feed =
     feedType === 'gtfs'
       ? useSelector(selectGTFSFeedData)
@@ -191,12 +200,6 @@ export default function Feed(): React.ReactElement {
       document.title = 'Mobility Database';
     };
   }, [feed, needsToLoadFeed]);
-
-  const relatedFeeds = useSelector(selectRelatedFeedsData);
-  const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
-  const datasets = useSelector(selectDatasetsData);
-  const latestDataset = useSelector(selectLatestDatasetsData);
-  const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
   if (needsToLoadFeed) {
@@ -251,7 +254,7 @@ export default function Feed(): React.ReactElement {
         </Grid>
       </Grid>
       <Grid item xs={12}>
-        {getFeedTitleElement(sortedProviders, feed)}
+        {getFeedTitleElement(sortedProviders, feed, t)}
       </Grid>
       {feed !== undefined &&
         feed.feed_name !== '' &&
