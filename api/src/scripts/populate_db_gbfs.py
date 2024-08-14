@@ -51,7 +51,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
 
     def deprecate_feeds(self, deprecated_feeds):
         """Deprecate feeds that are no longer in systems.csv"""
-        if not deprecated_feeds or deprecated_feeds.empty:
+        if deprecated_feeds is None or deprecated_feeds.empty:
             self.logger.info("No feeds to deprecate.")
             return
         self.logger.info(f"Deprecating {len(deprecated_feeds)} feed(s).")
