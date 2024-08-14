@@ -4,7 +4,7 @@ import pandas as pd
 import pytz
 
 from database.database import generate_unique_id, configure_polymorphic_mappers
-from database_gen.sqlacodegen_models import GbfsFeed, Location, GbfsVersion, Externalid
+from database_gen.sqlacodegen_models import Gbfsfeed, Location, Gbfsversion, Externalid
 from scripts.gbfs_utils.comparison import generate_system_csv_from_db, compare_db_to_csv
 from scripts.gbfs_utils.fetching import fetch_data, get_data_content, get_gbfs_versions
 from scripts.gbfs_utils.license import get_license_url
@@ -89,7 +89,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             else:
                 feed_id = generate_unique_id()
                 self.logger.info(f"Creating new feed for {stable_id} - {row['Name']}")
-                gbfs_feed = GbfsFeed(
+                gbfs_feed = Gbfsfeed(
                     id=feed_id,
                     data_type="gbfs",
                     stable_id=stable_id,
@@ -123,12 +123,12 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             versions = get_gbfs_versions(
                 fetched_data.get("gbfs_versions"), row["Auto-Discovery URL"], fetched_data.get("version"), self.logger
             )
-            existing_versions = [version.version for version in gbfs_feed.gbfs_versions]
+            existing_versions = [version.version for version in gbfs_feed.gbfsversions]
             for version in versions:
                 version_value = version.get("version")
                 if version_value.upper() in OFFICIAL_VERSIONS and version_value not in existing_versions:
-                    gbfs_feed.gbfs_versions.append(
-                        GbfsVersion(
+                    gbfs_feed.gbfsversions.append(
+                        Gbfsversion(
                             feed_id=feed_id,
                             url=version.get("url"),
                             version=version_value,

@@ -1,15 +1,15 @@
 import pandas as pd
 from sqlalchemy.orm import joinedload
-from database_gen.sqlacodegen_models import GbfsFeed
+from database_gen.sqlacodegen_models import Gbfsfeed
 
 
 def generate_system_csv_from_db(df, db_session):
     """Generate a DataFrame from the database with the same columns as the CSV file."""
     stable_ids = "gbfs-" + df["System ID"]
-    query = db_session.query(GbfsFeed)
-    query = query.filter(GbfsFeed.stable_id.in_(stable_ids.to_list()))
+    query = db_session.query(Gbfsfeed)
+    query = query.filter(Gbfsfeed.stable_id.in_(stable_ids.to_list()))
     query = query.options(
-        joinedload(GbfsFeed.locations), joinedload(GbfsFeed.gbfs_versions), joinedload(GbfsFeed.externalids)
+        joinedload(Gbfsfeed.locations), joinedload(Gbfsfeed.gbfsversions), joinedload(Gbfsfeed.externalids)
     )
     feeds = query.all()
     data = []

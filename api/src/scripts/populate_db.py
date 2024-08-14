@@ -8,13 +8,13 @@ import pandas
 from dotenv import load_dotenv
 
 from database.database import Database
-from database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, GbfsFeed
+from database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
 from utils.logger import Logger
 
 logging.basicConfig()
 logging.getLogger("sqlalchemy.engine").setLevel(logging.ERROR)
 
-feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": GbfsFeed}
+feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": Gbfsfeed}
 
 
 def set_up_configs():

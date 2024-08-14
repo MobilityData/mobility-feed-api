@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import load_only, Query, class_mapper, Session
 
-from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, GbfsFeed
+from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 from sqlalchemy.orm import sessionmaker
 import logging
 from typing import Final
@@ -43,9 +43,9 @@ def configure_polymorphic_mappers():
     gtfsrealtimefeed_mapper.inherits = feed_mapper
     gtfsrealtimefeed_mapper.polymorphic_identity = Gtfsrealtimefeed.__tablename__.lower()
 
-    gbfsfeed_mapper = class_mapper(GbfsFeed)
+    gbfsfeed_mapper = class_mapper(Gbfsfeed)
     gbfsfeed_mapper.inherits = feed_mapper
-    gbfsfeed_mapper.polymorphic_identity = GbfsFeed.__tablename__.lower()
+    gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
 
 
 class Database:
