@@ -43,6 +43,63 @@ import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
 import AssociatedFeeds from './AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
+import {
+  type GTFSFeedType,
+  type GTFSRTFeedType,
+} from '../../services/feeds/utils';
+import { useTranslation } from 'react-i18next';
+
+export function formatProvidersSorted(provider: string): string[] {
+  const providers = provider.split(',').filter((n) => n);
+  const providersTrimmed = providers.map((p) => p.trim());
+  const providersSorted = providersTrimmed.sort();
+  return providersSorted;
+}
+
+export function getFeedTitleElement(
+  sortedProviders: string[],
+  feed: GTFSFeedType | GTFSRTFeedType,
+): JSX.Element {
+  const { t } = useTranslation('feeds');
+  const mainProvider = sortedProviders[0];
+  let extraProviders: string | undefined;
+  let realtimeFeedName: string | undefined;
+  if (sortedProviders.length > 1) {
+    extraProviders =
+      '+' + (sortedProviders.length - 1) + ' ' + t('common:others');
+  }
+  if (
+    feed?.data_type === 'gtfs_rt' &&
+    feed?.feed_name !== undefined &&
+    feed?.feed_name !== ''
+  ) {
+    realtimeFeedName = ` - ${feed?.feed_name}`;
+  }
+  return (
+    <Typography
+      sx={{
+        color: colors.blue.A700,
+        fontWeight: 'bold',
+        fontSize: { xs: 24, sm: 36 },
+        lineHeight: 'normal',
+      }}
+      data-testid='feed-provider'
+    >
+      {mainProvider + (realtimeFeedName ?? '')}
+      {extraProviders !== undefined && (
+        <Typography
+          component={'span'}
+          sx={{
+            fontSize: { xs: 16, sm: 24 },
+            ml: 1,
+          }}
+        >
+          {extraProviders}
+        </Typography>
+      )}
+    </Typography>
+  );
+}
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -91,6 +148,7 @@ export default function Feed(): React.ReactElement {
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
+  const sortedProviders = formatProvidersSorted(feed?.provider ?? '');
 
   useEffect(() => {
     if (user !== undefined && feedId !== undefined && needsToLoadFeed) {
@@ -104,8 +162,8 @@ export default function Feed(): React.ReactElement {
       return;
     }
     let newDocTitle = 'Mobility Database';
-    if (feed?.provider !== undefined) {
-      newDocTitle += ` | ${feed?.provider}`;
+    if (sortedProviders[0] !== undefined) {
+      newDocTitle += ` | ${sortedProviders[0]}`;
     }
     if (feed?.feed_name !== undefined) {
       newDocTitle += ` | ${feed?.feed_name}`;
@@ -191,17 +249,7 @@ export default function Feed(): React.ReactElement {
         </Grid>
       </Grid>
       <Grid item xs={12}>
-        <Typography
-          sx={{
-            color: colors.blue.A700,
-            fontWeight: 'bold',
-            fontSize: { xs: 24, sm: 36 },
-          }}
-          data-testid='feed-provider'
-        >
-          {feed?.provider?.substring(0, 100)}
-          {feed?.data_type === 'gtfs_rt' && ` - ${feed?.feed_name}`}
-        </Typography>
+        {getFeedTitleElement(sortedProviders, feed)}
       </Grid>
       {feed !== undefined &&
         feed.feed_name !== '' &&
@@ -331,6 +379,7 @@ export default function Feed(): React.ReactElement {
             )}
             <FeedSummary
               feed={feed}
+              sortedProviders={sortedProviders}
               latestDataset={latestDataset}
               width={{ xs: '100%', md: '55%' }}
             />

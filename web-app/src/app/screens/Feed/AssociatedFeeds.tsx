@@ -123,6 +123,7 @@ export default function AssociatedGTFSRTFeeds({
         width={{ xs: '100%' }}
         title={'Related Schedule Feeds'}
         outlineColor={colors.indigo[500]}
+        margin={'0 0 8px'}
       >
         {feeds === undefined && <Typography>Loading...</Typography>}
         {feeds !== undefined && gtfsFeeds?.length === 0 && (

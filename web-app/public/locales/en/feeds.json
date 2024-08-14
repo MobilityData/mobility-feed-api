@@ -21,5 +21,15 @@
     "signUp": "Sign up for a Mobility Database account or login to add or update a GTFS feed.",
     "signUpAction": "Sign up for an account",
     "loginSuccess": "You were successfully logged in, you can now add or update a feed."
-  }
+  },
+  "seeFullList": "See full list",
+  "hideFullList": "Hide full list",
+  "producerDownloadUrl": "Producer download URL",
+  "copyDownloadUrl": "Copy download URL",
+  "producerUrlCopied": "Producer url copied to clipboard",
+  "authenticationType": "Authentication type",
+  "registerToDownloadFeed": "Register to download feed",
+  "feedContactEmail": "Feed contact email",
+  "copyFeedContactEmail": "Copy feed contact email",
+  "features": "Features"
 }
