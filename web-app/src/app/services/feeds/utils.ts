@@ -1,7 +1,10 @@
-import { type paths } from './types';
+import countryCodeEmoji from 'country-code-emoji';
+import { type paths, type components } from './types';
 
 export type AllFeedsType =
   paths['/v1/search']['get']['responses'][200]['content']['application/json'];
+
+export type FeedLocation = components['schemas']['Locations'];
 
 export type AllFeedsParams = paths['/v1/search']['get']['parameters'];
 
@@ -45,3 +48,29 @@ export type AllDatasetType =
   | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
   | paths['/v1/datasets/gtfs/{id}']['get']['responses'][200]['content']['application/json']
   | undefined;
+
+export function getLocationName(locations: FeedLocation | undefined): string {
+  if (locations === undefined) {
+    return '';
+  }
+  let displayLocation = '';
+  locations.forEach((location, index) => {
+    if (location.country_code !== undefined) {
+      displayLocation += `${countryCodeEmoji(location.country_code)} `;
+    }
+    if (location.country !== undefined) {
+      displayLocation += `${location.country}`;
+    }
+    if (location.subdivision_name !== undefined) {
+      displayLocation += `, ${location.subdivision_name}`;
+    }
+    if (location.municipality !== undefined) {
+      displayLocation += `, ${location.municipality}`;
+    }
+
+    if (index < locations.length - 1) {
+      displayLocation += ' | ';
+    }
+  });
+  return displayLocation;
+}
