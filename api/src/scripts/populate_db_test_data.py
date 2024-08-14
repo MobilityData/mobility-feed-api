@@ -1,28 +1,12 @@
-import argparse
 import json
-import os
-from pathlib import Path
-from dotenv import load_dotenv
+
 from geoalchemy2 import WKTElement
 from sqlalchemy import text
 
 from database.database import Database
 from database_gen.sqlacodegen_models import Gtfsdataset, Validationreport, Gtfsfeed, Notice, Feature, t_feedsearch
-
+from scripts.populate_db import set_up_configs
 from utils.logger import Logger
-
-
-def set_up_configs():
-    """
-    Set up function
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--filepath", help="Absolute path for the JSON file containing the test data", required=True)
-    args = parser.parse_args()
-    current_path = Path(__file__).resolve()
-    dotenv_path = os.path.join(current_path.parents[3], "config", ".env")
-    load_dotenv(dotenv_path=dotenv_path)
-    return args.filepath
 
 
 class DatabasePopulateTestDataHelper:

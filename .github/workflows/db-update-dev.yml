@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db.py'
+      - 'api/src/scripts/populate_db*'
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
     types: [ catalog-sources-updated ]
   workflow_dispatch:

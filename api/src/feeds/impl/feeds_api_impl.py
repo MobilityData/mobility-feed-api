@@ -59,6 +59,7 @@ class FeedsApiImpl(BaseFeedsApi):
         feed = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
             .filter(Database().get_query_model(Feed))
+            .filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
             .first()
         )
         if feed:
@@ -79,6 +80,7 @@ class FeedsApiImpl(BaseFeedsApi):
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
         feed_query = feed_filter.filter(Database().get_query_model(Feed))
+        feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
         # Results are sorted by provider
         feed_query = feed_query.order_by(Feed.provider, Feed.stable_id)
         feed_query = feed_query.options(*BasicFeedImpl.get_joinedload_options())

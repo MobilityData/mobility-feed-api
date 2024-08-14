@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db.py'
+      - 'api/src/scripts/populate_db*'
   workflow_dispatch:
 jobs:
   update:

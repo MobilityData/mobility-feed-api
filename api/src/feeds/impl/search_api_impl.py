@@ -35,6 +35,7 @@ class SearchApiImpl(BaseSearchApi):
         Filter values are trimmed and converted to lowercase.
         The search query is also converted to its unaccented version.
         """
+        query = query.filter(t_feedsearch.c.data_type != "gbfs")  # Filter out GBFS feeds
         if feed_id:
             query = query.where(t_feedsearch.c.feed_stable_id == feed_id.strip().lower())
         if data_type:
