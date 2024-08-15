@@ -1,9 +1,9 @@
 {
   "feeds": "Feeds",
-  "dataType": "Data Type",
+  "dataType": "Data Format",
   "transitProvider": "Transit Provider",
   "location": "Location",
-  "feedDescription": "Feed Description",
+  "feedDescription": "Description",
   "searchFor": "Search For",
   "resultsFor": "{{startResult}}-{{endResult}} of {{totalResults}} results",
   "deprecated": "Deprecated",
@@ -11,7 +11,7 @@
   "noResults": "We're sorry, we found no search results for “{{activeSearch}}”.",
   "searchSuggestions": "Search suggestions: ",
   "searchTips": {
-    "twoDigit": "Use a two digit code to search for country, e.g “FR” for France",
+    "twoDigit": "Use the full English name of a location e.g \"France\" or \"New York City\"",
     "fullName": "Include the full name for transit provider, e.g “Toronto Transit Commission” instead of “TTC”",
     "checkSpelling": "Double check the spelling"
   },
