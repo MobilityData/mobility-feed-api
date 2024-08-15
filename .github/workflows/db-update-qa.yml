@@ -1,15 +1,21 @@
 # Update the Mobility Database Schema
 name: Database Update - QA
 on:
-  push: # Update on merge on main branch if the changelog file has been updated
-    branches:
-      - main
-    paths:
-      - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db*'
+#  push: # Update on merge on main branch if the changelog file has been updated
+#    branches:
+#      - main
+#    paths:
+#      - 'liquibase/changelog.xml'
+#      - 'api/src/scripts/populate_db*'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      paths:
+        required: true
+        type: array
 jobs:
   update:
+    if: ${{ contains(github.event.inputs.paths, 'liquibase/changelog.xml') || contains(github.event.inputs.paths, 'api/src/scripts/populate_db*') }}
     uses: ./.github/workflows/db-update.yml
     with:
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}

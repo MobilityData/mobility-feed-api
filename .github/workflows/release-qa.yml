@@ -1,0 +1,42 @@
+# Deploys all the resources to QA environment
+name: QA Release
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Supports manual deployment
+
+jobs:
+  bd-deployment:
+    name: Database Deployment
+    uses: ./.github/workflows/db-qa.yml
+    secrets: inherit
+  bd-update:
+    name: Database Update
+    needs: bd-deployment
+    uses: ./.github/workflows/db-update-qa.yml
+    with:
+      paths: ${{ inputs.paths }}
+    secrets: inherit
+  batch-deployment:
+    name: Batch Processes Deployment
+    needs: bd-update
+    uses: ./.github/workflows/datasets-batch-deployer-qa.yml
+    secrets: inherit
+  api-deployment:
+    name: API Deployment
+    needs: batch-deployment
+    uses: ./.github/workflows/api-qa.yml
+    secrets: inherit
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    needs: api-deployment
+    with:
+      API_URL: "https://api-qa.mobilitydatabase.org"
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
+  web-deployment:
+    name: Web Deployment
+    needs: batch-deployment
+    uses: ./.github/workflows/web-qa.yml
+    secrets: inherit

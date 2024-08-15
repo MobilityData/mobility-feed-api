@@ -1,9 +1,8 @@
 # Deploys the feeds API to MobilityData QA environment.
 name: Deploy Feeds API - QA
 on:
-  push:
-    branches: [main]
   workflow_dispatch: # Supports manual deployment
+  workflow_call:
 
 jobs:
   api-build-deployment:
