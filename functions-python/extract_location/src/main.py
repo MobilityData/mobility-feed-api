@@ -20,6 +20,7 @@ from dataset_service.main import (
 )
 from helpers.database import start_db_session
 from helpers.logger import Logger
+from helpers.parser import jsonify_pubsub
 from .bounding_box.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
@@ -61,11 +62,8 @@ def extract_location_pubsub(cloud_event: CloudEvent):
     logging.info(f"Function triggered with Pub/Sub event data: {data}")
 
     # Extract the Pub/Sub message data
-    try:
-        message_data = data["message"]["data"]
-        message_json = json.loads(base64.b64decode(message_data).decode("utf-8"))
-    except Exception as e:
-        logging.error(f"Error parsing message data: {e}")
+    message_json = jsonify_pubsub(data)
+    if message_json is None:
         return "Invalid Pub/Sub message data."
 
     logging.info(f"Parsed message data: {message_json}")
