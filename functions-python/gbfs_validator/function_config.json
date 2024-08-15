@@ -1,5 +1,5 @@
 {
-  "name": "gbfs_validator",
+  "name": "gbfs-validator",
   "description": "Validate GBFS feeds",
   "entry_point": "gbfs_validator",
   "timeout": 540,

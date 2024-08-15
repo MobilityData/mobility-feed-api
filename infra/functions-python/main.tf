@@ -578,19 +578,29 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
 }
 
 # Grant permissions to the service account to publish to the pubsub topic
-resource "google_pubsub_topic_iam_binding" "functions_publisher" {
+resource "google_pubsub_topic_iam_member" "functions_publisher" {
+  for_each = {
+    dataset_updates = google_pubsub_topic.dataset_updates.name
+    validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
+  }
+
   project = var.project_id
   role    = "roles/pubsub.publisher"
-  topic   = google_pubsub_topic.dataset_updates.name
-  members = ["serviceAccount:${google_service_account.functions_service_account.email}"]
+  topic   = each.value
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # Grant permissions to the service account to subscribe to the pubsub topic
-resource "google_pubsub_topic_iam_binding" "functions_subscriber" {
+resource "google_pubsub_topic_iam_member" "functions_subscriber" {
+  for_each = {
+    dataset_updates = google_pubsub_topic.dataset_updates.name
+    validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
+  }
+
   project = var.project_id
   role    = "roles/pubsub.subscriber"
-  topic   = google_pubsub_topic.dataset_updates.name
-  members = ["serviceAccount:${google_service_account.functions_service_account.email}"]
+  topic   = each.value
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # Grant permissions to the service account to write/read in datastore

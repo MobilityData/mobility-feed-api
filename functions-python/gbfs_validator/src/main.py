@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import uuid
@@ -107,13 +108,18 @@ def gbfs_validator_batch(_):
         logging.info(f"Feed {gbfs_feed.stable_id} added to the batch.")
 
     # Publish to Pub/Sub topic
-    publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
+    try:
+        publisher = pubsub_v1.PublisherClient()
+        topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
 
-    for feed_data in feeds_data:
-        future = publisher.publish(topic_path, data=b"", **feed_data)
-        future.result()  # Ensure message was published
-        logging.info(f"Published feed {feed_data['stable_id']} to Pub/Sub.")
+        for feed_data in feeds_data:
+            message_data = json.dumps(feed_data).encode("utf-8")
+            future = publisher.publish(topic_path, message_data)
+            future.result()  # Ensure message was published
+            logging.info(f"Published feed {feed_data['stable_id']} to Pub/Sub.")
+    except Exception as e:
+        logging.error(f"Error publishing feeds to Pub/Sub: {e}")
+        return "Error publishing feeds to Pub/Sub.", 500
 
     return (
         f"GBFS Validator batch function triggered successfully for {len(feeds_data)} feeds.",
