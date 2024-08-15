@@ -101,7 +101,7 @@ function Component(): React.ReactElement {
           sx={{ textAlign: 'center', color: 'black', fontWeight: 700, mt: 4 }}
         >
           Currently serving over <span style={{ color: '#3859FA' }}>2000</span>{' '}
-          GTFS feeds from <span style={{ color: '#3859FA' }}>70</span>{' '}
+          transit data feeds from <span style={{ color: '#3859FA' }}>70</span>{' '}
           countries.
         </Typography>
         <Box
@@ -217,9 +217,13 @@ function Component(): React.ReactElement {
               mt: 5,
             }}
           >
-            The Mobility Database catalogs is a repository of 2000+ mobility
-            feeds across the world. It has over 150 updated feeds previously
-            unavailable on TransitFeeds (OpenMobilityData).
+            The Mobility Database is a directory of 2000+ mobility feeds across
+            the world. It has over 250 updated feeds previously unavailable on
+            TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
+            <a href='https://gtfs-validator.mobilitydata.org/'>
+              the Canonical GTFS Schedule Validator
+            </a>
+            .
             <br />
             <br />
             We’re in the first phase of building a sustainable, central hub for
