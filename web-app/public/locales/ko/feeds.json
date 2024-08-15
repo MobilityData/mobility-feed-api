@@ -1,0 +1,42 @@
+{
+   "feeds": "피드",
+   "dataType": "데이터 유형",
+   "transitProvider": "대중교통 제공자",
+   "location": "위치",
+   "feedDescription": "피드 설명",
+   "searchFor": "검색 대상",
+   "resultsFor": "{{startResult}}-{{endResult}}개 중 {{totalResults}}개 결과",
+   "deprecated": "더 이상 사용되지 않음",
+   "searchPlaceholder": "대중교통 제공자, 피드 이름 또는 위치",
+   "noResults": "죄송하지만 “{{activeSearch}}”에 대한 검색 결과가 없습니다.",
+   "searchSuggestions": "검색 제안: ",
+   "searchTips": {
+      "twoDigit": "국가를 검색하려면 두 자리 코드를 사용하세요. 예: 프랑스의 경우 \"FR\"",
+      "fullName": "대중교통의 전체 이름을 포함하세요. 제공자, 예: “TTC” 대신 “Toronto Transit Commission”",
+      "checkSpelling": "철자를 다시 확인하세요"
+   },
+   "errorAndContact": "인터넷 연결을 확인하고 다시 시도하세요. 문제가 지속되면 <1>저희에게 문의하세요.</1> 추가 지원이 필요하면",
+   "errorLoadingFeed": "피드를 로드하는 중 오류가 발생했습니다.",
+   "form": {
+      "addOrUpdateFeed": "피드 추가 또는 업데이트",
+      "signUp": "모빌리티 데이터베이스 계정에 가입하거나 로그인하여 GTFS 피드를 추가하거나 업데이트하세요.",
+      "signUpAction": "계정에 가입하세요",
+      "loginSuccess": "성공적으로 로그인되었습니다. 이제 피드를 추가하거나 업데이트할 수 있습니다."
+   },
+   "seeFullList": "전체 목록 보기",
+   "hideFullList": "전체 목록 숨기기",
+   "producerDownloadUrl": "제작자 다운로드 URL",
+   "copyDownloadUrl": "다운로드 URL 복사",
+   "producerUrlCopied": "제작자 URL이 클립보드에 복사되었습니다.",
+   "authenticationType": "인증 유형",
+   "registerToDownloadFeed": "등록 피드 다운로드",
+   "feedContactEmail": "피드 연락처 이메일",
+   "copyFeedContactEmail": "피드 연락처 이메일 복사",
+   "features": "기능",
+   "unableToDownloadFeed": "이 피드를 다운로드할 수 없습니다. 이 피드에 대한 최신 URL이 있으면 <1>여기에 제출해 주세요.</1> ",
+   "feedHasBeenReplaced": "이 피드는 다른 제작자 URL로 대체되었습니다.{' '}<1> 여기를 클릭하여 새 피드로 이동하세요.</1> .",
+   "downloadLatest": "최신 다운로드",
+   "seeLicense": "라이선스 보기",
+   "boundingBoxTitle": " stops.txt 의 경계 상자",
+   "unableToGenerateBoundingBox": "경계 상자를 생성할 수 없습니다."
+}

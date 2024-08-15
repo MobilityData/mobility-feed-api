@@ -1,0 +1,42 @@
+{
+   "feeds": "Feeds",
+   "dataType": "Tipo de datos",
+   "transitProvider": "Proveedor de tránsito",
+   "location": "Ubicación",
+   "feedDescription": "Descripción del feed",
+   "searchFor": "Buscar",
+   "resultsFor": "{{startResult}}-{{endResult}} de {{totalResults}} resultados",
+   "deprecated": "Obsoleto",
+   "searchPlaceholder": "Proveedor de tránsito, nombre del feed o ubicación",
+   "noResults": "Lo sentimos, no encontramos resultados de búsqueda para \"{{activeSearch}}\".",
+   "searchSuggestions": "Sugerencias de búsqueda: ",
+   "searchTips": {
+      "twoDigit": "Use un código de dos dígitos para buscar el país, p.ej., \"FR\" para Francia",
+      "fullName": "Incluya el nombre completo del proveedor de tránsito, p.ej., \"Toronto Transit Commission\" en lugar de \"TTC\"",
+      "checkSpelling": "Verifique la ortografía"
+   },
+   "errorAndContact": "Verifique su conexión a Internet e intente nuevamente. Si el problema persiste <1>contáctenos</1> para obtener más ayuda.",
+   "errorLoadingFeed": "Hubo un error al cargar el feed.",
+   "form": {
+      "addOrUpdateFeed": "Agregar o actualizar un feed",
+      "signUp": "Regístrese para obtener una cuenta de Mobility Database o inicie sesión para agregar o actualizar un feed GTFS.",
+      "signUpAction": "Regístrese para obtener una cuenta",
+      "loginSuccess": "Inició sesión correctamente, ahora puede agregar o actualizar un feed."
+   },
+   "seeFullList": "Ver la lista completa",
+   "hideFullList": "Ocultar la lista completa",
+   "producerDownloadUrl": "URL de descarga del productor",
+   "copyDownloadUrl": "Copiar URL de descarga",
+   "producerUrlCopied": "URL del productor copiada al portapapeles",
+   "authenticationType": "Tipo de autenticación",
+   "registerToDownloadFeed": "Regístrese para descargar el feed",
+   "feedContactEmail": "Correo electrónico de contacto del feed",
+   "copyFeedContactEmail": "Copiar correo electrónico de contacto del feed",
+   "funciones": "Características",
+   "unableToDownloadFeed": "No se puede descargar este feed. Si hay una URL más reciente para este feed, <1>envíela aquí</1>",
+   "feedHasBeenReplaced": "Este feed ha sido reemplazado por una URL de productor diferente.{' '}<1> Vaya al nuevo feed aquí</1>.",
+   "downloadLatest": "Descargar la última versión",
+   "seeLicense": "Ver licencia",
+   "boundingBoxTitle": "Cuadro delimitador de stops.txt",
+   "unableToGenerateBoundingBox": "No se puede generar el cuadro delimitador."
+}

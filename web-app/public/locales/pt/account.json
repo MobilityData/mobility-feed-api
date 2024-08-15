@@ -1,0 +1,47 @@
+{
+    "title": "Sua conta de API",
+    "userDetails": "Detalhes do usuário",
+    "description": "A API do Mobility Database usa autenticação OAuth2. Para iniciar uma solicitação de API bem-sucedida, um token de acesso deve ser incluído como um token portador no cabeçalho HTTP. Os tokens de acesso são válidos por uma hora. Para obter um token de acesso, você precisará primeiro de um token de atualização, que é duradouro e não expira.",
+    "support": "Se precisar de um token de atualização reemitido ou quiser que sua conta seja removida, envie um e-mail para",
+    "registerApiAnnouncements": "Registrado em anúncios de API",
+    "refreshToken": {
+       "title": "Token de atualização",
+       "description": "Use seu token de atualização para se conectar à API em seu aplicativo.",
+       "placeholder": "Seu token de atualização está oculto",
+       "yourToken": "Seu token de atualização",
+       "toggleVisibility": "Alternar visibilidade do token de atualização",
+       "copy": "Copiar token de atualização",
+       "copyToClipboard": "Copiar token de atualização para a área de transferência"
+    },
+    "accessToken": {
+       "title": "Como gerar o token de acesso em seu aplicativo",
+       "description": {
+          "pt1": "Seguir",
+          "cta": "nossa documentação OpenAPI",
+          "pt2": "para autenticar sua conta com o token de atualização."
+       },
+       "generate": "Gerar token de acesso",
+       "copyToken": "Copiar token de acesso",
+       "copyTokenToClipboard": "Copiar token de acesso para a área de transferência",
+       "copy": "Copiar o comando CLI para gerar um token de acesso.",
+       "yourToken": "Seu token de acesso",
+       "refreshing": "Atualizando token de acesso...",
+       "refresh": "Atualizar token de acesso",
+       "refreshSuccess": "Seu token de acesso foi atualizado com sucesso!",
+       "testing": {
+            "title": "Token de acesso para Testando",
+            "description": {
+                "pt1": "Quer um teste rápido? Copie o token de acesso abaixo para testar endpoints em nossa",
+                "cta": "Documentação OpenAPI",
+                "pt2": ". Os tokens de acesso são válidos por uma hora."
+            },
+            "api": "Teste de API",
+            "copyCli": "Copie o comando CLI para testar seu acesso à API."
+       },
+       "toggleVisibility": "Alternar visibilidade do token de acesso",
+       "expired": "Token expirado",
+       "willExpireIn": "Seu token irá expirar em {{timeLeftForTokenExpiration}}",
+       "hidden": "Seu token de acesso está oculto",
+       "unavailable": "Seu token não está disponível"
+    }
+}
