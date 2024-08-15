@@ -17,6 +17,7 @@
     "@turf/center": "^6.5.0",
     "@types/i18next": "^13.0.0",
     "@types/leaflet": "^1.9.12",
+    "country-code-emoji": "^2.3.0",
     "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",
     "firebase": "^10.4.0",
