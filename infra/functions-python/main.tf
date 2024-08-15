@@ -477,6 +477,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
     ingress_settings = "ALLOW_ALL"
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    environment_variables = {
+      ENV = var.environment
+      BUCKET_NAME = "${var.gbfs_bucket_name}-${var.environment}"
+    }
     dynamic "secret_environment_variables" {
       for_each = local.function_gbfs_validation_report_config.secret_environment_variables
       content {
@@ -524,6 +528,15 @@ resource "google_project_iam_member" "event-receiving" {
 resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
   bucket = "${var.datasets_bucket_name}-${var.environment}"
   role   = "roles/storage.objectViewer"
+  members = [
+    "serviceAccount:${google_service_account.functions_service_account.email}"
+  ]
+}
+
+# Grant write access to the gbfs bucket for the service account
+resource "google_storage_bucket_iam_binding" "gbfs_bucket_object_creator" {
+  bucket = "${var.gbfs_bucket_name}-${var.environment}"
+  role   = "roles/storage.objectCreator"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
   ]

@@ -2,18 +2,24 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime
 
 import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
 from sqlalchemy.orm import joinedload
-
+import requests
 from database_gen.sqlacodegen_models import Gbfsfeed
 from helpers.database import start_db_session
 from helpers.logger import Logger
 from helpers.parser import jsonify_pubsub
+from helpers.utils import create_bucket
+from google.cloud import storage
 
 logging.basicConfig(level=logging.INFO)
+
+BUCKET_NAME_PREFIX = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots")
+ENV = os.getenv("ENV", "dev")
 
 
 def get_all_gbfs_feeds():
@@ -37,6 +43,50 @@ def get_all_gbfs_feeds():
 
 
 @functions_framework.cloud_event
+def fetch_gbfs_files(url):
+    """Fetch the GBFS files from the autodiscovery URL."""
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()
+
+
+def store_gbfs_file_in_bucket(bucket, file_url, destination_blob_name):
+    """Store a GBFS file in a Cloud Storage bucket."""
+    response = requests.get(file_url)
+    response.raise_for_status()
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_string(response.content)
+    blob.make_public()
+    return blob.public_url
+
+
+def generate_new_gbfs_json(bucket, gbfs_data, stable_id):
+    """Generate a new gbfs.json with paths pointing to Cloud Storage."""
+    new_gbfs_data = gbfs_data.copy()
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    for feed_key, feed in new_gbfs_data["data"].items():
+        if isinstance(feed["feeds"], dict):
+            # Case when 'feeds' is a dictionary keyed by language
+            for feed_language, feed_info in feed["feeds"].items():
+                old_url = feed_info["url"]
+                blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}_{feed_language}.json"
+                new_url = store_gbfs_file_in_bucket(bucket, old_url, blob_name)
+                feed_info["url"] = new_url
+        elif isinstance(feed["feeds"], list):
+            # Case when 'feeds' is a list without language codes
+            for feed_info in feed["feeds"]:
+                old_url = feed_info["url"]
+                blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}.json"
+                new_url = store_gbfs_file_in_bucket(bucket, old_url, blob_name)
+                feed_info["url"] = new_url
+        else:
+            logging.warning(f"Unexpected format in feed: {feed_key}")
+
+    return new_gbfs_data
+
+
+@functions_framework.cloud_event
 def gbfs_validator_pubsub(cloud_event: CloudEvent):
     """
     Main function triggered by a Pub/Sub message to validate a GBFS feed.
@@ -51,17 +101,58 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         maximum_executions = 1
     logging.info(f"Maximum allowed executions: {maximum_executions}")
 
-    message_json = jsonify_pubsub(cloud_event)
+    message_json = jsonify_pubsub(data)
     if message_json is None:
         return "Invalid Pub/Sub message data."
     logging.info(f"Parsed message data: {message_json}")
+    try:
+        execution_id, stable_id, url, latest_version = (
+            message_json["execution_id"],
+            message_json["stable_id"],
+            message_json["url"],
+            message_json["latest_version"],
+        )
+    except KeyError:
+        return (
+            "Invalid Pub/Sub message data. "
+            "Missing required field(s) execution_id, stable_id, url, or latest_version."
+        )
+    logging.info(f"Execution ID: {execution_id}")
+    logging.info(f"Stable ID: {stable_id}")
+    logging.info(f"URL: {url}")
+    logging.info(f"Latest version: {latest_version}")
 
-    # TODO: 1. Parse the CloudEvent data to extract the feed information
-    # TODO: 2. Store all gbfs file and generate new gbfs.json and store it as well
+    bucket_name = f"{BUCKET_NAME_PREFIX}-{ENV}"
+    logging.info(f"Bucket name: {bucket_name}")
+    create_bucket(bucket_name)
+
+    # Step 2: Store all gbfs files and generate new gbfs.json
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    try:
+        gbfs_data = fetch_gbfs_files(url)
+    except Exception as e:
+        logging.error(f"Error fetching data from autodiscovery URL: {e}")
+        return "Error fetching data from autodiscovery URL."
+    try:
+        new_gbfs_json = generate_new_gbfs_json(bucket, gbfs_data, stable_id)
+    except Exception as e:
+        logging.error(f"Error generating new gbfs.json: {e}")
+        return "Error generating new gbfs.json."
+
+    # Store the new gbfs.json in the bucket
+    today = datetime.now().strftime("%Y-%m-%d")
+    new_gbfs_blob = bucket.blob(f"{stable_id}/{stable_id}-{today}/gbfs.json")
+    new_gbfs_blob.upload_from_string(
+        json.dumps(new_gbfs_json), content_type="application/json"
+    )
+    logging.info(f"Stored new gbfs.json at {new_gbfs_blob.public_url}")
+
     # TODO: 2.5. Store gbfs snapshot information in the database
     # TODO: 3. Validate the feed's version otherwise add a version to the feed
     # TODO: 4. Validate the feed (summary) and store the results in the database
-    return
+
+    return "GBFS files processed and stored successfully.", 200
 
 
 @functions_framework.http

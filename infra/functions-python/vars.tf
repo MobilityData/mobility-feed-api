@@ -52,3 +52,9 @@ variable "web_validator_url" {
   description = "URL of the web validator"
   default = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
 }
+
+variable "gbfs_bucket_name" {
+    type        = string
+    description = "Name of the bucket where the GBFS feeds are stored"
+    default     = "mobilitydata-gbfs-snapshots"
+}
