@@ -17,8 +17,8 @@ import {
   type GTFSFeedType,
   type GTFSRTFeedType,
   type AllFeedsType,
+  getLocationName,
 } from '../../services/feeds/utils';
-import { type FeedLocations } from '../../types';
 import BusAlertIcon from '@mui/icons-material/BusAlert';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -73,25 +73,6 @@ export const getDataTypeElement = (
       </DataTypeHolder>
     );
   }
-};
-
-const getLocationName = (locations: FeedLocations): string => {
-  if (locations?.[0] === undefined) {
-    return '';
-  }
-  const firstLocation = locations[0];
-  const municipality =
-    firstLocation.municipality !== undefined &&
-    firstLocation.municipality !== null
-      ? `${firstLocation.municipality}, `
-      : '';
-  const subdivison =
-    firstLocation.subdivision_name !== undefined &&
-    firstLocation.subdivision_name !== null
-      ? `${firstLocation.subdivision_name}, `
-      : '';
-  const countryCode = firstLocation.country_code ?? '';
-  return municipality + subdivison + countryCode;
 };
 
 export default function SearchTable({

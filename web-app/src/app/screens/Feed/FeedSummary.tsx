@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
+  getLocationName,
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
@@ -75,12 +76,7 @@ export default function FeedSummary({
           {t('location')}
         </Typography>
         <Typography variant='body1' data-testid='location'>
-          {feed?.locations !== undefined
-            ? Object.values(feed?.locations[0])
-                .filter((v) => v !== null)
-                .reverse()
-                .join(', ')
-            : ''}
+          {getLocationName(feed?.locations)}
         </Typography>
       </Box>
       <Box sx={boxElementStyle}>
