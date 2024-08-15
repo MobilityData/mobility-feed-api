@@ -5,16 +5,16 @@ import uuid
 from datetime import datetime
 
 import functions_framework
+import requests
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1
+from google.cloud import storage
 from sqlalchemy.orm import joinedload
-import requests
+
 from database_gen.sqlacodegen_models import Gbfsfeed
 from helpers.database import start_db_session
 from helpers.logger import Logger
 from helpers.parser import jsonify_pubsub
-from helpers.utils import create_bucket
-from google.cloud import storage
 
 logging.basicConfig(level=logging.INFO)
 
