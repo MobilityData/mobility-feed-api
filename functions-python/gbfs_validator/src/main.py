@@ -18,8 +18,7 @@ from google.cloud import storage
 
 logging.basicConfig(level=logging.INFO)
 
-BUCKET_NAME_PREFIX = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots")
-ENV = os.getenv("ENV", "dev")
+BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
 
 
 def get_all_gbfs_feeds():
@@ -122,13 +121,9 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
     logging.info(f"URL: {url}")
     logging.info(f"Latest version: {latest_version}")
 
-    bucket_name = f"{BUCKET_NAME_PREFIX}-{ENV}"
-    logging.info(f"Bucket name: {bucket_name}")
-    create_bucket(bucket_name)
-
     # Step 2: Store all gbfs files and generate new gbfs.json
     storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
+    bucket = storage_client.bucket(BUCKET_NAME)
     try:
         gbfs_data = fetch_gbfs_files(url)
     except Exception as e:

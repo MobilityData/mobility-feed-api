@@ -67,6 +67,11 @@ resource "google_storage_bucket" "functions_bucket" {
   location = "us"
 }
 
+resource "google_storage_bucket" "gbfs_snapshots_bucket" {
+  location = "us"
+  name     = "${var.gbfs_bucket_name}-${var.environment}"
+}
+
 # Cloud function source code zip files:
 # 1. Tokens
 resource "google_storage_bucket_object" "function_token_zip" {
@@ -479,7 +484,7 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     environment_variables = {
       ENV = var.environment
-      BUCKET_NAME = "${var.gbfs_bucket_name}-${var.environment}"
+      BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_gbfs_validation_report_config.secret_environment_variables
@@ -535,7 +540,7 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 
 # Grant write access to the gbfs bucket for the service account
 resource "google_storage_bucket_iam_binding" "gbfs_bucket_object_creator" {
-  bucket = "${var.gbfs_bucket_name}-${var.environment}"
+  bucket = google_storage_bucket.gbfs_snapshots_bucket.name
   role   = "roles/storage.objectCreator"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
