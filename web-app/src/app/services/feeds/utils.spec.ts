@@ -1,6 +1,6 @@
-import { getLocationName, type FeedLocation } from './utils';
+import { getLocationName, type EntityLocations } from './utils';
 
-const mockLocationMultiple: FeedLocation = [
+const mockLocationMultiple: EntityLocations = [
   {
     country_code: 'US',
     country: 'United States',
@@ -15,7 +15,7 @@ const mockLocationMultiple: FeedLocation = [
   },
 ];
 
-const mockLocationSingle: FeedLocation = [
+const mockLocationSingle: EntityLocations = [
   {
     country_code: 'US',
     country: 'United States',
@@ -24,7 +24,7 @@ const mockLocationSingle: FeedLocation = [
   },
 ];
 
-const mockLocationMultipleMinimal: FeedLocation = [
+const mockLocationMultipleMinimal: EntityLocations = [
   {
     country_code: 'ES',
     country: 'Spain',

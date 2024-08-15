@@ -4,7 +4,7 @@ import { type paths, type components } from './types';
 export type AllFeedsType =
   paths['/v1/search']['get']['responses'][200]['content']['application/json'];
 
-export type FeedLocation = components['schemas']['Locations'];
+export type EntityLocations = components['schemas']['Locations'];
 
 export type AllFeedsParams = paths['/v1/search']['get']['parameters'];
 
@@ -49,7 +49,9 @@ export type AllDatasetType =
   | paths['/v1/datasets/gtfs/{id}']['get']['responses'][200]['content']['application/json']
   | undefined;
 
-export function getLocationName(locations: FeedLocation | undefined): string {
+export function getLocationName(
+  locations: EntityLocations | undefined,
+): string {
   if (locations === undefined) {
     return '';
   }
