@@ -18,7 +18,7 @@
        "description": {
           "pt1": "Siga",
           "cta": "nuestra documentación de OpenAPI",
-          "pt2": "para autenticar su cuenta con el token de actualización".
+          "pt2": "para autenticar su cuenta con el token de actualización."
        },
        "generate": "Generar acceso Token",
        "copyToken": "Copiar token de acceso",
