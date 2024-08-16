@@ -16,7 +16,8 @@ from dataset_service.main import (
     DatasetTraceService,
     DatasetTrace,
     Status,
-    PipelineStage, MaxExecutionsReachedError,
+    PipelineStage,
+    MaxExecutionsReachedError,
 )
 from helpers.database import start_db_session
 from helpers.logger import Logger
