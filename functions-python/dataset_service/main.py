@@ -85,11 +85,15 @@ class DatasetTraceService:
     def validate_and_save(self, dataset_trace: DatasetTrace, max_executions: int = 1):
         if dataset_trace.execution_id is None or dataset_trace.stable_id is None:
             raise ValueError("Execution ID and Stable ID are required.")
-        trace = self.get_by_execution_and_stable_ids(dataset_trace.execution_id, dataset_trace.stable_id)
+        trace = self.get_by_execution_and_stable_ids(
+            dataset_trace.execution_id, dataset_trace.stable_id
+        )
         executions = len(trace) if trace else 0
         logging.info(f"[{dataset_trace.stable_id}] Executions: {executions}")
         if executions > 0 and executions >= max_executions:
-            raise MaxExecutionsReachedError(f"Maximum executions reached for {dataset_trace.stable_id}.")
+            raise MaxExecutionsReachedError(
+                f"Maximum executions reached for {dataset_trace.stable_id}."
+            )
         self.save(dataset_trace)
 
     # Save the dataset trace
@@ -109,7 +113,7 @@ class DatasetTraceService:
 
     # Get the dataset trace by execution id and stable id
     def get_by_execution_and_stable_ids(
-            self, execution_id: str, stable_id: str
+        self, execution_id: str, stable_id: str
     ) -> [DatasetTrace]:
         query = self.client.query(kind=dataset_trace_collection)
         query.add_filter("execution_id", "=", execution_id)
