@@ -28,6 +28,7 @@
     "leaflet": "^1.9.4",
     "openapi-fetch": "^0.9.3",
     "react": "^17.0.0 || ^18.0.0",
+    "react-animated-numbers": "^0.18.0",
     "react-dom": "^17.0.0 || ^18.0.0",
     "react-ga4": "^2.1.0",
     "react-google-recaptcha": "^3.1.0",

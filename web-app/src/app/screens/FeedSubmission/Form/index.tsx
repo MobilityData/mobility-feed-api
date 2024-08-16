@@ -111,7 +111,7 @@ export default function FeedSubmissionForm({
   ): void => {
     const finalData = { ...formData, ...partialFormData };
     setFormData(finalData);
-    console.log('FINAL API CALL WITH', finalData);
+    // console.log('FINAL API CALL WITH', finalData);
     // TODO: API call with finalData
     // TODO: loading state of API call
     // TODO: feed submitted page
