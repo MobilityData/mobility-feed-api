@@ -12,7 +12,7 @@ from google.cloud import pubsub_v1
 from google.cloud import storage
 from sqlalchemy.orm import joinedload
 
-from database_gen.sqlacodegen_models import Gbfsfeed, Gbfssnapshot
+from database_gen.sqlacodegen_models import Gbfsfeed, Gbfssnapshot, Gbfsvalidationreport, Gbfsnotice
 from helpers.database import start_db_session
 from helpers.logger import Logger
 from helpers.parser import jsonify_pubsub
@@ -27,6 +27,8 @@ from dataset_service.main import (
 logging.basicConfig(level=logging.INFO)
 
 BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
+VALIDATOR_URL = os.getenv("VALIDATOR_URL",
+                          "https://gbfs-validator.mobilitydata.org/.netlify/functions/validator-summary")
 
 
 def fetch_all_gbfs_feeds() -> List[Gbfsfeed]:
@@ -57,7 +59,7 @@ def fetch_gbfs_files(url: str) -> Dict[str, Any]:
 
 
 def upload_gbfs_file_to_bucket(
-    bucket: storage.Bucket, file_url: str, destination_blob_name: str
+        bucket: storage.Bucket, file_url: str, destination_blob_name: str
 ) -> str:
     """Upload a GBFS file to a Cloud Storage bucket."""
     response = requests.get(file_url)
@@ -70,8 +72,8 @@ def upload_gbfs_file_to_bucket(
 
 
 def create_gbfs_json_with_bucket_paths(
-    bucket: storage.Bucket, gbfs_data: Dict[str, Any], stable_id: str
-) -> None:
+        bucket: storage.Bucket, gbfs_data: Dict[str, Any], stable_id: str
+) -> str:
     """
     Create a new gbfs.json with paths pointing to Cloud Storage and upload it.
     @param bucket: The Cloud Storage bucket.
@@ -191,19 +193,57 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         downloaded_at=datetime.now(),
         hosted_url=hosted_url,
     )
-    session = None
+
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        session.add(snapshot)
-        session.commit()
     except Exception as e:
         logging.error(f"Error storing GBFS snapshot in the database: {e}")
         return "Error storing GBFS snapshot in the database."
-    finally:
-        if session:
-            session.close()
     # TODO: 4. Validate the feed's version otherwise add a version to the feed
     # TODO: 5. Validate the feed (summary) and store the results in the database
+
+    try:
+        json_payload = {"url": hosted_url}
+        response = requests.post(VALIDATOR_URL, json=json_payload)
+        response.raise_for_status()
+        logging.info(f"GBFS feed {hosted_url} validated successfully.")
+        json_report_summary = response.json()
+        logging.info(f"Validation summary: {json_report_summary}")
+        # Store in GCP
+        report_summary_blob = bucket.blob(f"{stable_id}/{stable_id}-{today}/report_summary.json")
+        report_summary_blob.upload_from_string(
+            json.dumps(json_report_summary), content_type="application/json"
+        )
+        report_summary_blob.make_public()
+        # Store in database
+        validation_report = Gbfsvalidationreport(
+            id=f"{uuid.uuid4()}",
+            gbfs_snapshot_id=snapshot_id,
+            validated_at=datetime.now(),
+            report_summary_url=report_summary_blob.public_url,
+        )
+        validation_report.gbfsnotices = []
+        if 'filesSummary' in json_report_summary:
+            for file_summary in json_report_summary['filesSummary']:
+                logging.info(f"File summary: {file_summary}")
+                if file_summary['hasErrors']:
+                    for error in file_summary['groupedErrors']:
+                        logging.error(f"Error: {error}")
+                        notice = Gbfsnotice(
+                            keyword=error['keyword'],
+                            message=error['message'],
+                            schema_path=error['schemaPath'],
+                            gbfs_file=file_summary['file'],
+                            validation_report_id=validation_report.id,
+                            count=error['count'],
+                        )
+                        validation_report.gbfsnotices.append(notice)
+        snapshot.gbfsvalidationreports = [validation_report]
+        session.add(snapshot)
+
+    except Exception as e:
+        logging.error(f"Error validating GBFS feed: {e}")
+        return "Error validating GBFS feed."
 
     return "GBFS files processed and stored successfully.", 200
 

@@ -1,0 +1,138 @@
+{
+  "summary": {
+    "validatorVersion": "1.0.12",
+    "version": {
+      "detected": "2.3",
+      "validated": "2.3"
+    },
+    "hasErrors": true,
+    "errorsCount": 990
+  },
+  "filesSummary": [
+    {
+      "required": true,
+      "exists": true,
+      "file": "gbfs.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": true,
+      "file": "gbfs_versions.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": true,
+      "exists": true,
+      "file": "system_information.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": true,
+      "file": "vehicle_types.json",
+      "hasErrors": true,
+      "errorsCount": 4,
+      "groupedErrors": [
+        {
+          "keyword": "enum",
+          "message": "must be equal to one of the allowed values",
+          "schemaPath": "#/properties/data/properties/vehicle_types/items/properties/default_pricing_plan_id/enum",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "required": false,
+      "exists": true,
+      "file": "station_information.json",
+      "hasErrors": true,
+      "errorsCount": 984,
+      "groupedErrors": [
+        {
+          "keyword": "enum",
+          "message": "must be equal to one of the allowed values",
+          "schemaPath": "#/properties/data/properties/stations/items/properties/rental_methods/items/enum",
+          "count": 984
+        }
+      ]
+    },
+    {
+      "required": false,
+      "exists": true,
+      "file": "station_status.json",
+      "hasErrors": true,
+      "errorsCount": 2,
+      "groupedErrors": [
+        {
+          "keyword": "required",
+          "message": "must have required property 'last_reported'",
+          "schemaPath": "#/properties/data/properties/stations/items/required",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "required": false,
+      "exists": false,
+      "file": "free_bike_status.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": false,
+      "file": "system_hours.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": false,
+      "file": "system_calendar.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": true,
+      "file": "system_regions.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": true,
+      "file": "system_pricing_plans.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": false,
+      "file": "system_alerts.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    },
+    {
+      "required": false,
+      "exists": true,
+      "file": "geofencing_zones.json",
+      "hasErrors": false,
+      "errorsCount": 0,
+      "groupedErrors": []
+    }
+  ]
+}
