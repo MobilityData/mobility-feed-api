@@ -16,7 +16,7 @@ from dataset_service.main import (
     DatasetTraceService,
     DatasetTrace,
     Status,
-    PipelineStage,
+    PipelineStage, MaxExecutionsReachedError,
 )
 from helpers.database import start_db_session
 from helpers.logger import Logger
@@ -86,17 +86,6 @@ def extract_location_pubsub(cloud_event: CloudEvent):
         execution_id = str(uuid.uuid4())
         logging.info(f"[{dataset_id}] Generated execution ID: {execution_id}")
     trace_service = DatasetTraceService()
-    trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
-    logging.info(f"[{dataset_id}] Trace: {trace}")
-    executions = len(trace) if trace else 0
-    print(f"[{dataset_id}] Executions: {executions}")
-    print(trace_service.get_by_execution_and_stable_ids(execution_id, stable_id))
-    logging.info(f"[{dataset_id}] Executions: {executions}")
-    if executions > 0 and executions >= maximum_executions:
-        logging.warning(
-            f"[{dataset_id}] Maximum executions reached. Skipping processing."
-        )
-        return f"Maximum executions reached for {dataset_id}."
     trace_id = str(uuid.uuid4())
     error = None
     # Saving trace before starting in case we run into memory problems or uncatchable errors
@@ -110,7 +99,14 @@ def extract_location_pubsub(cloud_event: CloudEvent):
         dataset_id=dataset_id,
         pipeline_stage=PipelineStage.LOCATION_EXTRACTION,
     )
-    trace_service.save(trace)
+    try:
+        trace_service.validate_and_save(trace, maximum_executions)
+    except ValueError as e:
+        logging.error(f"[{dataset_id}] Error while saving trace: {e}")
+        return f"Error while saving trace: {e}"
+    except MaxExecutionsReachedError as e:
+        logging.warning(f"[{dataset_id}] {e}")
+        return f"{e}"
     try:
         logging.info(f"[{dataset_id}] accessing url: {url}")
         try:

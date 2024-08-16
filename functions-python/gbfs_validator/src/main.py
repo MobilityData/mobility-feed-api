@@ -3,6 +3,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
+from typing import List, Dict, Any
 
 import functions_framework
 import requests
@@ -15,42 +16,44 @@ from database_gen.sqlacodegen_models import Gbfsfeed
 from helpers.database import start_db_session
 from helpers.logger import Logger
 from helpers.parser import jsonify_pubsub
+from dataset_service.main import DatasetTraceService, DatasetTrace, Status, PipelineStage, MaxExecutionsReachedError
 
 logging.basicConfig(level=logging.INFO)
 
 BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
 
 
-def get_all_gbfs_feeds():
+def fetch_all_gbfs_feeds() -> List[Gbfsfeed]:
     """
-    Get all GBFS feeds from the database.
+    Fetch all GBFS feeds from the database.
     @return: A list of all GBFS feeds.
     """
     session = None
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         gbfs_feeds = (
-            session.query(Gbfsfeed).options(joinedload(Gbfsfeed.gbfsversions)).all()
+            session.query(Gbfsfeed)
+            .options(joinedload(Gbfsfeed.gbfsversions))
+            .all()
         )
         return gbfs_feeds
     except Exception as e:
-        logging.error(f"Error getting all GBFS feeds: {e}")
+        logging.error(f"Error fetching all GBFS feeds: {e}")
         raise e
     finally:
         if session:
             session.close()
 
 
-@functions_framework.cloud_event
-def fetch_gbfs_files(url):
+def fetch_gbfs_files(url: str) -> Dict[str, Any]:
     """Fetch the GBFS files from the autodiscovery URL."""
     response = requests.get(url)
     response.raise_for_status()
     return response.json()
 
 
-def store_gbfs_file_in_bucket(bucket, file_url, destination_blob_name):
-    """Store a GBFS file in a Cloud Storage bucket."""
+def upload_gbfs_file_to_bucket(bucket: storage.Bucket, file_url: str, destination_blob_name: str) -> str:
+    """Upload a GBFS file to a Cloud Storage bucket."""
     response = requests.get(file_url)
     response.raise_for_status()
     blob = bucket.blob(destination_blob_name)
@@ -59,8 +62,8 @@ def store_gbfs_file_in_bucket(bucket, file_url, destination_blob_name):
     return blob.public_url
 
 
-def generate_new_gbfs_json(bucket, gbfs_data, stable_id):
-    """Generate a new gbfs.json with paths pointing to Cloud Storage."""
+def create_gbfs_json_with_bucket_paths(bucket: storage.Bucket, gbfs_data: Dict[str, Any], stable_id: str) -> None:
+    """Create a new gbfs.json with paths pointing to Cloud Storage and upload it."""
     new_gbfs_data = gbfs_data.copy()
     today = datetime.now().strftime("%Y-%m-%d")
 
@@ -70,19 +73,23 @@ def generate_new_gbfs_json(bucket, gbfs_data, stable_id):
             for feed_language, feed_info in feed["feeds"].items():
                 old_url = feed_info["url"]
                 blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}_{feed_language}.json"
-                new_url = store_gbfs_file_in_bucket(bucket, old_url, blob_name)
+                new_url = upload_gbfs_file_to_bucket(bucket, old_url, blob_name)
                 feed_info["url"] = new_url
         elif isinstance(feed["feeds"], list):
             # Case when 'feeds' is a list without language codes
             for feed_info in feed["feeds"]:
                 old_url = feed_info["url"]
                 blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}.json"
-                new_url = store_gbfs_file_in_bucket(bucket, old_url, blob_name)
+                new_url = upload_gbfs_file_to_bucket(bucket, old_url, blob_name)
                 feed_info["url"] = new_url
         else:
             logging.warning(f"Unexpected format in feed: {feed_key}")
 
-    return new_gbfs_data
+    # Save the new gbfs.json in the bucket
+    new_gbfs_data["last_updated"] = today
+    new_gbfs_blob = bucket.blob(f"{stable_id}/{stable_id}-{today}/gbfs.json")
+    new_gbfs_blob.upload_from_string(json.dumps(new_gbfs_data), content_type="application/json")
+    new_gbfs_blob.make_public()
 
 
 @functions_framework.cloud_event
@@ -121,31 +128,43 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
     logging.info(f"URL: {url}")
     logging.info(f"Latest version: {latest_version}")
 
-    # Step 2: Store all gbfs files and generate new gbfs.json
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(BUCKET_NAME)
+    trace_service = DatasetTraceService()
+    trace_id = str(uuid.uuid4())
+    trace = DatasetTrace(
+        trace_id=trace_id,
+        stable_id=stable_id,
+        execution_id=execution_id,
+        status=Status.PROCESSING,
+        timestamp=datetime.now(),
+        pipeline_stage=PipelineStage.GBFS_VALIDATION,
+    )
     try:
+        trace_service.validate_and_save(trace, maximum_executions)
+    except ValueError as e:
+        logging.error(f"Error saving trace: {e}")
+        return "Error saving trace."
+    except MaxExecutionsReachedError:
+        logging.error(f"Maximum executions reached for {stable_id}.")
+        return "Maximum executions reached."
+
+    # Step 2: Store all gbfs files and generate new gbfs.json
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(BUCKET_NAME)
         gbfs_data = fetch_gbfs_files(url)
     except Exception as e:
         logging.error(f"Error fetching data from autodiscovery URL: {e}")
         return "Error fetching data from autodiscovery URL."
     try:
-        new_gbfs_json = generate_new_gbfs_json(bucket, gbfs_data, stable_id)
+        create_gbfs_json_with_bucket_paths(bucket, gbfs_data, stable_id)
     except Exception as e:
         logging.error(f"Error generating new gbfs.json: {e}")
         return "Error generating new gbfs.json."
 
-    # Store the new gbfs.json in the bucket
-    today = datetime.now().strftime("%Y-%m-%d")
-    new_gbfs_blob = bucket.blob(f"{stable_id}/{stable_id}-{today}/gbfs.json")
-    new_gbfs_blob.upload_from_string(
-        json.dumps(new_gbfs_json), content_type="application/json"
-    )
-    logging.info(f"Stored new gbfs.json at {new_gbfs_blob.public_url}")
+    # Step 3: Store gbfs snapshot information in the database
 
-    # TODO: 2.5. Store gbfs snapshot information in the database
-    # TODO: 3. Validate the feed's version otherwise add a version to the feed
-    # TODO: 4. Validate the feed (summary) and store the results in the database
+    # TODO: 4. Validate the feed's version otherwise add a version to the feed
+    # TODO: 5. Validate the feed (summary) and store the results in the database
 
     return "GBFS files processed and stored successfully.", 200
 
@@ -166,7 +185,7 @@ def gbfs_validator_batch(_):
 
     # Get all GBFS feeds from the database
     try:
-        gbfs_feeds = get_all_gbfs_feeds()
+        gbfs_feeds = fetch_all_gbfs_feeds()
     except Exception:
         return "Error getting all GBFS feeds.", 500
 
