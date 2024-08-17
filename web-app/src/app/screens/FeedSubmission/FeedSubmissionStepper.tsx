@@ -27,13 +27,13 @@ export default function FeedSubmissionStepper(): React.ReactElement {
   return (
     <Box sx={{ width: '100%', px: 5 }}>
       <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
-        {steps.map((label) => {
+        {steps.map((label, index) => {
           const stepProps: { completed?: boolean } = {};
           const labelProps: {
             optional?: React.ReactNode;
           } = {};
           return (
-            <Step key={label} {...stepProps}>
+            <Step key={index} {...stepProps}>
               <StepLabel {...labelProps}>{label}</StepLabel>
             </Step>
           );

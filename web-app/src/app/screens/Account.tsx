@@ -341,7 +341,7 @@ export default function APIAccount(): React.ReactElement {
           </Typography>
           <Typography variant='body1'>
             {user?.email !== undefined && user?.email !== '' ? (
-              <Typography variant='body1'>
+              <Typography variant='body1' component={'span'}>
                 <b>{t('common:email')}:</b>{' '}
                 {' ' + user?.email ?? t('common:unknown')}
               </Typography>
@@ -484,21 +484,21 @@ export default function APIAccount(): React.ReactElement {
               {t('accessToken.description.pt2')}
             </Typography>
             <Paper elevation={3} id='code-block'>
-              <div
-                style={{
+              <Box
+                sx={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   marginBottom: '10px',
                 }}
               >
-                <div>
+                <Box>
                   <Typography variant='h6'>
                     {t('accessToken.generate')}
                   </Typography>
 
                   <Typography>{t('accessToken.copy')}</Typography>
-                </div>
+                </Box>
                 <Tooltip title={accountState.codeBlockTooltip}>
                   <IconButton
                     color='inherit'
@@ -512,7 +512,7 @@ export default function APIAccount(): React.ReactElement {
                     <ContentCopyOutlined fontSize='small' />
                   </IconButton>
                 </Tooltip>
-              </div>
+              </Box>
               <Typography id='code-block-content'>
                 <span style={{ ...theme.mixins.code.command }}>curl</span>{' '}
                 --location &apos;{apiURL}/tokens&apos;
@@ -687,21 +687,21 @@ export default function APIAccount(): React.ReactElement {
               </Box>
             )}
             <Paper elevation={3} id='code-block'>
-              <div
-                style={{
+              <Box
+                sx={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   marginBottom: '10px',
                 }}
               >
-                <div>
+                <Box>
                   <Typography variant='h6'>
                     {t('accessToken.testing.api')}
                   </Typography>
 
                   <Typography>{t('accessToken.testing.copyCli')}</Typography>
-                </div>
+                </Box>
                 <Tooltip title={accountState.codeBlockTooltip}>
                   <IconButton
                     color='inherit'
@@ -715,7 +715,7 @@ export default function APIAccount(): React.ReactElement {
                     <ContentCopyOutlined fontSize='small' />
                   </IconButton>
                 </Tooltip>
-              </div>
+              </Box>
               <Typography id='code-block-content'>
                 <span style={{ color: '#ff79c6', fontWeight: 'bold' }}>
                   curl
