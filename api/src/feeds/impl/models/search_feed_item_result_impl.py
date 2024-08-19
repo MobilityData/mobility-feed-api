@@ -77,9 +77,10 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
 
     @classmethod
     def _translate_locations(cls, feed_search_row):
+        """Translate location information in the feed search row.
+        This method modifies the locations in the feed search row in place."""
         if feed_search_row.locations is None:
             return
-        """Translate location information in the feed search row."""
         country_translations = cls._create_translation_dict(feed_search_row.country_translations)
         subdivision_translations = cls._create_translation_dict(feed_search_row.subdivision_name_translations)
         municipality_translations = cls._create_translation_dict(feed_search_row.municipality_translations)
