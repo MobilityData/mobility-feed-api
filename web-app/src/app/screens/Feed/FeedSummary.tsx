@@ -230,7 +230,7 @@ export default function FeedSummary({
               gutterBottom
               sx={{ fontWeight: 'bold' }}
             >
-              {t('feedContactEmail')}:
+              {t('feedContactEmail')}
             </Typography>
             {feed?.feed_contact_email !== undefined &&
               feed?.feed_contact_email.length > 0 && (
