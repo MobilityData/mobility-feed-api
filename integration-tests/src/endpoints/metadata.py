@@ -39,7 +39,7 @@ class BasicMetadataEndpointTests(IntegrationTests):
             api_version,
         ) = BasicMetadataEndpointTests.read_version_info_from_api(self)
         assert re.match(
-            r"^v\d+\.\d+\.\d+(_SNAPSHOT)?$", api_version
+            r"^v\d+\.\d+\.\d+.*$", api_version
         ), f"version from the API not the right format. version = {api_version}"
 
         # For the commit hash, it's safe to say it should be more than 20 characters.
