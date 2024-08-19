@@ -454,6 +454,7 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
   description = "Schedule the gbfs-validator-batch function"
   time_zone = "Etc/UTC"
   schedule = var.gbfs_scheduler_schedule
+  region = var.gcp_region
   paused = var.environment == "prod" ? false : true
   depends_on = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
   http_target {
