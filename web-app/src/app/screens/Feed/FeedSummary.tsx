@@ -191,20 +191,22 @@ export default function FeedSummary({
         </Typography>
       </Box>
 
-      <Box sx={boxElementStyle}>
-        <Typography
-          variant='subtitle1'
-          gutterBottom
-          sx={{ fontWeight: 'bold' }}
-        >
-          {t('authenticationType')}
-        </Typography>
-        <Typography data-testid='data-type'>
-          {feed?.source_info?.authentication_type === 1 && t('common:apiKey')}
-          {feed?.source_info?.authentication_type === 2 &&
-            t('common:httpHeader')}
-        </Typography>
-      </Box>
+      {feed?.source_info?.authentication_type !== 0 && (
+        <Box sx={boxElementStyle}>
+          <Typography
+            variant='subtitle1'
+            gutterBottom
+            sx={{ fontWeight: 'bold' }}
+          >
+            {t('authenticationType')}
+          </Typography>
+          <Typography data-testid='data-type'>
+            {feed?.source_info?.authentication_type === 1 && t('common:apiKey')}
+            {feed?.source_info?.authentication_type === 2 &&
+              t('common:httpHeader')}
+          </Typography>
+        </Box>
+      )}
 
       {hasAuthenticationInfo && (
         <Button disableElevation variant='contained' sx={{ marginRight: 2 }}>
