@@ -40,10 +40,10 @@ jobs:
           docker compose --env-file ./config/.env.local up -d postgres postgres-test
         working-directory: ${{ github.workspace }}
 
-#      - name: Run lint checks
-#        shell: bash
-#        run: |
-#          scripts/lint-tests.sh
+      - name: Run lint checks
+        shell: bash
+        run: |
+          scripts/lint-tests.sh
 
       - name: Install Liquibase
         run: |    
@@ -80,22 +80,22 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
 
-#      - name: Unit tests - API
-#        shell: bash
-#        run: |
-#          scripts/api-tests.sh --folder api --html_report
-#
-#      - name: Unit tests - Python Functions
-#        shell: bash
-#        run: |
-#          scripts/api-tests.sh --folder functions-python --html_report
-#
-#      - name: Upload coverage report
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: coverage_report
-#          path: scripts/coverage_reports/
-#          overwrite: true
+      - name: Unit tests - API
+        shell: bash
+        run: |
+          scripts/api-tests.sh --folder api --html_report
+
+      - name: Unit tests - Python Functions
+        shell: bash
+        run: |
+          scripts/api-tests.sh --folder functions-python --html_report
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage_report
+          path: scripts/coverage_reports/
+          overwrite: true
 
       - name: Upload DB models
         uses: actions/upload-artifact@v4

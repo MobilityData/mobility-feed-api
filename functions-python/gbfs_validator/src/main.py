@@ -73,58 +73,66 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
 
     stable_id_filter = StableIdFilter(stable_id)
     logging.getLogger().addFilter(stable_id_filter)
-
-    trace_service = DatasetTraceService()
-    trace_id = str(uuid.uuid4())
-    trace = DatasetTrace(
-        trace_id=trace_id,
-        stable_id=stable_id,
-        execution_id=execution_id,
-        status=Status.PROCESSING,
-        timestamp=datetime.now(),
-        pipeline_stage=PipelineStage.GBFS_VALIDATION,
-    )
-
     try:
-        trace_service.validate_and_save(trace, int(os.getenv("MAXIMUM_EXECUTIONS", 1)))
-    except (ValueError, MaxExecutionsReachedError) as e:
-        error_message = str(e)
-        logging.error(error_message)
-        save_trace_with_error(trace, error_message, trace_service)
-        return error_message
+        trace_service = DatasetTraceService()
+        trace_id = str(uuid.uuid4())
+        trace = DatasetTrace(
+            trace_id=trace_id,
+            stable_id=stable_id,
+            execution_id=execution_id,
+            status=Status.PROCESSING,
+            timestamp=datetime.now(),
+            pipeline_stage=PipelineStage.GBFS_VALIDATION,
+        )
 
-    session = None
-    try:
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(BUCKET_NAME)
-        gbfs_data = fetch_gbfs_files(url)
-        hosted_url = create_gbfs_json_with_bucket_paths(bucket, gbfs_data, stable_id)
-    except Exception as e:
-        error_message = f"Error processing GBFS files: {e}"
-        logging.error(error_message)
-        save_trace_with_error(trace, error_message, trace_service)
-        return error_message
+        try:
+            trace_service.validate_and_save(
+                trace, int(os.getenv("MAXIMUM_EXECUTIONS", 1))
+            )
+        except (ValueError, MaxExecutionsReachedError) as e:
+            error_message = str(e)
+            logging.error(error_message)
+            save_trace_with_error(trace, error_message, trace_service)
+            return error_message
 
-    try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        snapshot = create_snapshot(stable_id, feed_id, hosted_url)
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        session = None
+        try:
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(BUCKET_NAME)
+            gbfs_data = fetch_gbfs_files(url)
+            hosted_url = create_gbfs_json_with_bucket_paths(
+                bucket, gbfs_data, stable_id
+            )
+        except Exception as e:
+            error_message = f"Error processing GBFS files: {e}"
+            logging.error(error_message)
+            save_trace_with_error(trace, error_message, trace_service)
+            return error_message
 
-        validation_results = validate_gbfs_feed(hosted_url, stable_id, today, bucket)
-        save_snapshot_and_report(session, snapshot, validation_results)
+        try:
+            today = datetime.now().strftime("%Y-%m-%d")
+            snapshot = create_snapshot(stable_id, feed_id, hosted_url)
+            session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
 
-    except Exception as e:
-        error_message = f"Error validating GBFS feed: {e}"
-        logging.error(error_message)
-        save_trace_with_error(trace, error_message, trace_service)
-        return error_message
+            validation_results = validate_gbfs_feed(
+                hosted_url, stable_id, today, bucket
+            )
+            save_snapshot_and_report(session, snapshot, validation_results)
+
+        except Exception as e:
+            error_message = f"Error validating GBFS feed: {e}"
+            logging.error(error_message)
+            save_trace_with_error(trace, error_message, trace_service)
+            return error_message
+        finally:
+            if session:
+                session.close()
+
+        trace.status = Status.SUCCESS
+        trace_service.save(trace)
+        return "GBFS files processed and stored successfully."
     finally:
-        if session:
-            session.close()
-
-    trace.status = Status.SUCCESS
-    trace_service.save(trace)
-    return "GBFS files processed and stored successfully."
+        logging.getLogger().removeFilter(stable_id_filter)
 
 
 @functions_framework.http

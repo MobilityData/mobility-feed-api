@@ -58,3 +58,9 @@ variable "gbfs_bucket_name" {
     description = "Name of the bucket where the GBFS feeds are stored"
     default     = "mobilitydata-gbfs-snapshots"
 }
+
+variable "gbfs_scheduler_schedule" {
+    type        = string
+    description = "Schedule for the GBFS scheduler job"
+    default     = "0 0 1 * *" # every month on the first day at 00:00
+}

@@ -448,6 +448,27 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
   }
 }
 
+# Schedule the batch function to run
+resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
+  name = "gbfs-validator-batch-scheduler-${var.environment}"
+  description = "Schedule the gbfs-validator-batch function"
+  time_zone = "Etc/UTC"
+  schedule = var.gbfs_scheduler_schedule
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.gbfs_validator_batch.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    attempt_deadline = "320s"
+  }
+}
+
 # 5.3 Create function that subscribes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
   name        = "${local.function_gbfs_validation_report_config.name}-pubsub"
@@ -593,6 +614,15 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   project  = var.project_id
   location = var.gcp_region
   name     = "update-validation-report-task-queue"
+}
+
+# Task queue to invoke gbfs_validator_batch function for the scheduler
+resource "google_cloudfunctions2_function_iam_member" "gbfs_validator_batch_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gbfs_validator_batch.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # Grant permissions to the service account to publish to the pubsub topic
