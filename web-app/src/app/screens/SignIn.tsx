@@ -12,7 +12,12 @@ import AppleIcon from '@mui/icons-material/Apple';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
+import {
+  login,
+  loginFail,
+  loginWithProvider,
+  verifyEmail,
+} from '../store/profile-reducer';
 import {
   OauthProvider,
   type EmailLogin,
@@ -110,6 +115,9 @@ export default function SignIn(): React.ReactElement {
     const provider = oathProviders[oauthProvider];
     signInWithPopup(auth, provider)
       .then((userCredential: UserCredential) => {
+        if (!userCredential.user.emailVerified) {
+          dispatch(verifyEmail());
+        }
         if (userCredential.user.email == null) {
           setShowNoEmailSnackbar(true);
         } else {
