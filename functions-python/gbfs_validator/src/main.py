@@ -3,19 +3,14 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List
 
 import functions_framework
-import requests
 from cloudevents.http import CloudEvent
-from google.cloud import pubsub_v1
-from google.cloud import storage
+from google.cloud import pubsub_v1, storage
 from sqlalchemy.orm import joinedload
 
-from database_gen.sqlacodegen_models import Gbfsfeed, Gbfssnapshot, Gbfsvalidationreport, Gbfsnotice
-from helpers.database import start_db_session
-from helpers.logger import Logger
-from helpers.parser import jsonify_pubsub
+from database_gen.sqlacodegen_models import Gbfsfeed
 from dataset_service.main import (
     DatasetTraceService,
     DatasetTrace,
@@ -23,19 +18,24 @@ from dataset_service.main import (
     PipelineStage,
     MaxExecutionsReachedError,
 )
+from .gbfs_utils import (
+    fetch_gbfs_files,
+    create_gbfs_json_with_bucket_paths,
+    save_trace_with_error,
+    create_snapshot,
+    validate_gbfs_feed,
+    save_snapshot_and_report,
+)
+from helpers.database import start_db_session
+from helpers.logger import Logger
+from helpers.parser import jsonify_pubsub
 
 logging.basicConfig(level=logging.INFO)
 
 BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
-VALIDATOR_URL = os.getenv("VALIDATOR_URL",
-                          "https://gbfs-validator.mobilitydata.org/.netlify/functions/validator-summary")
 
 
 def fetch_all_gbfs_feeds() -> List[Gbfsfeed]:
-    """
-    Fetch all GBFS feeds from the database.
-    @return: A list of all GBFS feeds.
-    """
     session = None
     try:
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
@@ -51,104 +51,25 @@ def fetch_all_gbfs_feeds() -> List[Gbfsfeed]:
             session.close()
 
 
-def fetch_gbfs_files(url: str) -> Dict[str, Any]:
-    """Fetch the GBFS files from the autodiscovery URL."""
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json()
-
-
-def upload_gbfs_file_to_bucket(
-        bucket: storage.Bucket, file_url: str, destination_blob_name: str
-) -> str:
-    """Upload a GBFS file to a Cloud Storage bucket."""
-    response = requests.get(file_url)
-    response.raise_for_status()
-    blob = bucket.blob(destination_blob_name)
-    blob.upload_from_string(response.content)
-    blob.make_public()
-    logging.info(f"Uploaded {destination_blob_name} to {bucket.name}.")
-    return blob.public_url
-
-
-def create_gbfs_json_with_bucket_paths(
-        bucket: storage.Bucket, gbfs_data: Dict[str, Any], stable_id: str
-) -> str:
-    """
-    Create a new gbfs.json with paths pointing to Cloud Storage and upload it.
-    @param bucket: The Cloud Storage bucket.
-    @param gbfs_data: The GBFS data.
-    @param stable_id: The stable ID of the feed.
-    @return: The public URL of the new gbfs.json.
-    """
-    new_gbfs_data = gbfs_data.copy()
-    today = datetime.now().strftime("%Y-%m-%d")
-
-    for feed_key, feed in new_gbfs_data["data"].items():
-        if isinstance(feed["feeds"], dict):
-            # Case when 'feeds' is a dictionary keyed by language
-            for feed_language, feed_info in feed["feeds"].items():
-                old_url = feed_info["url"]
-                blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}_{feed_language}.json"
-                new_url = upload_gbfs_file_to_bucket(bucket, old_url, blob_name)
-                feed_info["url"] = new_url
-        elif isinstance(feed["feeds"], list):
-            # Case when 'feeds' is a list without language codes
-            for feed_info in feed["feeds"]:
-                old_url = feed_info["url"]
-                blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}.json"
-                new_url = upload_gbfs_file_to_bucket(bucket, old_url, blob_name)
-                feed_info["url"] = new_url
-        else:
-            logging.warning(f"Unexpected format in feed: {feed_key}")
-
-    # Save the new gbfs.json in the bucket
-    new_gbfs_data["last_updated"] = today
-    new_gbfs_blob = bucket.blob(f"{stable_id}/{stable_id}-{today}/gbfs.json")
-    new_gbfs_blob.upload_from_string(
-        json.dumps(new_gbfs_data), content_type="application/json"
-    )
-    new_gbfs_blob.make_public()
-    return new_gbfs_blob.public_url
-
-
+@functions_framework.cloud_event
 @functions_framework.cloud_event
 def gbfs_validator_pubsub(cloud_event: CloudEvent):
-    """
-    Main function triggered by a Pub/Sub message to validate a GBFS feed.
-    @param cloud_event: The CloudEvent containing the Pub/Sub message.
-    """
     Logger.init_logger()
     data = cloud_event.data
     logging.info(f"Function triggered with Pub/Sub event data: {data}")
-    try:
-        maximum_executions = int(os.getenv("MAXIMUM_EXECUTIONS", 1))
-    except ValueError:
-        maximum_executions = 1
-    logging.info(f"Maximum allowed executions: {maximum_executions}")
 
     message_json = jsonify_pubsub(data)
     if message_json is None:
         return "Invalid Pub/Sub message data."
-    logging.info(f"Parsed message data: {message_json}")
+
     try:
-        execution_id, stable_id, url, latest_version, feed_id = (
-            message_json["execution_id"],
-            message_json["stable_id"],
-            message_json["url"],
-            message_json["latest_version"],
-            message_json["feed_id"],
-        )
-    except KeyError:
-        return (
-            "Invalid Pub/Sub message data. "
-            "Missing required field(s) execution_id, stable_id, url, or latest_version."
-        )
-    logging.info(f"Execution ID: {execution_id}")
-    logging.info(f"Stable ID: {stable_id}")
-    logging.info(f"URL: {url}")
-    logging.info(f"Latest version: {latest_version}")
-    logging.info(f"Feed ID: {feed_id}")
+        execution_id = message_json["execution_id"]
+        stable_id = message_json["stable_id"]
+        url = message_json["url"]
+        feed_id = message_json["feed_id"]
+    except KeyError as e:
+        logging.error(f"Missing required field: {e}")
+        return f"Invalid Pub/Sub message data. Missing {e}."
 
     trace_service = DatasetTraceService()
     trace_id = str(uuid.uuid4())
@@ -160,92 +81,47 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         timestamp=datetime.now(),
         pipeline_stage=PipelineStage.GBFS_VALIDATION,
     )
-    try:
-        trace_service.validate_and_save(trace, maximum_executions)
-    except ValueError as e:
-        logging.error(f"Error saving trace: {e}")
-        return "Error saving trace."
-    except MaxExecutionsReachedError:
-        logging.error(f"Maximum executions reached for {stable_id}.")
-        return "Maximum executions reached."
 
-    # Step 2: Store all gbfs files and generate new gbfs.json
+    try:
+        trace_service.validate_and_save(trace, int(os.getenv("MAXIMUM_EXECUTIONS", 1)))
+    except (ValueError, MaxExecutionsReachedError) as e:
+        error_message = str(e)
+        logging.error(error_message)
+        save_trace_with_error(trace, error_message, trace_service)
+        return error_message
+
+    session = None
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(BUCKET_NAME)
         gbfs_data = fetch_gbfs_files(url)
-    except Exception as e:
-        logging.error(f"Error fetching data from autodiscovery URL: {e}")
-        return "Error fetching data from autodiscovery URL."
-    try:
         hosted_url = create_gbfs_json_with_bucket_paths(bucket, gbfs_data, stable_id)
     except Exception as e:
-        logging.error(f"Error generating new gbfs.json: {e}")
-        return "Error generating new gbfs.json."
-
-    # Step 3: Store gbfs snapshot information in the database
-    today = datetime.now().strftime("%Y-%m-%d")
-    snapshot_id = str(uuid.uuid4())
-    snapshot = Gbfssnapshot(
-        id=snapshot_id,
-        stable_id=f"{stable_id}-{today}",
-        feed_id=feed_id,
-        downloaded_at=datetime.now(),
-        hosted_url=hosted_url,
-    )
+        error_message = f"Error processing GBFS files: {e}"
+        logging.error(error_message)
+        save_trace_with_error(trace, error_message, trace_service)
+        return error_message
 
     try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        snapshot = create_snapshot(stable_id, feed_id, hosted_url)
         session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-    except Exception as e:
-        logging.error(f"Error storing GBFS snapshot in the database: {e}")
-        return "Error storing GBFS snapshot in the database."
-    # TODO: 4. Validate the feed's version otherwise add a version to the feed
-    # TODO: 5. Validate the feed (summary) and store the results in the database
 
-    try:
-        json_payload = {"url": hosted_url}
-        response = requests.post(VALIDATOR_URL, json=json_payload)
-        response.raise_for_status()
-        logging.info(f"GBFS feed {hosted_url} validated successfully.")
-        json_report_summary = response.json()
-        logging.info(f"Validation summary: {json_report_summary}")
-        # Store in GCP
-        report_summary_blob = bucket.blob(f"{stable_id}/{stable_id}-{today}/report_summary.json")
-        report_summary_blob.upload_from_string(
-            json.dumps(json_report_summary), content_type="application/json"
-        )
-        report_summary_blob.make_public()
-        # Store in database
-        validation_report = Gbfsvalidationreport(
-            id=f"{uuid.uuid4()}",
-            gbfs_snapshot_id=snapshot_id,
-            validated_at=datetime.now(),
-            report_summary_url=report_summary_blob.public_url,
-        )
-        validation_report.gbfsnotices = []
-        if 'filesSummary' in json_report_summary:
-            for file_summary in json_report_summary['filesSummary']:
-                logging.info(f"File summary: {file_summary}")
-                if file_summary['hasErrors']:
-                    for error in file_summary['groupedErrors']:
-                        logging.error(f"Error: {error}")
-                        notice = Gbfsnotice(
-                            keyword=error['keyword'],
-                            message=error['message'],
-                            schema_path=error['schemaPath'],
-                            gbfs_file=file_summary['file'],
-                            validation_report_id=validation_report.id,
-                            count=error['count'],
-                        )
-                        validation_report.gbfsnotices.append(notice)
-        snapshot.gbfsvalidationreports = [validation_report]
-        session.add(snapshot)
+        validation_results = validate_gbfs_feed(hosted_url, stable_id, today, bucket)
+        save_snapshot_and_report(session, snapshot, validation_results)
 
     except Exception as e:
-        logging.error(f"Error validating GBFS feed: {e}")
-        return "Error validating GBFS feed."
+        error_message = f"Error validating GBFS feed: {e}"
+        logging.error(error_message)
+        save_trace_with_error(trace, error_message, trace_service)
+        return error_message
+    finally:
+        if session:
+            session.close()
 
-    return "GBFS files processed and stored successfully.", 200
+    trace.status = Status.SUCCESS
+    trace_service.save(trace)
+    return "GBFS files processed and stored successfully."
 
 
 @functions_framework.http
