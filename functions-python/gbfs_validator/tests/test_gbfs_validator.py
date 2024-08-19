@@ -36,8 +36,10 @@ class TestMainFunctions(unittest.TestCase):
     @patch("gbfs_validator.src.main.validate_gbfs_feed")
     @patch("gbfs_validator.src.main.save_snapshot_and_report")
     @patch("gbfs_validator.src.main.Logger")
+    @patch("gbfs_validator.src.main.storage.Client")
     def test_gbfs_validator_pubsub(
         self,
+        __,
         _,  # mock_logger
         mock_save_snapshot_and_report,
         mock_validate_gbfs_feed,
