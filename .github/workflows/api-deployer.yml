@@ -223,7 +223,7 @@ jobs:
   terraform-deploy:
     runs-on: ubuntu-latest
     permissions: write-all
-    needs: api-build-test # TODO: restore docker-build-publish before merge
+    needs: docker-build-publish
     steps:
 
       - name: Checkout code
