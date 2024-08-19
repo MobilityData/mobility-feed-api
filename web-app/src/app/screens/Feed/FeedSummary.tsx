@@ -92,13 +92,14 @@ export default function FeedSummary({
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              paddingLeft: '25px',
+              paddingLeft: providersToDisplay.length <= 1 ? '0px' : '25px',
               justifyContent: 'space-between',
               marginTop: 0,
               maxHeight: '500px',
               overflowY: showAllProviders ? 'scroll' : 'hidden',
               borderBottom: showAllProviders ? '1px solid #e0e0e0' : 'none',
               borderTop: showAllProviders ? '1px solid #e0e0e0' : 'none',
+              listStyle: providersToDisplay.length <= 1 ? 'none' : undefined,
             }}
           >
             {providersToDisplay.map((provider) => (
