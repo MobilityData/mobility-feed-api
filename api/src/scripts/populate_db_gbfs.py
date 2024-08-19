@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 import pytz
+import pycountry
 
 from database.database import generate_unique_id, configure_polymorphic_mappers
 from database_gen.sqlacodegen_models import Gbfsfeed, Location, Gbfsversion, Externalid
@@ -95,6 +96,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             location = self.db.session.get(Location, location_id) or Location(
                 id=location_id,
                 country_code=country_code,
+                country=pycountry.countries.get(alpha_2=country_code).name if country_code else None,
                 municipality=municipality,
             )
             gbfs_feed.locations.clear()
