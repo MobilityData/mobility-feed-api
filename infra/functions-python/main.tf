@@ -465,8 +465,8 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
     headers = {
       "Content-Type" = "application/json"
     }
-    attempt_deadline = "320s"
   }
+  attempt_deadline = "320s"
 }
 
 # 5.3 Create function that subscribes to the Pub/Sub topic
