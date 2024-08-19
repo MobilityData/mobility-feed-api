@@ -77,6 +77,8 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
 
     @classmethod
     def _translate_locations(cls, feed_search_row):
+        if feed_search_row.locations is None:
+            return
         """Translate location information in the feed search row."""
         country_translations = cls._create_translation_dict(feed_search_row.country_translations)
         subdivision_translations = cls._create_translation_dict(feed_search_row.subdivision_name_translations)
@@ -84,12 +86,19 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
 
         for location in feed_search_row.locations:
             location["country"] = country_translations.get(location["country"], location["country"])
-            if location["country"] is None:
-                location["country"] = pycountry.countries.get(alpha_2=location["country_code"]).name
+            if location["country"] is None or len(location["country"]) == 0:
+                location["country"] = SearchFeedItemResultImpl.resolve_country_by_code(location)
             location["subdivision_name"] = subdivision_translations.get(
                 location["subdivision_name"], location["subdivision_name"]
             )
             location["municipality"] = municipality_translations.get(location["municipality"], location["municipality"])
+
+    @classmethod
+    def resolve_country_by_code(cls, location):
+        """Resolve country name by country code.
+        If the country code is not found, return the original country name."""
+        country = pycountry.countries.get(alpha_2=location["country_code"])
+        return country.name if country else location["country"]
 
     @staticmethod
     def _create_translation_dict(translations):
