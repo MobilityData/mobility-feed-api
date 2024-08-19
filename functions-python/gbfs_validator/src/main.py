@@ -27,7 +27,7 @@ from .gbfs_utils import (
     save_snapshot_and_report,
 )
 from helpers.database import start_db_session
-from helpers.logger import Logger
+from helpers.logger import Logger, StableIdFilter
 from helpers.parser import jsonify_pubsub
 
 logging.basicConfig(level=logging.INFO)
@@ -70,6 +70,9 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
     except KeyError as e:
         logging.error(f"Missing required field: {e}")
         return f"Invalid Pub/Sub message data. Missing {e}."
+
+    stable_id_filter = StableIdFilter(stable_id)
+    logging.getLogger().addFilter(stable_id_filter)
 
     trace_service = DatasetTraceService()
     trace_id = str(uuid.uuid4())
