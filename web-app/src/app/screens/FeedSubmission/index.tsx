@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Alert,
@@ -11,11 +10,7 @@ import {
   colors,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
-import {
-  selectIsAnonymous,
-  selectIsAuthenticated,
-  selectUserProfile,
-} from '../../store/profile-selectors';
+import { selectIsAuthenticated } from '../../store/profile-selectors';
 import FeedSubmissionStepper from './FeedSubmissionStepper';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import Contribute from '../Contribute';
@@ -28,16 +23,7 @@ function Component(): React.ReactElement {
   const [showLoginSuccess, setShowLoginSuccess] = React.useState(
     location.state?.from === 'registration',
   );
-  const user = useSelector(selectUserProfile);
   const isAuthenticated = useSelector(selectIsAuthenticated);
-  const isAuthenticatedOrAnonymous =
-    isAuthenticated || useSelector(selectIsAnonymous);
-
-  useEffect(() => {
-    if (isAuthenticatedOrAnonymous && user?.accessToken !== undefined) {
-      console.log('User is authenticated or anonymous');
-    }
-  }, [isAuthenticatedOrAnonymous]);
 
   return (
     <Container component='main' sx={{ my: 0, mx: 'auto' }}>

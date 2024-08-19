@@ -113,14 +113,6 @@ export type FeedErrors = {
 
 export type FeedStatus = 'loading' | 'loaded' | 'error';
 
-interface FeedLocation {
-  country_code?: string | undefined;
-  subdivision_name?: string | undefined;
-  municipality?: string | undefined;
-}
-
-export type FeedLocations = FeedLocation[] | undefined;
-
 export enum OauthProvider {
   Google = 'Google',
   Github = 'Github',

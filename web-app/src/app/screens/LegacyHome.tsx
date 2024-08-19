@@ -20,7 +20,7 @@ export default function Home(): React.ReactElement {
         }}
       >
         <Grid container spacing={0}>
-          <Grid sm={12} md={7}>
+          <Grid item sm={12} md={7}>
             <Typography
               sx={{
                 fontSize: {
@@ -41,7 +41,7 @@ export default function Home(): React.ReactElement {
               The Mobility Database
             </Typography>
           </Grid>
-          <Grid sm={12} md={5}>
+          <Grid item sm={12} md={5}>
             <Box
               sx={{
                 background: '#F8F5F5',
