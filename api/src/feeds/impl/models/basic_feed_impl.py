@@ -61,4 +61,3 @@ class BasicFeedImpl(BaseFeedImpl, BasicFeed):
         Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True
