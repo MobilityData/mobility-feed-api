@@ -79,7 +79,7 @@ export default function FeedSummary({
           {getLocationName(feed?.locations)}
         </Typography>
       </Box>
-      <Box sx={boxElementStyle}>
+      <Box>
         <Typography
           variant='subtitle1'
           gutterBottom
@@ -130,7 +130,7 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
-      <Box sx={boxElementStyle}>
+      <Box>
         <Typography
           variant='subtitle1'
           gutterBottom
