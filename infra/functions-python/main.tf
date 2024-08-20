@@ -68,7 +68,7 @@ resource "google_storage_bucket" "functions_bucket" {
 }
 
 resource "google_storage_bucket" "gbfs_snapshots_bucket" {
-  location = "us"
+  location = var.gcp_region
   name     = "${var.gbfs_bucket_name}-${var.environment}"
 }
 
