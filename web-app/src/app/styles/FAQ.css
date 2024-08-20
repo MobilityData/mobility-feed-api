@@ -16,12 +16,12 @@
     margin-bottom: 40px !important;
 }
 
-a:not(.btn-link) {
+a:not(.btn-link, .btn-link-component) {
     color: #000;
     padding: 2px;
 }
 
-a:hover:not(.btn-link) {
+a:hover:not(.btn-link, .btn-link-component) {
     background-color: #3959fa21 !important;
     border-radius: 5px;
 }

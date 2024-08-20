@@ -22,6 +22,27 @@ class TestDatasetService(unittest.TestCase):
         mock_datastore_client.put.assert_called_once()
 
     @patch("google.cloud.datastore.Client")
+    def test_validate_and_save_exception(self, mock_datastore_client):
+        service = DatasetTraceService(mock_datastore_client)
+        dataset_trace = DatasetTrace(
+            stable_id="123", status=Status.PUBLISHED, timestamp=datetime.now()
+        )
+        with self.assertRaises(ValueError):
+            service.validate_and_save(dataset_trace, 1)
+
+    @patch("google.cloud.datastore.Client")
+    def test_validate_and_save(self, mock_datastore_client):
+        service = DatasetTraceService(mock_datastore_client)
+        dataset_trace = DatasetTrace(
+            stable_id="123",
+            execution_id="123",
+            status=Status.PUBLISHED,
+            timestamp=datetime.now(),
+        )
+        service.validate_and_save(dataset_trace, 1)
+        mock_datastore_client.put.assert_called_once()
+
+    @patch("google.cloud.datastore.Client")
     def test_get_dataset_trace_by_id(self, mock_datastore_client):
         mock_datastore_client.get.return_value = {
             "trace_id": "123",

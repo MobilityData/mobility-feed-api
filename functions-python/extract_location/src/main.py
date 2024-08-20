@@ -17,9 +17,11 @@ from dataset_service.main import (
     DatasetTrace,
     Status,
     PipelineStage,
+    MaxExecutionsReachedError,
 )
 from helpers.database import start_db_session
 from helpers.logger import Logger
+from helpers.parser import jsonify_pubsub
 from .bounding_box.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
@@ -61,11 +63,8 @@ def extract_location_pubsub(cloud_event: CloudEvent):
     logging.info(f"Function triggered with Pub/Sub event data: {data}")
 
     # Extract the Pub/Sub message data
-    try:
-        message_data = data["message"]["data"]
-        message_json = json.loads(base64.b64decode(message_data).decode("utf-8"))
-    except Exception as e:
-        logging.error(f"Error parsing message data: {e}")
+    message_json = jsonify_pubsub(data)
+    if message_json is None:
         return "Invalid Pub/Sub message data."
 
     logging.info(f"Parsed message data: {message_json}")
@@ -88,17 +87,6 @@ def extract_location_pubsub(cloud_event: CloudEvent):
         execution_id = str(uuid.uuid4())
         logging.info(f"[{dataset_id}] Generated execution ID: {execution_id}")
     trace_service = DatasetTraceService()
-    trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
-    logging.info(f"[{dataset_id}] Trace: {trace}")
-    executions = len(trace) if trace else 0
-    print(f"[{dataset_id}] Executions: {executions}")
-    print(trace_service.get_by_execution_and_stable_ids(execution_id, stable_id))
-    logging.info(f"[{dataset_id}] Executions: {executions}")
-    if executions > 0 and executions >= maximum_executions:
-        logging.warning(
-            f"[{dataset_id}] Maximum executions reached. Skipping processing."
-        )
-        return f"Maximum executions reached for {dataset_id}."
     trace_id = str(uuid.uuid4())
     error = None
     # Saving trace before starting in case we run into memory problems or uncatchable errors
@@ -112,7 +100,14 @@ def extract_location_pubsub(cloud_event: CloudEvent):
         dataset_id=dataset_id,
         pipeline_stage=PipelineStage.LOCATION_EXTRACTION,
     )
-    trace_service.save(trace)
+    try:
+        trace_service.validate_and_save(trace, maximum_executions)
+    except ValueError as e:
+        logging.error(f"[{dataset_id}] Error while saving trace: {e}")
+        return f"Error while saving trace: {e}"
+    except MaxExecutionsReachedError as e:
+        logging.warning(f"[{dataset_id}] {e}")
+        return f"{e}"
     try:
         logging.info(f"[{dataset_id}] accessing url: {url}")
         try:

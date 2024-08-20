@@ -16,6 +16,20 @@
 
 import google.cloud.logging
 from google.cloud.logging_v2 import Client
+import logging
+
+
+class StableIdFilter(logging.Filter):
+    """Add a stable_id to the log record"""
+
+    def __init__(self, stable_id=None):
+        super().__init__()
+        self.stable_id = stable_id
+
+    def filter(self, record):
+        if self.stable_id:
+            record.msg = f"[{self.stable_id}] {record.msg}"
+        return True
 
 
 class Logger:

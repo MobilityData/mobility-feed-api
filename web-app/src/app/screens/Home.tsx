@@ -4,13 +4,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
-import {
-  Button,
-  Divider,
-  Grid,
-  InputAdornment,
-  TextField,
-} from '@mui/material';
+import { Button, Divider, InputAdornment, TextField } from '@mui/material';
 import {
   Search,
   CheckCircleOutlineOutlined,
@@ -98,10 +92,21 @@ function Component(): React.ReactElement {
         <Typography
           component='h1'
           variant='h5'
-          sx={{ textAlign: 'center', color: 'black', fontWeight: 700, mt: 4 }}
+          sx={{
+            textAlign: 'center',
+            color: 'black',
+            fontWeight: 700,
+            mt: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1,
+          }}
         >
-          Currently serving over <span style={{ color: '#3859FA' }}>2000</span>{' '}
-          transit data feeds from <span style={{ color: '#3859FA' }}>70</span>{' '}
+          Currently serving over
+          <Box sx={{ fontSize: 30, color: '#3859FA' }}>2000</Box>
+          transit data feeds from{' '}
+          <Box sx={{ fontSize: 30, color: '#3859FA' }}>70</Box>
           countries.
         </Typography>
         <Box
@@ -200,36 +205,34 @@ function Component(): React.ReactElement {
             buttonText='Sign up for the API'
           />
         </Box>
-
-        <Grid sm={12} md={5}>
-          <Box
-            sx={{
-              background: '#F8F5F5',
-              borderRadius: '6px 0px 0px 6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyItems: 'center',
-              p: 5,
-              color: 'black',
-              fontSize: '18px',
-              fontWeight: 700,
-              mr: 0,
-              mt: 5,
-            }}
+        <Box
+          sx={{
+            background: '#F8F5F5',
+            borderRadius: '6px 0px 0px 6px',
+            p: 5,
+            color: 'black',
+            fontSize: '18px',
+            fontWeight: 700,
+            mr: 0,
+            mt: 5,
+          }}
+        >
+          The Mobility Database is a directory of 2000+ mobility feeds across
+          the world. It has over 250 updated feeds previously unavailable on
+          TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
+          <a
+            href='https://gtfs-validator.mobilitydata.org/'
+            rel='noreferrer'
+            target='_blank'
           >
-            The Mobility Database is a directory of 2000+ mobility feeds across
-            the world. It has over 250 updated feeds previously unavailable on
-            TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
-            <a href='https://gtfs-validator.mobilitydata.org/'>
-              the Canonical GTFS Schedule Validator
-            </a>
-            .
-            <br />
-            <br />
-            We’re in the first phase of building a sustainable, central hub for
-            mobility data internationally.
-          </Box>
-        </Grid>
+            the Canonical GTFS Schedule Validator
+          </a>
+          .
+          <br />
+          <br />
+          We’re in the first phase of building a sustainable, central hub for
+          mobility data internationally.
+        </Box>
       </Box>
     </Container>
   );
