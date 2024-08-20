@@ -95,11 +95,7 @@ class DatasetProcessor:
         Gets the feed credentials from the environment variable
         """
         try:
-            all_creds = os.getenv("FEEDS_CREDENTIALS", "{}")
-            if all_creds is None:
-                logging.warning("No feed credentials found.")
-                return None
-            feeds_credentials = json.loads(all_creds)
+            feeds_credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
             return feeds_credentials.get(feed_stable_id, None)
         except Exception as e:
             logging.error(f"Error getting feed credentials: {e}")

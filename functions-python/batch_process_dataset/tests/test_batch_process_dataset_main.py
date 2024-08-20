@@ -290,6 +290,40 @@ class TestDatasetProcessor(unittest.TestCase):
         )
 
     @patch.dict(
+        os.environ,
+        {"FEEDS_CREDENTIALS": "not a JSON string"},
+    )
+    def test_fails_authenticated_feed_creds_invalid(self):
+        session = get_testing_session()
+        feeds = session.query(Gtfsfeed).all()
+        feed_id = feeds[0].id
+
+        producer_url = "https://testproducer.com/data"
+        feed_stable_id = "test_stable_id"
+        execution_id = "test_execution_id"
+        latest_hash = "old_hash"
+        bucket_name = "test-bucket"
+        authentication_type = 1
+        api_key_parameter_name = "test_api_key"
+
+        with self.assertRaises(Exception) as context:
+            DatasetProcessor(
+                producer_url,
+                feed_id,
+                feed_stable_id,
+                execution_id,
+                latest_hash,
+                bucket_name,
+                authentication_type,
+                api_key_parameter_name,
+                test_hosted_public_url,
+            )
+        self.assertEqual(
+            str(context.exception),
+            "Error getting feed credentials for feed test_stable_id",
+        )
+
+    @patch.dict(
         os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}
     )
     def test_process_no_change(self):
@@ -384,3 +418,32 @@ class TestDatasetProcessor(unittest.TestCase):
             assert False
         except AttributeError:
             assert True
+
+    @patch("batch_process_dataset.src.main.Logger")
+    @patch("batch_process_dataset.src.main.DatasetTraceService")
+    def test_process_dataset_missing_stable_id(self, mock_dataset_trace, _):
+        db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
+        os.environ["FEEDS_DATABASE_URL"] = db_url
+
+        # Mock data for the CloudEvent
+        mock_data = {
+            "execution_id": "test_execution_id",
+            "producer_url": "https://testproducer.com/data",
+            "feed_stable_id": "",
+            "feed_id": "test_feed_id",
+            "dataset_id": "test_dataset_id",
+            "dataset_hash": "test_dataset_hash",
+            "authentication_type": 0,
+            "api_key_parameter_name": None,
+        }
+
+        cloud_event = create_cloud_event(mock_data)
+
+        mock_dataset_trace.save.return_value = None
+        mock_dataset_trace.get_by_execution_and_stable_ids.return_value = 0
+        # Call the function
+        result = process_dataset(cloud_event)
+        assert (
+            result
+            == "Function completed with errors, missing stable= or execution_id=test_execution_id"
+        )
