@@ -14,7 +14,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LegacyHome from './LegacyHome';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import AnimatedNumbers from 'react-animated-numbers';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -105,33 +104,9 @@ function Component(): React.ReactElement {
           }}
         >
           Currently serving over
-          <AnimatedNumbers
-            includeComma
-            transitions={() => ({
-              type: 'spring',
-              duration: 2.3,
-              stiffness: 20,
-            })}
-            animateToNumber={2000}
-            fontStyle={{
-              fontSize: 30,
-              color: '#3859FA',
-            }}
-          />
+          <Box sx={{ fontSize: 30, color: '#3859FA' }}>2000</Box>
           transit data feeds from{' '}
-          <AnimatedNumbers
-            includeComma
-            transitions={() => ({
-              type: 'spring',
-              duration: 2.3,
-              stiffness: 20,
-            })}
-            animateToNumber={70}
-            fontStyle={{
-              fontSize: 30,
-              color: '#3859FA',
-            }}
-          />
+          <Box sx={{ fontSize: 30, color: '#3859FA' }}>70</Box>
           countries.
         </Typography>
         <Box
@@ -245,7 +220,11 @@ function Component(): React.ReactElement {
           The Mobility Database is a directory of 2000+ mobility feeds across
           the world. It has over 250 updated feeds previously unavailable on
           TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
-          <a href='https://gtfs-validator.mobilitydata.org/'>
+          <a
+            href='https://gtfs-validator.mobilitydata.org/'
+            rel='noreferrer'
+            target='_blank'
+          >
             the Canonical GTFS Schedule Validator
           </a>
           .
