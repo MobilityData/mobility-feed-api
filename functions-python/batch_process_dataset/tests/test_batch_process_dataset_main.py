@@ -211,6 +211,9 @@ class TestDatasetProcessor(unittest.TestCase):
             # Assert that the file was opened in binary read mode
             mock_file.assert_called_once_with(source_file_path, "rb")
 
+    @patch.dict(
+        os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}
+    )
     def test_process(self):
         session = get_testing_session()
         feeds = session.query(Gtfsfeed).all()
@@ -252,6 +255,43 @@ class TestDatasetProcessor(unittest.TestCase):
         self.assertEqual(result.file_sha256_hash, new_hash)
         processor.upload_dataset.assert_called_once()
 
+    @patch.dict(
+        os.environ,
+        {"FEEDS_CREDENTIALS": '{"not_what_u_r_looking_4": "test_credentials"}'},
+    )
+    def test_fails_authenticated_feed_not_creds(self):
+        session = get_testing_session()
+        feeds = session.query(Gtfsfeed).all()
+        feed_id = feeds[0].id
+
+        producer_url = "https://testproducer.com/data"
+        feed_stable_id = "test_stable_id"
+        execution_id = "test_execution_id"
+        latest_hash = "old_hash"
+        bucket_name = "test-bucket"
+        authentication_type = 1
+        api_key_parameter_name = "test_api_key"
+
+        with self.assertRaises(Exception) as context:
+            DatasetProcessor(
+                producer_url,
+                feed_id,
+                feed_stable_id,
+                execution_id,
+                latest_hash,
+                bucket_name,
+                authentication_type,
+                api_key_parameter_name,
+                test_hosted_public_url,
+            )
+        self.assertEqual(
+            str(context.exception),
+            "Error getting feed credentials for feed test_stable_id",
+        )
+
+    @patch.dict(
+        os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}
+    )
     def test_process_no_change(self):
         feed_id = "test"
         producer_url = "https://testproducer.com/data"
