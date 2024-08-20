@@ -33,6 +33,17 @@ const boxElementStyle: SxProps = {
   mb: 1,
 };
 
+const boxElementStyleTransitProvider: SxProps = {
+  width: '100%',
+  mt: 2,
+  borderBottom: 'none',
+};
+
+const boxElementStyleProducerURL: SxProps = {
+  width: '100%',
+  mb: 1,
+};
+
 const ResponsiveListItem = styled('li')(({ theme }) => ({
   width: '100%',
   margin: '5px 0',
@@ -79,7 +90,7 @@ export default function FeedSummary({
           {getLocationName(feed?.locations)}
         </Typography>
       </Box>
-      <Box>
+      <Box sx={boxElementStyleTransitProvider}>
         <Typography
           variant='subtitle1'
           gutterBottom
@@ -130,7 +141,7 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
-      <Box>
+      <Box sx={boxElementStyleProducerURL}>
         <Typography
           variant='subtitle1'
           gutterBottom
