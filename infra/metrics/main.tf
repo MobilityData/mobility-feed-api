@@ -22,7 +22,6 @@ locals {
     #  DEV and QA use the vpc connector
     vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
     vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
-
 }
 
 locals {
@@ -75,6 +74,7 @@ resource "google_storage_bucket_object" "gtfs_big_query_ingest_function" {
 }
 
 # 2. Cloud Function
+# 2.1. GTFS - Big Query data ingestion function
 resource "google_cloudfunctions2_function" "gtfs_big_query_ingest" {
   name        = "${local.function_big_query_ingest_config.name}-gtfs"
   project     = var.project_id
@@ -98,6 +98,57 @@ resource "google_cloudfunctions2_function" "gtfs_big_query_ingest" {
       BUCKET_NAME = data.google_storage_bucket.gtfs_datasets_bucket.name
       DATASET_ID = var.dataset_id
       TABLE_ID = var.gtfs_table_id
+      BQ_DATASET_LOCATION = var.gcp_region
+      PYTHONNODEBUGRANGES = 0
+    }
+    available_memory = local.function_big_query_ingest_config.memory
+    timeout_seconds = local.function_big_query_ingest_config.timeout
+    available_cpu = local.function_big_query_ingest_config.available_cpu
+    max_instance_request_concurrency = local.function_big_query_ingest_config.max_instance_request_concurrency
+    max_instance_count = local.function_big_query_ingest_config.max_instance_count
+    min_instance_count = local.function_big_query_ingest_config.min_instance_count
+    service_account_email = google_service_account.metrics_service_account.email
+    ingress_settings = "ALLOW_ALL"
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_big_query_ingest_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+
+}
+
+# 2.2. GBFS - Big Query data ingestion function
+resource "google_cloudfunctions2_function" "gbfs_big_query_ingest" {
+  name        = "${local.function_big_query_ingest_config.name}-gbfs"
+  project     = var.project_id
+  description = local.function_big_query_ingest_config.description
+  location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_big_query_ingest_config.entry_point}_gbfs"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gtfs_big_query_ingest_function.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID = var.project_id
+      BUCKET_NAME = data.google_storage_bucket.gbfs_snapshots_bucket.name
+      DATASET_ID = var.dataset_id
+      TABLE_ID = var.gbfs_table_id
+      BQ_DATASET_LOCATION = var.gcp_region
       PYTHONNODEBUGRANGES = 0
     }
     available_memory = local.function_big_query_ingest_config.memory
@@ -146,9 +197,18 @@ resource "google_project_iam_member" "storage_object_creator_permissions" {
 data "google_storage_bucket" "gtfs_datasets_bucket" {
   name = "${var.gtfs_datasets_storage_bucket}-${var.environment}"
 }
+data "google_storage_bucket" "gbfs_snapshots_bucket" {
+  name = "${var.gbfs_snapshots_storage_bucket}-${var.environment}"
+}
 
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
   bucket = data.google_storage_bucket.gtfs_datasets_bucket.name
+  role   = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.metrics_service_account.email}"
+}
+
+resource "google_storage_bucket_iam_member" "snapshots_bucket_functions_service_account" {
+  bucket = data.google_storage_bucket.gbfs_snapshots_bucket.name
   role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.metrics_service_account.email}"
 }

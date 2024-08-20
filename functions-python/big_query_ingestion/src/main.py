@@ -3,7 +3,8 @@ import logging
 import functions_framework
 
 from helpers.logger import Logger
-from .gtfs.gtfs_big_query_ingest import BiqQueryDataTransferGTFS
+from .gbfs.gbfs_big_query_ingest import BigQueryDataTransferGBFS
+from .gtfs.gtfs_big_query_ingest import BigQueryDataTransferGTFS
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,4 +13,11 @@ logging.basicConfig(level=logging.INFO)
 def ingest_data_to_big_query_gtfs(_):
     Logger.init_logger()
     logging.info("Function triggered")
-    return BiqQueryDataTransferGTFS().send_data_to_bigquery()
+    return BigQueryDataTransferGTFS().send_data_to_bigquery()
+
+
+@functions_framework.http
+def ingest_data_to_big_query_gbfs(_):
+    Logger.init_logger()
+    logging.info("Function triggered")
+    return BigQueryDataTransferGBFS().send_data_to_bigquery()

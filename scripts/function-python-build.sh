@@ -24,7 +24,7 @@
 # Usage:
 #   function-python-build.sh --function_name <function name> --all
 # Examples:
-#   function-python-build.shh --function_name tokens
+#   function-python-build.sh --function_name tokens
 #   function-python-build.sh --all
 
 # relative path
@@ -104,9 +104,10 @@ build_function() {
     printf "\nINFO: function_config.json file contains a property called include_folders"
   fi
   for folder in $include_folders; do
-    printf "\nINFO: Including .py files from folder $FX_PATH/../$folder, excluding 'tests' directories\n"
-    # Find all .py files, excluding those in 'tests' directories
-    find "$FX_PATH/../$folder" -type d -name "tests" -prune -o -name "*.py" -print | while read file; do
+    printf "\nINFO: Including .py files from folder $FX_PATH/../$folder, excluding 'tests' and 'venv' directories\n"
+
+    # Find all .py files, excluding those in 'tests' or 'venv' directories
+    find "$FX_PATH/../$folder" \( -type d -name "tests" -o -type d -name "venv" \) -prune -o -name "*.py" -print | while read file; do
         if [ -d "$file" ]; then continue; fi
         relative_path="${file#$FX_PATH/../}"
         dest_path="$FX_DIST_BUILD/$relative_path"
@@ -117,7 +118,7 @@ build_function() {
         # Copy the file to the destination
         cp "$file" "$dest_path"
     done
-  done
+done
 
   (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
   printf "\nCompleted building function $function_name\n"

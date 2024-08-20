@@ -40,6 +40,12 @@ variable "gtfs_datasets_storage_bucket" {
   default     = "mobilitydata-datasets"
 }
 
+variable "gbfs_snapshots_storage_bucket" {
+  type        = string
+  description = "Name of the bucket where the GBFS snapshots are stored"
+  default     = "mobilitydata-gbfs-snapshots"
+}
+
 variable "dataset_id" {
     type        = string
     description = "ID of the BigQuery dataset"
@@ -48,6 +54,12 @@ variable "dataset_id" {
 
 variable "gtfs_table_id" {
     type        = string
-    description = "ID of the BigQuery table"
+    description = "ID of the BigQuery table for GTFS data"
     default     = "gtfs_validation_reports"
+}
+
+variable "gbfs_table_id" {
+    type        = string
+    description = "ID of the BigQuery table for GBFS data"
+    default     = "gbfs_validation_reports"
 }

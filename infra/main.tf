@@ -104,7 +104,6 @@ module "functions-python" {
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
-
 }
 
 module "workflows" {
@@ -129,4 +128,13 @@ module "feed-api-load-balancer" {
   function_tokens_name = module.functions-python.function_tokens_name
 
   source = "./load-balancer"
+}
+
+module "metrics" {
+  source = "./metrics"
+  depends_on = [module.functions-python]
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
+  python_runtime = var.python_runtime
 }
