@@ -76,7 +76,7 @@ class DatasetProcessor:
         self.authentication_type = authentication_type
         self.api_key_parameter_name = api_key_parameter_name
         self.date = datetime.now().strftime("%Y%m%d%H%M")
-        feeds_credentials = ast.literal_eval(os.getenv("FEED_CREDENTIALS", "{}"))
+        feeds_credentials = ast.literal_eval(os.getenv("FEEDS_CREDENTIALS", "{}"))
         self.feed_credentials = feeds_credentials.get(self.feed_stable_id, None)
         self.public_hosted_datasets_url = public_hosted_datasets_url
 
