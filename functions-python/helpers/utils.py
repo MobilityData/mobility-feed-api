@@ -15,6 +15,7 @@
 #
 
 import hashlib
+import logging
 import os
 
 import requests
@@ -34,9 +35,9 @@ def create_bucket(bucket_name):
     bucket = storage_client.lookup_bucket(bucket_name)
     if bucket is None:
         bucket = storage_client.create_bucket(bucket_name)
-        print(f"Bucket {bucket} created.")
+        logging.info(f"Bucket {bucket} created.")
     else:
-        print(f"Bucket {bucket_name} already exists.")
+        logging.info(f"Bucket {bucket_name} already exists.")
 
 
 def download_url_content(url, with_retry=False):

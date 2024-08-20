@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
+import logging
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -43,6 +43,7 @@ class Status(Enum):
 class PipelineStage(Enum):
     DATASET_PROCESSING = "DATASET_PROCESSING"
     LOCATION_EXTRACTION = "LOCATION_EXTRACTION"
+    GBFS_VALIDATION = "GBFS_VALIDATION"
 
 
 # Dataset trace class to store the trace of a dataset
@@ -72,10 +73,28 @@ dataset_trace_collection: Final[str] = "dataset_trace"
 batch_execution_collection: Final[str] = "batch_execution"
 
 
+class MaxExecutionsReachedError(Exception):
+    pass
+
+
 # Dataset trace service with CRUD operations for the dataset trace
 class DatasetTraceService:
     def __init__(self, client: Client = None):
         self.client = datastore.Client() if client is None else client
+
+    def validate_and_save(self, dataset_trace: DatasetTrace, max_executions: int = 1):
+        if dataset_trace.execution_id is None or dataset_trace.stable_id is None:
+            raise ValueError("Execution ID and Stable ID are required.")
+        trace = self.get_by_execution_and_stable_ids(
+            dataset_trace.execution_id, dataset_trace.stable_id
+        )
+        executions = len(trace) if trace else 0
+        logging.info(f"[{dataset_trace.stable_id}] Executions: {executions}")
+        if executions > 0 and executions >= max_executions:
+            raise MaxExecutionsReachedError(
+                f"Maximum executions reached for {dataset_trace.stable_id}."
+            )
+        self.save(dataset_trace)
 
     # Save the dataset trace
     def save(self, dataset_trace: DatasetTrace):
