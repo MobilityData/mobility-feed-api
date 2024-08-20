@@ -27,7 +27,7 @@ datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, d
 def populate_database(db: Database, data_dirs: str):
     try:
 
-        # Check if connected to localhost
+        # Check if connected to test DB.
         url = make_url(db.engine.url)
         if not is_test_db(url):
             raise Exception("Not connected to MobilityDatabaseTest, aborting operation")
@@ -52,7 +52,6 @@ def populate_database(db: Database, data_dirs: str):
         db_helper.initialize(trigger_downstream_tasks=False)
 
         # Make a list of all the extra_test_data.json files in the test_data directories and load the data
-        # Make a list of all the sources_test.csv in test_data and keep only if the file exists
         json_filepaths = []
         for dir in data_dirs:
 
