@@ -1,29 +1,23 @@
 import unittest
 import uuid
-from datetime import datetime
 from unittest.mock import patch, MagicMock
+
 import requests
 
+from dataset_service.main import Status
 from gbfs_validator.src.gbfs_utils import (
     fetch_gbfs_files,
     upload_gbfs_file_to_bucket,
-    create_gbfs_json_with_bucket_paths,
     save_trace_with_error,
-    create_snapshot,
-    validate_gbfs_feed,
     save_snapshot_and_report,
-    VALIDATOR_URL,
-    get_snapshot_id,
+    GBFSValidator,
 )
-from dataset_service.main import Status
 
 
 class TestGbfsUtils(unittest.TestCase):
-    def test_get_snapshot_id(self):
-        stable_id = "test_stable_id"
-        today = datetime.now().strftime("%Y-%m-%d")
-        result = get_snapshot_id(stable_id)
-        self.assertEqual(result, f"{stable_id}-{today}")
+    def setUp(self):
+        self.stable_id = "test_stable_id"
+        self.validator = GBFSValidator(self.stable_id)
 
     @patch("requests.get")
     def test_fetch_gbfs_files(self, mock_get):
@@ -74,11 +68,11 @@ class TestGbfsUtils(unittest.TestCase):
         gbfs_data = {
             "data": {"en": {"feeds": [{"url": "http://old-url.com", "name": "feed"}]}}
         }
-        stable_id = "test_stable_id"
+
         mock_bucket.blob.return_value.public_url = "http://new-url.com"
 
-        result = create_gbfs_json_with_bucket_paths(mock_bucket, gbfs_data, stable_id)
-        self.assertEqual(result, "http://new-url.com")
+        self.validator.create_gbfs_json_with_bucket_paths(mock_bucket, gbfs_data)
+        self.assertEqual(self.validator.hosted_url, "http://new-url.com")
 
     def test_save_trace_with_error(self):
         mock_trace = MagicMock()
@@ -91,14 +85,15 @@ class TestGbfsUtils(unittest.TestCase):
         self.assertEqual(mock_trace.status, Status.FAILED)
 
     def test_create_snapshot(self):
-        stable_id = "test_stable_id"
         feed_id = "test_feed_id"
         hosted_url = "http://hosted-url.com"
+        self.validator.hosted_url = hosted_url
 
-        snapshot = create_snapshot(stable_id, feed_id, hosted_url)
+        snapshot = self.validator.create_snapshot(feed_id)
 
         self.assertEqual(
-            snapshot.stable_id, f"{stable_id}-{datetime.now().strftime('%Y-%m-%d')}"
+            snapshot.stable_id,
+            f"{self.stable_id}-{self.validator.validation_timestamp}",
         )
         self.assertEqual(snapshot.feed_id, feed_id)
         self.assertEqual(snapshot.hosted_url, hosted_url)
@@ -119,17 +114,19 @@ class TestGbfsUtils(unittest.TestCase):
         mock_blob.return_value = mock_blob_obj
 
         hosted_url = "http://hosted-url.com"
-        stable_id = "test_stable_id"
+        self.validator.hosted_url = hosted_url
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob_obj
 
-        result = validate_gbfs_feed(hosted_url, stable_id, mock_bucket)
+        result = self.validator.validate_gbfs_feed(mock_bucket)
 
         self.assertEqual(
             result["json_report_summary"], {"summary": "validation report"}
         )
         self.assertEqual(result["report_summary_url"], mock_blob_obj.public_url)
-        mock_post.assert_called_once_with(VALIDATOR_URL, json={"url": hosted_url})
+        mock_post.assert_called_once_with(
+            self.validator.VALIDATOR_URL, json={"url": hosted_url}
+        )
         mock_blob_obj.upload_from_string.assert_called_once()
 
     @patch("gbfs_validator.src.gbfs_utils.Gbfsvalidationreport")

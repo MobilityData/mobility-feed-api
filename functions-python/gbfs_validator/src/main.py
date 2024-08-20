@@ -18,17 +18,15 @@ from dataset_service.main import (
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from .gbfs_utils import (
-    fetch_gbfs_files,
-    create_gbfs_json_with_bucket_paths,
-    save_trace_with_error,
-    create_snapshot,
-    validate_gbfs_feed,
-    save_snapshot_and_report,
-)
 from helpers.database import start_db_session
 from helpers.logger import Logger, StableIdFilter
 from helpers.parser import jsonify_pubsub
+from .gbfs_utils import (
+    GBFSValidator,
+    fetch_gbfs_files,
+    save_trace_with_error,
+    save_snapshot_and_report,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -51,7 +49,6 @@ def fetch_all_gbfs_feeds() -> List[Gbfsfeed]:
             session.close()
 
 
-@functions_framework.cloud_event
 @functions_framework.cloud_event
 def gbfs_validator_pubsub(cloud_event: CloudEvent):
     Logger.init_logger()
@@ -100,9 +97,8 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
             storage_client = storage.Client()
             bucket = storage_client.bucket(BUCKET_NAME)
             gbfs_data = fetch_gbfs_files(url)
-            hosted_url = create_gbfs_json_with_bucket_paths(
-                bucket, gbfs_data, stable_id
-            )
+            validator = GBFSValidator(stable_id)
+            validator.create_gbfs_json_with_bucket_paths(bucket, gbfs_data)
         except Exception as e:
             error_message = f"Error processing GBFS files: {e}"
             logging.error(error_message)
@@ -110,10 +106,9 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
             return error_message
 
         try:
-            snapshot = create_snapshot(stable_id, feed_id, hosted_url)
+            snapshot = validator.create_snapshot(feed_id)
+            validation_results = validator.validate_gbfs_feed(bucket)
             session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-
-            validation_results = validate_gbfs_feed(hosted_url, stable_id, bucket)
             save_snapshot_and_report(session, snapshot, validation_results)
 
         except Exception as e:
