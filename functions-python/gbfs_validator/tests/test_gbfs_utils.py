@@ -2,6 +2,7 @@ import unittest
 import uuid
 from datetime import datetime
 from unittest.mock import patch, MagicMock
+import requests
 
 from gbfs_validator.src.gbfs_utils import (
     fetch_gbfs_files,
@@ -11,12 +12,19 @@ from gbfs_validator.src.gbfs_utils import (
     create_snapshot,
     validate_gbfs_feed,
     save_snapshot_and_report,
-    VALIDATOR_URL,
+    VALIDATOR_URL, get_snapshot_id,
 )
 from dataset_service.main import Status
 
 
 class TestGbfsUtils(unittest.TestCase):
+
+    def test_get_snapshot_id(self):
+        stable_id = "test_stable_id"
+        today = datetime.now().strftime("%Y-%m-%d")
+        result = get_snapshot_id(stable_id)
+        self.assertEqual(result, f"{stable_id}-{today}")
+
     @patch("requests.get")
     def test_fetch_gbfs_files(self, mock_get):
         mock_response = MagicMock()
@@ -47,6 +55,16 @@ class TestGbfsUtils(unittest.TestCase):
         mock_get.assert_called_once_with("http://file-url.com")
         mock_blob.upload_from_string.assert_called_once_with(b"file_content")
         mock_blob.make_public.assert_called_once()
+
+    @patch("requests.get")
+    def test_upload_gbfs_file_to_bucket_exception(self, mock_get):
+        mock_get.side_effect = requests.exceptions.RequestException("Error")
+        mock_bucket = MagicMock()
+
+        result = upload_gbfs_file_to_bucket(
+            mock_bucket, "http://file-url.com", "destination_blob"
+        )
+        self.assertIsNone(result)
 
     @patch("gbfs_validator.src.gbfs_utils.upload_gbfs_file_to_bucket")
     def test_create_gbfs_json_with_bucket_paths(self, mock_upload):
@@ -102,11 +120,10 @@ class TestGbfsUtils(unittest.TestCase):
 
         hosted_url = "http://hosted-url.com"
         stable_id = "test_stable_id"
-        today = datetime.now().strftime("%Y-%m-%d")
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob_obj
 
-        result = validate_gbfs_feed(hosted_url, stable_id, today, mock_bucket)
+        result = validate_gbfs_feed(hosted_url, stable_id, mock_bucket)
 
         self.assertEqual(
             result["json_report_summary"], {"summary": "validation report"}

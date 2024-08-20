@@ -110,13 +110,10 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
             return error_message
 
         try:
-            today = datetime.now().strftime("%Y-%m-%d")
             snapshot = create_snapshot(stable_id, feed_id, hosted_url)
             session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
 
-            validation_results = validate_gbfs_feed(
-                hosted_url, stable_id, today, bucket
-            )
+            validation_results = validate_gbfs_feed(hosted_url, stable_id, bucket)
             save_snapshot_and_report(session, snapshot, validation_results)
 
         except Exception as e:

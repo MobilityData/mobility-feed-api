@@ -3,7 +3,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import requests
 from google.cloud import storage
@@ -22,6 +22,13 @@ VALIDATOR_URL = os.getenv(
     "https://gbfs-validator.mobilitydata.org/.netlify/functions/validator-summary",
 )
 
+today = datetime.now().strftime("%Y-%m-%d")
+
+
+def get_snapshot_id(stable_id: str) -> str:
+    """Get the file ID from the stable ID."""
+    return f"{stable_id}-{today}"
+
 
 def fetch_gbfs_files(url: str) -> Dict[str, Any]:
     """Fetch the GBFS files from the autodiscovery URL."""
@@ -32,15 +39,21 @@ def fetch_gbfs_files(url: str) -> Dict[str, Any]:
 
 def upload_gbfs_file_to_bucket(
     bucket: storage.Bucket, file_url: str, destination_blob_name: str
-) -> str:
+) -> Optional[str]:
     """Upload a GBFS file to a Cloud Storage bucket."""
-    response = requests.get(file_url)
-    response.raise_for_status()
-    blob = bucket.blob(destination_blob_name)
-    blob.upload_from_string(response.content)
-    blob.make_public()
-    logging.info(f"Uploaded {destination_blob_name} to {bucket.name}.")
-    return blob.public_url
+    try:
+        response = requests.get(file_url)
+        response.raise_for_status()
+        blob = bucket.blob(destination_blob_name)
+        blob.upload_from_string(response.content)
+        blob.make_public()
+        logging.info(f"Uploaded {destination_blob_name} to {bucket.name}.")
+        return blob.public_url
+    except requests.exceptions.RequestException as error:
+        logging.error(
+            f"Error uploading {destination_blob_name} with access url {file_url}: {error}"
+        )
+        return None
 
 
 def create_gbfs_json_with_bucket_paths(
@@ -54,27 +67,29 @@ def create_gbfs_json_with_bucket_paths(
     @return: The public URL of the new gbfs.json.
     """
     new_gbfs_data = gbfs_data.copy()
-    today = datetime.now().strftime("%Y-%m-%d")
+    snapshot_id = get_snapshot_id(stable_id)
 
     for feed_key, feed in new_gbfs_data["data"].items():
         if isinstance(feed["feeds"], dict):
             for feed_language, feed_info in feed["feeds"].items():
                 old_url = feed_info["url"]
-                blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}_{feed_language}.json"
+                blob_name = f"{stable_id}/{snapshot_id}/{feed_info['name']}_{feed_language}.json"
                 new_url = upload_gbfs_file_to_bucket(bucket, old_url, blob_name)
-                feed_info["url"] = new_url
+                if new_url is not None:
+                    feed_info["url"] = new_url
         elif isinstance(feed["feeds"], list):
             for feed_info in feed["feeds"]:
                 old_url = feed_info["url"]
-                blob_name = f"{stable_id}/{stable_id}-{today}/{feed_info['name']}.json"
+                blob_name = f"{stable_id}/{snapshot_id}/{feed_info['name']}.json"
                 new_url = upload_gbfs_file_to_bucket(bucket, old_url, blob_name)
-                feed_info["url"] = new_url
+                if new_url is not None:
+                    feed_info["url"] = new_url
         else:
             logging.warning(f"Unexpected format in feed: {feed_key}")
 
     # Save the new gbfs.json in the bucket
     new_gbfs_data["last_updated"] = today
-    new_gbfs_blob = bucket.blob(f"{stable_id}/{stable_id}-{today}/gbfs.json")
+    new_gbfs_blob = bucket.blob(f"{stable_id}/{snapshot_id}/gbfs.json")
     new_gbfs_blob.upload_from_string(
         json.dumps(new_gbfs_data), content_type="application/json"
     )
@@ -91,11 +106,10 @@ def save_trace_with_error(trace, error, trace_service):
 
 def create_snapshot(stable_id: str, feed_id: str, hosted_url: str) -> Gbfssnapshot:
     """Create a new Gbfssnapshot object."""
-    today = datetime.now().strftime("%Y-%m-%d")
     snapshot_id = str(uuid.uuid4())
     snapshot = Gbfssnapshot(
         id=snapshot_id,
-        stable_id=f"{stable_id}-{today}",
+        stable_id=get_snapshot_id(stable_id),
         feed_id=feed_id,
         downloaded_at=datetime.now(),
         hosted_url=hosted_url,
@@ -104,17 +118,16 @@ def create_snapshot(stable_id: str, feed_id: str, hosted_url: str) -> Gbfssnapsh
 
 
 def validate_gbfs_feed(
-    hosted_url: str, stable_id: str, today: str, bucket: storage.Bucket
+    hosted_url: str, stable_id: str, bucket: storage.Bucket
 ) -> Dict[str, Any]:
     """Validate the GBFS feed and store the report in Cloud Storage."""
     json_payload = {"url": hosted_url}
+    snapshot_id = get_snapshot_id(stable_id)
     response = requests.post(VALIDATOR_URL, json=json_payload)
     response.raise_for_status()
 
     json_report_summary = response.json()
-    report_summary_blob = bucket.blob(
-        f"{stable_id}/{stable_id}-{today}/report_summary.json"
-    )
+    report_summary_blob = bucket.blob(f"{stable_id}/{snapshot_id}/report_summary.json")
     report_summary_blob.upload_from_string(
         json.dumps(json_report_summary), content_type="application/json"
     )

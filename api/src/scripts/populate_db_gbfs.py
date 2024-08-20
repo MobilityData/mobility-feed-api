@@ -93,10 +93,11 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             country_code = self.get_safe_value(row, "Country Code", "")
             municipality = self.get_safe_value(row, "Location", "")
             location_id = self.get_location_id(country_code, None, municipality)
+            country = pycountry.countries.get(alpha_2=country_code) if country_code else None
             location = self.db.session.get(Location, location_id) or Location(
                 id=location_id,
                 country_code=country_code,
-                country=pycountry.countries.get(alpha_2=country_code).name if country_code else None,
+                country=country.name if country else None,
                 municipality=municipality,
             )
             gbfs_feed.locations.clear()
