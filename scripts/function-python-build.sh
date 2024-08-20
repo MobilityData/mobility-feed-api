@@ -22,10 +22,10 @@
 # The function config must be defined in the file `functions-python/<function_name>/function_config.json`.
 
 # Usage:
-#   python-function-build.sh --function_name <function name> --all
+#   function-python-build.sh --function_name <function name> --all
 # Examples:
-#   python-function-build.sh --function_name tokens
-#   python-function-build.sh --all
+#   function-python-build.shh --function_name tokens
+#   function-python-build.sh --all
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"

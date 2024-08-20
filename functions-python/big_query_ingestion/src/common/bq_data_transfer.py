@@ -1,0 +1,97 @@
+import logging
+import os
+
+from google.cloud import bigquery, storage
+from google.cloud.bigquery.job import LoadJobConfig, SourceFormat
+
+from .bg_schema import json_schema_to_bigquery, load_json_schema
+
+# Environment variables
+project_id = os.getenv('PROJECT_ID', 'mobility-feeds-dev')
+bucket_name = os.getenv('BUCKET_NAME', 'mobilitydata-gbfs-snapshots-dev')
+dataset_id = os.getenv('DATASET_ID', 'data_analytics')
+table_id = os.getenv('TABLE_ID', 'gtfs_validation_reports')
+
+
+class BiqQueryDataTransfer:
+    def __init__(self):
+        self.bigquery_client = bigquery.Client(project=project_id)
+        self.storage_client = storage.Client(project=project_id)
+        self.schema_path = None
+        self.nd_json_path_prefix = 'ndjson/'
+
+    def create_bigquery_dataset(self):
+        dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
+        try:
+            self.bigquery_client.get_dataset(dataset_ref)
+            logging.info(f"Dataset {dataset_id} already exists.")
+        except:
+            dataset = bigquery.Dataset(dataset_ref)
+            dataset.location = "northamerica-northeast1"
+            self.bigquery_client.create_dataset(dataset)
+            logging.info(f"Created dataset {dataset_id}.")
+
+    def process_bucket_files(self):
+        pass  # The logic needs to be implemented in the child class
+
+    def create_bigquery_table(self):
+        dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
+        table_ref = dataset_ref.table(table_id)
+
+        try:
+            self.bigquery_client.get_table(table_ref)
+            logging.info(f"Table {table_id} already exists.")
+        except Exception:
+            if self.schema_path is None:
+                raise Exception("Schema path is not provided")
+            json_schema = load_json_schema(self.schema_path)
+            schema = json_schema_to_bigquery(json_schema)
+
+            table = bigquery.Table(table_ref, schema=schema)
+            table = self.bigquery_client.create_table(table)
+            logging.info(f"Created table {table.project}.{table.dataset_id}.{table.table_id}")
+
+    def load_data_to_bigquery(self):
+        dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
+        table_ref = dataset_ref.table(table_id)
+        source_uris = []
+        blobs = self.storage_client.list_blobs(bucket_name, prefix=self.nd_json_path_prefix)
+        for blob in blobs:
+            uri = f"gs://{bucket_name}/{blob.name}"
+            source_uris.append(uri)
+
+        if len(source_uris) > 0:
+            job_config = LoadJobConfig()
+            job_config.source_format = SourceFormat.NEWLINE_DELIMITED_JSON
+
+            load_job = self.bigquery_client.load_table_from_uri(
+                source_uris,
+                table_ref,
+                job_config=job_config
+            )
+            try:
+                load_job.result()  # Wait for the job to complete
+                logging.error(
+                    f"Loaded {len(source_uris)} files into {table_ref.project}.{table_ref.dataset_id}.{table_ref.table_id}")
+            except Exception as e:
+                logging.error(f"An error occurred while loading data to BigQuery: {e}")
+                for error in load_job.errors:
+                    logging.error(f"Error: {error['message']}")
+                    if 'location' in error:
+                        logging.error(f"Location: {error['location']}")
+                    if 'reason' in error:
+                        logging.error(f"Reason: {error['reason']}")
+
+    def send_data_to_bigquery(self):
+        try:
+            self.create_bigquery_dataset()
+            self.create_bigquery_table()
+            self.process_bucket_files()
+            self.load_data_to_bigquery()
+            return "Data successfully loaded to BigQuery", 200
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            return f"Error while loading data: {e}", 500
+
+
+

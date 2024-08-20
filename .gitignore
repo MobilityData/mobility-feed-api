@@ -73,3 +73,4 @@ __pycache__
 # Test coverage results
 .coverage
 coverage_reports
+tf.plan
