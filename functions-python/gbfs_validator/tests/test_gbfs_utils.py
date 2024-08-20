@@ -12,13 +12,13 @@ from gbfs_validator.src.gbfs_utils import (
     create_snapshot,
     validate_gbfs_feed,
     save_snapshot_and_report,
-    VALIDATOR_URL, get_snapshot_id,
+    VALIDATOR_URL,
+    get_snapshot_id,
 )
 from dataset_service.main import Status
 
 
 class TestGbfsUtils(unittest.TestCase):
-
     def test_get_snapshot_id(self):
         stable_id = "test_stable_id"
         today = datetime.now().strftime("%Y-%m-%d")
