@@ -25,7 +25,6 @@ from datetime import datetime
 from typing import Optional
 
 import functions_framework
-import ast
 from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
@@ -76,12 +75,31 @@ class DatasetProcessor:
         self.authentication_type = authentication_type
         self.api_key_parameter_name = api_key_parameter_name
         self.date = datetime.now().strftime("%Y%m%d%H%M")
-        feeds_credentials = ast.literal_eval(os.getenv("FEEDS_CREDENTIALS", "{}"))
+        feeds_credentials = self.get_feed_credentials()
+        if feeds_credentials is None and self.authentication_type != 0:
+            raise Exception(
+                f"Error getting feed credentials for feed {self.feed_stable_id}"
+            )
         self.feed_credentials = feeds_credentials.get(self.feed_stable_id, None)
         self.public_hosted_datasets_url = public_hosted_datasets_url
 
         self.init_status = None
         self.init_status_additional_data = None
+
+    def get_feed_credentials(self) -> str | None:
+        """
+        Gets the feed credentials from the environment variable
+        """
+        try:
+            all_creds = os.getenv("FEEDS_CREDENTIALS", "{}")
+            if all_creds is None:
+                logging.warning("No feed credentials found.")
+                return None
+            feeds_credentials = json.loads(all_creds)
+            return feeds_credentials.get(self.feed_stable_id, None)
+        except Exception as e:
+            logging.error(f"Error getting feed credentials: {e}")
+            return None
 
     @staticmethod
     def create_dataset_stable_id(feed_stable_id, timestamp):
