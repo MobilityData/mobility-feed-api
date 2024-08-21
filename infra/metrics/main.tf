@@ -220,7 +220,7 @@ resource "google_cloud_scheduler_job" "gtfs_ingestion_scheduler" {
   project     = var.project_id
   description = "GTFS ingestion scheduler"
   paused      = var.environment == "prod" ? false : true
-  schedule    = "0 0 * * *"
+  schedule    = var.gtfs_data_schedule
   time_zone   = "UTC"
   region      = var.gcp_region
 
@@ -239,7 +239,7 @@ resource "google_cloud_scheduler_job" "gbfs_ingestion_scheduler" {
   description = "GBFS ingestion scheduler"
   region      = var.gcp_region
   paused      = var.environment == "prod" ? false : true
-  schedule    = "0 0 * * *"
+  schedule    = var.gbfs_data_schedule
   time_zone   = "UTC"
 
   http_target {

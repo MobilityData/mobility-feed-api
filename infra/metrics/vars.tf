@@ -64,3 +64,15 @@ variable "gbfs_table_id" {
     description = "ID of the BigQuery table for GBFS data"
     default     = "gbfs_validation_reports"
 }
+
+variable gtfs_data_schedule {
+    type        = string
+    description = "Schedule for GTFS data ingestion"
+    default     = "0 0 2 * *"  # Midnight on the 2nd of every month
+}
+
+variable gbfs_data_schedule {
+    type        = string
+    description = "Schedule for GBFS data ingestion"
+    default     = "0 0 2 * *"  # Midnight on the 2nd of every month
+}
