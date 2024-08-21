@@ -23,7 +23,6 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
   integration-tests-qa: # Run integration tests on QA
-    if: github.event_name == 'repository_dispatch'
     uses: ./.github/workflows/integration-tests.yml
     needs:
       - update-qa
@@ -51,7 +50,6 @@ jobs:
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
   integration-tests-prod:
-    if: github.event_name == 'repository_dispatch'
     uses: ./.github/workflows/integration-tests.yml
     needs: update
     with:
