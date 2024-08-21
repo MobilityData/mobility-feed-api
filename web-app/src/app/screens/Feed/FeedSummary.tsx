@@ -33,6 +33,17 @@ const boxElementStyle: SxProps = {
   mb: 1,
 };
 
+const boxElementStyleTransitProvider: SxProps = {
+  width: '100%',
+  mt: 2,
+  borderBottom: 'none',
+};
+
+const boxElementStyleProducerURL: SxProps = {
+  width: '100%',
+  mb: 1,
+};
+
 const ResponsiveListItem = styled('li')(({ theme }) => ({
   width: '100%',
   margin: '5px 0',
@@ -79,7 +90,7 @@ export default function FeedSummary({
           {getLocationName(feed?.locations)}
         </Typography>
       </Box>
-      <Box sx={boxElementStyle}>
+      <Box sx={boxElementStyleTransitProvider}>
         <Typography
           variant='subtitle1'
           gutterBottom
@@ -92,13 +103,14 @@ export default function FeedSummary({
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              paddingLeft: '25px',
+              paddingLeft: providersToDisplay.length <= 1 ? '0px' : '25px',
               justifyContent: 'space-between',
               marginTop: 0,
               maxHeight: '500px',
               overflowY: showAllProviders ? 'scroll' : 'hidden',
               borderBottom: showAllProviders ? '1px solid #e0e0e0' : 'none',
               borderTop: showAllProviders ? '1px solid #e0e0e0' : 'none',
+              listStyle: providersToDisplay.length <= 1 ? 'none' : undefined,
             }}
           >
             {providersToDisplay.map((provider) => (
@@ -129,7 +141,7 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
-      <Box sx={boxElementStyle}>
+      <Box sx={boxElementStyleProducerURL}>
         <Typography
           variant='subtitle1'
           gutterBottom
@@ -191,20 +203,22 @@ export default function FeedSummary({
         </Typography>
       </Box>
 
-      <Box sx={boxElementStyle}>
-        <Typography
-          variant='subtitle1'
-          gutterBottom
-          sx={{ fontWeight: 'bold' }}
-        >
-          {t('authenticationType')}
-        </Typography>
-        <Typography data-testid='data-type'>
-          {feed?.source_info?.authentication_type === 1 && t('common:apiKey')}
-          {feed?.source_info?.authentication_type === 2 &&
-            t('common:httpHeader')}
-        </Typography>
-      </Box>
+      {feed?.source_info?.authentication_type !== 0 && (
+        <Box sx={boxElementStyle}>
+          <Typography
+            variant='subtitle1'
+            gutterBottom
+            sx={{ fontWeight: 'bold' }}
+          >
+            {t('authenticationType')}
+          </Typography>
+          <Typography data-testid='data-type'>
+            {feed?.source_info?.authentication_type === 1 && t('common:apiKey')}
+            {feed?.source_info?.authentication_type === 2 &&
+              t('common:httpHeader')}
+          </Typography>
+        </Box>
+      )}
 
       {hasAuthenticationInfo && (
         <Button disableElevation variant='contained' sx={{ marginRight: 2 }}>
@@ -228,7 +242,7 @@ export default function FeedSummary({
               gutterBottom
               sx={{ fontWeight: 'bold' }}
             >
-              {t('feedContactEmail')}:
+              {t('feedContactEmail')}
             </Typography>
             {feed?.feed_contact_email !== undefined &&
               feed?.feed_contact_email.length > 0 && (
