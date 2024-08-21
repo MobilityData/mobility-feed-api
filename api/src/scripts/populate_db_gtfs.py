@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+import pycountry
 import pytz
 from sqlalchemy import text
 
@@ -52,6 +53,11 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         """
         return f'mdb-{self.get_safe_value(row, "mdb_source_id", "")}'
 
+    def get_country(self, country_code):
+        if country_code:
+            return pycountry.countries.get(alpha_2=country_code).name
+        return None
+
     def populate_location(self, feed, row, stable_id):
         """
         Populate the location for the feed
@@ -63,6 +69,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         country_code = self.get_safe_value(row, "location.country_code", "")
         subdivision_name = self.get_safe_value(row, "location.subdivision_name", "")
         municipality = self.get_safe_value(row, "location.municipality", "")
+        country = self.get_country(country_code)
         location_id = self.get_location_id(country_code, subdivision_name, municipality)
         if not location_id:
             self.logger.warning(f"Location ID is empty for feed {stable_id}")
@@ -77,6 +84,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     country_code=country_code,
                     subdivision_name=subdivision_name,
                     municipality=municipality,
+                    country=country,
                 )
             )
             feed.locations = [location]
@@ -213,6 +221,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         # This need to be done after all feeds are added to the session to avoid FK violation
         self.process_feed_references()
         self.process_redirects()
+        self.post_process_locations()
 
     def trigger_downstream_tasks(self):
         """
@@ -228,6 +237,21 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         self.logger.info(f"ENV = {env}")
         if os.getenv("ENV", "local") != "local":
             publish_all(self.added_gtfs_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
+
+    def post_process_locations(self):
+        """
+        Set the country for any location entry that does not have one.
+        """
+        query = self.db.session.query(Location).filter(Location.country.is_(None))
+        result = query.all()
+        set_country_count = 0
+        for location in result:
+            country = self.get_country(location.country_code)
+            if country:
+                location.country = country  # Set the country field to the desired value
+                set_country_count += 1
+        self.db.session.commit()
+        self.logger.info(f"Had to set the country for {set_country_count} locations")
 
     # Extracted the following code from main, so it can be executed as a library function
     def initialize(self, trigger_downstream_tasks: bool = True):

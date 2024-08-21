@@ -82,7 +82,7 @@ export default function PreviousDatasets({
                     {(dataset.validation_report === null ||
                       dataset.validation_report === undefined) && (
                       <Typography sx={{ ml: '4px' }}>
-                        Unable to generate data quality report
+                        Validation report not available
                       </Typography>
                     )}
                     {dataset.validation_report !== null &&
