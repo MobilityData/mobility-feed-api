@@ -136,5 +136,4 @@ module "metrics" {
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
-  python_runtime = var.python_runtime
 }

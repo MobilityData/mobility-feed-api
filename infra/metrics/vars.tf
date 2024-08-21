@@ -32,6 +32,7 @@ variable "environment" {
 variable "python_runtime" {
   type = string
   description = "Python runtime version"
+  default = "python310"
 }
 
 variable "gtfs_datasets_storage_bucket" {
