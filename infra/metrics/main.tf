@@ -17,10 +17,10 @@
 locals {
     # BigQuery data ingestion function config
     function_big_query_ingest_config = jsondecode(file("${path.module}/../../functions-python/big_query_ingestion/function_config.json"))
-    function_big_query_ingest_zip = "${path.module}/../../functions-python/big_query_ingestion/.dist/big_query_ingestion.zip"
+    function_big_query_ingest_zip    = "${path.module}/../../functions-python/big_query_ingestion/.dist/big_query_ingestion.zip"
 
     #  DEV and QA use the vpc connector
-    vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
+    vpc_connector_name    = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
     vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
 }
 
@@ -39,12 +39,12 @@ locals {
 resource "google_service_account" "metrics_service_account" {
     account_id   = "metrics-service-account"
     display_name = "Metrics Service Account"
-    project = var.project_id
+    project      = var.project_id
 }
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
-  for_each = local.unique_secret_keys
+  for_each   = local.unique_secret_keys
 
   project    = var.project_id
   # The secret_id is the current item in the set. Since these are unique keys, we use each.value to access it.
@@ -62,7 +62,7 @@ data "google_vpc_access_connector" "vpc_connector" {
 resource "google_storage_bucket" "functions_bucket" {
   name     = "mobility-feeds-metrics-source-${var.environment}"
   location = "us"
-  project = var.project_id
+  project  = var.project_id
 }
 
 # GTFS - Big Query data ingestion function
@@ -80,7 +80,7 @@ resource "google_cloudfunctions2_function" "gtfs_big_query_ingest" {
   project     = var.project_id
   description = local.function_big_query_ingest_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
 
   build_config {
     runtime     = var.python_runtime
@@ -94,25 +94,25 @@ resource "google_cloudfunctions2_function" "gtfs_big_query_ingest" {
   }
   service_config {
     environment_variables = {
-      PROJECT_ID = var.project_id
-      BUCKET_NAME = data.google_storage_bucket.gtfs_datasets_bucket.name
-      DATASET_ID = var.dataset_id
-      TABLE_ID = var.gtfs_table_id
+      PROJECT_ID          = var.project_id
+      BUCKET_NAME         = data.google_storage_bucket.gtfs_datasets_bucket.name
+      DATASET_ID          = var.dataset_id
+      TABLE_ID            = var.gtfs_table_id
       BQ_DATASET_LOCATION = var.gcp_region
       PYTHONNODEBUGRANGES = 0
     }
-    available_memory = local.function_big_query_ingest_config.memory
-    timeout_seconds = local.function_big_query_ingest_config.timeout
-    available_cpu = local.function_big_query_ingest_config.available_cpu
+    available_memory                 = local.function_big_query_ingest_config.memory
+    timeout_seconds                  = local.function_big_query_ingest_config.timeout
+    available_cpu                    = local.function_big_query_ingest_config.available_cpu
     max_instance_request_concurrency = local.function_big_query_ingest_config.max_instance_request_concurrency
-    max_instance_count = local.function_big_query_ingest_config.max_instance_count
-    min_instance_count = local.function_big_query_ingest_config.min_instance_count
-    service_account_email = google_service_account.metrics_service_account.email
-    ingress_settings = "ALLOW_ALL"
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = local.function_big_query_ingest_config.max_instance_count
+    min_instance_count               = local.function_big_query_ingest_config.min_instance_count
+    service_account_email            = google_service_account.metrics_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_big_query_ingest_config.secret_environment_variables
+      for_each     = local.function_big_query_ingest_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -130,7 +130,7 @@ resource "google_cloudfunctions2_function" "gbfs_big_query_ingest" {
   project     = var.project_id
   description = local.function_big_query_ingest_config.description
   location    = var.gcp_region
-  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
 
   build_config {
     runtime     = var.python_runtime
@@ -144,25 +144,25 @@ resource "google_cloudfunctions2_function" "gbfs_big_query_ingest" {
   }
   service_config {
     environment_variables = {
-      PROJECT_ID = var.project_id
-      BUCKET_NAME = data.google_storage_bucket.gbfs_snapshots_bucket.name
-      DATASET_ID = var.dataset_id
-      TABLE_ID = var.gbfs_table_id
+      PROJECT_ID          = var.project_id
+      BUCKET_NAME         = data.google_storage_bucket.gbfs_snapshots_bucket.name
+      DATASET_ID          = var.dataset_id
+      TABLE_ID            = var.gbfs_table_id
       BQ_DATASET_LOCATION = var.gcp_region
       PYTHONNODEBUGRANGES = 0
     }
-    available_memory = local.function_big_query_ingest_config.memory
-    timeout_seconds = local.function_big_query_ingest_config.timeout
-    available_cpu = local.function_big_query_ingest_config.available_cpu
+    available_memory                 = local.function_big_query_ingest_config.memory
+    timeout_seconds                  = local.function_big_query_ingest_config.timeout
+    available_cpu                    = local.function_big_query_ingest_config.available_cpu
     max_instance_request_concurrency = local.function_big_query_ingest_config.max_instance_request_concurrency
-    max_instance_count = local.function_big_query_ingest_config.max_instance_count
-    min_instance_count = local.function_big_query_ingest_config.min_instance_count
-    service_account_email = google_service_account.metrics_service_account.email
-    ingress_settings = "ALLOW_ALL"
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    max_instance_count               = local.function_big_query_ingest_config.max_instance_count
+    min_instance_count               = local.function_big_query_ingest_config.min_instance_count
+    service_account_email            = google_service_account.metrics_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_big_query_ingest_config.secret_environment_variables
+      for_each     = local.function_big_query_ingest_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -211,5 +211,43 @@ resource "google_storage_bucket_iam_member" "snapshots_bucket_functions_service_
   bucket = data.google_storage_bucket.gbfs_snapshots_bucket.name
   role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.metrics_service_account.email}"
+}
+
+# Cloud schedulers
+# 1. GTFS ingestion scheduler
+resource "google_cloud_scheduler_job" "gtfs_ingestion_scheduler" {
+  name        = "gtfs-ingestion-scheduler"
+  project     = var.project_id
+  description = "GTFS ingestion scheduler"
+  paused      = var.environment == "prod" ? false : true
+  schedule    = "0 0 * * *"
+  time_zone   = "UTC"
+  region      = var.gcp_region
+
+  http_target {
+    uri         = google_cloudfunctions2_function.gtfs_big_query_ingest.url
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.metrics_service_account.email
+    }
+  }
+}
+# 2. GBFS ingestion scheduler
+resource "google_cloud_scheduler_job" "gbfs_ingestion_scheduler" {
+  name        = "gbfs-ingestion-scheduler"
+  project     = var.project_id
+  description = "GBFS ingestion scheduler"
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  schedule    = "0 0 * * *"
+  time_zone   = "UTC"
+
+  http_target {
+    uri = google_cloudfunctions2_function.gbfs_big_query_ingest.url
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.metrics_service_account.email
+    }
+  }
 }
 
