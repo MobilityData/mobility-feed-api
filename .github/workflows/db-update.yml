@@ -235,14 +235,14 @@ jobs:
         with:
           export-env: true # Export loaded secrets as environment variables
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/2mtq7eqbhxv3o25yerdbz4scse/credential"
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
+          JSON_FEEDS_WITH_TOKENS: ""op://lijd6lj7lyw7dajea6x3zgf53m/l6sr2cnpjj3cbw3t5amlu7vui4/credential""
 
       - name: Create or Update Auth Secret
         env:
           PROJECT_ID: ${{ inputs.PROJECT_ID }}
           ENVIRONMENT: ${{ inputs.ENVIRONMENT }}
-          SECRET_VALUE: ${{ env.CREDENTIALS }}
+          SECRET_VALUE: ${{ env.JSON_FEEDS_WITH_TOKENS }}
           SECRET_NAME: FEEDS_CREDENTIALS
         run: |
           echo "Processing secret $SECRET_NAME in project $PROJECT_ID..."
