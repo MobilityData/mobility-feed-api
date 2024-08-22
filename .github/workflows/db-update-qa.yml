@@ -9,13 +9,6 @@ on:
       - 'api/src/scripts/populate_db*'
   workflow_dispatch:
 jobs:
-  truc:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run truc
-        run: |
-          echo "secret = ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}"
-          echo ${{secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN}} | sed 's/./& /g'
   update:
     uses: ./.github/workflows/db-update.yml
     with:
