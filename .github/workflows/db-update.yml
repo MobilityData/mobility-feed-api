@@ -40,6 +40,9 @@ on:
       OP_SERVICE_ACCOUNT_TOKEN:
         description: OnePassword Service Account Token
         required: true
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN:
+        description: OnePassword Service Account Token
+        required: true
       POSTGRE_SQL_INSTANCE_NAME:
         description: PostgreSQL Instance Name
         required: true        
