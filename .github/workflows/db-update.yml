@@ -238,7 +238,9 @@ jobs:
         with:
           export-env: true # Export loaded secrets as environment variables
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          # This alternate service account token gives access to a vault writable by some third
+          # party people who can update the list of feeds requiring authorization and their tokens
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
           JSON_FEEDS_WITH_TOKENS: "op://lijd6lj7lyw7dajea6x3zgf53m/l6sr2cnpjj3cbw3t5amlu7vui4/credential"
 
       - name: Create or Update Auth Secret
