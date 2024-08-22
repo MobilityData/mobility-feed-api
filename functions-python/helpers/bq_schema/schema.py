@@ -1,6 +1,11 @@
 import json
-
 from google.cloud import bigquery
+
+
+json_schema_map = {
+    "gtfs": "gtfs_schema.json",
+    "gbfs": "gbfs_schema.json",
+}
 
 
 def json_schema_to_bigquery(json_schema):
@@ -8,30 +13,16 @@ def json_schema_to_bigquery(json_schema):
         name = field["name"]
         field_type = field["type"].upper()
 
-        # Map JSON types to BigQuery types
-        type_mapping = {
-            "STRING": "STRING",
-            "INTEGER": "INTEGER",
-            "FLOAT": "FLOAT",
-            "BOOLEAN": "BOOLEAN",
-            "TIMESTAMP": "TIMESTAMP",
-            "DATE": "DATE",
-            "RECORD": "RECORD",
-        }
-        bq_type = type_mapping.get(
-            field_type, "STRING"
-        )  # Default to STRING if type not found
-
         mode = field.get("mode", "NULLABLE")  # Default mode is NULLABLE
 
         # Handle nested fields for RECORD types
-        if bq_type == "RECORD":
+        if field_type == "RECORD":
             subfields = [
                 convert_field(subfield) for subfield in field.get("fields", [])
             ]
-            return bigquery.SchemaField(name, bq_type, mode=mode, fields=subfields)
+            return bigquery.SchemaField(name, field_type, mode=mode, fields=subfields)
         else:
-            return bigquery.SchemaField(name, bq_type, mode=mode)
+            return bigquery.SchemaField(name, field_type, mode=mode)
 
     return [convert_field(field) for field in json_schema.get("fields", [])]
 

@@ -1,20 +1,23 @@
 import logging
 import os
+from datetime import datetime
 
 from google.cloud import bigquery, storage
 from google.cloud.bigquery.job import LoadJobConfig, SourceFormat
 
-from .bg_schema import json_schema_to_bigquery, load_json_schema
+from helpers.bq_schema.schema import json_schema_to_bigquery, load_json_schema
 
 # Environment variables
 project_id = os.getenv("PROJECT_ID")
 bucket_name = os.getenv("BUCKET_NAME")
 dataset_id = os.getenv("DATASET_ID")
-table_id = os.getenv("TABLE_ID")
+table_id = f"{os.getenv('TABLE_ID')}_{datetime.now().strftime('%Y%m%d')}"
 dataset_location = os.getenv("BQ_DATASET_LOCATION")
 
 
 class BigQueryDataTransfer:
+    """Base class for BigQuery data transfer."""
+
     def __init__(self):
         self.bigquery_client = bigquery.Client(project=project_id)
         self.storage_client = storage.Client(project=project_id)
@@ -22,6 +25,7 @@ class BigQueryDataTransfer:
         self.nd_json_path_prefix = "ndjson"
 
     def create_bigquery_dataset(self):
+        """Creates a BigQuery dataset if it does not exist."""
         dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
         try:
             self.bigquery_client.get_dataset(dataset_ref)
@@ -32,10 +36,8 @@ class BigQueryDataTransfer:
             self.bigquery_client.create_dataset(dataset)
             logging.info(f"Created dataset {dataset_id}.")
 
-    def process_bucket_files(self):
-        pass  # The logic needs to be implemented in the child class
-
     def create_bigquery_table(self):
+        """Creates a BigQuery table if it does not exist."""
         dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
         table_ref = dataset_ref.table(table_id)
 
@@ -55,17 +57,21 @@ class BigQueryDataTransfer:
             )
 
     def load_data_to_bigquery(self):
+        """Loads data from Cloud Storage to BigQuery."""
         dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
         table_ref = dataset_ref.table(table_id)
         source_uris = []
-        blobs = self.storage_client.list_blobs(
-            bucket_name, prefix=self.nd_json_path_prefix
+        # Get the list of blobs in the bucket
+        blobs = list(
+            self.storage_client.list_blobs(bucket_name, prefix=self.nd_json_path_prefix)
         )
         for blob in blobs:
             uri = f"gs://{bucket_name}/{blob.name}"
             source_uris.append(uri)
+        logging.info(f"Found {len(source_uris)} files to load to BigQuery.")
 
         if len(source_uris) > 0:
+            # Load the data to BigQuery
             job_config = LoadJobConfig()
             job_config.source_format = SourceFormat.NEWLINE_DELIMITED_JSON
             job_config.write_disposition = bigquery.WriteDisposition.WRITE_TRUNCATE
@@ -79,6 +85,10 @@ class BigQueryDataTransfer:
                     f"Loaded {len(source_uris)} files into "
                     f"{table_ref.project}.{table_ref.dataset_id}.{table_ref.table_id}"
                 )
+                # If successful, delete the blobs
+                for blob in blobs:
+                    blob.delete()
+                    logging.info(f"Deleted blob: {blob.name}")
             except Exception as e:
                 logging.error(f"An error occurred while loading data to BigQuery: {e}")
                 for error in load_job.errors:
@@ -89,10 +99,10 @@ class BigQueryDataTransfer:
                         logging.error(f"Reason: {error['reason']}")
 
     def send_data_to_bigquery(self):
+        """Full process to send data to BigQuery."""
         try:
             self.create_bigquery_dataset()
             self.create_bigquery_table()
-            self.process_bucket_files()
             self.load_data_to_bigquery()
             return "Data successfully loaded to BigQuery", 200
         except Exception as e:
