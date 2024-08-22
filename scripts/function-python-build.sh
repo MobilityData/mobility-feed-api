@@ -1,5 +1,4 @@
 #
-#
 #  MobilityData 2023
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,16 +15,16 @@
 #
 #
 
-# Build a python function compressing the source code and its dependencies exluding the libs in requirements.txt.
+# Build a python function compressing the source code and its dependencies excluding the libs in requirements.txt.
 # The script receives the name of the function as parameter.
 # The function must be located in the folder `functions-python/<function_name>`.
 # The function config must be defined in the file `functions-python/<function_name>/function_config.json`.
 
 # Usage:
-#   python-function-build.sh --function_name <function name> --all
+#   function-python-build.sh --function_name <function name> --all
 # Examples:
-#   python-function-build.sh --function_name tokens
-#   python-function-build.sh --all
+#   function-python-build.sh --function_name tokens
+#   function-python-build.sh --all
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
@@ -104,9 +103,10 @@ build_function() {
     printf "\nINFO: function_config.json file contains a property called include_folders"
   fi
   for folder in $include_folders; do
-    printf "\nINFO: Including .py files from folder $FX_PATH/../$folder, excluding 'tests' directories\n"
-    # Find all .py files, excluding those in 'tests' directories
-    find "$FX_PATH/../$folder" -type d -name "tests" -prune -o -name "*.py" -print | while read file; do
+    printf "\nINFO: Including .py and .json files from folder $FX_PATH/../$folder, excluding 'tests' and 'venv' directories\n"
+
+    # Find all .py and .json files, excluding those in 'tests' or 'venv' directories
+    find "$FX_PATH/../$folder" \( -type d -name "tests" -o -type d -name "venv" \) -prune -o \( -name "*.py" -o -name "*.json" \) -print | while read file; do
         if [ -d "$file" ]; then continue; fi
         relative_path="${file#$FX_PATH/../}"
         dest_path="$FX_DIST_BUILD/$relative_path"
