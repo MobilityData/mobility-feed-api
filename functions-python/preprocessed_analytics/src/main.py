@@ -1,0 +1,58 @@
+import logging
+from datetime import datetime
+
+import flask
+import functions_framework
+from flask import Response
+
+from helpers.logger import Logger
+from .processors.gbfs_analytics_processor import GBFSAnalyticsProcessor
+from .processors.gtfs_analytics_processor import GTFSAnalyticsProcessor
+
+logging.basicConfig(level=logging.INFO)
+
+
+def get_compute_date(request: flask.Request) -> datetime:
+    """
+    Get the compute date from the request JSON.
+    """
+    try:
+        json_request = request.get_json()
+        compute_date_str = json_request.get("compute_date", None)
+        if compute_date_str:
+            return datetime.strptime(compute_date_str, "%Y%m%d")
+    except Exception as e:
+        logging.error(f"Error getting compute date: {e}")
+    return datetime.now()
+
+
+def process_analytics(request: flask.Request, processor_class) -> Response:
+    """
+    Common logic to process analytics using the given processor class.
+    """
+    Logger.init_logger()
+    logging.info(f"{processor_class.__name__} Function triggered")
+    compute_date = get_compute_date(request)
+    logging.info(f"Compute date: {compute_date}")
+    try:
+        processor = processor_class(compute_date)
+        processor.run()
+    except Exception as e:
+        logging.error(f"Error processing {processor_class.__name__} analytics: {e}")
+        return Response(
+            f"Error processing analytics for date {compute_date}: {e}", status=500
+        )
+
+    return Response(
+        f"Successfully processed analytics for date: {compute_date}", status=200
+    )
+
+
+@functions_framework.http
+def process_analytics_gtfs(request: flask.Request) -> Response:
+    return process_analytics(request, GTFSAnalyticsProcessor)
+
+
+@functions_framework.http
+def process_analytics_gbfs(request: flask.Request) -> Response:
+    return process_analytics(request, GBFSAnalyticsProcessor)
