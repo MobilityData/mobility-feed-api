@@ -20,7 +20,7 @@ class BaseFeedImpl(BasicFeed):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, feed: Feed | None) -> BasicFeed | None:
+    def from_orm(cls, feed: Feed | None, _=None) -> BasicFeed | None:
         if not feed:
             return None
         return cls(
@@ -61,4 +61,3 @@ class BasicFeedImpl(BaseFeedImpl, BasicFeed):
         Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True

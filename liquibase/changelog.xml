@@ -23,4 +23,10 @@
     <include file="changes/feat_360.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_389.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_533.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_611.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_618.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_618_2.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_622.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_565.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_566.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

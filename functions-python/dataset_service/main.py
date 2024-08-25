@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
+import logging
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -21,6 +21,7 @@ from dataclasses import dataclass, asdict
 from typing import Optional, Final
 from google.cloud import datastore
 from google.cloud.datastore import Client
+
 
 # This files contains the dataset trace and batch execution models and services.
 # The dataset trace is used to store the trace of a dataset and the batch execution
@@ -32,8 +33,17 @@ from google.cloud.datastore import Client
 # Status of the dataset trace
 class Status(Enum):
     FAILED = "FAILED"
+    SUCCESS = "SUCCESS"
     PUBLISHED = "PUBLISHED"
     NOT_PUBLISHED = "NOT_PUBLISHED"
+    PROCESSING = "PROCESSING"
+
+
+# Stage of the pipeline
+class PipelineStage(Enum):
+    DATASET_PROCESSING = "DATASET_PROCESSING"
+    LOCATION_EXTRACTION = "LOCATION_EXTRACTION"
+    GBFS_VALIDATION = "GBFS_VALIDATION"
 
 
 # Dataset trace class to store the trace of a dataset
@@ -42,10 +52,12 @@ class DatasetTrace:
     stable_id: str
     status: Status
     timestamp: datetime
+    dataset_id: Optional[str] = None
     trace_id: Optional[str] = None
     execution_id: Optional[str] = None
     file_sha256_hash: Optional[str] = None
     hosted_url: Optional[str] = None
+    pipeline_stage: PipelineStage = PipelineStage.DATASET_PROCESSING
     error_message: Optional[str] = None
 
 
@@ -61,10 +73,28 @@ dataset_trace_collection: Final[str] = "dataset_trace"
 batch_execution_collection: Final[str] = "batch_execution"
 
 
+class MaxExecutionsReachedError(Exception):
+    pass
+
+
 # Dataset trace service with CRUD operations for the dataset trace
 class DatasetTraceService:
     def __init__(self, client: Client = None):
         self.client = datastore.Client() if client is None else client
+
+    def validate_and_save(self, dataset_trace: DatasetTrace, max_executions: int = 1):
+        if dataset_trace.execution_id is None or dataset_trace.stable_id is None:
+            raise ValueError("Execution ID and Stable ID are required.")
+        trace = self.get_by_execution_and_stable_ids(
+            dataset_trace.execution_id, dataset_trace.stable_id
+        )
+        executions = len(trace) if trace else 0
+        logging.info(f"[{dataset_trace.stable_id}] Executions: {executions}")
+        if executions > 0 and executions >= max_executions:
+            raise MaxExecutionsReachedError(
+                f"Maximum executions reached for {dataset_trace.stable_id}."
+            )
+        self.save(dataset_trace)
 
     # Save the dataset trace
     def save(self, dataset_trace: DatasetTrace):
@@ -98,13 +128,16 @@ class DatasetTraceService:
 
     # Transform the dataset trace to entity
     def _dataset_trace_to_entity(self, dataset_trace: DatasetTrace) -> datastore.Entity:
-        trace_id = str(uuid.uuid4())
+        trace_id = (
+            str(uuid.uuid4()) if not dataset_trace.trace_id else dataset_trace.trace_id
+        )
         key = self.client.key(dataset_trace_collection, trace_id)
         entity = datastore.Entity(key=key)
 
         entity.update(asdict(dataset_trace))
         entity["trace_id"] = trace_id
         entity["status"] = dataset_trace.status.value
+        entity["pipeline_stage"] = dataset_trace.pipeline_stage.value
 
         return entity
 
@@ -120,6 +153,10 @@ class DatasetTraceService:
             file_sha256_hash=entity.get("file_sha256_hash"),
             hosted_url=entity.get("hosted_url"),
             error_message=entity.get("error_message"),
+            pipeline_stage=PipelineStage(entity.get("pipeline_stage"))
+            if entity.get("pipeline_stage")
+            else None,
+            dataset_id=entity.get("dataset_id"),
         )
 
 

@@ -133,7 +133,7 @@ def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
     [
         ("gtfs", 7),
         ("not_valid_gtfs", 0),
-        ("gtfs_rt", 1),
+        ("gtfs_rt", 2),
     ],
 )
 def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expected_results_total: int):
@@ -174,9 +174,10 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
 @pytest.mark.parametrize(
     "status, expected_results_total",
     [
-        ("active", 8),  # 7 GTFS feeds and 1 GTFS-rt feed
+        ("active", 6),
         ("not_valid_status", 0),
-        ("inactive", 0),
+        ("inactive", 1),
+        ("active,inactive", 7),
     ],
 )
 def test_search_feeds_filter_status(client: TestClient, status: str, expected_results_total: int):
@@ -209,9 +210,9 @@ def test_search_feeds_filter_status(client: TestClient, status: str, expected_re
 
     assert response_body.total == expected_results_total
     assert len(response_body.results) == expected_results_total
-    if expected_results_total > 1:
+    if expected_results_total > 0:
         for result in response_body.results:
-            assert result.status == status
+            assert result.status in status
 
 
 @pytest.mark.parametrize(
@@ -342,3 +343,48 @@ def test_search_feeds_filter_reference_id(client: TestClient):
     assert response_body.results[0].status == "active"
     assert len(response_body.results[0].feed_references) == 1
     assert response_body.results[0].feed_references[0] == TEST_GTFS_FEED_STABLE_IDS[0]
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"search_query": "éèàçíóúč", "expected_ids": ["mdb-1562"]},
+        {"search_query": "eeaciouc", "expected_ids": ["mdb-1562"]},
+        {"search_query": "ŘŤÜî", "expected_ids": ["mdb-1562"]},
+        {"search_query": "rtui", "expected_ids": ["mdb-1562"]},
+    ],
+    ids=[
+        "Search query with accents and special characters against a provider",
+        "Search query with the normalized version of the accents against a provider",
+        "Search query with accents and special characters against the feed name",
+        "Search query with the normalized version of the accents against the feed name",
+    ],
+)
+def test_search_feeds_filter_accents(client: TestClient, values: dict):
+    """
+    Retrieve feeds with accents in the provider name and/or feed name.
+    """
+    params = [
+        ("limit", 100),
+        ("offset", 0),
+        ("search_query", values["search_query"]),
+    ]
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+
+    assert len(response_body.results) == len(values["expected_ids"])
+    assert response_body.total == len(values["expected_ids"])
+    assert all(result.id in values["expected_ids"] for result in response_body.results)

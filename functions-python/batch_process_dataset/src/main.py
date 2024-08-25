@@ -25,7 +25,6 @@ from datetime import datetime
 from typing import Optional
 
 import functions_framework
-import ast
 from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
@@ -75,13 +74,32 @@ class DatasetProcessor:
         self.execution_id = execution_id
         self.authentication_type = authentication_type
         self.api_key_parameter_name = api_key_parameter_name
-        self.date = datetime.now().strftime("%Y%m%d%H%S")
-        feeds_credentials = ast.literal_eval(os.getenv("FEED_CREDENTIALS", "{}"))
-        self.feed_credentials = feeds_credentials.get(self.feed_stable_id, None)
+        self.date = datetime.now().strftime("%Y%m%d%H%M")
+        if self.authentication_type != 0:
+            logging.info(f"Getting feed credentials for feed {self.feed_stable_id}")
+            self.feed_credentials = self.get_feed_credentials(self.feed_stable_id)
+            if self.feed_credentials is None:
+                raise Exception(
+                    f"Error getting feed credentials for feed {self.feed_stable_id}"
+                )
+        else:
+            self.feed_credentials = None
         self.public_hosted_datasets_url = public_hosted_datasets_url
 
         self.init_status = None
         self.init_status_additional_data = None
+
+    @staticmethod
+    def get_feed_credentials(feed_stable_id) -> str | None:
+        """
+        Gets the feed credentials from the environment variable
+        """
+        try:
+            feeds_credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
+            return feeds_credentials.get(feed_stable_id, None)
+        except Exception as e:
+            logging.error(f"Error getting feed credentials: {e}")
+            return None
 
     @staticmethod
     def create_dataset_stable_id(feed_stable_id, timestamp):

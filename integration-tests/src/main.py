@@ -43,11 +43,23 @@ def set_up_configs():
         default="",
         type=parse_class_list,
     )
+    parser.add_argument(
+        "--exclude_classes",
+        help="Optional, comma-separated list of test class names to exclude.",
+        default="",
+        type=parse_class_list,
+    )
     args = parser.parse_args()
     access_token = os.getenv("ACCESS_TOKEN", None)
     if access_token is None:
         raise ValueError("ACCESS_TOKEN environment variable is not set.")
-    return args.file_path, access_token, args.url, args.include_classes
+    return (
+        args.file_path,
+        access_token,
+        args.url,
+        args.include_classes,
+        args.exclude_classes,
+    )
 
 
 if __name__ == "__main__":
@@ -60,8 +72,14 @@ if __name__ == "__main__":
         if not ispkg:
             importlib.import_module(modname)
 
-    data_file_path, api_access_token, api_url, include_classes = set_up_configs()
+    (
+        data_file_path,
+        api_access_token,
+        api_url,
+        include_classes,
+        exclude_classes,
+    ) = set_up_configs()
 
     IntegrationTests(data_file_path, api_access_token, api_url).test_all(
-        target_classes=include_classes
+        target_classes=include_classes, excluded_classes=exclude_classes
     )

@@ -85,15 +85,17 @@ export default function About(): React.ReactElement {
             apps, and cities to standardize and expand data formats for public
             transport (GTFS) and shared mobility (GBFS).
           </Typography>
-          <Button variant='contained' sx={{ mt: 5 }} endIcon={<OpenInNew />}>
-            <a
-              href='https://mobilitydata.org/'
-              target='_blank'
-              className='btn-link'
-              rel='noreferrer'
-            >
-              Learn more about MobilityData
-            </a>
+          <Button
+            component={'a'}
+            variant='contained'
+            sx={{ mt: 5 }}
+            endIcon={<OpenInNew />}
+            href='https://mobilitydata.org/'
+            rel='noreferrer'
+            target='_blank'
+            className='btn-link-component'
+          >
+            Learn more about MobilityData
           </Button>
         </Box>
       </Box>

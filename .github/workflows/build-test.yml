@@ -37,7 +37,7 @@ jobs:
 
       - name: Docker Compose DB
         run: |
-          docker-compose --env-file ./config/.env.local up -d postgres postgres-test
+          docker compose --env-file ./config/.env.local up -d postgres postgres-test
         working-directory: ${{ github.workspace }}
 
       - name: Run lint checks

@@ -24,6 +24,12 @@ export const datasetSlice = createSlice({
   name: 'dataset',
   initialState,
   reducers: {
+    clearDataset: (state) => {
+      state.data = initialState.data;
+      state.errors = initialState.errors;
+      state.status = initialState.status;
+      state.datasetId = initialState.datasetId;
+    },
     updateDatasetId: (
       state,
       action: PayloadAction<{
@@ -77,6 +83,7 @@ export const {
   loadingDataset,
   loadingDatasetFail,
   loadingDatasetSuccess,
+  clearDataset,
 } = datasetSlice.actions;
 
 export default datasetSlice.reducer;

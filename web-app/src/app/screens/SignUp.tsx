@@ -11,14 +11,14 @@ import Container from '@mui/material/Container';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import AppleIcon from '@mui/icons-material/Apple';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useAppDispatch } from '../hooks';
 import {
-  loginFail,
   loginWithProvider,
   signUp,
+  signUpFail,
   verifyEmail,
 } from '../store/profile-reducer';
 import {
@@ -31,6 +31,7 @@ import {
 import { useSelector } from 'react-redux';
 import {
   ACCOUNT_TARGET,
+  ADD_FEED_TARGET,
   COMPLETE_REGISTRATION_TARGET,
   POST_REGISTRATION_TARGET,
   SIGN_IN_TARGET,
@@ -53,6 +54,7 @@ export default function SignUp(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [showNoEmailSnackbar, setShowNoEmailSnackbar] = React.useState(false);
+  const [searchParams] = useSearchParams();
 
   const navigateTo = useNavigate();
   const dispatch = useAppDispatch();
@@ -111,13 +113,17 @@ export default function SignUp(): React.ReactElement {
 
   React.useEffect(() => {
     if (userProfileStatus === 'registered') {
-      navigateTo(ACCOUNT_TARGET);
+      if (searchParams.has('add_feed')) {
+        navigateTo(ADD_FEED_TARGET, { state: { from: 'registration' } });
+      } else {
+        navigateTo(ACCOUNT_TARGET);
+      }
     }
     if (userProfileStatus === 'authenticated') {
-      navigateTo(COMPLETE_REGISTRATION_TARGET);
+      navigateTo(COMPLETE_REGISTRATION_TARGET + '?' + searchParams.toString());
     }
     if (userProfileStatus === 'unverified') {
-      navigateTo(POST_REGISTRATION_TARGET);
+      navigateTo(POST_REGISTRATION_TARGET + '?' + searchParams.toString());
     }
   }, [userProfileStatus]);
 
@@ -137,7 +143,7 @@ export default function SignUp(): React.ReactElement {
       })
       .catch((error) => {
         dispatch(
-          loginFail({
+          signUpFail({
             code: error.code,
             message: error.message,
             source: ProfileErrorSource.Login,
@@ -197,7 +203,11 @@ export default function SignUp(): React.ReactElement {
         </Typography>
         <Typography component='h5'>
           Already have an account?{' '}
-          <Link href={SIGN_IN_TARGET} color={'inherit'} fontWeight='bold'>
+          <Link
+            href={`${SIGN_IN_TARGET}?${searchParams.toString()}`}
+            color={'inherit'}
+            fontWeight='bold'
+          >
             Log In Here
           </Link>
           .

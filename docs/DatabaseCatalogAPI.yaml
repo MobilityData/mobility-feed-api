@@ -253,7 +253,7 @@ paths:
       description: |
         Search feeds on feed name, location and provider's information.
         <br>
-        The current implemation leverage the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
+        The current implementation leverages the text search functionalities from [PostgreSQL](https://www.postgresql.org/docs/current/textsearch-controls.html), in particulary `plainto_tsquery`.
         <br><br>
         Points to consider while using search endpoint:
         <br>
@@ -276,7 +276,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/limit_query_param"
         - $ref: "#/components/parameters/offset"
-        - $ref: "#/components/parameters/status"
+        - $ref: "#/components/parameters/statuses"
         - $ref: "#/components/parameters/feed_id_query_param"
         - $ref: "#/components/parameters/data_type_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
@@ -677,14 +677,18 @@ components:
             For a list of valid codes [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
           type: string
           example: US
+        country:
+            description: The english name of the country where the system is located.
+            type: string
+            example: United States
         subdivision_name:
           description: >
-            ISO 3166-2 subdivision name designating the subdivision (e.g province, state, region) where the system is located. 
+            ISO 3166-2 english subdivision name designating the subdivision (e.g province, state, region) where the system is located. 
             For a list of valid names [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
           type: string
           example: California
         municipality:
-          description: Primary municipality in which the transit system is located.
+          description: Primary municipality in english in which the transit system is located.
           type: string
           example: Los Angeles
 
@@ -857,6 +861,23 @@ components:
           - deprecated
           - inactive
           - development
+    statuses:
+    # This parameter name is kept as status to maintain backward compatibility.
+      name: status
+      in: query
+      description: Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema)
+      required: false
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          type: string
+          enum:
+            - active
+            - deprecated
+            - inactive
+            - development
     provider:
       name: provider
       in: query

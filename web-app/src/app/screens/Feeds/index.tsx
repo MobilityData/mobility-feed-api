@@ -71,11 +71,11 @@ export default function Feed(): React.ReactElement {
   const [selectedFeedTypes, setSelectedFeedTypes] = useState(
     getInitialSelectedFeedTypes(searchParams),
   );
-  const [activeSearch, setActiveSearch] = useState('');
+  const [activeSearch, setActiveSearch] = useState(searchParams.get('q') ?? '');
+  const [searchQuery, setSearchQuery] = useState(activeSearch);
   const [activePagination, setActivePagination] = useState(
     searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1,
   );
-  const [triggerSearch, setTriggerSearch] = useState(false);
   const user = useSelector(selectUserProfile);
   const dispatch = useAppDispatch();
   const feedsData = useSelector(selectFeedsData);
@@ -89,40 +89,55 @@ export default function Feed(): React.ReactElement {
     return paginationOffset;
   };
 
-  const handleSearch = (): void => {
-    const searchQuery = searchParams.get('q') ?? '';
-    const paginationOffset = getPaginationOffset();
-    if (user !== undefined) {
-      dispatch(
-        loadingFeeds({
-          params: {
-            query: {
-              limit: searchLimit,
-              offset: paginationOffset,
-              search_query: searchQuery,
-              data_type:
-                getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
-            },
+  useEffect(() => {
+    if (user == null) return;
+
+    const paginationOffset = getPaginationOffset(activePagination);
+    dispatch(
+      loadingFeeds({
+        params: {
+          query: {
+            limit: searchLimit,
+            offset: paginationOffset,
+            search_query: activeSearch,
+            data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
+            // Fixed status values for now, until a status filter is implemented
+            // Filtering out deprecated feeds
+            status: ['active', 'inactive', 'development'],
           },
-        }),
-      );
-      setActiveSearch(searchQuery);
+        },
+      }),
+    );
+  }, [user, activeSearch, activePagination, selectedFeedTypes, searchLimit]);
+
+  useEffect(() => {
+    const oldSearch = searchParams.get('q') ?? '';
+    const oldPagination =
+      searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1;
+    if (oldSearch === activeSearch && oldPagination === activePagination) {
+      return;
     }
-  };
+
+    const newSearchParams = new URLSearchParams();
+    newSearchParams.set('q', activeSearch);
+    if (activePagination !== 1) {
+      newSearchParams.set('o', activePagination.toString());
+    }
+    setSearchParams(newSearchParams);
+  }, [activeSearch, activePagination]);
 
   useEffect(() => {
-    handleSearch();
-  }, [user]);
-
-  useEffect(() => {
-    if (!triggerSearch) return;
-    handleSearch();
-    setTriggerSearch(false);
-  }, [triggerSearch]);
-
-  useEffect(() => {
-    handleSearch();
-  }, [selectedFeedTypes]);
+    const newQuery = searchParams.get('q') ?? '';
+    if (newQuery !== searchQuery) {
+      setSearchQuery(newQuery);
+      setActiveSearch(newQuery);
+    }
+    const newOffset =
+      searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1;
+    if (newOffset !== activePagination) {
+      setActivePagination(newOffset);
+    }
+  }, [searchParams]);
 
   const getSearchResultNumbers = (): string => {
     if (feedsData?.total !== undefined && feedsData?.total > 0) {
@@ -163,7 +178,7 @@ export default function Feed(): React.ReactElement {
               onSubmit={(event) => {
                 event.preventDefault();
                 setActivePagination(1);
-                handleSearch();
+                setActiveSearch(searchQuery);
               }}
               sx={{ display: 'flex', width: '100%', alignItems: 'center' }}
             >
@@ -171,11 +186,10 @@ export default function Feed(): React.ReactElement {
                 sx={{
                   width: 'calc(100% - 100px)',
                 }}
-                value={searchParams.get('q') ?? ''}
+                value={searchQuery}
                 placeholder={t('searchPlaceholder')}
                 onChange={(e) => {
-                  const searchValue = e.target.value;
-                  setSearchParams({ q: searchValue });
+                  setSearchQuery(e.target.value);
                 }}
                 InputProps={{
                   startAdornment: (
@@ -185,7 +199,7 @@ export default function Feed(): React.ReactElement {
                       }}
                       onClick={() => {
                         setActivePagination(1);
-                        handleSearch();
+                        setActiveSearch(searchQuery);
                       }}
                       position='start'
                     >
@@ -227,7 +241,6 @@ export default function Feed(): React.ReactElement {
                           <Checkbox
                             checked={selectedFeedTypes.gtfs}
                             onChange={(e) => {
-                              setSearchParams({ q: activeSearch });
                               setActivePagination(1);
                               setSelectedFeedTypes({
                                 ...selectedFeedTypes,
@@ -243,7 +256,6 @@ export default function Feed(): React.ReactElement {
                           <Checkbox
                             checked={selectedFeedTypes.gtfs_rt}
                             onChange={(e) => {
-                              setSearchParams({ q: activeSearch });
                               setActivePagination(1);
                               setSelectedFeedTypes({
                                 ...selectedFeedTypes,
@@ -331,7 +343,7 @@ export default function Feed(): React.ReactElement {
                                 },
                               }}
                               color='primary'
-                              defaultPage={activePagination}
+                              page={activePagination}
                               shape='rounded'
                               count={
                                 feedsData.total !== undefined
@@ -340,12 +352,7 @@ export default function Feed(): React.ReactElement {
                               }
                               onChange={(event, value) => {
                                 event.preventDefault();
-                                setSearchParams({
-                                  q: activeSearch,
-                                  o: String(value),
-                                });
                                 setActivePagination(value);
-                                setTriggerSearch(true);
                               }}
                             />
                           </TableContainer>

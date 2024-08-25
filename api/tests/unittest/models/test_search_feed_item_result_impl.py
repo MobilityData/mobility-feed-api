@@ -5,6 +5,7 @@ from faker import Faker
 
 from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.models.latest_dataset import LatestDataset
+from feeds_gen.models.location import Location
 from feeds_gen.models.source_info import SourceInfo
 
 fake = Faker()
@@ -43,6 +44,9 @@ search_item = FeedSearchRow(
     feed_reference_ids=[],
     entities=["sa"],
     locations=[],
+    country_translations=[],
+    subdivision_name_translations=[],
+    municipality_translations=[],
 )
 
 
@@ -124,3 +128,64 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             item = copy.deepcopy(search_item)
             item.data_type = "unknown"
             SearchFeedItemResultImpl.from_orm(item)
+
+    def test_from_orm_locations_country_provided(self):
+        """Test that the country is not replaced with the translation."""
+        item = copy.deepcopy(search_item)
+        item.data_type = "gtfs"
+        item.locations = [
+            {
+                "country_code": "CA",
+                "country": "CanadaNotReplaced",
+                "subdivision_name": "subdivision_name",
+                "municipality": "municipality",
+            }
+        ]
+        result = SearchFeedItemResultImpl.from_orm(item)
+        assert result.data_type == "gtfs"
+        assert result.locations == [
+            Location(
+                country_code="CA",
+                country="CanadaNotReplaced",
+                subdivision_name="subdivision_name",
+                municipality="municipality",
+            )
+        ]
+
+    def test_from_orm_locations_country_missing(self):
+        """Test that the country is not replaced with the translation."""
+        item = copy.deepcopy(search_item)
+        item.data_type = "gtfs"
+        item.locations = [
+            {
+                "country_code": "CA",
+                "country": "",
+                "subdivision_name": "subdivision_name",
+                "municipality": "municipality",
+            }
+        ]
+        result = SearchFeedItemResultImpl.from_orm(item)
+        assert result.data_type == "gtfs"
+        assert result.locations == [
+            Location(
+                country_code="CA", country="Canada", subdivision_name="subdivision_name", municipality="municipality"
+            )
+        ]
+
+    def test_from_orm_locations_country_invalid_code(self):
+        """Test that the country is not replaced with the translation."""
+        item = copy.deepcopy(search_item)
+        item.data_type = "gtfs"
+        item.locations = [
+            {
+                "country_code": "XY",
+                "country": "",
+                "subdivision_name": "subdivision_name",
+                "municipality": "municipality",
+            }
+        ]
+        result = SearchFeedItemResultImpl.from_orm(item)
+        assert result.data_type == "gtfs"
+        assert result.locations == [
+            Location(country_code="XY", country="", subdivision_name="subdivision_name", municipality="municipality")
+        ]

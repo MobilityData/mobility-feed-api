@@ -8,7 +8,7 @@ from sqlalchemy.engine.url import make_url
 from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, empty_database
 from database.database import Database
 
-from scripts.populate_db import DatabasePopulateHelper
+from scripts.populate_db_gtfs import GTFSDatabasePopulateHelper
 from scripts.populate_db_test_data import DatabasePopulateTestDataHelper
 
 import os
@@ -27,7 +27,7 @@ datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, d
 def populate_database(db: Database, data_dirs: str):
     try:
 
-        # Check if connected to localhost
+        # Check if connected to test DB.
         url = make_url(db.engine.url)
         if not is_test_db(url):
             raise Exception("Not connected to MobilityDatabaseTest, aborting operation")
@@ -48,11 +48,10 @@ def populate_database(db: Database, data_dirs: str):
         if len(csv_filepaths) == 0:
             raise Exception("No sources_test.csv file found in test_data directories")
 
-        db_helper = DatabasePopulateHelper(csv_filepaths)
+        db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
         db_helper.initialize(trigger_downstream_tasks=False)
 
         # Make a list of all the extra_test_data.json files in the test_data directories and load the data
-        # Make a list of all the sources_test.csv in test_data and keep only if the file exists
         json_filepaths = []
         for dir in data_dirs:
 

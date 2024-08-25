@@ -1,0 +1,63 @@
+[
+    {
+        "id": "test-516-202402071830",
+        "feed_id": "test-516",
+        "hosted_url": "https://storage.googleapis.com/mobilitydata-datasets-qa/mdb-516/mdb-516-202402071830/mdb-516-202402071830.zip",
+        "note": null,
+        "downloaded_at": "2024-02-07T18:16:50.247142Z",
+        "hash": "d140d863d94cfc14228480babc3a004616fde281c64a0813207ee2bc235e5aba",
+        "bounding_box": null,
+        "validation_report": {
+            "validated_at": "2024-06-27T11:10:52Z",
+            "features": [
+                "Transfers",
+                "Shapes",
+                "Route Colors",
+                "Headsigns",
+                "Location Types"
+            ],
+            "validator_version": "5.0.2-SNAPSHOT",
+            "total_error": 0,
+            "total_warning": 119,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 7,
+            "unique_info_count": 0,
+            "url_json": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202402071830/report_5.0.2-SNAPSHOT.json",
+            "url_html": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202402071830/report_5.0.2-SNAPSHOT.html"
+        }
+    },
+    {
+        "id": "mdb-516-202407101414",
+        "feed_id": "mdb-516",
+        "hosted_url": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202407101414/mdb-516-202407101414.zip",
+        "note": null,
+        "downloaded_at": "2024-07-10T14:00:15.488196Z",
+        "hash": "5d778850ac280d4ef8e5f49cc490f7592750b6673496096a132b8bed2381460e",
+        "bounding_box": {
+            "minimum_latitude": 40.512764,
+            "maximum_latitude": 40.903125,
+            "minimum_longitude": -74.251961,
+            "maximum_longitude": -73.755405
+        },
+        "validation_report": {
+            "validated_at": "2024-07-10T14:00:25Z",
+            "features": [
+                "Transfers",
+                "Shapes",
+                "Route Colors",
+                "Headsigns",
+                "Location Types"
+            ],
+            "validator_version": "5.0.2-SNAPSHOT",
+            "total_error": 0,
+            "total_warning": 124,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 6,
+            "unique_info_count": 0,
+            "url_json": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202407101414/report_5.0.2-SNAPSHOT.json",
+            "url_html": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202407101414/report_5.0.2-SNAPSHOT.html"
+        }
+    }
+]

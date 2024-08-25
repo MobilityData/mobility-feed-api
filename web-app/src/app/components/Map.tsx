@@ -13,6 +13,7 @@ export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
       bounds={props.polygon as LatLngBoundsExpression}
       zoom={8}
       style={{ minHeight: '400px', height: '100%' }}
+      data-testid='bounding-box-map'
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

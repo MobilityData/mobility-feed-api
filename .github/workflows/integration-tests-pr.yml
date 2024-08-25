@@ -63,7 +63,7 @@ jobs:
 
     - name: Docker Compose DB
       run: |
-        docker-compose --env-file ./config/.env.local up -d postgres
+        docker compose --env-file ./config/.env.local up -d postgres
       working-directory: ${{ github.workspace }}
 
     - name: Install Liquibase
@@ -93,7 +93,7 @@ jobs:
         scripts/api-gen.sh
 
     - name: Load secrets from 1Password
-      uses: 1password/load-secrets-action@v1.3.1
+      uses: 1password/load-secrets-action@v2.0.0
       with:
         export-env: true # Export loaded secrets as environment variables
       env:

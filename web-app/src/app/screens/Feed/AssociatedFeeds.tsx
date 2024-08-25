@@ -12,10 +12,12 @@ import {
 import {
   type GTFSFeedType,
   type AllFeedType,
+  type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 
 export interface AssociatedFeedsProps {
   feeds: AllFeedType[] | undefined;
+  gtfsRtFeeds: GTFSRTFeedType[] | undefined;
 }
 
 const renderAssociatedGTFSFeedRow = (
@@ -26,6 +28,7 @@ const renderAssociatedGTFSFeedRow = (
   }
   const hasFeedName =
     assocFeed.feed_name !== undefined && assocFeed.feed_name !== '';
+  const noLatestDataset = assocFeed.latest_dataset === undefined;
   return (
     <TableRow
       key={assocFeed?.id}
@@ -40,9 +43,13 @@ const renderAssociatedGTFSFeedRow = (
         rel='noreferrer'
         style={{ display: 'contents' }}
       >
-        {hasFeedName && (
-          <TableCell sx={{ paddingLeft: 0 }}>{assocFeed.feed_name}</TableCell>
-        )}
+        <TableCell sx={{ paddingLeft: 0 }}>
+          {!hasFeedName && noLatestDataset
+            ? 'GTFS Schedule feed'
+            : hasFeedName
+              ? assocFeed.feed_name
+              : ''}
+        </TableCell>
         <TableCell
           sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
         >
@@ -58,8 +65,55 @@ const renderAssociatedGTFSFeedRow = (
   );
 };
 
+const renderAssociatedGTFSRTFeedRow = (
+  assocGTFSRTFeed: GTFSRTFeedType,
+): JSX.Element | undefined => {
+  if (assocGTFSRTFeed === undefined) {
+    return undefined;
+  }
+  const hasFeedName =
+    assocGTFSRTFeed.feed_name !== undefined && assocGTFSRTFeed.feed_name !== '';
+  return (
+    <TableRow
+      key={assocGTFSRTFeed?.id}
+      sx={{
+        '&:hover': {
+          backgroundColor: colors.grey[200],
+        },
+      }}
+    >
+      <a
+        href={`/feeds/${assocGTFSRTFeed?.id}`}
+        rel='noreferrer'
+        style={{ display: 'contents' }}
+      >
+        <TableCell sx={{ paddingLeft: 0 }}>
+          {hasFeedName ? assocGTFSRTFeed.feed_name : assocGTFSRTFeed.provider}
+        </TableCell>
+        {assocGTFSRTFeed.entity_types !== undefined && (
+          <TableCell
+            sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
+          >
+            {assocGTFSRTFeed.entity_types
+              .map(
+                (entityType) =>
+                  ({
+                    tu: 'Trip Updates',
+                    vp: 'Vehicle Positions',
+                    sa: 'Service Alerts',
+                  })[entityType],
+              )
+              .join(' and ')}
+          </TableCell>
+        )}
+      </a>
+    </TableRow>
+  );
+};
+
 export default function AssociatedGTFSRTFeeds({
   feeds,
+  gtfsRtFeeds,
 }: AssociatedFeedsProps): React.ReactElement {
   const gtfsFeeds =
     feeds?.filter((assocFeed) => assocFeed?.data_type === 'gtfs') ?? [];
@@ -69,6 +123,7 @@ export default function AssociatedGTFSRTFeeds({
         width={{ xs: '100%' }}
         title={'Related Schedule Feeds'}
         outlineColor={colors.indigo[500]}
+        margin={'0 0 8px'}
       >
         {feeds === undefined && <Typography>Loading...</Typography>}
         {feeds !== undefined && gtfsFeeds?.length === 0 && (
@@ -79,6 +134,25 @@ export default function AssociatedGTFSRTFeeds({
             <TableBody sx={{ display: 'inline-table', width: '100%' }}>
               {gtfsFeeds?.map((assocFeed) =>
                 renderAssociatedGTFSFeedRow(assocFeed as GTFSFeedType),
+              )}
+            </TableBody>
+          </TableContainer>
+        )}
+      </ContentBox>
+      <ContentBox
+        width={{ xs: '100%' }}
+        title={'Related Realtime Feeds'}
+        outlineColor={colors.indigo[500]}
+      >
+        {gtfsRtFeeds === undefined && <Typography>Loading...</Typography>}
+        {gtfsRtFeeds !== undefined && gtfsRtFeeds?.length === 0 && (
+          <Typography sx={{ mt: 1 }}>No associated feeds found.</Typography>
+        )}
+        {gtfsRtFeeds !== undefined && gtfsRtFeeds.length > 0 && (
+          <TableContainer>
+            <TableBody sx={{ display: 'inline-table', width: '100%' }}>
+              {gtfsRtFeeds?.map((assocGTFSRTFeed) =>
+                renderAssociatedGTFSRTFeedRow(assocGTFSRTFeed),
               )}
             </TableBody>
           </TableContainer>

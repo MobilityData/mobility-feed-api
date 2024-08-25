@@ -1,7 +1,10 @@
+from typing import List
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Query
 
 from database.database import Database
+from database.sql_functions.unaccent import unaccent
 from database_gen.sqlacodegen_models import t_feedsearch
 from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.apis.search_api_base import BaseSearchApi
@@ -23,20 +26,24 @@ class SearchApiImpl(BaseSearchApi):
         Spaces are trimmed from the search query.
         """
         parsed_query = f"{search_query.strip()}:*" if search_query and len(search_query.strip()) > 0 else ""
-        return func.plainto_tsquery("english", parsed_query)
+        return func.plainto_tsquery("english", unaccent(parsed_query))
 
     @staticmethod
     def add_search_query_filters(query, search_query, data_type, feed_id, status) -> Query:
         """
         Add filters to the search query.
         Filter values are trimmed and converted to lowercase.
+        The search query is also converted to its unaccented version.
         """
+        query = query.filter(t_feedsearch.c.data_type != "gbfs")  # Filter out GBFS feeds
         if feed_id:
             query = query.where(t_feedsearch.c.feed_stable_id == feed_id.strip().lower())
         if data_type:
             query = query.where(t_feedsearch.c.data_type == data_type.strip().lower())
         if status:
-            query = query.where(t_feedsearch.c.status == status.strip().lower())
+            status_list = [s.strip().lower() for s in status[0].split(",") if s]
+            if status_list:
+                query = query.where(t_feedsearch.c.status.in_([s.strip().lower() for s in status_list]))
         if search_query and len(search_query.strip()) > 0:
             query = query.filter(
                 t_feedsearch.c.document.op("@@")(SearchApiImpl.get_parsed_search_tsquery(search_query))
@@ -44,7 +51,7 @@ class SearchApiImpl(BaseSearchApi):
         return query
 
     @staticmethod
-    def create_count_search_query(status: str, feed_id: str, data_type: str, search_query: str) -> Query:
+    def create_count_search_query(status: List[str], feed_id: str, data_type: str, search_query: str) -> Query:
         """
         Create a search query for the database.
         """
@@ -52,7 +59,7 @@ class SearchApiImpl(BaseSearchApi):
         return SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
 
     @staticmethod
-    def create_search_query(status: str, feed_id: str, data_type: str, search_query: str) -> Query:
+    def create_search_query(status: List[str], feed_id: str, data_type: str, search_query: str) -> Query:
         """
         Create a search query for the database.
         """
@@ -71,7 +78,7 @@ class SearchApiImpl(BaseSearchApi):
         self,
         limit: int,
         offset: int,
-        status: str,
+        status: List[str],
         feed_id: str,
         data_type: str,
         search_query: str,

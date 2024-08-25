@@ -2,6 +2,7 @@ functions-framework==3.*
 google-cloud-storage
 google-cloud-pubsub
 google-cloud-logging
+google-cloud-bigquery
 google-api-core
 google-cloud-firestore
 google-cloud-datastore

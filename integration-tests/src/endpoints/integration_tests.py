@@ -163,7 +163,7 @@ class IntegrationTests:
             and method_name != "test_all"
         ]
 
-    def test_all(self, target_classes=[]):
+    def test_all(self, target_classes=[], excluded_classes=[]):
         """Test all endpoints."""
         console = self.console
         console.clear()
@@ -198,7 +198,12 @@ class IntegrationTests:
         test_methods = [
             (child, self.get_test_methods_for_class(child))
             for child in child_classes
-            if child.__name__ in target_classes or not len(target_classes)
+            if (child.__name__ in target_classes if len(target_classes) > 0 else True)
+            and (
+                child.__name__ not in excluded_classes
+                if len(excluded_classes) > 0
+                else True
+            )
         ]
 
         n_tests = sum(len(methods) for _, methods in test_methods)

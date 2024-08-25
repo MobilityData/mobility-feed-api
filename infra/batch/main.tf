@@ -200,32 +200,6 @@ resource "google_cloud_run_service_iam_member" "batch_datasets_cloud_run_invoker
 }
 
 
-resource "google_datastore_index" "dataset_processing_index_execution_id_stable_id_status" {
-  project = var.project_id
-  kind    = "historical_dataset_batch"
-  properties {
-    name      = "execution_id"
-    direction = "ASCENDING"
-  }
-  properties {
-    name      = "stable_id"
-    direction = "ASCENDING"
-  }
-}
-
-resource "google_datastore_index" "dataset_processing_index_execution_id_timestamp" {
-  project = var.project_id
-  kind    = "historical_dataset_batch"
-  properties {
-    name      = "execution_id"
-    direction = "ASCENDING"
-  }
-  properties {
-    name      = "timestamp"
-    direction = "ASCENDING"
-  }
-}
-
 resource "google_datastore_index" "batch_execution_index_execution_id_timestamp" {
   project = var.project_id
   kind    = "batch_execution"

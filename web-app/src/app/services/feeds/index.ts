@@ -5,7 +5,17 @@ import { getEnvConfig } from '../../utils/config';
 
 const API_BASE_URL = getEnvConfig('REACT_APP_FEED_API_BASE_URL');
 
-const client = createClient<paths>({ baseUrl: `${API_BASE_URL}` });
+const client = createClient<paths>({
+  baseUrl: `${API_BASE_URL}`,
+  querySerializer: {
+    // serialize arrays as comma-separated values
+    // More info: https://swagger.io/docs/specification/serialization/#query
+    array: {
+      style: 'form',
+      explode: false,
+    },
+  },
+});
 
 const throwOnError: Middleware = {
   async onResponse(res) {
@@ -131,6 +141,31 @@ export const getGtfsRtFeed = async (
   client.use(authMiddleware);
   return await client
     .GET('/v1/gtfs_rt_feeds/{id}', { params: { path: { id } } })
+    .then((response) => {
+      const data = response.data;
+      return data;
+    })
+    .catch(function (error) {
+      throw error;
+    })
+    .finally(() => {
+      client.eject(authMiddleware);
+    });
+};
+
+export const getGtfsFeedAssociatedGtfsRtFeeds = async (
+  id: string,
+  accessToken: string,
+): Promise<
+  | paths['/v1/gtfs_feeds/{id}/gtfs_rt_feeds']['get']['responses'][200]['content']['application/json']
+  | undefined
+> => {
+  const authMiddleware = generateAuthMiddlewareWithToken(accessToken);
+  client.use(authMiddleware);
+  return await client
+    .GET('/v1/gtfs_feeds/{id}/gtfs_rt_feeds', {
+      params: { path: { id } },
+    })
     .then((response) => {
       const data = response.data;
       return data;

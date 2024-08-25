@@ -13,4 +13,5 @@ jobs:
         with:
           FIREBASE_PROJECT: qa
           REACT_APP_GOOGLE_ANALYTICS_ID: ${{ vars.QA_REACT_APP_GOOGLE_ANALYTICS_ID }}
+          FEED_SUBMIT_GOOGLE_SHEET_ID: "1GZeO3kFBFr073bSHuClhTiKt7KEad8vWM01Clo-rOVQ"
         secrets: inherit

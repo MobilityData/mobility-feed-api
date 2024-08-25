@@ -2,21 +2,30 @@ import * as React from 'react';
 import {
   Box,
   Chip,
+  IconButton,
+  Popover,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Typography,
+  colors,
   styled,
 } from '@mui/material';
-import { type AllFeedsType } from '../../services/feeds/utils';
-import { type FeedLocations } from '../../types';
+import {
+  type GTFSFeedType,
+  type GTFSRTFeedType,
+  type AllFeedsType,
+  getLocationName,
+} from '../../services/feeds/utils';
 import BusAlertIcon from '@mui/icons-material/BusAlert';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import GtfsRtEntities from './GtfsRtEntities';
+import CloseIcon from '@mui/icons-material/Close';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -28,7 +37,9 @@ const HeaderTableCell = styled(TableCell)(() => ({
   border: 'none',
 }));
 
-const getDataTypeElement = (dataType: 'gtfs' | 'gtfs_rt'): JSX.Element => {
+export const getDataTypeElement = (
+  dataType: 'gtfs' | 'gtfs_rt',
+): JSX.Element => {
   const { t } = useTranslation('feeds');
   const DataTypeHolder = ({
     children,
@@ -64,35 +75,62 @@ const getDataTypeElement = (dataType: 'gtfs' | 'gtfs_rt'): JSX.Element => {
   }
 };
 
-const getProviderName = (provider: string): string => {
-  return provider.split(',')[0];
-};
-
-const getLocationName = (locations: FeedLocations): string => {
-  if (locations?.[0] === undefined) {
-    return '';
-  }
-  const firstLocation = locations[0];
-  const municipality =
-    firstLocation.municipality !== undefined &&
-    firstLocation.municipality !== null
-      ? `${firstLocation.municipality}, `
-      : '';
-  const subdivison =
-    firstLocation.subdivision_name !== undefined &&
-    firstLocation.subdivision_name !== null
-      ? `${firstLocation.subdivision_name}, `
-      : '';
-  const countryCode = firstLocation.country_code ?? '';
-  return municipality + subdivison + countryCode;
-};
-
 export default function SearchTable({
   feedsData,
 }: SearchTableProps): React.ReactElement {
+  const [providersPopoverData, setProvidersPopoverData] = React.useState<
+    string[] | undefined
+  >(undefined);
   const { t } = useTranslation('feeds');
   if (feedsData === undefined) return <></>;
   const navigate = useNavigate();
+
+  const getProviderElement = (
+    feed: GTFSFeedType | GTFSRTFeedType,
+  ): JSX.Element => {
+    const providers =
+      feed?.provider
+        ?.split(',')
+        .filter((x) => x)
+        .sort() ?? [];
+    const displayName = providers[0];
+    let manyProviders: JSX.Element | undefined;
+    if (providers.length > 1) {
+      manyProviders = (
+        <a
+          style={{
+            fontStyle: 'italic',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            color: colors.blue[900],
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            setProvidersPopoverData(providers);
+          }}
+        >
+          +&nbsp;{providers.length - 1}
+        </a>
+      );
+    }
+    return (
+      <>
+        {displayName} {manyProviders}
+        {feed?.status === 'deprecated' && (
+          <Box sx={{ mt: '5px' }}>
+            <Chip
+              label={t('deprecated')}
+              icon={<ErrorOutlineIcon />}
+              color='error'
+              size='small'
+              variant='outlined'
+            />
+          </Box>
+        )}
+      </>
+    );
+  };
+
   return (
     <Table
       size='small'
@@ -117,25 +155,25 @@ export default function SearchTable({
 
       <TableBody
         sx={{
-          'tr:first-child td:last-child': {
+          'tr:first-of-type td:last-child': {
             borderTopRightRadius: '6px',
           },
-          'tr:first-child td:first-child': {
+          'tr:first-of-type td:first-of-type': {
             borderTopLeftRadius: '6px',
           },
-          'tr:first-child td': {
+          'tr:first-of-type td': {
             borderTop: '1px solid black',
           },
           'tr:last-child td:last-child': {
             borderBottomRightRadius: '6px',
           },
-          'tr:last-child td:first-child': {
+          'tr:last-child td:first-of-type': {
             borderBottomLeftRadius: '6px',
           },
           'tr:last-child td': {
             borderBottom: '1px solid black',
           },
-          'tr td:first-child': {
+          'tr td:first-of-type': {
             borderLeft: '1px solid black',
           },
           'tr td:last-child': {
@@ -162,20 +200,7 @@ export default function SearchTable({
               navigate(`/feeds/${feed.id}`);
             }}
           >
-            <TableCell>
-              {getProviderName(feed.provider ?? '')}
-              {feed.status === 'deprecated' && (
-                <Box sx={{ mt: '5px' }}>
-                  <Chip
-                    label={t('deprecated')}
-                    icon={<ErrorOutlineIcon />}
-                    color='error'
-                    size='small'
-                    variant='outlined'
-                  />
-                </Box>
-              )}
-            </TableCell>
+            <TableCell>{getProviderElement(feed)}</TableCell>
             <TableCell>{getLocationName(feed.locations)}</TableCell>
             <TableCell>{feed.feed_name}</TableCell>
             <TableCell>
@@ -189,6 +214,50 @@ export default function SearchTable({
           </TableRow>
         ))}
       </TableBody>
+      {providersPopoverData !== undefined && (
+        <Popover
+          open={providersPopoverData !== undefined}
+          onClose={() => {
+            setProvidersPopoverData(undefined);
+          }}
+          anchorReference='none'
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '10px',
+              width: '500px',
+              maxWidth: '100%',
+            }}
+          >
+            <Typography variant='h6' sx={{ p: 0 }}>
+              Transit Providers - {providersPopoverData[0]}
+            </Typography>
+            <IconButton
+              onClick={() => {
+                setProvidersPopoverData(undefined);
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ maxHeight: '700px', overflowY: 'scroll' }}>
+            <ul>
+              {providersPopoverData.map((provider) => (
+                <li key={provider}>{provider}</li>
+              ))}
+            </ul>
+          </Box>
+        </Popover>
+      )}
     </Table>
   );
 }

@@ -50,13 +50,23 @@ jobs:
         pip install -r requirements.txt
 
     - name: Health Check
-      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c MetadataEndpointTests
+      # When triggered by a repo dispatch the API code is not deployed so there could be discrepancies
+      # between the code running the tests and the code running the API. In that case don't do the
+      # MetadataEndpointTests since it makes exact comparisons of the hash and version.
+      # The BasicMetadataEndpointTests just looks at the hash and version format, without looking
+      # at the exact values, so always do these tests.
+      run: |
+        health_check_classes="BasicMetadataEndpointTests"
+        if [[ "${{ github.event_name }}" != "repository_dispatch" ]]; then
+          health_check_classes+=",MetadataEndpointTests"
+        fi
+        ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -c $health_check_classes
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
 
     - name: Run Integration Tests
-      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH
+      run: ./scripts/integration-tests.sh -u ${{ inputs.API_URL }} -f $FILE_PATH -x MetadataEndpointTests
       env:
         FILE_PATH: ${{ env.FILE_PATH }}
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
@@ -69,7 +79,3 @@ jobs:
         path: |
           integration-tests/src/integration_tests_log.html
           integration-tests/src/datasets_validation.csv
-          
-          
-          
-

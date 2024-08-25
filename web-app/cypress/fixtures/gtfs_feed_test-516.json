@@ -1,0 +1,51 @@
+{
+    "id": "test-516",
+    "data_type": "gtfs",
+    "status": "active",
+    "created_at": "2024-02-08T00:00:00Z",
+    "external_ids": [
+        {
+            "external_id": "516",
+            "source": "test"
+        }
+    ],
+    "provider": "Metropolitan Transit Authority (MTA)",
+    "feed_name": "NYC Subway",
+    "note": "",
+    "feed_contact_email": "",
+    "source_info": {
+        "producer_url": "http://web.mta.info/developers/data/nyct/subway/google_transit.zip",
+        "authentication_type": 0,
+        "authentication_info_url": "",
+        "api_key_parameter_name": "",
+        "license_url": ""
+    },
+    "redirects": [],
+    "locations": [
+        {
+            "country_code": "US",
+            "subdivision_name": "New York",
+            "municipality": "New York City"
+        }
+    ],
+    "latest_dataset": {
+        "id": "mdb-516-202407101414",
+        "hosted_url": "https://qa-files.mobilitydatabase.org/mdb-516/mdb-516-202407101414/mdb-516-202407101414.zip",
+        "bounding_box": {
+            "minimum_latitude": 40.512764,
+            "maximum_latitude": 40.903125,
+            "minimum_longitude": -74.251961,
+            "maximum_longitude": -73.755405
+        },
+        "downloaded_at": "2024-07-10T14:00:15.488196Z",
+        "hash": "5d778850ac280d4ef8e5f49cc490f7592750b6673496096a132b8bed2381460e",
+        "validation_report": {
+            "total_error": 0,
+            "total_warning": 124,
+            "total_info": 0,
+            "unique_error_count": 0,
+            "unique_warning_count": 6,
+            "unique_info_count": 0
+        }
+    }
+}

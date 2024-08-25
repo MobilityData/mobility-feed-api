@@ -1,9 +1,9 @@
 {
-  "name": "extract-bounding-box",
-  "description": "Extracts the bounding box from a dataset",
-  "entry_point": "extract_bounding_box",
+  "name": "ingest-data-to-big-query",
+  "description": "Ingest data to BigQuery",
+  "entry_point": "ingest_data_to_big_query",
   "timeout": 540,
-  "memory": "2Gi",
+  "memory": "8Gi",
   "trigger_http": false,
   "include_folders": ["database_gen", "helpers"],
   "environment_variables": [],
@@ -14,7 +14,7 @@
   ],
   "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
   "max_instance_request_concurrency": 1,
-  "max_instance_count": 5,
+  "max_instance_count": 1,
   "min_instance_count": 0,
-  "available_cpu": 1
+  "available_cpu": 2
 }

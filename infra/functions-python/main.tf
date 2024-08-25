@@ -18,8 +18,8 @@ locals {
   function_tokens_config = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
   function_tokens_zip    = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
 
-  function_extract_bb_config = jsondecode(file("${path.module}../../../functions-python/extract_bb/function_config.json"))
-  function_extract_bb_zip    = "${path.module}/../../functions-python/extract_bb/.dist/extract_bb.zip"
+  function_extract_location_config = jsondecode(file("${path.module}../../../functions-python/extract_location/function_config.json"))
+  function_extract_location_zip    = "${path.module}/../../functions-python/extract_location/.dist/extract_location.zip"
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
@@ -30,6 +30,9 @@ locals {
 
   function_update_validation_report_config = jsondecode(file("${path.module}/../../functions-python/update_validation_report/function_config.json"))
   function_update_validation_report_zip = "${path.module}/../../functions-python/update_validation_report/.dist/update_validation_report.zip"
+
+  function_gbfs_validation_report_config = jsondecode(file("${path.module}/../../functions-python/gbfs_validator/function_config.json"))
+  function_gbfs_validation_report_zip = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
 }
 
 locals {
@@ -37,7 +40,7 @@ locals {
   # Combine all keys into a list
   all_secret_keys_list = concat(
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
-    [for x in local.function_extract_bb_config.secret_environment_variables : x.key],
+    [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key]
   )
@@ -64,6 +67,11 @@ resource "google_storage_bucket" "functions_bucket" {
   location = "us"
 }
 
+resource "google_storage_bucket" "gbfs_snapshots_bucket" {
+  location = var.gcp_region
+  name     = "${var.gbfs_bucket_name}-${var.environment}"
+}
+
 # Cloud function source code zip files:
 # 1. Tokens
 resource "google_storage_bucket_object" "function_token_zip" {
@@ -71,11 +79,11 @@ resource "google_storage_bucket_object" "function_token_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_tokens_zip
 }
-# 2. Bucket extract bounding box
-resource "google_storage_bucket_object" "function_extract_bb_zip_object" {
-  name   = "bucket-extract-bb-${substr(filebase64sha256(local.function_extract_bb_zip),0,10)}.zip"
+# 2. Extract location
+resource "google_storage_bucket_object" "function_extract_location_zip_object" {
+  name   = "bucket-extract-bb-${substr(filebase64sha256(local.function_extract_location_zip),0,10)}.zip"
   bucket = google_storage_bucket.functions_bucket.name
-  source = local.function_extract_bb_zip
+  source = local.function_extract_location_zip
 }
 # 3. Process validation report
 resource "google_storage_bucket_object" "process_validation_report_zip" {
@@ -89,6 +97,13 @@ resource "google_storage_bucket_object" "update_validation_report_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "update-validation-report-${substr(filebase64sha256(local.function_update_validation_report_zip), 0, 10)}.zip"
   source = local.function_update_validation_report_zip
+}
+
+# 5. GBFS validation report
+resource "google_storage_bucket_object" "gbfs_validation_report_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "gbfs-validator-${substr(filebase64sha256(local.function_gbfs_validation_report_zip), 0, 10)}.zip"
+  source = local.function_gbfs_validation_report_zip
 }
 
 # Secrets access
@@ -139,13 +154,12 @@ resource "google_cloudfunctions2_function" "tokens" {
   }
 }
 
-# 2. functions/extract_bb cloud function
-resource "google_cloudfunctions2_function" "extract_bb" {
-  name        = local.function_extract_bb_config.name
-  description = local.function_extract_bb_config.description
+# 2.1 functions/extract_location cloud function
+resource "google_cloudfunctions2_function" "extract_location" {
+  name        = local.function_extract_location_config.name
+  description = local.function_extract_location_config.description
   location    = var.gcp_region
   depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
-
   event_trigger {
     event_type = "google.cloud.audit.log.v1.written"
     service_account_email = google_service_account.functions_service_account.email
@@ -163,30 +177,123 @@ resource "google_cloudfunctions2_function" "extract_bb" {
       operator = "match-path-pattern"
     }
   }
-
   build_config {
     runtime     = var.python_runtime
-    entry_point = local.function_extract_bb_config.entry_point
+    entry_point = local.function_extract_location_config.entry_point
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_extract_bb_zip_object.name
+        object = google_storage_bucket_object.function_extract_location_zip_object.name
       }
     }
   }
   service_config {
-    available_memory = local.function_extract_bb_config.memory
-    timeout_seconds = local.function_extract_bb_config.timeout
-    available_cpu = local.function_extract_bb_config.available_cpu
-    max_instance_request_concurrency = local.function_extract_bb_config.max_instance_request_concurrency
-    max_instance_count = local.function_extract_bb_config.max_instance_count
-    min_instance_count = local.function_extract_bb_config.min_instance_count
+    available_memory = local.function_extract_location_config.memory
+    timeout_seconds = local.function_extract_location_config.timeout
+    available_cpu = local.function_extract_location_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_location_config.max_instance_count
+    min_instance_count = local.function_extract_location_config.min_instance_count
     service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_extract_bb_config.ingress_settings
+    ingress_settings = local.function_extract_location_config.ingress_settings
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_extract_bb_config.secret_environment_variables
+      for_each = local.function_extract_location_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 2.2 functions/extract_location cloud function pub/sub triggered
+resource "google_pubsub_topic" "dataset_updates" {
+  name = "dataset-updates"
+}
+resource "google_cloudfunctions2_function" "extract_location_pubsub" {
+  name        = "${local.function_extract_location_config.name}-pubsub"
+  description = local.function_extract_location_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+  event_trigger {
+    trigger_region        = var.gcp_region
+    service_account_email = google_service_account.functions_service_account.email
+    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic          = google_pubsub_topic.dataset_updates.id
+    retry_policy          = "RETRY_POLICY_RETRY"
+  }
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_extract_location_config.entry_point}_pubsub"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_extract_location_zip_object.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_extract_location_config.memory
+    timeout_seconds = local.function_extract_location_config.timeout
+    available_cpu = local.function_extract_location_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_location_config.max_instance_count
+    min_instance_count = local.function_extract_location_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = "ALLOW_ALL"
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_extract_location_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 2.3 functions/extract_location cloud function batch
+resource "google_cloudfunctions2_function" "extract_location_batch" {
+  name        = "${local.function_extract_location_config.name}-batch"
+  description = local.function_extract_location_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_extract_location_config.entry_point}_batch"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_extract_location_zip_object.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID = var.project_id
+      PUBSUB_TOPIC_NAME = google_pubsub_topic.dataset_updates.name
+      PYTHONNODEBUGRANGES = 0
+    }
+    available_memory = "1Gi"
+    timeout_seconds = local.function_extract_location_config.timeout
+    available_cpu = local.function_extract_location_config.available_cpu
+    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
+    max_instance_count = local.function_extract_location_config.max_instance_count
+    min_instance_count = local.function_extract_location_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = "ALLOW_ALL"
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_extract_location_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -290,6 +397,129 @@ resource "google_cloudfunctions2_function" "update_validation_report" {
   }
 }
 
+# 5. functions/gbfs_validator cloud function
+# 5.1 Create Pub/Sub topic
+resource "google_pubsub_topic" "validate_gbfs_feed" {
+  name = "validate-gbfs-feed"
+}
+
+# 5.2 Create batch function that publishes to the Pub/Sub topic
+resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
+  name        = "${local.function_gbfs_validation_report_config.name}-batch"
+  description = local.function_gbfs_validation_report_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_gbfs_validation_report_config.entry_point}_batch"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gbfs_validation_report_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID = var.project_id
+      PUBSUB_TOPIC_NAME = google_pubsub_topic.validate_gbfs_feed.name
+      PYTHONNODEBUGRANGES = 0
+    }
+    available_memory = "1Gi"
+    timeout_seconds = local.function_gbfs_validation_report_config.timeout
+    available_cpu = local.function_gbfs_validation_report_config.available_cpu
+    max_instance_request_concurrency = local.function_gbfs_validation_report_config.max_instance_request_concurrency
+    max_instance_count = local.function_gbfs_validation_report_config.max_instance_count
+    min_instance_count = local.function_gbfs_validation_report_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = "ALLOW_ALL"
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gbfs_validation_report_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# Schedule the batch function to run
+resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
+  name = "gbfs-validator-batch-scheduler-${var.environment}"
+  description = "Schedule the gbfs-validator-batch function"
+  time_zone = "Etc/UTC"
+  schedule = var.gbfs_scheduler_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.gbfs_validator_batch, google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.gbfs_validator_batch.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+  }
+  attempt_deadline = "320s"
+}
+
+# 5.3 Create function that subscribes to the Pub/Sub topic
+resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
+  name        = "${local.function_gbfs_validation_report_config.name}-pubsub"
+  description = local.function_gbfs_validation_report_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+  event_trigger {
+    trigger_region        = var.gcp_region
+    service_account_email = google_service_account.functions_service_account.email
+    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic          = google_pubsub_topic.validate_gbfs_feed.id
+    retry_policy          = "RETRY_POLICY_RETRY"
+  }
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_gbfs_validation_report_config.entry_point}_pubsub"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.gbfs_validation_report_zip.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_gbfs_validation_report_config.memory
+    timeout_seconds = local.function_gbfs_validation_report_config.timeout
+    available_cpu = local.function_gbfs_validation_report_config.available_cpu
+    max_instance_request_concurrency = local.function_gbfs_validation_report_config.max_instance_request_concurrency
+    max_instance_count = local.function_gbfs_validation_report_config.max_instance_count
+    min_instance_count = local.function_gbfs_validation_report_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = "ALLOW_ALL"
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    environment_variables = {
+      ENV = var.environment
+      BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_gbfs_validation_report_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
 # IAM entry for all users to invoke the function 
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
   project        = var.project_id
@@ -330,6 +560,15 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
   ]
 }
 
+# Grant write access to the gbfs bucket for the service account
+resource "google_storage_bucket_iam_binding" "gbfs_bucket_object_creator" {
+  bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+  role   = "roles/storage.objectCreator"
+  members = [
+    "serviceAccount:${google_service_account.functions_service_account.email}"
+  ]
+}
+
 # Grant the service account the ability to invoke the workflows
 resource "google_project_iam_member" "workflows_invoker" {
   project = var.project_id
@@ -355,18 +594,18 @@ output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
 
-resource "google_cloudfunctions2_function_iam_member" "extract_bb_invoker" {
+resource "google_cloudfunctions2_function_iam_member" "extract_location_invoker" {
   project        = var.project_id
   location       = var.gcp_region
-  cloud_function = google_cloudfunctions2_function.extract_bb.name
+  cloud_function = google_cloudfunctions2_function.extract_location.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
-resource "google_cloud_run_service_iam_member" "extract_bb_cloud_run_invoker" {
+resource "google_cloud_run_service_iam_member" "extract_location_cloud_run_invoker" {
   project        = var.project_id
   location       = var.gcp_region
-  service        = google_cloudfunctions2_function.extract_bb.name
+  service        = google_cloudfunctions2_function.extract_location.name
   role           = "roles/run.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
@@ -376,4 +615,46 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   project  = var.project_id
   location = var.gcp_region
   name     = "update-validation-report-task-queue"
+}
+
+# Task queue to invoke gbfs_validator_batch function for the scheduler
+resource "google_cloudfunctions2_function_iam_member" "gbfs_validator_batch_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.gbfs_validator_batch.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant permissions to the service account to publish to the pubsub topic
+resource "google_pubsub_topic_iam_member" "functions_publisher" {
+  for_each = {
+    dataset_updates = google_pubsub_topic.dataset_updates.name
+    validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
+  }
+
+  project = var.project_id
+  role    = "roles/pubsub.publisher"
+  topic   = each.value
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant permissions to the service account to subscribe to the pubsub topic
+resource "google_pubsub_topic_iam_member" "functions_subscriber" {
+  for_each = {
+    dataset_updates = google_pubsub_topic.dataset_updates.name
+    validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
+  }
+
+  project = var.project_id
+  role    = "roles/pubsub.subscriber"
+  topic   = each.value
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant permissions to the service account to write/read in datastore
+resource "google_project_iam_member" "datastore_owner" {
+  project = var.project_id
+  role    = "roles/datastore.owner"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
