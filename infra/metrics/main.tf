@@ -418,6 +418,11 @@ resource "google_cloudfunctions2_function" "gbfs_validation_report_conversion_ba
 resource "google_storage_bucket" "gtfs_analytics_bucket" {
   location = var.gcp_region
   name     = "mobilitydata-gtfs-analytics-${var.environment}"
+  cors {
+    origin = ["*"]
+    method = ["GET"]
+    response_header = ["*"]
+  }
 }
 
 resource "google_cloudfunctions2_function" "gtfs_preprocessed_analytics" {
@@ -469,6 +474,11 @@ resource "google_cloudfunctions2_function" "gtfs_preprocessed_analytics" {
 resource "google_storage_bucket" "gbfs_analytics_bucket" {
   location = var.gcp_region
   name     = "mobilitydata-gbfs-analytics-${var.environment}"
+  cors {
+    origin = ["*"]
+    method = ["GET"]
+    response_header = ["*"]
+  }
 }
 resource "google_cloudfunctions2_function" "gbfs_preprocessed_analytics" {
   name        = "${local.function_preprocessed_analytics_config.name}-gbfs"
