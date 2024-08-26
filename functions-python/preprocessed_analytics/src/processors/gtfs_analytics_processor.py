@@ -62,6 +62,17 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         )
         return query
 
+    def save_summary(self) -> None:
+        # Save the summary data for the current run date
+        summary_file_name = f"summary/summary_{self.run_date.strftime('%Y-%m-%d')}.json"
+        summary_data = {
+            "feed_metrics": self.feed_metrics_data,
+            "notices_metrics": self.notices_metrics_data,
+            "features_metrics": self.features_metrics_data,
+        }
+        self._save_json(summary_file_name, summary_data)
+
+
     def process_feed_data(
         self, feed: Feed, dataset: Gtfsdataset, translations: Dict
     ) -> None:
@@ -121,30 +132,17 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         self._process_notices(notices)
 
     def save(self) -> None:
-        self.save_metrics(
-            {
-                "feed_metrics.json": {
-                    "new_data": self.feed_metrics_data,
-                    "keys": ["feed_id"],
-                    "list_to_append": [
-                        "computed_on",
-                        "errors_count",
-                        "warnings_count",
-                        "infos_count",
-                    ],
-                },
-                "features_metrics.json": {
-                    "new_data": self.features_metrics_data,
-                    "keys": ["feature"],
-                    "list_to_append": ["computed_on", "feeds_count"],
-                },
-                "notices_metrics.json": {
-                    "new_data": self.notices_metrics_data,
-                    "keys": ["notice", "severity"],
-                    "list_to_append": ["computed_on", "feeds_count"],
-                },
-            }
-        )
+        metrics_file_data = {
+            "feed_metrics": [],
+            "features_metrics": [],
+            "notices_metrics": [],
+        }
+        merging_keys = {
+            "feed_metrics": ["feed_id"],
+            "features_metrics": ["feature"],
+            "notices_metrics": ["notice", "severity"],
+        }
+        self.aggregate_summary_files(metrics_file_data, merging_keys)
 
     def _process_features(self, features: List[Feature]) -> None:
         for feature in features:

@@ -1,7 +1,9 @@
 import logging
 import os
+from email.policy import default
 from typing import List, Dict, Tuple
 
+import json
 import pandas as pd
 from google.cloud import storage
 from sqlalchemy.orm import Query
@@ -42,12 +44,67 @@ class BaseAnalyticsProcessor:
     def save(self) -> None:
         raise NotImplementedError("Subclasses should implement this method.")
 
+    def save_summary(self) -> None:
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    def _load_json(self, file_name: str) -> Tuple[List[Dict], storage.Blob]:
+        # Read the JSON file from the specified GCS bucket
+        blob = self.analytics_bucket.blob(file_name)
+
+        if blob.exists():
+            json_data = blob.download_as_text()
+            try:
+                return (
+                    pd.read_json(json_data, convert_dates=["computed_on"]).to_dict(
+                        orient="records"
+                    ),
+                    blob,
+                )
+            except Exception as e:
+                logging.warning(f"Unable to convert data to DataFrame using Pandas: {e}")
+                return json.loads(json_data), blob
+        return [], blob
+
+    @staticmethod
+    def _save_blob(blob: storage.Blob, data: List[Dict]) -> None:
+        try:
+            # Convert the data to JSON format
+            json_data = pd.DataFrame(data).to_json(orient="records", date_format="iso")
+        except Exception as e:
+            logging.warning(f"Unable to convert data to JSON using Pandas: {e}")
+            json_data = json.dumps(data, default=str)
+
+        # Save the JSON file to the specified GCS bucket
+        blob.upload_from_string(json_data, content_type="application/json")
+        blob.make_public()
+        logging.info(f"{blob.name} saved to bucket")
+
+    def _save_json(self, file_name: str, data: List[Dict]) -> None:
+        # Save the JSON file to the specified GCS bucket
+        blob = self.analytics_bucket.blob(file_name)
+        self._save_blob(blob, data)
+
+
+    def aggregate_summary_files(self, metrics_file_data: Dict[str, List], merging_keys: Dict[str, List[str]]) -> None:
+        blobs = self.analytics_bucket.list_blobs(prefix="summary/summary_")
+        for blob in blobs:
+            logging.info(f"Aggregating data from {blob.name}")
+            summary_data, _ = self._load_json(blob.name)
+            for key, new_data in summary_data.items():
+                if key in metrics_file_data:
+                    metrics_file_data[key] = self.append_new_data_if_not_exists(
+                        metrics_file_data[key],
+                        new_data,
+                        merging_keys[key]
+                    )
+        # Save metrics to the bucket
+        for file_name, data in metrics_file_data.items():
+            self._save_json(f"{file_name}.json", data)
+
     @staticmethod
     def append_new_data_if_not_exists(
-        old_data: List[Dict], new_data: List[Dict], keys: List[str], list_to_append=None
+            old_data: List[Dict], new_data: List[Dict], keys: List[str]
     ) -> List[Dict]:
-        if list_to_append is None:
-            list_to_append = ["computed_on"]
         for new_entry in new_data:
             exists = any(
                 all(new_entry[key] == old_entry[key] for key in keys)
@@ -61,52 +118,15 @@ class BaseAnalyticsProcessor:
                     for old_entry in old_data
                     if all(new_entry[key] == old_entry[key] for key in keys)
                 ]
-                if list_to_append:
+                list_to_append = [key for key in new_entry if key not in keys]
+                if len(list_to_append) > 0:
                     for entry in matching_entries:
                         for key in list_to_append:
                             entry[key].extend(new_entry[key])
         return old_data
 
-    def _load_json(self, file_name: str) -> Tuple[List[Dict], storage.Blob]:
-        # Read the JSON file from the specified GCS bucket
-        blob = self.analytics_bucket.blob(file_name)
-
-        if blob.exists():
-            json_data = blob.download_as_text()
-            return (
-                pd.read_json(json_data, convert_dates=["computed_on"]).to_dict(
-                    orient="records"
-                ),
-                blob,
-            )
-
-        return [], blob
-
-    @staticmethod
-    def _save_blob(blob: storage.Blob, data: List[Dict]) -> None:
-        # Convert the data to JSON format
-        json_data = pd.DataFrame(data).to_json(orient="records", date_format="iso")
-
-        # Save the JSON file to the specified GCS bucket
-        blob.upload_from_string(json_data, content_type="application/json")
-        blob.make_public()
-        logging.info(f"{blob.name} saved to bucket")
-
-    def _save_json(self, file_name: str, data: List[Dict]) -> None:
-        # Save the JSON file to the specified GCS bucket
-        blob = self.analytics_bucket.blob(file_name)
-        self._save_blob(blob, data)
-
-    def save_metrics(self, metrics_file_data: Dict[str, Dict]) -> None:
-        for file_name, data in metrics_file_data.items():
-            old_data, blob = self._load_json(file_name)
-            updated_data = self.append_new_data_if_not_exists(
-                old_data, data["new_data"], data["keys"], data["list_to_append"]
-            )
-            self._save_blob(blob, updated_data)
-
     def save_analytics(self) -> None:
-        file_name = f"analytics_{self.run_date.strftime('%Y_%m')}.json"
+        file_name = f"analytics_{self.run_date.strftime('%Y-%m-%d')}.json"
         self._save_json(file_name, self.data)
         self.save()
         logging.info(f"Analytics saved to bucket as {file_name}")
@@ -120,6 +140,7 @@ class BaseAnalyticsProcessor:
             self.process_feed_data(feed, dataset_or_snapshot, translation_fields)
 
         self.session.close()
+        self.save_summary()
         self.save_analytics()
         self.update_analytics_files()
         logging.info(f"Finished running analytics for date: {self.run_date}")
@@ -138,7 +159,8 @@ class BaseAnalyticsProcessor:
                 for translation in location_translations
                 if translation["location_id"] is not None
             }
-        except IndexError:
+        except Exception as e:
+            logging.warning(f"Error loading location translations: {e}\n Continuing without translations")
             location_translations_dict = {}
         unique_feeds = {result[0].stable_id: result for result in all_results}
         logging.info(f"Nb of unique feeds loaded: {len(unique_feeds)}")

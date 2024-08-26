@@ -99,26 +99,29 @@ class GBFSAnalyticsProcessor(BaseAnalyticsProcessor):
         self._process_versions(feed)
         self._process_notices(notices)
 
+    def save_summary(self) -> None:
+        # Save the summary data for the current run date
+        summary_file_name = f"summary/summary_{self.run_date.strftime('%Y-%m-%d')}.json"
+        summary_data = {
+            "feed_metrics": self.feed_metrics_data,
+            "notices_metrics": self.notices_metrics_data,
+            "versions_metrics": self.versions_metrics_data,
+        }
+        self._save_json(summary_file_name, summary_data)
+
+
     def save(self) -> None:
-        self.save_metrics(
-            {
-                "feed_metrics.json": {
-                    "new_data": self.feed_metrics_data,
-                    "keys": ["feed_id"],
-                    "list_to_append": ["computed_on", "errors_count"],
-                },
-                "versions_metrics.json": {
-                    "new_data": self.versions_metrics_data,
-                    "keys": ["version"],
-                    "list_to_append": ["computed_on", "feeds_count"],
-                },
-                "notices_metrics.json": {
-                    "new_data": self.notices_metrics_data,
-                    "keys": ["keyword", "gbfs_file", "schema_path"],
-                    "list_to_append": ["computed_on", "feeds_count"],
-                },
-            }
-        )
+        metrics_file_data = {
+            "feed_metrics": [],
+            "versions_metrics": [],
+            "notices_metrics": [],
+        }
+        merging_keys = {
+            "feed_metrics": ["feed_id"],
+            "versions_metrics": ["version"],
+            "notices_metrics": ["keyword", "gbfs_file", "schema_path"],
+        }
+        self.aggregate_summary_files(metrics_file_data, merging_keys)
 
     def _process_versions(self, feed: Gbfsfeed) -> None:
         for version in feed.gbfsversions:

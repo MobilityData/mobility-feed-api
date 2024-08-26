@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 def get_compute_date(request: flask.Request) -> datetime:
     """
-    Get the compute date from the request JSON.
+    Get the compute date from the request JSON. If the date is invalid, return today at midnight.
     """
     try:
         json_request = request.get_json()
@@ -24,7 +24,8 @@ def get_compute_date(request: flask.Request) -> datetime:
             return datetime.strptime(compute_date_str, "%Y%m%d")
     except Exception as e:
         logging.error(f"Error getting compute date: {e}")
-    return datetime.now()
+    # Return today at midnight if the date is invalid
+    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def preprocess_analytics(request: flask.Request, processor_class) -> Response:

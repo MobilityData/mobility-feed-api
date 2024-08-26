@@ -96,7 +96,7 @@ class TestGTFSAnalyticsProcessor(unittest.TestCase):
         mock_dataset.validation_reports[0].features = [MagicMock(name="feature1")]
 
         # Run process_feed_data
-        self.processor.process_feed_data(mock_feed, mock_dataset)
+        self.processor.process_feed_data(mock_feed, mock_dataset, {})
 
         # Assert the data was appended correctly
         self.assertEqual(len(self.processor.data), 1)
