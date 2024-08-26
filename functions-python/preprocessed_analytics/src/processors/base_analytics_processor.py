@@ -1,6 +1,5 @@
 import logging
 import os
-from email.policy import default
 from typing import List, Dict, Tuple
 
 import json
@@ -61,7 +60,9 @@ class BaseAnalyticsProcessor:
                     blob,
                 )
             except Exception as e:
-                logging.warning(f"Unable to convert data to DataFrame using Pandas: {e}")
+                logging.warning(
+                    f"Unable to convert data to DataFrame using Pandas: {e}"
+                )
                 return json.loads(json_data), blob
         return [], blob
 
@@ -84,8 +85,9 @@ class BaseAnalyticsProcessor:
         blob = self.analytics_bucket.blob(file_name)
         self._save_blob(blob, data)
 
-
-    def aggregate_summary_files(self, metrics_file_data: Dict[str, List], merging_keys: Dict[str, List[str]]) -> None:
+    def aggregate_summary_files(
+        self, metrics_file_data: Dict[str, List], merging_keys: Dict[str, List[str]]
+    ) -> None:
         blobs = self.analytics_bucket.list_blobs(prefix="summary/summary_")
         for blob in blobs:
             logging.info(f"Aggregating data from {blob.name}")
@@ -93,9 +95,7 @@ class BaseAnalyticsProcessor:
             for key, new_data in summary_data.items():
                 if key in metrics_file_data:
                     metrics_file_data[key] = self.append_new_data_if_not_exists(
-                        metrics_file_data[key],
-                        new_data,
-                        merging_keys[key]
+                        metrics_file_data[key], new_data, merging_keys[key]
                     )
         # Save metrics to the bucket
         for file_name, data in metrics_file_data.items():
@@ -103,7 +103,7 @@ class BaseAnalyticsProcessor:
 
     @staticmethod
     def append_new_data_if_not_exists(
-            old_data: List[Dict], new_data: List[Dict], keys: List[str]
+        old_data: List[Dict], new_data: List[Dict], keys: List[str]
     ) -> List[Dict]:
         for new_entry in new_data:
             exists = any(
@@ -160,11 +160,16 @@ class BaseAnalyticsProcessor:
                 if translation["location_id"] is not None
             }
         except Exception as e:
-            logging.warning(f"Error loading location translations: {e}\n Continuing without translations")
+            logging.warning(
+                f"Error loading location translations: {e}\n Continuing without translations"
+            )
             location_translations_dict = {}
         unique_feeds = {result[0].stable_id: result for result in all_results}
         logging.info(f"Nb of unique feeds loaded: {len(unique_feeds)}")
-        return [(result[0], result[1], location_translations_dict) for result in unique_feeds.values()]
+        return [
+            (result[0], result[1], location_translations_dict)
+            for result in unique_feeds.values()
+        ]
 
     @staticmethod
     def _extract_translation_fields(translation_data):

@@ -109,7 +109,6 @@ class GBFSAnalyticsProcessor(BaseAnalyticsProcessor):
         }
         self._save_json(summary_file_name, summary_data)
 
-
     def save(self) -> None:
         metrics_file_data = {
             "feed_metrics": [],

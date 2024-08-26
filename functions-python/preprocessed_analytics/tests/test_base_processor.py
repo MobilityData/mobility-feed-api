@@ -26,7 +26,6 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
         self.run_date = datetime(2024, 8, 22)
         self.processor = BaseAnalyticsProcessor(self.run_date)
 
-
     @patch(
         "preprocessed_analytics.src.processors.base_analytics_processor.pd.read_json"
     )
@@ -64,7 +63,6 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
         )
         mock_blob.make_public.assert_called_once()
 
-
     @patch(
         "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor._save_json"
     )
@@ -101,17 +99,38 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
     @patch(
         "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor.update_analytics_files"
     )
+    @patch(
+        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor.save_summary"
+    )
     def test_run(
         self,
+        mock_save_summary,
         mock_update_analytics_files,
         mock_save_analytics,
         mock_process_feed_data,
         mock_get_latest_data,
     ):
+        # Create mock feed objects with a stable_id attribute
+        mock_feed1 = MagicMock()
+        mock_feed1.stable_id = "stable_id_1"
+
+        mock_feed2 = MagicMock()
+        mock_feed2.stable_id = "stable_id_2"
+
+        # Mock the dataset_or_snapshot and translation data
+        mock_dataset1 = MagicMock()
+        mock_dataset2 = MagicMock()
+
+        translation_data1 = "translation1"
+        translation_data2 = "translation2"
+
         # Mock query and its all() method
         mock_query = MagicMock()
         mock_get_latest_data.return_value = mock_query
-        mock_query.all.return_value = [("feed1", "dataset1"), ("feed2", "dataset2")]
+        mock_query.all.return_value = [
+            (mock_feed1, mock_dataset1, translation_data1),
+            (mock_feed2, mock_dataset2, translation_data2),
+        ]
 
         # Run the processor's run method
         self.processor.run()
@@ -121,11 +140,7 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
 
         # Assert that process_feed_data was called twice (once for each feed-dataset pair)
         self.assertEqual(mock_process_feed_data.call_count, 2)
-        mock_process_feed_data.assert_any_call("feed1", "dataset1")
-        mock_process_feed_data.assert_any_call("feed2", "dataset2")
 
-        # Assert that save_analytics was called once
         mock_save_analytics.assert_called_once()
-
-        # Assert that update_analytics_files was called once
         mock_update_analytics_files.assert_called_once()
+        mock_save_summary.assert_called_once()

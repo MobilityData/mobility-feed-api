@@ -44,10 +44,24 @@ class TestGBFSAnalyticsProcessor(unittest.TestCase):
         mock_process_feed_data,
         mock_get_latest_data,
     ):
+        # Create mock feed objects with a stable_id attribute
+        mock_feed1 = MagicMock()
+        mock_feed1.stable_id = "stable_id_1"
+
+        mock_feed2 = MagicMock()
+        mock_feed2.stable_id = "stable_id_2"
+
+        # Mock the snapshot data
+        mock_snapshot1 = MagicMock()
+        mock_snapshot2 = MagicMock()
+
         # Mock query and its all() method
         mock_query = MagicMock()
         mock_get_latest_data.return_value = mock_query
-        mock_query.all.return_value = [("feed1", "snapshot1"), ("feed2", "snapshot2")]
+        mock_query.all.return_value = [
+            (mock_feed1, mock_snapshot1),
+            (mock_feed2, mock_snapshot2),
+        ]
 
         # Run the processor's run method
         self.processor.run()
@@ -57,8 +71,8 @@ class TestGBFSAnalyticsProcessor(unittest.TestCase):
 
         # Assert that process_feed_data was called twice (once for each feed-snapshot pair)
         self.assertEqual(mock_process_feed_data.call_count, 2)
-        mock_process_feed_data.assert_any_call("feed1", "snapshot1")
-        mock_process_feed_data.assert_any_call("feed2", "snapshot2")
+        mock_process_feed_data.assert_any_call(mock_feed1, mock_snapshot1, {})
+        mock_process_feed_data.assert_any_call(mock_feed2, mock_snapshot2, {})
 
         # Assert that save was called once
         mock_save.assert_called_once()
@@ -109,15 +123,27 @@ class TestGBFSAnalyticsProcessor(unittest.TestCase):
     )
     def test_save(self, mock_load_json, mock_save_blob):
         # Mock the return values of _load_json
-        mock_load_json.return_value = ([], MagicMock())
+        # First two calls return empty lists, the last one returns data
+        mock_load_json.return_value = (
+            {
+                "feed_metrics": [
+                    {
+                        "feed_id": "feed1",
+                        "errors_count": [1],
+                        "computed_on": ["2024-08-22"],
+                    }
+                ]
+            },
+            MagicMock(),
+        )
 
-        # Call save
+        self.mock_bucket.list_blobs.return_value = [
+            MagicMock(name="summary/summary_2024-08-22.json"),
+            MagicMock(name="feed_metrics/feed_metrics_2024-08-22.json"),
+            MagicMock(name="versions_metrics/versions_metrics_2024-08-22.json"),
+        ]
         self.processor.save()
-
-        # Assert that _load_json was called for each metrics file
         self.assertEqual(mock_load_json.call_count, 3)
-
-        # Assert that _save_json was called once
         self.assertEqual(mock_save_blob.call_count, 3)
 
     def test_process_versions(self):

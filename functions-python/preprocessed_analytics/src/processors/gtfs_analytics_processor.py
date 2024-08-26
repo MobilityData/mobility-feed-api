@@ -72,7 +72,6 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         }
         self._save_json(summary_file_name, summary_data)
 
-
     def process_feed_data(
         self, feed: Feed, dataset: Gtfsdataset, translations: Dict
     ) -> None:
