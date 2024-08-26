@@ -50,7 +50,7 @@ class GBFSAnalyticsProcessor(BaseAnalyticsProcessor):
         )
         return query
 
-    def process_feed_data(self, feed: Gbfsfeed, snapshot: Gbfssnapshot) -> None:
+    def process_feed_data(self, feed: Gbfsfeed, snapshot: Gbfssnapshot, _) -> None:
         if feed.stable_id in self.processed_feeds:
             return
         self.processed_feeds.add(feed.stable_id)

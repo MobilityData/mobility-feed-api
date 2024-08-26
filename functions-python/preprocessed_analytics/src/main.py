@@ -1,4 +1,5 @@
 import logging
+import traceback
 from datetime import datetime
 
 import flask
@@ -26,7 +27,7 @@ def get_compute_date(request: flask.Request) -> datetime:
     return datetime.now()
 
 
-def process_analytics(request: flask.Request, processor_class) -> Response:
+def preprocess_analytics(request: flask.Request, processor_class) -> Response:
     """
     Common logic to process analytics using the given processor class.
     """
@@ -38,7 +39,11 @@ def process_analytics(request: flask.Request, processor_class) -> Response:
         processor = processor_class(compute_date)
         processor.run()
     except Exception as e:
-        logging.error(f"Error processing {processor_class.__name__} analytics: {e}")
+        # Extracting the traceback details
+        tb = traceback.format_exc()
+        logging.error(
+            f"Error processing {processor_class.__name__} analytics: {e}\nTraceback:\n{tb}"
+        )
         return Response(
             f"Error processing analytics for date {compute_date}: {e}", status=500
         )
@@ -49,10 +54,10 @@ def process_analytics(request: flask.Request, processor_class) -> Response:
 
 
 @functions_framework.http
-def process_analytics_gtfs(request: flask.Request) -> Response:
-    return process_analytics(request, GTFSAnalyticsProcessor)
+def preprocess_analytics_gtfs(request: flask.Request) -> Response:
+    return preprocess_analytics(request, GTFSAnalyticsProcessor)
 
 
 @functions_framework.http
-def process_analytics_gbfs(request: flask.Request) -> Response:
-    return process_analytics(request, GBFSAnalyticsProcessor)
+def preprocess_analytics_gbfs(request: flask.Request) -> Response:
+    return preprocess_analytics(request, GBFSAnalyticsProcessor)

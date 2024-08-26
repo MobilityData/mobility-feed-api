@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import sqlalchemy
 from sqlalchemy.orm import joinedload
@@ -10,7 +10,10 @@ from database_gen.sqlacodegen_models import (
     Notice,
     Feature,
     Feed,
+    t_location_with_translations_en,
+    Location,
 )
+from helpers.locations import translate_feed_locations
 from .base_analytics_processor import BaseAnalyticsProcessor
 
 
@@ -31,7 +34,7 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         )
 
         query = (
-            self.session.query(Gtfsfeed, Gtfsdataset)
+            self.session.query(Gtfsfeed, Gtfsdataset, t_location_with_translations_en)
             .join(Gtfsdataset, Gtfsfeed.id == Gtfsdataset.feed_id)
             .join(
                 subquery,
@@ -40,10 +43,14 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
                     Gtfsdataset.downloaded_at == subquery.c.max_downloaded_at,
                 ),
             )
+            .outerjoin(Location, Feed.locations)
+            .outerjoin(
+                t_location_with_translations_en,
+                Location.id == t_location_with_translations_en.c.location_id,
+            )
             .where(Gtfsfeed.status != "deprecated")
             .options(
                 joinedload(Gtfsfeed.locations),
-                joinedload(Gtfsdataset.locations),
                 joinedload(Gtfsdataset.validation_reports).joinedload(
                     Validationreport.notices
                 ),
@@ -55,7 +62,9 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         )
         return query
 
-    def process_feed_data(self, feed: Feed, dataset: Gtfsdataset) -> None:
+    def process_feed_data(
+        self, feed: Feed, dataset: Gtfsdataset, translations: Dict
+    ) -> None:
         if feed.stable_id in self.processed_feeds:
             return
         self.processed_feeds.add(feed.stable_id)
@@ -63,6 +72,8 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         validation_reports = dataset.validation_reports
         if not validation_reports:
             return
+
+        translate_feed_locations(feed, translations)
 
         latest_validation_report = max(validation_reports, key=lambda x: x.validated_at)
         notices = latest_validation_report.notices
@@ -91,7 +102,7 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
                         "municipality": location.municipality,
                         "subdivision_name": location.subdivision_name,
                     }
-                    for location in dataset.locations
+                    for location in feed.locations
                 ],
             }
         )

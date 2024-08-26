@@ -93,7 +93,7 @@ class TestGBFSAnalyticsProcessor(unittest.TestCase):
         ]
 
         # Run process_feed_data
-        self.processor.process_feed_data(mock_feed, mock_snapshot)
+        self.processor.process_feed_data(mock_feed, mock_snapshot, None)
 
         # Assert the data was appended correctly
         self.assertEqual(len(self.processor.data), 1)

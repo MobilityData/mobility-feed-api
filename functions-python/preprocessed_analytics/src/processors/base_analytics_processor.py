@@ -5,13 +5,20 @@ from typing import List, Dict, Tuple
 import pandas as pd
 from google.cloud import storage
 from sqlalchemy.orm import Query
+
+from database_gen.sqlacodegen_models import (
+    Gbfsfeed,
+    Gbfssnapshot,
+    Gtfsfeed,
+    Gtfsdataset,
+)
 from helpers.database import start_db_session
 
 
 class BaseAnalyticsProcessor:
     def __init__(self, run_date):
         self.run_date = run_date
-        self.session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        self.session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
         self.processed_feeds = set()
         self.data = []
         self.feed_metrics_data = []
@@ -24,7 +31,12 @@ class BaseAnalyticsProcessor:
     def get_latest_data(self) -> Query:
         raise NotImplementedError("Subclasses should implement this method.")
 
-    def process_feed_data(self, feed, dataset_or_snapshot) -> None:
+    def process_feed_data(
+        self,
+        feed: Gtfsfeed | Gbfsfeed,
+        dataset_or_snapshot: Gtfsdataset | Gbfssnapshot,
+        translations: Dict,
+    ) -> None:
         raise NotImplementedError("Subclasses should implement this method.")
 
     def save(self) -> None:
@@ -53,7 +65,6 @@ class BaseAnalyticsProcessor:
                     for entry in matching_entries:
                         for key in list_to_append:
                             entry[key].extend(new_entry[key])
-                logging.info(f"Entry {new_entry} already exists in old data")
         return old_data
 
     def _load_json(self, file_name: str) -> Tuple[List[Dict], storage.Blob]:
@@ -101,15 +112,55 @@ class BaseAnalyticsProcessor:
         logging.info(f"Analytics saved to bucket as {file_name}")
 
     def run(self) -> None:
-        query = self.get_latest_data()
-
-        for feed, dataset_or_snapshot in query.all():
-            self.process_feed_data(feed, dataset_or_snapshot)
+        for (
+            feed,
+            dataset_or_snapshot,
+            translation_fields,
+        ) in self._get_data_with_translations():
+            self.process_feed_data(feed, dataset_or_snapshot, translation_fields)
 
         self.session.close()
         self.save_analytics()
         self.update_analytics_files()
         logging.info(f"Finished running analytics for date: {self.run_date}")
+
+    def _get_data_with_translations(self):
+        query = self.get_latest_data()
+        all_results = query.all()
+        logging.info(f"Loaded {len(all_results)} feeds to process")
+        try:
+            location_translations = [
+                self._extract_translation_fields(result[2:]) for result in all_results
+            ]
+            logging.info("Location translations loaded")
+            location_translations_dict = {
+                translation["location_id"]: translation
+                for translation in location_translations
+                if translation["location_id"] is not None
+            }
+        except IndexError:
+            location_translations_dict = {}
+        unique_feeds = {result[0].stable_id: result for result in all_results}
+        logging.info(f"Nb of unique feeds loaded: {len(unique_feeds)}")
+        return [(result[0], result[1], location_translations_dict) for result in unique_feeds.values()]
+
+    @staticmethod
+    def _extract_translation_fields(translation_data):
+        keys = [
+            "location_id",
+            "country_code",
+            "country",
+            "subdivision_name",
+            "municipality",
+            "country_translation",
+            "subdivision_name_translation",
+            "municipality_translation",
+        ]
+        try:
+            return dict(zip(keys, translation_data))
+        except Exception as e:
+            logging.error(f"Error extracting translation fields: {e}")
+            return dict(zip(keys, [None] * len(keys)))
 
     def update_analytics_files(self) -> None:
         try:

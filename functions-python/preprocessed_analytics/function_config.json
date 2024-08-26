@@ -1,7 +1,7 @@
 {
-  "name": "process-analytics",
-  "description": "Process analytics",
-  "entry_point": "process_analytics",
+  "name": "preprocess-analytics",
+  "description": "Preprocess analytics",
+  "entry_point": "preprocess_analytics",
   "timeout": 540,
   "memory": "2Gi",
   "trigger_http": false,
