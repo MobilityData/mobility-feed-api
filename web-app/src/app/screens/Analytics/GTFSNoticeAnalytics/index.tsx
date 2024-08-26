@@ -28,7 +28,7 @@ import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
 import { type NoticeMetrics } from '../types';
 
-export default function NoticeAnalytics(): React.ReactElement {
+export default function GTFSNoticeAnalytics(): React.ReactElement {
   const navigateTo = useNavigate();
   const { noticeCode } = useParams<{ noticeCode?: string }>();
   const [data, setData] = useState<NoticeMetrics[]>([]);
@@ -38,7 +38,7 @@ export default function NoticeAnalytics(): React.ReactElement {
     const fetchData = async (): Promise<void> => {
       try {
         const response = await fetch(
-          'https://storage.googleapis.com/mobilitydata-analytics-dev/notices_metrics.json',
+          'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/notices_metrics.json',
         );
         if (!response.ok) {
           throw new Error('Network response was not ok');
@@ -238,7 +238,7 @@ export default function NoticeAnalytics(): React.ReactElement {
                 startIcon={<ListAltOutlined />}
                 onClick={() => {
                   navigateTo(
-                    `/analytics/feeds?severity=${metrics.severity}&noticeCode=${metrics.notice}`,
+                    `/metrics/gtfs/feeds?severity=${metrics.severity}&noticeCode=${metrics.notice}`,
                   );
                 }}
               >

@@ -2,12 +2,12 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import {
   type NoticeMetrics,
   type FeatureMetrics,
-  type FeedMetrics,
+  type GTFSFeedMetrics,
   type AnalyticsFile,
 } from '../screens/Analytics/types';
 
-interface AnalyticsState {
-  feedMetrics: FeedMetrics[];
+interface GTFSAnalyticsState {
+  feedMetrics: GTFSFeedMetrics[];
   historicalMetrics: Map<string, FeatureMetrics>;
   noticeMetrics: NoticeMetrics[];
   featuresMetrics: FeatureMetrics[];
@@ -17,7 +17,7 @@ interface AnalyticsState {
   selectedFile?: string;
 }
 
-const initialState: AnalyticsState = {
+const initialState: GTFSAnalyticsState = {
   feedMetrics: [],
   historicalMetrics: new Map(),
   noticeMetrics: [],
@@ -28,55 +28,19 @@ const initialState: AnalyticsState = {
   selectedFile: undefined,
 };
 
-const AnalyticsSlice = createSlice({
-  name: 'analytics',
+const GTFSAnalyticsSlice = createSlice({
+  name: 'gtfsAnalytics',
   initialState,
   reducers: {
     fetchDataStart(state) {
       state.status = 'loading';
     },
-    fetchFeedMetricsSuccess(state, action: PayloadAction<FeedMetrics[]>) {
+    fetchFeedMetricsSuccess(state, action: PayloadAction<GTFSFeedMetrics[]>) {
       state.status = 'loaded';
       state.feedMetrics = action.payload;
       state.error = undefined;
     },
-    fetchHistoricalMetricsSuccess(
-      state,
-      action: PayloadAction<Map<string, FeatureMetrics>>,
-    ) {
-      state.historicalMetrics = action.payload;
-      state.status = 'loaded';
-      state.error = undefined;
-    },
-    fetchNoticeMetricsSuccess(state, action: PayloadAction<NoticeMetrics[]>) {
-      state.noticeMetrics = action.payload;
-      state.status = 'loaded';
-      state.error = undefined;
-    },
-    fetchFeaturesMetricsSuccess(
-      state,
-      action: PayloadAction<FeatureMetrics[]>,
-    ) {
-      state.featuresMetrics = action.payload;
-      state.status = 'loaded';
-      state.error = undefined;
-    },
     fetchFeedMetricsFailure(state, action: PayloadAction<string>) {
-      state.status = 'failed';
-      state.error = action.payload;
-      state.featuresMetrics = [];
-    },
-    fetchHistoricalMetricsFailure(state, action: PayloadAction<string>) {
-      state.status = 'failed';
-      state.error = action.payload;
-      state.historicalMetrics = new Map();
-    },
-    fetchNoticeMetricsFailure(state, action: PayloadAction<string>) {
-      state.status = 'failed';
-      state.error = action.payload;
-      state.noticeMetrics = [];
-    },
-    fetchFeaturesMetricsFailure(state, action: PayloadAction<string>) {
       state.status = 'failed';
       state.error = action.payload;
       state.featuresMetrics = [];
@@ -99,16 +63,10 @@ const AnalyticsSlice = createSlice({
 export const {
   fetchDataStart,
   fetchFeedMetricsSuccess,
-  fetchHistoricalMetricsSuccess,
-  fetchNoticeMetricsSuccess,
-  fetchFeaturesMetricsSuccess,
   fetchFeedMetricsFailure,
-  fetchHistoricalMetricsFailure,
-  fetchNoticeMetricsFailure,
-  fetchFeaturesMetricsFailure,
   fetchAvailableFilesSuccess,
   fetchAvailableFilesStart,
   selectFile,
-} = AnalyticsSlice.actions;
+} = GTFSAnalyticsSlice.actions;
 
-export default AnalyticsSlice.reducer;
+export default GTFSAnalyticsSlice.reducer;

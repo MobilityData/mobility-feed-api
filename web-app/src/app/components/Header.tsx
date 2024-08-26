@@ -37,10 +37,12 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { OpenInNew } from '@mui/icons-material';
+import { BikeScooterOutlined, OpenInNew } from '@mui/icons-material';
 import '../styles/Header.css';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import i18n from '../../i18n';
+import { NestedMenuItem } from 'mui-nested-menu';
+import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -106,7 +108,7 @@ const DrawerContent: React.FC<{
               label='Feed Analytics'
               sx={{ color: '#7c7c7c', cursor: 'pointer' }}
               onClick={() => {
-                onNavigationClick('/analytics/feed');
+                onNavigationClick('/metrics/gtfs/feed');
               }}
             />
             <TreeItem
@@ -114,7 +116,7 @@ const DrawerContent: React.FC<{
               label='Notice Analytics'
               sx={{ color: '#7c7c7c', cursor: 'pointer' }}
               onClick={() => {
-                onNavigationClick('/analytics/notice');
+                onNavigationClick('/metrics/gtfs/notice');
               }}
             />
             <TreeItem
@@ -122,7 +124,7 @@ const DrawerContent: React.FC<{
               label='Feature Analytics'
               sx={{ color: '#7c7c7c', cursor: 'pointer' }}
               onClick={() => {
-                onNavigationClick('/analytics/feature');
+                onNavigationClick('/metrics/gtfs/feature');
               }}
             />
           </TreeItem>
@@ -225,14 +227,13 @@ export default function DrawerAppBar(): React.ReactElement {
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>): void => {
     setAnchorEl(event.currentTarget);
-    console.log('event.currentTarget', event.currentTarget);
   };
 
   const handleMenuClose = (): void => {
     setAnchorEl(null);
   };
 
-  const handleMenuItemClick = (item: NavigationItem): void => {
+  const handleMenuItemClick = (item: NavigationItem | string): void => {
     handleMenuClose();
     handleNavigation(item);
   };
@@ -301,7 +302,7 @@ export default function DrawerAppBar(): React.ReactElement {
               sx={{ color: 'black' }}
               id='analytics-button-menu'
             >
-              Analytics
+              Metrics
             </Button>
             <Menu
               id='analytics-menu'
@@ -311,27 +312,60 @@ export default function DrawerAppBar(): React.ReactElement {
               }
               onClose={handleMenuClose}
             >
-              <MenuItem
-                onClick={() => {
-                  handleNavigation('/analytics/feeds');
-                }}
+              <NestedMenuItem
+                label='GTFS'
+                parentMenuOpen={Boolean(anchorEl)}
+                leftIcon={<DirectionsBusIcon />}
               >
-                Feed Analytics
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  handleNavigation('/analytics/notices');
-                }}
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick('/metrics/gtfs/feeds');
+                  }}
+                >
+                  Feeds
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick('/metrics/gtfs/notices');
+                  }}
+                >
+                  Notices
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick('/metrics/gtfs/features');
+                  }}
+                >
+                  Features
+                </MenuItem>
+              </NestedMenuItem>
+              <NestedMenuItem
+                label='GBFS'
+                parentMenuOpen={Boolean(anchorEl)}
+                leftIcon={<BikeScooterOutlined />}
               >
-                Notice Analytics
-              </MenuItem>
-              <MenuItem
-                onClick={() => {
-                  handleNavigation('/analytics/features');
-                }}
-              >
-                Feature Analytics
-              </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick('/metrics/gbfs/feeds');
+                  }}
+                >
+                  Feeds
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick('/metrics/gbfs/notices');
+                  }}
+                >
+                  Notices
+                </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    handleMenuItemClick('/metrics/gbfs/versions');
+                  }}
+                >
+                  Versions
+                </MenuItem>
+              </NestedMenuItem>
             </Menu>
             {isAuthenticated ? (
               <>
@@ -380,6 +414,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 onChange={(lang) => {
                   void i18n.changeLanguage(lang.target.value);
                 }}
+                variant='standard'
               >
                 <MenuItem value={'en'}>EN</MenuItem>
                 <MenuItem value={'fr'}>FR</MenuItem>

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { type MRT_Cell, type MRT_ColumnDef } from 'material-react-table';
 import { format } from 'date-fns';
-import { type FeedMetrics } from '../types';
+import { type GTFSFeedMetrics } from '../types';
 import { groupFeatures, getGroupColor } from '../../../utils/analytics';
 import { useNavigate } from 'react-router-dom';
 import { Box, Stack } from '@mui/material';
@@ -25,10 +25,10 @@ export const useTableColumns = (
   avgErrors: number,
   avgWarnings: number,
   avgInfos: number,
-): Array<MRT_ColumnDef<FeedMetrics>> => {
+): Array<MRT_ColumnDef<GTFSFeedMetrics>> => {
   const navigate = useNavigate();
 
-  return useMemo<Array<MRT_ColumnDef<FeedMetrics>>>(
+  return useMemo<Array<MRT_ColumnDef<GTFSFeedMetrics>>>(
     () => [
       {
         accessorKey: 'feed_id',
@@ -40,7 +40,7 @@ export const useTableColumns = (
           cell,
           renderedCellValue,
         }: {
-          cell: MRT_Cell<FeedMetrics>;
+          cell: MRT_Cell<GTFSFeedMetrics>;
           renderedCellValue: React.ReactNode;
         }) => (
           <div
@@ -62,23 +62,8 @@ export const useTableColumns = (
         size: 150,
       },
       {
-        accessorKey: 'country_code',
-        header: 'Country Code',
-        size: 100,
-      },
-      {
-        accessorKey: 'country',
-        header: 'Country',
-        size: 100,
-      },
-      {
-        accessorKey: 'subdivision_name',
-        header: 'Subdivision Name',
-        size: 100,
-      },
-      {
-        accessorKey: 'municipality',
-        header: 'Municipality',
+        accessorKey: 'locations_string',
+        header: 'Locations',
         size: 100,
       },
       {
@@ -90,7 +75,7 @@ export const useTableColumns = (
         accessorKey: 'notices.errors',
         header: 'Errors',
         enableSorting: false,
-        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
+        Cell: ({ cell }: { cell: MRT_Cell<GTFSFeedMetrics> }) => (
           <div>
             {cell.getValue<string[]>()?.map((error, index) => (
               <div
@@ -102,7 +87,7 @@ export const useTableColumns = (
                 }}
                 className={'navigable-list-item'}
                 onClick={() => {
-                  navigate(`/analytics/notices/${error}`);
+                  navigate(`/metrics/gtfs/notices/${error}`);
                 }}
               >
                 {error}
@@ -132,7 +117,7 @@ export const useTableColumns = (
         accessorKey: 'notices.warnings',
         header: 'Warnings',
         enableSorting: false,
-        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
+        Cell: ({ cell }: { cell: MRT_Cell<GTFSFeedMetrics> }) => (
           <div>
             {cell.getValue<string[]>()?.map((warning, index) => (
               <div
@@ -144,7 +129,7 @@ export const useTableColumns = (
                 }}
                 className={'navigable-list-item'}
                 onClick={() => {
-                  navigate(`/analytics/notices/${warning}`);
+                  navigate(`/metrics/gtfs/notices/${warning}`);
                 }}
               >
                 {warning}
@@ -182,7 +167,7 @@ export const useTableColumns = (
             </span>
           </span>
         ),
-        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => (
+        Cell: ({ cell }: { cell: MRT_Cell<GTFSFeedMetrics> }) => (
           <div>
             {cell.getValue<string[]>()?.map((info, index) => (
               <div
@@ -194,7 +179,7 @@ export const useTableColumns = (
                 }}
                 className={'navigable-list-item'}
                 onClick={() => {
-                  navigate(`/analytics/notices/${info}`);
+                  navigate(`/metrics/gtfs/notices/${info}`);
                 }}
               >
                 {info}
@@ -223,7 +208,7 @@ export const useTableColumns = (
           });
         },
         enableSorting: false,
-        Cell: ({ cell }: { cell: MRT_Cell<FeedMetrics> }) => {
+        Cell: ({ cell }: { cell: MRT_Cell<GTFSFeedMetrics> }) => {
           const { groupedFeatures, otherFeatures } = groupFeatures(
             cell.getValue<string[]>(),
           );
@@ -251,7 +236,7 @@ export const useTableColumns = (
                         style={{ cursor: 'pointer', marginLeft: '10px' }}
                         className={'navigable-list-item'}
                         onClick={() => {
-                          navigate(`/analytics/features/${feature}`);
+                          navigate(`/metrics/gtfs/features/${feature}`);
                         }}
                       >
                         {feature}
@@ -281,7 +266,7 @@ export const useTableColumns = (
                       style={{ cursor: 'pointer', marginLeft: '10px' }}
                       className={'navigable-list-item'}
                       onClick={() => {
-                        navigate(`/analytics/features/${feature}`);
+                        navigate(`/metrics/gtfs/features/${feature}`);
                       }}
                     >
                       {feature}

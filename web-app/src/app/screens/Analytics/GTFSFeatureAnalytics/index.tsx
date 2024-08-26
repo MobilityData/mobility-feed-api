@@ -26,7 +26,7 @@ import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
 import { featureGroups, getGroupColor } from '../../../utils/analytics';
 import { type FeatureMetrics } from '../types';
 
-export default function FeatureAnalytics(): React.ReactElement {
+export default function GTFSFeatureAnalytics(): React.ReactElement {
   const navigateTo = useNavigate();
   const { featureName } = useParams<{ featureName?: string }>();
   const [data, setData] = useState<FeatureMetrics[]>([]);
@@ -36,7 +36,7 @@ export default function FeatureAnalytics(): React.ReactElement {
     const fetchData = async (): Promise<void> => {
       try {
         const response = await fetch(
-          'https://storage.googleapis.com/mobilitydata-analytics-dev/features_metrics.json',
+          'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/features_metrics.json',
         );
         if (!response.ok) {
           throw new Error('Network response was not ok');
@@ -198,7 +198,9 @@ export default function FeatureAnalytics(): React.ReactElement {
                 sx={{ mb: 2 }}
                 startIcon={<ListAltOutlined />}
                 onClick={() => {
-                  navigateTo(`/analytics/feeds?featureName=${metrics.feature}`);
+                  navigateTo(
+                    `/metrics/gtfs/feeds?featureName=${metrics.feature}`,
+                  );
                 }}
               >
                 Show Feeds

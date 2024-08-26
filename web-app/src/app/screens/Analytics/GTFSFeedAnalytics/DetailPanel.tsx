@@ -21,10 +21,11 @@ import {
   Key,
   CalendarToday,
 } from '@mui/icons-material';
-import { type FeedMetrics } from '../types';
+import { type GTFSFeedMetrics } from '../types';
+import { getLocationName } from '../../../services/feeds/utils';
 
 interface RowData {
-  original: FeedMetrics;
+  original: GTFSFeedMetrics;
 }
 
 interface RenderDetailPanelProps {
@@ -43,13 +44,7 @@ const getTrendDescription = (current: number, previous: number): string => {
 
 const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
   const theme = useTheme();
-  const {
-    metrics,
-    country,
-    subdivision_name: subdivisionName,
-    municipality,
-    provider,
-  } = row.original;
+  const { metrics, locations, provider } = row.original;
 
   if (metrics == null) {
     return <div>No metrics available</div>;
@@ -145,9 +140,8 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
               alignItems='center'
             >
               <LocationOn fontSize='small' sx={{ marginRight: 1 }} />
-              <strong style={{ marginRight: 5 }}>Location:</strong> {country}
-              {subdivisionName != null ? `, ${subdivisionName}` : ''}
-              {municipality != null ? `, ${municipality}` : ''}
+              <strong style={{ marginRight: 5 }}>Locations:</strong>
+              {getLocationName(locations)}
             </Typography>
             <Typography
               variant='body1'

@@ -1,20 +1,20 @@
+import { type EntityLocations } from '../../services/feeds/utils';
+
 export interface Notices {
   errors: string[];
   warnings: string[];
   infos: string[];
 }
 
-export interface FeedMetrics {
+export interface GTFSFeedMetrics {
   feed_id: string;
   dataset_id: string;
   notices: Notices;
   features: string[];
   created_on: Date;
   last_modified: Date;
-  country_code: string;
-  country: string;
-  subdivision_name: string;
-  municipality: string;
+  locations: EntityLocations;
+  locations_string: string;
   provider: string;
   metrics?: Metrics;
 }

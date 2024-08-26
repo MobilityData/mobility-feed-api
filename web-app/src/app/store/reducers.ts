@@ -10,7 +10,7 @@ const rootReducer = combineReducers({
   feedProfile: feedReducer,
   dataset: datasetReducer,
   feeds: feedsReducer,
-  analytics: analyticsReducer,
+  gtfsAnalytics: analyticsReducer,
 });
 
 export default rootReducer;

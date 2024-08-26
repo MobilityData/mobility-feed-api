@@ -25,11 +25,12 @@ import {
   selectAnalyticsStatus,
   selectAnalyticsError,
 } from '../../../store/analytics-selector';
-import { useTableColumns } from './FeedAnalyticsTable';
+import { useTableColumns } from './GTFSFeedAnalyticsTable';
 import DetailPanel from './DetailPanel';
 import { type RootState } from '../../../store/store';
+import { type AnalyticsFile } from '../types';
 
-export default function FeedAnalytics(): React.ReactElement {
+export default function GTFSFeedAnalytics(): React.ReactElement {
   const { search } = useLocation();
   const params = new URLSearchParams(search);
 
@@ -43,11 +44,27 @@ export default function FeedAnalytics(): React.ReactElement {
   const error = useSelector(selectAnalyticsError);
 
   const availableFiles = useSelector(
-    (state: RootState) => state.analytics.availableFiles,
+    (state: RootState) => state.gtfsAnalytics.availableFiles,
   );
   const selectedFile = useSelector(
-    (state: RootState) => state.analytics.selectedFile,
+    (state: RootState) => state.gtfsAnalytics.selectedFile,
   );
+
+  const getFileDisplayKey = (file: AnalyticsFile): JSX.Element => {
+    let [year, month] = file.file_name.split('_').slice(1, 3); // Extracting the year and month
+    month = month.replace('.json', ''); // Removing the file extension
+    const date = new Date(`${year}-${month}-01`); // Creating a date object
+    const formattedDate = date.toLocaleDateString('en-CA', {
+      year: 'numeric',
+      month: 'long',
+    });
+
+    return (
+      <MenuItem key={file.file_name} value={file.file_name}>
+        {formattedDate}
+      </MenuItem>
+    );
+  };
 
   React.useEffect(() => {
     dispatch(fetchAvailableFilesStart());
@@ -151,10 +168,7 @@ export default function FeedAnalytics(): React.ReactElement {
       columnVisibility: {
         created_on: false,
         dataset_id: false,
-        country_code: false,
-        country: false,
-        subdivision_name: false,
-        municipality: false,
+        locations_string: false,
         provider: false,
       },
     },
@@ -176,10 +190,7 @@ export default function FeedAnalytics(): React.ReactElement {
           >
             {availableFiles.map((file) => (
               <MenuItem key={file.file_name} value={file.file_name}>
-                {new Date(file.created_on).toLocaleDateString('en-CA', {
-                  year: 'numeric',
-                  month: 'long',
-                })}
+                {getFileDisplayKey(file)}
               </MenuItem>
             ))}
           </Select>

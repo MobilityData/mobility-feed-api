@@ -9,9 +9,10 @@ import {
 } from '../analytics-reducer';
 import {
   type AnalyticsFile,
-  type FeedMetrics,
+  type GTFSFeedMetrics,
   type Metrics,
 } from '../../screens/Analytics/types';
+import { getLocationName } from '../../services/feeds/utils';
 
 function* fetchFeedMetricsSaga(
   action: ReturnType<typeof selectFile>,
@@ -23,7 +24,7 @@ function* fetchFeedMetricsSaga(
     // Fetch feed metrics
     const feedMetricsResponse: Response = yield call(
       fetch,
-      `https://storage.googleapis.com/mobilitydata-analytics-dev/${selectedFile}`,
+      `https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/${selectedFile}`,
     );
     console.log('fetchFeedMetricsSaga response', feedMetricsResponse);
     if (!feedMetricsResponse.ok) {
@@ -31,12 +32,17 @@ function* fetchFeedMetricsSaga(
         `Error ${feedMetricsResponse.status}: ${feedMetricsResponse.statusText}`,
       );
     }
-    const feedMetrics: FeedMetrics[] = yield feedMetricsResponse.json();
+    const feedMetrics: GTFSFeedMetrics[] = yield feedMetricsResponse.json();
+
+    // Add a locations_string property to each feed
+    feedMetrics.forEach((feed) => {
+      feed.locations_string = getLocationName(feed.locations);
+    });
 
     // Fetch analytics metrics
     const analyticsMetricsResponse: Response = yield call(
       fetch,
-      'https://storage.googleapis.com/mobilitydata-analytics-dev/feed_metrics.json',
+      'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/feed_metrics.json',
     );
     if (!analyticsMetricsResponse.ok) {
       throw new Error(
@@ -46,8 +52,8 @@ function* fetchFeedMetricsSaga(
     const analyticsMetrics: Metrics[] = yield analyticsMetricsResponse.json();
 
     // Merge metrics based on feed_id
-    const mergedMetrics: FeedMetrics[] = feedMetrics.map(
-      (feed): FeedMetrics => {
+    const mergedMetrics: GTFSFeedMetrics[] = feedMetrics.map(
+      (feed): GTFSFeedMetrics => {
         const analyticsMetric = analyticsMetrics.find(
           (metric) => metric.feed_id === feed.feed_id,
         );
@@ -71,12 +77,13 @@ function* fetchAvailableFilesSaga(): Generator<unknown, void, never> {
   try {
     const response: Response = yield call(
       fetch,
-      'https://storage.googleapis.com/mobilitydata-analytics-dev/analytics_files.json',
+      'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/analytics_files.json',
     );
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
     const files: AnalyticsFile[] = yield response.json();
+    console.log('fetchAvailableFilesSaga', files);
     yield put(fetchAvailableFilesSuccess(files));
     if (files.length > 0) {
       // Select the latest file by default
@@ -92,7 +99,7 @@ function* fetchAvailableFilesSaga(): Generator<unknown, void, never> {
   }
 }
 
-export function* watchFetchFeedMetrics(): Generator<unknown, void, never> {
+export function* watchGTFSFetchFeedMetrics(): Generator<unknown, void, never> {
   yield takeLatest(fetchDataStart.type, fetchFeedMetricsSaga);
   yield takeLatest(fetchDataStart.type, fetchFeedMetricsSaga);
   yield takeLatest(selectFile.type, fetchFeedMetricsSaga);
