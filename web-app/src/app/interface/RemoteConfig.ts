@@ -20,7 +20,7 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
    */
   enableMetrics: boolean;
   /** GTFS metrics' bucket endpoint */
-  gtfsMetricsBucket: string;
+  gtfsMetricsBucketEndpoint: string;
 }
 
 // Add default values for remote config here
@@ -30,7 +30,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableLanguageToggle: false,
   enableFeedSubmissionStepper: false,
   enableMetrics: false,
-  gtfsMetricsBucket:
+  gtfsMetricsBucketEndpoint:
     'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev',
 };
 

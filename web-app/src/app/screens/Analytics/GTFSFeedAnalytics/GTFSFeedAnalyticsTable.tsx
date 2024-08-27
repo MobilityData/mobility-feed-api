@@ -77,6 +77,24 @@ export const useTableColumns = (
       {
         accessorKey: 'provider',
         header: 'Provider',
+        Cell: ({
+          cell,
+          renderedCellValue,
+        }: {
+          cell: MRT_Cell<GTFSFeedMetrics>;
+          renderedCellValue: React.ReactNode;
+        }) => (
+          <Box
+            sx={{
+              maxWidth: 200,
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {renderedCellValue}
+          </Box>
+        ),
         size: 100,
       },
       {

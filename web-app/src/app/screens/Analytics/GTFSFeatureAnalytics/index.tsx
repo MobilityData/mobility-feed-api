@@ -39,7 +39,7 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
     const fetchData = async (): Promise<void> => {
       try {
         const response = await fetch(
-          `${config.gtfsMetricsBucket}/features_metrics.json`,
+          `${config.gtfsMetricsBucketEndpoint}/features_metrics.json`,
         );
         if (!response.ok) {
           throw new Error('Network response was not ok');

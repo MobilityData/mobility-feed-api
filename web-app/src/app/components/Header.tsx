@@ -102,29 +102,29 @@ const DrawerContent: React.FC<{
           defaultExpandIcon={<ChevronRightIcon />}
           sx={{ textAlign: 'left' }}
         >
-          <TreeItem nodeId='1' label='Analytics' sx={{ color: '#3959fa' }}>
+          <TreeItem nodeId='1' label='GTFS Metrics' sx={{ color: '#3959fa' }}>
             <TreeItem
               nodeId='2'
-              label='Feed Analytics'
+              label='Feeds'
               sx={{ color: '#7c7c7c', cursor: 'pointer' }}
               onClick={() => {
-                onNavigationClick('/metrics/gtfs/feed');
+                onNavigationClick('/metrics/gtfs/feeds');
               }}
             />
             <TreeItem
               nodeId='3'
-              label='Notice Analytics'
+              label='Notices'
               sx={{ color: '#7c7c7c', cursor: 'pointer' }}
               onClick={() => {
-                onNavigationClick('/metrics/gtfs/notice');
+                onNavigationClick('/metrics/gtfs/notices');
               }}
             />
             <TreeItem
               nodeId='4'
-              label='Feature Analytics'
+              label='Features'
               sx={{ color: '#7c7c7c', cursor: 'pointer' }}
               onClick={() => {
-                onNavigationClick('/metrics/gtfs/feature');
+                onNavigationClick('/metrics/gtfs/features');
               }}
             />
           </TreeItem>
@@ -295,6 +295,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 {item.title}
               </Button>
             ))}
+            {/* Allow users with mobilitydata.org email to access metrics */}
             {config.enableMetrics ||
               (userEmail?.endsWith('mobilitydata.org') === true && (
                 <>

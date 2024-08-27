@@ -21,10 +21,10 @@ import {
   selectFile,
 } from '../../../store/analytics-reducer';
 import {
-  selectFeedMetrics,
-  selectAnalyticsStatus,
-  selectAnalyticsError,
-} from '../../../store/analytics-selector';
+  selectGTFSFeedMetrics,
+  selectGTFSAnalyticsStatus,
+  selectGTFSAnalyticsError,
+} from '../../../store/gtfs-analytics-selector';
 import { useTableColumns } from './GTFSFeedAnalyticsTable';
 import DetailPanel from './DetailPanel';
 import { type RootState } from '../../../store/store';
@@ -45,9 +45,9 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
   const featureName = params.get('featureName');
 
   const dispatch = useDispatch();
-  const data = useSelector(selectFeedMetrics);
-  const status = useSelector(selectAnalyticsStatus);
-  const error = useSelector(selectAnalyticsError);
+  const data = useSelector(selectGTFSFeedMetrics);
+  const status = useSelector(selectGTFSAnalyticsStatus);
+  const error = useSelector(selectGTFSAnalyticsError);
 
   const availableFiles = useSelector(
     (state: RootState) => state.gtfsAnalytics.availableFiles,
@@ -74,9 +74,9 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
   };
 
   React.useEffect(() => {
-    globalAnalyticsBucketEndpoint = config.gtfsMetricsBucket;
+    globalAnalyticsBucketEndpoint = config.gtfsMetricsBucketEndpoint;
     dispatch(fetchAvailableFilesStart());
-  }, [dispatch, config.gtfsMetricsBucket]);
+  }, [dispatch, config.gtfsMetricsBucketEndpoint]);
 
   const handleFileChange = (event: SelectChangeEvent<unknown>): void => {
     const fileName = event.target.value as string;
