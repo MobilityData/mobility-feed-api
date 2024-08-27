@@ -4,7 +4,8 @@ import { format } from 'date-fns';
 import { type GTFSFeedMetrics } from '../types';
 import { groupFeatures, getGroupColor } from '../../../utils/analytics';
 import { useNavigate } from 'react-router-dom';
-import { Box, Stack } from '@mui/material';
+import { Box, Stack, Tooltip } from '@mui/material';
+import { OpenInNew } from '@mui/icons-material';
 
 /**
  * Returns the columns for the feed analytics table.
@@ -43,14 +44,21 @@ export const useTableColumns = (
           cell: MRT_Cell<GTFSFeedMetrics>;
           renderedCellValue: React.ReactNode;
         }) => (
-          <div
-            className={'navigable-list-item'}
-            onClick={() => {
-              navigate(`/feeds/${cell.getValue<string>()}`);
-            }}
+          <Tooltip
+            title={`Open feed ${cell.getValue<string>()} page in new tab`}
+            placement='top-start'
           >
-            {renderedCellValue}
-          </div>
+            <div
+              className={'navigable-list-item'}
+              onClick={() => {
+                const url = `/feeds/${cell.getValue<string>()}`;
+                window.open(url, '_blank');
+              }}
+            >
+              {renderedCellValue}{' '}
+              <OpenInNew sx={{ verticalAlign: 'middle' }} fontSize='small' />
+            </div>
+          </Tooltip>
         ),
       },
       {
@@ -87,7 +95,7 @@ export const useTableColumns = (
                 }}
                 className={'navigable-list-item'}
                 onClick={() => {
-                  navigate(`/metrics/gtfs/notices/${error}`);
+                  navigate(`/metrics/gtfs/notices?noticeCode=${error}`);
                 }}
               >
                 {error}
@@ -129,7 +137,7 @@ export const useTableColumns = (
                 }}
                 className={'navigable-list-item'}
                 onClick={() => {
-                  navigate(`/metrics/gtfs/notices/${warning}`);
+                  navigate(`/metrics/gtfs/notices?noticeCode=${warning}`);
                 }}
               >
                 {warning}
@@ -179,7 +187,7 @@ export const useTableColumns = (
                 }}
                 className={'navigable-list-item'}
                 onClick={() => {
-                  navigate(`/metrics/gtfs/notices/${info}`);
+                  navigate(`/metrics/gtfs/notices?noticeCode=${info}`);
                 }}
               >
                 {info}
@@ -236,7 +244,9 @@ export const useTableColumns = (
                         style={{ cursor: 'pointer', marginLeft: '10px' }}
                         className={'navigable-list-item'}
                         onClick={() => {
-                          navigate(`/metrics/gtfs/features/${feature}`);
+                          navigate(
+                            `/metrics/gtfs/features?featureName=${feature}`,
+                          );
                         }}
                       >
                         {feature}
@@ -266,7 +276,9 @@ export const useTableColumns = (
                       style={{ cursor: 'pointer', marginLeft: '10px' }}
                       className={'navigable-list-item'}
                       onClick={() => {
-                        navigate(`/metrics/gtfs/features/${feature}`);
+                        navigate(
+                          `/metrics/gtfs/features?featureName=${feature}`,
+                        );
                       }}
                     >
                       {feature}

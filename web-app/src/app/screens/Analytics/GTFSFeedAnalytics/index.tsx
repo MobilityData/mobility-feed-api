@@ -29,10 +29,16 @@ import { useTableColumns } from './GTFSFeedAnalyticsTable';
 import DetailPanel from './DetailPanel';
 import { type RootState } from '../../../store/store';
 import { type AnalyticsFile } from '../types';
+import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
+
+let globalAnalyticsBucketEndpoint: string | undefined;
+export const getAnalyticsBucketEndpoint = (): string | undefined =>
+  globalAnalyticsBucketEndpoint;
 
 export default function GTFSFeedAnalytics(): React.ReactElement {
   const { search } = useLocation();
   const params = new URLSearchParams(search);
+  const { config } = useRemoteConfig();
 
   const severity = params.get('severity');
   const noticeCode = params.get('noticeCode');
@@ -51,12 +57,13 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
   );
 
   const getFileDisplayKey = (file: AnalyticsFile): JSX.Element => {
-    let [year, month] = file.file_name.split('_').slice(1, 3); // Extracting the year and month
-    month = month.replace('.json', ''); // Removing the file extension
-    const date = new Date(`${year}-${month}-01`); // Creating a date object
+    const dateString = file.file_name.split('_')[1]; // Extracting the year and month
+    const date = new Date(dateString.replace('.json', '')); // Creating a date object
     const formattedDate = date.toLocaleDateString('en-CA', {
       year: 'numeric',
       month: 'long',
+      day: 'numeric',
+      timeZone: 'UTC',
     });
 
     return (
@@ -67,8 +74,9 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
   };
 
   React.useEffect(() => {
+    globalAnalyticsBucketEndpoint = config.gtfsMetricsBucket;
     dispatch(fetchAvailableFilesStart());
-  }, [dispatch]);
+  }, [dispatch, config.gtfsMetricsBucket]);
 
   const handleFileChange = (event: SelectChangeEvent<unknown>): void => {
     const fileName = event.target.value as string;

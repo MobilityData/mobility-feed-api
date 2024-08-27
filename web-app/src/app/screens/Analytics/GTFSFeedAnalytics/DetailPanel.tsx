@@ -3,11 +3,11 @@ import { Box, Typography, Grid } from '@mui/material';
 import { format } from 'date-fns';
 import { useTheme } from '@mui/material/styles';
 import {
-  Bar,
-  BarChart,
   Brush,
   CartesianGrid,
   Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -50,12 +50,18 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
     return <div>No metrics available</div>;
   }
 
-  const chartData = metrics.computed_on.map((date, index) => ({
-    date: format(new Date(date), 'yyyy-MM'),
-    errors: metrics.errors_count[index],
-    warnings: metrics.warnings_count[index],
-    infos: metrics.infos_count[index],
-  }));
+  const chartData = metrics.computed_on.map((date, index) => {
+    const utcDate = new Date(date).toLocaleDateString('en-CA', {
+      timeZone: 'UTC',
+    }); // Converts the date to UTC
+
+    return {
+      date: utcDate,
+      errors: metrics.errors_count[index],
+      warnings: metrics.warnings_count[index],
+      infos: metrics.infos_count[index],
+    };
+  });
 
   const domain = [
     new Date(metrics.computed_on[0]).getTime(),
@@ -74,28 +80,25 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
             Monthly Feed Validation Metrics
           </Typography>
           <ResponsiveContainer width='100%' height={300}>
-            <BarChart data={chartData}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray='3 3' />
-              <XAxis
-                dataKey='date'
-                tick={false}
-                tickFormatter={(date) => format(new Date(date), 'yyyy-MM')}
-                domain={domain}
-              />
+              <XAxis dataKey='date' tick={false} domain={domain} />
               <YAxis />
-              <Tooltip
-                labelFormatter={(label) => format(new Date(label), 'yyyy-MM')}
-              />
+              <Tooltip />
               <Legend />
               <Brush
                 dataKey='date'
                 height={30}
                 stroke={theme.palette.primary.main}
               />
-              <Bar dataKey='errors' fill={theme.palette.error.main} />
-              <Bar dataKey='warnings' fill='#fdba06' />
-              <Bar dataKey='infos' fill='#9ae095' />
-            </BarChart>
+              <Line
+                dataKey='errors'
+                stroke={theme.palette.error.main}
+                strokeWidth={2}
+              />
+              <Line dataKey='warnings' stroke='#fdba06' strokeWidth={2} />
+              <Line dataKey='infos' stroke='#9ae095' strokeWidth={2} />
+            </LineChart>
           </ResponsiveContainer>
         </Grid>
         <Grid item xs={12} md={6}>

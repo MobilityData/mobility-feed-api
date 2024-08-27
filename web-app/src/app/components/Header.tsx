@@ -31,7 +31,7 @@ import {
 import type NavigationItem from '../interface/Navigation';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated } from '../store/selectors';
+import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -200,6 +200,7 @@ export default function DrawerAppBar(): React.ReactElement {
 
   const navigateTo = useNavigate();
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const userEmail = useSelector(selectUserEmail);
 
   const handleDrawerToggle = (): void => {
     setMobileOpen((prevState) => !prevState);
@@ -294,79 +295,86 @@ export default function DrawerAppBar(): React.ReactElement {
                 {item.title}
               </Button>
             ))}
-            <Button
-              aria-controls='analytics-menu'
-              aria-haspopup='true'
-              endIcon={<ArrowDropDownIcon />}
-              onClick={handleMenuOpen}
-              sx={{ color: 'black' }}
-              id='analytics-button-menu'
-            >
-              Metrics
-            </Button>
-            <Menu
-              id='analytics-menu'
-              anchorEl={anchorEl}
-              open={
-                anchorEl !== null && anchorEl.id === 'analytics-button-menu'
-              }
-              onClose={handleMenuClose}
-            >
-              <NestedMenuItem
-                label='GTFS'
-                parentMenuOpen={Boolean(anchorEl)}
-                leftIcon={<DirectionsBusIcon />}
-              >
-                <MenuItem
-                  onClick={() => {
-                    handleMenuItemClick('/metrics/gtfs/feeds');
-                  }}
-                >
-                  Feeds
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    handleMenuItemClick('/metrics/gtfs/notices');
-                  }}
-                >
-                  Notices
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    handleMenuItemClick('/metrics/gtfs/features');
-                  }}
-                >
-                  Features
-                </MenuItem>
-              </NestedMenuItem>
-              <NestedMenuItem
-                label='GBFS'
-                parentMenuOpen={Boolean(anchorEl)}
-                leftIcon={<BikeScooterOutlined />}
-              >
-                <MenuItem
-                  onClick={() => {
-                    handleMenuItemClick('/metrics/gbfs/feeds');
-                  }}
-                >
-                  Feeds
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    handleMenuItemClick('/metrics/gbfs/notices');
-                  }}
-                >
-                  Notices
-                </MenuItem>
-                <MenuItem
-                  onClick={() => {
-                    handleMenuItemClick('/metrics/gbfs/versions');
-                  }}
-                >
-                  Versions
-                </MenuItem>
-              </NestedMenuItem>
-            </Menu>
+            {config.enableMetrics ||
+              (userEmail?.endsWith('mobilitydata.org') === true && (
+                <>
+                  <Button
+                    aria-controls='analytics-menu'
+                    aria-haspopup='true'
+                    endIcon={<ArrowDropDownIcon />}
+                    onClick={handleMenuOpen}
+                    sx={{ color: 'black' }}
+                    id='analytics-button-menu'
+                  >
+                    Metrics
+                  </Button>
+                  <Menu
+                    id='analytics-menu'
+                    anchorEl={anchorEl}
+                    open={
+                      anchorEl !== null &&
+                      anchorEl.id === 'analytics-button-menu'
+                    }
+                    onClose={handleMenuClose}
+                  >
+                    <NestedMenuItem
+                      label='GTFS'
+                      parentMenuOpen={Boolean(anchorEl)}
+                      leftIcon={<DirectionsBusIcon />}
+                    >
+                      <MenuItem
+                        onClick={() => {
+                          handleMenuItemClick('/metrics/gtfs/feeds');
+                        }}
+                      >
+                        Feeds
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => {
+                          handleMenuItemClick('/metrics/gtfs/notices');
+                        }}
+                      >
+                        Notices
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => {
+                          handleMenuItemClick('/metrics/gtfs/features');
+                        }}
+                      >
+                        Features
+                      </MenuItem>
+                    </NestedMenuItem>
+                    <NestedMenuItem
+                      label='GBFS'
+                      parentMenuOpen={Boolean(anchorEl)}
+                      leftIcon={<BikeScooterOutlined />}
+                    >
+                      <MenuItem
+                        onClick={() => {
+                          handleMenuItemClick('/metrics/gbfs/feeds');
+                        }}
+                      >
+                        Feeds
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => {
+                          handleMenuItemClick('/metrics/gbfs/notices');
+                        }}
+                      >
+                        Notices
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => {
+                          handleMenuItemClick('/metrics/gbfs/versions');
+                        }}
+                      >
+                        Versions
+                      </MenuItem>
+                    </NestedMenuItem>
+                  </Menu>
+                </>
+              ))}
+
             {isAuthenticated ? (
               <>
                 <Button

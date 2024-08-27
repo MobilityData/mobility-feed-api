@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   MaterialReactTable,
   type MRT_ColumnDef,
@@ -17,7 +17,6 @@ import {
   Line,
   LineChart,
 } from 'recharts';
-import { format } from 'date-fns';
 import Box from '@mui/material/Box';
 import { Typography, Button } from '@mui/material';
 import * as React from 'react';
@@ -25,18 +24,22 @@ import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
 import { featureGroups, getGroupColor } from '../../../utils/analytics';
 import { type FeatureMetrics } from '../types';
+import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 
 export default function GTFSFeatureAnalytics(): React.ReactElement {
   const navigateTo = useNavigate();
-  const { featureName } = useParams<{ featureName?: string }>();
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  const featureName = params.get('featureName');
   const [data, setData] = useState<FeatureMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  const { config } = useRemoteConfig();
 
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       try {
         const response = await fetch(
-          'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/features_metrics.json',
+          `${config.gtfsMetricsBucket}/features_metrics.json`,
         );
         if (!response.ok) {
           throw new Error('Network response was not ok');
@@ -136,7 +139,9 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
       const metrics = row.original;
 
       const chartData = metrics.computed_on.map((date, index) => ({
-        date: format(new Date(date), 'yyyy-MM'),
+        date: new Date(date).toLocaleDateString('en-CA', {
+          timeZone: 'UTC',
+        }),
         feeds: metrics.feeds_count[index],
       }));
       const domain = [
@@ -157,16 +162,9 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
             <ResponsiveContainer width='100%' height={300}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray='3 3' />
-                <XAxis
-                  dataKey='date'
-                  tick={false}
-                  tickFormatter={(date) => format(new Date(date), 'yyyy-MM')}
-                  domain={domain}
-                />
+                <XAxis dataKey='date' tick={false} domain={domain} />
                 <YAxis />
-                <Tooltip
-                  labelFormatter={(label) => format(new Date(label), 'yyyy-MM')}
-                />
+                <Tooltip />
                 <Legend />
                 <Brush
                   dataKey='date'

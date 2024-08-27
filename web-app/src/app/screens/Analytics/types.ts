@@ -21,7 +21,7 @@ export interface GTFSFeedMetrics {
 
 export interface Metrics {
   feed_id: string;
-  computed_on: string[];
+  computed_on: Date[];
   errors_count: number[];
   warnings_count: number[];
   infos_count: number[];
@@ -30,14 +30,14 @@ export interface Metrics {
 export interface NoticeMetrics {
   notice: string;
   severity: string;
-  computed_on: string[];
+  computed_on: Date[];
   feeds_count: number[];
   latest_feed_count: number;
 }
 
 export interface FeatureMetrics {
   feature: string;
-  computed_on: string[];
+  computed_on: Date[];
   feeds_count: number[];
   latest_feed_count: number;
   feature_group?: string; // Add a property to handle feature grouping
@@ -45,5 +45,5 @@ export interface FeatureMetrics {
 
 export interface AnalyticsFile {
   file_name: string;
-  created_on: string;
+  created_on: Date;
 }

@@ -5,6 +5,7 @@ import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
 import '../styles/FAQ.css';
 import { Typography } from '@mui/material';
+import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
 
 export default function FAQ(): React.ReactElement {
   return (
@@ -40,11 +41,7 @@ export default function FAQ(): React.ReactElement {
             comprehensive resource for ensuring your data is discoverable and
             for scraping the data you need. The community regularly adds and
             updates feeds using Github. The Mobility Database integrates with{' '}
-            <a
-              href='https://gtfs-validator.mobilitydata.org/'
-              target='_blank'
-              rel='noreferrer'
-            >
+            <a href={WEB_VALIDATOR_LINK} target='_blank' rel='noreferrer'>
               the Canonical GTFS Schedule Validator
             </a>{' '}
             to display data quality information about each feed.

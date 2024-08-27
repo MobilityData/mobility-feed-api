@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LegacyHome from './LegacyHome';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
+import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -220,11 +221,7 @@ function Component(): React.ReactElement {
           The Mobility Database is a directory of 2000+ mobility feeds across
           the world. It has over 250 updated feeds previously unavailable on
           TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
-          <a
-            href='https://gtfs-validator.mobilitydata.org/'
-            rel='noreferrer'
-            target='_blank'
-          >
+          <a href={WEB_VALIDATOR_LINK} rel='noreferrer' target='_blank'>
             the Canonical GTFS Schedule Validator
           </a>
           .

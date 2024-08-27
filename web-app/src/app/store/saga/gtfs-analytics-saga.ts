@@ -13,20 +13,19 @@ import {
   type Metrics,
 } from '../../screens/Analytics/types';
 import { getLocationName } from '../../services/feeds/utils';
+import { getAnalyticsBucketEndpoint } from '../../screens/Analytics/GTFSFeedAnalytics';
 
 function* fetchFeedMetricsSaga(
   action: ReturnType<typeof selectFile>,
 ): Generator<unknown, void, never> {
   try {
-    console.log('fetchFeedMetricsSaga');
     const selectedFile = action.payload;
 
     // Fetch feed metrics
     const feedMetricsResponse: Response = yield call(
       fetch,
-      `https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/${selectedFile}`,
+      `${getAnalyticsBucketEndpoint()}/${selectedFile}`,
     );
-    console.log('fetchFeedMetricsSaga response', feedMetricsResponse);
     if (!feedMetricsResponse.ok) {
       throw new Error(
         `Error ${feedMetricsResponse.status}: ${feedMetricsResponse.statusText}`,
@@ -42,7 +41,7 @@ function* fetchFeedMetricsSaga(
     // Fetch analytics metrics
     const analyticsMetricsResponse: Response = yield call(
       fetch,
-      'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/feed_metrics.json',
+      `${getAnalyticsBucketEndpoint()}/feed_metrics.json`,
     );
     if (!analyticsMetricsResponse.ok) {
       throw new Error(
@@ -63,7 +62,6 @@ function* fetchFeedMetricsSaga(
         };
       },
     );
-    console.log('fetchFeedMetricsSaga mergedMetrics', mergedMetrics);
     // Dispatch the merged metrics
     yield put(fetchFeedMetricsSuccess(mergedMetrics));
   } catch (error) {
@@ -77,13 +75,12 @@ function* fetchAvailableFilesSaga(): Generator<unknown, void, never> {
   try {
     const response: Response = yield call(
       fetch,
-      'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev/analytics_files.json',
+      `${getAnalyticsBucketEndpoint()}/analytics_files.json`,
     );
     if (!response.ok) {
       throw new Error(`Error ${response.status}: ${response.statusText}`);
     }
     const files: AnalyticsFile[] = yield response.json();
-    console.log('fetchAvailableFilesSaga', files);
     yield put(fetchAvailableFilesSuccess(files));
     if (files.length > 0) {
       // Select the latest file by default
@@ -100,7 +97,6 @@ function* fetchAvailableFilesSaga(): Generator<unknown, void, never> {
 }
 
 export function* watchGTFSFetchFeedMetrics(): Generator<unknown, void, never> {
-  yield takeLatest(fetchDataStart.type, fetchFeedMetricsSaga);
   yield takeLatest(fetchDataStart.type, fetchFeedMetricsSaga);
   yield takeLatest(selectFile.type, fetchFeedMetricsSaga);
   yield takeLatest(fetchAvailableFilesStart.type, fetchAvailableFilesSaga);
