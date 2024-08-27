@@ -7,6 +7,7 @@ import functions_framework
 from flask import Response
 
 from helpers.logger import Logger
+from .processors.base_analytics_processor import NoFeedDataException
 from .processors.gbfs_analytics_processor import GBFSAnalyticsProcessor
 from .processors.gtfs_analytics_processor import GTFSAnalyticsProcessor
 
@@ -39,6 +40,9 @@ def preprocess_analytics(request: flask.Request, processor_class) -> Response:
     try:
         processor = processor_class(compute_date)
         processor.run()
+    except NoFeedDataException as e:
+        logging.warning(f"No feed data found for date {compute_date}: {e}")
+        return Response(f"No feed data found for date {compute_date}: {e}", status=404)
     except Exception as e:
         # Extracting the traceback details
         tb = traceback.format_exc()

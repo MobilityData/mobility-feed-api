@@ -16,6 +16,10 @@ from database_gen.sqlacodegen_models import (
 from helpers.database import start_db_session
 
 
+class NoFeedDataException(Exception):
+    pass
+
+
 class BaseAnalyticsProcessor:
     def __init__(self, run_date):
         self.run_date = run_date
@@ -148,6 +152,8 @@ class BaseAnalyticsProcessor:
     def _get_data_with_translations(self):
         query = self.get_latest_data()
         all_results = query.all()
+        if len(all_results) == 0:
+            raise NoFeedDataException("No feed data found")
         logging.info(f"Loaded {len(all_results)} feeds to process")
         try:
             location_translations = [
