@@ -13,7 +13,7 @@ This HTTP-triggered Cloud Function processes GTFS datasets by performing the fol
 3. **Storing Analytics**: Saves the processed data as JSON files in the Google Cloud Storage bucket, updating metrics and analytics files.
 
 #### Files Modified/Created:
-- **`analytics_YYYY_MM.json`**: Contains the GTFS analytics data for the specific month in JSON format.  
+- **`analytics_YYYY-MM-DD.json`**: Contains the GTFS analytics data for the specific date in JSON format.  
   **Format:**
   ```json
   {
@@ -72,7 +72,17 @@ This HTTP-triggered Cloud Function processes GTFS datasets by performing the fol
   }
   ```
 
-- **`analytics_files.json`**: Index of all `analytics_YYYY_MM.json` files stored in the bucket.  
+- **`summary/summary_YYYY-MM-DD.json`**: Contains aggregated metrics for the specific date, including feed metrics, feature metrics, and notice metrics.  
+  **Format:**
+  ```json
+  {
+    "feed_metrics": [...],
+    "features_metrics": [...],
+    "notices_metrics": [...]
+  }
+  ```
+
+- **`analytics_files.json`**: Index of all `analytics_YYYY-MM-DD.json` files stored in the bucket.  
   **Format:**
   ```json
   {
@@ -90,7 +100,7 @@ This HTTP-triggered Cloud Function processes GBFS datasets by performing the fol
 3. **Storing Analytics**: Saves the processed data as JSON files in the Google Cloud Storage bucket, updating metrics and analytics files.
 
 #### Files Modified/Created:
-- **`analytics_YYYY_MM.json`**: Contains the GBFS analytics data for the specific month in JSON format.  
+- **`analytics_YYYY-MM-DD.json`**: Contains the GBFS analytics data for the specific date in JSON format.  
   **Format:**
   ```json
   {
@@ -148,7 +158,17 @@ This HTTP-triggered Cloud Function processes GBFS datasets by performing the fol
   }
   ```
 
-- **`analytics_files.json`**: Index of all `analytics_YYYY_MM.json` files stored in the bucket.  
+- **`summary/summary_YYYY-MM-DD.json`**: Contains aggregated metrics for the specific date, including feed metrics, version metrics, and notice metrics.  
+  **Format:**
+  ```json
+  {
+    "feed_metrics": [...],
+    "versions_metrics": [...],
+    "notices_metrics": [...]
+  }
+  ```
+
+- **`analytics_files.json`**: Index of all `analytics_YYYY-MM-DD.json` files stored in the bucket.  
   **Format:**
   ```json
   {
