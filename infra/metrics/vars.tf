@@ -76,3 +76,15 @@ variable gbfs_data_schedule {
     description = "Schedule for GBFS data ingestion"
     default     = "0 0 2 * *"  # Midnight on the 2nd of every month
 }
+
+variable "gtfs_data_preprocessor_schedule" {
+    type        = string
+    description = "Schedule for GTFS data preprocessor"
+    default     = "0 0 2 * *"  # Midnight on the 2nd of every month
+}
+
+variable "gbfs_data_preprocessor_schedule" {
+    type        = string
+    description = "Schedule for GBFS data preprocessor"
+    default     = "0 0 2 * *"  # Midnight on the 2nd of every month
+}

@@ -26,6 +26,10 @@ locals {
     # Validation report conversion to ndjson function config
     function_validation_report_conversion_config = jsondecode(file("${path.module}/../../functions-python/validation_to_ndjson/function_config.json"))
     function_validation_report_conversion_zip    = "${path.module}/../../functions-python/validation_to_ndjson/.dist/validation_to_ndjson.zip"
+
+    # Preprocessed analytics function config
+    function_preprocessed_analytics_config = jsondecode(file("${path.module}/../../functions-python/preprocessed_analytics/function_config.json"))
+    function_preprocessed_analytics_zip    = "${path.module}/../../functions-python/preprocessed_analytics/.dist/preprocessed_analytics.zip"
 }
 
 locals {
@@ -33,7 +37,8 @@ locals {
   # Combine all keys into a list
   all_secret_keys_list = concat(
     [for x in local.function_big_query_ingest_config.secret_environment_variables : x.key],
-    [for x in local.function_validation_report_conversion_config.secret_environment_variables : x.key]
+    [for x in local.function_validation_report_conversion_config.secret_environment_variables : x.key],
+    [for x in local.function_preprocessed_analytics_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -83,6 +88,13 @@ resource "google_storage_bucket_object" "function_validation_report_conversion" 
   name   = "validation-report-conversion-${substr(filebase64sha256(local.function_validation_report_conversion_zip),0,10)}.zip"
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_validation_report_conversion_zip
+}
+
+# 3. Preprocessed analytics function
+resource "google_storage_bucket_object" "function_preprocessed_analytics" {
+  name   = "preprocessed-analytics-${substr(filebase64sha256(local.function_preprocessed_analytics_zip),0,10)}.zip"
+  bucket = google_storage_bucket.functions_bucket.name
+  source = local.function_preprocessed_analytics_zip
 }
 
 # 2. Cloud Function
@@ -402,6 +414,118 @@ resource "google_cloudfunctions2_function" "gbfs_validation_report_conversion_ba
   }
 }
 
+# 2.7 GTFS - Preprocessed analytics function
+resource "google_storage_bucket" "gtfs_analytics_bucket" {
+  location = var.gcp_region
+  name     = "mobilitydata-gtfs-analytics-${var.environment}"
+  cors {
+    origin = ["*"]
+    method = ["GET"]
+    response_header = ["*"]
+  }
+}
+
+resource "google_cloudfunctions2_function" "gtfs_preprocessed_analytics" {
+  name        = "${local.function_preprocessed_analytics_config.name}-gtfs"
+  project     = var.project_id
+  description = local.function_preprocessed_analytics_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_preprocessed_analytics_config.entry_point}_gtfs"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_preprocessed_analytics.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      ANALYTICS_BUCKET    = google_storage_bucket.gtfs_analytics_bucket.name
+    }
+    available_memory                 = local.function_preprocessed_analytics_config.memory
+    timeout_seconds                  = local.function_preprocessed_analytics_config.timeout
+    available_cpu                    = local.function_preprocessed_analytics_config.available_cpu
+    max_instance_request_concurrency = local.function_preprocessed_analytics_config.max_instance_request_concurrency
+    max_instance_count               = local.function_preprocessed_analytics_config.max_instance_count
+    min_instance_count               = local.function_preprocessed_analytics_config.min_instance_count
+    service_account_email            = google_service_account.metrics_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each     = local.function_preprocessed_analytics_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+
+}
+
+# 2.7 GBFS - Preprocessed analytics function
+resource "google_storage_bucket" "gbfs_analytics_bucket" {
+  location = var.gcp_region
+  name     = "mobilitydata-gbfs-analytics-${var.environment}"
+  cors {
+    origin = ["*"]
+    method = ["GET"]
+    response_header = ["*"]
+  }
+}
+resource "google_cloudfunctions2_function" "gbfs_preprocessed_analytics" {
+  name        = "${local.function_preprocessed_analytics_config.name}-gbfs"
+  project     = var.project_id
+  description = local.function_preprocessed_analytics_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_preprocessed_analytics_config.entry_point}_gbfs"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_preprocessed_analytics.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+        ANALYTICS_BUCKET    = google_storage_bucket.gbfs_analytics_bucket.name
+    }
+    available_memory                 = local.function_preprocessed_analytics_config.memory
+    timeout_seconds                  = local.function_preprocessed_analytics_config.timeout
+    available_cpu                    = local.function_preprocessed_analytics_config.available_cpu
+    max_instance_request_concurrency = local.function_preprocessed_analytics_config.max_instance_request_concurrency
+    max_instance_count               = local.function_preprocessed_analytics_config.max_instance_count
+    min_instance_count               = local.function_preprocessed_analytics_config.min_instance_count
+    service_account_email            = google_service_account.metrics_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each     = local.function_preprocessed_analytics_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+
+}
+
+
 # Grant permissions to the service account
 # 1. BigQuery roles
 resource "google_project_iam_member" "big_query_data_editor_permissions" {
@@ -490,4 +614,39 @@ resource "google_cloud_scheduler_job" "gbfs_ingestion_scheduler" {
     }
   }
 }
+# 3. GTFS - data preprocessed analytics scheduler
+resource "google_cloud_scheduler_job" "gtfs_preprocessed_analytics_scheduler" {
+  name        = "gtfs-preprocessed-analytics-scheduler"
+  project     = var.project_id
+  description = "GTFS preprocessed analytics scheduler"
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  schedule    = var.gtfs_data_preprocessor_schedule
+  time_zone   = "UTC"
 
+  http_target {
+    uri = google_cloudfunctions2_function.gtfs_preprocessed_analytics.url
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.metrics_service_account.email
+    }
+  }
+}
+# 4. GBFS - data preprocessed analytics scheduler
+resource "google_cloud_scheduler_job" "gbfs_preprocessed_analytics_scheduler" {
+  name        = "gbfs-preprocessed-analytics-scheduler"
+  project     = var.project_id
+  description = "GBFS preprocessed analytics scheduler"
+  region      = var.gcp_region
+  paused      = var.environment == "prod" ? false : true
+  schedule    = var.gbfs_data_preprocessor_schedule
+  time_zone   = "UTC"
+
+  http_target {
+    uri = google_cloudfunctions2_function.gbfs_preprocessed_analytics.url
+    http_method = "POST"
+    oidc_token {
+      service_account_email = google_service_account.metrics_service_account.email
+    }
+  }
+}
