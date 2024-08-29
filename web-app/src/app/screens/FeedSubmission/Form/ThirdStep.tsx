@@ -7,14 +7,22 @@ import {
   TextField,
   MenuItem,
   Select,
+  FormHelperText,
 } from '@mui/material';
-import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
-import { type FeedSubmissionFormFormInput } from '.';
+import {
+  type SubmitHandler,
+  Controller,
+  useForm,
+  useWatch,
+} from 'react-hook-form';
+import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 
 export interface FeedSubmissionFormInputThirdStep {
-  dataProducerEmail: string;
-  isInterestedInQualityAudit: boolean;
-  whatToolsUsedText: string;
+  dataProducerEmail?: string;
+  isInterestedInQualityAudit: YesNoFormInput;
+  userInterviewEmail?: string;
+  hasLogoPermission: YesNoFormInput;
+  whatToolsUsedText?: string;
 }
 
 interface FormSecondStepRTProps {
@@ -38,11 +46,21 @@ export default function FormThirdStep({
       dataProducerEmail: initialValues.dataProducerEmail,
       isInterestedInQualityAudit: initialValues.isInterestedInQualityAudit,
       whatToolsUsedText: initialValues.whatToolsUsedText,
+      hasLogoPermission: initialValues.hasLogoPermission,
     },
   });
   const onSubmit: SubmitHandler<FeedSubmissionFormInputThirdStep> = (data) => {
+    if (data.isInterestedInQualityAudit === 'no') {
+      delete data.userInterviewEmail;
+    }
     submitFormData(data);
   };
+
+  const isInterestedInQualityAudit = useWatch({
+    control,
+    name: 'isInterestedInQualityAudit',
+  });
+
   return (
     <>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
@@ -77,36 +95,11 @@ export default function FormThirdStep({
             </FormControl>
           </Grid>
           <Grid item>
-            {/* TODO: UX design decisionz: dropdown or radio buttons? */}
-            {/* <FormControl component='fieldset'>
-                <FormLabel component='legend'>
-                  Are you interested in a data quality audit?
-                  <Typography sx={{ fontSize: 12 }} gutterBottom>
-                    This is a 1 time meeting with MobilityData to review your
-                    GTFS validation report and discuss possible improvements.
-                  </Typography>
-                </FormLabel>
-                <Controller
-                  control={control}
-                  name='isInterestedInQualityAudit'
-                  render={({ field }) => (
-                    <RadioGroup {...field}>
-                      <FormControlLabel
-                        value='yes'
-                        control={<Radio />}
-                        label='Yes'
-                      />
-                      <FormControlLabel
-                        value='no'
-                        control={<Radio />}
-                        label='No'
-                      />
-                    </RadioGroup>
-                  )}
-                />
-              </FormControl> */}
-            <FormControl component='fieldset'>
-              <FormLabel>
+            <FormControl
+              component='fieldset'
+              error={errors.isInterestedInQualityAudit !== undefined}
+            >
+              <FormLabel required>
                 Are you interested in a data quality audit?
                 <br></br>
                 <Typography variant='caption' color='textSecondary'>
@@ -117,24 +110,86 @@ export default function FormThirdStep({
               <Controller
                 control={control}
                 name='isInterestedInQualityAudit'
+                rules={{ required: 'Required' }}
                 render={({ field }) => (
-                  <Select {...field}>
-                    {/* TODO: revisit type - should be boolean */}
-                    <MenuItem value={'false'}>No</MenuItem>
-                    <MenuItem value={'true'}>Yes</MenuItem>
-                  </Select>
+                  <>
+                    <Select {...field} sx={{ width: '200px' }}>
+                      <MenuItem value='yes'>Yes</MenuItem>
+                      <MenuItem value='no'>No</MenuItem>
+                    </Select>
+                    <FormHelperText>
+                      {errors.isInterestedInQualityAudit?.message ?? ''}
+                    </FormHelperText>
+                  </>
+                )}
+              />
+            </FormControl>
+          </Grid>
+          {isInterestedInQualityAudit === 'yes' && (
+            <Grid item>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.userInterviewEmail !== undefined}
+              >
+                <FormLabel required>Data quality audit contact email</FormLabel>
+                <Controller
+                  control={control}
+                  name='userInterviewEmail'
+                  rules={{ required: 'Contact email required' }}
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      {...field}
+                      error={errors.userInterviewEmail !== undefined}
+                      helperText={errors.userInterviewEmail?.message ?? ''}
+                    />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+          <Grid item>
+            <FormControl
+              component='fieldset'
+              error={errors.hasLogoPermission !== undefined}
+            >
+              <FormLabel required>
+                Do we have your permission to use your logo?<br></br>
+                <Typography variant='caption' color='textSecondary'>
+                  This would be would be used to display your logo on the
+                  Mobilitydatabase website
+                </Typography>
+              </FormLabel>
+              <Controller
+                control={control}
+                name='hasLogoPermission'
+                rules={{ required: 'Required' }}
+                render={({ field }) => (
+                  <>
+                    <Select {...field} sx={{ width: '200px' }}>
+                      <MenuItem value='yes'>Yes</MenuItem>
+                      <MenuItem value='no'>No</MenuItem>
+                    </Select>
+                    <FormHelperText>
+                      {errors.hasLogoPermission?.message ?? ''}
+                    </FormHelperText>
+                  </>
                 )}
               />
             </FormControl>
           </Grid>
           <Grid item>
-            <FormControl component='fieldset'>
-              <FormLabel component='legend'>
-                What tools do you use to create GTFS data? Could include open
-                source libraries, vendor services, or other applications.
+            <FormControl component='fieldset' fullWidth>
+              <FormLabel>
+                What tools do you use to create GTFS data?
+                <br></br>
+                <Typography variant='caption' color='textSecondary'>
+                  Could include open source librareis, vendor serviecs, or other
+                  applications.
+                </Typography>
               </FormLabel>
               <Controller
-                rules={{ required: true }}
                 control={control}
                 name='whatToolsUsedText'
                 render={({ field }) => (

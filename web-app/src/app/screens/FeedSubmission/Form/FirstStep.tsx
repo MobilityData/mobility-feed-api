@@ -12,26 +12,34 @@ import {
   FormHelperText,
 } from '@mui/material';
 
-import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
-import { type FeedSubmissionFormFormInput } from '.';
+import {
+  type SubmitHandler,
+  Controller,
+  useForm,
+  useWatch,
+} from 'react-hook-form';
+import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
+import { useEffect } from 'react';
 
 export interface FeedSubmissionFormFormInputFirstStep {
-  name: string;
-  isOfficialProducer: string;
+  isOfficialProducer: YesNoFormInput;
   dataType: string;
-  transitProviderName: string;
-  feedLink: string;
-  licensePath: string;
+  transitProviderName?: string;
+  feedLink?: string;
+  oldFeedLink?: string;
+  isUpdatingFeed: YesNoFormInput;
 }
 
 interface FormFirstStepProps {
   initialValues: FeedSubmissionFormFormInput;
   submitFormData: (formData: Partial<FeedSubmissionFormFormInput>) => void;
+  setNumberOfSteps: (numberOfSteps: YesNoFormInput) => void;
 }
 
 export default function FormFirstStep({
   initialValues,
   submitFormData,
+  setNumberOfSteps,
 }: FormFirstStepProps): React.ReactElement {
   const {
     control,
@@ -39,51 +47,52 @@ export default function FormFirstStep({
     formState: { errors },
   } = useForm<FeedSubmissionFormFormInputFirstStep>({
     defaultValues: {
-      name: initialValues.name,
       isOfficialProducer: initialValues.isOfficialProducer,
       dataType: initialValues.dataType,
       transitProviderName: initialValues.transitProviderName,
       feedLink: initialValues.feedLink,
-      licensePath: initialValues.licensePath,
+      oldFeedLink: initialValues.oldFeedLink,
+      isUpdatingFeed: initialValues.isUpdatingFeed,
     },
   });
   const onSubmit: SubmitHandler<FeedSubmissionFormFormInputFirstStep> = (
     data,
   ): void => {
+    if (data.dataType === 'gtfs_rt') {
+      delete data.feedLink;
+      delete data.oldFeedLink;
+    }
+
+    if (data.dataType === 'gtfs' && data.isUpdatingFeed === 'no') {
+      delete data.oldFeedLink;
+    }
     submitFormData(data);
   };
+
+  const dataType = useWatch({
+    control,
+    name: 'dataType',
+  });
+
+  const isUpdatingFeed = useWatch({
+    control,
+    name: 'isUpdatingFeed',
+  });
+
+  const isOfficialProducer = useWatch({
+    control,
+    name: 'isOfficialProducer',
+  });
+
+  useEffect(() => {
+    setNumberOfSteps(isOfficialProducer);
+  }, [isOfficialProducer]);
+
   return (
     <>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
-          <Grid item>
-            <FormControl
-              component='fieldset'
-              fullWidth
-              error={errors.name !== undefined}
-            >
-              <FormLabel required>
-                Your Name and (if applicable) Organization
-              </FormLabel>
-              <Controller
-                rules={{ required: 'Your name is required' }}
-                control={control}
-                name='name'
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    className='md-small-input'
-                    sx={{
-                      input: { py: 1 },
-                    }}
-                    error={errors.name !== undefined}
-                    helperText={errors.name?.message ?? ''}
-                  />
-                )}
-              />
-            </FormControl>
-          </Grid>
           <Grid item>
             <FormControl
               component='fieldset'
@@ -126,13 +135,13 @@ export default function FormFirstStep({
             >
               <FormLabel required>Data Type</FormLabel>
               <Controller
-                rules={{ required: true }}
+                rules={{ required: 'Data type required' }}
                 control={control}
                 name='dataType'
                 render={({ field }) => (
                   <Select {...field}>
-                    <MenuItem value={'GTFS Schedule'}>GTFS Schedule</MenuItem>
-                    <MenuItem value={'GTFS Realtime'}>GTFS Realtime</MenuItem>
+                    <MenuItem value={'gtfs'}>GTFS Schedule</MenuItem>
+                    <MenuItem value={'gtfs_rt'}>GTFS Realtime</MenuItem>
                   </Select>
                 )}
               />
@@ -150,42 +159,86 @@ export default function FormFirstStep({
               />
             </FormControl>
           </Grid>
+          {dataType === 'gtfs' && (
+            <Grid item>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.feedLink !== undefined}
+              >
+                <FormLabel component='legend' required>
+                  Feed link
+                </FormLabel>
+                <Controller
+                  rules={
+                    dataType === 'gtfs'
+                      ? { required: 'Feed link required' }
+                      : {}
+                  }
+                  control={control}
+                  name='feedLink'
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      helperText={errors.feedLink?.message ?? ''}
+                      error={errors.feedLink !== undefined}
+                      {...field}
+                    />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+
           <Grid item>
             <FormControl
               component='fieldset'
-              fullWidth
-              error={errors.feedLink !== undefined}
+              error={errors.dataType !== undefined}
             >
-              <FormLabel component='legend' required>
-                Feed link
-              </FormLabel>
+              <FormLabel required>Are you updating a feed?</FormLabel>
               <Controller
-                rules={{ required: 'Feed link required' }}
+                rules={{ required: 'Field required' }}
                 control={control}
-                name='feedLink'
+                name='isUpdatingFeed'
                 render={({ field }) => (
-                  <TextField
-                    className='md-small-input'
-                    helperText={errors.feedLink?.message ?? ''}
-                    error={errors.feedLink !== undefined}
-                    {...field}
-                  />
+                  <Select {...field} sx={{ width: '200px' }}>
+                    <MenuItem value={'yes'}>Yes</MenuItem>
+                    <MenuItem value={'no'}>No</MenuItem>
+                  </Select>
                 )}
               />
             </FormControl>
           </Grid>
-          <Grid item>
-            <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Link to feed license</FormLabel>
-              <Controller
-                control={control}
-                name='licensePath'
-                render={({ field }) => (
-                  <TextField className='md-small-input' {...field} />
-                )}
-              />
-            </FormControl>
-          </Grid>
+          {isUpdatingFeed === 'yes' && dataType === 'gtfs' && (
+            <Grid item>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldFeedLink !== undefined}
+              >
+                <FormLabel component='legend' required>
+                  Old Feed link
+                </FormLabel>
+                <Controller
+                  rules={
+                    isUpdatingFeed === 'yes' && dataType === 'gtfs'
+                      ? { required: 'Old feed link required' }
+                      : {}
+                  }
+                  control={control}
+                  name='oldFeedLink'
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      helperText={errors.oldFeedLink?.message ?? ''}
+                      error={errors.oldFeedLink !== undefined}
+                      {...field}
+                    />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
 
           <Grid container spacing={2}>
             <Grid item>

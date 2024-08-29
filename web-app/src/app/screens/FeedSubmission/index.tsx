@@ -11,11 +11,11 @@ import {
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { selectIsAuthenticated } from '../../store/profile-selectors';
-import FeedSubmissionStepper from './FeedSubmissionStepper';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import Contribute from '../Contribute';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
+import FeedSubmissionForm from './Form';
 
 function Component(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -40,9 +40,9 @@ function Component(): React.ReactElement {
             <Typography
               variant='h5'
               color='primary'
-              sx={{ fontWeight: 'bold' }}
+              sx={{ fontWeight: 'bold', ml: 0 }}
             >
-              {t('form.addOrUpdateFeed')}
+              {t('form.addOrUpdateFeed')} sss
             </Typography>
             <Typography sx={{ my: 2 }}>{t('form.signUp')}</Typography>
             <Button variant='contained'>
@@ -95,12 +95,12 @@ function Component(): React.ReactElement {
                   color: colors.blue.A700,
                   fontWeight: 'bold',
                   my: 3,
-                  ml: 5,
+                  ml: 0,
                 }}
               >
                 Add or update a feed
               </Typography>
-              <FeedSubmissionStepper />
+              <FeedSubmissionForm />
             </Box>
           </>
         )}
