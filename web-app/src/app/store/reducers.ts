@@ -3,7 +3,8 @@ import profileReducer from './profile-reducer';
 import feedReducer from './feed-reducer';
 import datasetReducer from './dataset-reducer';
 import feedsReducer from './feeds-reducer';
-import GTFSAnalyticsReducer from './analytics-reducer';
+import GTFSAnalyticsReducer from './gtfs-analytics-reducer';
+import GBFSAnalyticsReducer from './gbfs-analytics-reducer';
 
 const rootReducer = combineReducers({
   userProfile: profileReducer,
@@ -11,6 +12,7 @@ const rootReducer = combineReducers({
   dataset: datasetReducer,
   feeds: feedsReducer,
   gtfsAnalytics: GTFSAnalyticsReducer,
+  gbfsAnalytics: GBFSAnalyticsReducer,
 });
 
 export default rootReducer;

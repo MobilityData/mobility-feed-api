@@ -67,12 +67,12 @@ export const useTableColumns = (
         Cell: ({ cell }) =>
           format(new Date(cell.getValue<number>()), 'yyyy-MM-dd'),
         filterVariant: 'date-range',
-        size: 150,
+        size: 180,
       },
       {
         accessorKey: 'locations_string',
         header: 'Locations',
-        size: 100,
+        size: 220,
       },
       {
         accessorKey: 'provider',
@@ -95,7 +95,7 @@ export const useTableColumns = (
             {renderedCellValue}
           </Box>
         ),
-        size: 100,
+        size: 150,
       },
       {
         accessorKey: 'notices.errors',
@@ -123,7 +123,7 @@ export const useTableColumns = (
         ),
         filterVariant: 'multi-select',
         filterSelectOptions: uniqueErrors,
-        size: 150,
+        size: 300,
         Header: (
           <span>
             Notice Severity :
@@ -165,7 +165,7 @@ export const useTableColumns = (
         ),
         filterVariant: 'multi-select',
         filterSelectOptions: uniqueWarnings,
-        size: 150,
+        size: 300,
         Header: (
           <span>
             Notice Severity :
@@ -215,7 +215,7 @@ export const useTableColumns = (
         ),
         filterVariant: 'multi-select',
         filterSelectOptions: uniqueInfos,
-        size: 150,
+        size: 300,
         Footer: () => (
           <Stack>
             Average Number of Infos:
@@ -307,7 +307,7 @@ export const useTableColumns = (
             </div>
           );
         },
-        size: 300,
+        size: 200,
       },
       {
         accessorKey: 'dataset_id',

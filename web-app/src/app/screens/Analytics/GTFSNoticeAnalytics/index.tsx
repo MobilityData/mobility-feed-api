@@ -255,7 +255,7 @@ export default function GTFSNoticeAnalytics(): React.ReactElement {
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
-        Notices Analytics{' '}
+        GTFS Notices Metrics{' '}
       </Typography>
       <MaterialReactTable table={table} />
     </Box>

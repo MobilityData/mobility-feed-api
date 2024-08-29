@@ -1,11 +1,16 @@
 import React, { useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import FormHelperText from '@mui/material/FormHelperText';
+import { mkConfig, generateCsv, download } from 'export-to-csv';
+import DownloadIcon from '@mui/icons-material/Download';
+
 import {
   MaterialReactTable,
   type MRT_Row,
   useMaterialReactTable,
 } from 'material-react-table';
 import {
+  Autocomplete,
   Box,
   Button,
   FormControl,
@@ -13,6 +18,7 @@ import {
   MenuItem,
   Select,
   type SelectChangeEvent,
+  TextField,
   Typography,
 } from '@mui/material';
 
@@ -21,43 +27,45 @@ import { useLocation } from 'react-router-dom';
 import {
   fetchAvailableFilesStart,
   selectFile,
-} from '../../../store/gtfs-analytics-reducer';
+} from '../../../store/gbfs-analytics-reducer';
 import {
-  selectGTFSFeedMetrics,
-  selectGTFSAnalyticsStatus,
-  selectGTFSAnalyticsError,
-} from '../../../store/gtfs-analytics-selector';
-import { useTableColumns } from './GTFSFeedAnalyticsTable';
-import DetailPanel from './DetailPanel';
+  selectGBFSFeedMetrics,
+  selectGBFSAnalyticsStatus,
+  selectGBFSAnalyticsError,
+} from '../../../store/gbfs-analytics-selector';
+import { useTableColumns } from './GBFSFeedAnalyticsTable';
 import { type RootState } from '../../../store/store';
-import { type AnalyticsFile, type GTFSFeedMetrics } from '../types';
+import { type AnalyticsFile, type GBFSFeedMetrics } from '../types';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
-import DownloadIcon from '@mui/icons-material/Download';
-import { download, generateCsv, mkConfig } from 'export-to-csv';
+import DetailPanel from './DetailPanel';
 
 let globalAnalyticsBucketEndpoint: string | undefined;
 export const getAnalyticsBucketEndpoint = (): string | undefined =>
   globalAnalyticsBucketEndpoint;
 
-export default function GTFSFeedAnalytics(): React.ReactElement {
+export default function GBFSFeedAnalytics(): React.ReactElement {
   const { search } = useLocation();
   const params = new URLSearchParams(search);
   const { config } = useRemoteConfig();
+  const [schemaPathFilters, setSchemaPathFilters] = React.useState<string[]>(
+    [],
+  );
 
-  const severity = params.get('severity');
-  const noticeCode = params.get('noticeCode');
-  const featureName = params.get('featureName');
+  const versionFilter = params.get('version');
+  const schemaPathInitFilter = decodeURIComponent(
+    params.get('schemaPath') ?? '',
+  );
 
   const dispatch = useDispatch();
-  const data = useSelector(selectGTFSFeedMetrics);
-  const status = useSelector(selectGTFSAnalyticsStatus);
-  const error = useSelector(selectGTFSAnalyticsError);
+  const rawData = useSelector(selectGBFSFeedMetrics);
+  const status = useSelector(selectGBFSAnalyticsStatus);
+  const error = useSelector(selectGBFSAnalyticsError);
 
   const availableFiles = useSelector(
-    (state: RootState) => state.gtfsAnalytics.availableFiles,
+    (state: RootState) => state.gbfsAnalytics.availableFiles,
   );
   const selectedFile = useSelector(
-    (state: RootState) => state.gtfsAnalytics.selectedFile,
+    (state: RootState) => state.gbfsAnalytics.selectedFile,
   );
 
   const getFileDisplayKey = (file: AnalyticsFile): JSX.Element => {
@@ -78,129 +86,82 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
   };
 
   React.useEffect(() => {
-    globalAnalyticsBucketEndpoint = config.gtfsMetricsBucketEndpoint;
+    globalAnalyticsBucketEndpoint = config.gbfsMetricsBucketEndpoint;
     dispatch(fetchAvailableFilesStart());
-  }, [dispatch, config.gtfsMetricsBucketEndpoint]);
+  }, [dispatch, config.gbfsMetricsBucketEndpoint]);
 
-  const handleFileChange = (event: SelectChangeEvent<unknown>): void => {
-    const fileName = event.target.value as string;
+  const data = useMemo(() => {
+    // Keep only the feeds that have errors matching the selected schema path
+    // filters
+    const filteredData = rawData.filter((item) => {
+      return schemaPathFilters.every((filter) =>
+        item.notices.some((notice) => notice.schema_path === filter),
+      );
+    });
+    return filteredData.map((item) => ({
+      ...item,
+      error_count: item.notices.length,
+    }));
+  }, [rawData, schemaPathFilters]);
+
+  const schemaPathFilterOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        rawData.flatMap((item) =>
+          item.notices.map((notice) => notice.schema_path),
+        ),
+      ),
+    );
+  }, [rawData]);
+
+  const handleFileChange = (event: SelectChangeEvent<string>): void => {
+    const fileName = event.target.value;
     dispatch(selectFile(fileName));
   };
 
-  const uniqueErrors = useMemo(() => {
-    const errors = data.flatMap((item) => item.notices?.errors);
-    return Array.from(new Set(errors)).sort();
-  }, [data]);
-
-  const uniqueWarnings = useMemo(() => {
-    const warnings = data.flatMap((item) => item.notices?.warnings);
-    return Array.from(new Set(warnings)).sort();
-  }, [data]);
-
-  const uniqueInfos = useMemo(() => {
-    const infos = data.flatMap((item) => item.notices?.infos);
-    return Array.from(new Set(infos)).sort();
-  }, [data]);
-
-  const uniqueFeatures = useMemo(() => {
-    const features = data.flatMap((item) => item?.features);
-    return Array.from(new Set(features)).sort();
-  }, [data]);
-
-  const avgErrors = useMemo(() => {
-    const totalErrors = data.reduce(
-      (acc, item) => acc + item.notices?.errors.length,
-      0,
-    );
-    return Math.round(totalErrors / data.length);
-  }, [data]);
-
-  const avgWarnings = useMemo(() => {
-    const totalWarnings = data.reduce(
-      (acc, item) => acc + item.notices?.warnings.length,
-      0,
-    );
-    return Math.round(totalWarnings / data.length);
-  }, [data]);
-
-  const avgInfos = useMemo(() => {
-    const totalInfos = data.reduce(
-      (acc, item) => acc + item.notices?.infos.length,
-      0,
-    );
-    return Math.round(totalInfos / data.length);
-  }, [data]);
-
   const initialFilters = useMemo(() => {
     const filters = [];
-    if (featureName != null) {
-      filters.push({
-        id: 'features',
-        value: featureName,
-      });
-    }
-    if (severity != null && noticeCode != null) {
-      const id =
-        severity === 'ERROR'
-          ? 'notices.errors'
-          : severity === 'WARNING'
-            ? 'notices.warnings'
-            : severity === 'INFO'
-              ? 'notices.infos'
-              : undefined;
-      if (id != null) {
-        filters.push({
-          id,
-          value: [noticeCode],
-        });
-      }
+    if (versionFilter != null) {
+      filters.push({ id: 'versions', value: versionFilter });
     }
     return filters;
-  }, [severity, noticeCode, featureName]);
+  }, [versionFilter]);
 
-  const columns = useTableColumns(
-    uniqueErrors,
-    uniqueWarnings,
-    uniqueInfos,
-    uniqueFeatures,
-    avgErrors,
-    avgWarnings,
-    avgInfos,
-  );
+  useMemo(() => {
+    if (
+      schemaPathInitFilter != null &&
+      schemaPathFilterOptions.includes(schemaPathInitFilter)
+    ) {
+      setSchemaPathFilters([schemaPathInitFilter]);
+    }
+  }, [schemaPathInitFilter, schemaPathFilterOptions]);
 
+  const columns = useTableColumns();
   const csvConfig = mkConfig({
     fieldSeparator: ',',
     decimalSeparator: '.',
     useKeysAsHeaders: true,
-    filename: 'gtfs-feed-metrics',
+    filename: 'gbfs-feed-metrics',
   });
-  const handleExportRows = (rows: Array<MRT_Row<GTFSFeedMetrics>>): void => {
+  const handleExportRows = (
+    rows: Array<MRT_Row<GBFSFeedMetrics & { error_count: number }>>,
+  ): void => {
     const rowData = rows.map((row) => row.original);
     const expandedTables = rowData.map((row) => {
       const filteredRow = {
         ...row,
-        created_on: new Date(row.created_on).toISOString(),
-        last_modified: new Date(row.last_modified).toISOString(),
-        errors: row.notices.errors.reduce(
-          (acc, error) => acc.concat(error, ' | '),
+        notices: row.notices.reduce(
+          (acc, notice) => acc.concat(notice.schema_path, ' | '),
           '',
         ),
-        warnings: row.notices.warnings.reduce(
-          (acc, warning) => acc.concat(warning, ' | '),
+        versions: row.versions.reduce(
+          (acc, version) => acc.concat(version, ' | '),
           '',
         ),
-        infos: row.notices.infos.reduce(
-          (acc, info) => acc.concat(info, ' | '),
-          '',
-        ),
-        features: row.features.reduce(
-          (acc, feature) => acc.concat(feature, ' | '),
-          '',
-        ),
-        notices: null,
         locations: row.locations_string,
         locations_string: null,
         metrics: null,
+        errors_count: null,
       };
 
       // Create a new object without null values
@@ -226,29 +187,28 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
       columnFilters: initialFilters,
       columnVisibility: {
         created_on: false,
-        dataset_id: false,
+        snapshot_id: false,
         locations_string: false,
-        provider: false,
+        auto_discovery_url: false,
+        snapshot_hosted_url: false,
       },
     },
     enableStickyHeader: true,
-    maxLeafRowFilterDepth: 0,
-    enableGrouping: true,
     enableRowVirtualization: true,
     enablePagination: false,
-    enableStickyFooter: true,
+    enableGrouping: true,
     enableFacetedValues: true,
-    enableColumnResizing: true,
-    rowVirtualizerOptions: {
-      overscan: 10,
-    },
-    layoutMode: 'grid',
+    enableStickyFooter: true,
     muiTableContainerProps: { sx: { maxHeight: '70vh' } },
     renderDetailPanel: ({ row }) => <DetailPanel row={row} />,
     renderTopToolbarCustomActions: ({ table }) => (
-      <Box sx={{ minWidth: 200, display: 'flex', alignItems: 'flex-start' }}>
-        <FormControl variant='outlined' sx={{ marginBottom: 2 }}>
-          <InputLabel id='select-file-label'>Analytics Compute Date</InputLabel>
+      <Box sx={{ minWidth: 800, display: 'flex', alignItems: 'flex-start' }}>
+        <FormControl
+          fullWidth
+          variant='outlined'
+          sx={{ marginRight: 2, maxWidth: 200 }}
+        >
+          <InputLabel id='select-file-label'>Metrics Compute Date</InputLabel>
           <Select
             variant='outlined'
             labelId='select-file-label'
@@ -256,7 +216,7 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
             onChange={(event) => {
               handleFileChange(event);
             }}
-            label='Analytics Compute Date'
+            label='Metrics Compute Date'
           >
             {availableFiles.map((file) => (
               <MenuItem key={file.file_name} value={file.file_name}>
@@ -264,6 +224,33 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
               </MenuItem>
             ))}
           </Select>
+        </FormControl>
+        <FormControl variant='outlined'>
+          <Autocomplete
+            multiple
+            limitTags={1}
+            id='multiple-limit-tags'
+            options={schemaPathFilterOptions}
+            value={schemaPathFilters}
+            onChange={(_, newValue: string[] | null) => {
+              if (newValue == null) {
+                setSchemaPathFilters([]);
+              } else {
+                setSchemaPathFilters(newValue);
+              }
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label='Schema Path Error Filter'
+                placeholder='Error Filters'
+              />
+            )}
+          />
+          <FormHelperText>
+            Filter feeds by the <b>Schema Path</b> values of errors. Selecting
+            multiple values will apply an AND condition.
+          </FormHelperText>
         </FormControl>
         <Button
           variant='contained'
@@ -294,7 +281,7 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
-        GTFS Feeds Metrics{' '}
+        GBFS Feeds Metrics
       </Typography>
 
       <MaterialReactTable table={table} />

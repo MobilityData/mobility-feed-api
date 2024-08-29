@@ -1,60 +1,65 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+
 import {
   MaterialReactTable,
+  useMaterialReactTable,
   type MRT_ColumnDef,
   type MRT_Cell,
-  useMaterialReactTable,
 } from 'material-react-table';
 import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
   Brush,
   Line,
   LineChart,
+  Tooltip,
 } from 'recharts';
 import Box from '@mui/material/Box';
+
 import { Typography, Button, IconButton } from '@mui/material';
 import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
-import { featureGroups, getGroupColor } from '../../../utils/analytics';
-import { type FeatureMetrics } from '../types';
+import { type GBFSVersionMetrics } from '../types';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 import MUITooltip from '@mui/material/Tooltip';
-import { GTFS_ORG_LINK } from '../../../constants/Navigation';
+import { GBFS_LINK } from '../../../constants/Navigation';
 
-export default function GTFSFeatureAnalytics(): React.ReactElement {
+export default function GBFSVersionAnalytics(): React.ReactElement {
   const navigateTo = useNavigate();
-  const { search } = useLocation();
-  const params = new URLSearchParams(search);
-  const featureName = params.get('featureName');
-  const [data, setData] = useState<FeatureMetrics[]>([]);
+  const [data, setData] = useState<GBFSVersionMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const { config } = useRemoteConfig();
+  const params = new URLSearchParams(useLocation().search);
+  const versionFilter = params.get('version');
+  const initialFilter = useMemo(() => {
+    if (versionFilter != null) {
+      return [{ id: 'version', value: versionFilter }];
+    }
+    return [];
+  }, [versionFilter]);
 
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       try {
         const response = await fetch(
-          `${config.gtfsMetricsBucketEndpoint}/features_metrics.json`,
+          `${config.gbfsMetricsBucketEndpoint}/versions_metrics.json`,
         );
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
         const fetchedData = await response.json();
-        const dataWithGroups = fetchedData.map((feature: FeatureMetrics) => ({
-          ...feature,
-          latest_feed_count: feature.feeds_count.slice(-1)[0],
-          feature_group: Object.keys(featureGroups).find((group) =>
-            featureGroups[group].includes(feature.feature),
-          ),
-        }));
-        setData(dataWithGroups);
+        const dataWLatestCount = fetchedData.map(
+          (version: GBFSVersionMetrics) => ({
+            ...version,
+            latest_feed_count: version.feeds_count.slice(-1)[0],
+          }),
+        );
+        setData(dataWLatestCount);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -64,33 +69,30 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
     void fetchData();
   }, []);
 
-  const columns = useMemo<Array<MRT_ColumnDef<FeatureMetrics>>>(
+  const columns = useMemo<Array<MRT_ColumnDef<GBFSVersionMetrics>>>(
     () => [
       {
-        accessorKey: 'feature',
-        header: 'Feature Name',
-        size: 300,
-        enableClickToCopy: true,
+        accessorKey: 'version',
+        header: 'Version',
+        size: 150,
         Cell: ({
           cell,
           renderedCellValue,
         }: {
-          cell: MRT_Cell<FeatureMetrics>;
+          cell: MRT_Cell<GBFSVersionMetrics>;
           renderedCellValue: React.ReactNode;
         }) => {
           return (
             <div>
               {renderedCellValue}
               <MUITooltip
-                title={`View ${cell.getValue<string>()} definition`}
+                title={`View version v${cell.getValue<string>()} definition`}
                 arrow
               >
                 <IconButton
                   onClick={() => {
                     window.open(
-                      `${GTFS_ORG_LINK}/getting_started/features/base_add-ons/#${cell
-                        .getValue<string>()
-                        .toLowerCase()}`,
+                      `${GBFS_LINK}/blob/v${cell.getValue<string>()}/gbfs.md`,
                       '_blank',
                     );
                   }}
@@ -103,27 +105,6 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
         },
       },
       {
-        accessorKey: 'feature_group',
-        header: 'Feature Group',
-        size: 200,
-        filterVariant: 'multi-select',
-        filterSelectOptions: Object.keys(featureGroups),
-        Cell: ({ cell }: { cell: MRT_Cell<FeatureMetrics> }) => {
-          const group = cell.getValue<string>();
-          return group == null ? null : (
-            <span
-              style={{
-                backgroundColor: getGroupColor(group),
-                borderRadius: '5px',
-                padding: '2px 8px',
-              }}
-            >
-              {group}
-            </span>
-          );
-        },
-      },
-      {
         accessorKey: 'latest_feed_count',
         header: 'Number of Feeds',
         size: 150,
@@ -131,7 +112,7 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
         muiFilterSliderProps: {
           marks: true,
           max: data.reduce(
-            (max, feature) => Math.max(max, feature.latest_feed_count),
+            (max, version) => Math.max(max, version.feeds_count.slice(-1)[0]),
             0,
           ),
           min: 0,
@@ -139,29 +120,19 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
         },
       },
     ],
-    [data],
+    [data, navigateTo],
   );
-
-  const initialFilters =
-    featureName != null
-      ? [
-          {
-            id: 'feature',
-            value: featureName,
-          },
-        ]
-      : [];
 
   const table = useMaterialReactTable({
     columns,
     data,
     initialState: {
       showColumnFilters: true,
-      columnPinning: { left: ['mrt-row-expand', 'feature'] },
+      columnPinning: { left: ['mrt-row-expand', 'version'] },
       density: 'compact',
-      sorting: [{ id: 'feature', desc: false }],
-      columnFilters: initialFilters,
-      expanded: initialFilters.length > 0 ? true : {},
+      sorting: [{ id: 'version', desc: false }],
+      columnFilters: initialFilter,
+      expanded: initialFilter.length > 0 ? true : {},
     },
     enableStickyHeader: true,
     enableStickyFooter: true,
@@ -171,9 +142,7 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
       const metrics = row.original;
 
       const chartData = metrics.computed_on.map((date, index) => ({
-        date: new Date(date).toLocaleDateString('en-CA', {
-          timeZone: 'UTC',
-        }),
+        date: new Date(date).toLocaleDateString('en-CA', { timeZone: 'UTC' }),
         feeds: metrics.feeds_count[index],
       }));
       const domain = [
@@ -190,7 +159,7 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
           }}
         >
           <Box sx={{ flex: 1, paddingRight: 2 }}>
-            <Typography gutterBottom>Monthly Feature Metrics</Typography>
+            <Typography gutterBottom>Monthly Version Metrics</Typography>
             <ResponsiveContainer width='100%' height={300}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray='3 3' />
@@ -219,8 +188,8 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
                     verticalAlign: 'middle',
                   }}
                 />
-                This graph shows the monthly feed metrics, including the count
-                of feeds associated with each feature over time.
+                This graph shows the monthly feed validation metrics, including
+                the count of feeds associated with each GBFS version over time.
               </Typography>
               <Button
                 variant='contained'
@@ -228,9 +197,7 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
                 sx={{ mb: 2 }}
                 startIcon={<ListAltOutlined />}
                 onClick={() => {
-                  navigateTo(
-                    `/metrics/gtfs/feeds?featureName=${metrics.feature}`,
-                  );
+                  navigateTo(`/metrics/gbfs/feeds?version=${metrics.version}`);
                 }}
               >
                 Show Feeds
@@ -249,7 +216,7 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
-        GTFS Features Metrics{' '}
+        GBFS Versions Metrics{' '}
       </Typography>
       <MaterialReactTable table={table} />
     </Box>
