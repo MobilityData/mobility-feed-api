@@ -13,6 +13,14 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
    *  false: renders the legacy feed submission page based in the Contribute.tsx
    */
   enableFeedSubmissionStepper: boolean;
+  /** Enable Metrics view
+   * Values:
+   * true: renders the metrics view
+   * false: hides the metrics view
+   */
+  enableMetrics: boolean;
+  /** GTFS metrics' bucket endpoint */
+  gtfsMetricsBucketEndpoint: string;
 }
 
 // Add default values for remote config here
@@ -21,6 +29,9 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableFeedsPage: false,
   enableLanguageToggle: false,
   enableFeedSubmissionStepper: false,
+  enableMetrics: false,
+  gtfsMetricsBucketEndpoint:
+    'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev',
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;
