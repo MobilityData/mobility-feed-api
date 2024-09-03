@@ -42,7 +42,7 @@ function Component(): React.ReactElement {
               color='primary'
               sx={{ fontWeight: 'bold', ml: 0 }}
             >
-              {t('form.addOrUpdateFeed')} sss
+              {t('form.addOrUpdateFeed')}
             </Typography>
             <Typography sx={{ my: 2 }}>{t('form.signUp')}</Typography>
             <Button variant='contained'>

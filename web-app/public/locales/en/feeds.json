@@ -2,6 +2,7 @@
   "feeds": "Feeds",
   "dataType": "Data Format",
   "transitProvider": "Transit Provider",
+  "transitProviderName": "Transit Provider Name",
   "location": "Location",
   "feedDescription": "Description",
   "searchFor": "Search For",
@@ -21,7 +22,12 @@
     "addOrUpdateFeed": "Add or Update a Feed",
     "signUp": "Sign up for a Mobility Database account or login to add or update a GTFS feed.",
     "signUpAction": "Sign up for an account",
-    "loginSuccess": "You were successfully logged in, you can now add or update a feed."
+    "loginSuccess": "You were successfully logged in, you can now add or update a feed.",
+    "dataTypeRequired": "Data format required",
+    "feedLinkRequired": "Feed link required",
+    "oldFeedLinkRequired": "Old feed link required",
+    "dataProducerEmailRequired": "Data producer email required",
+    "contactEmailRequired": "Contact email required"
   },
   "seeFullList": "See full list",
   "hideFullList": "Hide full list",
@@ -38,5 +44,18 @@
   "downloadLatest": "Download Latest",
   "seeLicense": "See License",
   "boundingBoxTitle": "Bounding box from stops.txt",
-  "unableToGenerateBoundingBox": "Unable to generate bounding box."
+  "unableToGenerateBoundingBox": "Unable to generate bounding box.",
+  "areYouOfficialProducer": "Are you the official producer or transit agency responsible for this data ?",
+  "feedLink": "Feed Link",
+  "areYouUpdatingFeed": "Are you updating a feed?",
+  "oldFeedLink": "Old Feed Link",
+  "dataProducerEmail": "Data Producer Email",
+  "dataProducerEmailDetails": "This is an official email that consumers of the feed can contact to ask questions.",
+  "interestedInDataAudit": "Are you interested in a data quality audit?",
+  "interestedInDataAuditDetails": "This is a 1 time meeting with MobilityData to review your GTFS validation report and discuss possible improvements.",
+  "dataAuditContactEmail": "Data quality audit contact email",
+  "hasLogoPermission": "Do we have your permission to use your logo?",
+  "hasLogoPermissionDetails": "This would be would be used to display your logo on the Mobilitydatabase website",
+  "whatToolsCreateGtfs": "What tools do you use to create GTFS data?",
+  "whatToolsCreateGtfsDetails": "Could include open source librareis, vendor serviecs, or other applications."
 }

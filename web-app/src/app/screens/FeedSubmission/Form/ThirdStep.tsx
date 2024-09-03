@@ -16,6 +16,7 @@ import {
   useWatch,
 } from 'react-hook-form';
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
+import { useTranslation } from 'react-i18next';
 
 export interface FeedSubmissionFormInputThirdStep {
   dataProducerEmail?: string;
@@ -36,6 +37,7 @@ export default function FormThirdStep({
   submitFormData,
   handleBack,
 }: FormSecondStepRTProps): React.ReactElement {
+  const { t } = useTranslation('feeds');
   const {
     control,
     handleSubmit,
@@ -73,14 +75,14 @@ export default function FormThirdStep({
               error={errors.dataProducerEmail !== undefined}
             >
               <FormLabel component='legend' required>
-                Data Producer Email<br></br>
+                {t('dataProducerEmail')}
+                <br></br>
                 <Typography variant='caption' color='textSecondary'>
-                  This is an official email that consumers of the feed can
-                  contact to ask questions.
+                  {t('dataProducerEmailDetails')}
                 </Typography>
               </FormLabel>
               <Controller
-                rules={{ required: 'Data producer email required' }}
+                rules={{ required: t('dataProducerEmailRequired') }}
                 control={control}
                 name='dataProducerEmail'
                 render={({ field }) => (
@@ -100,22 +102,21 @@ export default function FormThirdStep({
               error={errors.isInterestedInQualityAudit !== undefined}
             >
               <FormLabel required>
-                Are you interested in a data quality audit?
+                {t('interestedInDataAudit')}
                 <br></br>
                 <Typography variant='caption' color='textSecondary'>
-                  This is a 1 time meeting with MobilityData to review your GTFS
-                  validation report and discuss possible improvements.
+                  {t('interestedInDataAuditDetails')}
                 </Typography>
               </FormLabel>
               <Controller
                 control={control}
                 name='isInterestedInQualityAudit'
-                rules={{ required: 'Required' }}
+                rules={{ required: t('common:form.required') }}
                 render={({ field }) => (
                   <>
                     <Select {...field} sx={{ width: '200px' }}>
-                      <MenuItem value='yes'>Yes</MenuItem>
-                      <MenuItem value='no'>No</MenuItem>
+                      <MenuItem value='yes'>{t('common:form:yes')}</MenuItem>
+                      <MenuItem value='no'>{t('common:form:no')}</MenuItem>
                     </Select>
                     <FormHelperText>
                       {errors.isInterestedInQualityAudit?.message ?? ''}
@@ -132,11 +133,11 @@ export default function FormThirdStep({
                 fullWidth
                 error={errors.userInterviewEmail !== undefined}
               >
-                <FormLabel required>Data quality audit contact email</FormLabel>
+                <FormLabel required>{t('dataAuditContactEmail')}</FormLabel>
                 <Controller
                   control={control}
                   name='userInterviewEmail'
-                  rules={{ required: 'Contact email required' }}
+                  rules={{ required: t('contactEmailRequired') }}
                   render={({ field }) => (
                     <TextField
                       className='md-small-input'
@@ -155,21 +156,21 @@ export default function FormThirdStep({
               error={errors.hasLogoPermission !== undefined}
             >
               <FormLabel required>
-                Do we have your permission to use your logo?<br></br>
+                {t('hasLogoPermission')}
+                <br></br>
                 <Typography variant='caption' color='textSecondary'>
-                  This would be would be used to display your logo on the
-                  Mobilitydatabase website
+                  {t('hasLogoPermissionDetails')}
                 </Typography>
               </FormLabel>
               <Controller
                 control={control}
                 name='hasLogoPermission'
-                rules={{ required: 'Required' }}
+                rules={{ required: t('common:form.required') }}
                 render={({ field }) => (
                   <>
                     <Select {...field} sx={{ width: '200px' }}>
-                      <MenuItem value='yes'>Yes</MenuItem>
-                      <MenuItem value='no'>No</MenuItem>
+                      <MenuItem value='yes'>{t('common:form.yes')}</MenuItem>
+                      <MenuItem value='no'>{t('common:form.no')}</MenuItem>
                     </Select>
                     <FormHelperText>
                       {errors.hasLogoPermission?.message ?? ''}
@@ -182,11 +183,10 @@ export default function FormThirdStep({
           <Grid item>
             <FormControl component='fieldset' fullWidth>
               <FormLabel>
-                What tools do you use to create GTFS data?
+                {t('whatToolsCreateGtfs')}
                 <br></br>
                 <Typography variant='caption' color='textSecondary'>
-                  Could include open source librareis, vendor serviecs, or other
-                  applications.
+                  {t('whatToolsCreateGtfsDetails')}
                 </Typography>
               </FormLabel>
               <Controller
@@ -213,12 +213,12 @@ export default function FormThirdStep({
                 variant='outlined'
                 sx={{ mt: 3, mb: 2 }}
               >
-                Back
+                {t('common:back')}
               </Button>
             </Grid>
             <Grid item>
               <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
-                Submit
+                {t('common:form.submit')}
               </Button>
             </Grid>
           </Grid>
