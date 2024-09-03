@@ -44,7 +44,7 @@ export interface FeedSubmissionFormFormInput {
   transitProviderName: string;
   feedLink: string;
   oldFeedLink?: string;
-  isUpdatingFeed: 'yes' | 'no' | '';
+  isUpdatingFeed?: YesNoFormInput;
   licensePath: string;
   country: string;
   region: string;

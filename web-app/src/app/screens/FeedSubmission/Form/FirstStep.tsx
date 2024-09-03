@@ -28,7 +28,7 @@ export interface FeedSubmissionFormFormInputFirstStep {
   transitProviderName?: string;
   feedLink?: string;
   oldFeedLink?: string;
-  isUpdatingFeed: YesNoFormInput;
+  isUpdatingFeed?: YesNoFormInput;
 }
 
 interface FormFirstStepProps {
@@ -61,6 +61,7 @@ export default function FormFirstStep({
     data,
   ): void => {
     if (data.dataType === 'gtfs_rt') {
+      delete data.isUpdatingFeed;
       delete data.feedLink;
       delete data.oldFeedLink;
     }
@@ -193,54 +194,60 @@ export default function FormFirstStep({
             </Grid>
           )}
 
-          <Grid item>
-            <FormControl
-              component='fieldset'
-              error={errors.dataType !== undefined}
-            >
-              <FormLabel required>{t('areYouUpdatingFeed')}</FormLabel>
-              <Controller
-                rules={{ required: t('common:form.required') }}
-                control={control}
-                name='isUpdatingFeed'
-                render={({ field }) => (
-                  <Select {...field} sx={{ width: '200px' }}>
-                    <MenuItem value={'yes'}>{t('common:form.yes')}</MenuItem>
-                    <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
-                  </Select>
-                )}
-              />
-            </FormControl>
-          </Grid>
-          {isUpdatingFeed === 'yes' && dataType === 'gtfs' && (
-            <Grid item>
-              <FormControl
-                component='fieldset'
-                fullWidth
-                error={errors.oldFeedLink !== undefined}
-              >
-                <FormLabel component='legend' required>
-                  {t('oldFeedLink')}
-                </FormLabel>
-                <Controller
-                  rules={
-                    isUpdatingFeed === 'yes' && dataType === 'gtfs'
-                      ? { required: t('form.oldFeedLinkRequired') }
-                      : {}
-                  }
-                  control={control}
-                  name='oldFeedLink'
-                  render={({ field }) => (
-                    <TextField
-                      className='md-small-input'
-                      helperText={errors.oldFeedLink?.message ?? ''}
-                      error={errors.oldFeedLink !== undefined}
-                      {...field}
+          {dataType === 'gtfs' && (
+            <>
+              <Grid item>
+                <FormControl
+                  component='fieldset'
+                  error={errors.dataType !== undefined}
+                >
+                  <FormLabel required>{t('areYouUpdatingFeed')}</FormLabel>
+                  <Controller
+                    rules={{ required: t('common:form.required') }}
+                    control={control}
+                    name='isUpdatingFeed'
+                    render={({ field }) => (
+                      <Select {...field} sx={{ width: '200px' }}>
+                        <MenuItem value={'yes'}>
+                          {t('common:form.yes')}
+                        </MenuItem>
+                        <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
+                      </Select>
+                    )}
+                  />
+                </FormControl>
+              </Grid>
+              {isUpdatingFeed === 'yes' && (
+                <Grid item>
+                  <FormControl
+                    component='fieldset'
+                    fullWidth
+                    error={errors.oldFeedLink !== undefined}
+                  >
+                    <FormLabel component='legend' required>
+                      {t('oldFeedLink')}
+                    </FormLabel>
+                    <Controller
+                      rules={
+                        isUpdatingFeed === 'yes' && dataType === 'gtfs'
+                          ? { required: t('form.oldFeedLinkRequired') }
+                          : {}
+                      }
+                      control={control}
+                      name='oldFeedLink'
+                      render={({ field }) => (
+                        <TextField
+                          className='md-small-input'
+                          helperText={errors.oldFeedLink?.message ?? ''}
+                          error={errors.oldFeedLink !== undefined}
+                          {...field}
+                        />
+                      )}
                     />
-                  )}
-                />
-              </FormControl>
-            </Grid>
+                  </FormControl>
+                </Grid>
+              )}
+            </>
           )}
 
           <Grid container spacing={2}>
