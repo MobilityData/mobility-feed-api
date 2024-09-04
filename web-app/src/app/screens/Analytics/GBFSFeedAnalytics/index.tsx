@@ -193,6 +193,11 @@ export default function GBFSFeedAnalytics(): React.ReactElement {
         snapshot_hosted_url: false,
       },
     },
+    state: {
+      isLoading: status === 'loading',
+      showSkeletons: status === 'loading',
+      showProgressBars: status === 'loading',
+    },
     enableStickyHeader: true,
     enableRowVirtualization: true,
     enablePagination: false,
@@ -269,11 +274,6 @@ export default function GBFSFeedAnalytics(): React.ReactElement {
   });
 
   // TODO improve this code
-  if (status === 'loading') {
-    return <div>Loading...</div>;
-  }
-
-  // TODO improve this code
   if (status === 'failed') {
     return <div>Error: {error}</div>;
   }
@@ -283,7 +283,7 @@ export default function GBFSFeedAnalytics(): React.ReactElement {
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
         GBFS Feeds Metrics
       </Typography>
-
+      {status}
       <MaterialReactTable table={table} />
     </Box>
   );

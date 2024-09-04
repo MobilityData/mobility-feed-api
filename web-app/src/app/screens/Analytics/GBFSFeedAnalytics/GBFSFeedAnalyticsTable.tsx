@@ -37,12 +37,12 @@ export const useTableColumns = (): Array<
         Cell: ({ cell }) =>
           format(new Date(cell.getValue<string>()), 'yyyy-MM-dd'),
         filterVariant: 'date-range',
-        size: 150,
+        size: 180,
       },
       {
         accessorKey: 'locations_string',
         header: 'Locations',
-        size: 100,
+        size: 220,
       },
       {
         accessorKey: 'operator',
@@ -65,7 +65,7 @@ export const useTableColumns = (): Array<
             {renderedCellValue}
           </Box>
         ),
-        size: 100,
+        size: 150,
       },
       {
         accessorKey: 'error_count',
@@ -76,7 +76,7 @@ export const useTableColumns = (): Array<
           marks: true,
           step: 1,
         },
-        size: 150,
+        size: 180,
       },
       {
         accessorKey: 'versions',
