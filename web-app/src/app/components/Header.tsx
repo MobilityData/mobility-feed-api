@@ -263,6 +263,7 @@ export default function DrawerAppBar(): React.ReactElement {
               style={{
                 textDecoration: 'none',
                 display: 'flex',
+                alignItems: 'center',
               }}
               className='btn-link'
             >
@@ -272,7 +273,6 @@ export default function DrawerAppBar(): React.ReactElement {
                 component='div'
                 className='website-title'
                 sx={{
-                  flexGrow: 1,
                   display: { xs: 'none', md: 'block' },
                 }}
               >
@@ -284,11 +284,11 @@ export default function DrawerAppBar(): React.ReactElement {
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
               <Button
+                href={item.target}
                 key={item.title}
-                sx={{ color: item.color, minWidth: 'fit-content' }}
-                onClick={() => {
-                  handleNavigation(item);
-                }}
+                sx={{ color: item.color, minWidth: 'fit-content', mx: 1 }}
+                target={item.external === true ? '_blank' : '_self'}
+                rel={item.external === true ? 'noopener noreferrer' : ''}
                 variant={'text'}
                 endIcon={item.external === true ? <OpenInNew /> : null}
               >
