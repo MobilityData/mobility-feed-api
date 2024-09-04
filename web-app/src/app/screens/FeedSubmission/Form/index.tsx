@@ -3,12 +3,10 @@ import FormFirstStep from './FirstStep';
 import FormSecondStep from './SecondStep';
 import FormSecondStepRT from './SecondStepRealtime';
 import FormThirdStep from './ThirdStep';
+import { Stepper, Step, StepLabel } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
-export interface FeedSubmissionFormProps {
-  activeStep: number;
-  handleBack: () => void;
-  handleNext: () => void;
-}
+export type YesNoFormInput = 'yes' | 'no' | '';
 
 // This is the request body required for the API
 // FeedSubmissionFormFormInput should extend this
@@ -41,11 +39,12 @@ export interface FeedSubmissionFormBody {
 }
 
 export interface FeedSubmissionFormFormInput {
-  name: string;
-  isOfficialProducer: string;
+  isOfficialProducer: YesNoFormInput;
   dataType: string;
   transitProviderName: string;
   feedLink: string;
+  oldFeedLink?: string;
+  isUpdatingFeed?: YesNoFormInput;
   licensePath: string;
   country: string;
   region: string;
@@ -58,16 +57,19 @@ export interface FeedSubmissionFormFormInput {
   note: string;
   isAuthRequired: string;
   dataProducerEmail: string;
-  isInterestedInQualityAudit: boolean;
-  whatToolsUsedText: string;
+  isInterestedInQualityAudit: YesNoFormInput;
+  userInterviewEmail?: string;
+  whatToolsUsedText?: string;
+  hasLogoPermission: YesNoFormInput;
 }
 
 const defaultFormValues: FeedSubmissionFormFormInput = {
-  name: '',
   isOfficialProducer: '',
-  dataType: 'GTFS Schedule',
+  dataType: 'gtfs',
   transitProviderName: '',
   feedLink: '',
+  oldFeedLink: '',
+  isUpdatingFeed: 'no',
   licensePath: '',
   country: '',
   region: '',
@@ -80,17 +82,38 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
   note: '',
   isAuthRequired: 'no',
   dataProducerEmail: '',
-  isInterestedInQualityAudit: false,
+  isInterestedInQualityAudit: '',
+  userInterviewEmail: '',
   whatToolsUsedText: '',
+  hasLogoPermission: '',
 };
 
-export default function FeedSubmissionForm({
-  activeStep,
-  handleNext,
-  handleBack,
-}: FeedSubmissionFormProps): React.ReactElement {
+export default function FeedSubmissionForm(): React.ReactElement {
+  const [activeStep, setActiveStep] = React.useState(0);
+  const [steps, setSteps] = React.useState(['', '']);
+  const navigateTo = useNavigate();
   const [formData, setFormData] =
     React.useState<FeedSubmissionFormFormInput>(defaultFormValues);
+
+  const handleBack = (): void => {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
+
+  const handleNext = (): void => {
+    const nextStep = activeStep + 1;
+    setActiveStep(nextStep);
+    if (nextStep === steps.length) {
+      navigateTo('/contribute/submitted');
+    }
+  };
+
+  const setNumberOfSteps = (isOfficialProducer: YesNoFormInput): void => {
+    if (isOfficialProducer === 'yes') {
+      setSteps(['', '', '']);
+    } else {
+      setSteps(['', '']);
+    }
+  };
 
   const formStepSubmit = (
     partialFormData: Partial<FeedSubmissionFormFormInput>,
@@ -120,20 +143,37 @@ export default function FeedSubmissionForm({
 
   return (
     <>
+      <Stepper
+        activeStep={activeStep}
+        sx={{ mb: 3, width: steps.length === 2 ? 'calc(50% + 24px)' : '100%' }}
+      >
+        {steps.map((label, index) => {
+          const stepProps: { completed?: boolean } = {};
+          const labelProps: {
+            optional?: React.ReactNode;
+          } = {};
+          return (
+            <Step key={index} {...stepProps}>
+              <StepLabel {...labelProps}>{label}</StepLabel>
+            </Step>
+          );
+        })}
+      </Stepper>
       {activeStep === 0 && (
         <FormFirstStep
           initialValues={formData}
           submitFormData={formStepSubmit}
+          setNumberOfSteps={setNumberOfSteps}
         ></FormFirstStep>
       )}
-      {activeStep === 1 && formData.dataType === 'GTFS Schedule' && (
+      {activeStep === 1 && formData.dataType === 'gtfs' && (
         <FormSecondStep
           initialValues={formData}
           submitFormData={formStepSubmit}
           handleBack={formStepBack}
         ></FormSecondStep>
       )}
-      {activeStep === 1 && formData.dataType === 'GTFS Realtime' && (
+      {activeStep === 1 && formData.dataType === 'gtfs_rt' && (
         <FormSecondStepRT
           initialValues={formData}
           submitFormData={formStepSubmit}
