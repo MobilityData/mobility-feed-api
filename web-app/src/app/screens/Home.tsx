@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import LegacyHome from './LegacyHome';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
+import '../styles/TextShimmer.css';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -76,19 +77,18 @@ function Component(): React.ReactElement {
         <Typography
           sx={{
             fontSize: {
-              xs: '48px',
-              sm: '60px',
-              md: '72px',
+              xs: '36px',
+              sm: '48px',
             },
             fontStyle: 'normal',
             fontWeight: 700,
             lineHeight: 'normal',
             textAlign: 'center',
           }}
-          color='primary'
           data-testid='home-title'
+          className='shimmer'
         >
-          The Mobility Database
+          Explore and Access Global Transit Data
         </Typography>
         <Typography
           component='h1'
@@ -98,16 +98,16 @@ function Component(): React.ReactElement {
             color: 'black',
             fontWeight: 700,
             mt: 4,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1,
           }}
         >
           Currently serving over
-          <Box sx={{ fontSize: 30, color: '#3859FA' }}>2000</Box>
-          transit data feeds from{' '}
-          <Box sx={{ fontSize: 30, color: '#3859FA' }}>70</Box>
+          <Box component='span' sx={{ fontSize: 30, color: '#3859FA', mx: 1 }}>
+            2000
+          </Box>
+          transit data feeds from
+          <Box component='span' sx={{ fontSize: 30, color: '#3859FA', mx: 1 }}>
+            70
+          </Box>
           countries.
         </Typography>
         <Box
@@ -184,7 +184,8 @@ function Component(): React.ReactElement {
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'space-around',
+            justifyContent: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
           }}
         >
           <ActionBox
