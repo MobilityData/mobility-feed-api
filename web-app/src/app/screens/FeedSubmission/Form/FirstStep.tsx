@@ -12,46 +12,85 @@ import {
   FormHelperText,
 } from '@mui/material';
 
-import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
-import { type FeedSubmissionFormFormInput } from '.';
+import {
+  type SubmitHandler,
+  Controller,
+  useForm,
+  useWatch,
+} from 'react-hook-form';
+import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface FeedSubmissionFormFormInputFirstStep {
-  name: string;
-  isOfficialProducer: string;
+  isOfficialProducer: YesNoFormInput;
   dataType: string;
-  transitProviderName: string;
-  feedLink: string;
-  licensePath: string;
+  transitProviderName?: string;
+  feedLink?: string;
+  oldFeedLink?: string;
+  isUpdatingFeed?: YesNoFormInput;
 }
 
 interface FormFirstStepProps {
   initialValues: FeedSubmissionFormFormInput;
   submitFormData: (formData: Partial<FeedSubmissionFormFormInput>) => void;
+  setNumberOfSteps: (numberOfSteps: YesNoFormInput) => void;
 }
 
 export default function FormFirstStep({
   initialValues,
   submitFormData,
+  setNumberOfSteps,
 }: FormFirstStepProps): React.ReactElement {
+  const { t } = useTranslation('feeds');
   const {
     control,
     handleSubmit,
     formState: { errors },
   } = useForm<FeedSubmissionFormFormInputFirstStep>({
     defaultValues: {
-      name: initialValues.name,
       isOfficialProducer: initialValues.isOfficialProducer,
       dataType: initialValues.dataType,
       transitProviderName: initialValues.transitProviderName,
       feedLink: initialValues.feedLink,
-      licensePath: initialValues.licensePath,
+      oldFeedLink: initialValues.oldFeedLink,
+      isUpdatingFeed: initialValues.isUpdatingFeed,
     },
   });
   const onSubmit: SubmitHandler<FeedSubmissionFormFormInputFirstStep> = (
     data,
   ): void => {
+    if (data.dataType === 'gtfs_rt') {
+      delete data.isUpdatingFeed;
+      delete data.feedLink;
+      delete data.oldFeedLink;
+    }
+
+    if (data.dataType === 'gtfs' && data.isUpdatingFeed === 'no') {
+      delete data.oldFeedLink;
+    }
     submitFormData(data);
   };
+
+  const dataType = useWatch({
+    control,
+    name: 'dataType',
+  });
+
+  const isUpdatingFeed = useWatch({
+    control,
+    name: 'isUpdatingFeed',
+  });
+
+  const isOfficialProducer = useWatch({
+    control,
+    name: 'isOfficialProducer',
+  });
+
+  useEffect(() => {
+    setNumberOfSteps(isOfficialProducer);
+  }, [isOfficialProducer]);
+
   return (
     <>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
@@ -60,41 +99,11 @@ export default function FormFirstStep({
           <Grid item>
             <FormControl
               component='fieldset'
-              fullWidth
-              error={errors.name !== undefined}
-            >
-              <FormLabel required>
-                Your Name and (if applicable) Organization
-              </FormLabel>
-              <Controller
-                rules={{ required: 'Your name is required' }}
-                control={control}
-                name='name'
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    className='md-small-input'
-                    sx={{
-                      input: { py: 1 },
-                    }}
-                    error={errors.name !== undefined}
-                    helperText={errors.name?.message ?? ''}
-                  />
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
-            <FormControl
-              component='fieldset'
               error={errors.isOfficialProducer !== undefined}
             >
-              <FormLabel required>
-                Are you the official producer or transit agency responsible for
-                this data ?
-              </FormLabel>
+              <FormLabel required>{t('areYouOfficialProducer')}</FormLabel>
               <Controller
-                rules={{ required: 'This field is required' }}
+                rules={{ required: t('common:form.required') }}
                 control={control}
                 name='isOfficialProducer'
                 render={({ field }) => (
@@ -103,12 +112,12 @@ export default function FormFirstStep({
                       <FormControlLabel
                         value='yes'
                         control={<Radio color='default' />}
-                        label='Yes'
+                        label={t('common:form.yes')}
                       />
                       <FormControlLabel
                         value='no'
                         control={<Radio sx={{}} />}
-                        label='No'
+                        label={t('common:form.no')}
                       />
                     </RadioGroup>
                     <FormHelperText>
@@ -124,15 +133,19 @@ export default function FormFirstStep({
               component='fieldset'
               error={errors.dataType !== undefined}
             >
-              <FormLabel required>Data Type</FormLabel>
+              <FormLabel required>{t('dataType')}</FormLabel>
               <Controller
-                rules={{ required: true }}
+                rules={{ required: t('dataTypeRequired') }}
                 control={control}
                 name='dataType'
                 render={({ field }) => (
                   <Select {...field}>
-                    <MenuItem value={'GTFS Schedule'}>GTFS Schedule</MenuItem>
-                    <MenuItem value={'GTFS Realtime'}>GTFS Realtime</MenuItem>
+                    <MenuItem value={'gtfs'}>
+                      {t('common:gtfsSchedule')}
+                    </MenuItem>
+                    <MenuItem value={'gtfs_rt'}>
+                      {t('common:gtfsRealtime')}
+                    </MenuItem>
                   </Select>
                 )}
               />
@@ -140,7 +153,7 @@ export default function FormFirstStep({
           </Grid>
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel>Transit Provider Name</FormLabel>
+              <FormLabel>{t('transitProviderName')}</FormLabel>
               <Controller
                 control={control}
                 name='transitProviderName'
@@ -150,47 +163,97 @@ export default function FormFirstStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
-            <FormControl
-              component='fieldset'
-              fullWidth
-              error={errors.feedLink !== undefined}
-            >
-              <FormLabel component='legend' required>
-                Feed link
-              </FormLabel>
-              <Controller
-                rules={{ required: 'Feed link required' }}
-                control={control}
-                name='feedLink'
-                render={({ field }) => (
-                  <TextField
-                    className='md-small-input'
-                    helperText={errors.feedLink?.message ?? ''}
-                    error={errors.feedLink !== undefined}
-                    {...field}
+          {dataType === 'gtfs' && (
+            <Grid item>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.feedLink !== undefined}
+              >
+                <FormLabel component='legend' required>
+                  {t('feedLink')}
+                </FormLabel>
+                <Controller
+                  rules={
+                    dataType === 'gtfs'
+                      ? { required: t('form.feedLinkRequired') }
+                      : {}
+                  }
+                  control={control}
+                  name='feedLink'
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      helperText={errors.feedLink?.message ?? ''}
+                      error={errors.feedLink !== undefined}
+                      {...field}
+                    />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+
+          {dataType === 'gtfs' && (
+            <>
+              <Grid item>
+                <FormControl
+                  component='fieldset'
+                  error={errors.dataType !== undefined}
+                >
+                  <FormLabel required>{t('areYouUpdatingFeed')}</FormLabel>
+                  <Controller
+                    rules={{ required: t('common:form.required') }}
+                    control={control}
+                    name='isUpdatingFeed'
+                    render={({ field }) => (
+                      <Select {...field} sx={{ width: '200px' }}>
+                        <MenuItem value={'yes'}>
+                          {t('common:form.yes')}
+                        </MenuItem>
+                        <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
+                      </Select>
+                    )}
                   />
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
-            <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Link to feed license</FormLabel>
-              <Controller
-                control={control}
-                name='licensePath'
-                render={({ field }) => (
-                  <TextField className='md-small-input' {...field} />
-                )}
-              />
-            </FormControl>
-          </Grid>
+                </FormControl>
+              </Grid>
+              {isUpdatingFeed === 'yes' && (
+                <Grid item>
+                  <FormControl
+                    component='fieldset'
+                    fullWidth
+                    error={errors.oldFeedLink !== undefined}
+                  >
+                    <FormLabel component='legend' required>
+                      {t('oldFeedLink')}
+                    </FormLabel>
+                    <Controller
+                      rules={
+                        isUpdatingFeed === 'yes' && dataType === 'gtfs'
+                          ? { required: t('form.oldFeedLinkRequired') }
+                          : {}
+                      }
+                      control={control}
+                      name='oldFeedLink'
+                      render={({ field }) => (
+                        <TextField
+                          className='md-small-input'
+                          helperText={errors.oldFeedLink?.message ?? ''}
+                          error={errors.oldFeedLink !== undefined}
+                          {...field}
+                        />
+                      )}
+                    />
+                  </FormControl>
+                </Grid>
+              )}
+            </>
+          )}
 
           <Grid container spacing={2}>
             <Grid item>
               <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
-                Next
+                {t('common:next')}
               </Button>
             </Grid>
           </Grid>
