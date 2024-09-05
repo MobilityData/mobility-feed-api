@@ -219,17 +219,19 @@ function Component(): React.ReactElement {
             mt: 5,
           }}
         >
-          The Mobility Database is a directory of 2000+ mobility feeds across
-          the world. It has over 250 updated feeds previously unavailable on
-          TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
+          The Mobility Database is an international catalog of public transit
+          data for transit agencies, rider-facing apps, technology vendors,
+          researchers, and others to use. It features over 2,000 GTFS and GTFS
+          Realtime feeds, including 500+ feeds unavailable on the old
+          TransitFeeds website.
+          <br />
+          <br />
+          It offers data quality reports from{' '}
           <a href={WEB_VALIDATOR_LINK} rel='noreferrer' target='_blank'>
             the Canonical GTFS Schedule Validator
           </a>
-          .
-          <br />
-          <br />
-          We’re in the first phase of building a sustainable, central hub for
-          mobility data internationally.
+          aiming to improve data transparency and quality. The platform aspires
+          to become a sustainable, central hub for global mobility data.
         </Box>
       </Box>
     </Container>
