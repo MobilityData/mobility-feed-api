@@ -216,22 +216,6 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
     const csv = generateCsv(csvConfig)(expandedTables);
     download(csvConfig)(csv);
   };
-  const filterFns = {
-    doesNotInclude: Object.assign(
-      (row: any, id: any, filterValue: string, addMeta: any) => {
-        addMeta({ label: 'Test Label' });
-        if (filterValue == null) {
-          return true;
-        }
-        const cellValue = row.getValue(id);
-
-        if (typeof cellValue === 'string' && typeof filterValue === 'string') {
-          return !cellValue.toLowerCase().includes(filterValue.toLowerCase());
-        }
-        throw new Error('doesNotInclude filter only supports string values');
-      },
-    ),
-  };
 
   const table = useMaterialReactTable({
     columns,
@@ -254,7 +238,19 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
       showSkeletons: status === 'loading',
       showProgressBars: status === 'loading',
     },
-    filterFns,
+    filterFns: {
+      doesNotInclude: (row, id, filterValue) => {
+        if (filterValue == null) {
+          return true;
+        }
+        const cellValue = row.getValue(id);
+
+        if (typeof cellValue === 'string' && typeof filterValue === 'string') {
+          return !cellValue.toLowerCase().includes(filterValue.toLowerCase());
+        }
+        throw new Error('doesNotInclude filter only supports string values');
+      },
+    },
     enableColumnFilters: true,
     enableStickyHeader: true,
     enableDensityToggle: false,
