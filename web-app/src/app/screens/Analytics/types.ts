@@ -16,10 +16,10 @@ export interface GTFSFeedMetrics {
   locations: EntityLocations;
   locations_string: string;
   provider: string;
-  metrics?: Metrics;
+  metrics?: GTFSMetrics;
 }
 
-export interface Metrics {
+export interface GTFSMetrics {
   feed_id: string;
   computed_on: Date[];
   errors_count: number[];
@@ -46,4 +46,47 @@ export interface FeatureMetrics {
 export interface AnalyticsFile {
   file_name: string;
   created_on: Date;
+}
+
+export interface GBFSNotice {
+  keyword: string;
+  gbfs_file: string;
+  schema_path: string;
+  count: number;
+}
+
+export interface GBFSFeedMetrics {
+  feed_id: string;
+  snapshot_id: string;
+  system_id: string;
+  auto_discovery_url: string;
+  snapshot_hosted_url: string;
+  notices: GBFSNotice[];
+  versions: string[];
+  created_on: string;
+  operator: string;
+  locations: EntityLocations;
+  locations_string: string;
+  metrics?: GBFSMetrics;
+}
+
+export interface GBFSMetrics {
+  feed_id: string;
+  snapshot_id: string;
+  computed_on: Date[];
+  errors_count: number[];
+}
+
+export interface GBFSNoticeMetrics {
+  keyword: string;
+  gbfs_file: string;
+  schema_path: string;
+  computed_on: Date[];
+  feeds_count: number[];
+}
+
+export interface GBFSVersionMetrics {
+  version: string;
+  computed_on: Date[];
+  feeds_count: number[];
 }

@@ -21,7 +21,13 @@ import {
 import Box from '@mui/material/Box';
 import MUITooltip from '@mui/material/Tooltip';
 
-import { Typography, Button, IconButton } from '@mui/material';
+import {
+  Typography,
+  Button,
+  IconButton,
+  AlertTitle,
+  Alert,
+} from '@mui/material';
 import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
@@ -36,6 +42,7 @@ export default function GTFSNoticeAnalytics(): React.ReactElement {
   const noticeCode = params.get('noticeCode');
   const [data, setData] = useState<NoticeMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { config } = useRemoteConfig();
 
   useEffect(() => {
@@ -54,7 +61,11 @@ export default function GTFSNoticeAnalytics(): React.ReactElement {
         }));
         setData(dataWLatestCount);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError('An unknown error occurred');
+        }
       } finally {
         setLoading(false);
       }
@@ -171,6 +182,12 @@ export default function GTFSNoticeAnalytics(): React.ReactElement {
       columnFilters: initialFilters,
       expanded: initialFilters.length > 0 ? true : {},
     },
+    state: {
+      isLoading: loading,
+      showSkeletons: loading,
+      showProgressBars: loading,
+    },
+    enableDensityToggle: false,
     enableStickyHeader: true,
     enableStickyFooter: true,
     muiTableContainerProps: { sx: { maxHeight: '70vh' } },
@@ -248,15 +265,17 @@ export default function GTFSNoticeAnalytics(): React.ReactElement {
     },
   });
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
-        Notices Analytics{' '}
+        GTFS Notices Metrics{' '}
       </Typography>
+      {error != null && (
+        <Alert severity='error'>
+          <AlertTitle>Error</AlertTitle>
+          There was an error fetching the data: {error}. Please try again later.
+        </Alert>
+      )}
       <MaterialReactTable table={table} />
     </Box>
   );

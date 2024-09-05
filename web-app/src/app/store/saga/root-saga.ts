@@ -5,6 +5,7 @@ import { watchFeed } from './feed-saga';
 import { watchDataset } from './dataset-saga';
 import { watchFeeds } from './feeds-saga';
 import { watchGTFSFetchFeedMetrics } from './gtfs-analytics-saga';
+import { watchGBFSFetchFeedMetrics } from './gbfs-analytics-saga';
 
 const rootSaga = function* (): Generator {
   yield all([
@@ -14,6 +15,7 @@ const rootSaga = function* (): Generator {
     watchDataset(),
     watchFeeds(),
     watchGTFSFetchFeedMetrics(),
+    watchGBFSFetchFeedMetrics(),
   ]);
 };
 

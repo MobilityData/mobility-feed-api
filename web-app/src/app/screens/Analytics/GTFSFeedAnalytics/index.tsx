@@ -2,10 +2,14 @@ import React, { useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   MaterialReactTable,
+  type MRT_Row,
   useMaterialReactTable,
 } from 'material-react-table';
 import {
+  Alert,
+  AlertTitle,
   Box,
+  Button,
   FormControl,
   InputLabel,
   MenuItem,
@@ -19,7 +23,7 @@ import { useLocation } from 'react-router-dom';
 import {
   fetchAvailableFilesStart,
   selectFile,
-} from '../../../store/analytics-reducer';
+} from '../../../store/gtfs-analytics-reducer';
 import {
   selectGTFSFeedMetrics,
   selectGTFSAnalyticsStatus,
@@ -28,8 +32,10 @@ import {
 import { useTableColumns } from './GTFSFeedAnalyticsTable';
 import DetailPanel from './DetailPanel';
 import { type RootState } from '../../../store/store';
-import { type AnalyticsFile } from '../types';
+import { type AnalyticsFile, type GTFSFeedMetrics } from '../types';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
+import DownloadIcon from '@mui/icons-material/Download';
+import { download, generateCsv, mkConfig } from 'export-to-csv';
 
 let globalAnalyticsBucketEndpoint: string | undefined;
 export const getAnalyticsBucketEndpoint = (): string | undefined =>
@@ -164,6 +170,53 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
     avgInfos,
   );
 
+  const csvConfig = mkConfig({
+    fieldSeparator: ',',
+    decimalSeparator: '.',
+    useKeysAsHeaders: true,
+    filename: 'gtfs-feed-metrics',
+  });
+  const handleExportRows = (rows: Array<MRT_Row<GTFSFeedMetrics>>): void => {
+    const rowData = rows.map((row) => row.original);
+    const expandedTables = rowData.map((row) => {
+      const filteredRow = {
+        ...row,
+        created_on: new Date(row.created_on).toISOString(),
+        last_modified: new Date(row.last_modified).toISOString(),
+        errors: row.notices.errors.reduce(
+          (acc, error) => acc.concat(error, ' | '),
+          '',
+        ),
+        warnings: row.notices.warnings.reduce(
+          (acc, warning) => acc.concat(warning, ' | '),
+          '',
+        ),
+        infos: row.notices.infos.reduce(
+          (acc, info) => acc.concat(info, ' | '),
+          '',
+        ),
+        features: row.features.reduce(
+          (acc, feature) => acc.concat(feature, ' | '),
+          '',
+        ),
+        notices: null,
+        locations: row.locations_string,
+        locations_string: null,
+        metrics: null,
+      };
+
+      // Create a new object without null values
+      const rowWithNoNulls = Object.fromEntries(
+        Object.entries(filteredRow).filter(([_, value]) => value !== null),
+      );
+
+      return rowWithNoNulls as typeof filteredRow;
+    });
+
+    const csv = generateCsv(csvConfig)(expandedTables);
+    download(csvConfig)(csv);
+  };
+
   const table = useMaterialReactTable({
     columns,
     data,
@@ -180,15 +233,47 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
         provider: false,
       },
     },
+    state: {
+      isLoading: status === 'loading',
+      showSkeletons: status === 'loading',
+      showProgressBars: status === 'loading',
+    },
+    filterFns: {
+      doesNotInclude: (row, id, filterValue) => {
+        if (filterValue == null) {
+          return true;
+        }
+        const cellValue = row.getValue(id);
+
+        if (typeof cellValue === 'string' && typeof filterValue === 'string') {
+          return !cellValue.toLowerCase().includes(filterValue.toLowerCase());
+        }
+        throw new Error('doesNotInclude filter only supports string values');
+      },
+    },
+    enableColumnFilters: true,
     enableStickyHeader: true,
+    enableDensityToggle: false,
+    enableColumnFilterModes: true,
+    maxLeafRowFilterDepth: 10,
+    enableGrouping: true,
+    enableRowVirtualization: true,
+    enablePagination: false,
     enableStickyFooter: true,
+    enableFacetedValues: true,
+    enableColumnResizing: true,
+    rowVirtualizerOptions: {
+      overscan: 10,
+    },
+    layoutMode: 'grid',
     muiTableContainerProps: { sx: { maxHeight: '70vh' } },
     renderDetailPanel: ({ row }) => <DetailPanel row={row} />,
     renderTopToolbarCustomActions: ({ table }) => (
-      <Box sx={{ minWidth: 200 }}>
-        <FormControl fullWidth variant='outlined' sx={{ marginBottom: 2 }}>
+      <Box sx={{ minWidth: 200, display: 'flex', alignItems: 'flex-start' }}>
+        <FormControl variant='outlined' sx={{ marginBottom: 2 }}>
           <InputLabel id='select-file-label'>Analytics Compute Date</InputLabel>
           <Select
+            variant='outlined'
             labelId='select-file-label'
             value={selectedFile ?? ''}
             onChange={(event) => {
@@ -203,26 +288,33 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
             ))}
           </Select>
         </FormControl>
+        <Button
+          variant='contained'
+          disabled={table.getPrePaginationRowModel().rows.length === 0}
+          // export all rows, including from the next page, (still respects filtering and sorting)
+          onClick={() => {
+            handleExportRows(table.getPrePaginationRowModel().rows);
+          }}
+          endIcon={<DownloadIcon />}
+          sx={{ ml: 2, mt: 1 }}
+        >
+          Download as CSV
+        </Button>
       </Box>
     ),
   });
 
-  // TODO improve this code
-  if (status === 'loading') {
-    return <div>Loading...</div>;
-  }
-
-  // TODO improve this code
-  if (status === 'failed') {
-    return <div>Error: {error}</div>;
-  }
-
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
-        Feeds Analytics{' '}
+        GTFS Feeds Metrics{' '}
       </Typography>
-
+      {error != null && (
+        <Alert severity='error'>
+          <AlertTitle>Error</AlertTitle>
+          There was an error fetching the data: {error}. Please try again later.
+        </Alert>
+      )}
       <MaterialReactTable table={table} />
     </Box>
   );

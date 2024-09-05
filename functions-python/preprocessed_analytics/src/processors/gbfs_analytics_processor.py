@@ -66,14 +66,19 @@ class GBFSAnalyticsProcessor(BaseAnalyticsProcessor):
             {
                 "feed_id": feed.stable_id,
                 "snapshot_id": snapshot.stable_id,
+                "system_id": feed.stable_id.replace("gbfs-", ""),
+                "auto_discovery_url": feed.auto_discovery_url,
+                "snapshot_hosted_url": snapshot.hosted_url,
                 "notices": [
                     {
                         "keyword": notice.keyword,
                         "gbfs_file": notice.gbfs_file,
                         "schema_path": notice.schema_path,
+                        "count": notice.count,
                     }
                     for notice in notices
                 ],
+                "versions": [version.version for version in feed.gbfsversions],
                 "created_on": feed.created_at,
                 "operator": feed.operator,
                 "locations": [

@@ -38,7 +38,16 @@ class GBFSValidator:
         new_gbfs_data = gbfs_data.copy()
 
         for feed_key, feed in new_gbfs_data["data"].items():
-            if isinstance(feed["feeds"], dict):
+            if isinstance(feed, list):
+                for feed_info in feed:
+                    old_url = feed_info["url"]
+                    blob_name = (
+                        f"{self.stable_id}/{self.snapshot_id}/{feed_info['name']}.json"
+                    )
+                    new_url = upload_gbfs_file_to_bucket(bucket, old_url, blob_name)
+                    if new_url is not None:
+                        feed_info["url"] = new_url
+            elif isinstance(feed["feeds"], dict):
                 for feed_language, feed_info in feed["feeds"].items():
                     old_url = feed_info["url"]
                     blob_name = f"{self.stable_id}/{self.snapshot_id}/{feed_info['name']}_{feed_language}.json"

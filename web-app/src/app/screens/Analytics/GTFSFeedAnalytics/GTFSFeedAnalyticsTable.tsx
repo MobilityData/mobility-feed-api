@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { type GTFSFeedMetrics } from '../types';
 import { groupFeatures, getGroupColor } from '../../../utils/analytics';
 import { useNavigate } from 'react-router-dom';
-import { Box, Stack, Tooltip } from '@mui/material';
+import { Box, MenuItem, Stack, Tooltip } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 
 /**
@@ -67,12 +67,62 @@ export const useTableColumns = (
         Cell: ({ cell }) =>
           format(new Date(cell.getValue<number>()), 'yyyy-MM-dd'),
         filterVariant: 'date-range',
-        size: 150,
+        size: 180,
       },
       {
         accessorKey: 'locations_string',
         header: 'Locations',
-        size: 100,
+        size: 220,
+        filterVariant: 'autocomplete',
+        filterFn: 'doesNotInclude',
+        columnFilterModeOptions: [
+          'contains',
+          'startsWith',
+          'equalsString',
+          'doesNotInclude',
+        ],
+        renderColumnFilterModeMenuItems: ({ onSelectFilterMode }) => [
+          <MenuItem
+            key='contains'
+            onClick={() => {
+              onSelectFilterMode('contains');
+            }}
+          >
+            Contains
+          </MenuItem>,
+          <MenuItem
+            key='startsWith'
+            onClick={() => {
+              onSelectFilterMode('startsWith');
+            }}
+          >
+            Starts With
+          </MenuItem>,
+          <MenuItem
+            key='equalsString'
+            onClick={() => {
+              onSelectFilterMode('equalsString');
+            }}
+          >
+            Equals String
+          </MenuItem>,
+          <MenuItem
+            key='notEquals'
+            onClick={() => {
+              onSelectFilterMode('notEquals');
+            }}
+          >
+            Not Equals
+          </MenuItem>,
+          <MenuItem
+            key='doesNotInclude'
+            onClick={() => {
+              onSelectFilterMode('doesNotInclude');
+            }}
+          >
+            Does Not Include
+          </MenuItem>,
+        ],
       },
       {
         accessorKey: 'provider',
@@ -95,7 +145,7 @@ export const useTableColumns = (
             {renderedCellValue}
           </Box>
         ),
-        size: 100,
+        size: 150,
       },
       {
         accessorKey: 'notices.errors',
@@ -123,7 +173,7 @@ export const useTableColumns = (
         ),
         filterVariant: 'multi-select',
         filterSelectOptions: uniqueErrors,
-        size: 150,
+        size: 300,
         Header: (
           <span>
             Notice Severity :
@@ -165,7 +215,7 @@ export const useTableColumns = (
         ),
         filterVariant: 'multi-select',
         filterSelectOptions: uniqueWarnings,
-        size: 150,
+        size: 300,
         Header: (
           <span>
             Notice Severity :
@@ -215,7 +265,7 @@ export const useTableColumns = (
         ),
         filterVariant: 'multi-select',
         filterSelectOptions: uniqueInfos,
-        size: 150,
+        size: 300,
         Footer: () => (
           <Stack>
             Average Number of Infos:
@@ -307,7 +357,7 @@ export const useTableColumns = (
             </div>
           );
         },
-        size: 300,
+        size: 200,
       },
       {
         accessorKey: 'dataset_id',

@@ -6,14 +6,14 @@ import {
   fetchAvailableFilesSuccess,
   selectFile,
   fetchAvailableFilesStart,
-} from '../gtfs-analytics-reducer';
+} from '../gbfs-analytics-reducer';
 import {
   type AnalyticsFile,
-  type GTFSFeedMetrics,
-  type GTFSMetrics,
+  type GBFSFeedMetrics,
+  type GBFSMetrics,
 } from '../../screens/Analytics/types';
 import { getLocationName } from '../../services/feeds/utils';
-import { getAnalyticsBucketEndpoint } from '../../screens/Analytics/GTFSFeedAnalytics';
+import { getAnalyticsBucketEndpoint } from '../../screens/Analytics/GBFSFeedAnalytics';
 
 function* fetchFeedMetricsSaga(
   action: ReturnType<typeof selectFile>,
@@ -31,14 +31,7 @@ function* fetchFeedMetricsSaga(
         `Error ${feedMetricsResponse.status}: ${feedMetricsResponse.statusText}`,
       );
     }
-    const feedMetrics: GTFSFeedMetrics[] = yield feedMetricsResponse.json();
-
-    // Add a locations_string property to each feed
-    feedMetrics.forEach((feed) => {
-      feed.locations_string = getLocationName(feed.locations);
-    });
-
-    // Fetch analytics metrics
+    const feedMetrics: GBFSFeedMetrics[] = yield feedMetricsResponse.json();
     const analyticsMetricsResponse: Response = yield call(
       fetch,
       `${getAnalyticsBucketEndpoint()}/feed_metrics.json`,
@@ -48,12 +41,16 @@ function* fetchFeedMetricsSaga(
         `Error ${analyticsMetricsResponse.status}: ${analyticsMetricsResponse.statusText}`,
       );
     }
-    const analyticsMetrics: GTFSMetrics[] =
+    const analyticsMetrics: GBFSMetrics[] =
       yield analyticsMetricsResponse.json();
 
-    // Merge metrics based on feed_id
-    const mergedMetrics: GTFSFeedMetrics[] = feedMetrics.map(
-      (feed): GTFSFeedMetrics => {
+    // Add a locations_string property to each feed
+    feedMetrics.forEach((feed) => {
+      feed.locations_string = getLocationName(feed.locations);
+    });
+
+    const mergedMetrics: GBFSFeedMetrics[] = feedMetrics.map(
+      (feed): GBFSFeedMetrics => {
         const analyticsMetric = analyticsMetrics.find(
           (metric) => metric.feed_id === feed.feed_id,
         );
@@ -63,7 +60,8 @@ function* fetchFeedMetricsSaga(
         };
       },
     );
-    // Dispatch the merged metrics
+
+    // Dispatch the feed metrics
     yield put(fetchFeedMetricsSuccess(mergedMetrics));
   } catch (error) {
     const errorMessage =
@@ -97,7 +95,7 @@ function* fetchAvailableFilesSaga(): Generator<unknown, void, never> {
   }
 }
 
-export function* watchGTFSFetchFeedMetrics(): Generator<unknown, void, never> {
+export function* watchGBFSFetchFeedMetrics(): Generator<unknown, void, never> {
   yield takeLatest(fetchDataStart.type, fetchFeedMetricsSaga);
   yield takeLatest(selectFile.type, fetchFeedMetricsSaga);
   yield takeLatest(fetchAvailableFilesStart.type, fetchAvailableFilesSaga);
