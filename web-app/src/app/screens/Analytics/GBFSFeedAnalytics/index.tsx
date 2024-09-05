@@ -10,6 +10,8 @@ import {
   useMaterialReactTable,
 } from 'material-react-table';
 import {
+  Alert,
+  AlertTitle,
   Autocomplete,
   Box,
   Button,
@@ -273,17 +275,17 @@ export default function GBFSFeedAnalytics(): React.ReactElement {
     ),
   });
 
-  // TODO improve this code
-  if (status === 'failed') {
-    return <div>Error: {error}</div>;
-  }
-
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
         GBFS Feeds Metrics
       </Typography>
-      {status}
+      {error != null && (
+        <Alert severity='error'>
+          <AlertTitle>Error</AlertTitle>
+          There was an error fetching the data: {error}. Please try again later.
+        </Alert>
+      )}
       <MaterialReactTable table={table} />
     </Box>
   );

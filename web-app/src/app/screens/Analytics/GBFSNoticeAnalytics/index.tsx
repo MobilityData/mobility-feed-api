@@ -19,7 +19,7 @@ import {
 } from 'recharts';
 import Box from '@mui/material/Box';
 
-import { Typography, Button } from '@mui/material';
+import { Typography, Button, Alert, AlertTitle } from '@mui/material';
 import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
@@ -33,6 +33,7 @@ export default function GBFSNoticeAnalytics(): React.ReactElement {
   const noticeCode = params.get('noticeCode');
   const [data, setData] = useState<GBFSNoticeMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { config } = useRemoteConfig();
 
   useEffect(() => {
@@ -53,7 +54,11 @@ export default function GBFSNoticeAnalytics(): React.ReactElement {
         );
         setData(dataWLatestCount);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError('An unknown error occurred');
+        }
       } finally {
         setLoading(false);
       }
@@ -117,6 +122,12 @@ export default function GBFSNoticeAnalytics(): React.ReactElement {
       columnFilters: initialFilters,
       expanded: initialFilters.length > 0 ? true : {},
     },
+    state: {
+      isLoading: loading,
+      showSkeletons: loading,
+      showProgressBars: loading,
+    },
+    enableDensityToggle: false,
     enableStickyHeader: true,
     enableStickyFooter: true,
     muiTableContainerProps: { sx: { maxHeight: '70vh' } },
@@ -205,6 +216,12 @@ export default function GBFSNoticeAnalytics(): React.ReactElement {
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
         GBFS Notices Metrics{' '}
       </Typography>
+      {error != null && (
+        <Alert severity='error'>
+          <AlertTitle>Error</AlertTitle>
+          There was an error fetching the data: {error}. Please try again later.
+        </Alert>
+      )}
       <MaterialReactTable table={table} />
     </Box>
   );

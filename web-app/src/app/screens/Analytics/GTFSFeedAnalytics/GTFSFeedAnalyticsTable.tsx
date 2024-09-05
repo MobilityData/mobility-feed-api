@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { type GTFSFeedMetrics } from '../types';
 import { groupFeatures, getGroupColor } from '../../../utils/analytics';
 import { useNavigate } from 'react-router-dom';
-import { Box, Stack, Tooltip } from '@mui/material';
+import { Box, MenuItem, Stack, Tooltip } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 
 /**
@@ -73,6 +73,56 @@ export const useTableColumns = (
         accessorKey: 'locations_string',
         header: 'Locations',
         size: 220,
+        filterVariant: 'autocomplete',
+        filterFn: 'doesNotInclude',
+        columnFilterModeOptions: [
+          'contains',
+          'startsWith',
+          'equalsString',
+          'doesNotInclude',
+        ],
+        renderColumnFilterModeMenuItems: ({ onSelectFilterMode }) => [
+          <MenuItem
+            key='contains'
+            onClick={() => {
+              onSelectFilterMode('contains');
+            }}
+          >
+            Contains
+          </MenuItem>,
+          <MenuItem
+            key='startsWith'
+            onClick={() => {
+              onSelectFilterMode('startsWith');
+            }}
+          >
+            Starts With
+          </MenuItem>,
+          <MenuItem
+            key='equalsString'
+            onClick={() => {
+              onSelectFilterMode('equalsString');
+            }}
+          >
+            Equals String
+          </MenuItem>,
+          <MenuItem
+            key='notEquals'
+            onClick={() => {
+              onSelectFilterMode('notEquals');
+            }}
+          >
+            Not Equals
+          </MenuItem>,
+          <MenuItem
+            key='doesNotInclude'
+            onClick={() => {
+              onSelectFilterMode('doesNotInclude');
+            }}
+          >
+            Does Not Include
+          </MenuItem>,
+        ],
       },
       {
         accessorKey: 'provider',

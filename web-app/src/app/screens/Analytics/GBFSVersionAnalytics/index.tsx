@@ -20,7 +20,13 @@ import {
 } from 'recharts';
 import Box from '@mui/material/Box';
 
-import { Typography, Button, IconButton } from '@mui/material';
+import {
+  Typography,
+  Button,
+  IconButton,
+  Alert,
+  AlertTitle,
+} from '@mui/material';
 import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
@@ -33,6 +39,7 @@ export default function GBFSVersionAnalytics(): React.ReactElement {
   const navigateTo = useNavigate();
   const [data, setData] = useState<GBFSVersionMetrics[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { config } = useRemoteConfig();
   const params = new URLSearchParams(useLocation().search);
   const versionFilter = params.get('version');
@@ -61,7 +68,11 @@ export default function GBFSVersionAnalytics(): React.ReactElement {
         );
         setData(dataWLatestCount);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError('An unknown error occurred');
+        }
       } finally {
         setLoading(false);
       }
@@ -134,6 +145,12 @@ export default function GBFSVersionAnalytics(): React.ReactElement {
       columnFilters: initialFilter,
       expanded: initialFilter.length > 0 ? true : {},
     },
+    state: {
+      isLoading: loading,
+      showSkeletons: loading,
+      showProgressBars: loading,
+    },
+    enableDensityToggle: false,
     enableStickyHeader: true,
     enableStickyFooter: true,
     muiTableContainerProps: { sx: { maxHeight: '70vh' } },
@@ -209,15 +226,17 @@ export default function GBFSVersionAnalytics(): React.ReactElement {
     },
   });
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
         GBFS Versions Metrics{' '}
       </Typography>
+      {error != null && (
+        <Alert severity='error'>
+          <AlertTitle>Error</AlertTitle>
+          There was an error fetching the data: {error}. Please try again later.
+        </Alert>
+      )}
       <MaterialReactTable table={table} />
     </Box>
   );

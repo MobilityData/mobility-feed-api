@@ -6,6 +6,8 @@ import {
   useMaterialReactTable,
 } from 'material-react-table';
 import {
+  Alert,
+  AlertTitle,
   Box,
   Button,
   FormControl,
@@ -214,6 +216,22 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
     const csv = generateCsv(csvConfig)(expandedTables);
     download(csvConfig)(csv);
   };
+  const filterFns = {
+    doesNotInclude: Object.assign(
+      (row: any, id: any, filterValue: string, addMeta: any) => {
+        addMeta({ label: 'Test Label' });
+        if (filterValue == null) {
+          return true;
+        }
+        const cellValue = row.getValue(id);
+
+        if (typeof cellValue === 'string' && typeof filterValue === 'string') {
+          return !cellValue.toLowerCase().includes(filterValue.toLowerCase());
+        }
+        throw new Error('doesNotInclude filter only supports string values');
+      },
+    ),
+  };
 
   const table = useMaterialReactTable({
     columns,
@@ -231,8 +249,17 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
         provider: false,
       },
     },
+    state: {
+      isLoading: status === 'loading',
+      showSkeletons: status === 'loading',
+      showProgressBars: status === 'loading',
+    },
+    filterFns,
+    enableColumnFilters: true,
     enableStickyHeader: true,
-    maxLeafRowFilterDepth: 0,
+    enableDensityToggle: false,
+    enableColumnFilterModes: true,
+    maxLeafRowFilterDepth: 10,
     enableGrouping: true,
     enableRowVirtualization: true,
     enablePagination: false,
@@ -281,22 +308,17 @@ export default function GTFSFeedAnalytics(): React.ReactElement {
     ),
   });
 
-  // TODO improve this code
-  if (status === 'loading') {
-    return <div>Loading...</div>;
-  }
-
-  // TODO improve this code
-  if (status === 'failed') {
-    return <div>Error: {error}</div>;
-  }
-
   return (
     <Box sx={{ m: 10 }}>
       <Typography variant='h5' color='primary' sx={{ fontWeight: 700 }}>
         GTFS Feeds Metrics{' '}
       </Typography>
-
+      {error != null && (
+        <Alert severity='error'>
+          <AlertTitle>Error</AlertTitle>
+          There was an error fetching the data: {error}. Please try again later.
+        </Alert>
+      )}
       <MaterialReactTable table={table} />
     </Box>
   );
