@@ -74,7 +74,7 @@ export const useTableColumns = (
         header: 'Locations',
         size: 220,
         filterVariant: 'autocomplete',
-        filterFn: 'doesNotInclude',
+        filterFn: 'contains',
         columnFilterModeOptions: [
           'contains',
           'startsWith',
