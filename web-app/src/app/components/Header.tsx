@@ -284,7 +284,7 @@ export default function DrawerAppBar(): React.ReactElement {
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
               <Button
-                href={item.target}
+                href={item.external === true ? item.target : '/' + item.target}
                 key={item.title}
                 sx={{ color: item.color, minWidth: 'fit-content', mx: 1 }}
                 target={item.external === true ? '_blank' : '_self'}
