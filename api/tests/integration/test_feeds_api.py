@@ -317,16 +317,13 @@ def test_get_gtfs_feed_datasets_with_limit(client: TestClient):
     """
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?limit={limit}".format(
-            id=TEST_GTFS_FEED_STABLE_IDS[0],
-            limit=1
-        ),
+        "/v1/gtfs_feeds/{id}/datasets?limit={limit}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], limit=1),
         headers=authHeaders,
     )
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["id"] == "dataset-1"
+    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[0]
 
 
 def test_get_gtfs_feed_datasets_with_offset(client: TestClient):
@@ -335,16 +332,13 @@ def test_get_gtfs_feed_datasets_with_offset(client: TestClient):
     """
     response = client.request(
         "GET",
-        "/v1/gtfs_feeds/{id}/datasets?offset={offset}".format(
-            id=TEST_GTFS_FEED_STABLE_IDS[0],
-            offset=1
-        ),
+        "/v1/gtfs_feeds/{id}/datasets?offset={offset}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], offset=1),
         headers=authHeaders,
     )
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["id"] == "dataset-2"
+    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[1]
 
 
 def test_get_gtfs_feed_datasets_with_downloaded_after_after(client: TestClient):
