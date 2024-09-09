@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - chore/unify-qa-gh-actions
   workflow_dispatch:  # Supports manual deployment
 
 jobs:
