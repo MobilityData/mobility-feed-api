@@ -5,6 +5,7 @@ import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
 import '../styles/FAQ.css';
 import { Typography } from '@mui/material';
+import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
 
 export default function FAQ(): React.ReactElement {
   return (
@@ -32,22 +33,17 @@ export default function FAQ(): React.ReactElement {
           }}
         >
           <Typography className='question'>
-            Why would I use the Mobility Database?
+            Why use the Mobility Database?
           </Typography>
           <Typography className='answer'>
-            The Mobility Database has over 100 feeds that were inaccurate on
-            TransitFeeds, and over 250 new feeds. It&apos;s a more accurate and
-            comprehensive resource for ensuring your data is discoverable and
-            for scraping the data you need. The community regularly adds and
-            updates feeds using Github. The Mobility Database integrates with{' '}
-            <a
-              href='https://gtfs-validator.mobilitydata.org/'
-              target='_blank'
-              rel='noreferrer'
-            >
+            The Mobility Database is a catalog that makes it easy to find over
+            2,000 GTFS and GTFS Realtime feeds, including more accurate and
+            newer feeds not found on TransitFeeds. The Mobility Database
+            integrates with{' '}
+            <a href={WEB_VALIDATOR_LINK} target='_blank' rel='noreferrer'>
               the Canonical GTFS Schedule Validator
             </a>{' '}
-            to display data quality information about each feed.
+            to provide data quality insights.
           </Typography>
           <Typography className='question'>
             How do I use the Mobility Database?
@@ -58,8 +54,12 @@ export default function FAQ(): React.ReactElement {
             <br />
             1. The feed search on the website, where you can discover feeds and
             see details on their bounding box, data quality, and historical
-            data. 2. The API, where you can pull feed information to display in
-            your own application or for research analysis 3. The{' '}
+            data.
+            <br />
+            2. The API, where you can pull feed information to display in your
+            own application or for research analysis
+            <br />
+            3. The{' '}
             <a href='https://bit.ly/catalogs-csv'>
               spreadsheet export available here
             </a>
@@ -118,14 +118,12 @@ export default function FAQ(): React.ReactElement {
             If you need to access historical data from previous years from the
             TransitFeeds API, you are still able to. Your systems will be
             unaffected until the to-be-determined deprecation date, when the
-            TransitFeeds API will no longer be available. MobilityData will
-            migrate the historical data from TransitFeeds to the Mobility
-            Database before deprecating the old API.
+            TransitFeeds API will no longer be available.
           </Typography>
           <Typography className='question'>What’s coming next?</Typography>
           <Typography className='answer'>
-            The MobilityData team is working to add historical data before 2024
-            and route and stop visualizations to the Mobility Database.
+            The MobilityData team is working to add historical data and route
+            and stop visualizations to the Mobility Database.
             <br /> <br />
             <a
               href='https://mobilitydata.org/roadmaps/'

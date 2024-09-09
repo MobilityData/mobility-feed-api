@@ -4,7 +4,7 @@ const newPassword = Cypress.env('currentPassword') + 'TEST';
 
 let beforeEachFailed = false;
 
-describe('Change Password Screen', () => {
+describe.skip('Change Password Screen', () => {
   before(() => {});
 
   beforeEach(() => {

@@ -9,7 +9,7 @@ import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1, storage
 from sqlalchemy.orm import joinedload
-
+import traceback
 from database_gen.sqlacodegen_models import Gbfsfeed
 from dataset_service.main import (
     DatasetTraceService,
@@ -101,7 +101,7 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
             validator.create_gbfs_json_with_bucket_paths(bucket, gbfs_data)
         except Exception as e:
             error_message = f"Error processing GBFS files: {e}"
-            logging.error(error_message)
+            logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
             save_trace_with_error(trace, error_message, trace_service)
             return error_message
 
@@ -113,7 +113,7 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
 
         except Exception as e:
             error_message = f"Error validating GBFS feed: {e}"
-            logging.error(error_message)
+            logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
             save_trace_with_error(trace, error_message, trace_service)
             return error_message
         finally:

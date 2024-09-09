@@ -10,6 +10,8 @@ import {
   colors,
   Snackbar,
   styled,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
@@ -19,6 +21,9 @@ import {
 } from '../../services/feeds/utils';
 import { type components } from '../../services/feeds/types';
 import { useTranslation } from 'react-i18next';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { theme } from '../../Theme';
+import { DATASET_FEATURES } from '../../utils/consts';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -30,6 +35,17 @@ export interface FeedSummaryProps {
 const boxElementStyle: SxProps = {
   width: '100%',
   mt: 2,
+  mb: 1,
+};
+
+const boxElementStyleTransitProvider: SxProps = {
+  width: '100%',
+  mt: 2,
+  borderBottom: 'none',
+};
+
+const boxElementStyleProducerURL: SxProps = {
+  width: '100%',
   mb: 1,
 };
 
@@ -79,7 +95,7 @@ export default function FeedSummary({
           {getLocationName(feed?.locations)}
         </Typography>
       </Box>
-      <Box sx={boxElementStyle}>
+      <Box sx={boxElementStyleTransitProvider}>
         <Typography
           variant='subtitle1'
           gutterBottom
@@ -92,13 +108,14 @@ export default function FeedSummary({
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              paddingLeft: '25px',
+              paddingLeft: providersToDisplay.length <= 1 ? '0px' : '25px',
               justifyContent: 'space-between',
               marginTop: 0,
               maxHeight: '500px',
               overflowY: showAllProviders ? 'scroll' : 'hidden',
               borderBottom: showAllProviders ? '1px solid #e0e0e0' : 'none',
               borderTop: showAllProviders ? '1px solid #e0e0e0' : 'none',
+              listStyle: providersToDisplay.length <= 1 ? 'none' : undefined,
             }}
           >
             {providersToDisplay.map((provider) => (
@@ -129,7 +146,7 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
-      <Box sx={boxElementStyle}>
+      <Box sx={boxElementStyleProducerURL}>
         <Typography
           variant='subtitle1'
           gutterBottom
@@ -191,20 +208,22 @@ export default function FeedSummary({
         </Typography>
       </Box>
 
-      <Box sx={boxElementStyle}>
-        <Typography
-          variant='subtitle1'
-          gutterBottom
-          sx={{ fontWeight: 'bold' }}
-        >
-          {t('authenticationType')}
-        </Typography>
-        <Typography data-testid='data-type'>
-          {feed?.source_info?.authentication_type === 1 && t('common:apiKey')}
-          {feed?.source_info?.authentication_type === 2 &&
-            t('common:httpHeader')}
-        </Typography>
-      </Box>
+      {feed?.source_info?.authentication_type !== 0 && (
+        <Box sx={boxElementStyle}>
+          <Typography
+            variant='subtitle1'
+            gutterBottom
+            sx={{ fontWeight: 'bold' }}
+          >
+            {t('authenticationType')}
+          </Typography>
+          <Typography data-testid='data-type'>
+            {feed?.source_info?.authentication_type === 1 && t('common:apiKey')}
+            {feed?.source_info?.authentication_type === 2 &&
+              t('common:httpHeader')}
+          </Typography>
+        </Box>
+      )}
 
       {hasAuthenticationInfo && (
         <Button disableElevation variant='contained' sx={{ marginRight: 2 }}>
@@ -228,7 +247,7 @@ export default function FeedSummary({
               gutterBottom
               sx={{ fontWeight: 'bold' }}
             >
-              {t('feedContactEmail')}:
+              {t('feedContactEmail')}
             </Typography>
             {feed?.feed_contact_email !== undefined &&
               feed?.feed_contact_email.length > 0 && (
@@ -263,10 +282,22 @@ export default function FeedSummary({
           <Typography
             variant='subtitle1'
             gutterBottom
-            sx={{ fontWeight: 'bold' }}
+            sx={{ fontWeight: 'bold', display: 'flex' }}
           >
             {t('features')}
+            <Tooltip title='More Info' placement='top'>
+              <IconButton
+                href='https://gtfs.org/getting_started/features/overview/'
+                target='_blank'
+                rel='noopener noreferrer'
+                size='small'
+                sx={{ ml: 1 }}
+              >
+                <OpenInNewIcon fontSize='small' />
+              </IconButton>
+            </Tooltip>
           </Typography>
+
           <Grid container spacing={1}>
             {latestDataset.validation_report?.features?.map((feature) => (
               <Grid item key={feature} data-testid='feature-chips'>
@@ -275,7 +306,17 @@ export default function FeedSummary({
                   variant='filled'
                   sx={{
                     color: '#fff',
-                    backgroundColor: colors.blue[900],
+                    backgroundColor: theme.palette.primary.dark,
+                    ':hover': {
+                      backgroundColor: theme.palette.primary.light,
+                    },
+                  }}
+                  onClick={() => {
+                    window.open(
+                      DATASET_FEATURES[feature]?.linkToInfo ??
+                        DATASET_FEATURES.overview.linkToInfo,
+                      '_blank',
+                    );
                   }}
                 />
               </Grid>
