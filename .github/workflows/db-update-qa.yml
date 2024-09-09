@@ -3,13 +3,9 @@ name: Database Update - QA
 on:
   workflow_dispatch:
   workflow_call:
-    inputs:
-      paths:
-        required: true
-        type: string
+
 jobs:
   update:
-    if: ${{ contains(github.event.inputs.paths, 'liquibase/changelog.xml') || contains(github.event.inputs.paths, 'api/src/scripts/populate_db*') }}
     uses: ./.github/workflows/db-update.yml
     with:
       PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}

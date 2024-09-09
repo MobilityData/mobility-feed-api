@@ -16,8 +16,6 @@ jobs:
     name: Database Update
     needs: bd-deployment
     uses: ./.github/workflows/db-update-qa.yml
-    with:
-      paths: ${{ inputs.paths }}
     secrets: inherit
   batch-deployment:
     name: Batch Processes Deployment
