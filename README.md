@@ -62,7 +62,9 @@ Folder `api` contains source code of the API implementation. This repository rel
 
 ## Requirements.
 
-The tested and recommended Python version: `~=3.11`.
+The tested and recommended with the following versions:
+- Python: `~=3.11`
+- Docker: `>=20.10`
 
 ### External dependencies
  - docker
