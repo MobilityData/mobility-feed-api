@@ -32,7 +32,7 @@ variable "environment" {
 variable "python_runtime" {
   type = string
   description = "Python runtime version"
-  default = "python310"
+  default = "python311"
 }
 
 variable "datasets_bucket_name" {
