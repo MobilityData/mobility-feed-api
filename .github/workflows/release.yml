@@ -29,6 +29,7 @@ jobs:
     needs: api-deployment
     with:
       API_URL: "https://api.mobilitydatabase.org"
+      ENVIRONMENT: 'prod'
     secrets:
       REFRESH_TOKEN: ${{ secrets.PROD_API_TEST_REFRESH_TOKEN }}
   web-deployment:
