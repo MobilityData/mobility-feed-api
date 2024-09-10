@@ -89,7 +89,7 @@ rm -rf $data_dir
 sleep 5
 
 # Start the container and run the liquibase
-docker-compose --env-file $SCRIPT_PATH/../config/.env.local -f $SCRIPT_PATH/../docker-compose.yaml up -d $docker_service
+docker compose --env-file $SCRIPT_PATH/../config/.env.local -f $SCRIPT_PATH/../docker-compose.yaml up -d $docker_service
 # wait for the liquibase to finish
 sleep 20
 
