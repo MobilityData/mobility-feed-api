@@ -2,11 +2,17 @@ import React from 'react';
 import FormFirstStep from './FirstStep';
 import FormSecondStep from './SecondStep';
 import FormSecondStepRT from './SecondStepRealtime';
-import FormThirdStep from './ThirdStep';
+import FormFourthStep from './FourthStep';
 import { Stepper, Step, StepLabel } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import FormThirdStep from './ThirdStep';
 
 export type YesNoFormInput = 'yes' | 'no' | '';
+export type AuthTypes =
+  | '0 - None'
+  | 'API key - 1'
+  | 'HTTP header - 2'
+  | 'choiceRequired';
 
 // This is the request body required for the API
 // FeedSubmissionFormFormInput should extend this
@@ -28,7 +34,7 @@ export interface FeedSubmissionFormBody {
   serviceAlerts?: string;
   gtfsRelatedScheduleLink?: string;
   note: string;
-  authType?: string;
+  authType: AuthTypes;
   authSignupLink?: string;
   authParameterName?: string;
   dataProducerEmail?: string;
@@ -49,13 +55,17 @@ export interface FeedSubmissionFormFormInput {
   country: string;
   region: string;
   municipality: string;
-  tripUpdates: boolean;
-  vehiclePositions: boolean;
-  serviceAlerts: boolean;
-  gtfsRealtimeLink: string;
+  tripUpdates?: string;
+  vehiclePositions?: string;
+  serviceAlerts?: string;
+  oldTripUpdates?: string;
+  oldVehiclePositions?: string;
+  oldServiceAlerts?: string;
   gtfsRelatedScheduleLink: string;
-  note: string;
-  isAuthRequired: string;
+  name?: string;
+  authType: AuthTypes;
+  authSignupLink?: string;
+  authParameterName?: string;
   dataProducerEmail: string;
   isInterestedInQualityAudit: YesNoFormInput;
   userInterviewEmail?: string;
@@ -74,13 +84,17 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
   country: '',
   region: '',
   municipality: '',
-  tripUpdates: false,
-  vehiclePositions: false,
-  serviceAlerts: false,
-  gtfsRealtimeLink: '',
+  tripUpdates: '',
+  vehiclePositions: '',
+  serviceAlerts: '',
+  oldTripUpdates: '',
+  oldVehiclePositions: '',
+  oldServiceAlerts: '',
   gtfsRelatedScheduleLink: '',
-  note: '',
-  isAuthRequired: 'no',
+  name: '',
+  authType: '0 - None',
+  authSignupLink: '',
+  authParameterName: '',
   dataProducerEmail: '',
   isInterestedInQualityAudit: '',
   userInterviewEmail: '',
@@ -90,7 +104,7 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
 
 export default function FeedSubmissionForm(): React.ReactElement {
   const [activeStep, setActiveStep] = React.useState(0);
-  const [steps, setSteps] = React.useState(['', '']);
+  const [steps, setSteps] = React.useState(['', '', '']);
   const navigateTo = useNavigate();
   const [formData, setFormData] =
     React.useState<FeedSubmissionFormFormInput>(defaultFormValues);
@@ -109,9 +123,9 @@ export default function FeedSubmissionForm(): React.ReactElement {
 
   const setNumberOfSteps = (isOfficialProducer: YesNoFormInput): void => {
     if (isOfficialProducer === 'yes') {
-      setSteps(['', '', '']);
+      setSteps(['', '', '', '']);
     } else {
-      setSteps(['', '']);
+      setSteps(['', '', '']);
     }
   };
 
@@ -183,9 +197,22 @@ export default function FeedSubmissionForm(): React.ReactElement {
       {activeStep === 2 && (
         <FormThirdStep
           initialValues={formData}
-          submitFormData={finalSubmit}
+          submitFormData={(submittedFormData) => {
+            if (activeStep === steps.length - 1) {
+              finalSubmit(submittedFormData);
+            } else {
+              formStepSubmit(submittedFormData);
+            }
+          }}
           handleBack={formStepBack}
         ></FormThirdStep>
+      )}
+      {activeStep === 3 && (
+        <FormFourthStep
+          initialValues={formData}
+          submitFormData={finalSubmit}
+          handleBack={formStepBack}
+        ></FormFourthStep>
       )}
     </>
   );

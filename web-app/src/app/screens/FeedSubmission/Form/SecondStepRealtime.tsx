@@ -3,24 +3,25 @@ import {
   Grid,
   FormControl,
   FormLabel,
-  FormControlLabel,
-  Checkbox,
-  RadioGroup,
-  Radio,
   Button,
   TextField,
 } from '@mui/material';
 import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
-import { type FeedSubmissionFormFormInput } from '.';
+import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
+import { useEffect } from 'react';
 
 export interface FeedSubmissionFormInputSecondStepRT {
-  tripUpdates: boolean;
-  vehiclePositions: boolean;
-  serviceAlerts: boolean;
-  gtfsRealtimeLink: string;
+  tripUpdates: string;
+  vehiclePositions: string;
+  serviceAlerts: string;
+  oldTripUpdates?: string;
+  oldVehiclePositions?: string;
+  oldServiceAlerts?: string;
   gtfsRelatedScheduleLink: string;
-  note: string;
-  isAuthRequired: string;
+  licensePath?: string;
+  authType: AuthTypes;
+  authSignupLink?: string;
+  authParameterName?: string;
 }
 
 interface FormSecondStepRTProps {
@@ -37,19 +38,23 @@ export default function FormSecondStepRT({
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitted },
     getValues,
+    trigger,
+    watch,
   } = useForm<FeedSubmissionFormInputSecondStepRT>({
     defaultValues: {
       tripUpdates: initialValues.tripUpdates,
       vehiclePositions: initialValues.vehiclePositions,
       serviceAlerts: initialValues.serviceAlerts,
-      gtfsRealtimeLink: initialValues.gtfsRealtimeLink,
+      oldTripUpdates: initialValues.oldTripUpdates,
+      oldVehiclePositions: initialValues.oldVehiclePositions,
+      oldServiceAlerts: initialValues.oldServiceAlerts,
       gtfsRelatedScheduleLink: initialValues.gtfsRelatedScheduleLink,
-      note: initialValues.note,
-      isAuthRequired: initialValues.isAuthRequired,
     },
   });
+
+  const isFeedUpdate = initialValues.isUpdatingFeed === 'yes';
 
   const onSubmit: SubmitHandler<FeedSubmissionFormInputSecondStepRT> = (
     data,
@@ -57,10 +62,25 @@ export default function FormSecondStepRT({
     submitFormData(data);
   };
 
-  const entityTypeCheckBoxLabels = {
-    tripUpdates: 'Trip Updates',
-    vehiclePositions: 'Vehicle Positions',
-    serviceAlerts: 'Service Alerts',
+  const [tripUpdates, vehiclePositions, serviceAlerts] = watch([
+    'tripUpdates',
+    'vehiclePositions',
+    'serviceAlerts',
+  ]);
+
+  useEffect(() => {
+    if (isSubmitted) {
+      // assures that the error is updated for all
+      void trigger(['tripUpdates', 'vehiclePositions', 'serviceAlerts']);
+    }
+  }, [tripUpdates, vehiclePositions, serviceAlerts]);
+
+  const gtfsRtLinkValidation = (): undefined | string => {
+    if (tripUpdates !== '' || vehiclePositions !== '' || serviceAlerts !== '') {
+      return undefined;
+    } else {
+      return 'At least one of the three feeds is required';
+    }
   };
 
   return (
@@ -76,44 +96,122 @@ export default function FormSecondStepRT({
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
           <Grid item>
-            <FormControl component='fieldset'>
-              <FormLabel component='legend'>Entity Type</FormLabel>
-              {(
-                ['tripUpdates', 'vehiclePositions', 'serviceAlerts'] as const
-              ).map((entityType) => (
-                <Controller
-                  key={entityType}
-                  control={control}
-                  name={entityType}
-                  render={({ field }) => {
-                    return (
-                      <FormControlLabel
-                        control={<Checkbox />}
-                        label={entityTypeCheckBoxLabels[entityType]}
-                      />
-                    );
-                  }}
-                />
-              ))}
-            </FormControl>
-          </Grid>
-          <Grid item>
             <FormControl
               component='fieldset'
               fullWidth
-              required
-              error={errors.gtfsRelatedScheduleLink !== undefined}
+              error={errors.serviceAlerts !== undefined}
             >
-              <FormLabel component='legend'>GTFS Realtime feed link</FormLabel>
+              <FormLabel component='legend'>Service Alerts feed link</FormLabel>
               <Controller
                 control={control}
-                name='gtfsRealtimeLink'
+                name='serviceAlerts'
+                rules={{ validate: gtfsRtLinkValidation }}
                 render={({ field }) => (
-                  <TextField className='md-small-input' {...field} />
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.serviceAlerts?.message ?? ''}
+                    error={errors.serviceAlerts !== undefined}
+                  />
                 )}
               />
             </FormControl>
           </Grid>
+          {isFeedUpdate && (
+            <Grid item mb={2}>
+              <FormControl component='fieldset' fullWidth>
+                <FormLabel component='legend'>
+                  Old Service Alerts feed link
+                </FormLabel>
+                <Controller
+                  control={control}
+                  name='oldServiceAlerts'
+                  render={({ field }) => (
+                    <TextField className='md-small-input' {...field} />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+          <Grid item>
+            <FormControl
+              component='fieldset'
+              fullWidth
+              error={errors.tripUpdates !== undefined}
+            >
+              <FormLabel component='legend'>Trip Updates feed link</FormLabel>
+              <Controller
+                control={control}
+                name='tripUpdates'
+                rules={{ validate: gtfsRtLinkValidation }}
+                render={({ field }) => (
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.tripUpdates?.message ?? ''}
+                    error={errors.tripUpdates !== undefined}
+                  />
+                )}
+              />
+            </FormControl>
+          </Grid>
+          {isFeedUpdate && (
+            <Grid item mb={2}>
+              <FormControl component='fieldset' fullWidth>
+                <FormLabel component='legend'>
+                  Old Trip Updates feed link
+                </FormLabel>
+                <Controller
+                  control={control}
+                  name='oldTripUpdates'
+                  render={({ field }) => (
+                    <TextField className='md-small-input' {...field} />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+          <Grid item>
+            <FormControl
+              component='fieldset'
+              fullWidth
+              error={errors.vehiclePositions !== undefined}
+            >
+              <FormLabel component='legend'>
+                Vehicle Positions feed link
+              </FormLabel>
+              <Controller
+                control={control}
+                name='vehiclePositions'
+                rules={{ validate: gtfsRtLinkValidation }}
+                render={({ field }) => (
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.vehiclePositions?.message ?? ''}
+                    error={errors.vehiclePositions !== undefined}
+                  />
+                )}
+              />
+            </FormControl>
+          </Grid>
+          {isFeedUpdate && (
+            <Grid item mb={2}>
+              <FormControl component='fieldset' fullWidth>
+                <FormLabel component='legend'>
+                  Old Vehicle Positions feed link
+                </FormLabel>
+                <Controller
+                  control={control}
+                  name='oldVehiclePositions'
+                  render={({ field }) => (
+                    <TextField className='md-small-input' {...field} />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+
           <Grid item>
             <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend'>
@@ -124,48 +222,6 @@ export default function FormSecondStepRT({
                 name='gtfsRelatedScheduleLink'
                 render={({ field }) => (
                   <TextField className='md-small-input' {...field} />
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
-            <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Note</FormLabel>
-              <Controller
-                control={control}
-                name='note'
-                render={({ field }) => (
-                  <TextField
-                    className='md-small-input'
-                    {...field}
-                    helperText='e.g “Aggregate” or “only contains Trip Updates and Vehicle
-                Positions”'
-                  />
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
-            <FormControl component='fieldset'>
-              <FormLabel component='legend'>
-                Is authentication required?
-              </FormLabel>
-              <Controller
-                control={control}
-                name='isAuthRequired'
-                render={({ field }) => (
-                  <RadioGroup {...field}>
-                    <FormControlLabel
-                      value='yes'
-                      control={<Radio />}
-                      label='Yes'
-                    />
-                    <FormControlLabel
-                      value='no'
-                      control={<Radio />}
-                      label='No'
-                    />
-                  </RadioGroup>
                 )}
               />
             </FormControl>

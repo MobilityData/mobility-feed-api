@@ -15,18 +15,17 @@ import {
   useForm,
   useWatch,
 } from 'react-hook-form';
-import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
+import { type FeedSubmissionFormFormInput, type AuthTypes } from '.';
 import { useTranslation } from 'react-i18next';
 
 export interface FeedSubmissionFormInputThirdStep {
-  dataProducerEmail?: string;
-  isInterestedInQualityAudit: YesNoFormInput;
-  userInterviewEmail?: string;
-  hasLogoPermission: YesNoFormInput;
-  whatToolsUsedText?: string;
+  licensePath?: string;
+  authType: AuthTypes;
+  authSignupLink?: string;
+  authParameterName?: string;
 }
 
-interface FormSecondStepRTProps {
+interface FormThirdStepProps {
   initialValues: FeedSubmissionFormFormInput;
   submitFormData: (formData: Partial<FeedSubmissionFormFormInput>) => void;
   handleBack: (formData: Partial<FeedSubmissionFormFormInput>) => void;
@@ -36,32 +35,33 @@ export default function FormThirdStep({
   initialValues,
   submitFormData,
   handleBack,
-}: FormSecondStepRTProps): React.ReactElement {
+}: FormThirdStepProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const {
     control,
     handleSubmit,
     formState: { errors },
     getValues,
+    setValue,
   } = useForm<FeedSubmissionFormInputThirdStep>({
     defaultValues: {
-      dataProducerEmail: initialValues.dataProducerEmail,
-      isInterestedInQualityAudit: initialValues.isInterestedInQualityAudit,
-      whatToolsUsedText: initialValues.whatToolsUsedText,
-      hasLogoPermission: initialValues.hasLogoPermission,
+      licensePath: initialValues.licensePath,
+      authType: initialValues.authType,
+      authSignupLink: initialValues.authSignupLink,
+      authParameterName: initialValues.authParameterName,
     },
   });
-  const onSubmit: SubmitHandler<FeedSubmissionFormInputThirdStep> = (data) => {
-    if (data.isInterestedInQualityAudit === 'no') {
-      delete data.userInterviewEmail;
-    }
+
+  const authType = useWatch({
+    control,
+    name: 'authType',
+  });
+
+  const onSubmit: SubmitHandler<FeedSubmissionFormInputThirdStep> = (
+    data,
+  ): void => {
     submitFormData(data);
   };
-
-  const isInterestedInQualityAudit = useWatch({
-    control,
-    name: 'isInterestedInQualityAudit',
-  });
 
   return (
     <>
@@ -69,140 +69,121 @@ export default function FormThirdStep({
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
           <Grid item>
-            <FormControl
-              component='fieldset'
-              fullWidth
-              error={errors.dataProducerEmail !== undefined}
-            >
-              <FormLabel component='legend' required>
-                {t('dataProducerEmail')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('dataProducerEmailDetails')}
-                </Typography>
-              </FormLabel>
-              <Controller
-                rules={{ required: t('dataProducerEmailRequired') }}
-                control={control}
-                name='dataProducerEmail'
-                render={({ field }) => (
-                  <TextField
-                    className='md-small-input'
-                    {...field}
-                    error={errors.dataProducerEmail !== undefined}
-                    helperText={errors.dataProducerEmail?.message ?? ''}
-                  />
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
-            <FormControl
-              component='fieldset'
-              error={errors.isInterestedInQualityAudit !== undefined}
-            >
-              <FormLabel required>
-                {t('interestedInDataAudit')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('interestedInDataAuditDetails')}
-                </Typography>
-              </FormLabel>
-              <Controller
-                control={control}
-                name='isInterestedInQualityAudit'
-                rules={{ required: t('common:form.required') }}
-                render={({ field }) => (
-                  <>
-                    <Select {...field} sx={{ width: '200px' }}>
-                      <MenuItem value='yes'>{t('common:form:yes')}</MenuItem>
-                      <MenuItem value='no'>{t('common:form:no')}</MenuItem>
-                    </Select>
-                    <FormHelperText>
-                      {errors.isInterestedInQualityAudit?.message ?? ''}
-                    </FormHelperText>
-                  </>
-                )}
-              />
-            </FormControl>
-          </Grid>
-          {isInterestedInQualityAudit === 'yes' && (
-            <Grid item>
-              <FormControl
-                component='fieldset'
-                fullWidth
-                error={errors.userInterviewEmail !== undefined}
-              >
-                <FormLabel required>{t('dataAuditContactEmail')}</FormLabel>
-                <Controller
-                  control={control}
-                  name='userInterviewEmail'
-                  rules={{ required: t('contactEmailRequired') }}
-                  render={({ field }) => (
-                    <TextField
-                      className='md-small-input'
-                      {...field}
-                      error={errors.userInterviewEmail !== undefined}
-                      helperText={errors.userInterviewEmail?.message ?? ''}
-                    />
-                  )}
-                />
-              </FormControl>
-            </Grid>
-          )}
-          <Grid item>
-            <FormControl
-              component='fieldset'
-              error={errors.hasLogoPermission !== undefined}
-            >
-              <FormLabel required>
-                {t('hasLogoPermission')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('hasLogoPermissionDetails')}
-                </Typography>
-              </FormLabel>
-              <Controller
-                control={control}
-                name='hasLogoPermission'
-                rules={{ required: t('common:form.required') }}
-                render={({ field }) => (
-                  <>
-                    <Select {...field} sx={{ width: '200px' }}>
-                      <MenuItem value='yes'>{t('common:form.yes')}</MenuItem>
-                      <MenuItem value='no'>{t('common:form.no')}</MenuItem>
-                    </Select>
-                    <FormHelperText>
-                      {errors.hasLogoPermission?.message ?? ''}
-                    </FormHelperText>
-                  </>
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel>
-                {t('whatToolsCreateGtfs')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('whatToolsCreateGtfsDetails')}
-                </Typography>
-              </FormLabel>
+              <FormLabel component='legend'>Link to feed license</FormLabel>
               <Controller
                 control={control}
-                name='whatToolsUsedText'
+                name='licensePath'
                 render={({ field }) => (
-                  <TextField
-                    multiline
-                    rows={3}
-                    className='md-small-input'
-                    {...field}
-                  />
+                  <TextField className='md-small-input' {...field} />
                 )}
               />
             </FormControl>
           </Grid>
+          <Grid item>
+            <FormControl component='fieldset'>
+              <FormLabel>
+                Is authentication required for the feed?
+                <br></br>
+                <Typography variant='caption' color='textSecondary'>
+                  Select &quot;Yes&quot; if a user has to login or provide
+                  credentials to download the feed
+                </Typography>
+              </FormLabel>
+              <Select
+                value={authType === '0 - None' ? authType : 'choiceRequired'}
+                sx={{ width: '200px' }}
+                onChange={(event) => {
+                  setValue('authType', event.target.value as AuthTypes);
+                }}
+              >
+                <MenuItem value='choiceRequired'>
+                  {t('common:form:yes')}
+                </MenuItem>
+                <MenuItem value='0 - None'>{t('common:form:no')}</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          {authType !== '0 - None' && (
+            <>
+              <Grid item>
+                <FormControl
+                  component='fieldset'
+                  error={errors.authType !== undefined}
+                >
+                  <FormLabel required>Authentication Type</FormLabel>
+                  <Controller
+                    control={control}
+                    name='authType'
+                    rules={{
+                      required: t('common:form.required'),
+                      validate: (value) =>
+                        value !== 'choiceRequired' ||
+                        'Please select an authentication type',
+                    }}
+                    render={({ field }) => (
+                      <>
+                        <Select {...field} sx={{ width: '200px' }}>
+                          <MenuItem value='choiceRequired'>
+                            <em>Select</em>
+                          </MenuItem>
+                          <MenuItem value='API key - 1'>API key - 1</MenuItem>
+                          <MenuItem value='HTTP header - 2'>
+                            HTTP header - 2
+                          </MenuItem>
+                        </Select>
+                        <FormHelperText>
+                          {errors.authType?.message ?? ''}
+                        </FormHelperText>
+                      </>
+                    )}
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item>
+                <FormControl
+                  component='fieldset'
+                  fullWidth
+                  error={errors.authSignupLink !== undefined}
+                >
+                  <FormLabel required>Authentication sign up link</FormLabel>
+                  <Controller
+                    control={control}
+                    name='authSignupLink'
+                    rules={{ required: t('common:form.required') }}
+                    render={({ field }) => (
+                      <TextField
+                        className='md-small-input'
+                        {...field}
+                        helperText={errors.authSignupLink?.message ?? ''}
+                        error={errors.authSignupLink !== undefined}
+                      />
+                    )}
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item>
+                <FormControl component='fieldset' fullWidth>
+                  <FormLabel>
+                    Authentication parameter name
+                    <br></br>
+                    <Typography variant='caption' color='textSecondary'>
+                      The parameter the user must pass in the URl or HTTP header
+                      to download the feed. E.g &quot;api_key&quot; in
+                      https://example.com/feed?api_key=123
+                    </Typography>
+                  </FormLabel>
+                  <Controller
+                    control={control}
+                    name='authParameterName'
+                    render={({ field }) => (
+                      <TextField className='md-small-input' {...field} />
+                    )}
+                  />
+                </FormControl>
+              </Grid>
+            </>
+          )}
 
           <Grid container spacing={2}>
             <Grid item>
@@ -218,7 +199,7 @@ export default function FormThirdStep({
             </Grid>
             <Grid item>
               <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
-                {t('common:form.submit')}
+                {t('common:next')}
               </Button>
             </Grid>
           </Grid>
