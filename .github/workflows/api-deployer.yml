@@ -75,7 +75,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.python_version }}
 
@@ -102,7 +102,7 @@ jobs:
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/artifact-registry/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/artifact-registry/vars.tfvars.rename_me -out_file infra/artifact-registry/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,ARTIFACT_REPO_NAME
 
-      - uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.3
           terraform_wrapper: false
@@ -162,7 +162,7 @@ jobs:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Login to Google Artifact Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{inputs.REGION}}-docker.pkg.dev
           username: _json_key_base64
@@ -174,7 +174,7 @@ jobs:
           java-version: ${{ env.java_version }}
           distribution: 'temurin'
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.python_version }}
 
@@ -232,7 +232,7 @@ jobs:
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.python_version }}
 
@@ -285,7 +285,7 @@ jobs:
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT
 
-      - uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.3
           terraform_wrapper: false

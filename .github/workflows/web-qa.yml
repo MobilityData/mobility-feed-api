@@ -2,9 +2,6 @@ name: Web App - QA
 on:
     workflow_dispatch:
     workflow_call:
-    push:
-        branches: 
-          - main
 
 jobs:
     deploy-web-app:
