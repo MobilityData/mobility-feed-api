@@ -2,9 +2,7 @@ name: Deploy Historical Batch Processing - QA
 
 on:
   workflow_dispatch:  # Supports manual deployment
-  push:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
   deploy:

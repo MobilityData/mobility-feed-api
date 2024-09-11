@@ -1,13 +1,9 @@
 # Update the Mobility Database Schema
 name: Database Update - QA
 on:
-  push: # Update on merge on main branch if the changelog file has been updated
-    branches:
-      - main
-    paths:
-      - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db*'
   workflow_dispatch:
+  workflow_call:
+
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
