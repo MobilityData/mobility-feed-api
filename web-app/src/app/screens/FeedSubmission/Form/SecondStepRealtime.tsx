@@ -9,6 +9,7 @@ import {
 import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
 import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface FeedSubmissionFormInputSecondStepRT {
   tripUpdates: string;
@@ -35,6 +36,7 @@ export default function FormSecondStepRT({
   submitFormData,
   handleBack,
 }: FormSecondStepRTProps): React.ReactElement {
+  const { t } = useTranslation('feeds');
   const {
     control,
     handleSubmit,
@@ -79,7 +81,7 @@ export default function FormSecondStepRT({
     if (tripUpdates !== '' || vehiclePositions !== '' || serviceAlerts !== '') {
       return undefined;
     } else {
-      return 'At least one of the three feeds is required';
+      return t('form.atLeastOneRealtimeFeed');
     }
   };
 
@@ -90,7 +92,7 @@ export default function FormSecondStepRT({
           fontSize: { xs: 12, sm: 18 },
         }}
       >
-        GTFS Realtime Feed
+        {t('gtfsRealtimeFeed')}
       </Typography>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -101,7 +103,7 @@ export default function FormSecondStepRT({
               fullWidth
               error={errors.serviceAlerts !== undefined}
             >
-              <FormLabel component='legend'>Service Alerts feed link</FormLabel>
+              <FormLabel component='legend'>{t('serviceAlertsFeed')}</FormLabel>
               <Controller
                 control={control}
                 name='serviceAlerts'
@@ -121,7 +123,7 @@ export default function FormSecondStepRT({
             <Grid item mb={2}>
               <FormControl component='fieldset' fullWidth>
                 <FormLabel component='legend'>
-                  Old Service Alerts feed link
+                  {t('oldServiceAlertsFeed')}
                 </FormLabel>
                 <Controller
                   control={control}
@@ -139,7 +141,7 @@ export default function FormSecondStepRT({
               fullWidth
               error={errors.tripUpdates !== undefined}
             >
-              <FormLabel component='legend'>Trip Updates feed link</FormLabel>
+              <FormLabel component='legend'>{t('tripUpdatesFeed')}</FormLabel>
               <Controller
                 control={control}
                 name='tripUpdates'
@@ -159,7 +161,7 @@ export default function FormSecondStepRT({
             <Grid item mb={2}>
               <FormControl component='fieldset' fullWidth>
                 <FormLabel component='legend'>
-                  Old Trip Updates feed link
+                  {t('oldTripUpdatesFeed')}
                 </FormLabel>
                 <Controller
                   control={control}
@@ -178,7 +180,7 @@ export default function FormSecondStepRT({
               error={errors.vehiclePositions !== undefined}
             >
               <FormLabel component='legend'>
-                Vehicle Positions feed link
+                {t('vehiclePositionsFeed')}
               </FormLabel>
               <Controller
                 control={control}
@@ -199,7 +201,7 @@ export default function FormSecondStepRT({
             <Grid item mb={2}>
               <FormControl component='fieldset' fullWidth>
                 <FormLabel component='legend'>
-                  Old Vehicle Positions feed link
+                  {t('oldVehiclePositionsFeed')}
                 </FormLabel>
                 <Controller
                   control={control}
@@ -215,7 +217,7 @@ export default function FormSecondStepRT({
           <Grid item>
             <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend'>
-                Link to related GTFS Schedule feed
+                {t('relatedGtfsScheduleFeed')}
               </FormLabel>
               <Controller
                 control={control}
@@ -235,12 +237,12 @@ export default function FormSecondStepRT({
                 variant='outlined'
                 sx={{ mt: 3, mb: 2 }}
               >
-                Back
+                {t('common:back')}
               </Button>
             </Grid>
             <Grid item>
               <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
-                Next
+                {t('common:next')}
               </Button>
             </Grid>
           </Grid>

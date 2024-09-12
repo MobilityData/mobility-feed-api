@@ -29,6 +29,11 @@
         "yes": "Yes",
         "no": "No",
         "required": "This field is required",
-        "submit": "Submit"
-    }
+        "submit": "Submit",
+        "select": "Select"
+    },
+    "country": "Country",
+    "chooseCountry": "Choose a country",
+    "region": "Region",
+    "municipality": "Municipality"
 }

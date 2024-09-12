@@ -83,11 +83,10 @@ export default function FormThirdStep({
           <Grid item>
             <FormControl component='fieldset'>
               <FormLabel>
-                Is authentication required for the feed?
+                {t('isAuthRequired')}
                 <br></br>
                 <Typography variant='caption' color='textSecondary'>
-                  Select &quot;Yes&quot; if a user has to login or provide
-                  credentials to download the feed
+                  {t('isAuthRequiredDetails')}
                 </Typography>
               </FormLabel>
               <Select
@@ -111,7 +110,7 @@ export default function FormThirdStep({
                   component='fieldset'
                   error={errors.authType !== undefined}
                 >
-                  <FormLabel required>Authentication Type</FormLabel>
+                  <FormLabel required>{t('authenticationType')}</FormLabel>
                   <Controller
                     control={control}
                     name='authType'
@@ -119,17 +118,19 @@ export default function FormThirdStep({
                       required: t('common:form.required'),
                       validate: (value) =>
                         value !== 'choiceRequired' ||
-                        'Please select an authentication type',
+                        t('selectAuthenticationType'),
                     }}
                     render={({ field }) => (
                       <>
                         <Select {...field} sx={{ width: '200px' }}>
                           <MenuItem value='choiceRequired'>
-                            <em>Select</em>
+                            <em>{t('common:form.select')}</em>
                           </MenuItem>
-                          <MenuItem value='API key - 1'>API key - 1</MenuItem>
+                          <MenuItem value='API key - 1'>
+                            {t('form.authType.apiKey')}
+                          </MenuItem>
                           <MenuItem value='HTTP header - 2'>
-                            HTTP header - 2
+                            {t('form.authType.httpHeader')}
                           </MenuItem>
                         </Select>
                         <FormHelperText>
@@ -146,7 +147,9 @@ export default function FormThirdStep({
                   fullWidth
                   error={errors.authSignupLink !== undefined}
                 >
-                  <FormLabel required>Authentication sign up link</FormLabel>
+                  <FormLabel required>
+                    {t('form.authType.signUpLink')}
+                  </FormLabel>
                   <Controller
                     control={control}
                     name='authSignupLink'
@@ -165,12 +168,10 @@ export default function FormThirdStep({
               <Grid item>
                 <FormControl component='fieldset' fullWidth>
                   <FormLabel>
-                    Authentication parameter name
+                    {t('form.authType.parameterName')}
                     <br></br>
-                    <Typography variant='caption' color='textSecondary'>
-                      The parameter the user must pass in the URl or HTTP header
-                      to download the feed. E.g &quot;api_key&quot; in
-                      https://example.com/feed?api_key=123
+                    <Typography variant='caption'>
+                      {t('form.authType.parameterNameDetail')}
                     </Typography>
                   </FormLabel>
                   <Controller

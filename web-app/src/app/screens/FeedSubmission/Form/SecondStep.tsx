@@ -54,7 +54,7 @@ export default function FormSecondStep({
 
   return (
     <>
-      <Typography gutterBottom>GTFS Schedule Feed</Typography>
+      <Typography gutterBottom>{t('gtfsScheduleFeed')}</Typography>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
@@ -64,7 +64,7 @@ export default function FormSecondStep({
               error={errors.country !== undefined}
             >
               <FormLabel component='legend' required>
-                Country
+                {t('common:country')}
               </FormLabel>
               <Controller
                 rules={{ required: 'Country is required' }}
@@ -74,7 +74,7 @@ export default function FormSecondStep({
                   <>
                     <Select {...field} displayEmpty sx={{ minWidth: '250px' }}>
                       <MenuItem value={''}>
-                        <em>Choose a country</em>
+                        <em>{t('common:chooseCountry')}</em>
                       </MenuItem>
                       {countryList.map((country) => (
                         <MenuItem key={country.iso2} value={country.iso2}>
@@ -92,7 +92,7 @@ export default function FormSecondStep({
           </Grid>
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Region</FormLabel>
+              <FormLabel component='legend'>{t('common:region')}</FormLabel>
               <Controller
                 control={control}
                 name='region'
@@ -104,7 +104,9 @@ export default function FormSecondStep({
           </Grid>
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Municipality</FormLabel>
+              <FormLabel component='legend'>
+                {t('common:municipality')}
+              </FormLabel>
               <Controller
                 control={control}
                 name='municipality'
@@ -117,10 +119,10 @@ export default function FormSecondStep({
           <Grid item>
             <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend'>
-                Name<br></br>
+                {t('common:name')}
+                <br></br>
                 <Typography variant='caption'>
-                  Helpful when 1 transit agency has multiple feeds, e.g
-                  &quot;MTA Bus&quot; and &quot;MTA Subway&quot;
+                  {t('feedNameDetails')}
                 </Typography>
               </FormLabel>
               <Controller
