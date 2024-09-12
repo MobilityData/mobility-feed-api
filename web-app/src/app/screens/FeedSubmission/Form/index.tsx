@@ -3,9 +3,19 @@ import FormFirstStep from './FirstStep';
 import FormSecondStep from './SecondStep';
 import FormSecondStepRT from './SecondStepRealtime';
 import FormFourthStep from './FourthStep';
-import { Stepper, Step, StepLabel } from '@mui/material';
+import {
+  Stepper,
+  Step,
+  StepLabel,
+  Box,
+  CircularProgress,
+  Typography,
+} from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import FormThirdStep from './ThirdStep';
+import { submitNewFeedForm } from '../../../services/feeds/add-feed-form-service';
+import { getAuth } from 'firebase/auth';
+import { useTranslation } from 'react-i18next';
 
 export type YesNoFormInput = 'yes' | 'no' | '';
 export type AuthTypes =
@@ -14,54 +24,24 @@ export type AuthTypes =
   | 'HTTP header - 2'
   | 'choiceRequired';
 
-// This is the request body required for the API
-// FeedSubmissionFormFormInput should extend this
-export interface FeedSubmissionFormBody {
-  name: string;
-  isOfficialProducer: boolean;
-  dataType: 'gtfs' | 'gtfs-rt';
-  transitProviderName?: string;
-  feedLink?: string;
-  isNewFeed: boolean;
-  oldFeedLink?: string;
-  licensePath?: string;
-  userId: string;
-  country: string;
-  region?: string;
-  municipality?: string;
-  tripUpdates?: string;
-  vehiclePositions?: string;
-  serviceAlerts?: string;
-  gtfsRelatedScheduleLink?: string;
-  note: string;
-  authType: AuthTypes;
-  authSignupLink?: string;
-  authParameterName?: string;
-  dataProducerEmail?: string;
-  isInterestedInQualityAudit: boolean;
-  userInterviewEmail?: string;
-  whatToolsUsedText?: string;
-  hasLogoPermission: boolean;
-}
-
 export interface FeedSubmissionFormFormInput {
   isOfficialProducer: YesNoFormInput;
-  dataType: string;
+  dataType: 'gtfs' | 'gtfs_rt';
   transitProviderName: string;
-  feedLink: string;
+  feedLink?: string;
   oldFeedLink?: string;
   isUpdatingFeed?: YesNoFormInput;
-  licensePath: string;
-  country: string;
-  region: string;
-  municipality: string;
+  licensePath?: string;
+  country?: string;
+  region?: string;
+  municipality?: string;
   tripUpdates?: string;
   vehiclePositions?: string;
   serviceAlerts?: string;
   oldTripUpdates?: string;
   oldVehiclePositions?: string;
   oldServiceAlerts?: string;
-  gtfsRelatedScheduleLink: string;
+  gtfsRelatedScheduleLink?: string;
   name?: string;
   authType: AuthTypes;
   authSignupLink?: string;
@@ -71,6 +51,10 @@ export interface FeedSubmissionFormFormInput {
   userInterviewEmail?: string;
   whatToolsUsedText?: string;
   hasLogoPermission: YesNoFormInput;
+}
+
+export interface FeedSubmissionFormBody extends FeedSubmissionFormFormInput {
+  userId: string;
 }
 
 const defaultFormValues: FeedSubmissionFormFormInput = {
@@ -103,6 +87,11 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
 };
 
 export default function FeedSubmissionForm(): React.ReactElement {
+  const { t } = useTranslation('feeds');
+  const [isSubmitLoading, setIsSubmitLoading] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<undefined | string>(
+    undefined,
+  );
   const [activeStep, setActiveStep] = React.useState(0);
   const [steps, setSteps] = React.useState(['', '', '']);
   const navigateTo = useNavigate();
@@ -143,17 +132,48 @@ export default function FeedSubmissionForm(): React.ReactElement {
     handleBack();
   };
 
-  const finalSubmit = (
+  const finalSubmit = async (
     partialFormData: Partial<FeedSubmissionFormFormInput>,
-  ): void => {
+  ): Promise<void> => {
     const finalData = { ...formData, ...partialFormData };
+    setIsSubmitLoading(true);
     setFormData(finalData);
-    // console.log('FINAL API CALL WITH', finalData);
-    // TODO: API call with finalData
-    // TODO: loading state of API call
-    // TODO: feed submitted page
-    handleNext();
+    try {
+      const auth = getAuth();
+      const requestBody = { ...finalData, userId: auth.currentUser?.uid ?? '' };
+      await submitNewFeedForm(requestBody);
+      handleNext();
+    } catch (error) {
+      setSubmitError(t('form.errorSubmitting'));
+    } finally {
+      setIsSubmitLoading(false);
+    }
   };
+
+  if (isSubmitLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          mt: 3,
+        }}
+      >
+        <CircularProgress />
+        <Typography
+          variant='h6'
+          sx={{ width: '100%', textAlign: 'center', mt: 2 }}
+        >
+          {t('form.submittingFeed')}
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (submitError !== undefined) {
+    return <Typography>{submitError}</Typography>;
+  }
 
   return (
     <>
@@ -199,7 +219,7 @@ export default function FeedSubmissionForm(): React.ReactElement {
           initialValues={formData}
           submitFormData={(submittedFormData) => {
             if (activeStep === steps.length - 1) {
-              finalSubmit(submittedFormData);
+              void finalSubmit(submittedFormData);
             } else {
               formStepSubmit(submittedFormData);
             }
@@ -210,7 +230,9 @@ export default function FeedSubmissionForm(): React.ReactElement {
       {activeStep === 3 && (
         <FormFourthStep
           initialValues={formData}
-          submitFormData={finalSubmit}
+          submitFormData={(submittedFormData) => {
+            void finalSubmit(submittedFormData);
+          }}
           handleBack={formStepBack}
         ></FormFourthStep>
       )}

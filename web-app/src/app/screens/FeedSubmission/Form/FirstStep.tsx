@@ -24,11 +24,11 @@ import { useTranslation } from 'react-i18next';
 
 export interface FeedSubmissionFormFormInputFirstStep {
   isOfficialProducer: YesNoFormInput;
-  dataType: string;
+  dataType: 'gtfs' | 'gtfs_rt';
   transitProviderName?: string;
   feedLink?: string;
   oldFeedLink?: string;
-  isUpdatingFeed?: YesNoFormInput;
+  isUpdatingFeed: YesNoFormInput;
 }
 
 interface FormFirstStepProps {

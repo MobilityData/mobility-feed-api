@@ -1,17 +1,17 @@
 import {
   buildFeedRow,
   buildFeedRows,
-  FeedSubmissionFormRequestBody,
   SheetCol,
 } from "../impl/feed-form-impl";
+import {type FeedSubmissionFormRequestBody} from "../impl/types";
 
 const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
   name: "Sample Feed",
-  isOfficialProducer: true,
+  isOfficialProducer: "yes",
   dataType: "gtfs",
   transitProviderName: "Sample Transit Provider",
   feedLink: "https://example.com/feed",
-  isNewFeed: true,
+  isUpdatingFeed: "yes",
   oldFeedLink: "https://example.com/old-feed",
   licensePath: "/path/to/license",
   userId: "user123",
@@ -22,24 +22,26 @@ const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
   vehiclePositions: "",
   serviceAlerts: "",
   gtfsRelatedScheduleLink: "https://example.com/gtfs-schedule",
-  note: "This is a sample note.",
-  authType: "OAuth",
+  authType: "0 - None",
   authSignupLink: "https://example.com/signup",
   authParameterName: "auth_token",
   dataProducerEmail: "producer@example.com",
-  isInterestedInQualityAudit: true,
+  isInterestedInQualityAudit: "yes",
   userInterviewEmail: "interviewee@example.com",
   whatToolsUsedText: "Google Sheets, Node.js",
-  hasLogoPermission: true,
+  hasLogoPermission: "yes",
 };
 
 const sampleRequestBodyGTFSRT: FeedSubmissionFormRequestBody = {
   ...sampleRequestBodyGTFS,
-  dataType: "gtfs-rt",
+  dataType: "gtfs_rt",
   feedLink: "",
   tripUpdates: "https://example.com/gtfs-realtime-trip-update",
   vehiclePositions: "https://example.com/gtfs-realtime-vehicle-position",
   serviceAlerts: "https://example.com/gtfs-realtime-service-alerts",
+  oldTripUpdates: "https://example.com/old-feed-tu",
+  oldServiceAlerts: "https://example.com/old-feed-sa",
+  oldVehiclePositions: "https://example.com/old-feed-vp",
 };
 
 describe("Feed Form Implementation", () => {
@@ -54,7 +56,8 @@ describe("Feed Form Implementation", () => {
       buildFeedRow(
         sampleRequestBodyGTFS,
         "GTFS Schedule",
-        sampleRequestBodyGTFS.feedLink ?? ""
+        sampleRequestBodyGTFS.feedLink ?? "",
+        "https://example.com/old-feed"
       ),
     ];
     expect(buildFeedRows(sampleRequestBodyGTFS)).toEqual(expectedRows);
@@ -65,17 +68,20 @@ describe("Feed Form Implementation", () => {
       buildFeedRow(
         sampleRequestBodyGTFSRT,
         "GTFS Realtime - Trip Updates",
-        sampleRequestBodyGTFSRT.tripUpdates ?? ""
+        sampleRequestBodyGTFSRT.tripUpdates ?? "",
+        "https://example.com/old-feed-tu"
       ),
       buildFeedRow(
         sampleRequestBodyGTFSRT,
         "GTFS Realtime - Vehicle Positions",
-        sampleRequestBodyGTFSRT.vehiclePositions ?? ""
+        sampleRequestBodyGTFSRT.vehiclePositions ?? "",
+        "https://example.com/old-feed-vp"
       ),
       buildFeedRow(
         sampleRequestBodyGTFSRT,
         "GTFS Realtime - Service Alerts",
-        sampleRequestBodyGTFSRT.serviceAlerts ?? ""
+        sampleRequestBodyGTFSRT.serviceAlerts ?? "",
+        "https://example.com/old-feed-sa"
       ),
     ];
     expect(buildFeedRows(sampleRequestBodyGTFSRT)).toEqual(expectedRows);
@@ -85,7 +91,8 @@ describe("Feed Form Implementation", () => {
     const googleSheetRow = buildFeedRow(
       sampleRequestBodyGTFS,
       "GTFS Schedule",
-      "https://example.com/gtfs-schedule"
+      "https://example.com/gtfs-schedule",
+      "https://example.com/old-feed"
     );
     expect(googleSheetRow).toEqual({
       [SheetCol.Status]: "Feed Submitted",
@@ -93,7 +100,7 @@ describe("Feed Form Implementation", () => {
       [SheetCol.TransitProvider]: sampleRequestBodyGTFS.transitProviderName,
       [SheetCol.CurrentUrl]: sampleRequestBodyGTFS.oldFeedLink,
       [SheetCol.DataType]: "GTFS Schedule",
-      [SheetCol.IssueType]: "New feed",
+      [SheetCol.IssueType]: "Feed update",
       [SheetCol.DownloadUrl]: "https://example.com/gtfs-schedule",
       [SheetCol.Country]: sampleRequestBodyGTFS.country,
       [SheetCol.Subdivision]: sampleRequestBodyGTFS.region,
@@ -105,7 +112,6 @@ describe("Feed Form Implementation", () => {
       [SheetCol.AuthenticationSignupLink]: sampleRequestBodyGTFS.authSignupLink,
       [SheetCol.AuthenticationParameterName]:
         sampleRequestBodyGTFS.authParameterName,
-      [SheetCol.Note]: sampleRequestBodyGTFS.note,
       [SheetCol.UserInterview]: sampleRequestBodyGTFS.userInterviewEmail,
       [SheetCol.DataProducerEmail]: sampleRequestBodyGTFS.dataProducerEmail,
       [SheetCol.OfficialProducer]: sampleRequestBodyGTFS.isOfficialProducer,
