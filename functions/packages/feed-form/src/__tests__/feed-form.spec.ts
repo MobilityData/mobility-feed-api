@@ -21,7 +21,7 @@ const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
   vehiclePositions: "",
   serviceAlerts: "",
   gtfsRelatedScheduleLink: "https://example.com/gtfs-schedule",
-  authType: "0 - None",
+  authType: "None - 0",
   authSignupLink: "https://example.com/signup",
   authParameterName: "auth_token",
   dataProducerEmail: "producer@example.com",

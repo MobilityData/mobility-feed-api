@@ -90,7 +90,7 @@ export default function FormThirdStep({
                 </Typography>
               </FormLabel>
               <Select
-                value={authType === '0 - None' ? authType : 'choiceRequired'}
+                value={authType === 'None - 0' ? authType : 'choiceRequired'}
                 sx={{ width: '200px' }}
                 onChange={(event) => {
                   setValue('authType', event.target.value as AuthTypes);
@@ -99,11 +99,11 @@ export default function FormThirdStep({
                 <MenuItem value='choiceRequired'>
                   {t('common:form:yes')}
                 </MenuItem>
-                <MenuItem value='0 - None'>{t('common:form:no')}</MenuItem>
+                <MenuItem value='None - 0'>{t('common:form:no')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
-          {authType !== '0 - None' && (
+          {authType !== 'None - 0' && (
             <>
               <Grid item>
                 <FormControl

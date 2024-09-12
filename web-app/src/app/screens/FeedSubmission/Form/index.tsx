@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 export type YesNoFormInput = 'yes' | 'no' | '';
 export type AuthTypes =
-  | '0 - None'
+  | 'None - 0'
   | 'API key - 1'
   | 'HTTP header - 2'
   | 'choiceRequired';
@@ -71,7 +71,7 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
   oldServiceAlerts: '',
   gtfsRelatedScheduleLink: '',
   name: '',
-  authType: '0 - None',
+  authType: 'None - 0',
   authSignupLink: '',
   authParameterName: '',
   dataProducerEmail: '',

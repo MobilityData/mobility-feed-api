@@ -1,6 +1,6 @@
 export type YesNoFormInput = "yes" | "no" | "";
 export type AuthTypes =
-  | "0 - None"
+  | "None - 0"
   | "API key - 1"
   | "HTTP header - 2"
   | "choiceRequired";
