@@ -3,6 +3,7 @@ import base64
 import json
 
 from cloudevents.http import CloudEvent
+
 #
 # Requirements:
 # - Google Cloud SDK installed
@@ -20,7 +21,7 @@ from dotenv import load_dotenv
 from batch_process_dataset.src.main import process_dataset
 
 # Load environment variables from .env.local
-load_dotenv(dotenv_path='.env.local')
+load_dotenv(dotenv_path=".env.local")
 
 if __name__ == "__main__":
     attributes = {
@@ -29,17 +30,21 @@ if __name__ == "__main__":
     }
     data = {
         "message": {
-            "data": base64.b64encode(json.dumps({
-                "execution_id": "execution_id",
-                "producer_url": "producer_url",
-                "feed_stable_id": "feed_stable_id",
-                "feed_id": "feed_id",
-                "dataset_id": "dataset_id",
-                "dataset_hash": "dataset_hash",
-                "authentication_type": 0,
-                "authentication_info_url": "authentication_info_url",
-                "api_key_parameter_name": "api_key_parameter_name"
-            }).encode("utf-8")).decode("utf-8")
+            "data": base64.b64encode(
+                json.dumps(
+                    {
+                        "execution_id": "execution_id",
+                        "producer_url": "producer_url",
+                        "feed_stable_id": "feed_stable_id",
+                        "feed_id": "feed_id",
+                        "dataset_id": "dataset_id",
+                        "dataset_hash": "dataset_hash",
+                        "authentication_type": 0,
+                        "authentication_info_url": "authentication_info_url",
+                        "api_key_parameter_name": "api_key_parameter_name",
+                    }
+                ).encode("utf-8")
+            ).decode("utf-8")
         }
     }
     cloud_event = CloudEvent(attributes, data)

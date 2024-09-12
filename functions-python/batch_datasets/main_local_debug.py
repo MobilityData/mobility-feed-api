@@ -16,9 +16,10 @@ from src.main import batch_datasets
 from dotenv import load_dotenv
 
 # Load environment variables from .env.local
-load_dotenv(dotenv_path='.env.local')
+load_dotenv(dotenv_path=".env.local")
 
 if __name__ == "__main__":
+
     class RequestObject:
         def __init__(self, headers):
             self.headers = headers
