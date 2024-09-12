@@ -32,5 +32,4 @@ export interface FeedSubmissionFormRequestBody {
   userInterviewEmail?: string;
   whatToolsUsedText?: string;
   hasLogoPermission: YesNoFormInput;
-  userId: string;
 }

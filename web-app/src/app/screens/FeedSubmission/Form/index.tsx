@@ -14,7 +14,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import FormThirdStep from './ThirdStep';
 import { submitNewFeedForm } from '../../../services/feeds/add-feed-form-service';
-import { getAuth } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 
 export type YesNoFormInput = 'yes' | 'no' | '';
@@ -51,10 +50,6 @@ export interface FeedSubmissionFormFormInput {
   userInterviewEmail?: string;
   whatToolsUsedText?: string;
   hasLogoPermission: YesNoFormInput;
-}
-
-export interface FeedSubmissionFormBody extends FeedSubmissionFormFormInput {
-  userId: string;
 }
 
 const defaultFormValues: FeedSubmissionFormFormInput = {
@@ -139,8 +134,7 @@ export default function FeedSubmissionForm(): React.ReactElement {
     setIsSubmitLoading(true);
     setFormData(finalData);
     try {
-      const auth = getAuth();
-      const requestBody = { ...finalData, userId: auth.currentUser?.uid ?? '' };
+      const requestBody = { ...finalData };
       await submitNewFeedForm(requestBody);
       handleNext();
     } catch (error) {

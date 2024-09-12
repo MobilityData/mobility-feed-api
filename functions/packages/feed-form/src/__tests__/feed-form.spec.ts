@@ -14,7 +14,6 @@ const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
   isUpdatingFeed: "yes",
   oldFeedLink: "https://example.com/old-feed",
   licensePath: "/path/to/license",
-  userId: "user123",
   country: "USA",
   region: "California",
   municipality: "San Francisco",
@@ -51,48 +50,67 @@ describe("Feed Form Implementation", () => {
   });
 
   it("should build the rows if gtfs schedule", () => {
-    buildFeedRows(sampleRequestBodyGTFS);
+    buildFeedRows(sampleRequestBodyGTFS, "user123");
     const expectedRows = [
       buildFeedRow(
         sampleRequestBodyGTFS,
-        "GTFS Schedule",
-        sampleRequestBodyGTFS.feedLink ?? "",
-        "https://example.com/old-feed"
+        {
+          dataTypeName: "GTFS Schedule",
+          downloadUrl: sampleRequestBodyGTFS.feedLink ?? "",
+          currentUrl: "https://example.com/old-feed",
+          uid: "user123",
+        }
       ),
     ];
-    expect(buildFeedRows(sampleRequestBodyGTFS)).toEqual(expectedRows);
+    expect(buildFeedRows(sampleRequestBodyGTFS, "user123")).toEqual(
+      expectedRows
+    );
   });
 
   it("should build the rows if gtfs realtime", () => {
     const expectedRows = [
       buildFeedRow(
         sampleRequestBodyGTFSRT,
-        "GTFS Realtime - Trip Updates",
-        sampleRequestBodyGTFSRT.tripUpdates ?? "",
-        "https://example.com/old-feed-tu"
+        {
+          dataTypeName: "GTFS Realtime - Trip Updates",
+          downloadUrl: sampleRequestBodyGTFSRT.tripUpdates ?? "",
+          currentUrl: "https://example.com/old-feed-tu",
+          uid: "user123",
+        }
       ),
       buildFeedRow(
         sampleRequestBodyGTFSRT,
-        "GTFS Realtime - Vehicle Positions",
-        sampleRequestBodyGTFSRT.vehiclePositions ?? "",
-        "https://example.com/old-feed-vp"
+        {
+          dataTypeName: "GTFS Realtime - Vehicle Positions",
+          downloadUrl: sampleRequestBodyGTFSRT.vehiclePositions ?? "",
+          currentUrl: "https://example.com/old-feed-vp",
+          uid: "user123",
+        }
       ),
       buildFeedRow(
         sampleRequestBodyGTFSRT,
-        "GTFS Realtime - Service Alerts",
-        sampleRequestBodyGTFSRT.serviceAlerts ?? "",
-        "https://example.com/old-feed-sa"
+        {
+          dataTypeName: "GTFS Realtime - Service Alerts",
+          downloadUrl: sampleRequestBodyGTFSRT.serviceAlerts ?? "",
+          currentUrl: "https://example.com/old-feed-sa",
+          uid: "user123",
+        }
       ),
     ];
-    expect(buildFeedRows(sampleRequestBodyGTFSRT)).toEqual(expectedRows);
+    expect(buildFeedRows(sampleRequestBodyGTFSRT, "user123")).toEqual(
+      expectedRows
+    );
   });
 
   it("should format request body to row format", () => {
     const googleSheetRow = buildFeedRow(
       sampleRequestBodyGTFS,
-      "GTFS Schedule",
-      "https://example.com/gtfs-schedule",
-      "https://example.com/old-feed"
+      {
+        dataTypeName: "GTFS Schedule",
+        downloadUrl: "https://example.com/gtfs-schedule",
+        currentUrl: "https://example.com/old-feed",
+        uid: "user123",
+      }
     );
     expect(googleSheetRow).toEqual({
       [SheetCol.Status]: "Feed Submitted",
@@ -106,7 +124,7 @@ describe("Feed Form Implementation", () => {
       [SheetCol.Subdivision]: sampleRequestBodyGTFS.region,
       [SheetCol.Municipality]: sampleRequestBodyGTFS.municipality,
       [SheetCol.Name]: sampleRequestBodyGTFS.name,
-      [SheetCol.UserId]: sampleRequestBodyGTFS.userId,
+      [SheetCol.UserId]: "user123",
       [SheetCol.LinkToDatasetLicense]: sampleRequestBodyGTFS.licensePath,
       [SheetCol.AuthenticationType]: sampleRequestBodyGTFS.authType,
       [SheetCol.AuthenticationSignupLink]: sampleRequestBodyGTFS.authSignupLink,
