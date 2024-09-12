@@ -25,10 +25,14 @@ export const writeToSheet = async (request: Request, response: Response) => {
     const rows = buildFeedRows(formData);
     await rawDataSheet.addRows(rows, {insert: true});
 
-    response.status(200).send("Data written to the new sheet successfully!");
+    response.status(200).send(
+      {message: "Data written to the new sheet successfully!"}
+    );
   } catch (error) {
     logger.error("Error writing to sheet:", error);
-    response.status(500).send("An error occurred while writing to the sheet.");
+    response.status(500).send(
+      {message: "An error occurred while writing to the sheet."}
+    );
   }
 };
 
