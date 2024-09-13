@@ -83,7 +83,7 @@ export default function FormFourthStep({
                 </Typography>
               </FormLabel>
               <Controller
-                rules={{ required: t('dataProducerEmailRequired') }}
+                rules={{ required: t('form.dataProducerEmailRequired') }}
                 control={control}
                 name='dataProducerEmail'
                 render={({ field }) => (

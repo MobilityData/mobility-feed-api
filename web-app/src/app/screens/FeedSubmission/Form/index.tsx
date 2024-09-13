@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import FormFirstStep from './FirstStep';
 import FormSecondStep from './SecondStep';
 import FormSecondStepRT from './SecondStepRealtime';
@@ -11,7 +11,7 @@ import {
   CircularProgress,
   Typography,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import FormThirdStep from './ThirdStep';
 import { submitNewFeedForm } from '../../../services/feeds/add-feed-form-service';
 import { useTranslation } from 'react-i18next';
@@ -83,25 +83,71 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
 
 export default function FeedSubmissionForm(): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isSubmitLoading, setIsSubmitLoading] = React.useState(false);
   const [submitError, setSubmitError] = React.useState<undefined | string>(
     undefined,
   );
-  const [activeStep, setActiveStep] = React.useState(0);
   const [steps, setSteps] = React.useState(['', '', '']);
   const navigateTo = useNavigate();
   const [formData, setFormData] =
     React.useState<FeedSubmissionFormFormInput>(defaultFormValues);
+  const [stepsCompleted, setStepsCompleted] = React.useState({
+    '1': false,
+    '2': false,
+    '3': false,
+  });
 
-  const handleBack = (): void => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
+  const currentStep =
+    searchParams.get('step') === null ? 1 : Number(searchParams.get('step'));
+
+  // route guards
+  useEffect(() => {
+    const step = searchParams.get('step') ?? '1';
+
+    if (step === '2' || step === '3' || step === '4') {
+      if (!stepsCompleted['1']) {
+        setSearchParams({});
+      }
+      return;
+    }
+
+    if (step === '3' || step === '4') {
+      if (!stepsCompleted['2']) {
+        setSearchParams({ step: '1' });
+      }
+      return;
+    }
+
+    if (step === '4') {
+      if (!stepsCompleted['3'] || !(formData.isOfficialProducer === 'yes')) {
+        setSearchParams({ step: '3' });
+      }
+      return;
+    }
+    setSubmitError(undefined);
+  }, [searchParams]);
 
   const handleNext = (): void => {
-    const nextStep = activeStep + 1;
-    setActiveStep(nextStep);
-    if (nextStep === steps.length) {
+    const nextStep =
+      searchParams.get('step') === null
+        ? 2
+        : Number(searchParams.get('step')) + 1;
+    setStepsCompleted({ ...stepsCompleted, [currentStep]: true });
+    setSearchParams({ step: nextStep.toString() });
+    if (nextStep === steps.length + 1) {
+      console.log('next step', nextStep);
+      console.log('steps length', steps.length);
       navigateTo('/contribute/submitted');
+    }
+  };
+
+  const handleBack = (): void => {
+    const previousStep = (currentStep - 1).toString();
+    if (previousStep === '1') {
+      setSearchParams({});
+    } else {
+      setSearchParams({ step: previousStep });
     }
   };
 
@@ -172,7 +218,7 @@ export default function FeedSubmissionForm(): React.ReactElement {
   return (
     <>
       <Stepper
-        activeStep={activeStep}
+        activeStep={currentStep - 1}
         sx={{ mb: 3, width: steps.length === 2 ? 'calc(50% + 24px)' : '100%' }}
       >
         {steps.map((label, index) => {
@@ -187,32 +233,32 @@ export default function FeedSubmissionForm(): React.ReactElement {
           );
         })}
       </Stepper>
-      {activeStep === 0 && (
+      {currentStep === 1 && (
         <FormFirstStep
           initialValues={formData}
           submitFormData={formStepSubmit}
           setNumberOfSteps={setNumberOfSteps}
         ></FormFirstStep>
       )}
-      {activeStep === 1 && formData.dataType === 'gtfs' && (
+      {currentStep === 2 && formData.dataType === 'gtfs' && (
         <FormSecondStep
           initialValues={formData}
           submitFormData={formStepSubmit}
           handleBack={formStepBack}
         ></FormSecondStep>
       )}
-      {activeStep === 1 && formData.dataType === 'gtfs_rt' && (
+      {currentStep === 2 && formData.dataType === 'gtfs_rt' && (
         <FormSecondStepRT
           initialValues={formData}
           submitFormData={formStepSubmit}
           handleBack={formStepBack}
         ></FormSecondStepRT>
       )}
-      {activeStep === 2 && (
+      {currentStep === 3 && (
         <FormThirdStep
           initialValues={formData}
           submitFormData={(submittedFormData) => {
-            if (activeStep === steps.length - 1) {
+            if (currentStep === steps.length) {
               void finalSubmit(submittedFormData);
             } else {
               formStepSubmit(submittedFormData);
@@ -221,7 +267,7 @@ export default function FeedSubmissionForm(): React.ReactElement {
           handleBack={formStepBack}
         ></FormThirdStep>
       )}
-      {activeStep === 3 && (
+      {currentStep === 4 && (
         <FormFourthStep
           initialValues={formData}
           submitFormData={(submittedFormData) => {
