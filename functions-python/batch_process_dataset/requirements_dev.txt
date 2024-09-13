@@ -2,3 +2,4 @@ Faker
 pytest~=7.4.3
 urllib3-mock
 requests-mock
+python-dotenv~=1.0.0

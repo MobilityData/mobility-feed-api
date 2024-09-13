@@ -137,7 +137,7 @@ def batch_datasets(request):
         print(f"Publishing {data_str} to {topic_path}.")
         future = publish(publisher, topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
-            lambda _: publish_callback(future, feed["stable_id"], topic_path)
+            lambda _: publish_callback(future, feed.stable_id, topic_path)
         )
     BatchExecutionService().save(
         BatchExecution(
