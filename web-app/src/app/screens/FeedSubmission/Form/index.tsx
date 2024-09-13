@@ -136,8 +136,6 @@ export default function FeedSubmissionForm(): React.ReactElement {
     setStepsCompleted({ ...stepsCompleted, [currentStep]: true });
     setSearchParams({ step: nextStep.toString() });
     if (nextStep === steps.length + 1) {
-      console.log('next step', nextStep);
-      console.log('steps length', steps.length);
       navigateTo('/contribute/submitted');
     }
   };
