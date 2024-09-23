@@ -81,3 +81,8 @@ export function getLocationName(
   });
   return displayLocation;
 }
+
+export function isValidFeedLink(feedLink: string): boolean {
+  const urlPattern = /^(https?:\/\/)[\w.-]+(:\d+)?(\/[\w.-]*)*$/;
+  return urlPattern.test(feedLink ?? '');
+}

@@ -21,6 +21,7 @@ import {
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isValidFeedLink } from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormFormInputFirstStep {
   isOfficialProducer: YesNoFormInput;
@@ -57,6 +58,7 @@ export default function FormFirstStep({
       isUpdatingFeed: initialValues.isUpdatingFeed,
     },
   });
+
   const onSubmit: SubmitHandler<FeedSubmissionFormFormInputFirstStep> = (
     data,
   ): void => {
@@ -127,7 +129,7 @@ export default function FormFirstStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid item sx={{ '&.MuiGrid-item': { pt: '4px' } }}>
             <FormControl
               component='fieldset'
               error={errors.dataType !== undefined}
@@ -173,11 +175,11 @@ export default function FormFirstStep({
                   {t('feedLink')}
                 </FormLabel>
                 <Controller
-                  rules={
-                    dataType === 'gtfs'
-                      ? { required: t('form.feedLinkRequired') }
-                      : {}
-                  }
+                  rules={{
+                    required: t('form.feedLinkRequired'),
+                    validate: (value) =>
+                      isValidFeedLink(value ?? '') || t('form.errorUrl'),
+                  }}
                   control={control}
                   name='feedLink'
                   render={({ field }) => (

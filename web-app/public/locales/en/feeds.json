@@ -37,7 +37,8 @@
       "parameterNameDetail": "The parameter the user must pass in the URl or HTTP header to download the feed. E.g \"api_key\" in https://example.com/feed?api_key=123"
     },
     "errorSubmitting": "An error occurred while submitting the form.",
-    "submittingFeed": "Submitting the feed..."
+    "submittingFeed": "Submitting the feed...",
+    "errorUrl": "The URL format is invalid"
   },
   "seeFullList": "See full list",
   "hideFullList": "Hide full list",
@@ -66,9 +67,9 @@
   "interestedInDataAuditDetails": "This is a 1 time meeting with MobilityData to review your GTFS validation report and discuss possible improvements.",
   "dataAuditContactEmail": "Data quality audit contact email",
   "hasLogoPermission": "Do we have your permission to use your logo?",
-  "hasLogoPermissionDetails": "This would be would be used to display your logo on the Mobilitydatabase website",
+  "hasLogoPermissionDetails": "This would be would be used to display your logo on the Mobility Database website",
   "whatToolsCreateGtfs": "What tools do you use to create GTFS data?",
-  "whatToolsCreateGtfsDetails": "Could include open source librareis, vendor serviecs, or other applications.",
+  "whatToolsCreateGtfsDetails": "Could include open source libraries, vendor services, or other applications.",
   "feedNameDetails": "Helpful when 1 transit agency has multiple feeds, e.g \"MTA Bus\" and \"MTA Subway\"",
   "gtfsScheduleFeed": "GTFS Schedule Feed",
   "gtfsRealtimeFeed": "GTFS Realtime Feed",
