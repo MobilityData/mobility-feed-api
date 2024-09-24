@@ -1,46 +1,22 @@
 import {GoogleSpreadsheet} from "google-spreadsheet";
 import {GoogleAuth} from "google-auth-library";
-import {Response, Request} from "firebase-functions/v1";
 import * as logger from "firebase-functions/logger";
-
-export interface FeedSubmissionFormRequestBody {
-  name: string;
-  isOfficialProducer: boolean;
-  dataType: "gtfs" | "gtfs-rt";
-  transitProviderName?: string;
-  feedLink?: string;
-  isNewFeed: boolean;
-  oldFeedLink?: string;
-  licensePath?: string;
-  userId: string;
-  country: string;
-  region?: string;
-  municipality?: string;
-  tripUpdates?: string;
-  vehiclePositions?: string;
-  serviceAlerts?: string;
-  gtfsRelatedScheduleLink?: string;
-  note: string;
-  authType?: string;
-  authSignupLink?: string;
-  authParameterName?: string;
-  dataProducerEmail?: string;
-  isInterestedInQualityAudit: boolean;
-  userInterviewEmail?: string;
-  whatToolsUsedText?: string;
-  hasLogoPermission: boolean;
-}
+import {type FeedSubmissionFormRequestBody} from "./types";
+import {type CallableRequest, HttpsError} from "firebase-functions/v2/https";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/drive.file",
 ];
 
-export const writeToSheet = async (request: Request, response: Response) => {
+export const writeToSheet = async (
+  request: CallableRequest<FeedSubmissionFormRequestBody>
+) => {
   try {
+    const uid = request.auth?.uid ?? "";
     const sheetId = process.env.FEED_SUBMIT_GOOGLE_SHEET_ID;
-    if (sheetId === undefined) {
-      throw new Error("Google Sheet ID is not defined");
+    if (sheetId === undefined || sheetId === "") {
+      throw new HttpsError("internal", "Google Sheet ID is not defined");
     }
     const auth = new GoogleAuth({
       scopes: SCOPES,
@@ -48,14 +24,16 @@ export const writeToSheet = async (request: Request, response: Response) => {
     const doc = await new GoogleSpreadsheet(sheetId, auth);
     await doc.loadInfo();
     const rawDataSheet = doc.sheetsByIndex[0];
-    const formData: FeedSubmissionFormRequestBody = request.body;
-    const rows = buildFeedRows(formData);
+    const formData: FeedSubmissionFormRequestBody = request.data;
+    const rows = buildFeedRows(formData, uid);
     await rawDataSheet.addRows(rows, {insert: true});
 
-    response.status(200).send("Data written to the new sheet successfully!");
+    return {message: "Data written to the new sheet successfully!"};
   } catch (error) {
     logger.error("Error writing to sheet:", error);
-    response.status(500).send("An error occurred while writing to the sheet.");
+    throw new HttpsError(
+      "internal", "An error occurred while writing to the sheet."
+    );
   }
 };
 
@@ -94,24 +72,39 @@ export enum SheetCol {
 /**
  *
  * @param {FeedSubmissionFormRequestBody} formData The request body from the feed submission form
+ * @param {string} uid The user ID of the user submitting the feed
  * @return {RawRowData[]} Formatted rows data to be written to the Google Sheet
  */
 export function buildFeedRows(
-  formData: FeedSubmissionFormRequestBody
+  formData: FeedSubmissionFormRequestBody,
+  uid: string
 ): RawRowData[] {
   /* eslint-enable max-len */
   const rowsToAdd: RawRowData[] = [];
   if (formData.dataType === "gtfs") {
     rowsToAdd.push(
-      buildFeedRow(formData, "GTFS Schedule", formData.feedLink ?? "")
+      buildFeedRow(
+        formData,
+        {
+          dataTypeName: "GTFS Schedule",
+          downloadUrl: formData.feedLink ?? "",
+          currentUrl: formData.oldFeedLink ?? "",
+          uid,
+        }
+      )
     );
   } else {
     if (formData.tripUpdates) {
       rowsToAdd.push(
         buildFeedRow(
           formData,
-          "GTFS Realtime - Trip Updates",
-          formData.tripUpdates ?? ""
+          {
+            dataTypeName: "GTFS Realtime - Trip Updates",
+            downloadUrl: formData.tripUpdates ?? "",
+            currentUrl: formData.oldTripUpdates ?? "",
+            uid,
+          }
+
         )
       );
     }
@@ -119,8 +112,12 @@ export function buildFeedRows(
       rowsToAdd.push(
         buildFeedRow(
           formData,
-          "GTFS Realtime - Vehicle Positions",
-          formData.vehiclePositions ?? ""
+          {
+            dataTypeName: "GTFS Realtime - Vehicle Positions",
+            downloadUrl: formData.vehiclePositions ?? "",
+            currentUrl: formData.oldVehiclePositions ?? "",
+            uid,
+          }
         )
       );
     }
@@ -128,8 +125,12 @@ export function buildFeedRows(
       rowsToAdd.push(
         buildFeedRow(
           formData,
-          "GTFS Realtime - Service Alerts",
-          formData.serviceAlerts ?? ""
+          {
+            dataTypeName: "GTFS Realtime - Service Alerts",
+            downloadUrl: formData.serviceAlerts ?? "",
+            currentUrl: formData.oldServiceAlerts ?? "",
+            uid,
+          }
         )
       );
     }
@@ -139,17 +140,22 @@ export function buildFeedRows(
 
 /* eslint-disable max-len */
 
+interface BuildRowParameters {
+  dataTypeName: string;
+  downloadUrl: string;
+  currentUrl: string;
+  uid: string;
+}
+
 /**
  *
  * @param {FeedSubmissionFormRequestBody} formData The request body from the feed submission form
- * @param {string} dataTypeName Specific data type name for the feed
- * @param {string} downloadUrl Feed download URL
+ * @param {BuildRowParameters} formRowParameters Specific parameters based on feed type
  * @return {RawRowData} Formatted row data to be written to the Google Sheet
  */
 export function buildFeedRow(
   formData: FeedSubmissionFormRequestBody,
-  dataTypeName: string,
-  downloadUrl: string
+  formRowParameters: BuildRowParameters
 ): RawRowData {
   /* eslint-enable max-len */
   const dateNow = new Date();
@@ -160,20 +166,20 @@ export function buildFeedRow(
       timeZone: "UTC",
     }),
     [SheetCol.TransitProvider]: formData.transitProviderName ?? "",
-    [SheetCol.CurrentUrl]: formData.oldFeedLink ?? "",
-    [SheetCol.DataType]: dataTypeName,
-    [SheetCol.IssueType]: formData.isNewFeed ? "New feed" : "Feed update",
-    [SheetCol.DownloadUrl]: downloadUrl,
+    [SheetCol.CurrentUrl]: formRowParameters.currentUrl,
+    [SheetCol.DataType]: formRowParameters.dataTypeName,
+    [SheetCol.IssueType]:
+      formData.isUpdatingFeed === "yes" ? "Feed update" : "New feed",
+    [SheetCol.DownloadUrl]: formRowParameters.downloadUrl,
     [SheetCol.Country]: formData.country,
     [SheetCol.Subdivision]: formData.region ?? "",
     [SheetCol.Municipality]: formData.municipality ?? "",
-    [SheetCol.Name]: formData.name,
-    [SheetCol.UserId]: formData.userId,
+    [SheetCol.Name]: formData.name ?? "",
+    [SheetCol.UserId]: formRowParameters.uid,
     [SheetCol.LinkToDatasetLicense]: formData.licensePath ?? "",
     [SheetCol.AuthenticationType]: formData.authType ?? "",
     [SheetCol.AuthenticationSignupLink]: formData.authSignupLink ?? "",
     [SheetCol.AuthenticationParameterName]: formData.authParameterName ?? "",
-    [SheetCol.Note]: formData.note,
     [SheetCol.UserInterview]: formData.userInterviewEmail ?? "",
     [SheetCol.DataProducerEmail]: formData.dataProducerEmail ?? "",
     [SheetCol.OfficialProducer]: formData.isOfficialProducer,

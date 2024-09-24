@@ -3,9 +3,6 @@ import {
   Grid,
   FormControl,
   FormLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
   Button,
   MenuItem,
   Select,
@@ -14,12 +11,15 @@ import {
 } from '@mui/material';
 import { Controller, type SubmitHandler, useForm } from 'react-hook-form';
 import { type FeedSubmissionFormFormInput } from '.';
+import { useTranslation } from 'react-i18next';
+import { getCountryDataList } from 'countries-list';
+import { useState } from 'react';
 
 export interface FeedSubmissionFormInputSecondStep {
   country: string;
   region: string;
   municipality: string;
-  isAuthRequired: string;
+  name: string;
 }
 
 interface FormSecondStepProps {
@@ -33,6 +33,8 @@ export default function FormSecondStep({
   submitFormData,
   handleBack,
 }: FormSecondStepProps): React.ReactElement {
+  const [countryList] = useState(getCountryDataList());
+  const { t } = useTranslation('feeds');
   const {
     control,
     handleSubmit,
@@ -43,7 +45,7 @@ export default function FormSecondStep({
       country: initialValues.country,
       region: initialValues.region,
       municipality: initialValues.municipality,
-      isAuthRequired: initialValues.isAuthRequired,
+      name: initialValues.name,
     },
   });
   const onSubmit: SubmitHandler<FeedSubmissionFormInputSecondStep> = (data) => {
@@ -52,7 +54,7 @@ export default function FormSecondStep({
 
   return (
     <>
-      <Typography gutterBottom>GTFS Schedule Feed</Typography>
+      <Typography gutterBottom>{t('gtfsScheduleFeed')}</Typography>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
@@ -62,7 +64,7 @@ export default function FormSecondStep({
               error={errors.country !== undefined}
             >
               <FormLabel component='legend' required>
-                Country
+                {t('common:country')}
               </FormLabel>
               <Controller
                 rules={{ required: 'Country is required' }}
@@ -70,18 +72,15 @@ export default function FormSecondStep({
                 name='country'
                 render={({ field }) => (
                   <>
-                    <Select
-                      {...field}
-                      value={undefined}
-                      displayEmpty
-                      sx={{ minWidth: '250px' }}
-                    >
-                      <MenuItem value={undefined}>
-                        <em>Choose a country</em>
+                    <Select {...field} displayEmpty sx={{ minWidth: '250px' }}>
+                      <MenuItem value={''}>
+                        <em>{t('common:chooseCountry')}</em>
                       </MenuItem>
-                      {/* TODO: country dropdown */}
-                      <MenuItem value={'CA'}>Canada</MenuItem>
-                      <MenuItem value={'US'}>United States</MenuItem>
+                      {countryList.map((country) => (
+                        <MenuItem key={country.iso2} value={country.iso2}>
+                          {country.name}
+                        </MenuItem>
+                      ))}
                     </Select>
                     <FormHelperText>
                       {errors.country?.message ?? ''}
@@ -93,7 +92,7 @@ export default function FormSecondStep({
           </Grid>
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Region</FormLabel>
+              <FormLabel component='legend'>{t('common:region')}</FormLabel>
               <Controller
                 control={control}
                 name='region'
@@ -105,7 +104,9 @@ export default function FormSecondStep({
           </Grid>
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Municipality</FormLabel>
+              <FormLabel component='legend'>
+                {t('common:municipality')}
+              </FormLabel>
               <Controller
                 control={control}
                 name='municipality'
@@ -116,26 +117,19 @@ export default function FormSecondStep({
             </FormControl>
           </Grid>
           <Grid item>
-            <FormControl component='fieldset'>
+            <FormControl component='fieldset' fullWidth>
               <FormLabel component='legend'>
-                Is authentication required?
+                {t('common:name')}
+                <br></br>
+                <Typography variant='caption'>
+                  {t('feedNameDetails')}
+                </Typography>
               </FormLabel>
               <Controller
                 control={control}
-                name='isAuthRequired'
+                name='name'
                 render={({ field }) => (
-                  <RadioGroup {...field}>
-                    <FormControlLabel
-                      value='yes'
-                      control={<Radio />}
-                      label='Yes'
-                    />
-                    <FormControlLabel
-                      value='no'
-                      control={<Radio />}
-                      label='No'
-                    />
-                  </RadioGroup>
+                  <TextField className='md-small-input' {...field} />
                 )}
               />
             </FormControl>
@@ -150,12 +144,12 @@ export default function FormSecondStep({
                 variant='outlined'
                 sx={{ mt: 3, mb: 2 }}
               >
-                Back
+                {t('common:back')}
               </Button>
             </Grid>
             <Grid item>
               <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
-                Next
+                {t('common:next')}
               </Button>
             </Grid>
           </Grid>

@@ -1,4 +1,4 @@
-import countryCodeEmoji from 'country-code-emoji';
+import { getEmojiFlag, type TCountryCode } from 'countries-list';
 import { type paths, type components } from './types';
 
 export type AllFeedsType =
@@ -58,7 +58,9 @@ export function getLocationName(
   let displayLocation = '';
   locations.forEach((location, index) => {
     if (location.country_code !== undefined && location.country_code !== null) {
-      displayLocation += `${countryCodeEmoji(location.country_code)} `;
+      displayLocation += `${getEmojiFlag(
+        location.country_code as TCountryCode,
+      )} `;
     }
     if (location.country !== undefined && location.country !== null) {
       displayLocation += `${location.country}`;
@@ -78,4 +80,9 @@ export function getLocationName(
     }
   });
   return displayLocation;
+}
+
+export function isValidFeedLink(feedLink: string): boolean {
+  const urlPattern = /^(https?:\/\/)[\w.-]+(:\d+)?(\/[\w.-]*)*$/;
+  return urlPattern.test(feedLink ?? '');
 }

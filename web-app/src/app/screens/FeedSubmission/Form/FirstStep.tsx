@@ -21,14 +21,15 @@ import {
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isValidFeedLink } from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormFormInputFirstStep {
   isOfficialProducer: YesNoFormInput;
-  dataType: string;
+  dataType: 'gtfs' | 'gtfs_rt';
   transitProviderName?: string;
   feedLink?: string;
   oldFeedLink?: string;
-  isUpdatingFeed?: YesNoFormInput;
+  isUpdatingFeed: YesNoFormInput;
 }
 
 interface FormFirstStepProps {
@@ -57,11 +58,11 @@ export default function FormFirstStep({
       isUpdatingFeed: initialValues.isUpdatingFeed,
     },
   });
+
   const onSubmit: SubmitHandler<FeedSubmissionFormFormInputFirstStep> = (
     data,
   ): void => {
     if (data.dataType === 'gtfs_rt') {
-      delete data.isUpdatingFeed;
       delete data.feedLink;
       delete data.oldFeedLink;
     }
@@ -128,7 +129,7 @@ export default function FormFirstStep({
               />
             </FormControl>
           </Grid>
-          <Grid item>
+          <Grid item sx={{ '&.MuiGrid-item': { pt: '4px' } }}>
             <FormControl
               component='fieldset'
               error={errors.dataType !== undefined}
@@ -174,11 +175,11 @@ export default function FormFirstStep({
                   {t('feedLink')}
                 </FormLabel>
                 <Controller
-                  rules={
-                    dataType === 'gtfs'
-                      ? { required: t('form.feedLinkRequired') }
-                      : {}
-                  }
+                  rules={{
+                    required: t('form.feedLinkRequired'),
+                    validate: (value) =>
+                      isValidFeedLink(value ?? '') || t('form.errorUrl'),
+                  }}
                   control={control}
                   name='feedLink'
                   render={({ field }) => (
@@ -194,60 +195,54 @@ export default function FormFirstStep({
             </Grid>
           )}
 
-          {dataType === 'gtfs' && (
-            <>
-              <Grid item>
-                <FormControl
-                  component='fieldset'
-                  error={errors.dataType !== undefined}
-                >
-                  <FormLabel required>{t('areYouUpdatingFeed')}</FormLabel>
-                  <Controller
-                    rules={{ required: t('common:form.required') }}
-                    control={control}
-                    name='isUpdatingFeed'
-                    render={({ field }) => (
-                      <Select {...field} sx={{ width: '200px' }}>
-                        <MenuItem value={'yes'}>
-                          {t('common:form.yes')}
-                        </MenuItem>
-                        <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
-                      </Select>
-                    )}
-                  />
-                </FormControl>
-              </Grid>
-              {isUpdatingFeed === 'yes' && (
-                <Grid item>
-                  <FormControl
-                    component='fieldset'
-                    fullWidth
-                    error={errors.oldFeedLink !== undefined}
-                  >
-                    <FormLabel component='legend' required>
-                      {t('oldFeedLink')}
-                    </FormLabel>
-                    <Controller
-                      rules={
-                        isUpdatingFeed === 'yes' && dataType === 'gtfs'
-                          ? { required: t('form.oldFeedLinkRequired') }
-                          : {}
-                      }
-                      control={control}
-                      name='oldFeedLink'
-                      render={({ field }) => (
-                        <TextField
-                          className='md-small-input'
-                          helperText={errors.oldFeedLink?.message ?? ''}
-                          error={errors.oldFeedLink !== undefined}
-                          {...field}
-                        />
-                      )}
+          <Grid item>
+            <FormControl
+              component='fieldset'
+              error={errors.dataType !== undefined}
+            >
+              <FormLabel required>{t('areYouUpdatingFeed')}</FormLabel>
+              <Controller
+                rules={{ required: t('common:form.required') }}
+                control={control}
+                name='isUpdatingFeed'
+                render={({ field }) => (
+                  <Select {...field} sx={{ width: '200px' }}>
+                    <MenuItem value={'yes'}>{t('common:form.yes')}</MenuItem>
+                    <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
+                  </Select>
+                )}
+              />
+            </FormControl>
+          </Grid>
+          {dataType === 'gtfs' && isUpdatingFeed === 'yes' && (
+            <Grid item>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldFeedLink !== undefined}
+              >
+                <FormLabel component='legend' required>
+                  {t('oldFeedLink')}
+                </FormLabel>
+                <Controller
+                  rules={
+                    isUpdatingFeed === 'yes' && dataType === 'gtfs'
+                      ? { required: t('form.oldFeedLinkRequired') }
+                      : {}
+                  }
+                  control={control}
+                  name='oldFeedLink'
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      helperText={errors.oldFeedLink?.message ?? ''}
+                      error={errors.oldFeedLink !== undefined}
+                      {...field}
                     />
-                  </FormControl>
-                </Grid>
-              )}
-            </>
+                  )}
+                />
+              </FormControl>
+            </Grid>
           )}
 
           <Grid container spacing={2}>
