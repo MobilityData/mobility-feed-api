@@ -27,7 +27,7 @@ def feed_sync_dispatcher(
     feed_sync_processor: FeedSyncProcessor, pubsub_topic_path: str, execution_id: str
 ):
     """
-    HTTP Function to process external APIs feed syncs and publishes events to a Pub/Sub topic to be processed.
+    HTTP Function to process APIs feed syncs and publishes events to a Pub/Sub topic to be processed.
     :param pubsub_topic_path: name of the Pub/Sub topic to publish to
     :param execution_id: execution ID
     :param feed_sync_processor: FeedSync object
