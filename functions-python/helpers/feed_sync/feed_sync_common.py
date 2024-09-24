@@ -36,10 +36,11 @@ class FeedSyncProcessor:
     Abstract class for feed sync processors
     """
 
-    def process_sync(self, session: Session) -> list[FeedSyncPayload]:
+    def process_sync(self, session: Session, execution_id: str) -> list[FeedSyncPayload]:
         """
         Abstract method to process feed sync.
         :param session: database session
+        :param execution_id: execution ID. This ID is used for logging and debugging purposes.
         :return: list of FeedSyncPayload
         """
         pass

@@ -46,7 +46,7 @@ def feed_sync_dispatcher(
     logging.info(f"Total feeds to add/update: {len(payloads)}.")
 
     for payload in payloads:
-        data_str = json.dumps(payload.payload)
+        data_str = json.dumps(payload.payload.__dict__)
         print(f"Publishing {data_str} to {pubsub_topic_path}.")
         future = publish(publisher, pubsub_topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
