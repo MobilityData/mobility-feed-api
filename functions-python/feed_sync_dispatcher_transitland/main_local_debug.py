@@ -5,13 +5,11 @@
 # - Google Cloud SDK installed
 # - Make sure to have the following environment variables set in your .env.local file
 # - Local database in running state
-# - Pub/Sub emulator running
-#   - gcloud beta emulators pubsub start --project=project-id --host-port='localhost:8043'
-# - Google Datastore emulator running
-#   - gcloud beta emulators datastore start --project=project-id --host-port='localhost:8042'
-
+# - Follow the instructions in the README.md file
+#
 # Usage:
-# - python batch_datasets/main_local_debug.py
+# - python feed_sync_dispatcher_transitland/main_local_debug.py
+
 from src.main import feed_sync_dispatcher_transitland
 from dotenv import load_dotenv
 
