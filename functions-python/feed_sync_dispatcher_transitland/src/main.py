@@ -35,6 +35,7 @@ class TransitFeedSyncPayload:
     """
     Data class for transit feed sync payloads.
     """
+
     feed_onestop_id: str
     execution_id: Optional[str] = None
     feed_stable_id: Optional[str] = None
@@ -48,7 +49,9 @@ class TransitFeedSyncPayload:
 
 
 class TransitFeedSyncProcessor(FeedSyncProcessor):
-    def process_sync(self, session: Session, execution_id: str) -> list[FeedSyncPayload]:
+    def process_sync(
+        self, session: Session, execution_id: str
+    ) -> list[FeedSyncPayload]:
         """
         Process Transit Land Feed Sync.
         :param session: database session
@@ -57,8 +60,12 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         """
         # TODO Implement this method
         # Added dummy return to be able to test local debug
-        return [FeedSyncPayload(external_id="dummy",
-                                payload=TransitFeedSyncPayload(feed_onestop_id="foo_feed_onestop_id"))]
+        return [
+            FeedSyncPayload(
+                external_id="dummy",
+                payload=TransitFeedSyncPayload(feed_onestop_id="foo_feed_onestop_id"),
+            )
+        ]
 
     def publish_callback(
         self, future: Future, payload: FeedSyncPayload, topic_path: str
