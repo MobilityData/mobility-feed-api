@@ -75,7 +75,11 @@ export default function FormFourthStep({
               fullWidth
               error={errors.dataProducerEmail !== undefined}
             >
-              <FormLabel component='legend' required>
+              <FormLabel
+                component='legend'
+                required
+                data-cy='dataProducerEmailLabel'
+              >
                 {t('dataProducerEmail')}
                 <br></br>
                 <Typography variant='caption' color='textSecondary'>
@@ -92,6 +96,7 @@ export default function FormFourthStep({
                     {...field}
                     error={errors.dataProducerEmail !== undefined}
                     helperText={errors.dataProducerEmail?.message ?? ''}
+                    data-cy='dataProducerEmail'
                   />
                 )}
               />
@@ -102,7 +107,7 @@ export default function FormFourthStep({
               component='fieldset'
               error={errors.isInterestedInQualityAudit !== undefined}
             >
-              <FormLabel required>
+              <FormLabel required data-cy='dataAuditLabel'>
                 {t('interestedInDataAudit')}
                 <br></br>
                 <Typography variant='caption' color='textSecondary'>
@@ -115,7 +120,11 @@ export default function FormFourthStep({
                 rules={{ required: t('common:form.required') }}
                 render={({ field }) => (
                   <>
-                    <Select {...field} sx={{ width: '200px' }}>
+                    <Select
+                      {...field}
+                      sx={{ width: '200px' }}
+                      data-cy='interestedInAudit'
+                    >
                       <MenuItem value='yes'>{t('common:form:yes')}</MenuItem>
                       <MenuItem value='no'>{t('common:form:no')}</MenuItem>
                     </Select>
@@ -156,7 +165,7 @@ export default function FormFourthStep({
               component='fieldset'
               error={errors.hasLogoPermission !== undefined}
             >
-              <FormLabel required>
+              <FormLabel required data-cy='logoPermissionLabel'>
                 {t('hasLogoPermission')}
                 <br></br>
                 <Typography variant='caption' color='textSecondary'>
@@ -169,7 +178,11 @@ export default function FormFourthStep({
                 rules={{ required: t('common:form.required') }}
                 render={({ field }) => (
                   <>
-                    <Select {...field} sx={{ width: '200px' }}>
+                    <Select
+                      {...field}
+                      sx={{ width: '200px' }}
+                      data-cy='logoPermission'
+                    >
                       <MenuItem value='yes'>{t('common:form.yes')}</MenuItem>
                       <MenuItem value='no'>{t('common:form.no')}</MenuItem>
                     </Select>
@@ -218,7 +231,12 @@ export default function FormFourthStep({
               </Button>
             </Grid>
             <Grid item>
-              <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
+              <Button
+                type='submit'
+                variant='contained'
+                sx={{ mt: 3, mb: 2 }}
+                data-cy='fourthStepSubmit'
+              >
                 {t('common:form.submit')}
               </Button>
             </Grid>

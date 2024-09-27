@@ -102,7 +102,9 @@ export default function FormFirstStep({
               component='fieldset'
               error={errors.isOfficialProducer !== undefined}
             >
-              <FormLabel required>{t('areYouOfficialProducer')}</FormLabel>
+              <FormLabel required data-cy='isOfficialProducerLabel'>
+                {t('areYouOfficialProducer')}
+              </FormLabel>
               <Controller
                 rules={{ required: t('common:form.required') }}
                 control={control}
@@ -114,11 +116,13 @@ export default function FormFirstStep({
                         value='yes'
                         control={<Radio color='default' />}
                         label={t('common:form.yes')}
+                        data-cy='isOfficialProducerYes'
                       />
                       <FormControlLabel
                         value='no'
                         control={<Radio sx={{}} />}
                         label={t('common:form.no')}
+                        data-cy='isOfficialProducerNo'
                       />
                     </RadioGroup>
                     <FormHelperText>
@@ -140,7 +144,7 @@ export default function FormFirstStep({
                 control={control}
                 name='dataType'
                 render={({ field }) => (
-                  <Select {...field}>
+                  <Select {...field} data-cy='dataType'>
                     <MenuItem value={'gtfs'}>
                       {t('common:gtfsSchedule')}
                     </MenuItem>
@@ -171,7 +175,7 @@ export default function FormFirstStep({
                 fullWidth
                 error={errors.feedLink !== undefined}
               >
-                <FormLabel component='legend' required>
+                <FormLabel component='legend' required data-cy='feedLinkLabel'>
                   {t('feedLink')}
                 </FormLabel>
                 <Controller
@@ -184,6 +188,7 @@ export default function FormFirstStep({
                   name='feedLink'
                   render={({ field }) => (
                     <TextField
+                      data-cy='feedLink'
                       className='md-small-input'
                       helperText={errors.feedLink?.message ?? ''}
                       error={errors.feedLink !== undefined}
@@ -206,7 +211,11 @@ export default function FormFirstStep({
                 control={control}
                 name='isUpdatingFeed'
                 render={({ field }) => (
-                  <Select {...field} sx={{ width: '200px' }}>
+                  <Select
+                    {...field}
+                    sx={{ width: '200px' }}
+                    data-cy='isUpdatingFeed'
+                  >
                     <MenuItem value={'yes'}>{t('common:form.yes')}</MenuItem>
                     <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
                   </Select>
@@ -221,7 +230,7 @@ export default function FormFirstStep({
                 fullWidth
                 error={errors.oldFeedLink !== undefined}
               >
-                <FormLabel component='legend' required>
+                <FormLabel component='legend' required data-cy='oldFeedLabel'>
                   {t('oldFeedLink')}
                 </FormLabel>
                 <Controller
@@ -235,6 +244,7 @@ export default function FormFirstStep({
                   render={({ field }) => (
                     <TextField
                       className='md-small-input'
+                      data-cy='oldFeedLink'
                       helperText={errors.oldFeedLink?.message ?? ''}
                       error={errors.oldFeedLink !== undefined}
                       {...field}
@@ -247,7 +257,12 @@ export default function FormFirstStep({
 
           <Grid container spacing={2}>
             <Grid item>
-              <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
+              <Button
+                type='submit'
+                variant='contained'
+                sx={{ mt: 3, mb: 2 }}
+                data-cy='submitFirstStep'
+              >
                 {t('common:next')}
               </Button>
             </Grid>

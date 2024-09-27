@@ -191,11 +191,13 @@ function* resetPasswordSaga({
 
 function* anonymousLoginSaga(): Generator {
   try {
+    const auth = getAuth();
+    const firebaseUser = app.auth().currentUser;
     // Check if the user is already authenticated
     const isAuthenticated: boolean = (yield select(
       selectIsAuthenticated,
     )) as boolean;
-    if (isAuthenticated) {
+    if (isAuthenticated && firebaseUser !== null) {
       yield put(
         anonymousLoginSkipped({
           code: 'unknown',
@@ -207,7 +209,6 @@ function* anonymousLoginSaga(): Generator {
     }
 
     // Sign in anonymously
-    const auth = getAuth();
     yield call(async () => {
       await signInAnonymously(auth);
     });
@@ -234,7 +235,6 @@ function* anonymousLoginSaga(): Generator {
       });
       return;
     }
-    const firebaseUser = app.auth().currentUser;
     if (firebaseUser === null) {
       yield put(
         anonymousLoginFailed({

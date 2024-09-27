@@ -36,3 +36,33 @@
 //     }
 //   }
 // }
+
+Cypress.Commands.add('injectAuthenticatedUser', () => {
+  cy.window()
+    .its('store')
+    .invoke('dispatch', {
+      type: 'userProfile/loginSuccess',
+      payload: {
+        fullName: 'Valery',
+        email: 'testuser@gmail.com',
+        isRegistered: true,
+        isEmailVerified: true,
+        organization: '',
+        isRegisteredToReceiveAPIAnnouncements: false,
+        isAnonymous: false,
+        refreshToken:
+          'AMf-vBwvDFwWA77IKuTUdQ9eZ7sCalLb3LPfHupyvvI91SYcImb_e5R417gPIZbVJxaJUSvMDqHWlQaMMZQZkkahT9zFW3FXymDMmvSzKB-NKO2X_lw1yCP_YyegslW6Wl4y2PRG_gEyUHxpESrjDVI_scIDIvfHaoH97-GraKJFgmCo61QzmYyMY8vyaOxyH9ovcVwdiy-KLpRbU-B8VrtrRwKg-o7BWggTlIRXu5hgtG34lS8GCdM',
+      },
+    });
+});
+
+Cypress.Commands.add('muiDropdownSelect', (elementKey: string, dropDownDataValue: string) => {
+  cy.get(elementKey)
+        .click()
+        .get(`ul > li[data-value="${dropDownDataValue}"]`)
+        .click();
+});
+
+Cypress.Commands.add('assetMuiError', (elementKey: string) => {
+  cy.get(elementKey).should('have.class', 'Mui-error');
+});
