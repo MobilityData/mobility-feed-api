@@ -192,7 +192,6 @@ function* resetPasswordSaga({
 function* anonymousLoginSaga(): Generator {
   try {
     const auth = getAuth();
-    const firebaseUser = app.auth().currentUser;
     // Check if the user is already authenticated
     const isAuthenticated: boolean = (yield select(
       selectIsAuthenticated,
