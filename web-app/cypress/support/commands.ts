@@ -56,12 +56,14 @@ Cypress.Commands.add('injectAuthenticatedUser', () => {
     });
 });
 
-Cypress.Commands.add('muiDropdownSelect', (elementKey: string, dropDownDataValue: string) => {
-  cy.get(elementKey)
-        .click()
-        .get(`ul > li[data-value="${dropDownDataValue}"]`)
-        .click();
-});
+Cypress.Commands.add(
+  'muiDropdownSelect',
+  (elementKey: string, dropDownDataValue: string) => {
+    cy.get('[data-testid="overlay"]', { timeout: 6000 }).should('not.exist');
+    cy.get(elementKey).click();
+    cy.get(`ul > li[data-value="${dropDownDataValue}"]`).click();
+  },
+);
 
 Cypress.Commands.add('assetMuiError', (elementKey: string) => {
   cy.get(elementKey).should('have.class', 'Mui-error');

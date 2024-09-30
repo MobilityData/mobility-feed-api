@@ -197,7 +197,7 @@ function* anonymousLoginSaga(): Generator {
     const isAuthenticated: boolean = (yield select(
       selectIsAuthenticated,
     )) as boolean;
-    if (isAuthenticated && firebaseUser !== null) {
+    if (isAuthenticated) {
       yield put(
         anonymousLoginSkipped({
           code: 'unknown',
@@ -235,7 +235,9 @@ function* anonymousLoginSaga(): Generator {
       });
       return;
     }
-    if (firebaseUser === null) {
+
+    const firebaseUserPostLogin = app.auth().currentUser;
+    if (firebaseUserPostLogin === null) {
       yield put(
         anonymousLoginFailed({
           code: 'unknown',
@@ -247,7 +249,7 @@ function* anonymousLoginSaga(): Generator {
     }
     const currentUser = {
       ...user,
-      refreshToken: firebaseUser.refreshToken,
+      refreshToken: firebaseUserPostLogin.refreshToken,
     };
     yield put(loginSuccess(currentUser as User));
   } catch (error) {
