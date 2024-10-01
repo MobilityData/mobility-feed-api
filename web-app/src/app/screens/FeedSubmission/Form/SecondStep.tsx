@@ -14,6 +14,7 @@ import { type FeedSubmissionFormFormInput } from '.';
 import { useTranslation } from 'react-i18next';
 import { getCountryDataList } from 'countries-list';
 import { useState } from 'react';
+import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormInputSecondStep {
   country: string;
@@ -123,13 +124,10 @@ export default function FormSecondStep({
           </Grid>
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>
-                {t('common:name')}
-                <br></br>
-                <Typography variant='caption'>
-                  {t('feedNameDetails')}
-                </Typography>
-              </FormLabel>
+              <FormLabel component='legend'>{t('common:name')}</FormLabel>
+              <FormLabelDescription>
+                {t('feedNameDetails')}
+              </FormLabelDescription>
               <Controller
                 control={control}
                 name='name'

@@ -10,6 +10,7 @@ import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
 import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isValidFeedLink } from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormInputSecondStepRT {
   tripUpdates: string;
@@ -77,9 +78,24 @@ export default function FormSecondStepRT({
     }
   }, [tripUpdates, vehiclePositions, serviceAlerts]);
 
-  const gtfsRtLinkValidation = (): undefined | string => {
+  const gtfsRtLinkValidation = (
+    rtType: 'tu' | 'vp' | 'sa',
+  ): boolean | string => {
     if (tripUpdates !== '' || vehiclePositions !== '' || serviceAlerts !== '') {
-      return undefined;
+      switch (rtType) {
+        case 'tu':
+          return tripUpdates !== ''
+            ? isValidFeedLink(tripUpdates) || t('form.errorUrl')
+            : true;
+        case 'vp':
+          return vehiclePositions !== ''
+            ? isValidFeedLink(vehiclePositions) || t('form.errorUrl')
+            : true;
+        case 'sa':
+          return serviceAlerts !== ''
+            ? isValidFeedLink(serviceAlerts) || t('form.errorUrl')
+            : true;
+      }
     } else {
       return t('form.atLeastOneRealtimeFeed');
     }
@@ -109,7 +125,7 @@ export default function FormSecondStepRT({
               <Controller
                 control={control}
                 name='serviceAlerts'
-                rules={{ validate: gtfsRtLinkValidation }}
+                rules={{ validate: () => gtfsRtLinkValidation('sa') }}
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
@@ -124,15 +140,30 @@ export default function FormSecondStepRT({
           </Grid>
           {isFeedUpdate && (
             <Grid item mb={2}>
-              <FormControl component='fieldset' fullWidth>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldServiceAlerts !== undefined}
+              >
                 <FormLabel component='legend'>
                   {t('oldServiceAlertsFeed')}
                 </FormLabel>
                 <Controller
                   control={control}
                   name='oldServiceAlerts'
+                  rules={{
+                    validate: (value) => {
+                      if (value === '' || value === undefined) return true;
+                      return isValidFeedLink(value) || t('form.errorUrl');
+                    },
+                  }}
                   render={({ field }) => (
-                    <TextField className='md-small-input' {...field} />
+                    <TextField
+                      className='md-small-input'
+                      {...field}
+                      helperText={errors.oldServiceAlerts?.message ?? ''}
+                      error={errors.oldServiceAlerts !== undefined}
+                    />
                   )}
                 />
               </FormControl>
@@ -150,7 +181,7 @@ export default function FormSecondStepRT({
               <Controller
                 control={control}
                 name='tripUpdates'
-                rules={{ validate: gtfsRtLinkValidation }}
+                rules={{ validate: () => gtfsRtLinkValidation('tu') }}
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
@@ -164,15 +195,30 @@ export default function FormSecondStepRT({
           </Grid>
           {isFeedUpdate && (
             <Grid item mb={2}>
-              <FormControl component='fieldset' fullWidth>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldTripUpdates !== undefined}
+              >
                 <FormLabel component='legend'>
                   {t('oldTripUpdatesFeed')}
                 </FormLabel>
                 <Controller
                   control={control}
                   name='oldTripUpdates'
+                  rules={{
+                    validate: (value) => {
+                      if (value === '' || value === undefined) return true;
+                      return isValidFeedLink(value) || t('form.errorUrl');
+                    },
+                  }}
                   render={({ field }) => (
-                    <TextField className='md-small-input' {...field} />
+                    <TextField
+                      className='md-small-input'
+                      {...field}
+                      helperText={errors.oldTripUpdates?.message ?? ''}
+                      error={errors.oldTripUpdates !== undefined}
+                    />
                   )}
                 />
               </FormControl>
@@ -190,7 +236,7 @@ export default function FormSecondStepRT({
               <Controller
                 control={control}
                 name='vehiclePositions'
-                rules={{ validate: gtfsRtLinkValidation }}
+                rules={{ validate: () => gtfsRtLinkValidation('vp') }}
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
@@ -204,15 +250,30 @@ export default function FormSecondStepRT({
           </Grid>
           {isFeedUpdate && (
             <Grid item mb={2}>
-              <FormControl component='fieldset' fullWidth>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldVehiclePositions !== undefined}
+              >
                 <FormLabel component='legend'>
                   {t('oldVehiclePositionsFeed')}
                 </FormLabel>
                 <Controller
                   control={control}
                   name='oldVehiclePositions'
+                  rules={{
+                    validate: (value) => {
+                      if (value === '' || value === undefined) return true;
+                      return isValidFeedLink(value) || t('form.errorUrl');
+                    },
+                  }}
                   render={({ field }) => (
-                    <TextField className='md-small-input' {...field} />
+                    <TextField
+                      className='md-small-input'
+                      {...field}
+                      helperText={errors.oldVehiclePositions?.message ?? ''}
+                      error={errors.oldVehiclePositions !== undefined}
+                    />
                   )}
                 />
               </FormControl>
@@ -220,15 +281,30 @@ export default function FormSecondStepRT({
           )}
 
           <Grid item>
-            <FormControl component='fieldset' fullWidth>
+            <FormControl
+              component='fieldset'
+              fullWidth
+              error={errors.gtfsRelatedScheduleLink !== undefined}
+            >
               <FormLabel component='legend'>
                 {t('relatedGtfsScheduleFeed')}
               </FormLabel>
               <Controller
                 control={control}
                 name='gtfsRelatedScheduleLink'
+                rules={{
+                  validate: (value) => {
+                    if (value === '' || value === undefined) return true;
+                    return isValidFeedLink(value) || t('form.errorUrl');
+                  },
+                }}
                 render={({ field }) => (
-                  <TextField className='md-small-input' {...field} />
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.gtfsRelatedScheduleLink?.message ?? ''}
+                    error={errors.gtfsRelatedScheduleLink !== undefined}
+                  />
                 )}
               />
             </FormControl>
