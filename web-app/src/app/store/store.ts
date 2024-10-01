@@ -41,6 +41,13 @@ export const store = configureStore({
   ],
 });
 
+// Expose store to Cypress e2e tests
+/* eslint-disable */
+if (window.Cypress) {
+  (window as any).store = store;
+}
+/* eslint-enable */
+
 sagaMiddleware.run(rootSaga);
 
 export type RootState = ReturnType<typeof store.getState>;

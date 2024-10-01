@@ -103,7 +103,9 @@ export default function FormSecondStepRT({
               fullWidth
               error={errors.serviceAlerts !== undefined}
             >
-              <FormLabel component='legend'>{t('serviceAlertsFeed')}</FormLabel>
+              <FormLabel component='legend' data-cy='serviceAlertFeedLabel'>
+                {t('serviceAlertsFeed')}
+              </FormLabel>
               <Controller
                 control={control}
                 name='serviceAlerts'
@@ -114,6 +116,7 @@ export default function FormSecondStepRT({
                     {...field}
                     helperText={errors.serviceAlerts?.message ?? ''}
                     error={errors.serviceAlerts !== undefined}
+                    data-cy='serviceAlertFeed'
                   />
                 )}
               />
@@ -141,7 +144,9 @@ export default function FormSecondStepRT({
               fullWidth
               error={errors.tripUpdates !== undefined}
             >
-              <FormLabel component='legend'>{t('tripUpdatesFeed')}</FormLabel>
+              <FormLabel component='legend' data-cy='tripUpdatesFeedLabel'>
+                {t('tripUpdatesFeed')}
+              </FormLabel>
               <Controller
                 control={control}
                 name='tripUpdates'
@@ -179,7 +184,7 @@ export default function FormSecondStepRT({
               fullWidth
               error={errors.vehiclePositions !== undefined}
             >
-              <FormLabel component='legend'>
+              <FormLabel component='legend' data-cy='vehiclePositionLabel'>
                 {t('vehiclePositionsFeed')}
               </FormLabel>
               <Controller
@@ -241,7 +246,12 @@ export default function FormSecondStepRT({
               </Button>
             </Grid>
             <Grid item>
-              <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
+              <Button
+                type='submit'
+                variant='contained'
+                sx={{ mt: 3, mb: 2 }}
+                data-cy='secondStepRtSubmit'
+              >
                 {t('common:next')}
               </Button>
             </Grid>

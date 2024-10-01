@@ -63,7 +63,7 @@ export default function FormSecondStep({
               component='fieldset'
               error={errors.country !== undefined}
             >
-              <FormLabel component='legend' required>
+              <FormLabel component='legend' required data-cy='countryLabel'>
                 {t('common:country')}
               </FormLabel>
               <Controller
@@ -72,7 +72,12 @@ export default function FormSecondStep({
                 name='country'
                 render={({ field }) => (
                   <>
-                    <Select {...field} displayEmpty sx={{ minWidth: '250px' }}>
+                    <Select
+                      {...field}
+                      displayEmpty
+                      sx={{ minWidth: '250px' }}
+                      data-cy='countryDropdown'
+                    >
                       <MenuItem value={''}>
                         <em>{t('common:chooseCountry')}</em>
                       </MenuItem>
@@ -148,7 +153,12 @@ export default function FormSecondStep({
               </Button>
             </Grid>
             <Grid item>
-              <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
+              <Button
+                type='submit'
+                variant='contained'
+                sx={{ mt: 3, mb: 2 }}
+                data-cy='secondStepSubmit'
+              >
                 {t('common:next')}
               </Button>
             </Grid>

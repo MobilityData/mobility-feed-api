@@ -95,6 +95,7 @@ export default function FormThirdStep({
                 onChange={(event) => {
                   setValue('authType', event.target.value as AuthTypes);
                 }}
+                data-cy='isAuthRequired'
               >
                 <MenuItem value='choiceRequired'>
                   {t('common:form:yes')}
@@ -110,7 +111,9 @@ export default function FormThirdStep({
                   component='fieldset'
                   error={errors.authType !== undefined}
                 >
-                  <FormLabel required>{t('authenticationType')}</FormLabel>
+                  <FormLabel required data-cy='authTypeLabel'>
+                    {t('authenticationType')}
+                  </FormLabel>
                   <Controller
                     control={control}
                     name='authType'
@@ -147,7 +150,7 @@ export default function FormThirdStep({
                   fullWidth
                   error={errors.authSignupLink !== undefined}
                 >
-                  <FormLabel required>
+                  <FormLabel required data-cy='authSignupLabel'>
                     {t('form.authType.signUpLink')}
                   </FormLabel>
                   <Controller
@@ -199,7 +202,12 @@ export default function FormThirdStep({
               </Button>
             </Grid>
             <Grid item>
-              <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
+              <Button
+                type='submit'
+                variant='contained'
+                sx={{ mt: 3, mb: 2 }}
+                data-cy='thirdStepSubmit'
+              >
                 {t('common:next')}
               </Button>
             </Grid>
