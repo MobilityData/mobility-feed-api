@@ -82,6 +82,9 @@ describe('Feeds Utils', () => {
       'https://ckan.pbh.gov.br/dataset/77764a7e-63fc-4111-ace3-fb7d3037953a/resource/f0fa78dc-74c3-49fa-8971-c310a76a07fa/download/gtfsfiles.zip';
     expect(isValidFeedLink(link8)).toBe(true);
 
+    const link9 = 'HTTP://gtfs.translink.ca/v2/gtfsposition';
+    expect(isValidFeedLink(link9)).toBe(true);
+
     expect(isValidFeedLink('')).toBe(false);
   });
 });
