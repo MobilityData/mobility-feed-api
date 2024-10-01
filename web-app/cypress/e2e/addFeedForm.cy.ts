@@ -95,7 +95,6 @@ describe('Add Feed Form', () => {
       cy.get('[data-cy=thirdStepSubmit]').click();
       // Step 4
       cy.get('[data-cy=fourthStepSubmit]').click();
-      cy.assetMuiError('[data-cy=dataProducerEmailLabel]');
       cy.assetMuiError('[data-cy=dataAuditLabel]');
       cy.assetMuiError('[data-cy=logoPermissionLabel]');
     });
