@@ -38,7 +38,7 @@
     },
     "errorSubmitting": "An error occurred while submitting the form.",
     "submittingFeed": "Submitting the feed...",
-    "errorUrl": "The URL format requires http:// or https://"
+    "errorUrl": "The URL must start with a valid protocol: http:// or https://"
   },
   "seeFullList": "See full list",
   "hideFullList": "Hide full list",
