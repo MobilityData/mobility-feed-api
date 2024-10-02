@@ -1,5 +1,4 @@
 import {
-  Typography,
   Grid,
   FormControl,
   FormLabel,
@@ -17,6 +16,8 @@ import {
 } from 'react-hook-form';
 import { type FeedSubmissionFormFormInput, type AuthTypes } from '.';
 import { useTranslation } from 'react-i18next';
+import { isValidFeedLink } from '../../../services/feeds/utils';
+import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormInputThirdStep {
   licensePath?: string;
@@ -69,26 +70,38 @@ export default function FormThirdStep({
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
           <Grid item>
-            <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Link to feed license</FormLabel>
+            <FormControl
+              component='fieldset'
+              fullWidth
+              error={errors.licensePath !== undefined}
+            >
+              <FormLabel component='legend'>{t('linkToLicense')}</FormLabel>
               <Controller
+                rules={{
+                  validate: (value) => {
+                    if (value === '' || value === undefined) return true;
+                    return isValidFeedLink(value) || t('form.errorUrl');
+                  },
+                }}
                 control={control}
                 name='licensePath'
                 render={({ field }) => (
-                  <TextField className='md-small-input' {...field} />
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.licensePath?.message ?? ''}
+                    error={errors.licensePath !== undefined}
+                  />
                 )}
               />
             </FormControl>
           </Grid>
           <Grid item>
             <FormControl component='fieldset'>
-              <FormLabel>
-                {t('isAuthRequired')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('isAuthRequiredDetails')}
-                </Typography>
-              </FormLabel>
+              <FormLabel>{t('isAuthRequired')}</FormLabel>
+              <FormLabelDescription>
+                {t('isAuthRequiredDetails')}
+              </FormLabelDescription>
               <Select
                 value={authType === 'None - 0' ? authType : 'choiceRequired'}
                 sx={{ width: '200px' }}
@@ -156,7 +169,11 @@ export default function FormThirdStep({
                   <Controller
                     control={control}
                     name='authSignupLink'
-                    rules={{ required: t('common:form.required') }}
+                    rules={{
+                      required: t('common:form.required'),
+                      validate: (value) =>
+                        isValidFeedLink(value ?? '') || t('form.errorUrl'),
+                    }}
                     render={({ field }) => (
                       <TextField
                         className='md-small-input'
@@ -170,13 +187,10 @@ export default function FormThirdStep({
               </Grid>
               <Grid item>
                 <FormControl component='fieldset' fullWidth>
-                  <FormLabel>
-                    {t('form.authType.parameterName')}
-                    <br></br>
-                    <Typography variant='caption'>
-                      {t('form.authType.parameterNameDetail')}
-                    </Typography>
-                  </FormLabel>
+                  <FormLabel>{t('form.authType.parameterName')}</FormLabel>
+                  <FormLabelDescription>
+                    {t('form.authType.parameterNameDetail')}
+                  </FormLabelDescription>
                   <Controller
                     control={control}
                     name='authParameterName'

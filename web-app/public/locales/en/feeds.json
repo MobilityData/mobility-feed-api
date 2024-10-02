@@ -38,13 +38,14 @@
     },
     "errorSubmitting": "An error occurred while submitting the form.",
     "submittingFeed": "Submitting the feed...",
-    "errorUrl": "The URL format is invalid"
+    "errorUrl": "The URL must start with a valid protocol: http:// or https://"
   },
   "seeFullList": "See full list",
   "hideFullList": "Hide full list",
   "producerDownloadUrl": "Producer download URL",
   "copyDownloadUrl": "Copy download URL",
   "producerUrlCopied": "Producer url copied to clipboard",
+  "linkToLicense": "Link to feed license",
   "authenticationType": "Authentication type",
   "selectAuthenticationType": "Please select an authentication type",
   "registerToDownloadFeed": "Register to download feed",

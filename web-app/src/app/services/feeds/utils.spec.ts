@@ -54,34 +54,25 @@ describe('Feeds Utils', () => {
     );
   });
 
-  it('should validate feed links correctly', () => {
-    const link1 = 'https://gtfs.translink.ca/v2/gtfsposition';
-    expect(isValidFeedLink(link1)).toBe(true);
-
-    const link2 = 'gtfs.translink.ca/v2/gtfsposition';
-    expect(isValidFeedLink(link2)).toBe(false);
-
-    const link3 =
-      'http://whistler.mapstrat.com/current/gtfrealtime_TripUpdates.bin';
-    expect(isValidFeedLink(link3)).toBe(true);
-
-    const link4 = 'http://gtfs.halifax.ca/realtime/Vehicle/VehiclePositions.pb';
-    expect(isValidFeedLink(link4)).toBe(true);
-
-    const link5 = 'http://api.tampa.onebusaway.org:8088/trip-updates';
-    expect(isValidFeedLink(link5)).toBe(true);
-
-    const link6 =
-      'https://transitfeeds.com/p/via-metropolitan-transit/62/latest/download';
-    expect(isValidFeedLink(link6)).toBe(true);
-
-    const link7 = '//transitfeeds.com/p/';
-    expect(isValidFeedLink(link7)).toBe(false);
-
-    const link8 =
-      'https://ckan.pbh.gov.br/dataset/77764a7e-63fc-4111-ace3-fb7d3037953a/resource/f0fa78dc-74c3-49fa-8971-c310a76a07fa/download/gtfsfiles.zip';
-    expect(isValidFeedLink(link8)).toBe(true);
-
-    expect(isValidFeedLink('')).toBe(false);
+  it.each([
+    [true, 'https://gtfs.translink.ca/v2/gtfsposition'],
+    [false, 'gtfs.translink.ca/v2/gtfsposition'],
+    [true, 'http://whistler.mapstrat.com/current/gtfrealtime_TripUpdates.bin'],
+    [true, 'http://gtfs.halifax.ca/realtime/Vehicle/VehiclePositions.pb'],
+    [true, 'http://api.tampa.onebusaway.org:8088/trip-updates'],
+    [
+      true,
+      'https://transitfeeds.com/p/via-metropolitan-transit/62/latest/download',
+    ],
+    [false, '//transitfeeds.com/p/'],
+    [
+      true,
+      'https://ckan.pbh.gov.br/dataset/77764a7e-63fc-4111-ace3-fb7d3037953a/resource/f0fa78dc-74c3-49fa-8971-c310a76a07fa/download/gtfsfiles.zip',
+    ],
+    [true, 'HTTP://gtfs.translink.ca/v2/gtfsposition'],
+    [false, 'http://.'],
+    [false, ''],
+  ])('should retrun %s when input is %s', (expected, input) => {
+    expect(isValidFeedLink(input)).toBe(expected);
   });
 });

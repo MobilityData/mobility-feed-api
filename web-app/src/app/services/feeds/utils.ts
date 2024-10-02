@@ -83,6 +83,7 @@ export function getLocationName(
 }
 
 export function isValidFeedLink(feedLink: string): boolean {
-  const urlPattern = /^(https?:\/\/)[\w.-]+(:\d+)?(\/[\w.-]*)*$/;
-  return urlPattern.test(feedLink ?? '');
+  const lowercaseFeedLink = feedLink.toLowerCase();
+  const urlPattern = /^(https?:\/\/)([^\s$.?#].[^\s]*)$/;
+  return urlPattern.test(lowercaseFeedLink ?? '');
 }

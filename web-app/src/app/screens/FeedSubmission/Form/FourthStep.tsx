@@ -1,5 +1,4 @@
 import {
-  Typography,
   Grid,
   FormControl,
   FormLabel,
@@ -17,6 +16,7 @@ import {
 } from 'react-hook-form';
 import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useTranslation } from 'react-i18next';
+import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormInputFourthStep {
   dataProducerEmail?: string;
@@ -70,32 +70,20 @@ export default function FormFourthStep({
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
           <Grid item>
-            <FormControl
-              component='fieldset'
-              fullWidth
-              error={errors.dataProducerEmail !== undefined}
-            >
-              <FormLabel
-                component='legend'
-                required
-                data-cy='dataProducerEmailLabel'
-              >
+            <FormControl component='fieldset' fullWidth>
+              <FormLabel component='legend' data-cy='dataProducerEmailLabel'>
                 {t('dataProducerEmail')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('dataProducerEmailDetails')}
-                </Typography>
               </FormLabel>
+              <FormLabelDescription>
+                {t('dataProducerEmailDetails')}
+              </FormLabelDescription>
               <Controller
-                rules={{ required: t('form.dataProducerEmailRequired') }}
                 control={control}
                 name='dataProducerEmail'
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
                     {...field}
-                    error={errors.dataProducerEmail !== undefined}
-                    helperText={errors.dataProducerEmail?.message ?? ''}
                     data-cy='dataProducerEmail'
                   />
                 )}
@@ -109,11 +97,10 @@ export default function FormFourthStep({
             >
               <FormLabel required data-cy='dataAuditLabel'>
                 {t('interestedInDataAudit')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('interestedInDataAuditDetails')}
-                </Typography>
               </FormLabel>
+              <FormLabelDescription>
+                {t('interestedInDataAuditDetails')}
+              </FormLabelDescription>
               <Controller
                 control={control}
                 name='isInterestedInQualityAudit'
@@ -167,11 +154,11 @@ export default function FormFourthStep({
             >
               <FormLabel required data-cy='logoPermissionLabel'>
                 {t('hasLogoPermission')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('hasLogoPermissionDetails')}
-                </Typography>
               </FormLabel>
+              <FormLabelDescription>
+                {t('hasLogoPermissionDetails')}
+              </FormLabelDescription>
+
               <Controller
                 control={control}
                 name='hasLogoPermission'
@@ -196,13 +183,10 @@ export default function FormFourthStep({
           </Grid>
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel>
-                {t('whatToolsCreateGtfs')}
-                <br></br>
-                <Typography variant='caption' color='textSecondary'>
-                  {t('whatToolsCreateGtfsDetails')}
-                </Typography>
-              </FormLabel>
+              <FormLabel>{t('whatToolsCreateGtfs')}</FormLabel>
+              <FormLabelDescription>
+                {t('whatToolsCreateGtfsDetails')}
+              </FormLabelDescription>
               <Controller
                 control={control}
                 name='whatToolsUsedText'

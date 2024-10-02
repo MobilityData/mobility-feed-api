@@ -234,11 +234,11 @@ export default function FormFirstStep({
                   {t('oldFeedLink')}
                 </FormLabel>
                 <Controller
-                  rules={
-                    isUpdatingFeed === 'yes' && dataType === 'gtfs'
-                      ? { required: t('form.oldFeedLinkRequired') }
-                      : {}
-                  }
+                  rules={{
+                    required: t('form.oldFeedLinkRequired'),
+                    validate: (value) =>
+                      isValidFeedLink(value ?? '') || t('form.errorUrl'),
+                  }}
                   control={control}
                   name='oldFeedLink'
                   render={({ field }) => (
