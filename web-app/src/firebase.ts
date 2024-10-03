@@ -1,5 +1,11 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/remote-config';
+import 'firebase/compat/auth'; 
+
+// Cypress does not support environment variables in the same way as React
+if(window.Cypress) {
+  Object.assign(process.env, {...process.env, ...Cypress.env()})
+}
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -15,3 +21,7 @@ export const remoteConfig = firebase.remoteConfig();
 remoteConfig.settings.minimumFetchIntervalMillis = Number(
   process.env.REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI ?? 3600000, // default to 12 hours
 );
+
+if (window.Cypress) {
+  app.auth().useEmulator('http://localhost:9099/');
+}

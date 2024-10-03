@@ -106,8 +106,8 @@ jobs:
       - name: Cypress test
         uses: cypress-io/github-action@v6
         with:
-          start: yarn start:test
-          wait-on: "npx wait-on --timeout 120000 http://127.0.0.1:3000"
+          start: yarn start:test && firebase emulators:start --only auth --project mobility-feeds-${{inputs.FIREBASE_PROJECT}}
+          wait-on: "npx wait-on --timeout 120000 http://127.0.0.1:3000 && http://127.0.0.1:9099"
           working-directory: web-app
 
       - uses: actions/upload-artifact@v4
