@@ -4,7 +4,8 @@ const localEnv = dotenv.config({ path: './src/.env.dev' }).parsed;
 const ciEnv = dotenv.config({ path: './src/.env.test' }).parsed;
 
 export default defineConfig({
-  env: localEnv ?? ciEnv,
+  //env: localEnv ?? ciEnv,
+  env: ciEnv,
   e2e: {
     baseUrl: 'http://localhost:3000'
   },
