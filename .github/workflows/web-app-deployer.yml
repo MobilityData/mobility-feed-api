@@ -106,7 +106,9 @@ jobs:
       - name: Cypress test
         uses: cypress-io/github-action@v6
         with:
-          start: yarn start:test && npx firebase emulators:start --only auth --project mobility-feeds-dev
+          start: |
+            yarn start:test
+            npx firebase emulators:start --only auth --project mobility-feeds-dev
           wait-on: "npx wait-on --timeout 120000 http://127.0.0.1:3000 && http://127.0.0.1:9099"
           working-directory: web-app
 
