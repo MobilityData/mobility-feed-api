@@ -1,5 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference types="cypress" />
+import { app } from '../../src/firebase';
 // ***********************************************
 // This example commands.ts shows you how to
 // create various custom commands and overwrite
@@ -37,14 +38,14 @@
 //   }
 // }
 
-Cypress.Commands.add('injectAuthenticatedUser', () => {
+Cypress.Commands.add('injectAuthenticatedUser', (email: string) => {
   cy.window()
     .its('store')
     .invoke('dispatch', {
       type: 'userProfile/loginSuccess',
       payload: {
         fullName: 'Valery',
-        email: 'testuser@gmail.com',
+        email: email,
         isRegistered: true,
         isEmailVerified: true,
         organization: '',
@@ -68,3 +69,19 @@ Cypress.Commands.add(
 Cypress.Commands.add('assetMuiError', (elementKey: string) => {
   cy.get(elementKey).should('have.class', 'Mui-error');
 });
+
+Cypress.Commands.add(
+  'createNewUserAndSignIn',
+  (email: string, password: string) => {
+    const auth = app.auth();
+    cy.then(async () => {
+      await fetch(
+        'http://localhost:9099/emulator/v1/projects/mobility-feeds-dev/accounts',
+        { method: 'DELETE' },
+      );
+      await auth.createUserWithEmailAndPassword(email, password);
+      await auth.signInWithEmailAndPassword(email, password);
+      cy.injectAuthenticatedUser(email);
+    });
+  },
+);

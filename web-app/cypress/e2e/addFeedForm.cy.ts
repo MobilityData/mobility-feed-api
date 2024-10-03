@@ -1,16 +1,17 @@
 describe('Add Feed Form', () => {
   beforeEach(() => {
-    cy.viewport(1280, 720);
-    cy.visit('/');
-    cy.get('[data-testid="home-title"]').should('exist');
-    cy.visit('/contribute');
-    cy.injectAuthenticatedUser();
     cy.intercept('POST', '/writeToSheet', {
       statusCode: 200,
       body: {
         result: { message: 'Data written to the new sheet successfully!' },
       },
     }).as('writeToSheet');
+    cy.visit('/');
+    cy.get('[data-testid="home-title"]').should('exist');
+    cy.createNewUserAndSignIn('cypressTestUser@gmail.com', 'password');
+
+    cy.get('[data-cy="accountHeader"]').should('exist'); // assures that the user is signed in
+    cy.visit('/contribute');
   });
 
   describe('Success Flows', () => {
@@ -49,7 +50,7 @@ describe('Add Feed Form', () => {
       cy.url().should('include', '/contribute?step=2');
       // step 2
       cy.get('[data-cy=serviceAlertFeed] input').type(
-        'https://example.com/feed/realtime'
+        'https://example.com/feed/realtime',
       );
       cy.get('[data-cy=secondStepRtSubmit]').click();
       cy.url().should('include', '/contribute?step=3');
@@ -74,9 +75,7 @@ describe('Add Feed Form', () => {
       cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
         force: true,
       });
-      cy.get('[data-cy=oldFeedLink] input').type(
-        'https://example.com/feedOld'
-      );
+      cy.get('[data-cy=oldFeedLink] input').type('https://example.com/feedOld');
       cy.get('[data-cy=submitFirstStep]').click();
       // Step 2
       cy.get('[data-cy=secondStepSubmit]').click();
