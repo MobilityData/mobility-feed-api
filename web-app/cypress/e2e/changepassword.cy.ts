@@ -1,6 +1,6 @@
 const currentPassword = 'IloveOrangeCones123!';
 const newPassword = currentPassword + 'TEST';
-const email = 'cypressTestUser@gmail.com';
+const email = 'cypressTestUser@mobilitydata.org';
 
 describe('Change Password Screen', () => {
   beforeEach(() => {

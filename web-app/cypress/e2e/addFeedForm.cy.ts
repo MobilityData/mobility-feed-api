@@ -5,18 +5,22 @@ describe('Add Feed Form', () => {
       body: {
         result: { message: 'Data written to the new sheet successfully!' },
       },
-    }).as('writeToSheet');
+    });
     cy.visit('/');
     cy.get('[data-testid="home-title"]').should('exist');
-    cy.createNewUserAndSignIn('cypressTestUser@gmail.com', 'password');
+    cy.createNewUserAndSignIn('cypressTestUser@mobilitydata.org', 'BigCoolPassword123!');
 
     cy.get('[data-cy="accountHeader"]').should('exist'); // assures that the user is signed in
     cy.visit('/contribute');
+    // Assures that the firebase remote config has loaded for the first test
+    // Optimizations can be made to make the first test run faster
+    // Long timeout is to assure no flakiness
+    cy.get('[data-cy=isOfficialProducerYes]', { timeout: 25000 }).should('exist');
   });
 
   describe('Success Flows', () => {
     it('should submit a new gtfs scheduled feed as official producer', () => {
-      cy.get('[data-cy=isOfficialProducerYes]', { timeout: 6000 }).click({
+      cy.get('[data-cy=isOfficialProducerYes]').click({
         force: true,
       });
       cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {

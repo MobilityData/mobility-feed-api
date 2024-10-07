@@ -1,6 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/triple-slash-reference
 /// <reference types="cypress" />
-import { app } from '../../src/firebase';
 // ***********************************************
 // This example commands.ts shows you how to
 // create various custom commands and overwrite
@@ -37,6 +36,23 @@ import { app } from '../../src/firebase';
 //     }
 //   }
 // }
+
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/remote-config';
+import 'firebase/compat/auth';
+
+const firebaseConfig = {
+  apiKey: Cypress.env('REACT_APP_FIREBASE_API_KEY'),
+  authDomain: Cypress.env('REACT_APP_FIREBASE_AUTH_DOMAIN'),
+  projectId: Cypress.env('REACT_APP_FIREBASE_PROJECT_ID'),
+  storageBucket: Cypress.env('REACT_APP_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: Cypress.env('REACT_APP_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: Cypress.env('REACT_APP_FIREBASE_APP_ID'),
+};
+
+const app = firebase.initializeApp(firebaseConfig);
+
+app.auth().useEmulator('http://localhost:9099/');
 
 Cypress.Commands.add('injectAuthenticatedUser', (email: string) => {
   cy.window()

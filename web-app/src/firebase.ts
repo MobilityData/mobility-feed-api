@@ -1,11 +1,6 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/remote-config';
-import 'firebase/compat/auth'; 
-
-// Cypress does not support environment variables in the same way as React
-if(window.Cypress) {
-  Object.assign(process.env, {...process.env, ...Cypress.env()})
-}
+import 'firebase/compat/auth';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,

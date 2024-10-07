@@ -111,8 +111,7 @@ function Component(): React.ReactElement {
 
 export default function Home(): React.ReactElement {
   const { config } = useRemoteConfig();
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  if (config.enableFeedSubmissionStepper || !!window.Cypress) {
+  if (config.enableFeedSubmissionStepper) {
     return <Component />;
   }
   return <Contribute />;
