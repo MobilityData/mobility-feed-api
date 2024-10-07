@@ -379,6 +379,7 @@ export default function APIAccount(): React.ReactElement {
               sx={{ m: 1, mb: 0 }}
               startIcon={<ExitToAppOutlined />}
               onClick={handleSignOutClick}
+              data-cy='signOutButton'
             >
               {t('common:signOut')}
             </Button>

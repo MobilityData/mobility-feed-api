@@ -1,21 +1,26 @@
 describe('Add Feed Form', () => {
   beforeEach(() => {
-    cy.viewport(1280, 720);
-    cy.visit('/');
-    cy.get('[data-testid="home-title"]').should('exist');
-    cy.visit('/contribute');
-    cy.injectAuthenticatedUser();
     cy.intercept('POST', '/writeToSheet', {
       statusCode: 200,
       body: {
         result: { message: 'Data written to the new sheet successfully!' },
       },
-    }).as('writeToSheet');
+    });
+    cy.visit('/');
+    cy.get('[data-testid="home-title"]').should('exist');
+    cy.createNewUserAndSignIn('cypressTestUser@mobilitydata.org', 'BigCoolPassword123!');
+
+    cy.get('[data-cy="accountHeader"]').should('exist'); // assures that the user is signed in
+    cy.visit('/contribute');
+    // Assures that the firebase remote config has loaded for the first test
+    // Optimizations can be made to make the first test run faster
+    // Long timeout is to assure no flakiness
+    cy.get('[data-cy=isOfficialProducerYes]', { timeout: 25000 }).should('exist');
   });
 
   describe('Success Flows', () => {
     it('should submit a new gtfs scheduled feed as official producer', () => {
-      cy.get('[data-cy=isOfficialProducerYes]', { timeout: 6000 }).click({
+      cy.get('[data-cy=isOfficialProducerYes]').click({
         force: true,
       });
       cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
@@ -49,7 +54,7 @@ describe('Add Feed Form', () => {
       cy.url().should('include', '/contribute?step=2');
       // step 2
       cy.get('[data-cy=serviceAlertFeed] input').type(
-        'https://example.com/feed/realtime'
+        'https://example.com/feed/realtime',
       );
       cy.get('[data-cy=secondStepRtSubmit]').click();
       cy.url().should('include', '/contribute?step=3');
@@ -74,9 +79,7 @@ describe('Add Feed Form', () => {
       cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
         force: true,
       });
-      cy.get('[data-cy=oldFeedLink] input').type(
-        'https://example.com/feedOld'
-      );
+      cy.get('[data-cy=oldFeedLink] input').type('https://example.com/feedOld');
       cy.get('[data-cy=submitFirstStep]').click();
       // Step 2
       cy.get('[data-cy=secondStepSubmit]').click();

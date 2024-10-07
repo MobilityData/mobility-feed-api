@@ -124,15 +124,15 @@ function* changePasswordSaga({
   oldPassword: string;
   newPassword: string;
 }>): Generator {
-  const user = app.auth().currentUser;
-  if (user === null) {
-    throw new Error('User not found');
-  }
-  if (user.email === null) {
-    throw new Error('User email not found');
-  }
-  const credential = EmailAuthProvider.credential(user.email, oldPassword);
   try {
+    const user = app.auth().currentUser;
+    if (user === null) {
+      throw new Error('User not found');
+    }
+    if (user.email === null) {
+      throw new Error('User email not found');
+    }
+    const credential = EmailAuthProvider.credential(user.email, oldPassword);
     yield reauthenticateWithCredential(user, credential);
     yield user.updatePassword(newPassword);
     yield put(changePasswordSuccess());

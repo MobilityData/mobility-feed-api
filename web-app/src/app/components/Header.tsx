@@ -135,7 +135,12 @@ const DrawerContent: React.FC<{
             defaultExpandIcon={<ChevronRightIcon />}
             sx={{ textAlign: 'left' }}
           >
-            <TreeItem nodeId='1' label='Account' sx={{ color: '#3959fa' }}>
+            <TreeItem
+              nodeId='1'
+              label='Account'
+              sx={{ color: '#3959fa' }}
+              data-cy='accountHeader'
+            >
               <TreeItem
                 nodeId='2'
                 label='Account Details'
