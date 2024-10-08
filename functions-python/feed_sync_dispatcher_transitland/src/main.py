@@ -50,9 +50,9 @@ session = requests.Session()
 
 @dataclass
 class TransitFeedSyncPayload:
-    ""
+    """
     Data class for transit feed sync payloads.
-    ""
+    """
 
     operator_onestop_id: str
     feed_id: str
