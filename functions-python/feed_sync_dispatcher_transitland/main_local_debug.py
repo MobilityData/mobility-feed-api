@@ -14,7 +14,7 @@ from src.main import feed_sync_dispatcher_transitland
 from dotenv import load_dotenv
 
 # Load environment variables from .env.local
-load_dotenv(dotenv_path=".env.local")
+load_dotenv(dotenv_path=".env.local_test")
 
 if __name__ == "__main__":
 
