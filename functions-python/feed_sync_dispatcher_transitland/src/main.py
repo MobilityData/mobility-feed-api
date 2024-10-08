@@ -50,9 +50,9 @@ session = requests.Session()
 
 @dataclass
 class TransitFeedSyncPayload:
-    """
+    ""
     Data class for transit feed sync payloads.
-    """
+    ""
 
     operator_onestop_id: str
     feed_id: str
@@ -78,7 +78,7 @@ class TransitFeedSyncPayload:
 
 class TransitFeedSyncProcessor(FeedSyncProcessor):
     def process_sync(self, db_session: Optional[Session] = None, execution_id: Optional[str] = None) -> List[FeedSyncPayload]:
-        ""
+        """
         Process data synchronously to fetch, extract, combine, and prepare payloads for publishing to a queue based on conditions related to the data retrieved from TransitLand API.
         """
         # Fetch data from TransitLand API
