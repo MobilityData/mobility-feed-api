@@ -1,6 +1,6 @@
 # Code to be able to debug locally without affecting the runtime cloud function
 
-#
+
 # Requirements:
 # - Google Cloud SDK installed
 # - Make sure to have the following environment variables set in your .env.local file
