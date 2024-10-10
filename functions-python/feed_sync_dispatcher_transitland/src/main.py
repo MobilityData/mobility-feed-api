@@ -32,7 +32,7 @@ from sqlalchemy import text, select, and_
 from helpers.feed_sync.feed_sync_common import FeedSyncProcessor, FeedSyncPayload
 from helpers.feed_sync.feed_sync_dispatcher import feed_sync_dispatcher
 from helpers.pub_sub import get_pubsub_client, get_execution_id
-from dotenv import load_dotenv
+
 
 # Environment variables
 PUBSUB_TOPIC_NAME = os.getenv("PUBSUB_TOPIC_NAME")
@@ -54,11 +54,10 @@ class TransitFeedSyncPayload:
     Data class for transit feed sync payloads.
     """
 
-    operator_onestop_id: str
+    external_id: str
     feed_id: str
     feed_url: Optional[str] = None
     execution_id: Optional[str] = None
-    external_id: Optional[str] = None
     spec: Optional[str] = None
     auth_info_url: Optional[str] = None
     auth_param_name: Optional[str] = None
@@ -100,16 +99,15 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         payloads = []
         for data in combined_data:
             # Checks if external_id exists in the public.externalid table
-            associated_id = self.get_associated_id(db_session, data['operator_onestop_id'])
+            associated_id = self.get_associated_id(db_session, data['feed_onestop_id'])
             if associated_id:
-                # If external_id exists, check if feed_url has changed is feed_url changes then update feed(payload_type="new")
+                # If external_id exists, check if feed_url has changed if feed_url changes then update feed(payload_type="update")
                 if not self.check_feed_url_exists(db_session, data['feed_url']):
                     payloads.append(
                         FeedSyncPayload(
-                            external_id=data['operator_onestop_id'],
+                            external_id=data['feed_onestop_id'],
                             payload=TransitFeedSyncPayload(
-                                external_id=data['operator_id'],
-                                operator_onestop_id=data['operator_onestop_id'],
+                                external_id=data['feed_onestop_id'],
                                 feed_id=data['feed_id'],
                                 execution_id=execution_id,
                                 feed_url=data['feed_url'],
@@ -129,10 +127,9 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                 # If external_id does not exist, add the new feed(payload_type="new")
                 payloads.append(
                     FeedSyncPayload(
-                        external_id=data['operator_onestop_id'],
+                        external_id=data['feed_onestop_id'],
                         payload=TransitFeedSyncPayload(
-                            external_id=data['operator_id'],
-                            operator_onestop_id=data['operator_onestop_id'],
+                            external_id=data['feed_onestop_id'],
                             feed_id=data['feed_id'],
                             execution_id=execution_id,
                             feed_url=data['feed_url'],
@@ -151,7 +148,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
 
         return payloads
 
-    def get_data(self, url, apikey, spec=None, session=None, max_retries=3, initial_delay=5, max_delay=60):
+    def get_data(self, url, apikey, spec=None, session=None, max_retries=3, initial_delay=15, max_delay=65):
         """
            This functions retrieves data from a specified Transitland. Handles rate limits, retries, and error cases.
            Returns the parsed data as a dictionary containing feeds and operators.
@@ -164,7 +161,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         while url:
             for attempt in range(max_retries):
                 try:
-                    response = session.get(url, headers=headers, params=params, timeout=30)
+                    response = session.get(url, headers=headers, params=params, timeout=65)
                     response.raise_for_status()
                     data = response.json()
 
@@ -185,7 +182,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                     if response.status_code == 429:
                         print(f"Rate limit hit. Waiting for {delay} seconds before retrying.")
                         time.sleep(delay + random.uniform(0, 1))
-                        delay = min(delay * 2, max_delay)
+                        delay = min(delay * 3, max_delay)
                     elif attempt == max_retries - 1:
                         print(f"Failed to fetch data after {max_retries} attempts.")
                         return all_data
@@ -196,7 +193,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
 
     def extract_feeds_data(self, feeds_data):
         """
-        This function extracts relevant data from a dictionary containing feeds information and returns a list of dictionaries representing each feed.
+        This function extracts relevant data from a transitland api feeds endpoint containing feeds information and returns a list of dictionaries representing each feed.
         Each dictionary in the returned list includes the feed's ID, URL, specification, onestop ID, authorization info URL, authorization parameter name, and authorization type.
         If any of these fields are missing in the input data, corresponding fields in the output dictionary are set to None.
         """
@@ -216,7 +213,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
 
     def extract_operators_data(self, operators_data):
         """
-        Extracts relevant data from a given dictionary of operators. Ignores operators associated with places in Japan or France.
+        Extracts relevant data from transitland api operators endpoint. Ignores operators associated with places in Japan or France.
         Constructs a list of dictionaries containing information about each operator, including their IDs, names, feed IDs, country, state/province, and city name.
         Returns the list of operators' data.
         """
@@ -232,8 +229,6 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                     continue
 
             operator_data = {
-                'operator_id': operator['id'],
-                'operator_onestop_id': operator['onestop_id'],
                 'operator_name': operator.get('name'),
                 'operator_feed_id': operator['feeds'][0]['id'] if operator.get('feeds') else None,
                 'country': place.get('adm0_name') if place else None,
