@@ -10,6 +10,8 @@ To support flexibility in handling different snapshots and validator versions, t
 
 - `validator_endpoint`: Specifies the endpoint of the validator to be used for the validation process.
 - `force_update`: Forces an update by ignoring existing validation reports of the same version, treating them as if they do not exist.
+- `env`: Specifies the environment (`stagging` or `prod`), used to determine the appropriate bucket name and project id for retrieving validation reports and executing the `gtfs_validator_execution` workflow.
+
 ## Function Workflow
 1. **HTTP Request Trigger**: The function is initiated via an HTTP request.
 2. **Retrieve Latest Datasets**: Retrieves the latest datasets from the database that do not have the latest version of the validation report.

@@ -23,6 +23,7 @@ main:
             - headers:
                   Content-Type: application/json
             - jobID: "undefined"
+          next: assignValidatorEndpoint
       - assignValidatorEndpoint:
             try:
                 assign:
@@ -41,18 +42,16 @@ main:
                     - assignByPassDbUpdateFalse:
                         assign:
                             - byPassDbUpdate: ${false}
-      - assignResultsEndpoint:
-          switch:
-            - condition: ${sys.get_env("environment") == "prod"}
-              next: assignResultsEndpointProd
-          next: assignResultsEndpointDev
-      - assignResultsEndpointProd:
-          assign:
-            - resultsEndpoint: "https://gtfs-validator-results.mobilitydata.org/"
-          next: logInit
-      - assignResultsEndpointDev:
-          assign:
-            - resultsEndpoint: "https://staging-gtfs-validator-results.mobilitydata.org/"
+
+      - assignReportsBucket:
+            try:
+                assign:
+                    - reportsBucket: ${event.data.reports_bucket_name}
+            except:
+                steps:
+                    - assignReportsBucketFromEnvVariable:
+                        assign:
+                            - reportsBucket: ${sys.get_env("reports_bucket_name")}
       - logInit:
           call: sys.log
           args:
