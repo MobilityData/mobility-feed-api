@@ -121,7 +121,9 @@ class TestUpdateReportProcessor(unittest.TestCase):
     ):
         """Test update_validation_report function."""
         mock_get.return_value.json.return_value = {"version": "1.0.1"}
-        response = update_validation_report(None)
+        mock_request = MagicMock()
+        mock_request.get_json.return_value = {"validator_url": faker.url()}
+        response = update_validation_report(mock_request)
         self.assertTrue("message" in response[0])
         self.assertTrue("dataset_workflow_triggered" in response[0])
         self.assertEqual(response[1], 200)

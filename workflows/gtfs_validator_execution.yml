@@ -14,7 +14,6 @@ main:
           assign:
             - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
             - reportsBucket: ${sys.get_env("reports_bucket_name")}
-            - validatorEndpoint: ${sys.get_env("validator_endpoint")}
             # Resource name format: projects/_/buckets/<datasetBucketName>/objects/<feedID>/<datasetID>/<datasetID>.zip
             - feedID: ${text.split(data.resourceName, "/")[5]}
             - datasetID: ${text.split(data.resourceName, "/")[6]}
@@ -24,6 +23,24 @@ main:
             - headers:
                   Content-Type: application/json
             - jobID: "undefined"
+      - assignValidatorEndpoint:
+            try:
+                assign:
+                    - validatorEndpoint: ${event.data.validator_endpoint}
+            except:
+                steps:
+                    - assignValidatorEndpointFromEnvVariable:
+                        assign:
+                            - validatorEndpoint: ${sys.get_env("validator_endpoint")}
+      - assignByPassDbUpdate:
+            try:
+                assign:
+                    - byPassDbUpdate: ${event.data.bypass_db_update == true}
+            except:
+                steps:
+                    - assignByPassDbUpdateFalse:
+                        assign:
+                            - byPassDbUpdate: ${false}
       - assignResultsEndpoint:
           switch:
             - condition: ${sys.get_env("environment") == "prod"}
@@ -32,6 +49,7 @@ main:
       - assignResultsEndpointProd:
           assign:
             - resultsEndpoint: "https://gtfs-validator-results.mobilitydata.org/"
+          next: logInit
       - assignResultsEndpointDev:
           assign:
             - resultsEndpoint: "https://staging-gtfs-validator-results.mobilitydata.org/"
@@ -200,6 +218,10 @@ main:
           args:
               text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report_" + validatorVersion + ".json"}
               severity: INFO
+      - shouldUpdateDb:
+            switch:
+                - condition: ${byPassDbUpdate}
+                  next: successfulExecution
       - updateDatabase:
           call: http.post
           args:
