@@ -1,6 +1,15 @@
-# Update Validation Report
-This function activates the process that updates the validation report for all latest datasets that lack the current version of the report.
+Here's a more polished version of the description:
 
+# Update Validation Report
+
+This function initiates the process of updating the validation report for all the latest datasets that do not yet have a report generated with the current version.
+
+## Function Parameters
+
+To support flexibility in handling different snapshots and validator versions, the following parameters can be used to customize the function's behavior:
+
+- `validator_endpoint`: Specifies the endpoint of the validator to be used for the validation process.
+- `force_update`: Forces an update by ignoring existing validation reports of the same version, treating them as if they do not exist.
 ## Function Workflow
 1. **HTTP Request Trigger**: The function is initiated via an HTTP request.
 2. **Retrieve Latest Datasets**: Retrieves the latest datasets from the database that do not have the latest version of the validation report.

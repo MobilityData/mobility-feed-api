@@ -18,6 +18,7 @@ import os
 from time import sleep
 from typing import List
 
+import flask
 import functions_framework
 import requests
 import sqlalchemy.orm
@@ -41,26 +42,31 @@ bucket_name = f"mobilitydata-datasets-{env}"
 
 
 @functions_framework.http
-def update_validation_report(_):
+def update_validation_report(request: flask.Request):
     """
     Update the validation report for the datasets that need it
     """
     Logger.init_logger()
 
+    request_json = request.get_json()
+    validator_endpoint = request_json.get("validator_endpoint", os.getenv("WEB_VALIDATOR_URL"))
+    bypass_db_update = validator_endpoint != os.getenv("WEB_VALIDATOR_URL")
+    force_update = request_json.get("force_update", False)
+
     # Get validator version
-    validator_version = get_validator_version()
+    validator_version = get_validator_version(validator_endpoint)
     logging.info(f"Accessing bucket {bucket_name}")
 
     session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
     latest_datasets = get_latest_datasets_without_validation_reports(
-        session, validator_version
+        session, validator_version, force_update
     )
     logging.info(f"Retrieved {len(latest_datasets)} latest datasets.")
 
     valid_latest_datasets = get_datasets_for_validation(latest_datasets)
     logging.info(f"Retrieved {len(latest_datasets)} blobs to update.")
 
-    execution_triggered_datasets = execute_workflows(valid_latest_datasets)
+    execution_triggered_datasets = execute_workflows(valid_latest_datasets, validator_endpoint, bypass_db_update)
     response = {
         "message": f"Validation report update needed for {len(valid_latest_datasets)} datasets and triggered for "
         f"{len(execution_triggered_datasets)} datasets.",
@@ -83,13 +89,13 @@ def update_validation_report(_):
     return response, 200
 
 
-def get_validator_version():
+def get_validator_version(validator_url: str) -> str:
     """
     Get the version of the validator
+    :param validator_url: The URL of the validator
     :return: the version of the validator
     """
-    web_validator_endpoint = os.getenv("WEB_VALIDATOR_URL")
-    response = requests.get(f"{web_validator_endpoint}/version")
+    response = requests.get(f"{validator_url}/version")
     validator_version = response.json()["version"]
     logging.info(f"Validator version: {validator_version}")
     return validator_version
@@ -98,11 +104,13 @@ def get_validator_version():
 def get_latest_datasets_without_validation_reports(
     session: sqlalchemy.orm.Session,
     validator_version: str,
+    force_update: bool = False,
 ) -> List[Row[tuple[Any, Any]]]:
     """
     Retrieve the latest datasets for each feed that do not have a validation report
     :param session: The database session
     :param validator_version: The version of the validator
+    :param force_update: Whether to force the update of the validation report
     :return: A list of tuples containing the feed stable id and dataset stable id
     """
     query = (
@@ -118,6 +126,7 @@ def get_latest_datasets_without_validation_reports(
             or_(
                 Validationreport.validator_version != validator_version,
                 Validationreport.id.is_(None),
+                force_update,
             )
         )
         .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
@@ -185,10 +194,12 @@ def execute_workflow(
     return execution
 
 
-def execute_workflows(latest_datasets):
+def execute_workflows(latest_datasets, validator_endpoint=None, bypass_db_update=False):
     """
     Execute the workflow for the latest datasets that need their validation report to be updated
     :param latest_datasets: List of tuples containing the feed stable id and dataset stable id
+    :param validator_endpoint: The URL of the validator
+    :param bypass_db_update: Whether to bypass the database update
     :return: List of dataset stable ids for which the workflow was executed
     """
     project_id = f"mobility-feeds-{env}"
@@ -202,6 +213,7 @@ def execute_workflows(latest_datasets):
         try:
             input_data = {
                 "data": {
+                    "bypass_db_update": bypass_db_update,
                     "protoPayload": {
                         "resourceName": "projects/_/"
                         f"buckets/{bucket_name}/"
@@ -212,6 +224,8 @@ def execute_workflows(latest_datasets):
                     },
                 }
             }
+            if validator_endpoint:
+                input_data["data"]["validator_endpoint"] = validator_endpoint
             logging.info(f"Executing workflow for {feed_id}/{dataset_id}")
             execute_workflow(project_id, input_data=input_data)
             execution_triggered_datasets.append(dataset_id)
