@@ -1,61 +1,50 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import FormFirstStep from './FirstStep';
 import FormSecondStep from './SecondStep';
 import FormSecondStepRT from './SecondStepRealtime';
+import FormFourthStep from './FourthStep';
+import {
+  Stepper,
+  Step,
+  StepLabel,
+  Box,
+  CircularProgress,
+  Typography,
+} from '@mui/material';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import FormThirdStep from './ThirdStep';
-import { Stepper, Step, StepLabel } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { submitNewFeedForm } from '../../../services/feeds/add-feed-form-service';
+import { useTranslation } from 'react-i18next';
 
 export type YesNoFormInput = 'yes' | 'no' | '';
+export type AuthTypes =
+  | 'None - 0'
+  | 'API key - 1'
+  | 'HTTP header - 2'
+  | 'choiceRequired';
 
-// This is the request body required for the API
-// FeedSubmissionFormFormInput should extend this
-export interface FeedSubmissionFormBody {
-  name: string;
-  isOfficialProducer: boolean;
-  dataType: 'gtfs' | 'gtfs-rt';
-  transitProviderName?: string;
+export interface FeedSubmissionFormFormInput {
+  isOfficialProducer: YesNoFormInput;
+  dataType: 'gtfs' | 'gtfs_rt';
+  transitProviderName: string;
   feedLink?: string;
-  isNewFeed: boolean;
   oldFeedLink?: string;
+  isUpdatingFeed?: YesNoFormInput;
   licensePath?: string;
-  userId: string;
-  country: string;
+  country?: string;
   region?: string;
   municipality?: string;
   tripUpdates?: string;
   vehiclePositions?: string;
   serviceAlerts?: string;
+  oldTripUpdates?: string;
+  oldVehiclePositions?: string;
+  oldServiceAlerts?: string;
   gtfsRelatedScheduleLink?: string;
-  note: string;
-  authType?: string;
+  name?: string;
+  authType: AuthTypes;
   authSignupLink?: string;
   authParameterName?: string;
-  dataProducerEmail?: string;
-  isInterestedInQualityAudit: boolean;
-  userInterviewEmail?: string;
-  whatToolsUsedText?: string;
-  hasLogoPermission: boolean;
-}
-
-export interface FeedSubmissionFormFormInput {
-  isOfficialProducer: YesNoFormInput;
-  dataType: string;
-  transitProviderName: string;
-  feedLink: string;
-  oldFeedLink?: string;
-  isUpdatingFeed?: YesNoFormInput;
-  licensePath: string;
-  country: string;
-  region: string;
-  municipality: string;
-  tripUpdates: boolean;
-  vehiclePositions: boolean;
-  serviceAlerts: boolean;
-  gtfsRealtimeLink: string;
-  gtfsRelatedScheduleLink: string;
-  note: string;
-  isAuthRequired: string;
   dataProducerEmail: string;
   isInterestedInQualityAudit: YesNoFormInput;
   userInterviewEmail?: string;
@@ -74,13 +63,17 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
   country: '',
   region: '',
   municipality: '',
-  tripUpdates: false,
-  vehiclePositions: false,
-  serviceAlerts: false,
-  gtfsRealtimeLink: '',
+  tripUpdates: '',
+  vehiclePositions: '',
+  serviceAlerts: '',
+  oldTripUpdates: '',
+  oldVehiclePositions: '',
+  oldServiceAlerts: '',
   gtfsRelatedScheduleLink: '',
-  note: '',
-  isAuthRequired: 'no',
+  name: '',
+  authType: 'None - 0',
+  authSignupLink: '',
+  authParameterName: '',
   dataProducerEmail: '',
   isInterestedInQualityAudit: '',
   userInterviewEmail: '',
@@ -89,29 +82,78 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
 };
 
 export default function FeedSubmissionForm(): React.ReactElement {
-  const [activeStep, setActiveStep] = React.useState(0);
-  const [steps, setSteps] = React.useState(['', '']);
+  const { t } = useTranslation('feeds');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [isSubmitLoading, setIsSubmitLoading] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<undefined | string>(
+    undefined,
+  );
+  const [steps, setSteps] = React.useState(['', '', '']);
   const navigateTo = useNavigate();
   const [formData, setFormData] =
     React.useState<FeedSubmissionFormFormInput>(defaultFormValues);
+  const [stepsCompleted, setStepsCompleted] = React.useState({
+    '1': false,
+    '2': false,
+    '3': false,
+  });
 
-  const handleBack = (): void => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
+  const currentStep =
+    searchParams.get('step') === null ? 1 : Number(searchParams.get('step'));
+
+  // route guards
+  useEffect(() => {
+    const step = searchParams.get('step') ?? '1';
+
+    if (step === '2' || step === '3' || step === '4') {
+      if (!stepsCompleted['1']) {
+        setSearchParams({});
+      }
+      return;
+    }
+
+    if (step === '3' || step === '4') {
+      if (!stepsCompleted['2']) {
+        setSearchParams({ step: '1' });
+      }
+      return;
+    }
+
+    if (step === '4') {
+      if (!stepsCompleted['3'] || !(formData.isOfficialProducer === 'yes')) {
+        setSearchParams({ step: '3' });
+      }
+      return;
+    }
+    setSubmitError(undefined);
+  }, [searchParams]);
 
   const handleNext = (): void => {
-    const nextStep = activeStep + 1;
-    setActiveStep(nextStep);
-    if (nextStep === steps.length) {
+    const nextStep =
+      searchParams.get('step') === null
+        ? 2
+        : Number(searchParams.get('step')) + 1;
+    setStepsCompleted({ ...stepsCompleted, [currentStep]: true });
+    setSearchParams({ step: nextStep.toString() });
+    if (nextStep === steps.length + 1) {
       navigateTo('/contribute/submitted');
+    }
+  };
+
+  const handleBack = (): void => {
+    const previousStep = (currentStep - 1).toString();
+    if (previousStep === '1') {
+      setSearchParams({});
+    } else {
+      setSearchParams({ step: previousStep });
     }
   };
 
   const setNumberOfSteps = (isOfficialProducer: YesNoFormInput): void => {
     if (isOfficialProducer === 'yes') {
-      setSteps(['', '', '']);
+      setSteps(['', '', '', '']);
     } else {
-      setSteps(['', '']);
+      setSteps(['', '', '']);
     }
   };
 
@@ -129,22 +171,52 @@ export default function FeedSubmissionForm(): React.ReactElement {
     handleBack();
   };
 
-  const finalSubmit = (
+  const finalSubmit = async (
     partialFormData: Partial<FeedSubmissionFormFormInput>,
-  ): void => {
+  ): Promise<void> => {
     const finalData = { ...formData, ...partialFormData };
+    setIsSubmitLoading(true);
     setFormData(finalData);
-    // console.log('FINAL API CALL WITH', finalData);
-    // TODO: API call with finalData
-    // TODO: loading state of API call
-    // TODO: feed submitted page
-    handleNext();
+    try {
+      const requestBody = { ...finalData };
+      await submitNewFeedForm(requestBody);
+      handleNext();
+    } catch (error) {
+      setSubmitError(t('form.errorSubmitting'));
+    } finally {
+      setIsSubmitLoading(false);
+    }
   };
+
+  if (isSubmitLoading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          flexWrap: 'wrap',
+          mt: 3,
+        }}
+      >
+        <CircularProgress />
+        <Typography
+          variant='h6'
+          sx={{ width: '100%', textAlign: 'center', mt: 2 }}
+        >
+          {t('form.submittingFeed')}
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (submitError !== undefined) {
+    return <Typography>{submitError}</Typography>;
+  }
 
   return (
     <>
       <Stepper
-        activeStep={activeStep}
+        activeStep={currentStep - 1}
         sx={{ mb: 3, width: steps.length === 2 ? 'calc(50% + 24px)' : '100%' }}
       >
         {steps.map((label, index) => {
@@ -159,33 +231,48 @@ export default function FeedSubmissionForm(): React.ReactElement {
           );
         })}
       </Stepper>
-      {activeStep === 0 && (
+      {currentStep === 1 && (
         <FormFirstStep
           initialValues={formData}
           submitFormData={formStepSubmit}
           setNumberOfSteps={setNumberOfSteps}
         ></FormFirstStep>
       )}
-      {activeStep === 1 && formData.dataType === 'gtfs' && (
+      {currentStep === 2 && formData.dataType === 'gtfs' && (
         <FormSecondStep
           initialValues={formData}
           submitFormData={formStepSubmit}
           handleBack={formStepBack}
         ></FormSecondStep>
       )}
-      {activeStep === 1 && formData.dataType === 'gtfs_rt' && (
+      {currentStep === 2 && formData.dataType === 'gtfs_rt' && (
         <FormSecondStepRT
           initialValues={formData}
           submitFormData={formStepSubmit}
           handleBack={formStepBack}
         ></FormSecondStepRT>
       )}
-      {activeStep === 2 && (
+      {currentStep === 3 && (
         <FormThirdStep
           initialValues={formData}
-          submitFormData={finalSubmit}
+          submitFormData={(submittedFormData) => {
+            if (currentStep === steps.length) {
+              void finalSubmit(submittedFormData);
+            } else {
+              formStepSubmit(submittedFormData);
+            }
+          }}
           handleBack={formStepBack}
         ></FormThirdStep>
+      )}
+      {currentStep === 4 && (
+        <FormFourthStep
+          initialValues={formData}
+          submitFormData={(submittedFormData) => {
+            void finalSubmit(submittedFormData);
+          }}
+          handleBack={formStepBack}
+        ></FormFourthStep>
       )}
     </>
   );

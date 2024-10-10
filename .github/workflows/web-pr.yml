@@ -14,6 +14,7 @@ jobs:
     with:
       FIREBASE_PROJECT: dev
       PREVIEW_DEPLOYMENT: true
+      FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
       PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
     secrets: inherit
 
