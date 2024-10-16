@@ -144,7 +144,7 @@ jobs:
       - name: 1Password - Load Secrets
         uses: 1Password/load-secrets-action@v2.0.0
         with:
-          export-env: false
+          export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           SLACK_WEBHOOK_URL: ${{inputs.OP_SLACK_WEBHOOK_URL}}
