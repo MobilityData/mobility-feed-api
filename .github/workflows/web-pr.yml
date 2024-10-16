@@ -12,10 +12,7 @@ jobs:
     name: Deploy Web App
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Load secrets from 1Password
+    - name: 1Password - Load Secrets
       uses: 1password/load-secrets-action@v2.0.0
       with:
         export-env: true # Export loaded secrets as environment variables
