@@ -16,7 +16,7 @@ jobs:
         id: op-load-secret
         uses: 1Password/load-secrets-action@v2.0.0
         with:
-          export-env: true # Export loaded secrets as environment variables
+          export-env: false
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
