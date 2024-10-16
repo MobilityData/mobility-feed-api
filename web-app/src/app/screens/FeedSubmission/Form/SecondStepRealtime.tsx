@@ -3,24 +3,27 @@ import {
   Grid,
   FormControl,
   FormLabel,
-  FormControlLabel,
-  Checkbox,
-  RadioGroup,
-  Radio,
   Button,
   TextField,
 } from '@mui/material';
 import { type SubmitHandler, Controller, useForm } from 'react-hook-form';
-import { type FeedSubmissionFormFormInput } from '.';
+import { type AuthTypes, type FeedSubmissionFormFormInput } from '.';
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { isValidFeedLink } from '../../../services/feeds/utils';
 
 export interface FeedSubmissionFormInputSecondStepRT {
-  tripUpdates: boolean;
-  vehiclePositions: boolean;
-  serviceAlerts: boolean;
-  gtfsRealtimeLink: string;
+  tripUpdates: string;
+  vehiclePositions: string;
+  serviceAlerts: string;
+  oldTripUpdates?: string;
+  oldVehiclePositions?: string;
+  oldServiceAlerts?: string;
   gtfsRelatedScheduleLink: string;
-  note: string;
-  isAuthRequired: string;
+  licensePath?: string;
+  authType: AuthTypes;
+  authSignupLink?: string;
+  authParameterName?: string;
 }
 
 interface FormSecondStepRTProps {
@@ -34,22 +37,27 @@ export default function FormSecondStepRT({
   submitFormData,
   handleBack,
 }: FormSecondStepRTProps): React.ReactElement {
+  const { t } = useTranslation('feeds');
   const {
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitted },
     getValues,
+    trigger,
+    watch,
   } = useForm<FeedSubmissionFormInputSecondStepRT>({
     defaultValues: {
       tripUpdates: initialValues.tripUpdates,
       vehiclePositions: initialValues.vehiclePositions,
       serviceAlerts: initialValues.serviceAlerts,
-      gtfsRealtimeLink: initialValues.gtfsRealtimeLink,
+      oldTripUpdates: initialValues.oldTripUpdates,
+      oldVehiclePositions: initialValues.oldVehiclePositions,
+      oldServiceAlerts: initialValues.oldServiceAlerts,
       gtfsRelatedScheduleLink: initialValues.gtfsRelatedScheduleLink,
-      note: initialValues.note,
-      isAuthRequired: initialValues.isAuthRequired,
     },
   });
+
+  const isFeedUpdate = initialValues.isUpdatingFeed === 'yes';
 
   const onSubmit: SubmitHandler<FeedSubmissionFormInputSecondStepRT> = (
     data,
@@ -57,10 +65,40 @@ export default function FormSecondStepRT({
     submitFormData(data);
   };
 
-  const entityTypeCheckBoxLabels = {
-    tripUpdates: 'Trip Updates',
-    vehiclePositions: 'Vehicle Positions',
-    serviceAlerts: 'Service Alerts',
+  const [tripUpdates, vehiclePositions, serviceAlerts] = watch([
+    'tripUpdates',
+    'vehiclePositions',
+    'serviceAlerts',
+  ]);
+
+  useEffect(() => {
+    if (isSubmitted) {
+      // assures that the error is updated for all
+      void trigger(['tripUpdates', 'vehiclePositions', 'serviceAlerts']);
+    }
+  }, [tripUpdates, vehiclePositions, serviceAlerts]);
+
+  const gtfsRtLinkValidation = (
+    rtType: 'tu' | 'vp' | 'sa',
+  ): boolean | string => {
+    if (tripUpdates !== '' || vehiclePositions !== '' || serviceAlerts !== '') {
+      switch (rtType) {
+        case 'tu':
+          return tripUpdates !== ''
+            ? isValidFeedLink(tripUpdates) || t('form.errorUrl')
+            : true;
+        case 'vp':
+          return vehiclePositions !== ''
+            ? isValidFeedLink(vehiclePositions) || t('form.errorUrl')
+            : true;
+        case 'sa':
+          return serviceAlerts !== ''
+            ? isValidFeedLink(serviceAlerts) || t('form.errorUrl')
+            : true;
+      }
+    } else {
+      return t('form.atLeastOneRealtimeFeed');
+    }
   };
 
   return (
@@ -70,102 +108,203 @@ export default function FormSecondStepRT({
           fontSize: { xs: 12, sm: 18 },
         }}
       >
-        GTFS Realtime Feed
+        {t('gtfsRealtimeFeed')}
       </Typography>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
           <Grid item>
-            <FormControl component='fieldset'>
-              <FormLabel component='legend'>Entity Type</FormLabel>
-              {(
-                ['tripUpdates', 'vehiclePositions', 'serviceAlerts'] as const
-              ).map((entityType) => (
-                <Controller
-                  key={entityType}
-                  control={control}
-                  name={entityType}
-                  render={({ field }) => {
-                    return (
-                      <FormControlLabel
-                        control={<Checkbox />}
-                        label={entityTypeCheckBoxLabels[entityType]}
-                      />
-                    );
-                  }}
-                />
-              ))}
-            </FormControl>
-          </Grid>
-          <Grid item>
             <FormControl
               component='fieldset'
               fullWidth
-              required
-              error={errors.gtfsRelatedScheduleLink !== undefined}
+              error={errors.serviceAlerts !== undefined}
             >
-              <FormLabel component='legend'>GTFS Realtime feed link</FormLabel>
-              <Controller
-                control={control}
-                name='gtfsRealtimeLink'
-                render={({ field }) => (
-                  <TextField className='md-small-input' {...field} />
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
-            <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>
-                Link to related GTFS Schedule feed
+              <FormLabel component='legend' data-cy='serviceAlertFeedLabel'>
+                {t('serviceAlertsFeed')}
               </FormLabel>
               <Controller
                 control={control}
-                name='gtfsRelatedScheduleLink'
-                render={({ field }) => (
-                  <TextField className='md-small-input' {...field} />
-                )}
-              />
-            </FormControl>
-          </Grid>
-          <Grid item>
-            <FormControl component='fieldset' fullWidth>
-              <FormLabel component='legend'>Note</FormLabel>
-              <Controller
-                control={control}
-                name='note'
+                name='serviceAlerts'
+                rules={{ validate: () => gtfsRtLinkValidation('sa') }}
                 render={({ field }) => (
                   <TextField
                     className='md-small-input'
                     {...field}
-                    helperText='e.g “Aggregate” or “only contains Trip Updates and Vehicle
-                Positions”'
+                    helperText={errors.serviceAlerts?.message ?? ''}
+                    error={errors.serviceAlerts !== undefined}
+                    data-cy='serviceAlertFeed'
                   />
                 )}
               />
             </FormControl>
           </Grid>
+          {isFeedUpdate && (
+            <Grid item mb={2}>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldServiceAlerts !== undefined}
+              >
+                <FormLabel component='legend'>
+                  {t('oldServiceAlertsFeed')}
+                </FormLabel>
+                <Controller
+                  control={control}
+                  name='oldServiceAlerts'
+                  rules={{
+                    validate: (value) => {
+                      if (value === '' || value === undefined) return true;
+                      return isValidFeedLink(value) || t('form.errorUrl');
+                    },
+                  }}
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      {...field}
+                      helperText={errors.oldServiceAlerts?.message ?? ''}
+                      error={errors.oldServiceAlerts !== undefined}
+                    />
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
           <Grid item>
-            <FormControl component='fieldset'>
-              <FormLabel component='legend'>
-                Is authentication required?
+            <FormControl
+              component='fieldset'
+              fullWidth
+              error={errors.tripUpdates !== undefined}
+            >
+              <FormLabel component='legend' data-cy='tripUpdatesFeedLabel'>
+                {t('tripUpdatesFeed')}
               </FormLabel>
               <Controller
                 control={control}
-                name='isAuthRequired'
+                name='tripUpdates'
+                rules={{ validate: () => gtfsRtLinkValidation('tu') }}
                 render={({ field }) => (
-                  <RadioGroup {...field}>
-                    <FormControlLabel
-                      value='yes'
-                      control={<Radio />}
-                      label='Yes'
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.tripUpdates?.message ?? ''}
+                    error={errors.tripUpdates !== undefined}
+                  />
+                )}
+              />
+            </FormControl>
+          </Grid>
+          {isFeedUpdate && (
+            <Grid item mb={2}>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldTripUpdates !== undefined}
+              >
+                <FormLabel component='legend'>
+                  {t('oldTripUpdatesFeed')}
+                </FormLabel>
+                <Controller
+                  control={control}
+                  name='oldTripUpdates'
+                  rules={{
+                    validate: (value) => {
+                      if (value === '' || value === undefined) return true;
+                      return isValidFeedLink(value) || t('form.errorUrl');
+                    },
+                  }}
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      {...field}
+                      helperText={errors.oldTripUpdates?.message ?? ''}
+                      error={errors.oldTripUpdates !== undefined}
                     />
-                    <FormControlLabel
-                      value='no'
-                      control={<Radio />}
-                      label='No'
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+          <Grid item>
+            <FormControl
+              component='fieldset'
+              fullWidth
+              error={errors.vehiclePositions !== undefined}
+            >
+              <FormLabel component='legend' data-cy='vehiclePositionLabel'>
+                {t('vehiclePositionsFeed')}
+              </FormLabel>
+              <Controller
+                control={control}
+                name='vehiclePositions'
+                rules={{ validate: () => gtfsRtLinkValidation('vp') }}
+                render={({ field }) => (
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.vehiclePositions?.message ?? ''}
+                    error={errors.vehiclePositions !== undefined}
+                  />
+                )}
+              />
+            </FormControl>
+          </Grid>
+          {isFeedUpdate && (
+            <Grid item mb={2}>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.oldVehiclePositions !== undefined}
+              >
+                <FormLabel component='legend'>
+                  {t('oldVehiclePositionsFeed')}
+                </FormLabel>
+                <Controller
+                  control={control}
+                  name='oldVehiclePositions'
+                  rules={{
+                    validate: (value) => {
+                      if (value === '' || value === undefined) return true;
+                      return isValidFeedLink(value) || t('form.errorUrl');
+                    },
+                  }}
+                  render={({ field }) => (
+                    <TextField
+                      className='md-small-input'
+                      {...field}
+                      helperText={errors.oldVehiclePositions?.message ?? ''}
+                      error={errors.oldVehiclePositions !== undefined}
                     />
-                  </RadioGroup>
+                  )}
+                />
+              </FormControl>
+            </Grid>
+          )}
+
+          <Grid item>
+            <FormControl
+              component='fieldset'
+              fullWidth
+              error={errors.gtfsRelatedScheduleLink !== undefined}
+            >
+              <FormLabel component='legend'>
+                {t('relatedGtfsScheduleFeed')}
+              </FormLabel>
+              <Controller
+                control={control}
+                name='gtfsRelatedScheduleLink'
+                rules={{
+                  validate: (value) => {
+                    if (value === '' || value === undefined) return true;
+                    return isValidFeedLink(value) || t('form.errorUrl');
+                  },
+                }}
+                render={({ field }) => (
+                  <TextField
+                    className='md-small-input'
+                    {...field}
+                    helperText={errors.gtfsRelatedScheduleLink?.message ?? ''}
+                    error={errors.gtfsRelatedScheduleLink !== undefined}
+                  />
                 )}
               />
             </FormControl>
@@ -179,12 +318,17 @@ export default function FormSecondStepRT({
                 variant='outlined'
                 sx={{ mt: 3, mb: 2 }}
               >
-                Back
+                {t('common:back')}
               </Button>
             </Grid>
             <Grid item>
-              <Button type='submit' variant='contained' sx={{ mt: 3, mb: 2 }}>
-                Next
+              <Button
+                type='submit'
+                variant='contained'
+                sx={{ mt: 3, mb: 2 }}
+                data-cy='secondStepRtSubmit'
+              >
+                {t('common:next')}
               </Button>
             </Grid>
           </Grid>
