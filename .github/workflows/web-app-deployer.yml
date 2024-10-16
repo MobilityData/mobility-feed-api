@@ -246,7 +246,7 @@ jobs:
         working-directory: functions/packages/feed-form
         run: |
           echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
-          echo "SLACK_WEBHOOK_URL=${{  inputs.SLACK_WEBHOOK_URL }}" > .env
+          echo "SLACK_WEBHOOK_URL=${{  inputs.SLACK_WEBHOOK_URL }}" >> .env
 
       - name: Deploy Firebase Functions
         working-directory: functions

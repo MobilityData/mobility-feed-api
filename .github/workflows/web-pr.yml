@@ -7,16 +7,28 @@ on:
       - "web-app/**"
       - "functions/**"
       - ".github/workflows/web-*.yml"
-jobs:
+jobs:    
   deploy-web-app:
     name: Deploy Web App
-    uses: ./.github/workflows/web-app-deployer.yml
-    with:
-      FIREBASE_PROJECT: dev
-      PREVIEW_DEPLOYMENT: true
-      FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
-      PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
-    secrets: inherit
+    runs-on:
+        labels: ubuntu-latest
+    steps:
+    - name: Load secrets from 1Password
+      uses: 1password/load-secrets-action@v2.0.0
+      with:
+        export-env: true # Export loaded secrets as environment variables
+      env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+        SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
+
+    - name: Deploy Web App
+      uses: ./.github/workflows/web-app-deployer.yml
+      with:
+        FIREBASE_PROJECT: dev
+        PREVIEW_DEPLOYMENT: true
+        FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
+        SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+        PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
 
   update-pr-comment:
     name: Update PR comments
