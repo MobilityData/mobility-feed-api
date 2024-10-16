@@ -26,6 +26,10 @@ on:
         description: The google sheet id for the feed submit form
         type: string
         required: false
+      SLACK_WEBHOOK_URL:
+        description: Slack webhook URL for add feed channel
+        type: string
+        required: false
     outputs:
       hosting_url:
         description: "The URL of the deployed web app"
@@ -240,7 +244,9 @@ jobs:
 
       - name: Set Firebase Feed Form Environment
         working-directory: functions/packages/feed-form
-        run: echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
+        run: |
+          echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
+          echo "SLACK_WEBHOOK_URL=${{  inputs.SLACK_WEBHOOK_URL }}" > .env
 
       - name: Deploy Firebase Functions
         working-directory: functions
