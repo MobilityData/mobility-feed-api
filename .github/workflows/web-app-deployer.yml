@@ -26,8 +26,8 @@ on:
         description: The google sheet id for the feed submit form
         type: string
         required: false
-      SLACK_WEBHOOK_URL:
-        description: Slack webhook URL for add feed channel
+      OP_SLACK_WEBHOOK_URL:
+        description: 1Password Slack webhook URL secret reference for add feed channel
         type: string
         required: false
     outputs:
@@ -141,6 +141,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: 1Password - Load Secrets
+        uses: 1Password/load-secrets-action@v2.0.0
+        with:
+          export-env: false
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{inputs.OP_SLACK_WEBHOOK_URL}}
+
       - name: Authenticate to Google Cloud DEV
         if: ${{ inputs.FIREBASE_PROJECT == 'dev' }}
         uses: google-github-actions/auth@v2
@@ -246,7 +254,7 @@ jobs:
         working-directory: functions/packages/feed-form
         run: |
           echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
-          echo "SLACK_WEBHOOK_URL=${{  inputs.SLACK_WEBHOOK_URL }}" >> .env
+          echo "SLACK_WEBHOOK_URL=${{ env.SLACK_WEBHOOK_URL }}" >> .env
 
       - name: Deploy Firebase Functions
         working-directory: functions

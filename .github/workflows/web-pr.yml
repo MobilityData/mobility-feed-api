@@ -8,30 +8,14 @@ on:
       - "functions/**"
       - ".github/workflows/web-*.yml"
 jobs:
-  load-secrets:
-    name: Load Secrets and Deploy Web App
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1Password - Load Secrets
-        id: op-load-secret
-        uses: 1Password/load-secrets-action@v2.0.0
-        with:
-          export-env: false
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
-    outputs:  # Pass the secret loaded from this job as an output
-      SLACK_WEBHOOK_URL: ${{ steps.op-load-secret.outputs.SLACK_WEBHOOK_URL }}
 
   deploy-web-app:
-    name: Deploy Web App
-    needs: load-secrets
     uses: ./.github/workflows/web-app-deployer.yml
     with:
       FIREBASE_PROJECT: dev
       PREVIEW_DEPLOYMENT: true
       FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
-      SLACK_WEBHOOK_URL: ${{ needs.load-secrets.outputs.SLACK_WEBHOOK_URL }}
+      OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
       PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
     secrets: inherit
 
