@@ -4,11 +4,8 @@
 ![Deploy Web App - QA](https://github.com/MobilityData/mobility-feed-api/actions/workflows/web-qa.yml/badge.svg?branch=main)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-The Mobility Feed API service a list of open mobility data sources from across the world. This repository is the effort the initial effort to convert the current [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs) in an API service.
+The Mobility Feed API service a list of open mobility data sources from across the world. This repository is the effort the initial effort to convert the current [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs) in an API service. [More info about the Mobility Database can be found on the website](https://mobilitydatabase.org/).
 
-# Work in Progress Status
-
-Mobility Feed API is not released yet; any code or service hosted is considered as **Work in Progress**. For more information regarding the current Mobility Database Catalog, go to [The Mobility Database Catalogs](https://github.com/MobilityData/mobility-database-catalogs).
 
 ## GBFS Feeds
 The repository also includes GBFS feeds extracted from [`systems.csv`](https://github.com/MobilityData/gbfs/blob/master/systems.csv) in the [GBFS repository](https://github.com/MobilityData/gbfs). However, these feeds are not being served yet. The supported versions of these feeds are specified in the file [api/src/scripts/gbfs_utils/gbfs_versions.py](https://github.com/MobilityData/mobility-feed-api/blob/main/api/src/scripts/gbfs_utils/gbfs_versions.py).
