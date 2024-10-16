@@ -109,4 +109,3 @@ def refresh_materialized_view(session, view_name: str) -> bool:
     except Exception as error:
         logging.error(f"Error raised while refreshing view: {error}")
     return False
-
