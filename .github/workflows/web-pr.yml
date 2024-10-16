@@ -19,7 +19,6 @@ jobs:
       PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
     secrets: inherit
 
-
   update-pr-comment:
     name: Update PR comments
     runs-on: ubuntu-latest
