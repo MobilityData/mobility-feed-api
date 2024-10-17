@@ -99,7 +99,9 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         to a queue based on conditions related to the data retrieved from TransitLand API.
         """
         feeds_data = self.get_data(TRANSITLAND_FEED_URL, apikey, spec, session)
-        operators_data = self.get_data(TRANSITLAND_OPERATOR_URL, apikey, session=session)
+        operators_data = self.get_data(
+            TRANSITLAND_OPERATOR_URL, apikey, session=session
+        )
 
         feeds = self.extract_feeds_data(feeds_data)
         operators = self.extract_operators_data(operators_data)
