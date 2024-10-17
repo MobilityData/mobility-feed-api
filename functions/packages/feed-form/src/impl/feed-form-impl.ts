@@ -232,7 +232,11 @@ async function sendSlackWebhook(spreadsheetId: string) {
         },
       ],
     };
-    await axios.post(slackWebhookUrl, slackMessage);
+    await axios.post(slackWebhookUrl, slackMessage).catch((error) => {
+      logger.error("Error sending Slack webhook:", error);
+    });
+  } else {
+    logger.error("Slack webhook URL is not defined");
   }
 }
 /* eslint-enable max-len */
