@@ -35,16 +35,18 @@ from helpers.feed_sync.feed_sync_dispatcher import feed_sync_dispatcher
 from helpers.pub_sub import get_pubsub_client, get_execution_id
 
 # Logging configuration
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 # Environment variables
 PUBSUB_TOPIC_NAME = os.getenv("PUBSUB_TOPIC_NAME")
 PROJECT_ID = os.getenv("PROJECT_ID")
 FEEDS_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
 apikey = os.getenv("TRANSITLAND_API_KEY")
-Tlnd_operators_endpoint = os.getenv("Transitland_operator_url")
-Tlnd_feeds_endpoint = os.getenv("Transitland_feed_url")
-spec = ['gtfs', 'gtfs-rt']
+TRANSITLAND_OPERATOR_URL = os.getenv("TRANSITLAND_OPERATOR_URL")
+TRANSITLAND_FEED_URL = os.getenv("TRANSITLAND_FEED_URL")
+spec = ["gtfs", "gtfs-rt"]
 
 # session instance to reuse connections
 session = requests.Session()
@@ -55,6 +57,7 @@ class TransitFeedSyncPayload:
     """
     Data class for transit feed sync payloads.
     """
+
     external_id: str
     feed_id: str
     feed_url: Optional[str] = None
@@ -88,14 +91,15 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             logging.warning(f"Failed to reach {url}: {e}")
             return False
 
-    def process_sync(self, db_session: Optional[Session] = None,
-                     execution_id: Optional[str] = None) -> List[FeedSyncPayload]:
+    def process_sync(
+        self, db_session: Optional[Session] = None, execution_id: Optional[str] = None
+    ) -> List[FeedSyncPayload]:
         """
         Process data synchronously to fetch, extract, combine, filter and prepare payloads for publishing
         to a queue based on conditions related to the data retrieved from TransitLand API.
         """
-        feeds_data = self.get_data(Tlnd_feeds_endpoint, apikey, spec, session)
-        operators_data = self.get_data(Tlnd_operators_endpoint, apikey, session=session)
+        feeds_data = self.get_data(TRANSITLAND_FEED_URL, apikey, spec, session)
+        operators_data = self.get_data(TRANSITLAND_OPERATOR_URL, apikey, session=session)
 
         feeds = self.extract_feeds_data(feeds_data)
         operators = self.extract_operators_data(operators_data)
@@ -105,83 +109,115 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         feeds_df = pd.DataFrame(feeds)
 
         # Merge operators and feeds DataFrames on 'operator_feed_id' and 'feed_id'
-        combined_df = pd.merge(operators_df, feeds_df, left_on='operator_feed_id', right_on='feed_id', how='inner')
+        combined_df = pd.merge(
+            operators_df,
+            feeds_df,
+            left_on="operator_feed_id",
+            right_on="feed_id",
+            how="inner",
+        )
 
         # Filter out rows where 'feed_url' is missing
-        combined_df = combined_df[combined_df['feed_url'].notna()]
+        combined_df = combined_df[combined_df["feed_url"].notna()]
 
         # Group by 'feed_id' and concatenate 'operator_name' while keeping first values of other columns
-        df_grouped = combined_df.groupby('feed_id').agg({
-            'operator_name': lambda x: ', '.join(x),
-            'feeds_onestop_id': 'first',
-            'feed_url': 'first',
-            'operator_feed_id': 'first',
-            'spec': 'first',
-            'country': 'first',
-            'state_province': 'first',
-            'city_name': 'first',
-            'auth_info_url': 'first',
-            'auth_param_name': 'first',
-            'type': 'first'
-        }).reset_index()
+        df_grouped = (
+            combined_df.groupby("feed_id")
+            .agg(
+                {
+                    "operator_name": lambda x: ", ".join(x),
+                    "feeds_onestop_id": "first",
+                    "feed_url": "first",
+                    "operator_feed_id": "first",
+                    "spec": "first",
+                    "country": "first",
+                    "state_province": "first",
+                    "city_name": "first",
+                    "auth_info_url": "first",
+                    "auth_param_name": "first",
+                    "type": "first",
+                }
+            )
+            .reset_index()
+        )
 
         # Filter out unwanted countries
-        countries_not_included = ['France', 'Japan']
-        filtered_df = df_grouped[~df_grouped['country'].str.lower().isin([c.lower() for c in countries_not_included])]
+        countries_not_included = ["France", "Japan"]
+        filtered_df = df_grouped[
+            ~df_grouped["country"]
+            .str.lower()
+            .isin([c.lower() for c in countries_not_included])
+        ]
 
         # Filter out URLs that return undesired status codes
-        filtered_df = filtered_df[filtered_df['feed_url'].apply(self.check_url_status)]
+        filtered_df = filtered_df[filtered_df["feed_url"].apply(self.check_url_status)]
 
         # Convert filtered DataFrame to dictionary format
-        combined_data = filtered_df.to_dict(orient='records')
+        combined_data = filtered_df.to_dict(orient="records")
 
         # Prepare payloads for publishing to queue
         payloads = []
         for data in combined_data:
-            associated_id = self.get_associated_id(db_session, data['feeds_onestop_id'])
-            payload_type = "update" if associated_id and not self.check_feed_url_exists(
-                db_session, data['feed_url']
-            ) else "new"
+            associated_id = self.get_associated_id(db_session, data["feeds_onestop_id"])
+            payload_type = (
+                "update"
+                if associated_id
+                and not self.check_feed_url_exists(db_session, data["feed_url"])
+                else "new"
+            )
 
             payload = TransitFeedSyncPayload(
-                external_id=data['feeds_onestop_id'],
-                feed_id=data['feed_id'],
+                external_id=data["feeds_onestop_id"],
+                feed_id=data["feed_id"],
                 execution_id=execution_id,
-                feed_url=data['feed_url'],
-                spec=data['spec'],
-                auth_info_url=data['auth_info_url'],
-                auth_param_name=data['auth_param_name'],
-                type=data['type'],
-                operator_name=data['operator_name'],
-                country=data['country'],
-                state_province=data['state_province'],
-                city_name=data['city_name'],
-                payload_type=payload_type
+                feed_url=data["feed_url"],
+                spec=data["spec"],
+                auth_info_url=data["auth_info_url"],
+                auth_param_name=data["auth_param_name"],
+                type=data["type"],
+                operator_name=data["operator_name"],
+                country=data["country"],
+                state_province=data["state_province"],
+                city_name=data["city_name"],
+                payload_type=payload_type,
             )
-            payloads.append(FeedSyncPayload(external_id=data['feeds_onestop_id'], payload=payload))
+            payloads.append(
+                FeedSyncPayload(external_id=data["feeds_onestop_id"], payload=payload)
+            )
 
         return payloads
 
-    def get_data(self, url, apikey, spec=None, session=None, max_retries=3, initial_delay=60, max_delay=120):
+    def get_data(
+        self,
+        url,
+        apikey,
+        spec=None,
+        session=None,
+        max_retries=3,
+        initial_delay=60,
+        max_delay=120,
+    ):
         """
         This function retrieves data from the specified Transitland feeds and operator endpoints.
         Handles rate limits, retries, and error cases.
         Returns the parsed data as a dictionary containing feeds and operators.
         """
-        headers = {'apikey': apikey}
-        params = {'spec': spec} if spec else {}
-        all_data = {'feeds': [], 'operators': []}
+        headers = {"apikey": apikey}
+        params = {"spec": spec} if spec else {}
+        all_data = {"feeds": [], "operators": []}
         delay = initial_delay
 
         while url:
             for attempt in range(max_retries):
                 try:
-                    response = session.get(url, headers=headers, params=params, timeout=30)
+                    response = session.get(
+                        url, headers=headers, params=params, timeout=30
+                    )
                     response.raise_for_status()
                     data = response.json()
-                    all_data['feeds'].extend(data.get('feeds', []))
-                    all_data['operators'].extend(data.get('operators', []))
-                    url = data.get('meta', {}).get('next')
+                    all_data["feeds"].extend(data.get("feeds", []))
+                    all_data["operators"].extend(data.get("operators", []))
+                    url = data.get("meta", {}).get("next")
                     delay = initial_delay
                     break
 
@@ -192,7 +228,9 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                         time.sleep(delay + random.uniform(0, 1))
                         delay = min(delay * 2, max_delay)
                     elif attempt == max_retries - 1:
-                        logging.error("Failed to fetch data after %s attempts.", max_retries)
+                        logging.error(
+                            "Failed to fetch data after %s attempts.", max_retries
+                        )
                         return all_data
                     else:
                         time.sleep(delay)
@@ -204,17 +242,19 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Returns a list of dictionaries representing each feed.
         """
         feeds = []
-        for feed in feeds_data['feeds']:
-            feed_url = feed['urls'].get('static_current')
-            feeds.append({
-                'feed_id': feed['id'],
-                'feed_url': feed_url,
-                'spec': feed['spec'].lower(),
-                'feeds_onestop_id': feed['onestop_id'],
-                'auth_info_url': feed['authorization'].get('info_url'),
-                'auth_param_name': feed['authorization'].get('param_name'),
-                'type': feed['authorization'].get('type')
-            })
+        for feed in feeds_data["feeds"]:
+            feed_url = feed["urls"].get("static_current")
+            feeds.append(
+                {
+                    "feed_id": feed["id"],
+                    "feed_url": feed_url,
+                    "spec": feed["spec"].lower(),
+                    "feeds_onestop_id": feed["onestop_id"],
+                    "auth_info_url": feed["authorization"].get("info_url"),
+                    "auth_param_name": feed["authorization"].get("param_name"),
+                    "type": feed["authorization"].get("type"),
+                }
+            )
         return feeds
 
     def extract_operators_data(self, operators_data: dict) -> List[dict]:
@@ -223,17 +263,19 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Constructs a list of dictionaries containing information about each operator.
         """
         operators = []
-        for operator in operators_data['operators']:
-            if operator.get('agencies') and operator['agencies'][0].get('places'):
-                places = operator['agencies'][0]['places']
+        for operator in operators_data["operators"]:
+            if operator.get("agencies") and operator["agencies"][0].get("places"):
+                places = operator["agencies"][0]["places"]
                 place = places[1] if len(places) > 1 else places[0]
 
             operator_data = {
-                'operator_name': operator.get('name'),
-                'operator_feed_id': operator['feeds'][0]['id'] if operator.get('feeds') else None,
-                'country': place.get('adm0_name') if place else None,
-                'state_province': place.get('adm1_name') if place else None,
-                'city_name': place.get('city_name') if place else None
+                "operator_name": operator.get("name"),
+                "operator_feed_id": operator["feeds"][0]["id"]
+                if operator.get("feeds")
+                else None,
+                "country": place.get("adm0_name") if place else None,
+                "state_province": place.get("adm1_name") if place else None,
+                "city_name": place.get("city_name") if place else None,
             }
             operators.append(operator_data)
         return operators
@@ -245,8 +287,10 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         :param external_id: External ID to check
         :return: Associated ID if exists, otherwise None
         """
-        query = text("SELECT associated_id FROM public.externalid WHERE associated_id = :external_id")
-        result = db_session.execute(query, {'external_id': external_id}).fetchone()
+        query = text(
+            "SELECT associated_id FROM public.externalid WHERE associated_id = :external_id"
+        )
+        result = db_session.execute(query, {"external_id": external_id}).fetchone()
         return result[0] if result else None
 
     def check_feed_url_exists(self, db_session: Session, feed_url: str) -> bool:
@@ -256,11 +300,15 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         :param feed_url: Feed URL to check
         :return: True if exists, otherwise False
         """
-        query = text("SELECT producer_url FROM public.feed WHERE producer_url = :feed_url")
-        result = db_session.execute(query, {'feed_url': feed_url}).fetchone()
+        query = text(
+            "SELECT producer_url FROM public.feed WHERE producer_url = :feed_url"
+        )
+        result = db_session.execute(query, {"feed_url": feed_url}).fetchone()
         return result is not None
 
-    def publish_callback(self, future: Future, payload: FeedSyncPayload, topic_path: str):
+    def publish_callback(
+        self, future: Future, payload: FeedSyncPayload, topic_path: str
+    ):
         """
         Callback function for when the message is published to Pub/Sub.
         This function logs the result of the publishing operation.
