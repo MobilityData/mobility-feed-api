@@ -1,8 +1,10 @@
 import pytest
 from unittest.mock import Mock, patch
-from requests import Session
+from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
-from feed_sync_dispatcher_transitland.src.main import TransitFeedSyncProcessor
+from feed_sync_dispatcher_transitland.src.main import (
+    TransitFeedSyncProcessor
+)
 import pandas as pd
 
 
@@ -18,7 +20,7 @@ def test_get_data(mock_get, processor):
         "feeds": [
             {
                 "id": "feed1",
-                "urls": {"static_current": "http://example.com"},
+                "urls": {"static_current": "http://example.com/feed1"},
                 "spec": "gtfs",
                 "onestop_id": "onestop1",
                 "authorization": {},
@@ -30,7 +32,7 @@ def test_get_data(mock_get, processor):
     mock_get.return_value = mock_response
 
     result = processor.get_data(
-        "https://api.transit.land", "dummy_api_key", session=Session()
+        "https://api.transit.land", "dummy_api_key", session=RequestsSession()
     )
     assert "feeds" in result
     assert result["feeds"][0]["id"] == "feed1"
@@ -44,56 +46,12 @@ def test_get_data_rate_limit(mock_get, processor):
     mock_get.return_value = mock_response
 
     result = processor.get_data(
-        "https://api.transit.land", "dummy_api_key", session=Session(), max_retries=1
+        "https://api.transit.land",
+        "dummy_api_key",
+        session=RequestsSession(),
+        max_retries=1,
     )
     assert result == {"feeds": [], "operators": []}
-
-
-@patch("feed_sync_dispatcher_transitland.src.main.TransitFeedSyncProcessor.get_data")
-def test_process_sync(mock_get_data, processor):
-    mock_db_session = Mock(spec=DBSession)
-    mock_get_data.side_effect = [
-        {
-            "feeds": [
-                {
-                    "id": "feed1",
-                    "urls": {"static_current": "http://example.com"},
-                    "spec": "gtfs",
-                    "onestop_id": "onestop1",
-                    "authorization": {},
-                }
-            ]
-        },
-        {
-            "operators": [
-                {
-                    "name": "Operator 1",
-                    "feeds": [{"id": "feed1"}],
-                    "agencies": [{"places": [{"adm0_name": "USA"}]}],
-                }
-            ]
-        },
-    ]
-
-    with patch.object(processor, "get_associated_id", return_value=None), patch.object(
-        processor, "check_feed_url_exists", return_value=False
-    ):
-        payloads = processor.process_sync(
-            db_session=mock_db_session, execution_id="exec123"
-        )
-        assert len(payloads) == 1
-        assert payloads[0].payload.payload_type == "new"
-
-
-@patch("feed_sync_dispatcher_transitland.src.main.requests.head")
-def test_check_url_status(mock_head, processor):
-    mock_head.return_value.status_code = 200
-    result = processor.check_url_status("http://example.com")
-    assert result is True
-
-    mock_head.return_value.status_code = 404
-    result = processor.check_url_status("http://example.com")
-    assert result is False
 
 
 def test_extract_feeds_data(processor):
@@ -101,7 +59,7 @@ def test_extract_feeds_data(processor):
         "feeds": [
             {
                 "id": "feed1",
-                "urls": {"static_current": "http://example.com"},
+                "urls": {"static_current": "http://example.com/feed1"},
                 "spec": "gtfs",
                 "onestop_id": "onestop1",
                 "authorization": {},
@@ -128,36 +86,43 @@ def test_extract_operators_data(processor):
     assert result[0]["operator_name"] == "Operator 1"
 
 
-def test_get_associated_id(processor):
+def test_check_external_id(processor):
     mock_db_session = Mock(spec=DBSession)
-    mock_db_session.execute.return_value.fetchone.return_value = ("associated_id_123",)
-    result = processor.get_associated_id(mock_db_session, "external_id_123")
-    assert result == "associated_id_123"
-
-
-def test_check_feed_url_exists(processor):
-    mock_db_session = Mock(spec=DBSession)
-    mock_db_session.execute.return_value.fetchone.return_value = ("http://example.com",)
-    result = processor.check_feed_url_exists(mock_db_session, "http://example.com")
+    mock_db_session.execute.return_value.fetchone.return_value = (1,)
+    result = processor.check_external_id(mock_db_session, "onestop1", "TLD")
     assert result is True
 
+    mock_db_session.execute.return_value.fetchone.return_value = None
+    result = processor.check_external_id(mock_db_session, "onestop2", "TLD")
+    assert result is False
 
-@patch("feed_sync_dispatcher_transitland.src.main.TransitFeedSyncProcessor.get_data")
-@patch.object(
-    TransitFeedSyncProcessor, "check_url_status", side_effect=lambda url: True
-)
-def test_process_sync_payload_update(mock_check_url_status, mock_get_data, processor):
+
+def test_get_mbd_feed_url(processor):
+    mock_db_session = Mock(spec=DBSession)
+    mock_db_session.execute.return_value.fetchone.return_value = (
+        "http://example.com/feed1",
+    )
+    result = processor.get_mbd_feed_url(mock_db_session, "onestop1", "TLD")
+    assert result == "http://example.com/feed1"
+
+    mock_db_session.execute.return_value.fetchone.return_value = None
+    result = processor.get_mbd_feed_url(mock_db_session, "onestop2", "TLD")
+    assert result is None
+
+
+def test_process_sync_new_feed(processor):
     mock_db_session = Mock(spec=DBSession)
     feeds_data = {
         "feeds": [
             {
                 "id": "feed1",
-                "urls": {"static_current": "http://example.com/updated"},
+                "urls": {"static_current": "http://example.com/feed1"},
                 "spec": "gtfs",
                 "onestop_id": "onestop1",
                 "authorization": {},
             }
-        ]
+        ],
+        "operators": [],
     }
     operators_data = {
         "operators": [
@@ -166,19 +131,112 @@ def test_process_sync_payload_update(mock_check_url_status, mock_get_data, proce
                 "feeds": [{"id": "feed1"}],
                 "agencies": [{"places": [{"adm0_name": "USA"}]}],
             }
-        ]
+        ],
+        "feeds": [],
     }
 
-    mock_get_data.side_effect = [feeds_data, operators_data]
+    processor.get_data = Mock(side_effect=[feeds_data, operators_data])
 
-    with patch.object(
-        processor, "get_associated_id", return_value="associated_id_123"
-    ), patch.object(processor, "check_feed_url_exists", return_value=False):
+    processor.check_url_status = Mock(return_value=True)
+
+    with patch.object(processor, "check_external_id", return_value=False):
         payloads = processor.process_sync(
             db_session=mock_db_session, execution_id="exec123"
         )
         assert len(payloads) == 1
-        assert payloads[0].payload.payload_type == "update"
+        assert payloads[0].payload.payload_type == "new"
+        assert payloads[0].payload.external_id == "onestop1"
+
+
+def test_process_sync_updated_feed(processor):
+    mock_db_session = Mock(spec=DBSession)
+    feeds_data = {
+        "feeds": [
+            {
+                "id": "feed1",
+                "urls": {"static_current": "http://example.com/feed1_updated"},
+                "spec": "gtfs",
+                "onestop_id": "onestop1",
+                "authorization": {},
+            }
+        ],
+        "operators": [],
+    }
+    operators_data = {
+        "operators": [
+            {
+                "name": "Operator 1",
+                "feeds": [{"id": "feed1"}],
+                "agencies": [{"places": [{"adm0_name": "USA"}]}],
+            }
+        ],
+        "feeds": [],
+    }
+
+    processor.get_data = Mock(side_effect=[feeds_data, operators_data])
+
+    processor.check_url_status = Mock(return_value=True)
+
+    processor.check_external_id = Mock(return_value=True)
+
+    processor.get_mbd_feed_url = Mock(return_value="http://example.com/feed1")
+
+    payloads = processor.process_sync(
+        db_session=mock_db_session, execution_id="exec123"
+    )
+
+    assert len(payloads) == 1
+    assert payloads[0].payload.payload_type == "update"
+    assert payloads[0].payload.external_id == "onestop1"
+
+
+@patch("feed_sync_dispatcher_transitland.src.main.TransitFeedSyncProcessor.get_data")
+def test_process_sync_unchanged_feed(mock_get_data, processor):
+    mock_db_session = Mock(spec=DBSession)
+    feeds_data = {
+        "feeds": [
+            {
+                "id": "feed1",
+                "urls": {"static_current": "http://example.com/feed1"},
+                "spec": "gtfs",
+                "onestop_id": "onestop1",
+                "authorization": {},
+            }
+        ],
+        "operators": [],
+    }
+    operators_data = {
+        "operators": [
+            {
+                "name": "Operator 1",
+                "feeds": [{"id": "feed1"}],
+                "agencies": [{"places": [{"adm0_name": "USA"}]}],
+            }
+        ],
+        "feeds": [],
+    }
+    mock_get_data.side_effect = [feeds_data, operators_data]
+
+    with patch.object(processor, "check_external_id", return_value=True), patch.object(
+            processor, "get_mbd_feed_url", return_value="http://example.com/feed1"
+    ):
+        payloads = processor.process_sync(
+            db_session=mock_db_session, execution_id="exec123"
+        )
+        assert (
+                len(payloads) == 0
+        )  # No payload should be created since feed hasn't changed
+
+
+@patch("feed_sync_dispatcher_transitland.src.main.requests.head")
+def test_check_url_status(mock_head, processor):
+    mock_head.return_value.status_code = 200
+    result = processor.check_url_status("http://example.com")
+    assert result is True
+
+    mock_head.return_value.status_code = 404
+    result = processor.check_url_status("http://example.com")
+    assert result is False
 
 
 def test_merge_and_filter_dataframes(processor):
@@ -201,7 +259,7 @@ def test_merge_and_filter_dataframes(processor):
     feeds = [
         {
             "feed_id": "feed1",
-            "feed_url": "http://example.com",
+            "feed_url": "http://example.com/feed1",
             "spec": "gtfs",
             "feeds_onestop_id": "onestop1",
             "auth_info_url": None,

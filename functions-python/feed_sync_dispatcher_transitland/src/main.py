@@ -70,6 +70,7 @@ class TransitFeedSyncPayload:
     country: Optional[str] = None
     state_province: Optional[str] = None
     city_name: Optional[str] = None
+    source: Optional[str] = None
     payload_type: Optional[str] = None
 
     def to_dict(self):
@@ -119,7 +120,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             how="inner",
         )
 
-        # Filter out rows where 'feed_url' is missing
+        # Filtered out rows where 'feed_url' is missing
         combined_df = combined_df[combined_df["feed_url"].notna()]
 
         # Group by 'feed_id' and concatenate 'operator_name' while keeping first values of other columns
@@ -143,7 +144,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             .reset_index()
         )
 
-        # Filter out unwanted countries
+        # Filtered out unwanted countries
         countries_not_included = ["France", "Japan"]
         filtered_df = df_grouped[
             ~df_grouped["country"]
@@ -151,28 +152,35 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             .isin([c.lower() for c in countries_not_included])
         ]
 
-        # Filter out URLs that return undesired status codes
+        # Filtered out URLs that return undesired status codes
         filtered_df = filtered_df[filtered_df["feed_url"].apply(self.check_url_status)]
 
         # Convert filtered DataFrame to dictionary format
         combined_data = filtered_df.to_dict(orient="records")
 
-        # Prepare payloads for publishing to queue
         payloads = []
         for data in combined_data:
-            associated_id = self.get_associated_id(db_session, data["feeds_onestop_id"])
-            payload_type = (
-                "update"
-                if associated_id
-                and not self.check_feed_url_exists(db_session, data["feed_url"])
-                else "new"
-            )
+            external_id = data["feeds_onestop_id"]
+            feed_url = data["feed_url"]
+            source = "TLD"
 
+            if not self.check_external_id(db_session, external_id, source):
+                payload_type = "new"
+            else:
+                mbd_feed_url = self.get_mbd_feed_url(
+                    db_session, external_id, source
+                )
+                if mbd_feed_url != feed_url:
+                    payload_type = "update"
+                else:
+                    continue
+
+            # prepare payload
             payload = TransitFeedSyncPayload(
-                external_id=data["feeds_onestop_id"],
+                external_id=external_id,
                 feed_id=data["feed_id"],
                 execution_id=execution_id,
-                feed_url=data["feed_url"],
+                feed_url=feed_url,
                 spec=data["spec"],
                 auth_info_url=data["auth_info_url"],
                 auth_param_name=data["auth_param_name"],
@@ -181,11 +189,10 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                 country=data["country"],
                 state_province=data["state_province"],
                 city_name=data["city_name"],
+                source="TLD",
                 payload_type=payload_type,
             )
-            payloads.append(
-                FeedSyncPayload(external_id=data["feeds_onestop_id"], payload=payload)
-            )
+            payloads.append(FeedSyncPayload(external_id=external_id, payload=payload))
 
         return payloads
 
@@ -282,31 +289,47 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             operators.append(operator_data)
         return operators
 
-    def get_associated_id(self, db_session: Session, external_id: str) -> Optional[str]:
+    def check_external_id(
+            self, db_session: Session, external_id: str, source: str
+    ) -> bool:
         """
-        Checks if the external_id exists in the public.externalid table in the mobility database.
+        Checks if the external_id exists in the public.externalid table for the given source.
         :param db_session: SQLAlchemy session
-        :param external_id: External ID to check
-        :return: Associated ID if exists, otherwise None
+        :param external_id: The external_id (feeds_onestop_id) to check
+        :param source: The source to filter by (e.g., 'TLD' for TransitLand)
+        :return: True if the feed exists, False otherwise
         """
         query = text(
-            "SELECT associated_id FROM public.externalid WHERE associated_id = :external_id"
+            "SELECT 1 FROM public.externalid WHERE associated_id = :external_id AND source = :source LIMIT 1"
         )
-        result = db_session.execute(query, {"external_id": external_id}).fetchone()
-        return result[0] if result else None
-
-    def check_feed_url_exists(self, db_session: Session, feed_url: str) -> bool:
-        """
-        Check if the feed_url exists in the producer_url column of the public.feed table in the mobility database.
-        :param db_session: SQLAlchemy session
-        :param feed_url: Feed URL to check
-        :return: True if exists, otherwise False
-        """
-        query = text(
-            "SELECT producer_url FROM public.feed WHERE producer_url = :feed_url"
-        )
-        result = db_session.execute(query, {"feed_url": feed_url}).fetchone()
+        result = db_session.execute(
+            query, {"external_id": external_id, "source": source}
+        ).fetchone()
         return result is not None
+
+    def get_mbd_feed_url(
+            self, db_session: Session, external_id: str, source: str
+    ) -> Optional[str]:
+        """
+        Retrieves thefeed_url from the public.feed table in the mbd for the given external_id.
+        :param db_session: SQLAlchemy session
+        :param external_id: The external_id (feeds_onestop_id) from TransitLand
+        :param source: The source to filter by (e.g., 'TLD' for TransitLand)
+        :return: feed_url in mbd if exists, otherwise None
+        """
+        query = text(
+            """
+            SELECT f.producer_url
+            FROM public.feed f
+            JOIN public.externalid e ON f.id = e.feed_id
+            WHERE e.associated_id = :external_id AND e.source = :source
+            LIMIT 1
+            """
+        )
+        result = db_session.execute(
+            query, {"external_id": external_id, "source": source}
+        ).fetchone()
+        return result[0] if result else None
 
     def publish_callback(
         self, future: Future, payload: FeedSyncPayload, topic_path: str
