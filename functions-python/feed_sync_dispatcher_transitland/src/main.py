@@ -86,7 +86,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Checks if a URL returns a valid response (not 404 or 500).
         """
         try:
-            response = requests.head(url, timeout=10)
+            response = requests.head(url, timeout=25)
             return response.status_code not in {404, 500}
         except requests.RequestException as e:
             logging.warning(f"Failed to reach {url}: {e}")
