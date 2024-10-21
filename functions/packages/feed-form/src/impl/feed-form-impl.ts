@@ -3,6 +3,7 @@ import {GoogleAuth} from "google-auth-library";
 import * as logger from "firebase-functions/logger";
 import {type FeedSubmissionFormRequestBody} from "./types";
 import {type CallableRequest, HttpsError} from "firebase-functions/v2/https";
+import axios from "axios";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
@@ -27,12 +28,13 @@ export const writeToSheet = async (
     const formData: FeedSubmissionFormRequestBody = request.data;
     const rows = buildFeedRows(formData, uid);
     await rawDataSheet.addRows(rows, {insert: true});
-
+    sendSlackWebhook(sheetId);
     return {message: "Data written to the new sheet successfully!"};
   } catch (error) {
     logger.error("Error writing to sheet:", error);
     throw new HttpsError(
-      "internal", "An error occurred while writing to the sheet."
+      "internal",
+      "An error occurred while writing to the sheet."
     );
   }
 };
@@ -83,55 +85,42 @@ export function buildFeedRows(
   const rowsToAdd: RawRowData[] = [];
   if (formData.dataType === "gtfs") {
     rowsToAdd.push(
-      buildFeedRow(
-        formData,
-        {
-          dataTypeName: "GTFS Schedule",
-          downloadUrl: formData.feedLink ?? "",
-          currentUrl: formData.oldFeedLink ?? "",
-          uid,
-        }
-      )
+      buildFeedRow(formData, {
+        dataTypeName: "GTFS Schedule",
+        downloadUrl: formData.feedLink ?? "",
+        currentUrl: formData.oldFeedLink ?? "",
+        uid,
+      })
     );
   } else {
     if (formData.tripUpdates) {
       rowsToAdd.push(
-        buildFeedRow(
-          formData,
-          {
-            dataTypeName: "GTFS Realtime - Trip Updates",
-            downloadUrl: formData.tripUpdates ?? "",
-            currentUrl: formData.oldTripUpdates ?? "",
-            uid,
-          }
-
-        )
+        buildFeedRow(formData, {
+          dataTypeName: "GTFS Realtime - Trip Updates",
+          downloadUrl: formData.tripUpdates ?? "",
+          currentUrl: formData.oldTripUpdates ?? "",
+          uid,
+        })
       );
     }
     if (formData.vehiclePositions) {
       rowsToAdd.push(
-        buildFeedRow(
-          formData,
-          {
-            dataTypeName: "GTFS Realtime - Vehicle Positions",
-            downloadUrl: formData.vehiclePositions ?? "",
-            currentUrl: formData.oldVehiclePositions ?? "",
-            uid,
-          }
-        )
+        buildFeedRow(formData, {
+          dataTypeName: "GTFS Realtime - Vehicle Positions",
+          downloadUrl: formData.vehiclePositions ?? "",
+          currentUrl: formData.oldVehiclePositions ?? "",
+          uid,
+        })
       );
     }
     if (formData.serviceAlerts) {
       rowsToAdd.push(
-        buildFeedRow(
-          formData,
-          {
-            dataTypeName: "GTFS Realtime - Service Alerts",
-            downloadUrl: formData.serviceAlerts ?? "",
-            currentUrl: formData.oldServiceAlerts ?? "",
-            uid,
-          }
-        )
+        buildFeedRow(formData, {
+          dataTypeName: "GTFS Realtime - Service Alerts",
+          downloadUrl: formData.serviceAlerts ?? "",
+          currentUrl: formData.oldServiceAlerts ?? "",
+          uid,
+        })
       );
     }
   }
@@ -157,7 +146,6 @@ export function buildFeedRow(
   formData: FeedSubmissionFormRequestBody,
   formRowParameters: BuildRowParameters
 ): RawRowData {
-  /* eslint-enable max-len */
   const dateNow = new Date();
   return {
     [SheetCol.Status]: "Feed Submitted",
@@ -188,3 +176,67 @@ export function buildFeedRow(
     [SheetCol.LogoPermission]: formData.hasLogoPermission,
   };
 }
+
+/**
+ * Sends a Slack webhook message to the configured Slack webhook URL
+ * @param {string} spreadsheetId The ID of the Google Sheet
+ */
+async function sendSlackWebhook(spreadsheetId: string) {
+  const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+  const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+  if (slackWebhookUrl !== undefined && slackWebhookUrl !== "") {
+    const slackMessage = {
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "New Feed Added",
+          },
+        },
+        {
+          type: "rich_text",
+          elements: [
+            {
+              type: "rich_text_section",
+              elements: [
+                {
+                  type: "emoji",
+                  name: "inbox_tray",
+                },
+                {
+                  type: "text",
+                  text: "  A new entry was received in the OpenMobilityData source updates Google Sheet",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "type": "rich_text",
+          "elements": [
+            {
+              "type": "rich_text_section",
+              "elements": [
+                {
+                  "type": "link",
+                  "url": sheetUrl,
+                  "text": "View Feed",
+                  "style": {
+                    "bold": true,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    await axios.post(slackWebhookUrl, slackMessage).catch((error) => {
+      logger.error("Error sending Slack webhook:", error);
+    });
+  } else {
+    logger.error("Slack webhook URL is not defined");
+  }
+}
+/* eslint-enable max-len */
