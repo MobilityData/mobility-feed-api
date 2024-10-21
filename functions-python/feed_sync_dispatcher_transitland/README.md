@@ -18,7 +18,6 @@ The function publish one Pub/Sub message per transitland feed to be synced.
                 country=data["country"],
                 state_province=data["state_province"],
                 city_name=data["city_name"],
-                source="TLD"
                 payload_type=payload_type
             }            
         }

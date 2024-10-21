@@ -2,7 +2,9 @@ import pytest
 from unittest.mock import Mock, patch
 from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
-from feed_sync_dispatcher_transitland.src.main import TransitFeedSyncProcessor
+from feed_sync_dispatcher_transitland.src.main import (
+    TransitFeedSyncProcessor
+)
 import pandas as pd
 
 
@@ -216,13 +218,13 @@ def test_process_sync_unchanged_feed(mock_get_data, processor):
     mock_get_data.side_effect = [feeds_data, operators_data]
 
     with patch.object(processor, "check_external_id", return_value=True), patch.object(
-        processor, "get_mbd_feed_url", return_value="http://example.com/feed1"
+            processor, "get_mbd_feed_url", return_value="http://example.com/feed1"
     ):
         payloads = processor.process_sync(
             db_session=mock_db_session, execution_id="exec123"
         )
         assert (
-            len(payloads) == 0
+                len(payloads) == 0
         )  # No payload should be created since feed hasn't changed
 
 
