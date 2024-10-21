@@ -167,9 +167,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             if not self.check_external_id(db_session, external_id, source):
                 payload_type = "new"
             else:
-                mbd_feed_url = self.get_mbd_feed_url(
-                    db_session, external_id, source
-                )
+                mbd_feed_url = self.get_mbd_feed_url(db_session, external_id, source)
                 if mbd_feed_url != feed_url:
                     payload_type = "update"
                 else:
@@ -290,7 +288,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         return operators
 
     def check_external_id(
-            self, db_session: Session, external_id: str, source: str
+        self, db_session: Session, external_id: str, source: str
     ) -> bool:
         """
         Checks if the external_id exists in the public.externalid table for the given source.
@@ -308,7 +306,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         return result is not None
 
     def get_mbd_feed_url(
-            self, db_session: Session, external_id: str, source: str
+        self, db_session: Session, external_id: str, source: str
     ) -> Optional[str]:
         """
         Retrieves thefeed_url from the public.feed table in the mbd for the given external_id.
