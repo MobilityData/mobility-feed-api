@@ -1,0 +1,15 @@
+{
+  "name": "generate-validator-analytics",
+  "description": "Generates analytics for the validator",
+  "entry_point": "generate_validator_analytics",
+  "timeout": 540,
+  "memory": "2Gi",
+  "trigger_http": true,
+  "include_folders": ["helpers"],
+  "secret_environment_variables": [],
+  "ingress_settings": "ALLOW_ALL",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 5,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}

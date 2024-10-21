@@ -33,6 +33,9 @@ locals {
 
   function_gbfs_validation_report_config = jsondecode(file("${path.module}/../../functions-python/gbfs_validator/function_config.json"))
   function_gbfs_validation_report_zip = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
+
+  function_validator_analytics_config = jsondecode(file("${path.module}/../../functions-python/validator_analytics/function_config.json"))
+  function_validator_analytics_zip = "${path.module}/../../functions-python/validator_analytics/.dist/validator_analytics.zip"
 }
 
 locals {
@@ -104,6 +107,13 @@ resource "google_storage_bucket_object" "gbfs_validation_report_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "gbfs-validator-${substr(filebase64sha256(local.function_gbfs_validation_report_zip), 0, 10)}.zip"
   source = local.function_gbfs_validation_report_zip
+}
+
+# 6. Validator analytics
+resource "google_storage_bucket_object" "validator_analytics_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "validator-analytics-${substr(filebase64sha256(local.function_validator_analytics_zip), 0, 10)}.zip"
+  source = local.function_validator_analytics_zip
 }
 
 # Secrets access
@@ -448,6 +458,42 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
   }
 }
 
+# 6. functions/validator_analytics cloud function
+resource "google_cloudfunctions2_function" "validator_analytics" {
+    name        = local.function_validator_analytics_config.name
+    description = local.function_validator_analytics_config.description
+    location    = var.gcp_region
+    depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+    project = var.project_id
+    build_config {
+      runtime     = var.python_runtime
+      entry_point = local.function_validator_analytics_config.entry_point
+      source {
+        storage_source {
+          bucket = google_storage_bucket.functions_bucket.name
+          object = google_storage_bucket_object.validator_analytics_zip.name
+        }
+      }
+    }
+    service_config {
+      available_memory = local.function_validator_analytics_config.memory
+      available_cpu    = local.function_validator_analytics_config.available_cpu
+      timeout_seconds  = local.function_validator_analytics_config.timeout
+      vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+      vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+      environment_variables = {
+        # prevents multiline logs from being truncated on GCP console
+        PYTHONNODEBUGRANGES = 0
+      }
+      service_account_email            = google_service_account.functions_service_account.email
+      max_instance_request_concurrency = local.function_validator_analytics_config.max_instance_request_concurrency
+      max_instance_count               = local.function_validator_analytics_config.max_instance_count
+      min_instance_count               = local.function_validator_analytics_config.min_instance_count
+    }
+
+}
+
 # Schedule the batch function to run
 resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
   name = "gbfs-validator-batch-scheduler-${var.environment}"
@@ -656,5 +702,22 @@ resource "google_pubsub_topic_iam_member" "functions_subscriber" {
 resource "google_project_iam_member" "datastore_owner" {
   project = var.project_id
   role    = "roles/datastore.owner"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant permission to the service account to read BigQuery
+resource "google_project_iam_member" "bigquery_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+resource "google_project_iam_member" "bigquery_data_viewer" {
+  project = var.project_id
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+resource "google_project_iam_member" "bigquery_read_session_user" {
+  project = var.project_id
+  role    = "roles/bigquery.readSessionUser"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
