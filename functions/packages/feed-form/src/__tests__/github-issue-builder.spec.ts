@@ -1,5 +1,5 @@
-import { buildGithubIssueBody } from "../impl/feed-form-impl";
-import { FeedSubmissionFormRequestBody } from "../impl/types";
+import {buildGithubIssueBody} from "../impl/feed-form-impl";
+import {FeedSubmissionFormRequestBody} from "../impl/types";
 
 describe("buildGithubIssueBody", () => {
   const spreadsheetId = "testSpreadsheetId";
@@ -108,7 +108,7 @@ describe("buildGithubIssueBody", () => {
     expect(buildGithubIssueBody(formData, spreadsheetId)).toBe(expectedContent);
   });
 
-  it("should handle non-GTFS data types and multiple feed URLs (trip updates, vehicle positions, service alerts)", () => {
+  it("should handle non-GTFS data types (tu, vp, sa)", () => {
     const formData: FeedSubmissionFormRequestBody = {
       isOfficialProducer: "yes",
       dataType: "gtfs_rt",

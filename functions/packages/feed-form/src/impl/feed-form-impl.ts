@@ -1,8 +1,8 @@
-import { GoogleSpreadsheet } from "google-spreadsheet";
-import { GoogleAuth } from "google-auth-library";
+import {GoogleSpreadsheet} from "google-spreadsheet";
+import {GoogleAuth} from "google-auth-library";
 import * as logger from "firebase-functions/logger";
-import { type FeedSubmissionFormRequestBody } from "./types";
-import { type CallableRequest, HttpsError } from "firebase-functions/v2/https";
+import {type FeedSubmissionFormRequestBody} from "./types";
+import {type CallableRequest, HttpsError} from "firebase-functions/v2/https";
 import axios from "axios";
 
 const SCOPES = [
@@ -27,7 +27,7 @@ export const writeToSheet = async (
     const rawDataSheet = doc.sheetsByIndex[0];
     const formData: FeedSubmissionFormRequestBody = request.data;
     const rows = buildFeedRows(formData, uid);
-    await rawDataSheet.addRows(rows, { insert: true });
+    await rawDataSheet.addRows(rows, {insert: true});
 
     const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
     const isProduction = projectId === "mobility-feeds-prod";
@@ -44,7 +44,7 @@ export const writeToSheet = async (
       );
     }
     await sendSlackWebhook(sheetId, githubIssueUrl);
-    return { message: "Data written to the new sheet successfully!" };
+    return {message: "Data written to the new sheet successfully!"};
   } catch (error) {
     logger.error("Error writing to sheet:", error);
     throw new HttpsError(
@@ -195,6 +195,7 @@ export function buildFeedRow(
 /**
  * Sends a Slack webhook message to the configured Slack webhook URL
  * @param {string} spreadsheetId The ID of the Google Sheet
+ * @param {string} githubIssueUrl The URL of the created GitHub issue
  */
 async function sendSlackWebhook(spreadsheetId: string, githubIssueUrl: string) {
   const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
@@ -258,8 +259,13 @@ async function sendSlackWebhook(spreadsheetId: string, githubIssueUrl: string) {
           ],
         },
         {
-          type: "rich_text",
-          elements: linksElement,
+          "type": "rich_text",
+          "elements": [
+            {
+              "type": "rich_text_section",
+              "elements": linksElement,
+            },
+          ],
         },
       ],
     };
@@ -272,6 +278,13 @@ async function sendSlackWebhook(spreadsheetId: string, githubIssueUrl: string) {
 }
 /* eslint-enable max-len */
 
+/**
+ * Creates a GitHub issue in the Mobility Database Catalogs repository
+ * @param {FeedSubmissionFormRequestBody} formData feed submission form
+ * @param {string} spreadsheetId googleshhet id
+ * @param  {string} githubToken github token to create the issue
+ * @return {Promise<string>} The URL of the created GitHub issue
+ */
 async function createGithubIssue(
   formData: FeedSubmissionFormRequestBody,
   spreadsheetId: string,
