@@ -74,15 +74,15 @@ WITH
   )
 
 SELECT
-  feedId,
-  code,
-  COALESCE(severity_previous, severity_current) AS severity,
-  totalNotices_previous AS total_previous,
-  totalNotices_current AS total_current,
-  GREATEST(totalNotices_current - totalNotices_previous, 0) AS new_notices,
-  GREATEST(totalNotices_previous - totalNotices_current, 0) AS dropped_notices
+  feedId AS `Feed ID`,
+  code AS `Code`,
+  COALESCE(severity_previous, severity_current) AS `Severity`,
+  totalNotices_previous AS `Total Previous`,
+  totalNotices_current AS `Total Current`,
+  GREATEST(totalNotices_current - totalNotices_previous, 0) AS `New Notices`,
+  GREATEST(totalNotices_previous - totalNotices_current, 0) AS `Dropped Notices`
 FROM
   merged_reports
 ORDER BY
-  new_notices DESC,
-  dropped_notices DESC;
+  `New Notices` DESC,
+  `Dropped Notices` DESC

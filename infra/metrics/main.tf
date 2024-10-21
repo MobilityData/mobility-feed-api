@@ -545,13 +545,13 @@ resource "google_bigquery_routine" "compare_validation_reports_function" {
   }
   return_table_type = jsonencode({
     "columns": [
-      { "name": "feedId", "type": { "typeKind": "STRING" } },
-      { "name": "code", "type": { "typeKind": "STRING" } },
-      { "name": "severity", "type": { "typeKind": "STRING" } },
-      { "name": "total_previous", "type": { "typeKind": "INT64" } },
-      { "name": "total_current", "type": { "typeKind": "INT64" } },
-      { "name": "new_notices", "type": { "typeKind": "INT64" } },
-      { "name": "dropped_notices", "type": { "typeKind": "INT64" } }
+      { "name": "Feed ID", "type": { "typeKind": "STRING" } },
+      { "name": "Code", "type": { "typeKind": "STRING" } },
+      { "name": "Severity", "type": { "typeKind": "STRING" } },
+      { "name": "Total Previous", "type": { "typeKind": "INT64" } },
+      { "name": "Total Current", "type": { "typeKind": "INT64" } },
+      { "name": "New Notices", "type": { "typeKind": "INT64" } },
+      { "name": "Dropped Notices", "type": { "typeKind": "INT64" } }
     ]
   })
 }
