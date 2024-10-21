@@ -525,6 +525,27 @@ resource "google_cloudfunctions2_function" "gbfs_preprocessed_analytics" {
 
 }
 
+# 2.8 Compare validation reports routine
+resource "google_bigquery_routine" "compare_validation_reports" {
+  dataset_id = var.dataset_id
+  routine_id = "compare_validation_reports"
+  routine_type = "PROCEDURE"
+
+  language = "SQL"
+  definition_body = templatefile("${path.module}/../../bigquery/compare-validation-reports.sql", {
+    project_id = var.project_id
+  })
+  arguments {
+    name = "previous_version"
+    data_type = jsonencode({ "typeKind" : "STRING" })
+  }
+  arguments {
+    name = "current_version"
+    data_type = jsonencode({ "typeKind" : "STRING" })
+  }
+}
+
+
 
 # Grant permissions to the service account
 # 1. BigQuery roles
