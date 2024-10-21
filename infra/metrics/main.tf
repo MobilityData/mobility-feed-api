@@ -526,10 +526,10 @@ resource "google_cloudfunctions2_function" "gbfs_preprocessed_analytics" {
 }
 
 # 2.8 Compare validation reports routine
-resource "google_bigquery_routine" "compare_validation_reports" {
+resource "google_bigquery_routine" "compare_validation_reports_function" {
   dataset_id = var.dataset_id
   routine_id = "compare_validation_reports"
-  routine_type = "PROCEDURE"
+  routine_type = "TABLE_VALUED_FUNCTION"
 
   language = "SQL"
   definition_body = templatefile("${path.module}/../../bigquery/compare-validation-reports.sql", {
@@ -543,6 +543,17 @@ resource "google_bigquery_routine" "compare_validation_reports" {
     name = "current_version"
     data_type = jsonencode({ "typeKind" : "STRING" })
   }
+  return_table_type = jsonencode({
+    "columns": [
+      { "name": "feedId", "type": { "typeKind": "STRING" } },
+      { "name": "code", "type": { "typeKind": "STRING" } },
+      { "name": "severity", "type": { "typeKind": "STRING" } },
+      { "name": "total_previous", "type": { "typeKind": "INT64" } },
+      { "name": "total_current", "type": { "typeKind": "INT64" } },
+      { "name": "new_notices", "type": { "typeKind": "INT64" } },
+      { "name": "dropped_notices", "type": { "typeKind": "INT64" } }
+    ]
+  })
 }
 
 
