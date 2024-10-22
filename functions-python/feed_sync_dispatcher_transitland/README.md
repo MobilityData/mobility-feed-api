@@ -13,7 +13,7 @@ The function publish one Pub/Sub message per transitland feed to be synced.
                 spec="spec",
                 auth_info_url="auth_info_url",
                 auth_param_name="auth_param_name",
-                type="new",
+                type="type",
                 operator_name="operator_name",
                 country="country",
                 state_province="state_province",
