@@ -30,6 +30,10 @@ on:
         description: 1Password Slack webhook URL secret reference for add feed channel
         type: string
         required: false
+      OP_ADD_FEED_FORM_GITHUB_TOKEN:
+        description: 1Password GitHub token secret reference
+        type: string
+        required: false
     outputs:
       hosting_url:
         description: "The URL of the deployed web app"
@@ -148,6 +152,7 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           SLACK_WEBHOOK_URL: ${{inputs.OP_SLACK_WEBHOOK_URL}}
+          ADD_FEED_FORM_GITHUB_TOKEN: ${{inputs.OP_ADD_FEED_FORM_GITHUB_TOKEN}}
 
       - name: Authenticate to Google Cloud DEV
         if: ${{ inputs.FIREBASE_PROJECT == 'dev' }}
@@ -255,6 +260,7 @@ jobs:
         run: |
           echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
           echo "SLACK_WEBHOOK_URL=${{ env.SLACK_WEBHOOK_URL }}" >> .env
+          echo "GITHUB_TOKEN=${{ env.ADD_FEED_FORM_GITHUB_TOKEN }}" >> .env
 
       - name: Deploy Firebase Functions
         working-directory: functions
