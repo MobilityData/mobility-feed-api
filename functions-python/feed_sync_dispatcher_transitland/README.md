@@ -6,18 +6,18 @@ The function publish one Pub/Sub message per transitland feed to be synced.
         "message": {
             "data": 
             {
-                external_id=data["feeds_onestop_id"],
-                feed_id=data["feed_id"],
+                external_id="feeds_onestop_id",
+                feed_id="feed_id",
                 execution_id=execution_id,
-                feed_url=data["feed_url"],
-                spec=data["spec"],
-                auth_info_url=data["auth_info_url"],
-                auth_param_name=data["auth_param_name"],
-                type=data["type"],
-                operator_name=data["operator_name"],
-                country=data["country"],
-                state_province=data["state_province"],
-                city_name=data["city_name"],
+                feed_url="feed_url",
+                spec="spec",
+                auth_info_url="auth_info_url",
+                auth_param_name="auth_param_name",
+                type="new",
+                operator_name="operator_name",
+                country="country",
+                state_province="state_province",
+                city_name="city_name",
                 source="TLD",
                 payload_type=payload_type
             }            
