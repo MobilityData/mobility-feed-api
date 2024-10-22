@@ -23,7 +23,7 @@ import { type components } from '../../services/feeds/types';
 import { useTranslation } from 'react-i18next';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { theme } from '../../Theme';
-import { DATASET_FEATURES } from '../../utils/consts';
+import { getDataFeatureUrl } from '../../utils/consts';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -312,11 +312,7 @@ export default function FeedSummary({
                     },
                   }}
                   onClick={() => {
-                    window.open(
-                      DATASET_FEATURES[feature]?.linkToInfo ??
-                        DATASET_FEATURES.overview.linkToInfo,
-                      '_blank',
-                    );
+                    window.open(getDataFeatureUrl(feature), '_blank');
                   }}
                 />
               </Grid>
