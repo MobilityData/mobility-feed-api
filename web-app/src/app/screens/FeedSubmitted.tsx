@@ -5,6 +5,7 @@ export default function FeedSubmitted(): React.ReactElement {
     <Container component='main' sx={{ my: 0, mx: 'auto' }} maxWidth='lg'>
       <CssBaseline />
       <Typography
+        data-cy='feedSubmitSuccess'
         variant='h4'
         sx={{
           mt: 10,

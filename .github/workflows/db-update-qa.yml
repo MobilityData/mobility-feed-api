@@ -1,13 +1,9 @@
 # Update the Mobility Database Schema
 name: Database Update - QA
 on:
-  push: # Update on merge on main branch if the changelog file has been updated
-    branches:
-      - main
-    paths:
-      - 'liquibase/changelog.xml'
-      - 'api/src/scripts/populate_db*'
   workflow_dispatch:
+  workflow_call:
+
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml
@@ -24,4 +20,5 @@ jobs:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       DB_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
       OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      OP_FEEDS_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_FEEDS_SERVICE_ACCOUNT_TOKEN }}
       POSTGRE_SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}

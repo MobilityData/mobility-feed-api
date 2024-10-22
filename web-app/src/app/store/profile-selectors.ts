@@ -69,3 +69,6 @@ export const selectRegistrationError = (
   state: RootState,
 ): ProfileError | null =>
   selectErrorBySource(state, ProfileErrorSource.Registration);
+
+export const selectUserEmail = (state: RootState): string | undefined =>
+  state.userProfile.user?.email;

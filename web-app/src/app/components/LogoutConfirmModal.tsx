@@ -52,7 +52,12 @@ export default function ConfirmModal({
           >
             Cancel
           </Button>
-          <Button onClick={confirmLogout} color='primary' variant='contained'>
+          <Button
+            onClick={confirmLogout}
+            color='primary'
+            variant='contained'
+            data-cy='confirmSignOutButton'
+          >
             Confirm
           </Button>
         </DialogActions>

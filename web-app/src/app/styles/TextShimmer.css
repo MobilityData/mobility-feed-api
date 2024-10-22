@@ -1,0 +1,94 @@
+.shimmer {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.1);
+  background: -webkit-gradient(
+    linear,
+    left top,
+    right top,
+    from(rgba(56, 89, 250, 0.6)),
+    to(rgba(56, 89, 250, 0.6)),
+    color-stop(0.5, rgba(56, 89, 250, 1))
+  );
+  background: -moz-gradient(
+    linear,
+    left top,
+    right top,
+    from(rgba(56, 89, 250, 0.6)),
+    to(rgba(56, 89, 250, 0.6)),
+    color-stop(0.5, rgba(56, 89, 250, 1))
+  );
+  background: gradient(
+    linear,
+    left top,
+    right top,
+    from(rgba(56, 89, 250, 0.6)),
+    to(rgba(56, 89, 250, 0.6)),
+    color-stop(0.5, rgba(56, 89, 250, 1))
+  );
+  -webkit-background-size: 125px 100%;
+  -moz-background-size: 125px 100%;
+  background-size: 125px 100%;
+  -webkit-background-clip: text;
+  -moz-background-clip: text;
+  background-clip: text;
+  -webkit-animation-name: shimmer;
+  -moz-animation-name: shimmer;
+  animation-name: shimmer;
+  -webkit-animation-duration: 8s;
+  -moz-animation-duration: 8s;
+  animation-duration: 8s;
+  -webkit-animation-iteration-count: infinite;
+  -moz-animation-iteration-count: infinite;
+  animation-iteration-count: infinite;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-color: rgba(56, 89, 250, 0.5);
+}
+
+@-moz-keyframes shimmer {
+  0% {
+    background-position: top left;
+  }
+  25% {
+    background-position: calc(104% + 115px) 0%;
+  }
+  100% {
+    background-position: calc(104% + 115px) 0%;
+  }
+}
+
+@-webkit-keyframes shimmer {
+  0% {
+    background-position: top left;
+  }
+  25% {
+    background-position: calc(104% + 115px) 0%;
+  }
+  100% {
+    background-position: calc(104% + 115px) 0%;
+  }
+}
+
+@-o-keyframes shimmer {
+  0% {
+    background-position: top left;
+  }
+  25% {
+    background-position: calc(104% + 115px) 0%;
+  }
+  100% {
+    background-position: calc(104% + 115px) 0%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: top left;
+  }
+  25% {
+    background-position: calc(104% + 115px) 0%;
+  }
+  100% {
+    background-position: calc(104% + 115px) 0%;
+  }
+}

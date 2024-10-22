@@ -200,6 +200,7 @@ export default function SignIn(): React.ReactElement {
             onChange={formik.handleChange}
             value={formik.values.email}
             error={formik.errors.email != null}
+            data-cy='signInEmailInput'
           />
           {formik.errors.email != null ? (
             <Alert severity='error'>{formik.errors.email}</Alert>
@@ -216,6 +217,7 @@ export default function SignIn(): React.ReactElement {
             onChange={formik.handleChange}
             value={formik.values.password}
             error={formik.errors.password != null}
+            data-cy='signInPasswordInput'
             InputProps={{
               endAdornment: (
                 <InputAdornment position='end'>

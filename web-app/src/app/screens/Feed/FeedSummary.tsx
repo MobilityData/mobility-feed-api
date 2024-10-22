@@ -10,6 +10,8 @@ import {
   colors,
   Snackbar,
   styled,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
@@ -19,6 +21,9 @@ import {
 } from '../../services/feeds/utils';
 import { type components } from '../../services/feeds/types';
 import { useTranslation } from 'react-i18next';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { theme } from '../../Theme';
+import { DATASET_FEATURES } from '../../utils/consts';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -277,10 +282,22 @@ export default function FeedSummary({
           <Typography
             variant='subtitle1'
             gutterBottom
-            sx={{ fontWeight: 'bold' }}
+            sx={{ fontWeight: 'bold', display: 'flex' }}
           >
             {t('features')}
+            <Tooltip title='More Info' placement='top'>
+              <IconButton
+                href='https://gtfs.org/getting_started/features/overview/'
+                target='_blank'
+                rel='noopener noreferrer'
+                size='small'
+                sx={{ ml: 1 }}
+              >
+                <OpenInNewIcon fontSize='small' />
+              </IconButton>
+            </Tooltip>
           </Typography>
+
           <Grid container spacing={1}>
             {latestDataset.validation_report?.features?.map((feature) => (
               <Grid item key={feature} data-testid='feature-chips'>
@@ -289,7 +306,17 @@ export default function FeedSummary({
                   variant='filled'
                   sx={{
                     color: '#fff',
-                    backgroundColor: colors.blue[900],
+                    backgroundColor: theme.palette.primary.dark,
+                    ':hover': {
+                      backgroundColor: theme.palette.primary.light,
+                    },
+                  }}
+                  onClick={() => {
+                    window.open(
+                      DATASET_FEATURES[feature]?.linkToInfo ??
+                        DATASET_FEATURES.overview.linkToInfo,
+                      '_blank',
+                    );
                   }}
                 />
               </Grid>

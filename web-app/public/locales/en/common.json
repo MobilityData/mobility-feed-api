@@ -23,5 +23,17 @@
     "apiKey": "API Key",
     "httpHeader": "HTTP Header",
     "back": "Back",
-    "and": "and"
+    "and": "and",
+    "next": "Next",
+    "form": {
+        "yes": "Yes",
+        "no": "No",
+        "required": "This field is required",
+        "submit": "Submit",
+        "select": "Select"
+    },
+    "country": "Country",
+    "chooseCountry": "Choose a country",
+    "region": "Region",
+    "municipality": "Municipality"
 }
