@@ -312,10 +312,7 @@ export default function FeedSummary({
                     },
                   }}
                   onClick={() => {
-                    window.open(
-                      getDataFeatureUrl(feature),
-                      '_blank',
-                    );
+                    window.open(getDataFeatureUrl(feature), '_blank');
                   }}
                 />
               </Grid>

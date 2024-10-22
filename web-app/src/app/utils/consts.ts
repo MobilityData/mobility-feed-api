@@ -9,7 +9,7 @@ type DatasetFeatures = Record<string, DatasetFeature>;
 export function getDataFeatureUrl(feature: string): string {
   return (
     DATASET_FEATURES[feature]?.linkToInfo ??
-    DATASET_FEATURES['overview'].linkToInfo
+    DATASET_FEATURES.overview.linkToInfo
   );
 }
 
