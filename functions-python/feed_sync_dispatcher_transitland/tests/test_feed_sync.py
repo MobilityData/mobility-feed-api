@@ -296,3 +296,20 @@ def test_merge_and_filter_dataframes(processor):
     assert len(filtered_df) == 1
     assert filtered_df.iloc[0]["operator_name"] == "Operator 1"
     assert filtered_df.iloc[0]["feed_id"] == "feed1"
+
+
+def test_get_data_rate_limit(processor):
+    mock_session = Mock(spec=RequestsSession)
+    mock_response = Mock()
+    mock_response.status_code = 429
+    mock_response.json.return_value = {"feeds": [], "operators": []}
+    mock_session.get.return_value = mock_response
+
+    with patch("time.sleep", return_value=None):
+        result = processor.get_data(
+            "https://api.transit.land",
+            "dummy_api_key",
+            session=mock_session,
+            max_retries=1,
+        )
+    assert result == {"feeds": [], "operators": []}
