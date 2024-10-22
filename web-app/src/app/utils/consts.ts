@@ -119,7 +119,6 @@ export const DATASET_FEATURES: DatasetFeatures = {
     linkToInfo: 'https://gtfs.org/getting_started/features/pathways/#levels',
   },
   'In-station traversal time': {
-    // TODO: verify the upper / lower case
     component: 'Pathways',
     fileName: 'pathways.txt',
     linkToInfo:
