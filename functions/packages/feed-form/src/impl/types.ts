@@ -13,7 +13,7 @@ export interface FeedSubmissionFormRequestBody {
   isUpdatingFeed: YesNoFormInput;
   oldFeedLink?: string;
   licensePath?: string;
-  country: string;
+  country?: string;
   region?: string;
   municipality?: string;
   tripUpdates?: string;
