@@ -30,6 +30,15 @@ class TestGbfsUtils(unittest.TestCase):
         self.assertEqual(result, {"key": "value"})
         mock_get.assert_called_once_with("http://example.com")
 
+    @patch("gbfs_validator.src.gbfs_utils.upload_gbfs_file_to_bucket")
+    def test_create_gbfs_json_with_bucket_paths_empty_data(self, mock_upload):
+        mock_bucket = MagicMock()
+        gbfs_data = {"data": {}}
+
+        self.validator.create_gbfs_json_with_bucket_paths(mock_bucket, gbfs_data)
+
+        mock_upload.assert_not_called()
+
     @patch("requests.get")
     def test_upload_gbfs_file_to_bucket(self, mock_get):
         mock_response = MagicMock()
@@ -68,6 +77,18 @@ class TestGbfsUtils(unittest.TestCase):
         gbfs_data = {
             "data": {"en": {"feeds": [{"url": "http://old-url.com", "name": "feed"}]}}
         }
+
+        mock_bucket.blob.return_value.public_url = "http://new-url.com"
+
+        self.validator.create_gbfs_json_with_bucket_paths(mock_bucket, gbfs_data)
+        self.assertEqual(self.validator.hosted_url, "http://new-url.com")
+
+    @patch("gbfs_validator.src.gbfs_utils.upload_gbfs_file_to_bucket")
+    def test_create_gbfs_json_with_bucket_paths_2(self, mock_upload):
+        mock_upload.return_value = "http://new-url.com"
+
+        mock_bucket = MagicMock()
+        gbfs_data = {"data": {"feeds": [{"url": "http://old-url.com", "name": "feed"}]}}
 
         mock_bucket.blob.return_value.public_url = "http://new-url.com"
 

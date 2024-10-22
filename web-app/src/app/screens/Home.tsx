@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LegacyHome from './LegacyHome';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
+import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
+import '../styles/TextShimmer.css';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -75,19 +77,18 @@ function Component(): React.ReactElement {
         <Typography
           sx={{
             fontSize: {
-              xs: '48px',
-              sm: '60px',
-              md: '72px',
+              xs: '36px',
+              sm: '48px',
             },
             fontStyle: 'normal',
             fontWeight: 700,
             lineHeight: 'normal',
             textAlign: 'center',
           }}
-          color='primary'
           data-testid='home-title'
+          className='shimmer'
         >
-          The Mobility Database
+          Explore and Access Global Transit Data
         </Typography>
         <Typography
           component='h1'
@@ -97,16 +98,16 @@ function Component(): React.ReactElement {
             color: 'black',
             fontWeight: 700,
             mt: 4,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1,
           }}
         >
           Currently serving over
-          <Box sx={{ fontSize: 30, color: '#3859FA' }}>2000</Box>
-          transit data feeds from{' '}
-          <Box sx={{ fontSize: 30, color: '#3859FA' }}>70</Box>
+          <Box component='span' sx={{ fontSize: 30, color: '#3859FA', mx: 1 }}>
+            2000
+          </Box>
+          transit data feeds from
+          <Box component='span' sx={{ fontSize: 30, color: '#3859FA', mx: 1 }}>
+            70
+          </Box>
           countries.
         </Typography>
         <Box
@@ -183,7 +184,8 @@ function Component(): React.ReactElement {
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'space-around',
+            justifyContent: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
           }}
         >
           <ActionBox
@@ -217,21 +219,19 @@ function Component(): React.ReactElement {
             mt: 5,
           }}
         >
-          The Mobility Database is a directory of 2000+ mobility feeds across
-          the world. It has over 250 updated feeds previously unavailable on
-          TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
-          <a
-            href='https://gtfs-validator.mobilitydata.org/'
-            rel='noreferrer'
-            target='_blank'
-          >
+          The Mobility Database is an international catalog of public transit
+          data for transit agencies, rider-facing apps, technology vendors,
+          researchers, and others to use. It features over 2,000 GTFS and GTFS
+          Realtime feeds, including 500+ feeds unavailable on the old
+          TransitFeeds website.
+          <br />
+          <br />
+          It offers data quality reports from{' '}
+          <a href={WEB_VALIDATOR_LINK} rel='noreferrer' target='_blank'>
             the Canonical GTFS Schedule Validator
           </a>
-          .
-          <br />
-          <br />
-          We’re in the first phase of building a sustainable, central hub for
-          mobility data internationally.
+          aiming to improve data transparency and quality. The platform aspires
+          to become a sustainable, central hub for global mobility data.
         </Box>
       </Box>
     </Container>

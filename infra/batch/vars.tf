@@ -45,7 +45,7 @@ variable "job_attempt_deadline" {
 variable "python_runtime" {
   type = string
   description = "Python runtime version"
-  default = "python310"
+  default = "python311"
 }
 
 variable "public_hosted_datasets_dns" {

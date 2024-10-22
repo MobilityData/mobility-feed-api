@@ -34,6 +34,7 @@ jobs:
       - api-build-deployment
     with:
       API_URL: 'https://api-dev.mobilitydatabase.org'
+      ENVIRONMENT: 'dev'
     secrets:
       REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
 

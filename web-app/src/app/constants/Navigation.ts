@@ -16,6 +16,10 @@ export const MOBILITY_DATA_LINKS = {
   github: 'https://github.com/MobilityData/mobility-database-catalogs',
 };
 
+export const WEB_VALIDATOR_LINK = 'https://gtfs-validator.mobilitydata.org';
+export const GTFS_ORG_LINK = 'https://gtfs.org';
+export const GBFS_LINK = 'https://github.com/MobilityData/gbfs';
+
 export function buildNavigationItems(
   featureFlags: RemoteConfigValues,
 ): NavigationItem[] {

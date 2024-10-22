@@ -1,0 +1,117 @@
+{
+  "fields": [
+    {
+      "name": "locations",
+      "type": "RECORD",
+      "mode": "REPEATED",
+      "fields": [
+        {
+          "name": "countryCode",
+          "type": "STRING"
+        },
+        {
+          "name": "country",
+          "type": "STRING"
+        },
+        {
+          "name": "subdivisionName",
+          "type": "STRING"
+        },
+        {
+          "name": "municipality",
+          "type": "STRING"
+        }
+      ]
+    },
+    {
+      "name": "feedId",
+      "type": "STRING"
+    },
+    {
+      "name": "snapshotId",
+      "type": "STRING"
+    },
+    {
+      "name": "summary",
+      "type": "RECORD",
+      "fields": [
+        {
+          "name": "validatorVersion",
+          "type": "STRING"
+        },
+        {
+          "name": "version",
+          "type": "RECORD",
+          "fields": [
+            {
+              "name": "detected",
+              "type": "STRING"
+            },
+            {
+              "name": "validated",
+              "type": "STRING"
+            }
+          ]
+        },
+        {
+          "name": "hasErrors",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "errorsCount",
+          "type": "INTEGER"
+        }
+      ]
+    },
+    {
+      "name": "filesSummary",
+      "type": "RECORD",
+      "mode": "REPEATED",
+      "fields": [
+        {
+          "name": "required",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "exists",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "file",
+          "type": "STRING"
+        },
+        {
+          "name": "hasErrors",
+          "type": "BOOLEAN"
+        },
+        {
+          "name": "errorsCount",
+          "type": "INTEGER"
+        },
+        {
+          "name": "groupedErrors",
+          "type": "RECORD",
+          "mode": "REPEATED",
+          "fields": [
+            {
+              "name": "keyword",
+              "type": "STRING"
+            },
+            {
+              "name": "message",
+              "type": "STRING"
+            },
+            {
+              "name": "schemaPath",
+              "type": "STRING"
+            },
+            {
+              "name": "count",
+              "type": "INTEGER"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

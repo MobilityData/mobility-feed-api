@@ -311,6 +311,36 @@ def test_get_gtfs_feed_datasets_with_downloaded_before_the_first_dataset(client:
     assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[0]
 
 
+def test_get_gtfs_feed_datasets_with_limit(client: TestClient):
+    """Test case for get_gtfs_feed_datasets limit of returning 1
+    Expected result: only one dataset out of two
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?limit={limit}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], limit=1),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[0]
+
+
+def test_get_gtfs_feed_datasets_with_offset(client: TestClient):
+    """Test case for get_gtfs_feed_datasets offset of returning the second element out of 2
+    Expected result: the second dataset
+    """
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets?offset={offset}".format(id=TEST_GTFS_FEED_STABLE_IDS[0], offset=1),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[1]
+
+
 def test_get_gtfs_feed_datasets_with_downloaded_after_after(client: TestClient):
     """Test case for get_gtfs_feed_datasets filter downloaded_after with date after all downloads
     Expected result: empty list

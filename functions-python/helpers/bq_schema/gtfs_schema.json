@@ -1,0 +1,43 @@
+{
+    "fields": [
+        {
+            "name": "summary",
+            "type": "RECORD",
+            "fields": [
+                {"name": "validatorVersion", "type": "STRING"},
+                {"name": "validatedAt", "type": "TIMESTAMP"},
+                {"name": "gtfsInput", "type": "STRING"},
+                {"name": "threads", "type": "INTEGER"},
+                {"name": "outputDirectory", "type": "STRING"},
+                {"name": "validationTimeSeconds", "type": "FLOAT"},
+                {"name": "countryCode", "type": "STRING"},
+                {"name": "dateForValidation", "type": "DATE"}
+            ]
+        },
+        {
+            "name": "notices",
+            "type": "RECORD",
+            "mode": "REPEATED",
+            "fields": [
+                {"name": "code", "type": "STRING"},
+                {"name": "severity", "type": "STRING"},
+                {"name": "totalNotices", "type": "INTEGER"},
+                {"name": "sampleNotices", "type": "STRING"}
+            ]
+        },
+        {
+            "name": "locations",
+            "type": "RECORD",
+            "mode": "REPEATED",
+            "fields": [
+                {"name": "countryCode", "type":  "STRING"},
+                {"name": "country", "type": "STRING"},
+                {"name": "subdivisionName", "type": "STRING"},
+                {"name": "municipality", "type": "STRING"}
+            ]
+        },
+        {"name": "feedId", "type": "STRING"},
+        {"name": "datasetId", "type": "STRING"},
+        {"name": "validatedAt", "type": "TIMESTAMP"}
+    ]
+}

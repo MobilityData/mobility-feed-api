@@ -20,6 +20,7 @@ import {
 } from '@mui/icons-material';
 import { type paths } from '../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { WEB_VALIDATOR_LINK } from '../../constants/Navigation';
 
 export interface PreviousDatasetsProps {
   datasets:
@@ -169,7 +170,7 @@ export default function PreviousDatasets({
                         endIcon={<LaunchOutlined />}
                       >
                         <a
-                          href={'https://gtfs-validator.mobilitydata.org/'}
+                          href={WEB_VALIDATOR_LINK}
                           target='_blank'
                           className='btn-link'
                           rel='noreferrer'
@@ -178,43 +179,42 @@ export default function PreviousDatasets({
                         </a>
                       </Button>
                     )}
-                    {dataset.validation_report != null &&
-                      dataset.validation_report !== undefined && (
-                        <>
-                          <Button
-                            variant='contained'
-                            sx={{ mx: 2 }}
-                            disableElevation
-                            endIcon={<LaunchOutlined />}
+                    {dataset.validation_report != null && (
+                      <>
+                        <Button
+                          variant='contained'
+                          sx={{ mx: 2 }}
+                          disableElevation
+                          endIcon={<LaunchOutlined />}
+                        >
+                          <a
+                            href={`${dataset?.validation_report?.url_html}`}
+                            target='_blank'
+                            className='btn-link'
+                            rel='noreferrer'
+                            data-testid='validation-report-html'
                           >
-                            <a
-                              href={`${dataset?.validation_report?.url_html}`}
-                              target='_blank'
-                              className='btn-link'
-                              rel='noreferrer'
-                              data-testid='validation-report-html'
-                            >
-                              View Report
-                            </a>
-                          </Button>
-                          <Button
-                            variant='contained'
-                            sx={{ mx: 2, my: { xs: 1, xl: 0 } }}
-                            endIcon={<LaunchOutlined />}
-                            disableElevation
+                            View Report
+                          </a>
+                        </Button>
+                        <Button
+                          variant='contained'
+                          sx={{ mx: 2, my: { xs: 1, xl: 0 } }}
+                          endIcon={<LaunchOutlined />}
+                          disableElevation
+                        >
+                          <a
+                            href={`${dataset?.validation_report?.url_json}`}
+                            target='_blank'
+                            className='btn-link'
+                            rel='noreferrer'
+                            data-testid='validation-report-json'
                           >
-                            <a
-                              href={`${dataset?.validation_report?.url_json}`}
-                              target='_blank'
-                              className='btn-link'
-                              rel='noreferrer'
-                              data-testid='validation-report-json'
-                            >
-                              JSON Version
-                            </a>
-                          </Button>
-                        </>
-                      )}
+                            JSON Version
+                          </a>
+                        </Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

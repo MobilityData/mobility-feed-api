@@ -2,6 +2,7 @@
   "functions": [
     {
       "source": "packages/user-api",
+      "runtime": "nodejs20",
       "codebase": "user-api",
       "ignore": [
         "node_modules",
@@ -17,6 +18,7 @@
     },
     {
       "source": "packages/feed-form",
+      "runtime": "nodejs20",
       "codebase": "feed-form",
       "ignore": [
         "node_modules",

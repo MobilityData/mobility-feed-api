@@ -1,99 +1,61 @@
-const email = Cypress.env('email');
-const currentPassword = Cypress.env('currentPassword');
-const newPassword = Cypress.env('currentPassword') + 'TEST';
-
-let beforeEachFailed = false;
+const currentPassword = 'IloveOrangeCones123!';
+const newPassword = currentPassword + 'TEST';
+const email = 'cypressTestUser@mobilitydata.org';
 
 describe('Change Password Screen', () => {
-  before(() => {});
-
   beforeEach(() => {
-    beforeEachFailed = false;
-    // As per issue #458 the beforeEach of this test file sometimes fail.
-    // Instead of failing the tests in that case issue a warning.
-    // This should be removed once the issue is resolved.
-    try {
-      // Visit the login page and login
-      cy.visit('/sign-in');
-      cy.get('input[id="email"]').clear().type(email);
-      cy.get('input[id="password"]').clear().type(currentPassword);
-      cy.get('button[type="submit"]').click();
-      // Wait for the user to be redirected to the home page
-      cy.location('pathname').should('eq', '/account', { timeout: 30000 });
-      // Visit the change password page
-      cy.visit('/change-password');
-    } catch (error) {
-      beforeEachFailed = true;
-      cy.log(`Warning: ${error.message}`);
-    }
+    cy.visit('/');
+    cy.get('[data-testid="home-title"]').should('exist');
+    cy.createNewUserAndSignIn(email, currentPassword);
+    cy.get('[data-cy="accountHeader"]').should('exist'); // assures that the user is signed in
+    cy.visit('/change-password');
   });
 
   it('should render components', () => {
-    if (beforeEachFailed) {
-      cy.log('Skipping test due to beforeEach failure');
-      return;
-    }
-    // Check that the current password field exists
     cy.get('input[id="currentPassword"]').should('exist');
-
-    // Check that the new password field exists
     cy.get('input[id="newPassword"]').should('exist');
-
-    // Check that the confirm new password field exists
     cy.get('input[id="confirmNewPassword"]').should('exist');
   });
 
   it('should show error when current password is incorrect', () => {
-    if (beforeEachFailed) {
-      cy.log('Skipping test due to beforeEach failure');
-      return;
-    }
-    // Type the wrong current password
     cy.get('input[id="currentPassword"]').type('wrong');
-
-    // Type the new password
     cy.get('input[id="newPassword"]').type(newPassword);
-
-    // Confirm the new password
     cy.get('input[id="confirmNewPassword"]').type(newPassword);
-
-    // Submit the form
     cy.get('button[type="submit"]').click();
-
-    // Check that the error message is displayed
     cy.contains(
       'The password is invalid or the user does not have a password. (auth/wrong-password).',
     ).should('exist');
   });
 
   it('should change password', () => {
-    if (beforeEachFailed) {
-      cy.log('Skipping test due to beforeEach failure');
-      return;
-    }
-    // Type the current password
+    cy.intercept('POST', '/retrieveUserInformation', {
+      statusCode: 200,
+      body: {
+        result: {
+          uid: 'ep4EwJvgNhfEER152EfzLSI0MBG2',
+          isRegisteredToReceiveAPIAnnouncements: false,
+          organization: '',
+          fullName: 'Alessandro',
+          registrationCompletionTime: '2024-09-24T15:34:55.381Z',
+        },
+      },
+    });
     cy.get('input[id="currentPassword"]').type(currentPassword);
-
-    // Type the new password
     cy.get('input[id="newPassword"]').type(newPassword);
-
-    // Confirm the new password
     cy.get('input[id="confirmNewPassword"]').type(newPassword);
-
-    // Submit the form
     cy.get('button[type="submit"]').click();
 
-    // Check that the password was changed successfully
     cy.contains('Change Password Succeeded').should('exist');
     cy.get('[cy-data="goToAccount"]').click();
     cy.location('pathname').should('eq', '/account');
 
-    // Reset the password back to the original password
-    cy.visit('/change-password');
-    cy.get('input[id="currentPassword"]').type(newPassword);
-    cy.get('input[id="newPassword"]').type(currentPassword);
-    cy.get('input[id="confirmNewPassword"]').type(currentPassword);
-    cy.get('button[type="submit"]').click();
-    cy.contains('Change Password Succeeded').should('exist');
+    // logout
+    cy.get('[data-cy="signOutButton"]').click();
+    cy.get('[data-cy="confirmSignOutButton"]').should('exist').click();
+    cy.visit('/sign-in');
+    cy.get('[data-cy="signInEmailInput"]').type(email);
+    cy.get('[data-cy="signInPasswordInput"]').type(newPassword);
+    cy.get('[data-testid="signin"]').click();
+    cy.location('pathname').should('eq', '/account');
   });
 });
