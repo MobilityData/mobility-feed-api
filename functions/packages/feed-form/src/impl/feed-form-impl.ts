@@ -3,6 +3,7 @@ import {GoogleAuth} from "google-auth-library";
 import * as logger from "firebase-functions/logger";
 import {type FeedSubmissionFormRequestBody} from "./types";
 import {type CallableRequest, HttpsError} from "firebase-functions/v2/https";
+import axios from "axios";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/spreadsheets",
@@ -28,11 +29,27 @@ export const writeToSheet = async (
     const rows = buildFeedRows(formData, uid);
     await rawDataSheet.addRows(rows, {insert: true});
 
+    const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+    const isProduction = projectId === "mobility-feeds-prod";
+    let githubIssueUrl = "";
+    if (
+      process.env.GITHUB_TOKEN !== undefined &&
+      process.env.GITHUB_TOKEN !== "" &&
+      isProduction
+    ) {
+      githubIssueUrl = await createGithubIssue(
+        formData,
+        sheetId,
+        process.env.GITHUB_TOKEN
+      );
+    }
+    await sendSlackWebhook(sheetId, githubIssueUrl);
     return {message: "Data written to the new sheet successfully!"};
   } catch (error) {
     logger.error("Error writing to sheet:", error);
     throw new HttpsError(
-      "internal", "An error occurred while writing to the sheet."
+      "internal",
+      "An error occurred while writing to the sheet."
     );
   }
 };
@@ -83,55 +100,42 @@ export function buildFeedRows(
   const rowsToAdd: RawRowData[] = [];
   if (formData.dataType === "gtfs") {
     rowsToAdd.push(
-      buildFeedRow(
-        formData,
-        {
-          dataTypeName: "GTFS Schedule",
-          downloadUrl: formData.feedLink ?? "",
-          currentUrl: formData.oldFeedLink ?? "",
-          uid,
-        }
-      )
+      buildFeedRow(formData, {
+        dataTypeName: "GTFS Schedule",
+        downloadUrl: formData.feedLink ?? "",
+        currentUrl: formData.oldFeedLink ?? "",
+        uid,
+      })
     );
   } else {
     if (formData.tripUpdates) {
       rowsToAdd.push(
-        buildFeedRow(
-          formData,
-          {
-            dataTypeName: "GTFS Realtime - Trip Updates",
-            downloadUrl: formData.tripUpdates ?? "",
-            currentUrl: formData.oldTripUpdates ?? "",
-            uid,
-          }
-
-        )
+        buildFeedRow(formData, {
+          dataTypeName: "GTFS Realtime - Trip Updates",
+          downloadUrl: formData.tripUpdates ?? "",
+          currentUrl: formData.oldTripUpdates ?? "",
+          uid,
+        })
       );
     }
     if (formData.vehiclePositions) {
       rowsToAdd.push(
-        buildFeedRow(
-          formData,
-          {
-            dataTypeName: "GTFS Realtime - Vehicle Positions",
-            downloadUrl: formData.vehiclePositions ?? "",
-            currentUrl: formData.oldVehiclePositions ?? "",
-            uid,
-          }
-        )
+        buildFeedRow(formData, {
+          dataTypeName: "GTFS Realtime - Vehicle Positions",
+          downloadUrl: formData.vehiclePositions ?? "",
+          currentUrl: formData.oldVehiclePositions ?? "",
+          uid,
+        })
       );
     }
     if (formData.serviceAlerts) {
       rowsToAdd.push(
-        buildFeedRow(
-          formData,
-          {
-            dataTypeName: "GTFS Realtime - Service Alerts",
-            downloadUrl: formData.serviceAlerts ?? "",
-            currentUrl: formData.oldServiceAlerts ?? "",
-            uid,
-          }
-        )
+        buildFeedRow(formData, {
+          dataTypeName: "GTFS Realtime - Service Alerts",
+          downloadUrl: formData.serviceAlerts ?? "",
+          currentUrl: formData.oldServiceAlerts ?? "",
+          uid,
+        })
       );
     }
   }
@@ -157,7 +161,6 @@ export function buildFeedRow(
   formData: FeedSubmissionFormRequestBody,
   formRowParameters: BuildRowParameters
 ): RawRowData {
-  /* eslint-enable max-len */
   const dateNow = new Date();
   return {
     [SheetCol.Status]: "Feed Submitted",
@@ -171,7 +174,7 @@ export function buildFeedRow(
     [SheetCol.IssueType]:
       formData.isUpdatingFeed === "yes" ? "Feed update" : "New feed",
     [SheetCol.DownloadUrl]: formRowParameters.downloadUrl,
-    [SheetCol.Country]: formData.country,
+    [SheetCol.Country]: formData.country ?? "",
     [SheetCol.Subdivision]: formData.region ?? "",
     [SheetCol.Municipality]: formData.municipality ?? "",
     [SheetCol.Name]: formData.name ?? "",
@@ -188,3 +191,219 @@ export function buildFeedRow(
     [SheetCol.LogoPermission]: formData.hasLogoPermission,
   };
 }
+
+/**
+ * Sends a Slack webhook message to the configured Slack webhook URL
+ * @param {string} spreadsheetId The ID of the Google Sheet
+ * @param {string} githubIssueUrl The URL of the created GitHub issue
+ */
+async function sendSlackWebhook(spreadsheetId: string, githubIssueUrl: string) {
+  const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
+  const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+  if (slackWebhookUrl !== undefined && slackWebhookUrl !== "") {
+    const linksElement = [
+      {
+        type: "emoji",
+        name: "google_drive",
+      },
+      {
+        type: "link",
+        url: sheetUrl,
+        text: " View Feed ",
+        style: {
+          bold: true,
+        },
+      },
+    ];
+    if (githubIssueUrl !== "") {
+      linksElement.push(
+        {
+          type: "emoji",
+          name: "github-logo",
+        },
+        {
+          type: "link",
+          url: githubIssueUrl,
+          text: " View Issue ",
+          style: {
+            bold: true,
+          },
+        }
+      );
+    }
+    const slackMessage = {
+      blocks: [
+        {
+          type: "header",
+          text: {
+            type: "plain_text",
+            text: "New Feed Added",
+          },
+        },
+        {
+          type: "rich_text",
+          elements: [
+            {
+              type: "rich_text_section",
+              elements: [
+                {
+                  type: "emoji",
+                  name: "inbox_tray",
+                },
+                {
+                  type: "text",
+                  text: "  A new entry was received in the OpenMobilityData source updates Google Sheet",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          "type": "rich_text",
+          "elements": [
+            {
+              "type": "rich_text_section",
+              "elements": linksElement,
+            },
+          ],
+        },
+      ],
+    };
+    await axios.post(slackWebhookUrl, slackMessage).catch((error) => {
+      logger.error("Error sending Slack webhook:", error);
+    });
+  } else {
+    logger.error("Slack webhook URL is not defined");
+  }
+}
+/* eslint-enable max-len */
+
+/**
+ * Creates a GitHub issue in the Mobility Database Catalogs repository
+ * @param {FeedSubmissionFormRequestBody} formData feed submission form
+ * @param {string} spreadsheetId googleshhet id
+ * @param  {string} githubToken github token to create the issue
+ * @return {Promise<string>} The URL of the created GitHub issue
+ */
+async function createGithubIssue(
+  formData: FeedSubmissionFormRequestBody,
+  spreadsheetId: string,
+  githubToken: string
+): Promise<string> {
+  const githubRepoUrlIssue =
+    "https://api.github.com/repos/MobilityData/mobility-database-catalogs/issues";
+  const issueTitle =
+    "New Feed Added" +
+    (formData.transitProviderName ? `: ${formData.transitProviderName}` : "");
+  const issueBody = buildGithubIssueBody(formData, spreadsheetId);
+  try {
+    const response = await axios.post(
+      githubRepoUrlIssue,
+      {
+        title: issueTitle,
+        body: issueBody,
+        labels: ["feed submission"],
+      },
+      {
+        headers: {
+          Authorization: `token ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+    return response.data.html_url;
+  } catch (error) {
+    logger.error("Error creating GitHub issue:", error);
+    return "";
+  }
+}
+
+// Markdown format is strange in strings, so we disable eslint for this function
+/* eslint-disable */
+export function buildGithubIssueBody(
+  formData: FeedSubmissionFormRequestBody,
+  spreadsheetId: string
+) {
+  let content = "";
+  if (formData.transitProviderName) {
+    content += `
+  # Agency name/Transit Provider: ${formData.name}`;
+  }
+
+  if (formData.country || formData.region || formData.municipality) {
+    let locationName = formData.country ?? "";
+    locationName += formData.region ? `, ${formData.region}` : "";
+    locationName += formData.municipality ? `, ${formData.municipality}` : "";
+    content += `
+
+  ### Location
+  ${locationName}`;
+  }
+
+  content += `
+
+  ## Details`;
+
+  content += `
+
+  #### Data type
+  ${formData.dataType}
+
+  #### Issue type
+  ${formData.isUpdatingFeed === "yes" ? "Feed update" : "New feed"}`;
+
+  if (formData.name) {
+  content += `
+
+  #### Name
+  ${formData.name}`;
+  }
+
+  content += `
+
+  ## URLs
+  | Current URL on OpenMobilityData.org | Updated/new feed URL |
+  |---|---|`;
+  if (formData.dataType === "gtfs") {
+    content += `
+  | ${formData.oldFeedLink} | ${formData.feedLink} |`;
+  } else {
+    if (formData.tripUpdates) {
+      content += `
+  | ${formData.oldTripUpdates} | ${formData.tripUpdates} |`;
+    }
+    if (formData.vehiclePositions) {
+      content += `
+  | ${formData.oldVehiclePositions} | ${formData.vehiclePositions} |`;
+    }
+    if (formData.serviceAlerts) {
+      content += `
+  | ${formData.oldServiceAlerts} | ${formData.serviceAlerts} |`;
+    }
+  }
+
+  content += `
+
+  ## Authentication
+  #### Authentication type
+  ${formData.authType}`;
+  if (formData.authSignupLink) {
+    content += `
+
+  #### Link to how to sign up for authentication credentials (API KEY)
+  ${formData.authSignupLink}`;
+  }
+  if (formData.authParameterName) {
+    content += `
+
+  #### HTTP header or API key parameter name
+  ${formData.authParameterName}`;
+  }
+
+  content += `
+
+  ## View more details
+  https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+  return content;
+}
+/* eslint-enable */
