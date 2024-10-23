@@ -1,11 +1,20 @@
 import json
+from uuid import uuid4
 
 from geoalchemy2 import WKTElement
 from sqlalchemy import text
 
 from database.database import Database
-from database_gen.sqlacodegen_models import Gtfsdataset, Validationreport, Gtfsfeed, Notice, Feature, t_feedsearch
-from scripts.populate_db import set_up_configs
+from database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    Validationreport,
+    Gtfsfeed,
+    Notice,
+    Feature,
+    t_feedsearch,
+    Location,
+)
+from scripts.populate_db import set_up_configs, DatabasePopulateHelper
 from utils.logger import Logger
 
 
@@ -35,6 +44,10 @@ class DatabasePopulateTestDataHelper:
         # Load the JSON file
         with open(filepath) as f:
             data = json.load(f)
+
+        # GTFS Feeds
+        if "feeds" in data:
+            self.populate_test_feeds(data["feeds"])
 
         # GTFS Datasets
         dataset_dict = {}
@@ -115,6 +128,43 @@ class DatabasePopulateTestDataHelper:
             self.populate_test_datasets(filepath)
 
         self.logger.info("Database populated with test data")
+
+    def populate_test_feeds(self, feeds_data):
+        for feed_data in feeds_data:
+            feed = Gtfsfeed(
+                id=str(uuid4()),
+                stable_id=feed_data["id"],
+                data_type=feed_data["data_type"],
+                status=feed_data["status"],
+                created_at=feed_data["created_at"],
+                provider=feed_data["provider"],
+                feed_name=feed_data["feed_name"],
+                note=feed_data["note"],
+                feed_contact_email=feed_data["feed_contact_email"],
+                producer_url=feed_data["source_info"]["producer_url"],
+            )
+            locations = []
+            for location_data in feed_data["locations"]:
+                location_id = DatabasePopulateHelper.get_location_id(
+                    location_data["country_code"],
+                    location_data["subdivision_name"],
+                    location_data["municipality"],
+                )
+                location = self.db.session.get(Location, location_id)
+                location = (
+                    location
+                    if location
+                    else Location(
+                        id=location_id,
+                        country_code=location_data["country_code"],
+                        subdivision_name=location_data["subdivision_name"],
+                        municipality=location_data["municipality"],
+                        country=location_data["country"],
+                    )
+                )
+                locations.append(location)
+            feed.locations = locations
+            self.db.session.add(feed)
 
 
 if __name__ == "__main__":

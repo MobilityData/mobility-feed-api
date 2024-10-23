@@ -150,7 +150,7 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
 
     feed_mdb_10 = Database().get_query_model(Gtfsfeed).filter(Gtfsfeed.stable_id == "mdb-10").first()
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_gtfs_feed = response.json()[0]
+    response_gtfs_feed = response.json()[3]
     assert_gtfs(feed_mdb_10, response_gtfs_feed)
 
 
@@ -182,7 +182,7 @@ def test_gtfs_feeds_get_no_bounding_box(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    response_gtfs_feed = response.json()[0]
+    response_gtfs_feed = response.json()[3]
     assert response_gtfs_feed["latest_dataset"] is not None, "Response feed latest dataset was None"
 
 

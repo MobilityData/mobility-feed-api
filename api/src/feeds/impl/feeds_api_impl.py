@@ -1,8 +1,11 @@
 from datetime import datetime
-from typing import List, Union, TypeVar
 
+# from select import select
+from typing import List, Union, TypeVar
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.query import Query
+
 from database.database import Database
 from database_gen.sqlacodegen_models import (
     Feed,
@@ -11,8 +14,8 @@ from database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Validationreport,
-    Entitytype,
     t_location_with_translations_en,
+    Entitytype,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -37,7 +40,11 @@ from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from utils.date_utils import valid_iso_date
-from utils.location_translation import create_location_translation_object, LocationTranslation
+from utils.location_translation import (
+    create_location_translation_object,
+    LocationTranslation,
+    get_feeds_location_translations,
+)
 
 T = TypeVar("T", bound="BasicFeed")
 
@@ -197,12 +204,17 @@ class FeedsApiImpl(BaseFeedsApi):
                 municipality__ilike=municipality,
             ),
         )
-        gtfs_feed_query = gtfs_feed_filter.filter(
-            Database().get_session().query(Gtfsfeed, t_location_with_translations_en)
-        )
-        gtfs_feed_query = (
-            gtfs_feed_query.outerjoin(Location, Feed.locations)
-            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
+
+        subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id).join(Location, Gtfsfeed.locations))
+        subquery = DatasetsApiImpl.apply_bounding_filtering(
+            subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
+        ).subquery()
+
+        feed_query = (
+            Database()
+            .get_session()
+            .query(Gtfsfeed)
+            .filter(Gtfsfeed.id.in_(subquery))
             .options(
                 joinedload(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
@@ -210,12 +222,10 @@ class FeedsApiImpl(BaseFeedsApi):
                 *BasicFeedImpl.get_joinedload_options(),
             )
             .order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
+            .limit(limit)
+            .offset(offset)
         )
-        gtfs_feed_query = gtfs_feed_query.order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-        gtfs_feed_query = DatasetsApiImpl.apply_bounding_filtering(
-            gtfs_feed_query, dataset_latitudes, dataset_longitudes, bounding_filter_method
-        )
-        return self._get_response(gtfs_feed_query, limit, offset, GtfsFeedImpl)
+        return self._get_response(feed_query, GtfsFeedImpl)
 
     def get_gtfs_rt_feed(
         self,
@@ -283,32 +293,33 @@ class FeedsApiImpl(BaseFeedsApi):
                 municipality__ilike=municipality,
             ),
         )
-        gtfs_rt_feed_query = gtfs_rt_feed_filter.filter(
-            Database().get_session().query(Gtfsrealtimefeed, t_location_with_translations_en)
-        )
-        gtfs_rt_feed_query = (
-            gtfs_rt_feed_query.outerjoin(Location, Gtfsrealtimefeed.locations)
-            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
-            .outerjoin(Entitytype, Gtfsrealtimefeed.entitytypes)
+        subquery = gtfs_rt_feed_filter.filter(
+            select(Gtfsrealtimefeed.id)
+            .join(Location, Gtfsrealtimefeed.locations)
+            .join(Entitytype, Gtfsrealtimefeed.entitytypes)
+        ).subquery()
+        feed_query = (
+            Database()
+            .get_session()
+            .query(Gtfsrealtimefeed)
+            .filter(Gtfsrealtimefeed.id.in_(subquery))
             .options(
                 joinedload(Gtfsrealtimefeed.entitytypes),
                 joinedload(Gtfsrealtimefeed.gtfs_feeds),
                 *BasicFeedImpl.get_joinedload_options(),
             )
             .order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
+            .limit(limit)
+            .offset(offset)
         )
-        return self._get_response(gtfs_rt_feed_query, limit, offset, GtfsRTFeedImpl)
+        return self._get_response(feed_query, GtfsRTFeedImpl)
 
     @staticmethod
-    def _get_response(feed_query: Query, limit: int, offset: int, impl_cls: type[T]) -> List[T]:
+    def _get_response(feed_query: Query, impl_cls: type[T]) -> List[T]:
         """Get the response for the feed query."""
-        if limit is not None:
-            feed_query = feed_query.limit(limit)
-        if offset is not None:
-            feed_query = feed_query.offset(offset)
         results = feed_query.all()
-        location_translations = {row[1]: create_location_translation_object(row) for row in results}
-        response = [impl_cls.from_orm(feed[0], location_translations) for feed in results]
+        location_translations = get_feeds_location_translations(results)
+        response = [impl_cls.from_orm(feed, location_translations) for feed in results]
         return list({feed.id: feed for feed in response}.values())
 
     def get_gtfs_feed_gtfs_rt_feeds(
