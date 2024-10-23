@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { Box, Grid } from '@mui/material';
+import { Box, Grid, type SxProps } from '@mui/material';
 
 export interface ContentBoxProps {
   title: string;
   width: Record<string, string>;
   outlineColor: string;
-  padding?: string | number;
+  padding?: Partial<SxProps>;
   margin?: string | number;
 }
 

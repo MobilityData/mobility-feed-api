@@ -111,18 +111,22 @@ const wrapComponent = (
 ): React.ReactElement => {
   const { t } = useTranslation('feeds');
   return (
-    <Container component='main' sx={{ width: '100%', m: 'auto' }} maxWidth='xl'>
+    <Container
+      component='main'
+      sx={{ width: '100%', m: 'auto', px: 0 }}
+      maxWidth='xl'
+    >
       <CssBaseline />
       <Box
         sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
-        margin={{ xs: '20px' }}
+        margin={{ xs: '20px 0px' }}
       >
         <Box
           sx={{
             width: '100%',
             background: '#F8F5F5',
             borderRadius: '6px 0px 0px 6px',
-            p: 5,
+            p: 3,
             color: 'black',
             fontSize: '18px',
             fontWeight: 700,
@@ -325,7 +329,11 @@ export default function Feed(): React.ReactElement {
       )}
       <Grid item xs={12} marginBottom={2}>
         {feedType === 'gtfs' && downloadLatestUrl !== undefined && (
-          <Button disableElevation variant='contained' sx={{ marginRight: 2 }}>
+          <Button
+            disableElevation
+            variant='contained'
+            sx={{ marginRight: 2, my: 1 }}
+          >
             <a
               href={downloadLatestUrl}
               target='_blank'

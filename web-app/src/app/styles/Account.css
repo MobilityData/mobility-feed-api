@@ -28,7 +28,8 @@
     border-radius: 2px;
     border: 1px solid #3959fa;
     word-wrap: break-word;
-    width: 610px;
+    width: 100%;
+    max-width: 610px;
 }
 
 .token-action-buttons {

@@ -162,7 +162,7 @@ export default function Feed(): React.ReactElement {
           display: 'flex',
           flexDirection: 'column',
         }}
-        margin={{ xs: '80px 20px', m: '80px auto' }}
+        margin={{ xs: '80px 0px', m: '80px auto' }}
         maxWidth={{ xs: '100%', m: '1600px' }}
       >
         <Grid container spacing={2}>
@@ -180,11 +180,16 @@ export default function Feed(): React.ReactElement {
                 setActivePagination(1);
                 setActiveSearch(searchQuery);
               }}
-              sx={{ display: 'flex', width: '100%', alignItems: 'center' }}
+              sx={{
+                display: 'flex',
+                width: '100%',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
             >
               <TextField
                 sx={{
-                  width: 'calc(100% - 100px)',
+                  width: 'calc(100% - 85px)',
                 }}
                 value={searchQuery}
                 placeholder={t('searchPlaceholder')}
@@ -211,7 +216,7 @@ export default function Feed(): React.ReactElement {
               <Button
                 variant='contained'
                 type='submit'
-                sx={{ m: 1, height: '55px' }}
+                sx={{ m: 1, height: '55px', mr: 0 }}
               >
                 {t('common:search')}
               </Button>
@@ -224,7 +229,10 @@ export default function Feed(): React.ReactElement {
               sx={{
                 background: '#F8F5F5',
                 borderRadius: '6px 0px 0px 6px',
-                p: 5,
+                p: {
+                  xs: 2,
+                  md: 5,
+                },
                 color: 'black',
                 fontSize: '18px',
                 fontWeight: 700,
@@ -232,10 +240,17 @@ export default function Feed(): React.ReactElement {
               }}
             >
               <Grid container spacing={1}>
-                <Grid item xs={12} sm={2}>
+                <Grid item xs={12} md={2}>
                   <div>
                     <div>{t('dataType')}</div>
-                    <FormGroup>
+                    <FormGroup
+                      sx={{
+                        flexDirection: {
+                          xs: 'row',
+                          md: 'column',
+                        },
+                      }}
+                    >
                       <FormControlLabel
                         control={
                           <Checkbox
@@ -271,7 +286,7 @@ export default function Feed(): React.ReactElement {
                 </Grid>
 
                 {/* Content Area */}
-                <Grid item xs={12} sm={10}>
+                <Grid item xs={12} md={10}>
                   {feedStatus === 'loading' && (
                     <Grid item xs={12}>
                       <h3>{t('common:loading')}</h3>

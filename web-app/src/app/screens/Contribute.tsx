@@ -24,7 +24,6 @@ export default function Contribute(): React.ReactElement {
         <Box
           sx={{
             background: '#F8F5F5',
-            width: '90vw',
             mt: 2,
             p: 2,
             borderRadius: '6px 6px 0px 0px',
