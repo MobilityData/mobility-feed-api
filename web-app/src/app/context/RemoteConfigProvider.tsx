@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { remoteConfig, app } from '../../firebase';
 import {
-  ByPassConfig,
+  type ByPassConfig,
   defaultRemoteConfigValues,
   type RemoteConfigValues,
 } from '../interface/RemoteConfig';
@@ -24,14 +24,17 @@ interface RemoteConfigProviderProps {
   children: ReactNode;
 }
 
-export function doesUserHaveBypass(byPassConfig: ByPassConfig, userEmail: string | null | undefined) {
+export function userHasBypass(
+  byPassConfig: ByPassConfig,
+  userEmail: string | null | undefined,
+): boolean {
   let hasBypass = false;
-  if(userEmail === null || userEmail === undefined) {
+  if (userEmail === null || userEmail === undefined) {
     return false;
   }
   byPassConfig.regex.forEach((regex) => {
     try {
-      if(userEmail.match(new RegExp(regex, 'i')) !== null) {
+      if (userEmail.match(new RegExp(regex, 'i')) !== null) {
         hasBypass = true;
       }
     } catch (e) {
@@ -58,9 +61,14 @@ export const RemoteConfigProvider = ({
           const rawValue = remoteConfig.getValue(key);
           const rawValueLower = rawValue.asString().toLowerCase();
           if (rawValueLower === 'true' || rawValueLower === 'false') {
-            const bypassConfig: ByPassConfig = JSON.parse(remoteConfig.getValue('featureFlagBypass').asString());
-            const hasBypass = doesUserHaveBypass(bypassConfig, app.auth().currentUser?.email)
-            fetchedConfigValues[key] = hasBypass ? hasBypass : rawValue.asBoolean();
+            const bypassConfig: ByPassConfig = JSON.parse(
+              remoteConfig.getValue('featureFlagBypass').asString(),
+            );
+            const hasBypass = userHasBypass(
+              bypassConfig,
+              app.auth().currentUser?.email,
+            );
+            fetchedConfigValues[key] = hasBypass || rawValue.asBoolean();
           } else if (!isNaN(Number(rawValue)) && rawValueLower.trim() !== '') {
             // Number
             fetchedConfigValues[key] = rawValue.asNumber();
