@@ -8,15 +8,13 @@ import { OpenInNew } from '@mui/icons-material';
 
 export default function About(): React.ReactElement {
   return (
-    <Container component='main' sx={{ width: '100vw', m: 0 }}>
+    <Container component='main'>
       <CssBaseline />
       <Box
         sx={{
           mt: 12,
           display: 'flex',
           flexDirection: 'column',
-          width: '100vw',
-          m: 10,
         }}
       >
         <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
@@ -25,7 +23,6 @@ export default function About(): React.ReactElement {
         <Box
           sx={{
             background: '#F8F5F5',
-            width: '90vw',
             mt: 2,
             p: 2,
             borderRadius: '6px 6px 0px 0px',
