@@ -30,8 +30,12 @@ export function doesUserHaveBypass(byPassConfig: ByPassConfig, userEmail: string
     return false;
   }
   byPassConfig.regex.forEach((regex) => {
-    if(userEmail.match(new RegExp(regex, 'i')) !== null) {
-      hasBypass = true;
+    try {
+      if(userEmail.match(new RegExp(regex, 'i')) !== null) {
+        hasBypass = true;
+      }
+    } catch (e) {
+      console.error(`Invalid regex: ${regex}`);
     }
   });
   return hasBypass;
