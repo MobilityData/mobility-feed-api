@@ -131,7 +131,7 @@ def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
 @pytest.mark.parametrize(
     "data_type, expected_results_total",
     [
-        ("gtfs", 7),
+        ("gtfs", 10),
         ("not_valid_gtfs", 0),
         ("gtfs_rt", 2),
     ],
@@ -174,10 +174,10 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
 @pytest.mark.parametrize(
     "status, expected_results_total",
     [
-        ("active", 6),
+        ("active", 9),
         ("not_valid_status", 0),
         ("inactive", 1),
-        ("active,inactive", 7),
+        ("active,inactive", 10),
     ],
 )
 def test_search_feeds_filter_status(client: TestClient, status: str, expected_results_total: int):

@@ -26,7 +26,7 @@ def test_feeds_get(client: TestClient):
     params = [
         ("limit", 10),
         ("offset", 0),
-        ("filter", "status=active"),
+        ("status", "active"),
         ("sort", "+provider"),
     ]
     response = client.request(
@@ -37,6 +37,9 @@ def test_feeds_get(client: TestClient):
     )
 
     assert response.status_code == 200
+    assert len(response.json()) >= 1, "At least one feed should be returned"
+    assert len(response.json()) <= 10, "At most 10 feeds should be returned"
+    assert all(feed["status"] == "active" for feed in response.json()), "All feeds should be active"
 
 
 def test_feeds_get_with_limit_and_offset(client: TestClient):
@@ -55,6 +58,24 @@ def test_feeds_get_with_limit_and_offset(client: TestClient):
 
     assert response.status_code == 200
     assert len(response.json()) == 5
+
+
+def test_feeds_get_with_limit_and_offset_multiple_locations(client: TestClient):
+    # Testing fix for bug #707
+    params = [
+        ("limit", 2),
+        ("offset", 1),
+        ("provider", "BlaBlaCar Bus"),
+    ]
+    response = client.request(
+        "GET",
+        "/v1/feeds",
+        headers=authHeaders,
+        params=params,
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 2
 
 
 def test_feeds_gtfs_get(client: TestClient):
