@@ -32,7 +32,7 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
 
 const featureByPassDefault: ByPassConfig = {
   regex: [],
-}
+};
 
 // Add default values for remote config here
 export const defaultRemoteConfigValues: RemoteConfigValues = {
