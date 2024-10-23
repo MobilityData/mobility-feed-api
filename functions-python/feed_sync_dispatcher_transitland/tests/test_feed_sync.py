@@ -1,9 +1,13 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, call
 from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
-from feed_sync_dispatcher_transitland.src.main import TransitFeedSyncProcessor
+from feed_sync_dispatcher_transitland.src.main import (
+    TransitFeedSyncProcessor,
+    FeedSyncPayload,
+)
 import pandas as pd
+from requests.exceptions import HTTPError
 
 
 @pytest.fixture
@@ -213,17 +217,21 @@ def test_process_sync_unchanged_feed(mock_get_data, processor):
         ],
         "feeds": [],
     }
-    mock_get_data.side_effect = [feeds_data, operators_data]
 
-    with patch.object(processor, "check_external_id", return_value=True), patch.object(
-        processor, "get_mbd_feed_url", return_value="http://example.com/feed1"
-    ):
-        payloads = processor.process_sync(
-            db_session=mock_db_session, execution_id="exec123"
-        )
-        assert (
-            len(payloads) == 0
-        )  # No payload should be created since feed hasn't changed
+    processor.get_data = Mock(side_effect=[feeds_data, operators_data])
+    processor.check_url_status = Mock(return_value=True)
+    processor.check_external_id = Mock(return_value=True)
+    processor.get_mbd_feed_url = Mock(return_value="http://example.com/feed1")
+    processor.get_mbd_feed_url = Mock(return_value="http://example.com/feed1")
+    payloads = processor.process_sync(
+        db_session=mock_db_session, execution_id="exec123"
+    )
+
+    assert len(payloads) == 0
+
+    processor.get_mbd_feed_url.assert_called_once_with(
+        mock_db_session, "onestop1", "TLD"
+    )
 
 
 @patch("feed_sync_dispatcher_transitland.src.main.requests.head")
@@ -298,18 +306,54 @@ def test_merge_and_filter_dataframes(processor):
     assert filtered_df.iloc[0]["feed_id"] == "feed1"
 
 
-def test_get_data_rate_limit(processor):
+def test_publish_callback_success(processor):
+    future = Mock()
+    future.exception.return_value = None
+    payload = FeedSyncPayload(external_id="onestop1", payload=None)
+    topic_path = "projects/project-id/topics/topic-name"
+
+    with patch("builtins.print") as mock_print:
+        processor.publish_callback(future, payload, topic_path)
+        mock_print.assert_called_with("Published transit land feed onestop1.")
+
+
+def test_publish_callback_failure(processor):
+    future = Mock()
+    future.exception.return_value = Exception("Publish error")
+    payload = FeedSyncPayload(external_id="onestop1", payload=None)
+    topic_path = "projects/project-id/topics/topic-name"
+
+    with patch("builtins.print") as mock_print:
+        processor.publish_callback(future, payload, topic_path)
+        mock_print.assert_called_with(
+            f"Error publishing transit land feed onestop1 to Pub/Sub topic {topic_path}: Publish error"
+        )
+
+
+def test_get_data_retries(processor):
+    # Mock the requests session
     mock_session = Mock(spec=RequestsSession)
+
     mock_response = Mock()
-    mock_response.status_code = 429
-    mock_response.json.return_value = {"feeds": [], "operators": []}
+    mock_response.raise_for_status.side_effect = HTTPError()
+    mock_response.status_code = 500
+
     mock_session.get.return_value = mock_response
 
-    with patch("time.sleep", return_value=None):
+    with patch("time.sleep", return_value=None) as mock_sleep:
         result = processor.get_data(
-            "https://api.transit.land",
-            "dummy_api_key",
+            url="http://example.com",
+            apikey="dummy_api_key",
             session=mock_session,
-            max_retries=1,
+            max_retries=3,
+            initial_delay=1,
+            max_delay=2,
         )
-    assert result == {"feeds": [], "operators": []}
+
+        assert mock_session.get.call_count == 3
+
+        assert mock_sleep.call_count == 2
+
+        mock_sleep.assert_has_calls([call(1), call(1)])
+
+        assert result == {"feeds": [], "operators": []}
