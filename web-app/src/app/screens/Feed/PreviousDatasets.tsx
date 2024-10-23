@@ -55,6 +55,7 @@ export default function PreviousDatasets({
         width={{ xs: '100%' }}
         title={''}
         outlineColor={colors.indigo[500]}
+        padding={{ xs: 0, sm: 1 }}
       >
         <TableContainer>
           <Table>

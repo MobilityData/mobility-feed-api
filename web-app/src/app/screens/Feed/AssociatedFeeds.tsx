@@ -124,6 +124,7 @@ export default function AssociatedGTFSRTFeeds({
         title={'Related Schedule Feeds'}
         outlineColor={colors.indigo[500]}
         margin={'0 0 8px'}
+        padding={2}
       >
         {feeds === undefined && <Typography>Loading...</Typography>}
         {feeds !== undefined && gtfsFeeds?.length === 0 && (
@@ -143,6 +144,7 @@ export default function AssociatedGTFSRTFeeds({
         width={{ xs: '100%' }}
         title={'Related Realtime Feeds'}
         outlineColor={colors.indigo[500]}
+        padding={2}
       >
         {gtfsRtFeeds === undefined && <Typography>Loading...</Typography>}
         {gtfsRtFeeds !== undefined && gtfsRtFeeds?.length === 0 && (
