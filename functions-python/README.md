@@ -32,6 +32,24 @@ The function configuration file contains the following properties:
 - `min_instance_count`: The minimum number of function instances that can be created in response to a load.
 - `available_cpu_count`: The number of CPU cores that are available to the function.
 
+# Local Setup
+
+## Requirements
+The requirements to run the functions locally might differ depending on the Google cloud dependencies. Please refer to each function to make sure all the requirements are met.
+
+## Install the Google Cloud SDK
+To be able to run the functions locally, the Google Cloud SDK should be installed. Please refer to the [Google Cloud SDK documentation](https://cloud.google.com/sdk/docs/install) for more information.
+
+## Install the Google Cloud Emulators
+
+```bash
+gcloud components install cloud-datastore-emulator
+```
+
+- Install the Pub/Sub emulator
+```bash
+gcloud components install pubsub-emulator
+```
 
 # Useful scripts
 - To locally execute a function use the following command:
