@@ -304,16 +304,26 @@ export default function APIAccount(): React.ReactElement {
         component='h1'
         variant='h4'
         color='primary'
-        sx={{ fontWeight: 'bold', ml: 5 }}
+        sx={{ fontWeight: 'bold' }}
         alignSelf='flex-start'
       >
         {t('title')}
       </Typography>
-      <Box sx={{ display: 'flex', width: '100%', mt: 2 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          width: '100%',
+          mt: 2,
+          flexDirection: { xs: 'column', md: 'row' },
+        }}
+      >
         <Paper
           sx={{
             bgcolor: '#f9f5f5',
-            width: '390px',
+            width: {
+              xs: '100%',
+              md: '390px',
+            },
             p: 3,
             mr: 1,
             display: 'flex',
@@ -337,13 +347,13 @@ export default function APIAccount(): React.ReactElement {
           </Typography>
           <Typography variant='body1'>
             <b>{t('common:name')}:</b>
-            {' ' + user?.fullName ?? t('common:unknown')}
+            {' ' + (user?.fullName ?? t('common:unknown'))}
           </Typography>
           <Typography variant='body1'>
             {user?.email !== undefined && user?.email !== '' ? (
               <Typography variant='body1' component={'span'}>
                 <b>{t('common:email')}:</b>{' '}
-                {' ' + user?.email ?? t('common:unknown')}
+                {' ' + (user?.email ?? t('common:unknown'))}
               </Typography>
             ) : null}
           </Typography>
@@ -361,8 +371,19 @@ export default function APIAccount(): React.ReactElement {
               icon={<Check />}
             />
           ) : null}
-          <Box sx={{ mt: 2 }} />
-          <Box sx={{ display: 'flex', justifyContent: 'space-evenly' }}>
+          <Typography sx={{ mt: 2 }}>
+            {t('support') + ' '}
+            <Link
+              href='mailto:api@mobilitydata.org?subject=Remove Mobility Database account'
+              color={'inherit'}
+              target={'_blank'}
+              fontWeight={'bold'}
+            >
+              api@mobilitydata.org
+            </Link>
+            .
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-evenly', mt: 2 }}>
             {!signedInWithProvider && (
               <Button
                 variant='contained'
@@ -384,22 +405,9 @@ export default function APIAccount(): React.ReactElement {
               {t('common:signOut')}
             </Button>
           </Box>
-          <Box sx={{ mt: 4 }} />
-          <Typography>
-            {t('support') + ' '}
-            <Link
-              href='mailto:api@mobilitydata.org?subject=Remove Mobility Database account'
-              color={'inherit'}
-              target={'_blank'}
-              fontWeight={'bold'}
-            >
-              api@mobilitydata.org
-            </Link>
-            .
-          </Typography>
         </Paper>
-        <Box sx={{ ml: 10 }}>
-          <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
+        <Box>
+          <Box sx={{ p: 1, mb: 5 }}>
             <Typography sx={{ mb: 2 }}>{t('description')}</Typography>
             <Typography variant='sectionTitle'>
               {t('refreshToken.title')}
@@ -408,7 +416,11 @@ export default function APIAccount(): React.ReactElement {
               {t('refreshToken.description')}
             </Typography>
             <Box className='token-display-element'>
-              <Typography width={500} variant='body1'>
+              <Typography
+                width={500}
+                variant='body1'
+                sx={{ wordBreak: 'break-all' }}
+              >
                 {showRefreshTokenCopied
                   ? refreshTokenCopyResult
                   : accountState.showRefreshToken
@@ -569,7 +581,11 @@ export default function APIAccount(): React.ReactElement {
             {!showGenerateAccessTokenButton && (
               <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
                 <Box className='token-display-element'>
-                  <Typography width={500} variant='body1'>
+                  <Typography
+                    width={500}
+                    variant='body1'
+                    sx={{ wordBreak: 'break-all' }}
+                  >
                     {accountState.showAccessToken
                       ? user?.accessToken !== undefined
                         ? user?.accessToken
