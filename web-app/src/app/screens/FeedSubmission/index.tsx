@@ -75,7 +75,11 @@ function Component(): React.ReactElement {
             >
               <Typography>
                 Do you have any questions about how to submit a feed?{' '}
-                <a href='/contribute-faq' style={{ fontWeight: 'bold' }}>
+                <a
+                  href='/contribute-faq'
+                  style={{ fontWeight: 'bold' }}
+                  target='blank'
+                >
                   Read our FAQ
                 </a>
               </Typography>
