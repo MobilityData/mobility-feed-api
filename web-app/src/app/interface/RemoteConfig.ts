@@ -2,6 +2,10 @@ import { remoteConfig } from '../../firebase';
 
 type FirebaseDefaultConfig = typeof remoteConfig.defaultConfig;
 
+export interface ByPassConfig {
+  regex: string[];
+}
+
 export interface RemoteConfigValues extends FirebaseDefaultConfig {
   enableAppleSSO: boolean;
   enableFeedsPage: boolean;
@@ -23,6 +27,11 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   gtfsMetricsBucketEndpoint: string;
   /** GBFS metrics' bucket endpoint */
   gbfsMetricsBucketEndpoint: string;
+  featureFlagBypass: string;
+}
+
+const featureByPassDefault: ByPassConfig = {
+  regex: [],
 }
 
 // Add default values for remote config here
@@ -36,6 +45,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
     'https://storage.googleapis.com/mobilitydata-gtfs-analytics-dev',
   gbfsMetricsBucketEndpoint:
     'https://storage.googleapis.com/mobilitydata-gbfs-analytics-dev',
+  featureFlagBypass: JSON.stringify(featureByPassDefault),
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;
