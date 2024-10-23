@@ -1,6 +1,4 @@
 from datetime import datetime
-
-# from select import select
 from typing import List, Union, TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
