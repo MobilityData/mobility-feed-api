@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { remoteConfig, app } from '../../firebase';
 import {
-  type ByPassConfig,
+  type BypassConfig,
   defaultRemoteConfigValues,
   type RemoteConfigValues,
 } from '../interface/RemoteConfig';
@@ -25,7 +25,7 @@ interface RemoteConfigProviderProps {
 }
 
 export function userHasBypass(
-  byPassConfig: ByPassConfig,
+  byPassConfig: BypassConfig,
   userEmail: string | null | undefined,
 ): boolean {
   let hasBypass = false;
@@ -37,9 +37,7 @@ export function userHasBypass(
       if (userEmail.match(new RegExp(regex, 'i')) !== null) {
         hasBypass = true;
       }
-    } catch (e) {
-      console.error(`Invalid regex: ${regex}`);
-    }
+    } catch (e) {}
   });
   return hasBypass;
 }
@@ -61,7 +59,8 @@ export const RemoteConfigProvider = ({
           const rawValue = remoteConfig.getValue(key);
           const rawValueLower = rawValue.asString().toLowerCase();
           if (rawValueLower === 'true' || rawValueLower === 'false') {
-            const bypassConfig: ByPassConfig = JSON.parse(
+            // Boolean
+            const bypassConfig: BypassConfig = JSON.parse(
               remoteConfig.getValue('featureFlagBypass').asString(),
             );
             const hasBypass = userHasBypass(

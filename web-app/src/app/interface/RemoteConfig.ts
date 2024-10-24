@@ -2,7 +2,7 @@ import { remoteConfig } from '../../firebase';
 
 type FirebaseDefaultConfig = typeof remoteConfig.defaultConfig;
 
-export interface ByPassConfig {
+export interface BypassConfig {
   regex: string[];
 }
 
@@ -30,7 +30,7 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   featureFlagBypass: string;
 }
 
-const featureByPassDefault: ByPassConfig = {
+const featureByPassDefault: BypassConfig = {
   regex: [],
 };
 
