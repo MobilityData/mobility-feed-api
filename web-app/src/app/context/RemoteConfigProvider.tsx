@@ -32,12 +32,13 @@ export function userHasBypass(
   if (userEmail === null || userEmail === undefined) {
     return false;
   }
-  byPassConfig.regex.forEach((regex) => {
+  hasBypass = byPassConfig.regex.some((regex) => {
     try {
       if (userEmail.match(new RegExp(regex, 'i')) !== null) {
-        hasBypass = true;
+        return true;
       }
     } catch (e) {}
+    return false;
   });
   return hasBypass;
 }
@@ -55,18 +56,19 @@ export const RemoteConfigProvider = ({
       try {
         await remoteConfig.fetchAndActivate();
         const fetchedConfigValues = defaultRemoteConfigValues;
+
+        const bypassConfig: BypassConfig = JSON.parse(
+          remoteConfig.getValue('featureFlagBypass').asString(),
+        );
+        const hasBypass = userHasBypass(
+          bypassConfig,
+          app.auth().currentUser?.email,
+        );
         Object.keys(defaultRemoteConfigValues).forEach((key) => {
           const rawValue = remoteConfig.getValue(key);
           const rawValueLower = rawValue.asString().toLowerCase();
           if (rawValueLower === 'true' || rawValueLower === 'false') {
             // Boolean
-            const bypassConfig: BypassConfig = JSON.parse(
-              remoteConfig.getValue('featureFlagBypass').asString(),
-            );
-            const hasBypass = userHasBypass(
-              bypassConfig,
-              app.auth().currentUser?.email,
-            );
             fetchedConfigValues[key] = hasBypass || rawValue.asBoolean();
           } else if (!isNaN(Number(rawValue)) && rawValueLower.trim() !== '') {
             // Number
