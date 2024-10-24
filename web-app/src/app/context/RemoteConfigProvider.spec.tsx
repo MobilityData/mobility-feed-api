@@ -26,6 +26,11 @@ describe('userHasBypass', () => {
     expect(userHasBypass(byPassConfig, 'test@example.com')).toBe(true);
   });
 
+  it('should return true if userEmail matches one of the more complex regex patterns', () => {
+    const byPassConfig: BypassConfig = { regex: ['[^@]+@example.com'] };
+    expect(userHasBypass(byPassConfig, 'TesTtest@example.com')).toBe(true);
+  });
+
   it('should return false if userEmail does not match any regex patterns', () => {
     const byPassConfig: BypassConfig = { regex: ['.*@example.com'] };
     expect(userHasBypass(byPassConfig, 'test@otherdomain.com')).toBe(false);
