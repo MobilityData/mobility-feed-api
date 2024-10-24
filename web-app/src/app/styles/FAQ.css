@@ -21,11 +21,6 @@ a:not(.btn-link, .btn-link-component) {
     padding: 2px;
 }
 
-a:hover:not(.btn-link, .btn-link-component) {
-    background-color: #3959fa21 !important;
-    border-radius: 5px;
-}
-
 .btn-link {
     color: inherit !important;
     text-decoration: none;

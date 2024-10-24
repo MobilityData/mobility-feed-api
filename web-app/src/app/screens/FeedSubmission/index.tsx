@@ -16,6 +16,7 @@ import Contribute from '../Contribute';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import FeedSubmissionForm from './Form';
+import { theme } from '../../Theme';
 
 function Component(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -96,7 +97,7 @@ function Component(): React.ReactElement {
               <Typography
                 variant='h4'
                 sx={{
-                  color: colors.blue.A700,
+                  color: theme.palette.primary.main,
                   fontWeight: 'bold',
                   my: 3,
                   ml: 0,

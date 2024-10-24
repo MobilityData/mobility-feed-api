@@ -5,12 +5,12 @@ import {
   AccordionSummary,
   type SxProps,
   Typography,
-  colors,
   Box,
   Container,
   CssBaseline,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { theme } from '../Theme';
 
 const accordionStyle: SxProps = {
   boxShadow: 'none',
@@ -39,7 +39,7 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
       >
         <Typography
           sx={{
-            color: colors.blue.A700,
+            color: theme.palette.primary.main,
             fontWeight: 'bold',
             fontSize: { xs: 18, sm: 24 },
             mb: 2,
