@@ -35,6 +35,9 @@ const ActionBox = ({
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
+      flexGrow: 1,
+      flexBasis: 0,
+      minWidth: 0,
     }}
   >
     <IconComponent sx={{ width: '100%', height: iconHeight }} />
@@ -63,7 +66,7 @@ function Component(): React.ReactElement {
   };
 
   return (
-    <Container component='main'>
+    <Container component='main' sx={{ px: { xs: 0, md: 3 } }}>
       <CssBaseline />
       <Box
         sx={{
@@ -186,6 +189,9 @@ function Component(): React.ReactElement {
             display: 'flex',
             justifyContent: 'center',
             flexDirection: { xs: 'column', sm: 'row' },
+            width: '700px',
+            maxWidth: '100%',
+            margin: 'auto',
           }}
         >
           <ActionBox
@@ -211,7 +217,10 @@ function Component(): React.ReactElement {
           sx={{
             background: '#F8F5F5',
             borderRadius: '6px 0px 0px 6px',
-            p: 5,
+            p: {
+              xs: 2,
+              sm: 4,
+            },
             color: 'black',
             fontSize: '18px',
             fontWeight: 700,

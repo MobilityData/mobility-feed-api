@@ -7,7 +7,6 @@ import {
   Grid,
   type SxProps,
   Typography,
-  colors,
   Snackbar,
   styled,
   IconButton,
@@ -80,7 +79,7 @@ export default function FeedSummary({
     <ContentBox
       width={width}
       title={'Feed Summary'}
-      outlineColor={colors.indigo[500]}
+      outlineColor={theme.palette.primary.dark}
       padding={2}
     >
       <Box sx={boxElementStyle}>

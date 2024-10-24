@@ -10,7 +10,6 @@ import {
   TableHead,
   TableRow,
   Typography,
-  colors,
   styled,
 } from '@mui/material';
 import {
@@ -26,6 +25,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import GtfsRtEntities from './GtfsRtEntities';
 import CloseIcon from '@mui/icons-material/Close';
+import { theme } from '../../Theme';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -102,7 +102,7 @@ export default function SearchTable({
             fontStyle: 'italic',
             fontSize: '14px',
             fontWeight: 'bold',
-            color: colors.blue[900],
+            color: theme.palette.primary.dark,
           }}
           onClick={(event) => {
             event.stopPropagation();
