@@ -16,13 +16,23 @@ declare module '@mui/material/styles/createMixins' {
   }
 }
 
+export const fontFamily = {
+  primary: '"Mulish"',
+  secondary: '"IBM Plex Mono"',
+};
+
 const palette = {
   primary: {
     main: '#3959fa',
+    dark: '#002eea',
+    light: '#989ffc',
     contrastText: '#f9faff',
   },
   secondary: {
-    main: '#96a1ff',
+    main: '#96a1ff', // original mobility data purple
+    dark: '#4a5fe8',
+    light: '#e7e8ff',
+    contrastText: '#f9faff',
   },
   background: {
     default: '#ffffff',
@@ -47,7 +57,7 @@ export const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Muli"',
+    fontFamily: fontFamily.primary,
   },
   components: {
     MuiFormLabel: {
@@ -79,6 +89,21 @@ export const theme = createTheme({
         root: {
           textTransform: 'none',
           boxShadow: 'none',
+          fontFamily: fontFamily.secondary,
+          boxSizing: 'border-box',
+          '&.MuiButton-contained': {
+            border: '2px solid transparent',
+          },
+          '&.MuiButton-containedPrimary:hover': {
+            boxShadow: 'none',
+            backgroundColor: 'transparent',
+            border: `2px solid ${palette.primary.main}`,
+            color: palette.primary.main,
+          },
+          '&.MuiButton-outlinedPrimary:hover': {
+            backgroundColor: palette.primary.main,
+            color: palette.primary.contrastText,
+          },
         },
       },
     },

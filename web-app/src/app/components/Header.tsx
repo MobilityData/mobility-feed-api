@@ -17,6 +17,7 @@ import {
   Menu,
   MenuItem,
   Select,
+  type SxProps,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -43,7 +44,7 @@ import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import i18n from '../../i18n';
 import { NestedMenuItem } from 'mui-nested-menu';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
-import { theme } from '../Theme';
+import { fontFamily, theme } from '../Theme';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -71,7 +72,7 @@ const DrawerContent: React.FC<{
         <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
         <Typography
           variant='h6'
-          sx={{ my: 2, cursor: 'pointer' }}
+          sx={{ my: 2, cursor: 'pointer', color: theme.palette.primary.main }}
           data-testid='websiteTile'
         >
           {websiteTile}
@@ -94,7 +95,11 @@ const DrawerContent: React.FC<{
                 pl: '16px',
               }}
             >
-              <ListItemText>
+              <ListItemText
+                sx={{
+                  '.MuiTypography-root': { fontFamily: fontFamily.secondary },
+                }}
+              >
                 {item.title}{' '}
                 {item.external === true ? (
                   <OpenInNew sx={{ verticalAlign: 'middle' }} />
@@ -113,7 +118,10 @@ const DrawerContent: React.FC<{
             <TreeItem
               nodeId='1'
               label='GTFS Metrics'
-              sx={{ color: theme.palette.primary.main }}
+              sx={{
+                color: theme.palette.primary.main,
+                '.MuiTreeItem-label': { fontFamily: fontFamily.secondary },
+              }}
             >
               <TreeItem
                 nodeId='2'
@@ -182,7 +190,10 @@ const DrawerContent: React.FC<{
             <TreeItem
               nodeId='1'
               label='Account'
-              sx={{ color: theme.palette.primary.main }}
+              sx={{
+                color: theme.palette.primary.main,
+                '.MuiTreeItem-label': { fontFamily: fontFamily.secondary },
+              }}
               data-cy='accountHeader'
             >
               <TreeItem
@@ -290,6 +301,38 @@ export default function DrawerAppBar(): React.ReactElement {
 
   const metricsOptionsEnabled =
     config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
+  const AnimatedButtonStyling: SxProps = {
+    minWidth: 'fit-content',
+    px: 0,
+    mx: {
+      md: 1,
+      lg: 2,
+    },
+    fontFamily: fontFamily.secondary,
+    '&:hover': {
+      backgroundColor: 'transparent',
+      '&::after': {
+        transform: 'scaleX(1)',
+        left: 0,
+        right: 0,
+        transformOrigin: 'left',
+      },
+    },
+    '&::after': {
+      content: '""',
+      height: '2px',
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: theme.palette.primary.main,
+      opacity: 0.7,
+      transition: 'transform 0.9s cubic-bezier(0.19, 1, 0.22, 1)',
+      transform: 'scaleX(0)',
+      transformOrigin: 'right',
+      pointerEvents: 'none',
+    },
+  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -297,7 +340,11 @@ export default function DrawerAppBar(): React.ReactElement {
         component='nav'
         color='inherit'
         elevation={0}
-        sx={{ background: 'white' }}
+        sx={{
+          background: 'white',
+          fontFamily: fontFamily.secondary,
+          borderBottom: '1px solid rgba(0,0,0,0.2)',
+        }}
       >
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -325,6 +372,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 component='div'
                 className='website-title'
                 sx={{
+                  ml: 1,
                   display: { xs: 'none', md: 'block' },
                 }}
               >
@@ -336,9 +384,9 @@ export default function DrawerAppBar(): React.ReactElement {
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
               <Button
+                sx={AnimatedButtonStyling}
                 href={item.external === true ? item.target : '/' + item.target}
                 key={item.title}
-                sx={{ color: item.color, minWidth: 'fit-content', mx: 1 }}
                 target={item.external === true ? '_blank' : '_self'}
                 rel={item.external === true ? 'noopener noreferrer' : ''}
                 variant={'text'}
@@ -355,7 +403,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   aria-haspopup='true'
                   endIcon={<ArrowDropDownIcon />}
                   onClick={handleMenuOpen}
-                  sx={{ color: 'black' }}
+                  sx={{ ...AnimatedButtonStyling, color: 'black' }}
                   id='analytics-button-menu'
                 >
                   Metrics
@@ -434,6 +482,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   onClick={handleMenuOpen}
                   endIcon={<ArrowDropDownIcon />}
                   id='account-button-menu'
+                  sx={AnimatedButtonStyling}
                 >
                   Account
                 </Button>
@@ -464,7 +513,12 @@ export default function DrawerAppBar(): React.ReactElement {
                 </Menu>
               </>
             ) : (
-              <Button href={SIGN_IN_TARGET}>Login</Button>
+              <Button
+                sx={{ fontFamily: fontFamily.secondary }}
+                href={SIGN_IN_TARGET}
+              >
+                Login
+              </Button>
             )}
             {/* Testing language tool */}
             {config.enableLanguageToggle && currentLanguage !== undefined && (

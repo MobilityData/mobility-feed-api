@@ -10,7 +10,6 @@ import {
   TableContainer,
   TableRow,
   Typography,
-  colors,
 } from '@mui/material';
 import {
   DownloadOutlined,
@@ -21,6 +20,7 @@ import {
 import { type paths } from '../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { WEB_VALIDATOR_LINK } from '../../constants/Navigation';
+import { theme } from '../../Theme';
 
 export interface PreviousDatasetsProps {
   datasets:
@@ -54,7 +54,7 @@ export default function PreviousDatasets({
       <ContentBox
         width={{ xs: '100%' }}
         title={''}
-        outlineColor={colors.indigo[500]}
+        outlineColor={theme.palette.primary.dark}
         padding={{ xs: 0, sm: 1 }}
       >
         <TableContainer>

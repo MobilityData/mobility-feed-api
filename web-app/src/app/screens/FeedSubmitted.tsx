@@ -1,4 +1,5 @@
-import { Typography, Box, colors, Container, CssBaseline } from '@mui/material';
+import { Typography, Box, Container, CssBaseline } from '@mui/material';
+import { theme } from '../Theme';
 
 export default function FeedSubmitted(): React.ReactElement {
   return (
@@ -11,7 +12,7 @@ export default function FeedSubmitted(): React.ReactElement {
           mt: 10,
           mb: 4,
           mx: 2,
-          color: colors.blue.A700,
+          color: theme.palette.primary.main,
           fontWeight: 'bold',
         }}
       >

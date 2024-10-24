@@ -35,6 +35,9 @@ const ActionBox = ({
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
+      flexGrow: 1,
+      flexBasis: 0,
+      minWidth: 0,
     }}
   >
     <IconComponent sx={{ width: '100%', height: iconHeight }} />
@@ -186,6 +189,9 @@ function Component(): React.ReactElement {
             display: 'flex',
             justifyContent: 'center',
             flexDirection: { xs: 'column', sm: 'row' },
+            width: '700px',
+            maxWidth: '100%',
+            margin: 'auto',
           }}
         >
           <ActionBox
