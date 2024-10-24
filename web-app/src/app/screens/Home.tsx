@@ -66,7 +66,7 @@ function Component(): React.ReactElement {
   };
 
   return (
-    <Container component='main'>
+    <Container component='main' sx={{ px: { xs: 0, md: 3 } }}>
       <CssBaseline />
       <Box
         sx={{
@@ -217,7 +217,10 @@ function Component(): React.ReactElement {
           sx={{
             background: '#F8F5F5',
             borderRadius: '6px 0px 0px 6px',
-            p: 5,
+            p: {
+              xs: 2,
+              sm: 4,
+            },
             color: 'black',
             fontSize: '18px',
             fontWeight: 700,
