@@ -30,7 +30,7 @@ import {
   buildNavigationItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
@@ -240,8 +240,10 @@ const DrawerContent: React.FC<{
 };
 
 export default function DrawerAppBar(): React.ReactElement {
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openDialog, setOpenDialog] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('');
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
   >([]);
@@ -253,6 +255,10 @@ export default function DrawerAppBar(): React.ReactElement {
   i18n.on('languageChanged', (lang) => {
     setCurrentLanguage(i18n.language);
   });
+
+  React.useEffect(() => {
+    setActiveTab(location.pathname);
+  }, [location.pathname]);
 
   React.useEffect(() => {
     setNavigationItems(buildNavigationItems(config));
@@ -309,13 +315,18 @@ export default function DrawerAppBar(): React.ReactElement {
       lg: 2,
     },
     fontFamily: fontFamily.secondary,
-    '&:hover': {
+    '&:hover, &.active': {
       backgroundColor: 'transparent',
       '&::after': {
         transform: 'scaleX(1)',
         left: 0,
         right: 0,
         transformOrigin: 'left',
+      },
+    },
+    '&.active.short': {
+      '&::after': {
+        right: '20px',
       },
     },
     '&::after': {
@@ -391,6 +402,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 rel={item.external === true ? 'noopener noreferrer' : ''}
                 variant={'text'}
                 endIcon={item.external === true ? <OpenInNew /> : null}
+                className={activeTab.includes(item.target) ? 'active' : ''}
               >
                 {item.title}
               </Button>
@@ -405,6 +417,9 @@ export default function DrawerAppBar(): React.ReactElement {
                   onClick={handleMenuOpen}
                   sx={{ ...AnimatedButtonStyling, color: 'black' }}
                   id='analytics-button-menu'
+                  className={
+                    activeTab.includes('metrics') ? 'active short' : ''
+                  }
                 >
                   Metrics
                 </Button>
@@ -483,6 +498,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   endIcon={<ArrowDropDownIcon />}
                   id='account-button-menu'
                   sx={AnimatedButtonStyling}
+                  className={activeTab === '/account' ? 'active short' : ''}
                 >
                   Account
                 </Button>
