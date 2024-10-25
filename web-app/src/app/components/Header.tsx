@@ -395,14 +395,19 @@ export default function DrawerAppBar(): React.ReactElement {
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
               <Button
-                sx={AnimatedButtonStyling}
+                sx={{
+                  ...AnimatedButtonStyling,
+                  color: theme.palette.text.primary,
+                }}
                 href={item.external === true ? item.target : '/' + item.target}
                 key={item.title}
                 target={item.external === true ? '_blank' : '_self'}
                 rel={item.external === true ? 'noopener noreferrer' : ''}
                 variant={'text'}
                 endIcon={item.external === true ? <OpenInNew /> : null}
-                className={activeTab.includes(item.target) ? 'active' : ''}
+                className={
+                  activeTab.includes('/' + item.target) ? 'active' : ''
+                }
               >
                 {item.title}
               </Button>
@@ -415,7 +420,10 @@ export default function DrawerAppBar(): React.ReactElement {
                   aria-haspopup='true'
                   endIcon={<ArrowDropDownIcon />}
                   onClick={handleMenuOpen}
-                  sx={{ ...AnimatedButtonStyling, color: 'black' }}
+                  sx={{
+                    ...AnimatedButtonStyling,
+                    color: theme.palette.text.primary,
+                  }}
                   id='analytics-button-menu'
                   className={
                     activeTab.includes('metrics') ? 'active short' : ''
