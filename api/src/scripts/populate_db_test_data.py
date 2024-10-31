@@ -2,6 +2,7 @@ import json
 from uuid import uuid4
 
 from geoalchemy2 import WKTElement
+from google.cloud.sql.connector.instance import logger
 from sqlalchemy import text
 
 from database.database import Database
@@ -51,68 +52,72 @@ class DatabasePopulateTestDataHelper:
 
         # GTFS Datasets
         dataset_dict = {}
-        for dataset in data["datasets"]:
-            # query the db using feed_id to get the feed object
-            gtfsfeed = self.db.session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == dataset["feed_stable_id"]).all()
-            if not gtfsfeed:
-                self.logger.error(f"No feed found with stable_id: {dataset['feed_stable_id']}")
-                continue
+        if "datasets" in data:
+            for dataset in data["datasets"]:
+                # query the db using feed_id to get the feed object
+                gtfsfeed = self.db.session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == dataset["feed_stable_id"]).all()
+                if not gtfsfeed:
+                    self.logger.error(f"No feed found with stable_id: {dataset['feed_stable_id']}")
+                    continue
 
-            gtfs_dataset = Gtfsdataset(
-                id=dataset["id"],
-                feed_id=gtfsfeed[0].id,
-                stable_id=dataset["id"],
-                latest=dataset["latest"],
-                hosted_url=dataset["hosted_url"],
-                hash=dataset["hash"],
-                downloaded_at=dataset["downloaded_at"],
-                bounding_box=None
-                if dataset.get("bounding_box") is None
-                else WKTElement(dataset["bounding_box"], srid=4326),
-                validation_reports=[],
-            )
-            dataset_dict[dataset["id"]] = gtfs_dataset
-            self.db.session.add(gtfs_dataset)
+                gtfs_dataset = Gtfsdataset(
+                    id=dataset["id"],
+                    feed_id=gtfsfeed[0].id,
+                    stable_id=dataset["id"],
+                    latest=dataset["latest"],
+                    hosted_url=dataset["hosted_url"],
+                    hash=dataset["hash"],
+                    downloaded_at=dataset["downloaded_at"],
+                    bounding_box=None
+                    if dataset.get("bounding_box") is None
+                    else WKTElement(dataset["bounding_box"], srid=4326),
+                    validation_reports=[],
+                )
+                dataset_dict[dataset["id"]] = gtfs_dataset
+                self.db.session.add(gtfs_dataset)
 
         # Validation reports
-        validation_report_dict = {}
-        for report in data["validation_reports"]:
-            validation_report = Validationreport(
-                id=report["id"],
-                validator_version=report["validator_version"],
-                validated_at=report["validated_at"],
-                html_report=report["html_report"],
-                json_report=report["json_report"],
-                features=[],
-            )
-            dataset_dict[report["dataset_id"]].validation_reports.append(validation_report)
-            validation_report_dict[report["id"]] = validation_report
-            self.db.session.add(validation_report)
+        if "validation_reports" in data:
+            validation_report_dict = {}
+            for report in data["validation_reports"]:
+                validation_report = Validationreport(
+                    id=report["id"],
+                    validator_version=report["validator_version"],
+                    validated_at=report["validated_at"],
+                    html_report=report["html_report"],
+                    json_report=report["json_report"],
+                    features=[],
+                )
+                dataset_dict[report["dataset_id"]].validation_reports.append(validation_report)
+                validation_report_dict[report["id"]] = validation_report
+                self.db.session.add(validation_report)
 
         # Notices
-        for report_notice in data["notices"]:
-            notice = Notice(
-                dataset_id=report_notice["dataset_id"],
-                validation_report_id=report_notice["validation_report_id"],
-                severity=report_notice["severity"],
-                notice_code=report_notice["notice_code"],
-                total_notices=report_notice["total_notices"],
-            )
-            self.db.session.add(notice)
+        if "notices" in data:
+            for report_notice in data["notices"]:
+                notice = Notice(
+                    dataset_id=report_notice["dataset_id"],
+                    validation_report_id=report_notice["validation_report_id"],
+                    severity=report_notice["severity"],
+                    notice_code=report_notice["notice_code"],
+                    total_notices=report_notice["total_notices"],
+                )
+                self.db.session.add(notice)
         # Features
-        for featureName in data["features"]:
-            feature = Feature(name=featureName)
-            self.db.session.add(feature)
+        if "features" in data:
+            for featureName in data["features"]:
+                feature = Feature(name=featureName)
+                self.db.session.add(feature)
 
         # Features in Validation Reports
-        for report_features in data["validation_report_features"]:
-            validation_report_dict[report_features["validation_report_id"]].features.append(
-                self.db.session.query(Feature).filter(Feature.name == report_features["feature_name"]).first()
-            )
-
-        self.db.session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+        if "validation_report_features" in data:
+            for report_features in data["validation_report_features"]:
+                validation_report_dict[report_features["validation_report_id"]].features.append(
+                    self.db.session.query(Feature).filter(Feature.name == report_features["feature_name"]).first()
+                )
 
         self.db.session.commit()
+        self.db.session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
 
     def populate(self):
         """
@@ -140,6 +145,9 @@ class DatabasePopulateTestDataHelper:
                 provider=feed_data["provider"],
                 feed_name=feed_data["feed_name"],
                 note=feed_data["note"],
+                authentication_info_url=None,
+                api_key_parameter_name=None,
+                license_url=None,
                 feed_contact_email=feed_data["feed_contact_email"],
                 producer_url=feed_data["source_info"]["producer_url"],
             )
@@ -165,6 +173,7 @@ class DatabasePopulateTestDataHelper:
                 locations.append(location)
             feed.locations = locations
             self.db.session.add(feed)
+            logger.info(f"Added feed {feed.stable_id}")
 
 
 if __name__ == "__main__":

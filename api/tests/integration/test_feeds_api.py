@@ -65,7 +65,7 @@ def test_feeds_get_with_limit_and_offset_multiple_locations(client: TestClient):
     params = [
         ("limit", 2),
         ("offset", 1),
-        ("provider", "BlaBlaCar Bus"),
+        ("provider", "BlaBlaCar"),
     ]
     response = client.request(
         "GET",
