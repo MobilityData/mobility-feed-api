@@ -5,8 +5,9 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { remoteConfig } from '../../firebase';
+import { remoteConfig, app } from '../../firebase';
 import {
+  type BypassConfig,
   defaultRemoteConfigValues,
   type RemoteConfigValues,
 } from '../interface/RemoteConfig';
@@ -23,6 +24,25 @@ interface RemoteConfigProviderProps {
   children: ReactNode;
 }
 
+export function userHasBypass(
+  byPassConfig: BypassConfig,
+  userEmail: string | null | undefined,
+): boolean {
+  let hasBypass = false;
+  if (userEmail === null || userEmail === undefined) {
+    return false;
+  }
+  hasBypass = byPassConfig.regex.some((regex) => {
+    try {
+      if (userEmail.match(new RegExp(regex, 'i')) !== null) {
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  });
+  return hasBypass;
+}
+
 export const RemoteConfigProvider = ({
   children,
 }: RemoteConfigProviderProps): React.ReactElement => {
@@ -37,12 +57,19 @@ export const RemoteConfigProvider = ({
         await remoteConfig.fetchAndActivate();
         const fetchedConfigValues = defaultRemoteConfigValues;
 
+        const bypassConfig: BypassConfig = JSON.parse(
+          remoteConfig.getValue('featureFlagBypass').asString(),
+        );
+        const hasBypass = userHasBypass(
+          bypassConfig,
+          app.auth().currentUser?.email,
+        );
         Object.keys(defaultRemoteConfigValues).forEach((key) => {
           const rawValue = remoteConfig.getValue(key);
           const rawValueLower = rawValue.asString().toLowerCase();
           if (rawValueLower === 'true' || rawValueLower === 'false') {
             // Boolean
-            fetchedConfigValues[key] = rawValue.asBoolean();
+            fetchedConfigValues[key] = hasBypass || rawValue.asBoolean();
           } else if (!isNaN(Number(rawValue)) && rawValueLower.trim() !== '') {
             // Number
             fetchedConfigValues[key] = rawValue.asNumber();
@@ -51,7 +78,6 @@ export const RemoteConfigProvider = ({
             fetchedConfigValues[key] = rawValue.asString();
           }
         });
-
         setConfig((prevConfig) => ({
           ...prevConfig,
           ...fetchedConfigValues,
@@ -64,7 +90,7 @@ export const RemoteConfigProvider = ({
     };
 
     void fetchAndActivateConfig();
-  }, []);
+  }, [app.auth().currentUser?.email]);
 
   return (
     <RemoteConfigContext.Provider value={{ config, loading }}>
