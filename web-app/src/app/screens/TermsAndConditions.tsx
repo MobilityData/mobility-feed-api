@@ -1,19 +1,19 @@
 import React from 'react';
 import { Box, Container, Typography } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
+import { theme } from '../Theme';
 export default function TermsAndConditions(): React.ReactElement {
   return (
-    <Container component='main' sx={{ width: '100vw', m: 0 }}>
+    <Container component='main' sx={{ width: '100%', m: 'auto' }}>
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           p: 10,
           pt: 2,
           display: 'flex',
           flexDirection: 'column',
-          width: '100vw',
-          background: '#F8F5F5',
+          width: '100%',
+          background: theme.palette.background.paper,
         }}
       >
         <Typography

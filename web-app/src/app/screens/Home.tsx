@@ -16,6 +16,7 @@ import LegacyHome from './LegacyHome';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
 import '../styles/TextShimmer.css';
+import { theme } from '../Theme';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -70,12 +71,12 @@ function Component(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
+          mt: 6,
           display: 'flex',
           flexDirection: 'column',
         }}
-        margin={{ xs: '80px 20px', m: '80px auto' }}
-        maxWidth={{ xs: '100%', m: '1600px' }}
+        mx={{ xs: '20px', m: 'auto' }}
+        maxWidth={{ xs: '100%', md: '1600px' }}
       >
         <Typography
           sx={{
@@ -215,7 +216,7 @@ function Component(): React.ReactElement {
         </Box>
         <Box
           sx={{
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
             p: {
               xs: 2,

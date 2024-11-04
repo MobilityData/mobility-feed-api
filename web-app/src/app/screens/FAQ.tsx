@@ -6,6 +6,7 @@ import '../styles/SignUp.css';
 import '../styles/FAQ.css';
 import { Typography } from '@mui/material';
 import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
+import { theme } from '../Theme';
 
 export default function FAQ(): React.ReactElement {
   return (
@@ -13,7 +14,6 @@ export default function FAQ(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -23,7 +23,7 @@ export default function FAQ(): React.ReactElement {
         </Typography>
         <Box
           sx={{
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             mt: 2,
             p: 2,
             borderRadius: '6px 6px 0px 0px',

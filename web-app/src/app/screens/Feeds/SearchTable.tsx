@@ -192,7 +192,7 @@ export default function SearchTable({
                 borderBottom: '1px solid black',
               },
               '&:hover': {
-                backgroundColor: '#F8F5F5',
+                backgroundColor: theme.palette.background.paper,
                 cursor: 'pointer',
               },
             }}

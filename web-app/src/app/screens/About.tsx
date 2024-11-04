@@ -5,6 +5,7 @@ import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
 import { Button, Typography } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
+import { theme } from '../Theme';
 
 export default function About(): React.ReactElement {
   return (
@@ -12,7 +13,6 @@ export default function About(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -22,7 +22,7 @@ export default function About(): React.ReactElement {
         </Typography>
         <Box
           sx={{
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             mt: 2,
             p: 2,
             borderRadius: '6px 6px 0px 0px',

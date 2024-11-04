@@ -346,7 +346,13 @@ export default function DrawerAppBar(): React.ReactElement {
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        height: '64px',
+        mb: { xs: 2, md: 4 },
+      }}
+    >
       <AppBar
         component='nav'
         color='inherit'

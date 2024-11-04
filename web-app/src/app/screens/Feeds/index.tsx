@@ -158,11 +158,10 @@ export default function Feed(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}
-        margin={{ xs: '80px 0px', m: '80px auto' }}
+        mx={{ xs: 0, m: 'auto' }}
         maxWidth={{ xs: '100%', m: '1600px' }}
       >
         <Grid container spacing={2}>
@@ -227,7 +226,7 @@ export default function Feed(): React.ReactElement {
             <Box
               width={'100%'}
               sx={{
-                background: '#F8F5F5',
+                background: theme.palette.background.paper,
                 borderRadius: '6px 0px 0px 6px',
                 p: {
                   xs: 2,

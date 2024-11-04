@@ -117,20 +117,16 @@ const wrapComponent = (
       maxWidth='xl'
     >
       <CssBaseline />
-      <Box
-        sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
-        margin={{ xs: '40px 0px', md: '80px 0px' }}
-      >
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         <Box
           sx={{
             width: '100%',
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
             p: 3,
             color: 'black',
             fontSize: '18px',
             fontWeight: 700,
-            mt: 4,
           }}
         >
           {feedLoadingStatus === 'error' && <>{t('errorLoadingFeed')}</>}

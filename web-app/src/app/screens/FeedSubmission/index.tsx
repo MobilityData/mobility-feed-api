@@ -31,9 +31,7 @@ function Component(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           mx: 'auto',
-          maxWidth: '85%',
         }}
       >
         {!isAuthenticated && (

@@ -109,7 +109,6 @@ export default function CompleteRegistration(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}
