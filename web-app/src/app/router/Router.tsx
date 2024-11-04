@@ -33,6 +33,7 @@ import GTFSFeatureAnalytics from '../screens/Analytics/GTFSFeatureAnalytics';
 import GBFSFeedAnalytics from '../screens/Analytics/GBFSFeedAnalytics';
 import GBFSNoticeAnalytics from '../screens/Analytics/GBFSNoticeAnalytics';
 import GBFSVersionAnalytics from '../screens/Analytics/GBFSVersionAnalytics';
+import ContactUs from '../screens/ContactUs';
 
 export const AppRouter: React.FC = () => {
   const navigateTo = useNavigate();
@@ -88,6 +89,7 @@ export const AppRouter: React.FC = () => {
       <Route path='forgot-password' element={<ForgotPassword />} />
       <Route path='faq' element={<FAQ />} />
       <Route path='about' element={<About />} />
+      <Route path='contact-us' element={<ContactUs />} />
       <Route path='feeds' element={<Feeds />} />
       <Route path='feeds/:feedId' element={<Feed />} />
       <Route path='contribute' element={<FeedSubmission />} />

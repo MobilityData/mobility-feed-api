@@ -52,15 +52,14 @@ export function buildNavigationItems(
         color: 'inherit',
       },
       {
+        title: 'Contact Us',
+        target: 'contact-us',
+        color: 'inherit',
+      },
+      {
         title: 'API Docs',
         target:
           'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html',
-        color: 'inherit',
-        external: true,
-      },
-      {
-        title: 'Contact Us',
-        target: 'mailto:api@mobilitydata.org',
         color: 'inherit',
         external: true,
       },
