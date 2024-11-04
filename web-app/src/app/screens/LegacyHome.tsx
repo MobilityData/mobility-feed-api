@@ -6,6 +6,7 @@ import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
 import { Button, Grid } from '@mui/material';
 import { Download, Login } from '@mui/icons-material';
+import { theme } from '../Theme';
 
 export default function Home(): React.ReactElement {
   return (
@@ -13,7 +14,6 @@ export default function Home(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
           width: '100vw',
@@ -44,7 +44,7 @@ export default function Home(): React.ReactElement {
           <Grid item sm={12} md={5}>
             <Box
               sx={{
-                background: '#F8F5F5',
+                background: theme.palette.background.paper,
                 borderRadius: '6px 0px 0px 6px',
                 display: 'flex',
                 alignItems: 'center',
@@ -110,7 +110,7 @@ export default function Home(): React.ReactElement {
         <Box
           sx={{
             width: '90vw',
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
             p: 5,
             color: 'black',

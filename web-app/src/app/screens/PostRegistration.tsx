@@ -72,7 +72,6 @@ export default function PostRegistration(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           ml: 2,
           mr: 2,
           display: 'flex',

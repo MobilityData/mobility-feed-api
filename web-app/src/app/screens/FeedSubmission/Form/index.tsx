@@ -195,7 +195,6 @@ export default function FeedSubmissionForm(): React.ReactElement {
           display: 'flex',
           justifyContent: 'center',
           flexWrap: 'wrap',
-          mt: 3,
         }}
       >
         <CircularProgress />

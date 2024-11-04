@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import '../styles/SignUp.css';
 import { Typography } from '@mui/material';
+import { theme } from '../Theme';
 
 export default function Contribute(): React.ReactElement {
   return (
@@ -11,11 +12,9 @@ export default function Contribute(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
           width: '100vw',
-          m: 10,
         }}
       >
         <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
@@ -23,7 +22,7 @@ export default function Contribute(): React.ReactElement {
         </Typography>
         <Box
           sx={{
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             mt: 2,
             p: 2,
             borderRadius: '6px 6px 0px 0px',

@@ -91,7 +91,6 @@ export default function ChangePassword(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}

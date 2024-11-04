@@ -9,7 +9,6 @@ import {
   Typography,
   Button,
   Grid,
-  colors,
 } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
 import '../../styles/SignUp.css';
@@ -49,6 +48,7 @@ import {
 } from '../../services/feeds/utils';
 import { Trans, useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
+import { theme } from '../../Theme';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -82,7 +82,7 @@ export function getFeedTitleElement(
   return (
     <Typography
       sx={{
-        color: colors.blue.A700,
+        color: theme.palette.primary.main,
         fontWeight: 'bold',
         fontSize: { xs: 24, sm: 36 },
         lineHeight: 'normal',
@@ -117,20 +117,16 @@ const wrapComponent = (
       maxWidth='xl'
     >
       <CssBaseline />
-      <Box
-        sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
-        margin={{ xs: '20px 0px' }}
-      >
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         <Box
           sx={{
             width: '100%',
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
             p: 3,
             color: 'black',
             fontSize: '18px',
             fontWeight: 700,
-            mt: 4,
           }}
         >
           {feedLoadingStatus === 'error' && <>{t('errorLoadingFeed')}</>}
@@ -378,7 +374,7 @@ export default function Feed(): React.ReactElement {
               <ContentBox
                 title={t('boundingBoxTitle')}
                 width={{ xs: '100%', md: '42%' }}
-                outlineColor={colors.blue[900]}
+                outlineColor={theme.palette.primary.dark}
                 padding={2}
               >
                 {boundingBox === undefined && (

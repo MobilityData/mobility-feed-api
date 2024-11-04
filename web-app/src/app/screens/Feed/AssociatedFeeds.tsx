@@ -14,6 +14,7 @@ import {
   type AllFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
+import { theme } from '../../Theme';
 
 export interface AssociatedFeedsProps {
   feeds: AllFeedType[] | undefined;
@@ -122,7 +123,7 @@ export default function AssociatedGTFSRTFeeds({
       <ContentBox
         width={{ xs: '100%' }}
         title={'Related Schedule Feeds'}
-        outlineColor={colors.indigo[500]}
+        outlineColor={theme.palette.primary.dark}
         margin={'0 0 8px'}
         padding={2}
       >
@@ -143,7 +144,7 @@ export default function AssociatedGTFSRTFeeds({
       <ContentBox
         width={{ xs: '100%' }}
         title={'Related Realtime Feeds'}
-        outlineColor={colors.indigo[500]}
+        outlineColor={theme.palette.primary.dark}
         padding={2}
       >
         {gtfsRtFeeds === undefined && <Typography>Loading...</Typography>}

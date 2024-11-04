@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSlack } from '@fortawesome/free-brands-svg-icons';
 import { GitHub, LinkedIn, OpenInNew } from '@mui/icons-material';
 import { MOBILITY_DATA_LINKS } from '../constants/Navigation';
+import { fontFamily } from '../Theme';
 
 const Footer: React.FC = () => {
   const navigateTo = (link: string): void => {
@@ -13,7 +14,7 @@ const Footer: React.FC = () => {
   };
 
   return (
-    <footer className='footer'>
+    <footer className='footer' style={{ fontFamily: fontFamily.secondary }}>
       <a
         href={'https://share.mobilitydata.org/mobility-database-feedback'}
         target={'_blank'}
@@ -21,7 +22,11 @@ const Footer: React.FC = () => {
         className={'btn-link'}
       >
         <Button
-          sx={{ textTransform: 'none', mb: 2 }}
+          sx={{
+            textTransform: 'none',
+            mb: 2,
+            fontFamily: fontFamily.secondary,
+          }}
           variant={'outlined'}
           endIcon={<OpenInNew />}
         >

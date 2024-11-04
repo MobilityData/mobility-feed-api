@@ -16,6 +16,7 @@ import LegacyHome from './LegacyHome';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
 import '../styles/TextShimmer.css';
+import { theme } from '../Theme';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -35,6 +36,9 @@ const ActionBox = ({
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
+      flexGrow: 1,
+      flexBasis: 0,
+      minWidth: 0,
     }}
   >
     <IconComponent sx={{ width: '100%', height: iconHeight }} />
@@ -63,16 +67,16 @@ function Component(): React.ReactElement {
   };
 
   return (
-    <Container component='main'>
+    <Container component='main' sx={{ px: { xs: 0, md: 3 } }}>
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
+          mt: 6,
           display: 'flex',
           flexDirection: 'column',
         }}
-        margin={{ xs: '80px 20px', m: '80px auto' }}
-        maxWidth={{ xs: '100%', m: '1600px' }}
+        mx={{ xs: '20px', m: 'auto' }}
+        maxWidth={{ xs: '100%', md: '1600px' }}
       >
         <Typography
           sx={{
@@ -186,6 +190,9 @@ function Component(): React.ReactElement {
             display: 'flex',
             justifyContent: 'center',
             flexDirection: { xs: 'column', sm: 'row' },
+            width: '700px',
+            maxWidth: '100%',
+            margin: 'auto',
           }}
         >
           <ActionBox
@@ -209,9 +216,12 @@ function Component(): React.ReactElement {
         </Box>
         <Box
           sx={{
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
-            p: 5,
+            p: {
+              xs: 2,
+              sm: 4,
+            },
             color: 'black',
             fontSize: '18px',
             fontWeight: 700,
