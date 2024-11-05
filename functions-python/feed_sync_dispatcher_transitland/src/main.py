@@ -99,7 +99,9 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Process data synchronously to fetch, extract, combine, filter and prepare payloads for publishing
         to a queue based on conditions related to the data retrieved from TransitLand API.
         """
-        feeds_data = self.get_data(TRANSITLAND_FEED_URL, TRANSITLAND_API_KEY, spec, session)
+        feeds_data = self.get_data(
+            TRANSITLAND_FEED_URL, TRANSITLAND_API_KEY, spec, session
+        )
         operators_data = self.get_data(
             TRANSITLAND_OPERATOR_URL, TRANSITLAND_API_KEY, session=session
         )
