@@ -52,12 +52,11 @@ def populate_database(db: Database, data_dirs: str):
         db_helper.initialize(trigger_downstream_tasks=False)
 
         # Make a list of all the extra_test_data.json files in the test_data directories and load the data
-        json_filepaths = []
-        for dir in data_dirs:
-
-            if (filepath := os.path.join(dir, "extra_test_data.json")) and os.path.isfile(filepath):
-
-                json_filepaths.append(filepath)
+        json_filepaths = [
+            filepath
+            for dir in data_dirs
+            if (filepath := os.path.join(dir, "extra_test_data.json")) and os.path.isfile(filepath)
+        ]
 
         if len(json_filepaths) == 0:
             print("No extra_test_data.json file found in test_data directories")
