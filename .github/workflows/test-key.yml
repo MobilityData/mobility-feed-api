@@ -1,0 +1,16 @@
+name: TODO Delete this file
+on:
+  push:
+jobs:
+  test-key:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Load secret from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          TRANSITLAND_API_KEY: "op://TECH: Keys & Tokens/TansitLand_API_Key/credential"
+      - name: Print masked secret
+        run: 'echo "Secret: TRANSITLAND_API_KEY=$TRANSITLAND_API_KEY"'
