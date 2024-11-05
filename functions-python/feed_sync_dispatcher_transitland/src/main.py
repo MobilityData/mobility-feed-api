@@ -57,6 +57,7 @@ class TransitFeedSyncPayload:
     """
     Data class for transit feed sync payloads.
     """
+
     external_id: str
     feed_id: str
     feed_url: Optional[str] = None
