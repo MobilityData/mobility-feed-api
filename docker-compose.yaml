@@ -5,7 +5,7 @@ services:
     # Fix warning message on arm64 machines
     platform: linux/amd64
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 20s
       timeout: 5s
       retries: 5
@@ -29,7 +29,7 @@ services:
     # Fix warning message on arm64 machines
     platform: linux/amd64
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
+      test: ["CMD-SHELL", "pg_isready"]
       interval: 20s
       timeout: 5s
       retries: 5
@@ -46,7 +46,7 @@ services:
     ports:
       - ${POSTGRES_TEST_PORT}:${POSTGRES_PORT}
     networks:
-      - local      
+      - local
   liquibase:
     container_name: liquibase_update
     image: liquibase/liquibase
@@ -84,16 +84,44 @@ services:
       postgres-test:
         condition: service_healthy
     networks:
-      - local      
+      - local
   schemaspy:
     image: andrewjones/schemaspy-postgres:latest
     container_name: schema_generation
-    command: [ "-db", "${POSTGRES_DB}", "-host", "postgres", "-port", "${POSTGRES_PORT}", "-s", "public", "-u", "${POSTGRES_USER}", "-p", "${POSTGRES_PASSWORD}" ]
+    command:
+      [
+        "-db",
+        "${POSTGRES_DB}",
+        "-host",
+        "postgres",
+        "-port",
+        "${POSTGRES_PORT}",
+        "-s",
+        "public",
+        "-u",
+        "${POSTGRES_USER}",
+        "-p",
+        "${POSTGRES_PASSWORD}",
+      ]
     volumes:
       - ./docs/${SCHEMA_SPY_DOC}:/output
     depends_on:
       liquibase:
-       condition: service_completed_successfully
+        condition: service_completed_successfully
+    networks:
+      - local
+  pgbouncer:
+    image: edoburu/pgbouncer
+    container_name: pgbouncer
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./api/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
+      - ./api/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
+    ports:
+      - "6432:6432"
+    depends_on:
+      - postgres
     networks:
       - local
 networks:
