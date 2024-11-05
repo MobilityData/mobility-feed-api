@@ -11,6 +11,6 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          TRANSITLAND_API_KEY: "op://TECH: Keys & Tokens/TansitLand_API_Key/credential"
+          TRANSITLAND_API_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/TansitLand_API_Key/credential"
       - name: Print masked secret
         run: 'echo "Secret: TRANSITLAND_API_KEY=$TRANSITLAND_API_KEY"'
