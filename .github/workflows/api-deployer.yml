@@ -291,6 +291,10 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           TRANSITLAND_API_KEY: "op://TECH: Keys & Tokens/TansitLand API Key/credentials"
 
+      - name: Print masked secret
+        run: 'echo "Secret: TRANSITLAND_API_KEY=$TRANSITLAND_API_KEY"'
+
+
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
