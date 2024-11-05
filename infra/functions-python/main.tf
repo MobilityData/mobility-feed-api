@@ -33,6 +33,9 @@ locals {
 
   function_gbfs_validation_report_config = jsondecode(file("${path.module}/../../functions-python/gbfs_validator/function_config.json"))
   function_gbfs_validation_report_zip = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
+
+  function_feed_sync_dispatcher_transitland_config = jsondecode(file("${path.module}/../../functions-python/feed_sync_dispatcher_transitland/function_config.json"))
+  function_feed_sync_dispatcher_transitland_zip = "${path.module}/../../functions-python/feed_sync_dispatcher_transitland/.dist/feed_sync_dispatcher_transitland.zip"
 }
 
 locals {
@@ -106,6 +109,13 @@ resource "google_storage_bucket_object" "gbfs_validation_report_zip" {
   source = local.function_gbfs_validation_report_zip
 }
 
+# 6. Feed sync dispatcher transitland
+resource "google_storage_bucket_object" "feed_sync_dispatcher_transitland_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "feed-sync-dispatcher-transitland-${substr(filebase64sha256(local.function_feed_sync_dispatcher_transitland_zip), 0, 10)}.zip"
+  source = local.function_feed_sync_dispatcher_transitland_zip
+}
+
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
   for_each = local.unique_secret_keys
@@ -155,6 +165,10 @@ resource "google_cloudfunctions2_function" "tokens" {
 }
 
 # 2.1 functions/extract_location cloud function
+# 2.1.1 Create Pub/Sub topic
+resource "google_pubsub_topic" "transitland_feeds_dispatch" {
+  name = "transitland-feeds-dispatch"
+}
 resource "google_cloudfunctions2_function" "extract_location" {
   name        = local.function_extract_location_config.name
   description = local.function_extract_location_config.description
@@ -519,6 +533,55 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
     }
   }
 }
+
+# 6. functions/feed_sync_dispatcher_transitland cloud function
+resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
+  name        = "${local.function_feed_sync_dispatcher_transitland_config.name}-batch"
+  description = local.function_feed_sync_dispatcher_transitland_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_feed_sync_dispatcher_transitland_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.feed_sync_dispatcher_transitland_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID = var.project_id
+      PYTHONNODEBUGRANGES = 0
+      PUBSUB_TOPIC_NAME = google_pubsub_topic.transitland_feeds_dispatch.name
+      TRANSITLAND_API_KEY=var.transitland_api_key
+      TRANSITLAND_OPERATOR_URL="https://transit.land/api/v2/rest/operators"
+      TRANSITLAND_FEED_URL="https://transit.land/api/v2/rest/feeds"
+    }
+    available_memory = local.function_feed_sync_dispatcher_transitland_config.available_memory
+    timeout_seconds = local.function_feed_sync_dispatcher_transitland_config.timeout
+    available_cpu = local.function_feed_sync_dispatcher_transitland_config.available_cpu
+    max_instance_request_concurrency = local.function_feed_sync_dispatcher_transitland_config.max_instance_request_concurrency
+    max_instance_count = local.function_feed_sync_dispatcher_transitland_config.max_instance_count
+    min_instance_count = local.function_feed_sync_dispatcher_transitland_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_feed_sync_dispatcher_transitland_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_extract_location_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
 
 # IAM entry for all users to invoke the function 
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {

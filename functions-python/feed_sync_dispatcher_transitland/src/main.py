@@ -43,7 +43,7 @@ logging.basicConfig(
 PUBSUB_TOPIC_NAME = os.getenv("PUBSUB_TOPIC_NAME")
 PROJECT_ID = os.getenv("PROJECT_ID")
 FEEDS_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
-apikey = os.getenv("TRANSITLAND_API_KEY")
+TRANSITLAND_API_KEY = os.getenv("TRANSITLAND_API_KEY")
 TRANSITLAND_OPERATOR_URL = os.getenv("TRANSITLAND_OPERATOR_URL")
 TRANSITLAND_FEED_URL = os.getenv("TRANSITLAND_FEED_URL")
 spec = ["gtfs", "gtfs-rt"]
@@ -99,9 +99,9 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Process data synchronously to fetch, extract, combine, filter and prepare payloads for publishing
         to a queue based on conditions related to the data retrieved from TransitLand API.
         """
-        feeds_data = self.get_data(TRANSITLAND_FEED_URL, apikey, spec, session)
+        feeds_data = self.get_data(TRANSITLAND_FEED_URL, TRANSITLAND_API_KEY, spec, session)
         operators_data = self.get_data(
-            TRANSITLAND_OPERATOR_URL, apikey, session=session
+            TRANSITLAND_OPERATOR_URL, TRANSITLAND_API_KEY, session=session
         )
 
         feeds = self.extract_feeds_data(feeds_data)

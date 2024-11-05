@@ -99,11 +99,14 @@ module "feed-api" {
   source = "./feed-api"
 }
 
+
 module "functions-python" {
   source = "./functions-python"
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
+  transitland_api_key = var.transitland_api_key
+  web_validator_url = var.validator_endpoint
 }
 
 module "workflows" {

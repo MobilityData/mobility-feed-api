@@ -64,3 +64,8 @@ variable "gbfs_scheduler_schedule" {
     description = "Schedule for the GBFS scheduler job"
     default     = "0 0 1 * *" # every month on the first day at 00:00
 }
+
+variable "transitland_api_key" {
+    type        = string
+    description = "Transitland API key"
+}
