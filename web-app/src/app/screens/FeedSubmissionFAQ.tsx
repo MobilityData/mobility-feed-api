@@ -5,12 +5,12 @@ import {
   AccordionSummary,
   type SxProps,
   Typography,
-  colors,
   Box,
   Container,
   CssBaseline,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { theme } from '../Theme';
 
 const accordionStyle: SxProps = {
   boxShadow: 'none',
@@ -24,29 +24,17 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
   return (
     <Container component='main' sx={{ my: 0, mx: 'auto' }}>
       <CssBaseline />
+      <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
+        Frequently Asked Questions about Adding Feeds
+      </Typography>
       <Box
         sx={{
-          width: '100%',
-          background: '#F8F5F5',
-          borderRadius: '6px 0px 0px 6px',
-          p: 5,
-          color: 'black',
-          fontSize: '18px',
-          fontWeight: 700,
-          mr: 0,
-          mt: 8,
+          background: theme.palette.background.paper,
+          mt: 2,
+          p: 2,
+          borderRadius: '6px 6px 0px 0px',
         }}
       >
-        <Typography
-          sx={{
-            color: colors.blue.A700,
-            fontWeight: 'bold',
-            fontSize: { xs: 18, sm: 24 },
-            mb: 2,
-          }}
-        >
-          Frequently Asked Questions about Adding Feeds
-        </Typography>
         <Accordion sx={accordionStyle}>
           <AccordionSummary
             aria-controls='panel1-content'

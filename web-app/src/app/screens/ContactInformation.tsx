@@ -38,7 +38,7 @@ export default function ContactInformation(): React.ReactElement {
   return (
     <Container
       component='main'
-      sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
+      sx={{ display: 'flex', flexDirection: 'column' }}
     >
       <CssBaseline />
       <Typography

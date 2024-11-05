@@ -259,7 +259,6 @@ export default function APIAccount(): React.ReactElement {
       component={'main'}
       maxWidth={false}
       sx={{
-        mt: 12,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',

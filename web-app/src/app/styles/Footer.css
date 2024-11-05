@@ -1,8 +1,9 @@
 .footer {
     width: 100%;
     text-align: center;
-    padding: 10px;
+    padding: 40px 8px;
     font-size: 13px;
+    box-sizing: border-box;
 }
 
 .link-button:hover {

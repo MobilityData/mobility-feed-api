@@ -1,6 +1,8 @@
 import pycountry
 from sqlalchemy.engine.result import Row
-from database_gen.sqlacodegen_models import Location as LocationOrm
+
+from database.database import Database
+from database_gen.sqlacodegen_models import Location as LocationOrm, t_location_with_translations_en
 from database_gen.sqlacodegen_models import Feed as FeedOrm
 
 
@@ -34,17 +36,52 @@ class LocationTranslation:
         )
 
 
+def get_feeds_location_ids(feeds: list[FeedOrm]) -> list[str]:
+    """
+    Get the location ids of a list of feeds.
+    :param feeds: The list of feeds
+    :return: The list of location ids
+    """
+    location_ids = []
+    for feed in feeds:
+        location_ids.extend([location.id for location in feed.locations])
+    return location_ids
+
+
+def get_feeds_location_translations(feeds: list[FeedOrm]) -> dict[str, LocationTranslation]:
+    """
+    Get the location translations of a list of feeds.
+    :param feeds: The list of feeds
+    :return: The location translations
+    """
+    location_ids = get_feeds_location_ids(feeds)
+    location_translations = (
+        Database()
+        .get_session()
+        .query(t_location_with_translations_en)
+        .filter(t_location_with_translations_en.c.location_id.in_(location_ids))
+        .all()
+    )
+    return {
+        location_translation[0]: create_location_translation_object(location_translation)
+        for location_translation in location_translations
+    }
+
+
 def create_location_translation_object(row: Row):
     """Create a location translation object from a row."""
+    if len(row) == 9:
+        # The first element is the feed
+        row = row[1:]
     return LocationTranslation(
-        location_id=row[1],
-        country_code=row[2],
-        country=row[3],
-        subdivision_name=row[4],
-        municipality=row[5],
-        country_translation=row[6],
-        subdivision_name_translation=row[7],
-        municipality_translation=row[8],
+        location_id=row[0],
+        country_code=row[1],
+        country=row[2],
+        subdivision_name=row[3],
+        municipality=row[4],
+        country_translation=row[5],
+        subdivision_name_translation=row[6],
+        municipality_translation=row[7],
     )
 
 

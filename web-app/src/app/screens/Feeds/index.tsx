@@ -15,7 +15,6 @@ import {
   TableContainer,
   TextField,
   Typography,
-  colors,
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import '../../styles/SignUp.css';
@@ -30,6 +29,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
 import { Trans, useTranslation } from 'react-i18next';
+import { theme } from '../../Theme';
 
 const getDataTypeParamFromSelectedFeedTypes = (
   selectedFeedTypes: Record<string, boolean>,
@@ -158,16 +158,15 @@ export default function Feed(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}
-        margin={{ xs: '80px 0px', m: '80px auto' }}
+        mx={{ xs: 0, m: 'auto' }}
         maxWidth={{ xs: '100%', m: '1600px' }}
       >
         <Grid container spacing={2}>
           <Grid item xs={12}>
-            <Typography variant='h4' color='primary'>
+            <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
               {t('feeds')}
             </Typography>
             <Typography variant='subtitle1'>{t('searchFor')}</Typography>
@@ -227,7 +226,7 @@ export default function Feed(): React.ReactElement {
             <Box
               width={'100%'}
               sx={{
-                background: '#F8F5F5',
+                background: theme.palette.background.paper,
                 borderRadius: '6px 0px 0px 6px',
                 p: {
                   xs: 2,
@@ -354,7 +353,7 @@ export default function Feed(): React.ReactElement {
                                 mt: 2,
                                 button: {
                                   backgroundColor: 'white',
-                                  color: colors.blue[700],
+                                  color: theme.palette.primary.main,
                                 },
                               }}
                               color='primary'
