@@ -26,6 +26,7 @@ jobs:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
   integration-tests:
     if: ${{ github.event.inputs.run_integration_tests == 'true' }}

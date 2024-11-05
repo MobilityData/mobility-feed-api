@@ -12,6 +12,9 @@ on:
       OAUTH2_CLIENT_SECRET:
         description: Oauth client secret part of the the Identity Aware Proxy configuration
         required: true
+      OP_SERVICE_ACCOUNT_TOKEN:
+        description: 1Password service account token
+        required: true
     inputs:
       ENVIRONMENT:
         description: API environment. Possible values prod, staging and dev
