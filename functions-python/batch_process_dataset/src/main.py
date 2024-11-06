@@ -31,11 +31,7 @@ from sqlalchemy import func
 
 from database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
 from dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from helpers.database import (
-    start_db_session,
-    close_db_session,
-    refresh_materialized_view,
-)
+from helpers.database import Database
 import logging
 
 from helpers.logger import Logger
@@ -76,8 +72,10 @@ class DatasetProcessor:
         self.api_key_parameter_name = api_key_parameter_name
         self.date = datetime.now().strftime("%Y%m%d%H%M")
         if self.authentication_type != 0:
-            logging.info(f"Getting feed credentials for feed {self.feed_stable_id}")
-            self.feed_credentials = self.get_feed_credentials(self.feed_stable_id)
+            logging.info(
+                f"Getting feed credentials for feed {self.feed_stable_id}")
+            self.feed_credentials = self.get_feed_credentials(
+                self.feed_stable_id)
             if self.feed_credentials is None:
                 raise Exception(
                     f"Error getting feed credentials for feed {self.feed_stable_id}"
@@ -95,7 +93,8 @@ class DatasetProcessor:
         Gets the feed credentials from the environment variable
         """
         try:
-            feeds_credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
+            feeds_credentials = json.loads(
+                os.getenv("FEEDS_CREDENTIALS", "{}"))
             return feeds_credentials.get(feed_stable_id, None)
         except Exception as e:
             logging.error(f"Error getting feed credentials: {e}")
@@ -144,7 +143,8 @@ class DatasetProcessor:
         :return: the file hash and the hosted url as a tuple or None if no upload is required
         """
         try:
-            logging.info(f"[{self.feed_stable_id}] - Accessing URL {self.producer_url}")
+            logging.info(
+                f"[{self.feed_stable_id}] - Accessing URL {self.producer_url}")
             temp_file_path = self.generate_temp_filename()
             file_sha256_hash, is_zip = self.download_content(temp_file_path)
             if not is_zip:
@@ -153,7 +153,8 @@ class DatasetProcessor:
                 )
                 return None
 
-            logging.info(f"[{self.feed_stable_id}] File hash is {file_sha256_hash}.")
+            logging.info(
+                f"[{self.feed_stable_id}] File hash is {file_sha256_hash}.")
 
             if self.latest_hash != file_sha256_hash:
                 logging.info(
@@ -210,8 +211,10 @@ class DatasetProcessor:
         """
         Creates a new dataset in the database
         """
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+        session = None
         try:
+            session = db.start_db_session()
             # # Check latest version of the dataset
             latest_dataset = (
                 session.query(Gtfsdataset)
@@ -242,9 +245,10 @@ class DatasetProcessor:
                 session.add(latest_dataset)
             session.add(new_dataset)
 
-            refresh_materialized_view(session, t_feedsearch.name)
+            db.refresh_materialized_view(t_feedsearch.name)
             session.commit()
-            logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
+            logging.info(
+                f"[{self.feed_stable_id}] Dataset created successfully.")
         except Exception as e:
             if session is not None:
                 session.rollback()
@@ -261,7 +265,8 @@ class DatasetProcessor:
         dataset_file = self.upload_dataset()
 
         if dataset_file is None:
-            logging.info(f"[{self.feed_stable_id}] No database update required.")
+            logging.info(
+                f"[{self.feed_stable_id}] No database update required.")
             return None
         self.create_dataset(dataset_file)
         return dataset_file
@@ -333,7 +338,8 @@ def process_dataset(cloud_event: CloudEvent):
         execution_id = json_payload["execution_id"]
         trace_service = DatasetTraceService()
 
-        trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
+        trace = trace_service.get_by_execution_and_stable_ids(
+            execution_id, stable_id)
         logging.info(f"[{stable_id}] Dataset trace: {trace}")
         executions = len(trace) if trace else 0
         logging.info(
