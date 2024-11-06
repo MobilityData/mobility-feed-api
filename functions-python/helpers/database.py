@@ -24,88 +24,64 @@ import logging
 
 DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
 lock = threading.Lock()
-global_session = None
 
 
-def get_db_engine(database_url: str = None, echo: bool = True):
-    """
-    :return: Database engine
-    """
-    if database_url is None:
-        raise Exception("Database URL is not provided")
-    return create_engine(database_url, echo=echo)
+class Database:
+    def __init__(self, database_url: str = None):
+        self.database_url = database_url or os.getenv("DATABASE_URL")
+        self.echo = True
+        self.engine = None
+        self.session = None
 
+    def start_db_session(self):
+        """
+        Starts a session
+        :return: True if the session was started, False otherwise
+        """
+        global lock
+        try:
+            lock.acquire()
+            if self.engine is None:
+                self.connection_attempts += 1
+                self.logger.debug(
+                    f"Database connection attempt #{self.connection_attempts}.")
+                self.engine = create_engine(database_url, echo=echo)
+                self.logger.debug("Database connected.")
+            if self.session is not None and self.session.is_active:
+                self.session.close()
+            self.session = sessionmaker(self.engine)()
+            return self.session
+        except Exception as e:
+            self.logger.error(
+                f"Database new session creation failed with exception: \n {e}")
+        finally:
+            lock.release()
 
-def start_new_db_session(database_url: str = None, echo: bool = True):
-    if database_url is None:
-        raise Exception("Database URL is not provided")
-    logging.info("Starting new database session.")
-    return sessionmaker(bind=get_db_engine(database_url, echo=echo))()
+    def is_session_reusable():
+        return os.getenv("%s" % DB_REUSE_SESSION, "false").lower() == "true"
 
+    def close_db_session(self, raise_exception: bool = True):
+        """
+        Closes the database session
+        """
+        try:
+            if self.session is not None:
+                self.session.close()
+                logging.info("Database session closed.")
+        except Exception as error:
+            logging.error(f"Error closing database session: {error}")
+            if raise_exception:
+                raise error
 
-def start_singleton_db_session(database_url: str = None):
-    """
-    :return: Database singleton session
-    """
-    global global_session
-    try:
-        if global_session is not None:
-            logging.info("Database session reused.")
-            return global_session
-        global_session = start_new_db_session(database_url)
-        logging.info("Singleton Database session started.")
-        return global_session
-    except Exception as error:
-        raise Exception(f"Error creating database session: {error}")
-
-
-def start_db_session(database_url: str = None, echo: bool = True):
-    """
-    :return: Database session
-    """
-    global lock
-    try:
-        lock.acquire()
-        if is_session_reusable():
-            return start_singleton_db_session(database_url)
-        logging.info("Not reusing the previous session, starting new database session.")
-        return start_new_db_session(database_url, echo)
-    except Exception as error:
-        raise Exception(f"Error creating database session: {error}")
-    finally:
-        lock.release()
-
-
-def is_session_reusable():
-    return os.getenv("%s" % DB_REUSE_SESSION, "false").lower() == "true"
-
-
-def close_db_session(session, raise_exception: bool = False):
-    """
-    Closes the database session
-    """
-    try:
-        session_reusable = is_session_reusable()
-        logging.info(f"Closing session with DB_REUSE_SESSION={session_reusable}")
-        if session_reusable and session == global_session:
-            logging.info("Skipping database session closing.")
-            return
-        session.close()
-        logging.info("Database session closed.")
-    except Exception as error:
-        logging.error(f"Error closing database session: {error}")
-        if raise_exception:
-            raise error
-
-
-def refresh_materialized_view(session, view_name: str) -> bool:
-    """
-    Refresh Materialized view by name.
-    @return: True if the view was refreshed successfully, False otherwise
-    """
-    try:
-        session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
-        return True
-    except Exception as error:
-        logging.error(f"Error raised while refreshing view: {error}")
-    return False
+    def refresh_materialized_view(session, view_name: str) -> bool:
+        """
+        Refresh Materialized view by name.
+        @return: True if the view was refreshed successfully, False otherwise
+        """
+        try:
+            session.execute(
+                text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
+            return True
+        except Exception as error:
+            logging.error(f"Error raised while refreshing view: {error}")
+        return False
