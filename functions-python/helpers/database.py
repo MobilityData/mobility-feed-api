@@ -73,13 +73,13 @@ class Database:
             if raise_exception:
                 raise error
 
-    def refresh_materialized_view(session, view_name: str) -> bool:
+    def refresh_materialized_view(self, view_name: str) -> bool:
         """
         Refresh Materialized view by name.
         @return: True if the view was refreshed successfully, False otherwise
         """
         try:
-            session.execute(
+            self.session.execute(
                 text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
             return True
         except Exception as error:
