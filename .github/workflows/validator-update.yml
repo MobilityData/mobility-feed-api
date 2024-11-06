@@ -32,7 +32,8 @@ jobs:
       - name: Create task to run cloud function
         run: |
           gcloud tasks create-http-task \
-            --queue=update_validation_report_task_queue \
+            --queue=update-validation-report-task-queue \
             --url=https://${ENVIRONMENT}-${PROJECT_ID}.cloudfunctions.net/update-validation-report \
             --schedule-time=$(date -u -d "+24 hours" +%Y-%m-%dT%H:%M:%SZ) \
-            --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT}
+            --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT} \
+            --location=${{ vars.MOBILITY_FEEDS_REGION }}
