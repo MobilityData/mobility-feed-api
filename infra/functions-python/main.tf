@@ -165,10 +165,6 @@ resource "google_cloudfunctions2_function" "tokens" {
 }
 
 # 2.1 functions/extract_location cloud function
-# 2.1.1 Create Pub/Sub topic
-resource "google_pubsub_topic" "transitland_feeds_dispatch" {
-  name = "transitland-feeds-dispatch"
-}
 resource "google_cloudfunctions2_function" "extract_location" {
   name        = local.function_extract_location_config.name
   description = local.function_extract_location_config.description
@@ -535,6 +531,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
 }
 
 # 6. functions/feed_sync_dispatcher_transitland cloud function
+# 6.1 Create Pub/Sub topic
+resource "google_pubsub_topic" "transitland_feeds_dispatch" {
+  name = "transitland-feeds-dispatch"
+}
 resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
   name        = "${local.function_feed_sync_dispatcher_transitland_config.name}-batch"
   description = local.function_feed_sync_dispatcher_transitland_config.description
