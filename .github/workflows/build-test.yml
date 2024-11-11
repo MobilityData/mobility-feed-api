@@ -26,7 +26,7 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          PRIORITY: "high"
+          PRIORITY: "medium"
           STEP: "test step"
 
       - name: Extract commit hash and version from git
