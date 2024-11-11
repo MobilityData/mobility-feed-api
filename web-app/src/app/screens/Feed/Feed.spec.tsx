@@ -1,5 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { formatProvidersSorted, getFeedTitleElement } from '.';
+import {
+  formatProvidersSorted,
+  generateDescriptionMetaTag,
+  generatePageTitle,
+  getFeedTitleElement,
+} from '.';
 import {
   type GTFSFeedType,
   type GTFSRTFeedType,
@@ -136,5 +141,108 @@ describe('Feed page', () => {
     render(getFeedTitleElement(formattedProviders, mockFeedOneProvider, mockT));
     expect(screen.getByText('AVL')).toBeTruthy();
     expect(screen.queryByText('+')).toBeNull();
+  });
+
+  it('should generate the correct page title', () => {
+    const titleAllInfo = generatePageTitle(
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(titleAllInfo).toEqual(
+      'Department of Transport, Darwin public bus network gtfs schedule feed - Mobility Database',
+    );
+
+    const titleNoProviders = generatePageTitle(
+      [],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(titleNoProviders).toEqual(
+      'Darwin public bus network gtfs schedule feed - Mobility Database',
+    );
+
+    const titleNoName = generatePageTitle(
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      '',
+    );
+    expect(titleNoName).toEqual(
+      'Department of Transport gtfs schedule feed - Mobility Database',
+    );
+
+    const titleAllInfoRT = generatePageTitle(
+      ['Department of Transport', 'Public Transport'],
+      'gtfs_rt',
+      'Darwin public bus network',
+    );
+    expect(titleAllInfoRT).toEqual(
+      'Department of Transport, Darwin public bus network gtfs realtime feed - Mobility Database',
+    );
+
+    const titleAllEmpty = generatePageTitle([], 'gtfs', '');
+    expect(titleAllEmpty).toEqual('Mobility Database');
+  });
+
+  it('should generate the correct page description', () => {
+    const mockT = jest.fn((key, params) => {
+      switch (key) {
+        case 'common:gtfsSchedule':
+          return 'GTFS schedule';
+        case 'common:gtfsRealtime':
+          return 'GTFS realtime';
+        case 'detailPageDescription':
+          return `Explore the ${params.formattedName} ${params.dataTypeVerbose} feed details with access to a quality data insights`;
+          break;
+      }
+    }) as unknown as TFunction<'feeds', undefined>;
+
+    const descriptionAllInfo = generateDescriptionMetaTag(
+      mockT,
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(descriptionAllInfo).toEqual(
+      'Explore the Department of Transport, Darwin public bus network GTFS schedule feed details with access to a quality data insights',
+    );
+
+    const descriptionNoProviders = generateDescriptionMetaTag(
+      mockT,
+      [],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(descriptionNoProviders).toEqual(
+      'Explore the Darwin public bus network GTFS schedule feed details with access to a quality data insights',
+    );
+
+    const descriptionNoName = generateDescriptionMetaTag(
+      mockT,
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      '',
+    );
+    expect(descriptionNoName).toEqual(
+      'Explore the Department of Transport GTFS schedule feed details with access to a quality data insights',
+    );
+
+    const descriptionAllInfoRT = generateDescriptionMetaTag(
+      mockT,
+      ['Department of Transport', 'Public Transport'],
+      'gtfs_rt',
+      'Darwin public bus network',
+    );
+    expect(descriptionAllInfoRT).toEqual(
+      'Explore the Department of Transport, Darwin public bus network GTFS realtime feed details with access to a quality data insights',
+    );
+
+    const descriptionAllEmpty = generateDescriptionMetaTag(
+      mockT,
+      [],
+      'gtfs',
+      '',
+    );
+    expect(descriptionAllEmpty).toEqual('');
   });
 });

@@ -50,9 +50,9 @@ export type AllDatasetType =
   | undefined;
 
 export function getLocationName(
-  locations: EntityLocations | undefined,
+  locations: EntityLocations | undefined | null,
 ): string {
-  if (locations === undefined) {
+  if (locations === undefined || locations === null) {
     return '';
   }
   let displayLocation = '';

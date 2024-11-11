@@ -383,7 +383,10 @@ export default function DrawerAppBar(): React.ReactElement {
               }}
               className='btn-link'
             >
-              <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
+              <Avatar
+                alt='MobilityData logo'
+                src='/assets/MOBILTYDATA_logo_purple_M.png'
+              ></Avatar>
               <Typography
                 variant='h5'
                 component='div'

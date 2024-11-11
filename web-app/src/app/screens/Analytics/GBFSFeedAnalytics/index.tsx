@@ -277,7 +277,12 @@ export default function GBFSFeedAnalytics(): React.ReactElement {
 
   return (
     <Box sx={{ mx: 6 }}>
-      <Typography variant='h4' color='primary' sx={{ fontWeight: 700, mb: 2 }}>
+      <Typography
+        component='h1'
+        variant='h4'
+        color='primary'
+        sx={{ fontWeight: 700, mb: 2 }}
+      >
         GBFS Feeds Metrics
       </Typography>
       {error != null && (

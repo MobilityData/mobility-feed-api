@@ -35,6 +35,7 @@ const Footer: React.FC = () => {
       </a>
       <div style={{ margin: 0, display: 'flex', justifyContent: 'center' }}>
         <IconButton
+          aria-label='twitter'
           className='link-button'
           color='primary'
           onClick={() => {
@@ -44,6 +45,7 @@ const Footer: React.FC = () => {
           <TwitterIcon />
         </IconButton>
         <IconButton
+          aria-label='slack'
           className='link-button'
           color='primary'
           onClick={() => {
@@ -53,6 +55,7 @@ const Footer: React.FC = () => {
           <FontAwesomeIcon icon={faSlack} />
         </IconButton>
         <IconButton
+          aria-label='linkedin'
           className='link-button'
           color='primary'
           onClick={() => {
@@ -62,6 +65,7 @@ const Footer: React.FC = () => {
           <LinkedIn />
         </IconButton>
         <IconButton
+          aria-label='github'
           className='link-button'
           color='primary'
           onClick={() => {
