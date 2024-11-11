@@ -49,12 +49,69 @@ import {
 import { Trans, useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 import { theme } from '../../Theme';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
   const providersTrimmed = providers.map((p) => p.trim());
   const providersSorted = providersTrimmed.sort();
   return providersSorted;
+}
+
+export function getFeedFormattedName(
+  sortedProviders: string[],
+  dataType: 'gtfs' | 'gtfs_rt',
+  feedName?: string,
+): string {
+  let formattedName = '';
+  if (sortedProviders[0] !== undefined && sortedProviders[0] !== '') {
+    formattedName += sortedProviders[0];
+  }
+  if (feedName !== undefined && feedName !== '') {
+    if (formattedName !== '') {
+      formattedName += ', ';
+    }
+    formattedName += `${feedName}`;
+  }
+  return formattedName;
+}
+
+export function generateDescriptionMetaTag(
+  t: TFunction<'feeds'>,
+  sortedProviders: string[],
+  dataType: 'gtfs' | 'gtfs_rt',
+  feedName?: string,
+): string {
+  const formattedName = getFeedFormattedName(
+    sortedProviders,
+    dataType,
+    feedName,
+  );
+  if (
+    sortedProviders.length === 0 &&
+    (feedName === undefined || feedName === '')
+  ) {
+    return '';
+  }
+  const dataTypeVerbose =
+    dataType === 'gtfs' ? t('common:gtfsSchedule') : t('common:gtfsRealtime');
+  return t('detailPageDescription', { formattedName, dataTypeVerbose });
+}
+
+export function generatePageTitle(
+  sortedProviders: string[],
+  dataType: 'gtfs' | 'gtfs_rt',
+  feedName?: string,
+): string {
+  let newDocTitle = getFeedFormattedName(sortedProviders, dataType, feedName);
+  const dataTypeVerbose = dataType === 'gtfs' ? 'schedule' : 'realtime';
+
+  if (newDocTitle !== '') {
+    newDocTitle += ` gtfs ${dataTypeVerbose} feed - `;
+  }
+
+  newDocTitle += 'Mobility Database';
+  return newDocTitle;
 }
 
 export function getFeedTitleElement(
@@ -81,6 +138,7 @@ export function getFeedTitleElement(
   }
   return (
     <Typography
+      component='h1'
       sx={{
         color: theme.palette.primary.main,
         fontWeight: 'bold',
@@ -107,6 +165,7 @@ export function getFeedTitleElement(
 
 const wrapComponent = (
   feedLoadingStatus: string,
+  descriptionMeta: string | undefined,
   child: React.ReactElement,
 ): React.ReactElement => {
   const { t } = useTranslation('feeds');
@@ -116,6 +175,13 @@ const wrapComponent = (
       sx={{ width: '100%', m: 'auto', px: 0 }}
       maxWidth='xl'
     >
+      {descriptionMeta !== undefined && (
+        <HelmetProvider>
+          <Helmet>
+            <meta name='description' content={descriptionMeta} />
+          </Helmet>
+        </HelmetProvider>
+      )}
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         <Box
@@ -170,14 +236,11 @@ export default function Feed(): React.ReactElement {
     if (needsToLoadFeed) {
       return;
     }
-    let newDocTitle = 'Mobility Database';
-    if (sortedProviders[0] !== undefined) {
-      newDocTitle += ` | ${sortedProviders[0]}`;
-    }
-    if (feed?.feed_name !== undefined) {
-      newDocTitle += ` | ${feed?.feed_name}`;
-    }
-    document.title = newDocTitle;
+    document.title = generatePageTitle(
+      sortedProviders,
+      feed.data_type,
+      feed?.feed_name,
+    );
     if (
       feed?.data_type === 'gtfs_rt' &&
       feedLoadingStatus === 'loaded' &&
@@ -203,7 +266,11 @@ export default function Feed(): React.ReactElement {
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
   if (needsToLoadFeed) {
-    return wrapComponent(feedLoadingStatus, <span>{t('common:loading')}</span>);
+    return wrapComponent(
+      feedLoadingStatus,
+      undefined,
+      <span>{t('common:loading')}</span>,
+    );
   }
   const hasDatasets = datasets !== undefined && datasets.length > 0;
   const hasFeedRedirect =
@@ -215,6 +282,12 @@ export default function Feed(): React.ReactElement {
 
   return wrapComponent(
     feedLoadingStatus,
+    generateDescriptionMetaTag(
+      t,
+      sortedProviders,
+      feed.data_type,
+      feed?.feed_name,
+    ),
     <Grid container spacing={2}>
       <Grid container item xs={12} spacing={3} alignItems={'center'}>
         <Grid

@@ -166,10 +166,19 @@ export default function Feed(): React.ReactElement {
       >
         <Grid container spacing={2}>
           <Grid item xs={12}>
-            <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
+            <Typography
+              component='h1'
+              variant='h4'
+              color='primary'
+              sx={{ fontWeight: 700 }}
+            >
               {t('feeds')}
             </Typography>
-            <Typography variant='subtitle1'>{t('searchFor')}</Typography>
+            {activeSearch !== '' && (
+              <Typography variant='subtitle1'>
+                {t('searchFor')}: <b>{activeSearch}</b>
+              </Typography>
+            )}
           </Grid>
           <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center' }}>
             <Box
@@ -240,51 +249,48 @@ export default function Feed(): React.ReactElement {
             >
               <Grid container spacing={1}>
                 <Grid item xs={12} md={2}>
-                  <div>
-                    <div>{t('dataType')}</div>
-                    <FormGroup
-                      sx={{
-                        flexDirection: {
-                          xs: 'row',
-                          md: 'column',
-                        },
-                      }}
-                    >
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={selectedFeedTypes.gtfs}
-                            onChange={(e) => {
-                              setActivePagination(1);
-                              setSelectedFeedTypes({
-                                ...selectedFeedTypes,
-                                gtfs: e.target.checked,
-                              });
-                            }}
-                          />
-                        }
-                        label={t('common:gtfsSchedule')}
-                      />
-                      <FormControlLabel
-                        control={
-                          <Checkbox
-                            checked={selectedFeedTypes.gtfs_rt}
-                            onChange={(e) => {
-                              setActivePagination(1);
-                              setSelectedFeedTypes({
-                                ...selectedFeedTypes,
-                                gtfs_rt: e.target.checked,
-                              });
-                            }}
-                          />
-                        }
-                        label={t('common:gtfsRealtime')}
-                      />
-                    </FormGroup>
-                  </div>
+                  <Typography variant='h6'>{t('dataType')}</Typography>
+                  <FormGroup
+                    sx={{
+                      flexDirection: {
+                        xs: 'row',
+                        md: 'column',
+                      },
+                    }}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={selectedFeedTypes.gtfs}
+                          onChange={(e) => {
+                            setActivePagination(1);
+                            setSelectedFeedTypes({
+                              ...selectedFeedTypes,
+                              gtfs: e.target.checked,
+                            });
+                          }}
+                        />
+                      }
+                      label={t('common:gtfsSchedule')}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={selectedFeedTypes.gtfs_rt}
+                          onChange={(e) => {
+                            setActivePagination(1);
+                            setSelectedFeedTypes({
+                              ...selectedFeedTypes,
+                              gtfs_rt: e.target.checked,
+                            });
+                          }}
+                        />
+                      }
+                      label={t('common:gtfsRealtime')}
+                    />
+                  </FormGroup>
                 </Grid>
 
-                {/* Content Area */}
                 <Grid item xs={12} md={10}>
                   {feedStatus === 'loading' && (
                     <Grid item xs={12}>
@@ -345,9 +351,7 @@ export default function Feed(): React.ReactElement {
                                 {getSearchResultNumbers()}
                               </Typography>
                             </Grid>
-
                             <SearchTable feedsData={feedsData} />
-
                             <Pagination
                               sx={{
                                 mt: 2,

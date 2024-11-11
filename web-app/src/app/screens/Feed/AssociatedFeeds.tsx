@@ -7,7 +7,6 @@ import {
   TableContainer,
   TableRow,
   Typography,
-  colors,
 } from '@mui/material';
 import {
   type GTFSFeedType,
@@ -33,35 +32,32 @@ const renderAssociatedGTFSFeedRow = (
   return (
     <TableRow
       key={assocFeed?.id}
+      component={'a'}
+      href={`/feeds/${assocFeed?.id}`}
       sx={{
-        '&:hover': {
-          backgroundColor: colors.grey[200],
+        textDecoration: 'none',
+        '&:hover, &:focus': {
+          backgroundColor: theme.palette.background.paper,
         },
       }}
     >
-      <a
-        href={`/feeds/${assocFeed?.id}`}
-        rel='noreferrer'
-        style={{ display: 'contents' }}
+      <TableCell sx={{ paddingLeft: 0 }}>
+        {!hasFeedName && noLatestDataset
+          ? 'GTFS Schedule feed'
+          : hasFeedName
+            ? assocFeed.feed_name
+            : ''}
+      </TableCell>
+      <TableCell
+        sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
       >
-        <TableCell sx={{ paddingLeft: 0 }}>
-          {!hasFeedName && noLatestDataset
-            ? 'GTFS Schedule feed'
-            : hasFeedName
-              ? assocFeed.feed_name
-              : ''}
-        </TableCell>
-        <TableCell
-          sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
-        >
-          {assocFeed.latest_dataset?.downloaded_at !== undefined && (
-            <span style={{ display: 'flex' }}>
-              Last updated on{' '}
-              {new Date(assocFeed.latest_dataset?.downloaded_at).toDateString()}
-            </span>
-          )}
-        </TableCell>
-      </a>
+        {assocFeed.latest_dataset?.downloaded_at !== undefined && (
+          <span style={{ display: 'flex' }}>
+            Last updated on{' '}
+            {new Date(assocFeed.latest_dataset?.downloaded_at).toDateString()}
+          </span>
+        )}
+      </TableCell>
     </TableRow>
   );
 };
@@ -76,38 +72,35 @@ const renderAssociatedGTFSRTFeedRow = (
     assocGTFSRTFeed.feed_name !== undefined && assocGTFSRTFeed.feed_name !== '';
   return (
     <TableRow
+      href={`/feeds/${assocGTFSRTFeed?.id}`}
       key={assocGTFSRTFeed?.id}
+      component={'a'}
       sx={{
-        '&:hover': {
-          backgroundColor: colors.grey[200],
+        textDecoration: 'none',
+        '&:hover, &:focus': {
+          backgroundColor: theme.palette.background.paper,
         },
       }}
     >
-      <a
-        href={`/feeds/${assocGTFSRTFeed?.id}`}
-        rel='noreferrer'
-        style={{ display: 'contents' }}
-      >
-        <TableCell sx={{ paddingLeft: 0 }}>
-          {hasFeedName ? assocGTFSRTFeed.feed_name : assocGTFSRTFeed.provider}
+      <TableCell sx={{ paddingLeft: 0 }}>
+        {hasFeedName ? assocGTFSRTFeed.feed_name : assocGTFSRTFeed.provider}
+      </TableCell>
+      {assocGTFSRTFeed.entity_types !== undefined && (
+        <TableCell
+          sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
+        >
+          {assocGTFSRTFeed.entity_types
+            .map(
+              (entityType) =>
+                ({
+                  tu: 'Trip Updates',
+                  vp: 'Vehicle Positions',
+                  sa: 'Service Alerts',
+                })[entityType],
+            )
+            .join(' and ')}
         </TableCell>
-        {assocGTFSRTFeed.entity_types !== undefined && (
-          <TableCell
-            sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
-          >
-            {assocGTFSRTFeed.entity_types
-              .map(
-                (entityType) =>
-                  ({
-                    tu: 'Trip Updates',
-                    vp: 'Vehicle Positions',
-                    sa: 'Service Alerts',
-                  })[entityType],
-              )
-              .join(' and ')}
-          </TableCell>
-        )}
-      </a>
+      )}
     </TableRow>
   );
 };

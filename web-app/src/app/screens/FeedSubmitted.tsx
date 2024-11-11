@@ -7,6 +7,7 @@ export default function FeedSubmitted(): React.ReactElement {
       <CssBaseline />
       <Typography
         data-cy='feedSubmitSuccess'
+        component='h1'
         variant='h4'
         sx={{
           mt: 10,
