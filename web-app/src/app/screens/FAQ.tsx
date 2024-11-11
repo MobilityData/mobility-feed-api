@@ -18,7 +18,12 @@ export default function FAQ(): React.ReactElement {
           flexDirection: 'column',
         }}
       >
-        <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
+        <Typography
+          component='h1'
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 700 }}
+        >
           Frequently Asked Questions (FAQ){' '}
         </Typography>
         <Box

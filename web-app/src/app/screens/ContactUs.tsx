@@ -50,7 +50,12 @@ export default function ContactUs(): React.ReactElement {
   return (
     <Container component='main'>
       <Box sx={{ maxWidth: '1000px', width: '100%', mx: 'auto' }}>
-        <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
+        <Typography
+          component='h1'
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 700 }}
+        >
           {t('title')}
         </Typography>
         <Box

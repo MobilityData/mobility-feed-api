@@ -146,7 +146,7 @@ describe.only('getProviderElement', () => {
     expect(screen.getByText('Utah Transit Authority (UTA)')).toBeTruthy();
     const parentElement = screen.getByText('Angel Island Tiburon Ferry');
     const spanElement = within(parentElement).getByText('+ 2', {
-      selector: 'a',
+      selector: 'span',
     });
     expect(parentElement).toBeTruthy();
     expect(spanElement).toBeTruthy();

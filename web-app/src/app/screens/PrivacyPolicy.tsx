@@ -17,6 +17,7 @@ export default function TermsAndConditions(): React.ReactElement {
         }}
       >
         <Typography
+          component='h1'
           variant='h4'
           color='primary'
           sx={{ fontWeight: 700, pb: 4 }}

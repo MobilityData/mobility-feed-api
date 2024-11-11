@@ -17,7 +17,12 @@ export default function About(): React.ReactElement {
           flexDirection: 'column',
         }}
       >
-        <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
+        <Typography
+          component='h1'
+          variant='h4'
+          color='primary'
+          sx={{ fontWeight: 700 }}
+        >
           About{' '}
         </Typography>
         <Box
