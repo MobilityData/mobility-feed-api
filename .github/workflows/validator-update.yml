@@ -37,3 +37,15 @@ jobs:
             --schedule-time=$(date -u -d "+24 hours" +%Y-%m-%dT%H:%M:%SZ) \
             --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT} \
             --location=${{ vars.MOBILITY_FEEDS_REGION }}
+  notify-slack-on-failure:
+    needs: [ validator-update ]
+    if: failure() && (github.event_name != 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          PRIORITY: "high"

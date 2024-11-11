@@ -110,15 +110,3 @@ jobs:
           name: feeds_gen
           path: api/src/feeds_gen/
           overwrite: true
-  notify-slack-on-failure:
-    needs: [ build-test ]
-    if: always() && (needs.build-test.result == 'failure')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Notify Slack
-        uses: ./.github/actions/notify-slack
-        with:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          PRIORITY: "high"
