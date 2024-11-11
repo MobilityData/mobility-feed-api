@@ -33,7 +33,7 @@ runs:
       run: |
         if [[ "${{ inputs.PRIORITY }}" == "high" ]]; then
           if [[ -n "${{ inputs.STEP }}" ]]; then
-            printf "🚨 High Priority Alert: ${{ github.workflow }} failed at step \"${{ inputs.STEP }}\". Immediate attention is required to avoid production impact." >> $GITHUB_ENV
+            printf "🚨 High Priority Alert: ${{ github.workflow }} failed at step ${{ inputs.STEP }}. Immediate attention is required to avoid production impact." >> $GITHUB_ENV
           else
             printf "🚨 High Priority Alert: ${{ github.workflow }} failed. Immediate attention is required to avoid production impact." >> $GITHUB_ENV
           fi
@@ -55,7 +55,7 @@ runs:
             {
               "type": "header",
               "text": {
-                "type": "plain_text",
+                "type": "mrkdwn",
                 "text": $message,
                 "emoji": true
               }
