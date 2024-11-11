@@ -23,11 +23,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Failure Notification - TODO remove before merge
-        uses: ./.github/actions/notify-slack
-        with:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          PRIORITY: "medium"
-          STEP: "test step"
+        run: |
+          echo "This is a test failure notification"
+          exit 1
 
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
@@ -117,3 +115,13 @@ jobs:
           name: feeds_gen
           path: api/src/feeds_gen/
           overwrite: true
+  notify-slack-on-failure:
+    needs: [ build-test ]
+    if: always() && (needs.build-test.result == 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          PRIORITY: "high"
