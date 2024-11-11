@@ -27,7 +27,7 @@ jobs:
         with:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           PRIORITY: "high"
-          STEP: "test step"
+#          STEP: "test step"
 
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
