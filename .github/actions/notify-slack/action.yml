@@ -56,17 +56,17 @@ runs:
                 "type": "header",
                 "text": {
                   "type": "plain_text",
-                  "text": "${{ env.message }}",
+                  "text": $(echo "${{ env.message }}" | jq -R .),
                   "emoji": true
                 }
-              },  
+              },
               {
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
                   "text": "See <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|GitHub Action Run Details>"
                 }
-              }    
+              }
             ]
           }
       env:
