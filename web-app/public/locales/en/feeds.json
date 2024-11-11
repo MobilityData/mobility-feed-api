@@ -82,5 +82,6 @@
   "oldVehiclePositionsFeed": "Old Vehicle Positions feed link",
   "relatedGtfsScheduleFeed": "Link to related GTFS Schedule feed",
   "isAuthRequired": "Is authentication required for the feed?",
-  "isAuthRequiredDetails": " Select \"Yes\" if a user has to login or provide credentials to download the feed"
+  "isAuthRequiredDetails": " Select \"Yes\" if a user has to login or provide credentials to download the feed",
+  "detailPageDescription": "Explore the {{formattedName}} {{dataTypeVerbose}} feed details with access to a quality data insights"
 }

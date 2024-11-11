@@ -185,7 +185,20 @@ describe('Feed page', () => {
   });
 
   it('should generate the correct page description', () => {
+    const mockT = jest.fn((key, params) => {
+      switch (key) {
+        case 'common:gtfsSchedule':
+          return 'GTFS schedule';
+        case 'common:gtfsRealtime':
+          return 'GTFS realtime';
+        case 'detailPageDescription':
+          return `Explore the ${params.formattedName} ${params.dataTypeVerbose} feed details with access to a quality data insights`;
+          break;
+      }
+    }) as unknown as TFunction<'feeds', undefined>;
+
     const descriptionAllInfo = generateDescriptionMetaTag(
+      mockT,
       ['Department of Transport', 'Public Transport'],
       'gtfs',
       'Darwin public bus network',
@@ -195,6 +208,7 @@ describe('Feed page', () => {
     );
 
     const descriptionNoProviders = generateDescriptionMetaTag(
+      mockT,
       [],
       'gtfs',
       'Darwin public bus network',
@@ -204,6 +218,7 @@ describe('Feed page', () => {
     );
 
     const descriptionNoName = generateDescriptionMetaTag(
+      mockT,
       ['Department of Transport', 'Public Transport'],
       'gtfs',
       '',
@@ -213,6 +228,7 @@ describe('Feed page', () => {
     );
 
     const descriptionAllInfoRT = generateDescriptionMetaTag(
+      mockT,
       ['Department of Transport', 'Public Transport'],
       'gtfs_rt',
       'Darwin public bus network',
@@ -221,7 +237,12 @@ describe('Feed page', () => {
       'Explore the Department of Transport, Darwin public bus network GTFS realtime feed details with access to a quality data insights',
     );
 
-    const descriptionAllEmpty = generateDescriptionMetaTag([], 'gtfs', '');
+    const descriptionAllEmpty = generateDescriptionMetaTag(
+      mockT,
+      [],
+      'gtfs',
+      '',
+    );
     expect(descriptionAllEmpty).toEqual('');
   });
 });

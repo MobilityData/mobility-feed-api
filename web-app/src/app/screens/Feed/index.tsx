@@ -49,7 +49,7 @@ import {
 import { Trans, useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 import { theme } from '../../Theme';
-import { Helmet } from 'react-helmet';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -77,6 +77,7 @@ export function getFeedFormattedName(
 }
 
 export function generateDescriptionMetaTag(
+  t: TFunction<'feeds'>,
   sortedProviders: string[],
   dataType: 'gtfs' | 'gtfs_rt',
   feedName?: string,
@@ -92,8 +93,9 @@ export function generateDescriptionMetaTag(
   ) {
     return '';
   }
-  const dataTypeVerbose = dataType === 'gtfs' ? 'schedule' : 'realtime';
-  return `Explore the ${formattedName} GTFS ${dataTypeVerbose} feed details with access to a quality data insights`;
+  const dataTypeVerbose =
+    dataType === 'gtfs' ? t('common:gtfsSchedule') : t('common:gtfsRealtime');
+  return t('detailPageDescription', { formattedName, dataTypeVerbose });
 }
 
 export function generatePageTitle(
@@ -174,9 +176,11 @@ const wrapComponent = (
       maxWidth='xl'
     >
       {descriptionMeta !== undefined && (
-        <Helmet>
-          <meta name='description' content={descriptionMeta} />
-        </Helmet>
+        <HelmetProvider>
+          <Helmet>
+            <meta name='description' content={descriptionMeta} />
+          </Helmet>
+        </HelmetProvider>
       )}
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -279,6 +283,7 @@ export default function Feed(): React.ReactElement {
   return wrapComponent(
     feedLoadingStatus,
     generateDescriptionMetaTag(
+      t,
       sortedProviders,
       feed.data_type,
       feed?.feed_name,
