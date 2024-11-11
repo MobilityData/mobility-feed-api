@@ -33,29 +33,26 @@ runs:
       run: |
         if [[ "${{ inputs.PRIORITY }}" == "high" ]]; then
           if [[ -n "${{ inputs.STEP }}" ]]; then
-            printf "🚨 High Priority Alert: ${{ github.workflow }} failed at step ${{ inputs.STEP }}. Immediate attention is required to avoid production impact." >> $GITHUB_ENV
+            message="🚨 High Priority Alert: [${{ github.workflow }}] failed at step \"${{ inputs.STEP }}\". Immediate attention is required to avoid production impact."
           else
-            printf "🚨 High Priority Alert: ${{ github.workflow }} failed. Immediate attention is required to avoid production impact." >> $GITHUB_ENV
+            message="🚨 High Priority Alert: [${{ github.workflow }}] failed. Immediate attention is required to avoid production impact."
           fi
         else
           if [[ -n "${{ inputs.STEP }}" ]]; then
-            printf "🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue at step \"${{ inputs.STEP }}\". This may affect ongoing integration processes." >> $GITHUB_ENV
+            message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue at step \"${{ inputs.STEP }}\". This may affect ongoing integration processes."
           else
-            printf "🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue. This may affect ongoing integration processes." >> $GITHUB_ENV
+            message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue. This may affect ongoing integration processes."
           fi
         fi
 
-    - name: Create Slack Payload
-      id: create_payload
-      shell: bash
-      run: |
+        # Construct the JSON payload and save it to a file
         jq -n --arg message "$message" --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{
           "channel": "C074SPVCH6H",
           "blocks": [
             {
               "type": "header",
               "text": {
-                "type": "mrkdwn",
+                "type": "plain_text",
                 "text": $message,
                 "emoji": true
               }
@@ -71,10 +68,11 @@ runs:
         }' > slack_payload.json
 
     - name: Post notification in Slack channel
-      uses: slackapi/slack-github-action@v1.27.0
+      uses: slackapi/slack-github-action@v1.26.0
       with:
         payload-file-path: ./slack_payload.json
       env:
         SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
         SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
 
