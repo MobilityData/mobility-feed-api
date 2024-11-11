@@ -22,11 +22,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Failure Notification - TODO remove before merge
-        run: |
-          echo "This is a test failure notification"
-          exit 1
-
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
