@@ -7,6 +7,7 @@ describe("buildGithubIssueBody", () => {
   it("should generate content for basic form data with GTFS feed", () => {
     const formData: FeedSubmissionFormRequestBody = {
       isOfficialProducer: "yes",
+      isOfficialFeed: "yes",
       dataType: "gtfs",
       transitProviderName: "Test Agency",
       name: "Test Agency",
@@ -64,6 +65,7 @@ describe("buildGithubIssueBody", () => {
   it("should handle optional location fields gracefully", () => {
     const formData: FeedSubmissionFormRequestBody = {
       isOfficialProducer: "no",
+      isOfficialFeed: "yes",
       dataType: "gtfs",
       transitProviderName: "Test Agency",
       name: "Test Agency",
@@ -111,6 +113,7 @@ describe("buildGithubIssueBody", () => {
   it("should handle non-GTFS data types (tu, vp, sa)", () => {
     const formData: FeedSubmissionFormRequestBody = {
       isOfficialProducer: "yes",
+      isOfficialFeed: "yes",
       dataType: "gtfs_rt",
       transitProviderName: "Test Agency",
       name: "Test Agency",
@@ -159,6 +162,7 @@ describe("buildGithubIssueBody", () => {
   it("should handle missing authentication details", () => {
     const formData: FeedSubmissionFormRequestBody = {
       isOfficialProducer: "",
+      isOfficialFeed: "yes",
       dataType: "gtfs",
       transitProviderName: "Test Agency",
       name: "Test Agency",

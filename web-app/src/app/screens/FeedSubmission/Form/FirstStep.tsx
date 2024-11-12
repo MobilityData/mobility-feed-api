@@ -22,9 +22,11 @@ import { type YesNoFormInput, type FeedSubmissionFormFormInput } from '.';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isValidFeedLink } from '../../../services/feeds/utils';
+import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormFormInputFirstStep {
   isOfficialProducer: YesNoFormInput;
+  isOfficialFeed: 'yes' | 'no' | 'unsure' | undefined;
   dataType: 'gtfs' | 'gtfs_rt';
   transitProviderName?: string;
   feedLink?: string;
@@ -51,6 +53,7 @@ export default function FormFirstStep({
   } = useForm<FeedSubmissionFormFormInputFirstStep>({
     defaultValues: {
       isOfficialProducer: initialValues.isOfficialProducer,
+      isOfficialFeed: initialValues.isOfficialFeed,
       dataType: initialValues.dataType,
       transitProviderName: initialValues.transitProviderName,
       feedLink: initialValues.feedLink,
@@ -136,15 +139,47 @@ export default function FormFirstStep({
           <Grid item sx={{ '&.MuiGrid-item': { pt: '4px' } }}>
             <FormControl
               component='fieldset'
-              error={errors.dataType !== undefined}
+              error={errors.isOfficialFeed !== undefined}
             >
+              <FormLabel required data-cy='isOfficialFeedLabel'>
+                {t('isOfficialSource')}
+              </FormLabel>
+              <FormLabelDescription>
+                {t('isOfficialSourceDetails')}
+              </FormLabelDescription>
+              <Controller
+                rules={{ required: t('form.isOfficialFeedRequired') }}
+                control={control}
+                name='isOfficialFeed'
+                render={({ field }) => (
+                  <>
+                    <Select
+                      {...field}
+                      data-cy='isOfficialFeed'
+                      sx={{ width: '200px' }}
+                    >
+                      <MenuItem value={'yes'}>{t('common:form.yes')}</MenuItem>
+                      <MenuItem value={'no'}>{t('common:form.no')}</MenuItem>
+                      <MenuItem value={'unsure'}>
+                        {t('common:form.notSure')}
+                      </MenuItem>
+                    </Select>
+                    <FormHelperText>
+                      {errors.isOfficialFeed?.message ?? ''}
+                    </FormHelperText>
+                  </>
+                )}
+              />
+            </FormControl>
+          </Grid>
+          <Grid item>
+            <FormControl component='fieldset'>
               <FormLabel required>{t('dataType')}</FormLabel>
               <Controller
-                rules={{ required: t('dataTypeRequired') }}
                 control={control}
                 name='dataType'
                 render={({ field }) => (
-                  <Select {...field} data-cy='dataType'>
+                  <Select {...field} data-cy='dataType' sx={{ width: '200px' }}>
                     <MenuItem value={'gtfs'}>
                       {t('common:gtfsSchedule')}
                     </MenuItem>

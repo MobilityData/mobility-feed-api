@@ -25,6 +25,7 @@ export type AuthTypes =
 
 export interface FeedSubmissionFormFormInput {
   isOfficialProducer: YesNoFormInput;
+  isOfficialFeed: 'yes' | 'no' | 'unsure' | undefined;
   dataType: 'gtfs' | 'gtfs_rt';
   transitProviderName: string;
   feedLink?: string;
@@ -54,6 +55,7 @@ export interface FeedSubmissionFormFormInput {
 
 const defaultFormValues: FeedSubmissionFormFormInput = {
   isOfficialProducer: '',
+  isOfficialFeed: undefined,
   dataType: 'gtfs',
   transitProviderName: '',
   feedLink: '',

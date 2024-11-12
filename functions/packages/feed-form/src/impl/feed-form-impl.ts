@@ -43,7 +43,11 @@ export const writeToSheet = async (
         process.env.GITHUB_TOKEN
       );
     }
-    await sendSlackWebhook(sheetId, githubIssueUrl);
+    await sendSlackWebhook(
+      sheetId,
+      githubIssueUrl,
+      formData.isOfficialFeed === "yes"
+    );
     return {message: "Data written to the new sheet successfully!"};
   } catch (error) {
     logger.error("Error writing to sheet:", error);
@@ -81,6 +85,7 @@ export enum SheetCol {
   UserInterview = "User interview email",
   DataProducerEmail = "Data producer email",
   OfficialProducer = "Are you the official producer or transit agency responsible for this data?",
+  OfficialFeedSource = "Is Official Feed Source",
   ToolsAndSupport = "What tools and support do you use to create your GTFS data?",
   LinkToAssociatedGTFS = "Link to associated GTFS Schedule feed",
   LogoPermission = "Do we have permission to share your logo on https://mobilitydatabase.org/contribute?",
@@ -186,6 +191,7 @@ export function buildFeedRow(
     [SheetCol.UserInterview]: formData.userInterviewEmail ?? "",
     [SheetCol.DataProducerEmail]: formData.dataProducerEmail ?? "",
     [SheetCol.OfficialProducer]: formData.isOfficialProducer,
+    [SheetCol.OfficialFeedSource]: formData.isOfficialFeed ?? "",
     [SheetCol.ToolsAndSupport]: formData.whatToolsUsedText ?? "",
     [SheetCol.LinkToAssociatedGTFS]: formData.gtfsRelatedScheduleLink ?? "",
     [SheetCol.LogoPermission]: formData.hasLogoPermission,
@@ -196,11 +202,20 @@ export function buildFeedRow(
  * Sends a Slack webhook message to the configured Slack webhook URL
  * @param {string} spreadsheetId The ID of the Google Sheet
  * @param {string} githubIssueUrl The URL of the created GitHub issue
+ * @param {boolean} isOfficialSource Whether the feed is an official source
  */
-async function sendSlackWebhook(spreadsheetId: string, githubIssueUrl: string) {
+async function sendSlackWebhook(
+  spreadsheetId: string,
+  githubIssueUrl: string,
+  isOfficialSource: boolean
+) {
   const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
   const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
   if (slackWebhookUrl !== undefined && slackWebhookUrl !== "") {
+    let headerText = "New Feed Added";
+    if (isOfficialSource) {
+      headerText += " 🔹 Official Source";
+    }
     const linksElement = [
       {
         type: "emoji",
@@ -237,7 +252,8 @@ async function sendSlackWebhook(spreadsheetId: string, githubIssueUrl: string) {
           type: "header",
           text: {
             type: "plain_text",
-            text: "New Feed Added",
+            text: headerText,
+            emoji: true,
           },
         },
         {
@@ -259,11 +275,11 @@ async function sendSlackWebhook(spreadsheetId: string, githubIssueUrl: string) {
           ],
         },
         {
-          "type": "rich_text",
-          "elements": [
+          type: "rich_text",
+          elements: [
             {
-              "type": "rich_text_section",
-              "elements": linksElement,
+              type: "rich_text_section",
+              elements: linksElement,
             },
           ],
         },
@@ -292,9 +308,12 @@ async function createGithubIssue(
 ): Promise<string> {
   const githubRepoUrlIssue =
     "https://api.github.com/repos/MobilityData/mobility-database-catalogs/issues";
-  const issueTitle =
+  let issueTitle =
     "New Feed Added" +
     (formData.transitProviderName ? `: ${formData.transitProviderName}` : "");
+  if (formData.isOfficialFeed === "yes") {
+    issueTitle += " - Official Feed";
+  }
   const issueBody = buildGithubIssueBody(formData, spreadsheetId);
   try {
     const response = await axios.post(
@@ -353,7 +372,7 @@ export function buildGithubIssueBody(
   ${formData.isUpdatingFeed === "yes" ? "Feed update" : "New feed"}`;
 
   if (formData.name) {
-  content += `
+    content += `
 
   #### Name
   ${formData.name}`;
