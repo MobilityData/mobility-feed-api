@@ -15,7 +15,8 @@ from utils.logger import Logger
 pubsub_client = None
 
 lock = threading.Lock()
-logger = Logger('load_dataset_on_create').get_logger()
+logger = Logger("load_dataset_on_create").get_logger()
+
 
 def get_pubsub_client():
     with lock:
