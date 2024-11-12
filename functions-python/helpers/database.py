@@ -32,6 +32,7 @@ class Database:
         self.echo = True
         self.engine = None
         self.session = None
+        self.logger = logging.getLogger(__name__)
 
     def start_db_session(self):
         """
