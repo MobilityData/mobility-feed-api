@@ -177,6 +177,8 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         for index, row in self.df.iterrows():
             self.logger.debug(f"Populating Database with Feed [stable_id = {row['mdb_source_id']}]")
             # Create or update the GTFS feed
+            if str(int(float(row["mdb_source_id"]))) != '2155': # TODO: remove before merging
+                continue
             data_type = self.get_data_type(row)
             stable_id = self.get_stable_id(row)
             feed = self.query_feed_by_stable_id(stable_id, data_type)
