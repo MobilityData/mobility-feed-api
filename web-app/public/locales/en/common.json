@@ -30,7 +30,8 @@
         "no": "No",
         "required": "This field is required",
         "submit": "Submit",
-        "select": "Select"
+        "select": "Select",
+        "notSure": "Not sure"
     },
     "country": "Country",
     "chooseCountry": "Choose a country",
