@@ -126,7 +126,7 @@ jobs:
 
     - name: Start API
       run: |
-        scripts/api-start.sh &
+        scripts/api-start.sh > api_logs.txt 2>&1 &  # Redirect stdout and stderr to api_logs.txt
         sleep 10 # Wait for the API to start
 
     - name: Health Check
@@ -150,3 +150,4 @@ jobs:
         path: |
           integration-tests/src/integration_tests_log.html
           integration-tests/src/datasets_validation.csv
+          api_logs.txt
