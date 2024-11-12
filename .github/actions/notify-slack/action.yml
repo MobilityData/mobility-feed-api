@@ -1,9 +1,17 @@
 name: 'Notify Slack'
-description: 'Send a notification to a Slack channel with an error message'
+description: 'Send a notification to a Slack channel with an alert message based on priority level'
 inputs:
   OP_SERVICE_ACCOUNT_TOKEN:
     description: 'The service account token for 1Password'
     required: true
+    type: string
+  PRIORITY:
+    description: 'Priority level of the alert (medium/high)'
+    required: true
+    type: string
+  STEP:
+    description: 'The step in which the issue occurred (optional)'
+    required: false
     type: string
 
 runs:
@@ -19,30 +27,52 @@ runs:
         CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
         SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"
 
+    - name: Set Alert Message
+      id: alert_message
+      shell: bash
+      run: |
+        if [[ "${{ inputs.PRIORITY }}" == "high" ]]; then
+          if [[ -n "${{ inputs.STEP }}" ]]; then
+            message="🚨 High Priority Alert: [${{ github.workflow }}] failed at step \"${{ inputs.STEP }}\". Immediate attention is required to avoid production impact."
+          else
+            message="🚨 High Priority Alert: [${{ github.workflow }}] failed. Immediate attention is required to avoid production impact."
+          fi
+        else
+          if [[ -n "${{ inputs.STEP }}" ]]; then
+            message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue at step \"${{ inputs.STEP }}\". This may affect ongoing integration processes."
+          else
+            message="🚧 Medium Priority Alert: [${{ github.workflow }}] encountered an issue. This may affect ongoing integration processes."
+          fi
+        fi
+
+        # Construct the JSON payload and save it to a file
+        jq -n --arg message "$message" --arg run_url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" '{
+          "channel": "C074SPVCH6H",
+          "blocks": [
+            {
+              "type": "header",
+              "text": {
+                "type": "plain_text",
+                "text": $message,
+                "emoji": true
+              }
+            },
+            {
+              "type": "section",
+              "text": {
+                "type": "mrkdwn",
+                "text": "See <\($run_url)|GitHub Action Run Details>"
+              }
+            }
+          ]
+        }' > slack_payload.json
+
     - name: Post notification in Slack channel
       uses: slackapi/slack-github-action@v1.26.0
       with:
-        payload: |
-          {
-            "channel": "C074SPVCH6H",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": ":x: ERROR running Github action \"${{ github.workflow }}\"",
-                  "emoji": true
-                }
-              },  
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "See https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                }
-              }    
-            ]
-          }
+        payload-file-path: ./slack_payload.json
       env:
         SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
         SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+

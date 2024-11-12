@@ -37,3 +37,15 @@ jobs:
     needs: batch-deployment
     uses: ./.github/workflows/web-prod.yml
     secrets: inherit
+  notify-slack-on-failure:
+    needs: [web-deployment, integration-tests]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          PRIORITY: "high"
