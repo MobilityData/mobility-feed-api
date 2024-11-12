@@ -8,6 +8,7 @@ from typing import List
 from database_gen.sqlacodegen_models import Feed
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.futures import Future
+from google.auth import default
 
 env = os.getenv("ENV", "dev")
 pubsub_topic_name = f"datasets-batch-topic-{env}"
@@ -23,6 +24,10 @@ def get_pubsub_client():
         global pubsub_client
         if pubsub_client is None:
             pubsub_client = pubsub_v1.PublisherClient()
+            credentials, project = default()
+            logging.info(f"Authenticated project: {project}")
+            logging.info(f"Service Account Email: {credentials.service_account_email}")
+
     return pubsub_client
 
 
