@@ -40,8 +40,8 @@ class SearchApiImpl(BaseSearchApi):
         query = query.filter(t_feedsearch.c.data_type != "gbfs")  # Filter out GBFS feeds
         query = query.filter(
             or_(
-                t_feedsearch.c.internal_status == None,  # noqa: E711
-                t_feedsearch.c.internal_status != "wip",
+                t_feedsearch.c.operational_status == None,  # noqa: E711
+                t_feedsearch.c.operational_status != "wip",
                 is_user_email_restricted(),
             )
         )
