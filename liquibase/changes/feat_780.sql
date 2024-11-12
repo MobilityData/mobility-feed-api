@@ -3,9 +3,9 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM pg_type
-        WHERE typname = 'internalstatus'
+        WHERE typname = 'operationalstatus'
     ) THEN
-        CREATE TYPE InternalStatus AS ENUM ('wip');
+        CREATE TYPE OperationalStatus AS ENUM ('wip');
     END IF;
 END $$;
 
@@ -14,10 +14,10 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
-        WHERE table_name = 'Feed'
-        AND column_name = 'internal_status'
+        WHERE table_name = 'feed'
+        AND column_name = 'operational_status'
     ) THEN
-        ALTER TABLE Feed ADD COLUMN internal_status InternalStatus DEFAULT NULL;
+        ALTER TABLE Feed ADD COLUMN operational_status OperationalStatus DEFAULT NULL;
     END IF;
 END $$;
 
@@ -42,7 +42,7 @@ SELECT
     Feed.api_key_parameter_name,
     Feed.license_url,
     Feed.provider,
-    Feed.internal_status,
+    Feed.operational_status,
     -- latest_dataset
     Latest_dataset.id AS latest_dataset_id,
     Latest_dataset.hosted_url AS latest_dataset_hosted_url,
