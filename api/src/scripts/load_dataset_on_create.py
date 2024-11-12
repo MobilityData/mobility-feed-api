@@ -67,6 +67,8 @@ def publish(feed: Feed, topic_path: str):
     data_bytes = json.dumps(payload).encode("utf-8")
     future = get_pubsub_client().publish(topic_path, data=data_bytes)
     future.add_done_callback(lambda _: publish_callback(future, feed.stable_id, topic_path))
+    # Block until the message is published
+    future.result()  # This will wait until the publishing is confirmed
 
 
 def publish_all(feeds: List[Feed]):
