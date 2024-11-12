@@ -70,7 +70,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
             .filter(
                 or_(
-                    Feed.internal_status is None,  # noqa: E711
+                    Feed.internal_status == None,  # noqa: E711
                     Feed.internal_status != "wip",  # Allow WIP feeds to be returned if the user is restricted
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
