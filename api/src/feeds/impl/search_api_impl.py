@@ -9,6 +9,8 @@ from database_gen.sqlacodegen_models import t_feedsearch
 from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
 from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
+from middleware.request_context import is_user_email_restricted
+from sqlalchemy import or_
 
 feed_search_columns = [column for column in t_feedsearch.columns if column.name != "document"]
 
@@ -36,6 +38,13 @@ class SearchApiImpl(BaseSearchApi):
         The search query is also converted to its unaccented version.
         """
         query = query.filter(t_feedsearch.c.data_type != "gbfs")  # Filter out GBFS feeds
+        query = query.filter(
+            or_(
+                t_feedsearch.c.internal_status == None,  # noqa: E711
+                t_feedsearch.c.internal_status != "wip",
+                is_user_email_restricted(),
+            )
+        )
         if feed_id:
             query = query.where(t_feedsearch.c.feed_stable_id == feed_id.strip().lower())
         if data_type:
