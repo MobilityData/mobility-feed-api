@@ -21,8 +21,8 @@ lock = threading.Lock()
 
 def get_pubsub_client():
     credentials, project = default()
-    logging.error(f"Authenticated project: {project}")
-    logging.error(f"Service Account Email: {credentials.service_account_email}")
+    logging.info(f"Authenticated project: {project}")
+    logging.info(f"Service Account Email: {credentials.service_account_email}")
     with lock:
         global pubsub_client
         if pubsub_client is None:
