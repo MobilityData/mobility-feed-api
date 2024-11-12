@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import List, Union, TypeVar
+
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.query import Query
@@ -37,6 +38,8 @@ from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
+from middleware.request_context import is_user_email_restricted
+from sqlalchemy import or_
 from utils.date_utils import valid_iso_date
 from utils.location_translation import (
     create_location_translation_object,
@@ -65,6 +68,13 @@ class FeedsApiImpl(BaseFeedsApi):
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
             .filter(Database().get_query_model(Feed))
             .filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
+            .filter(
+                or_(
+                    Feed.operational_status == None,  # noqa: E711
+                    Feed.operational_status != "wip",
+                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                )
+            )
             .first()
         )
         if feed:
@@ -86,6 +96,13 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         feed_query = feed_filter.filter(Database().get_query_model(Feed))
         feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
+        feed_query = feed_query.filter(
+            or_(
+                Feed.operational_status == None,  # noqa: E711
+                Feed.operational_status != "wip",
+                not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+            )
+        )
         # Results are sorted by provider
         feed_query = feed_query.order_by(Feed.provider, Feed.stable_id)
         feed_query = feed_query.options(*BasicFeedImpl.get_joinedload_options())
@@ -118,6 +135,13 @@ class FeedsApiImpl(BaseFeedsApi):
                 producer_url__ilike=None,
             )
             .filter(Database().get_session().query(Gtfsfeed, t_location_with_translations_en))
+            .filter(
+                or_(
+                    Gtfsfeed.operational_status == None,  # noqa: E711
+                    Gtfsfeed.operational_status != "wip",
+                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                )
+            )
             .outerjoin(Location, Feed.locations)
             .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
             .options(
@@ -156,6 +180,13 @@ class FeedsApiImpl(BaseFeedsApi):
                 producer_url__ilike=None,
             )
             .filter(Database().get_query_model(Gtfsfeed))
+            .filter(
+                or_(
+                    Feed.operational_status == None,  # noqa: E711
+                    Feed.operational_status != "wip",
+                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                )
+            )
             .first()
         )
 
@@ -213,6 +244,13 @@ class FeedsApiImpl(BaseFeedsApi):
             .get_session()
             .query(Gtfsfeed)
             .filter(Gtfsfeed.id.in_(subquery))
+            .filter(
+                or_(
+                    Gtfsfeed.operational_status == None,  # noqa: E711
+                    Gtfsfeed.operational_status != "wip",
+                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                )
+            )
             .options(
                 joinedload(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
@@ -241,6 +279,13 @@ class FeedsApiImpl(BaseFeedsApi):
             Database()
             .get_session()
             .query(Gtfsrealtimefeed, t_location_with_translations_en)
+            .filter(
+                or_(
+                    Gtfsrealtimefeed.operational_status == None,  # noqa: E711
+                    Gtfsrealtimefeed.operational_status != "wip",
+                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                )
+            )
             .outerjoin(Location, Gtfsrealtimefeed.locations)
             .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
             .options(
@@ -301,6 +346,13 @@ class FeedsApiImpl(BaseFeedsApi):
             .get_session()
             .query(Gtfsrealtimefeed)
             .filter(Gtfsrealtimefeed.id.in_(subquery))
+            .filter(
+                or_(
+                    Gtfsrealtimefeed.operational_status == None,  # noqa: E711
+                    Gtfsrealtimefeed.operational_status != "wip",
+                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                )
+            )
             .options(
                 joinedload(Gtfsrealtimefeed.entitytypes),
                 joinedload(Gtfsrealtimefeed.gtfs_feeds),

@@ -23,6 +23,7 @@ describe('Add Feed Form', () => {
       cy.get('[data-cy=isOfficialProducerYes]').click({
         force: true,
       });
+      cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
       cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
         force: true,
       });
@@ -49,6 +50,7 @@ describe('Add Feed Form', () => {
 
     it('should submit a new gtfs realtime feed as not official producer', () => {
       cy.get('[data-cy=isOfficialProducerNo]').click();
+      cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'no');
       cy.muiDropdownSelect('[data-cy=dataType]', 'gtfs_rt');
       cy.get('[data-cy=submitFirstStep]').click();
       cy.url().should('include', '/contribute?step=2');
@@ -70,12 +72,14 @@ describe('Add Feed Form', () => {
     it('should display errors for gtfs feed', () => {
       cy.muiDropdownSelect('[data-cy=isUpdatingFeed]', 'yes');
       cy.get('[data-cy=submitFirstStep]').click();
+      cy.assetMuiError('[data-cy=isOfficialFeedLabel]');
       cy.assetMuiError('[data-cy=isOfficialProducerLabel]');
       cy.assetMuiError('[data-cy=feedLinkLabel]');
       cy.assetMuiError('[data-cy=oldFeedLabel]');
       cy.location('pathname').should('eq', '/contribute');
       // Step 1 values
       cy.get('[data-cy=isOfficialProducerYes]').click();
+      cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
       cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
         force: true,
       });
@@ -106,9 +110,11 @@ describe('Add Feed Form', () => {
       cy.muiDropdownSelect('[data-cy=dataType]', 'gtfs_rt');
       cy.get('[data-cy=submitFirstStep]').click();
       cy.assetMuiError('[data-cy=isOfficialProducerLabel]');
+      cy.assetMuiError('[data-cy=isOfficialFeedLabel]');
       cy.location('pathname').should('eq', '/contribute');
       // Step 1 values
       cy.get('[data-cy=isOfficialProducerYes]').click();
+      cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
       cy.muiDropdownSelect('[data-cy=isUpdatingFeed]', 'yes');
       cy.get('[data-cy=submitFirstStep]').click();
       // Step 2

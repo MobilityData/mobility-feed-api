@@ -7,6 +7,7 @@ export type AuthTypes =
 
 export interface FeedSubmissionFormRequestBody {
   isOfficialProducer: YesNoFormInput;
+  isOfficialFeed: "yes" | "no" | "unsure" | undefined;
   dataType: "gtfs" | "gtfs_rt";
   transitProviderName?: string;
   feedLink?: string;
