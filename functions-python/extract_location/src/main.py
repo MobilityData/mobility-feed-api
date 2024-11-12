@@ -19,7 +19,7 @@ from dataset_service.main import (
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from helpers.database import start_db_session
+from helpers.database import Database
 from helpers.logger import Logger
 from helpers.parser import jsonify_pubsub
 from .bounding_box.bounding_box_extractor import (
@@ -121,11 +121,13 @@ def extract_location_pubsub(cloud_event: CloudEvent):
 
         geometry_polygon = create_polygon_wkt_element(bounds)
 
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
         session = None
         try:
-            session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+            session = db.start_db_session()
             update_dataset_bounding_box(session, dataset_id, geometry_polygon)
-            update_location(reverse_coords(location_geo_points), dataset_id, session)
+            update_location(reverse_coords(
+                location_geo_points), dataset_id, session)
         except Exception as e:
             error = f"Error updating location information in database: {e}"
             logging.error(f"[{dataset_id}] Error while processing: {e}")
@@ -134,7 +136,7 @@ def extract_location_pubsub(cloud_event: CloudEvent):
             raise e
         finally:
             if session is not None:
-                session.close()
+                db.close_db_session(raise_exception=True)
         logging.info(
             f"[{stable_id} - {dataset_id}] Location information updated successfully."
         )
@@ -181,7 +183,8 @@ def extract_location(cloud_event: CloudEvent):
     }
 
     # Create a new CloudEvent object to pass to the PubSub function
-    new_cloud_event = CloudEvent(attributes=attributes, data=new_cloud_event_data)
+    new_cloud_event = CloudEvent(
+        attributes=attributes, data=new_cloud_event_data)
 
     # Call the pubsub function with the constructed CloudEvent
     return extract_location_pubsub(new_cloud_event)
@@ -199,11 +202,12 @@ def extract_location_batch(_):
         return "PUBSUB_TOPIC_NAME environment variable not set.", 500
 
     # Get latest GTFS dataset with no bounding boxes
+    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     session = None
     execution_id = str(uuid.uuid4())
     datasets_data = []
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        session = db.start_db_session()
         # Select all latest datasets with no bounding boxes or all datasets if forced
         datasets = (
             session.query(Gtfsdataset)
@@ -232,14 +236,16 @@ def extract_location_batch(_):
         return "Error while fetching datasets.", 500
     finally:
         if session is not None:
-            session.close()
+            db.close_db_session(raise_exception=True)
 
     # Trigger update location for each dataset by publishing to Pub/Sub
     publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
+    topic_path = publisher.topic_path(
+        os.getenv("PROJECT_ID"), pubsub_topic_name)
     for data in datasets_data:
         message_data = json.dumps(data).encode("utf-8")
         future = publisher.publish(topic_path, message_data)
-        logging.info(f"Published message to Pub/Sub with ID: {future.result()}")
+        logging.info(
+            f"Published message to Pub/Sub with ID: {future.result()}")
 
     return f"Batch function triggered for {len(datasets_data)} datasets.", 200
