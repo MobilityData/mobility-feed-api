@@ -71,7 +71,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Feed.internal_status == None,  # noqa: E711
-                    Feed.internal_status != "wip",  # Allow WIP feeds to be returned if the user is restricted
+                    Feed.internal_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -99,7 +99,7 @@ class FeedsApiImpl(BaseFeedsApi):
         feed_query = feed_query.filter(
             or_(
                 Feed.internal_status == None,  # noqa: E711
-                Feed.internal_status != "wip",  # Allow WIP feeds to be returned if the user is restricted
+                Feed.internal_status != "wip",
                 not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
             )
         )
@@ -138,7 +138,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Gtfsfeed.internal_status == None,  # noqa: E711
-                    Gtfsfeed.internal_status != "wip",  # Allow WIP feeds to be returned if the user is restricted
+                    Gtfsfeed.internal_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -183,7 +183,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Feed.internal_status == None,  # noqa: E711
-                    Feed.internal_status != "wip",  # Allow WIP feeds to be returned if the user is restricted
+                    Feed.internal_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -247,7 +247,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Gtfsfeed.internal_status == None,  # noqa: E711
-                    Gtfsfeed.internal_status != "wip",  # Allow WIP feeds to be returned if the user is restricted
+                    Gtfsfeed.internal_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -282,8 +282,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Gtfsrealtimefeed.internal_status == None,  # noqa: E711
-                    Gtfsrealtimefeed.internal_status
-                    != "wip",  # Allow WIP feeds to be returned if the user is restricted
+                    Gtfsrealtimefeed.internal_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -350,8 +349,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Gtfsrealtimefeed.internal_status == None,  # noqa: E711
-                    Gtfsrealtimefeed.internal_status
-                    != "wip",  # Allow WIP feeds to be returned if the user is restricted
+                    Gtfsrealtimefeed.internal_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
