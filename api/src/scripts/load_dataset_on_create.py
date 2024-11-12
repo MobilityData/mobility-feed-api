@@ -1,14 +1,15 @@
 import json
-import logging
 import os
 import threading
 import uuid
 from typing import List
 
-from database_gen.sqlacodegen_models import Feed
+from google.auth import default
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.futures import Future
-from google.auth import default
+
+from database_gen.sqlacodegen_models import Feed
+from utils.logger import Logger
 
 env = os.getenv("ENV", "dev")
 pubsub_topic_name = f"datasets-batch-topic-{env}"
@@ -17,12 +18,9 @@ project_id = f"mobility-feeds-{env}"
 pubsub_client = None
 
 lock = threading.Lock()
-
+logger = Logger('load_dataset_on_create').get_logger()
 
 def get_pubsub_client():
-    credentials, project = default()
-    logging.info(f"Authenticated project: {project}")
-    logging.info(f"Service Account Email: {credentials.service_account_email}")
     with lock:
         global pubsub_client
         if pubsub_client is None:
@@ -47,9 +45,9 @@ def publish_callback(future: Future, stable_id: str, topic_path: str):
     @param topic_path: The path to the Pub/Sub topic
     """
     if future.exception():
-        logging.info(f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}")
+        logger.info(f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}")
     else:
-        logging.info(f"Published stable_id = {stable_id}.")
+        logger.info(f"Published stable_id = {stable_id}.")
 
 
 def publish(feed: Feed, topic_path: str):
@@ -82,6 +80,11 @@ def publish_all(feeds: List[Feed]):
     :param feeds: The list of feeds to publish
     """
     topic_path = get_topic_path()
+    logger.info(f"Publishing {len(feeds)} feeds to Pub/Sub topic {topic_path}...")
+    credentials, project = default()
+    logger.info(f"Authenticated project: {project}")
+    logger.info(f"Service Account Email: {credentials.service_account_email}")
     for feed in feeds:
+        logger.info(f"Publishing feed {feed.stable_id} to Pub/Sub topic {topic_path}...")
         publish(feed, topic_path)
-    logging.info(f"Published {len(feeds)} feeds to Pub/Sub topic {topic_path}.")
+    logger.info(f"Published {len(feeds)} feeds to Pub/Sub topic {topic_path}.")
