@@ -11,9 +11,6 @@ from google.cloud.pubsub_v1.futures import Future
 from database_gen.sqlacodegen_models import Feed
 from utils.logger import Logger
 
-env = os.getenv("ENV", "dev")
-pubsub_topic_name = f"datasets-batch-topic-{env}"
-project_id = f"mobility-feeds-{env}"
 # Lazy create so we won't try to connect to google cloud when the file is imported.
 pubsub_client = None
 
@@ -30,9 +27,9 @@ def get_pubsub_client():
 
 
 def get_topic_path():
-    if pubsub_topic_name is None or project_id is None:
-        raise ValueError("PUBSUB_TOPIC_NAME and PROJECT_ID must be set in the environment")
-
+    env = os.getenv("ENV", "dev")
+    pubsub_topic_name = f"datasets-batch-topic-{env}"
+    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
     return get_pubsub_client().topic_path(project_id, pubsub_topic_name)
 
 
