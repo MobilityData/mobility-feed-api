@@ -387,7 +387,7 @@ resource "google_cloudfunctions2_function" "update_validation_report" {
       ENV = var.environment
       MAX_RETRY = 10
       BATCH_SIZE = 5
-      WEB_VALIDATOR_URL = var.web_validator_url
+      WEB_VALIDATOR_URL = var.validator_endpoint
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }

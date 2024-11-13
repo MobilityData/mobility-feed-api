@@ -47,7 +47,7 @@ variable "public_hosted_datasets_dns" {
   default = "files.mobilitydatabase.org"
 }
 
-variable "web_validator_url" {
+variable "validator_endpoint" {
   type = string
   description = "URL of the web validator"
   default = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"

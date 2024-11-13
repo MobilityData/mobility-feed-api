@@ -106,7 +106,7 @@ module "functions-python" {
   gcp_region  = var.gcp_region
   environment = var.environment
   transitland_api_key = var.transitland_api_key
-  web_validator_url = var.validator_endpoint
+  validator_endpoint = var.validator_endpoint
 }
 
 module "workflows" {
