@@ -31,7 +31,7 @@ def get_pubsub_client():
 def get_topic_path():
     env = os.getenv("ENV", "dev")
     pubsub_topic_name = f"datasets-batch-topic-{env}"
-    project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+    project_id = f"mobility-feeds-{env}"  # Cannot use GOOGLE_CLOUD_PROJECT because it points to QA for DEV
     return get_pubsub_client().topic_path(project_id, pubsub_topic_name)
 
 
