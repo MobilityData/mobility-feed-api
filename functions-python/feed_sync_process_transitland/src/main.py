@@ -34,8 +34,7 @@ logger = logging.getLogger("feed_processor")
 if not logger.handlers:
     handler = logging.StreamHandler()
     handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s "
-                          "- %(levelname)s - %(message)s")
+        logging.Formatter("%(asctime)s - %(name)s " "- %(levelname)s - %(message)s")
     )
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
@@ -84,8 +83,7 @@ class FeedProcessor:
         """
         try:
             logger.info(
-                f"Starting feed processing "
-                f"for external_id: {payload.external_id}"
+                f"Starting feed processing " f"for external_id: {payload.external_id}"
             )
 
             # Check current state in database
@@ -106,15 +104,13 @@ class FeedProcessor:
                 if current_url != payload.feed_url:
                     logger.info("Processing feed update")
                     logger.debug(
-                        f"Found existing feed: "
-                        f"{current_feed_id} with different URL"
+                        f"Found existing feed: " f"{current_feed_id} with different URL"
                     )
                     # URL changed - handle update
                     self.process_feed_update(payload, current_feed_id)
                 else:
                     logger.info(
-                        f"Feed already exists with "
-                        f"same URL: {payload.external_id}"
+                        f"Feed already exists with " f"same URL: {payload.external_id}"
                     )
                     return
 
@@ -126,8 +122,7 @@ class FeedProcessor:
                 self.publish_to_batch_topic(payload)
 
         except Exception as e:
-            error_msg = (f"Error processing "
-                         f"feed {payload.external_id}: {str(e)}")
+            error_msg = f"Error processing " f"feed {payload.external_id}: {str(e)}"
             logger.error(error_msg)
             self.session.rollback()
             logger.debug("Database transaction rolled back due to error")
@@ -141,8 +136,7 @@ class FeedProcessor:
             payload (FeedPayload): The feed payload for new feed
         """
         logger.info(
-            f"Starting new feed creation "
-            f"for external_id: {payload.external_id}"
+            f"Starting new feed creation " f"for external_id: {payload.external_id}"
         )
 
         # Checks if feed with same URL exists
@@ -154,8 +148,7 @@ class FeedProcessor:
         feed_id = str(uuid.uuid4())
         stable_id = f"{payload.source}-{payload.external_id}"
 
-        logger.debug(f"Generated new feed_id: "
-                     f"{feed_id} and stable_id: {stable_id}")
+        logger.debug(f"Generated new feed_id: " f"{feed_id} and stable_id: {stable_id}")
 
         try:
             # Insert new feed
@@ -234,8 +227,7 @@ class FeedProcessor:
             )
 
             logger.debug(
-                f"Successfully created external ID "
-                f"mapping for feed_id: {feed_id}"
+                f"Successfully created external ID " f"mapping for feed_id: {feed_id}"
             )
             logger.info(
                 f"Created new feed with ID: {feed_id} for "
@@ -249,8 +241,7 @@ class FeedProcessor:
             )
             raise
 
-    def process_feed_update(self, payload: FeedPayload, old_feed_id: str) \
-            -> None:
+    def process_feed_update(self, payload: FeedPayload, old_feed_id: str) -> None:
         """
         Process feed update when URL has changed
 
@@ -259,11 +250,9 @@ class FeedProcessor:
             old_feed_id (str): The ID of the existing feed to be updated
         """
         logger.info(
-            f"Starting feed update process for "
-            f"external_id: {payload.external_id}"
+            f"Starting feed update process for " f"external_id: {payload.external_id}"
         )
-        logger.debug(f"Old feed_id: {old_feed_id}, "
-                     f"New URL: {payload.feed_url}")
+        logger.debug(f"Old feed_id: {old_feed_id}, " f"New URL: {payload.feed_url}")
 
         try:
             # Create new feed with updated URL
@@ -326,8 +315,7 @@ class FeedProcessor:
             )
 
             logger.debug(
-                f"Successfully inserted new feed "
-                f"record for feed_id: {new_feed_id}"
+                f"Successfully inserted new feed " f"record for feed_id: {new_feed_id}"
             )
 
             # Update old feed status to deprecated
@@ -342,8 +330,9 @@ class FeedProcessor:
             self.session.execute(deprecate_query, {"old_feed_id": old_feed_id})
 
             # Update external ID mapping
-            logger.debug(f"Updating external ID mapping "
-                         f"to new feed_id: {new_feed_id}")
+            logger.debug(
+                f"Updating external ID mapping " f"to new feed_id: {new_feed_id}"
+            )
             update_external_id_query = text(
                 """
                 UPDATE public.externalid
@@ -361,8 +350,7 @@ class FeedProcessor:
             )
 
             # Add entry to redirecting ID table
-            logger.debug(f"Creating redirect from "
-                         f"{old_feed_id} to {new_feed_id}")
+            logger.debug(f"Creating redirect from " f"{old_feed_id} to {new_feed_id}")
             redirect_query = text(
                 """
                 INSERT INTO public.redirectingid (source_id, target_id)
@@ -370,8 +358,7 @@ class FeedProcessor:
             """
             )
             self.session.execute(
-                redirect_query, {"old_feed_id": old_feed_id,
-                                 "new_feed_id": new_feed_id}
+                redirect_query, {"old_feed_id": old_feed_id, "new_feed_id": new_feed_id}
             )
 
             logger.info(
@@ -413,7 +400,7 @@ class FeedProcessor:
         return False
 
     def get_current_feed_info(
-            self, external_id: str, source: str
+        self, external_id: str, source: str
     ) -> Tuple[Optional[str], Optional[str]]:
         """
         Get current feed ID and URL for given external ID
@@ -440,8 +427,9 @@ class FeedProcessor:
             query, {"external_id": external_id, "source": source}
         ).fetchone()
         if result:
-            logger.debug(f"Retrieved current feed "
-                         f"info for external_id: {external_id}")
+            logger.debug(
+                f"Retrieved current feed " f"info for external_id: {external_id}"
+            )
             return result[0], result[1]
 
         logger.debug(f"No existing feed found for external_id: {external_id}")
@@ -465,8 +453,7 @@ class FeedProcessor:
             logger.debug(f"Preparing to publish feed_id: {payload.feed_id}")
             future = self.publisher.publish(topic_path, data=data)
             future.result()
-            logger.info(f"Published feed {payload.feed_id} "
-                        f"to dataset batch topic")
+            logger.info(f"Published feed {payload.feed_id} " f"to dataset batch topic")
         except Exception as e:
             error_msg = f"Error publishing to dataset batch topic: {str(e)}"
             logger.error(error_msg)
@@ -484,8 +471,7 @@ def process_feed_event(cloud_event):
     """
     try:
         # Decode payload from Pub/Sub message
-        pubsub_message = (
-            base64.b64decode(cloud_event.data["message"]["data"]).decode())
+        pubsub_message = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         message_data = json.loads(pubsub_message)
 
         payload = FeedPayload(**message_data)
@@ -493,7 +479,6 @@ def process_feed_event(cloud_event):
         db_session = start_db_session(FEEDS_DATABASE_URL)
 
         try:
-
             processor = FeedProcessor(db_session)
             processor.process_feed(payload)
 

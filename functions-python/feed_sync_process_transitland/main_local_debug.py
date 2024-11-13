@@ -83,7 +83,6 @@ if __name__ == "__main__":
     logger.info("-" * 50)
     process_feed_event(cloud_event)
 
-    # Test update scenario
     logger.info("\nProcessing update feed event:")
     logger.info("-" * 50)
     update_payload = feed_payload.copy()
