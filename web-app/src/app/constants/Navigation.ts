@@ -31,13 +31,11 @@ export function buildNavigationItems(
     },
   ];
 
-  if (featureFlags.enableFeedsPage) {
-    navigationItems.push({
-      title: 'Feeds',
-      target: 'feeds',
-      color: 'inherit',
-    });
-  }
+  navigationItems.push({
+    title: 'Feeds',
+    target: 'feeds',
+    color: 'inherit',
+  });
 
   navigationItems.push(
     ...[

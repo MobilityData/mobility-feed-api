@@ -1,9 +1,6 @@
 import './App.css';
 import AppRouter from './router/Router';
-import Footer from './components/Footer';
-import Header from './components/Header';
 import { BrowserRouter } from 'react-router-dom';
-import AppSpinner from './components/AppSpinner';
 import { RemoteConfigProvider } from './context/RemoteConfigProvider';
 import { useDispatch } from 'react-redux';
 import { anonymousLogin } from './store/profile-reducer';
@@ -13,6 +10,7 @@ import { I18nextProvider } from 'react-i18next';
 import { app } from '../firebase';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import AppContainer from './AppContainer';
 
 function App(): React.ReactElement {
   const dispatch = useDispatch();
@@ -35,15 +33,9 @@ function App(): React.ReactElement {
       <I18nextProvider i18n={i18n}>
         <Suspense>
           <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <div id='app-main-container'>
-              <AppSpinner>
-                <BrowserRouter>
-                  <Header />
-                  {isAppReady ? <AppRouter /> : null}
-                </BrowserRouter>
-              </AppSpinner>
-              <Footer />
-            </div>
+            <BrowserRouter>
+              <AppContainer>{isAppReady ? <AppRouter /> : null}</AppContainer>
+            </BrowserRouter>
           </LocalizationProvider>
         </Suspense>
       </I18nextProvider>

@@ -9,6 +9,7 @@ import {
   Typography,
   Button,
   Grid,
+  Skeleton,
 } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
 import '../../styles/SignUp.css';
@@ -265,11 +266,21 @@ export default function Feed(): React.ReactElement {
   }, [feed, needsToLoadFeed]);
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
-  if (needsToLoadFeed) {
+  const areDatasetsLoading = feed?.data_type === 'gtfs' &&  datasetLoadingStatus === 'loading';
+  const isCurrenltyLoadingFeed = feedLoadingStatus === 'loading' || areDatasetsLoading;
+  if (needsToLoadFeed || isCurrenltyLoadingFeed ) {
     return wrapComponent(
       feedLoadingStatus,
       undefined,
-      <span>{t('common:loading')}</span>,
+      <Box>
+        <Skeleton animation="wave" variant="text" sx={{ fontSize: '4rem' }} />
+          <Box sx={{display: 'flex', justifyContent: 'space-between'}}>
+            <Skeleton animation="wave" variant="rectangular" width={'45%'} height={'50vh'} />
+            <Skeleton animation="wave" variant="rectangular" width={'45%'} height={'50vh'} />
+          {/* <span>{t('common:loading')}</span> */}
+        </Box>
+      </Box>
+      ,
     );
   }
   const hasDatasets = datasets !== undefined && datasets.length > 0;
@@ -440,13 +451,13 @@ export default function Feed(): React.ReactElement {
               xs: feed?.data_type === 'gtfs' ? 'column-reverse' : 'column',
               md: 'row',
             }}
-            sx={{ gap: '10px' }}
+            sx={{ gap: 3, flexWrap: 'nowrap' }}
             justifyContent={'space-between'}
           >
             {feed?.data_type === 'gtfs' && (
               <ContentBox
                 title={t('boundingBoxTitle')}
-                width={{ xs: '100%', md: '42%' }}
+                width={{ xs: '100%', md: 'auto' }}
                 outlineColor={theme.palette.primary.dark}
                 padding={2}
               >
@@ -467,7 +478,7 @@ export default function Feed(): React.ReactElement {
               feed={feed}
               sortedProviders={sortedProviders}
               latestDataset={latestDataset}
-              width={{ xs: '100%', md: '55%' }}
+              width={{ xs: '100%'}}
             />
 
             {feed?.data_type === 'gtfs_rt' && relatedFeeds !== undefined && (
