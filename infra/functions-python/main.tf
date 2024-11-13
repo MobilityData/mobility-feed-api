@@ -694,6 +694,7 @@ resource "google_pubsub_topic_iam_member" "functions_publisher" {
   for_each = {
     dataset_updates = google_pubsub_topic.dataset_updates.name
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
+    feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
   }
 
   project = var.project_id
@@ -707,6 +708,7 @@ resource "google_pubsub_topic_iam_member" "functions_subscriber" {
   for_each = {
     dataset_updates = google_pubsub_topic.dataset_updates.name
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
+    feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
   }
 
   project = var.project_id
