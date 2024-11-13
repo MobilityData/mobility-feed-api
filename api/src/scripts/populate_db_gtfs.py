@@ -228,7 +228,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         Trigger downstream tasks after populating the database
         """
         self.logger.info("Triggering downstream tasks")
-        self.logger.debug(
+        self.logger.info(
             f"New feeds added to the database: "
             f"{','.join([feed.stable_id for feed in self.added_gtfs_feeds] if self.added_gtfs_feeds else [])}"
         )
