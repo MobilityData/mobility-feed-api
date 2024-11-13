@@ -2,6 +2,8 @@ import pytest
 from unittest.mock import Mock, patch, call
 from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
+
+from database_gen.sqlacodegen_models import Gtfsfeed
 from feed_sync_dispatcher_transitland.src.main import (
     TransitFeedSyncProcessor,
     FeedSyncPayload,
@@ -90,24 +92,24 @@ def test_extract_operators_data(processor):
 
 def test_check_external_id(processor):
     mock_db_session = Mock(spec=DBSession)
-    mock_db_session.execute.return_value.fetchone.return_value = (1,)
+    mock_db_session.query.return_value.filter.return_value.all.return_value = (1,)
     result = processor.check_external_id(mock_db_session, "onestop1", "TLD")
     assert result is True
 
-    mock_db_session.execute.return_value.fetchone.return_value = None
+    mock_db_session.query.return_value.filter.return_value.all.return_value = None
     result = processor.check_external_id(mock_db_session, "onestop2", "TLD")
     assert result is False
 
 
 def test_get_mbd_feed_url(processor):
     mock_db_session = Mock(spec=DBSession)
-    mock_db_session.execute.return_value.fetchone.return_value = (
-        "http://example.com/feed1",
-    )
+    mock_db_session.query.return_value.filter.return_value.all.return_value = [
+        Gtfsfeed(producer_url="http://example.com/feed1")
+    ]
     result = processor.get_mbd_feed_url(mock_db_session, "onestop1", "TLD")
     assert result == "http://example.com/feed1"
 
-    mock_db_session.execute.return_value.fetchone.return_value = None
+    mock_db_session.query.return_value.filter.return_value.all.return_value = None
     result = processor.get_mbd_feed_url(mock_db_session, "onestop2", "TLD")
     assert result is None
 
@@ -343,7 +345,7 @@ def test_get_data_retries(processor):
     with patch("time.sleep", return_value=None) as mock_sleep:
         result = processor.get_data(
             url="http://example.com",
-            apikey="dummy_api_key",
+            api_key="dummy_api_key",
             session=mock_session,
             max_retries=3,
             initial_delay=1,
