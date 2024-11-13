@@ -3,6 +3,7 @@ import os
 import threading
 import uuid
 from typing import List
+from concurrent import futures
 
 from google.auth import default
 from google.cloud import pubsub_v1
@@ -48,11 +49,12 @@ def publish_callback(future: Future, stable_id: str, topic_path: str):
         logger.info(f"Published stable_id = {stable_id}.")
 
 
-def publish(feed: Feed, topic_path: str):
+def publish(feed: Feed, topic_path: str) -> Future:
     """
     Publishes a feed to the Pub/Sub topic.
     :param feed: The feed to publish
     :param topic_path: The path to the Pub/Sub topic
+    :return: The Future object representing the result of the publishing operation
     """
     payload = {
         "execution_id": f"batch-uuid-{uuid.uuid4()}",
@@ -68,8 +70,7 @@ def publish(feed: Feed, topic_path: str):
     data_bytes = json.dumps(payload).encode("utf-8")
     future = get_pubsub_client().publish(topic_path, data=data_bytes)
     future.add_done_callback(lambda _: publish_callback(future, feed.stable_id, topic_path))
-    # Block until the message is published
-    future.result()  # This will wait until the publishing is confirmed
+    return future
 
 
 def publish_all(feeds: List[Feed]):
@@ -82,7 +83,10 @@ def publish_all(feeds: List[Feed]):
     credentials, project = default()
     logger.info(f"Authenticated project: {project}")
     logger.info(f"Service Account Email: {credentials.service_account_email}")
+    publish_futures = []
     for feed in feeds:
         logger.info(f"Publishing feed {feed.stable_id} to Pub/Sub topic {topic_path}...")
-        publish(feed, topic_path)
+        future = publish(feed, topic_path)
+        publish_futures.append(future)
+    futures.wait(publish_futures, return_when=futures.ALL_COMPLETED)
     logger.info(f"Published {len(feeds)} feeds to Pub/Sub topic {topic_path}.")
