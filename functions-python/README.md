@@ -31,6 +31,7 @@ The function configuration file contains the following properties:
 - `max_instance_count`: The maximum number of function instances that can be created in response to a load.
 - `min_instance_count`: The minimum number of function instances that can be created in response to a load.
 - `available_cpu_count`: The number of CPU cores that are available to the function.
+- `available_memory`: The amount of memory available to the function.
 
 # Local Setup
 

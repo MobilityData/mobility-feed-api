@@ -35,7 +35,7 @@ def feed_sync_dispatcher(
     """
     publisher = get_pubsub_client()
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
+        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
         payloads = feed_sync_processor.process_sync(session, execution_id)
     except Exception as error:
         logging.error(f"Error processing feeds sync: {error}")
@@ -47,7 +47,7 @@ def feed_sync_dispatcher(
 
     for payload in payloads:
         data_str = json.dumps(payload.payload.__dict__)
-        print(f"Publishing {data_str} to {pubsub_topic_path}.")
+        logging.info(f"Publishing {data_str} to {pubsub_topic_path}.")
         future = publish(publisher, pubsub_topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
             lambda _: feed_sync_processor.publish_callback(

@@ -47,7 +47,7 @@ variable "public_hosted_datasets_dns" {
   default = "files.mobilitydatabase.org"
 }
 
-variable "web_validator_url" {
+variable "validator_endpoint" {
   type = string
   description = "URL of the web validator"
   default = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
@@ -63,4 +63,9 @@ variable "gbfs_scheduler_schedule" {
     type        = string
     description = "Schedule for the GBFS scheduler job"
     default     = "0 0 1 * *" # every month on the first day at 00:00
+}
+
+variable "transitland_api_key" {
+    type        = string
+    description = "Transitland API key"
 }
