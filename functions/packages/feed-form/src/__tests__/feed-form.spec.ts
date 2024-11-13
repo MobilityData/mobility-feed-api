@@ -8,6 +8,7 @@ import {type FeedSubmissionFormRequestBody} from "../impl/types";
 const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
   name: "Sample Feed",
   isOfficialProducer: "yes",
+  isOfficialFeed: "yes",
   dataType: "gtfs",
   transitProviderName: "Sample Transit Provider",
   feedLink: "https://example.com/feed",
@@ -137,6 +138,7 @@ describe("Feed Form Implementation", () => {
       [SheetCol.LinkToAssociatedGTFS]:
         sampleRequestBodyGTFS.gtfsRelatedScheduleLink,
       [SheetCol.LogoPermission]: sampleRequestBodyGTFS.hasLogoPermission,
+      [SheetCol.OfficialFeedSource]: sampleRequestBodyGTFS.isOfficialFeed,
     });
   });
 });

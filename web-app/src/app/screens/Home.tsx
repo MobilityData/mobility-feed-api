@@ -79,6 +79,7 @@ function Component(): React.ReactElement {
         maxWidth={{ xs: '100%', md: '1600px' }}
       >
         <Typography
+          component={'h1'}
           sx={{
             fontSize: {
               xs: '36px',
@@ -95,7 +96,7 @@ function Component(): React.ReactElement {
           Explore and Access Global Transit Data
         </Typography>
         <Typography
-          component='h1'
+          component='h2'
           variant='h5'
           sx={{
             textAlign: 'center',
@@ -105,11 +106,17 @@ function Component(): React.ReactElement {
           }}
         >
           Currently serving over
-          <Box component='span' sx={{ fontSize: 30, color: '#3859FA', mx: 1 }}>
+          <Box
+            component='span'
+            sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
+          >
             2000
           </Box>
           transit data feeds from
-          <Box component='span' sx={{ fontSize: 30, color: '#3859FA', mx: 1 }}>
+          <Box
+            component='span'
+            sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
+          >
             70
           </Box>
           countries.

@@ -2,8 +2,7 @@ import * as React from 'react';
 import {
   Box,
   Chip,
-  IconButton,
-  Popover,
+  Popper,
   Table,
   TableBody,
   TableCell,
@@ -21,11 +20,10 @@ import {
 import BusAlertIcon from '@mui/icons-material/BusAlert';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import GtfsRtEntities from './GtfsRtEntities';
-import CloseIcon from '@mui/icons-material/Close';
 import { theme } from '../../Theme';
+import { Link } from 'react-router-dom';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -78,12 +76,12 @@ export const getDataTypeElement = (
 export default function SearchTable({
   feedsData,
 }: SearchTableProps): React.ReactElement {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [providersPopoverData, setProvidersPopoverData] = React.useState<
     string[] | undefined
   >(undefined);
   const { t } = useTranslation('feeds');
   if (feedsData === undefined) return <></>;
-  const navigate = useNavigate();
 
   const getProviderElement = (
     feed: GTFSFeedType | GTFSRTFeedType,
@@ -97,20 +95,25 @@ export default function SearchTable({
     let manyProviders: JSX.Element | undefined;
     if (providers.length > 1) {
       manyProviders = (
-        <a
+        <span
           style={{
             fontStyle: 'italic',
             fontSize: '14px',
             fontWeight: 'bold',
             color: theme.palette.primary.dark,
+            padding: 2,
           }}
-          onClick={(event) => {
-            event.stopPropagation();
+          onMouseEnter={(event) => {
             setProvidersPopoverData(providers);
+            setAnchorEl(event.currentTarget);
+          }}
+          onMouseLeave={() => {
+            setProvidersPopoverData(undefined);
+            setAnchorEl(null);
           }}
         >
           +&nbsp;{providers.length - 1}
-        </a>
+        </span>
       );
     }
     return (
@@ -131,8 +134,11 @@ export default function SearchTable({
     );
   };
 
+  // Reason for all component overrite is for SEO purposes.
+  // TODO: This code is stretching the limits using <Table> to refactor out of table
   return (
     <Table
+      component={Box}
       size='small'
       sx={{
         minWidth: 650,
@@ -141,42 +147,47 @@ export default function SearchTable({
       aria-label='simple table'
     >
       <TableHead
+        component={Box}
         sx={{
           fontWeight: 'bold',
         }}
       >
-        <TableRow>
-          <HeaderTableCell>{t('transitProvider')}</HeaderTableCell>
-          <HeaderTableCell>{t('location')}</HeaderTableCell>
-          <HeaderTableCell>{t('feedDescription')}</HeaderTableCell>
-          <HeaderTableCell>{t('dataType')}</HeaderTableCell>
+        <TableRow component={Box}>
+          <HeaderTableCell component={'h6'}>
+            {t('transitProvider')}
+          </HeaderTableCell>
+          <HeaderTableCell component={'h6'}>{t('location')}</HeaderTableCell>
+          <HeaderTableCell component={'h6'}>
+            {t('feedDescription')}
+          </HeaderTableCell>
+          <HeaderTableCell component={'h6'}>{t('dataType')}</HeaderTableCell>
         </TableRow>
       </TableHead>
-
       <TableBody
+        component={Box}
         sx={{
-          'tr:first-of-type td:last-child': {
+          '.feed-row:first-of-type .feed-column:last-child': {
             borderTopRightRadius: '6px',
           },
-          'tr:first-of-type td:first-of-type': {
+          '.feed-row:first-of-type .feed-column:first-of-type': {
             borderTopLeftRadius: '6px',
           },
-          'tr:first-of-type td': {
+          '.feed-row:first-of-type .feed-column': {
             borderTop: '1px solid black',
           },
-          'tr:last-child td:last-child': {
+          '.feed-row:last-child .feed-column:last-child': {
             borderBottomRightRadius: '6px',
           },
-          'tr:last-child td:first-of-type': {
+          '.feed-row:last-child .feed-column:first-of-type': {
             borderBottomLeftRadius: '6px',
           },
-          'tr:last-child td': {
+          '.feed-row:last-child .feed-column': {
             borderBottom: '1px solid black',
           },
-          'tr td:first-of-type': {
+          '.feed-row .feed-column:first-of-type': {
             borderLeft: '1px solid black',
           },
-          'tr td:last-child': {
+          '.feed-row .feed-column:last-child': {
             borderRight: '1px solid black',
             minWidth: '210px',
           },
@@ -184,26 +195,33 @@ export default function SearchTable({
       >
         {feedsData?.results?.map((feed) => (
           <TableRow
+            className='feed-row'
+            component={Link}
+            to={`/feeds/${feed.id}`}
             key={feed.id}
             sx={{
+              textDecoration: 'none',
               backgroundColor: 'white',
-              td: {
+              '.feed-column': {
                 fontSize: '16px',
                 borderBottom: '1px solid black',
               },
-              '&:hover': {
+              '&:hover, &:focus': {
                 backgroundColor: theme.palette.background.paper,
                 cursor: 'pointer',
               },
             }}
-            onClick={() => {
-              navigate(`/feeds/${feed.id}`);
-            }}
           >
-            <TableCell>{getProviderElement(feed)}</TableCell>
-            <TableCell>{getLocationName(feed.locations)}</TableCell>
-            <TableCell>{feed.feed_name}</TableCell>
-            <TableCell>
+            <TableCell className='feed-column' component={Box}>
+              {getProviderElement(feed)}
+            </TableCell>
+            <TableCell className='feed-column' component={Box}>
+              {getLocationName(feed.locations)}
+            </TableCell>
+            <TableCell className='feed-column' component={Box}>
+              {feed.feed_name}
+            </TableCell>
+            <TableCell className='feed-column' component={Box}>
               <Box sx={{ display: 'flex' }}>
                 {getDataTypeElement(feed.data_type)}
                 {feed.data_type === 'gtfs_rt' && (
@@ -214,49 +232,46 @@ export default function SearchTable({
           </TableRow>
         ))}
       </TableBody>
+
       {providersPopoverData !== undefined && (
-        <Popover
+        <Popper
           open={providersPopoverData !== undefined}
-          onClose={() => {
-            setProvidersPopoverData(undefined);
-          }}
-          anchorReference='none'
+          anchorEl={anchorEl}
+          placement='top'
           sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
+            backgroundColor: theme.palette.background.paper,
+            boxShadow: '0px 1px 4px 2px rgba(0,0,0,0.2)',
           }}
         >
           <Box
             sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
               padding: '10px',
-              width: '500px',
+              pb: 0,
+              width: '400px',
               maxWidth: '100%',
             }}
           >
-            <Typography variant='h6' sx={{ p: 0 }}>
+            <Typography variant='h6' sx={{ p: 0, fontSize: '16px' }}>
               Transit Providers - {providersPopoverData[0]}
             </Typography>
-            <IconButton
-              onClick={() => {
-                setProvidersPopoverData(undefined);
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
           </Box>
 
-          <Box sx={{ maxHeight: '700px', overflowY: 'scroll' }}>
+          <Box sx={{ fontSize: '14px', display: 'inline' }}>
             <ul>
-              {providersPopoverData.map((provider) => (
+              {providersPopoverData.slice(0, 10).map((provider) => (
                 <li key={provider}>{provider}</li>
               ))}
+              {providersPopoverData.length > 10 && (
+                <li>
+                  <b>
+                    See detail page to view {providersPopoverData.length - 10}{' '}
+                    others
+                  </b>
+                </li>
+              )}
             </ul>
           </Box>
-        </Popover>
+        </Popper>
       )}
     </Table>
   );

@@ -93,6 +93,7 @@ function Component(): React.ReactElement {
               }}
             >
               <Typography
+                component='h1'
                 variant='h4'
                 sx={{
                   color: theme.palette.primary.main,

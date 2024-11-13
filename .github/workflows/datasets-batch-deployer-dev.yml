@@ -21,3 +21,15 @@ jobs:
       DATASETS_BUCKET_NAME: 'mobilitydata-datasets-dev'
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
+  notify-slack-on-failure:
+    needs: [ deploy ]
+    if: always() && (needs.deploy.result == 'failure') && (github.event_name != 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          PRIORITY: "medium"

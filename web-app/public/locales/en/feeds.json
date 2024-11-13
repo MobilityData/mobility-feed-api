@@ -24,6 +24,7 @@
     "signUpAction": "Sign up for an account",
     "loginSuccess": "You were successfully logged in, you can now add or update a feed.",
     "dataTypeRequired": "Data format required",
+    "isOfficialFeedRequired": "Official feed required",
     "feedLinkRequired": "Feed link required",
     "oldFeedLinkRequired": "Old feed link required",
     "dataProducerEmailRequired": "Data producer email required",
@@ -59,6 +60,8 @@
   "boundingBoxTitle": "Bounding box from stops.txt",
   "unableToGenerateBoundingBox": "Unable to generate bounding box.",
   "areYouOfficialProducer": "Are you the official producer or transit agency responsible for this data ?",
+  "isOfficialSource": "Is this an official data source?",
+  "isOfficialSourceDetails": "Select \"Yes\" if the inputted feed is the official source of information by the transit provider and should be used to display to riders.",
   "feedLink": "Feed Link",
   "areYouUpdatingFeed": "Are you updating a feed?",
   "oldFeedLink": "Old Feed Link",
@@ -82,5 +85,6 @@
   "oldVehiclePositionsFeed": "Old Vehicle Positions feed link",
   "relatedGtfsScheduleFeed": "Link to related GTFS Schedule feed",
   "isAuthRequired": "Is authentication required for the feed?",
-  "isAuthRequiredDetails": " Select \"Yes\" if a user has to login or provide credentials to download the feed"
+  "isAuthRequiredDetails": " Select \"Yes\" if a user has to login or provide credentials to download the feed",
+  "detailPageDescription": "Explore the {{formattedName}} {{dataTypeVerbose}} feed details with access to a quality data insights"
 }

@@ -24,7 +24,12 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
   return (
     <Container component='main' sx={{ my: 0, mx: 'auto' }}>
       <CssBaseline />
-      <Typography variant='h4' color='primary' sx={{ fontWeight: 700 }}>
+      <Typography
+        component='h1'
+        variant='h4'
+        color='primary'
+        sx={{ fontWeight: 700 }}
+      >
         Frequently Asked Questions about Adding Feeds
       </Typography>
       <Box

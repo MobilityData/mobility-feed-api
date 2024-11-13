@@ -8,7 +8,7 @@ import {
 
 interface GTFSAnalyticsState {
   feedMetrics: GTFSFeedMetrics[];
-  historicalMetrics: Map<string, FeatureMetrics>;
+  historicalMetrics: Record<string, FeatureMetrics>;
   noticeMetrics: NoticeMetrics[];
   featuresMetrics: FeatureMetrics[];
   status: 'loading' | 'loaded' | 'failed';
@@ -19,7 +19,7 @@ interface GTFSAnalyticsState {
 
 const initialState: GTFSAnalyticsState = {
   feedMetrics: [],
-  historicalMetrics: new Map(),
+  historicalMetrics: {},
   noticeMetrics: [],
   featuresMetrics: [],
   status: 'loading',
