@@ -266,21 +266,60 @@ export default function Feed(): React.ReactElement {
   }, [feed, needsToLoadFeed]);
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
-  const areDatasetsLoading = feed?.data_type === 'gtfs' &&  datasetLoadingStatus === 'loading';
-  const isCurrenltyLoadingFeed = feedLoadingStatus === 'loading' || areDatasetsLoading;
-  if (needsToLoadFeed || isCurrenltyLoadingFeed ) {
+  const areDatasetsLoading =
+    feed?.data_type === 'gtfs' && datasetLoadingStatus === 'loading';
+  const isCurrenltyLoadingFeed =
+    feedLoadingStatus === 'loading' || areDatasetsLoading;
+  if (needsToLoadFeed || isCurrenltyLoadingFeed) {
     return wrapComponent(
       feedLoadingStatus,
       undefined,
       <Box>
-        <Skeleton animation="wave" variant="text" sx={{ fontSize: '4rem' }} />
-          <Box sx={{display: 'flex', justifyContent: 'space-between'}}>
-            <Skeleton animation="wave" variant="rectangular" width={'45%'} height={'50vh'} />
-            <Skeleton animation="wave" variant="rectangular" width={'45%'} height={'50vh'} />
-          {/* <span>{t('common:loading')}</span> */}
+        <Skeleton
+          animation='wave'
+          variant='text'
+          sx={{ fontSize: '2rem', width: '300px' }}
+        />
+        <Skeleton
+          animation='wave'
+          variant='text'
+          sx={{ fontSize: '3rem', width: { xs: '100%', sm: '500px' } }}
+        />
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            width={'162px'}
+            height={'40px'}
+          />
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            width={'162px'}
+            height={'40px'}
+          />
         </Box>
-      </Box>
-      ,
+        <Box
+          sx={{
+            mt: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 3,
+            flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          }}
+        >
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            sx={{ width: { xs: '100%', sm: '42%' }, height: '630px' }}
+          />
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            sx={{ width: { xs: '100%', sm: '58%' }, height: '630px' }}
+          />
+        </Box>
+      </Box>,
     );
   }
   const hasDatasets = datasets !== undefined && datasets.length > 0;
@@ -413,16 +452,12 @@ export default function Feed(): React.ReactElement {
             disableElevation
             variant='contained'
             sx={{ marginRight: 2, my: 1 }}
+            href={downloadLatestUrl}
+            target='_blank'
+            rel='noreferrer'
+            id='download-latest-button'
           >
-            <a
-              href={downloadLatestUrl}
-              target='_blank'
-              className='btn-link'
-              rel='noreferrer'
-              id='download-latest-button'
-            >
-              {t('downloadLatest')}
-            </a>
+            {t('downloadLatest')}
           </Button>
         )}
         {feed?.source_info?.license_url !== undefined &&
@@ -431,15 +466,11 @@ export default function Feed(): React.ReactElement {
               disableElevation
               variant='contained'
               sx={{ marginRight: 2 }}
+              href={feed?.source_info?.license_url}
+              target='_blank'
+              rel='noreferrer'
             >
-              <a
-                href={feed?.source_info?.license_url}
-                target='_blank'
-                className='btn-link'
-                rel='noreferrer'
-              >
-                {t('seeLicense')}
-              </a>
+              {t('seeLicense')}
             </Button>
           )}
       </Grid>
@@ -478,7 +509,7 @@ export default function Feed(): React.ReactElement {
               feed={feed}
               sortedProviders={sortedProviders}
               latestDataset={latestDataset}
-              width={{ xs: '100%'}}
+              width={{ xs: '100%' }}
             />
 
             {feed?.data_type === 'gtfs_rt' && relatedFeeds !== undefined && (
