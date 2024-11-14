@@ -14,25 +14,49 @@
 #  limitations under the License.
 #
 
+from contextlib import contextmanager
 import os
 import threading
-from typing import Final
+from typing import Final, Optional, TYPE_CHECKING
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import logging
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
+    from sqlalchemy.orm import Session
 
 DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
 lock = threading.Lock()
 
 
 class Database:
-    def __init__(self, database_url: str = None):
-        self.database_url = database_url or os.getenv("DATABASE_URL")
-        self.echo = True
-        self.engine = None
-        self.session = None
+    def __init__(self, database_url: Optional[str] = None, echo: bool = True):
+        self.database_url: str = database_url if database_url else os.getenv(
+            "FEEDS_DATABASE_URL")
+        if self.database_url is None:
+            raise Exception("Database URL not provided.")
 
+        self.echo = echo
+        self.engine: "Engine" = None
+        self.connection_attempts: int = 0
+        self.logger = logging.getLogger(__name__)
+
+    def get_engine(self) -> "Engine":
+        """
+        Returns the database engine
+        """
+        if self.engine is None:
+            global lock
+            with lock:
+                self.engine = create_engine(
+                    self.database_url, echo=self.echo, pool_size=5, max_overflow=0)
+                self.logger.debug("Database connected.")
+
+        return self.engine
+
+    @contextmanager
     def start_db_session(self):
         """
         Starts a session
@@ -45,12 +69,13 @@ class Database:
                 self.connection_attempts += 1
                 self.logger.debug(
                     f"Database connection attempt #{self.connection_attempts}.")
-                self.engine = create_engine(database_url, echo=echo)
+                self.engine = create_engine(
+                    self.database_url, echo=self.echo, pool_size=5, max_overflow=0)
                 self.logger.debug("Database connected.")
-            if self.session is not None and self.session.is_active:
-                self.session.close()
-            self.session = sessionmaker(self.engine)()
-            return self.session
+            # if self.session is not None and self.session.is_active:
+            #     self.session.close()
+            session = sessionmaker(self.engine)()
+            yield session
         except Exception as e:
             self.logger.error(
                 f"Database new session creation failed with exception: \n {e}")
@@ -67,9 +92,9 @@ class Database:
         try:
             if self.session is not None:
                 self.session.close()
-                logging.info("Database session closed.")
+                self.logger.info("Database session closed.")
         except Exception as error:
-            logging.error(f"Error closing database session: {error}")
+            self.logger.error(f"Error closing database session: {error}")
             if raise_exception:
                 raise error
 
@@ -83,5 +108,5 @@ class Database:
                 text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
             return True
         except Exception as error:
-            logging.error(f"Error raised while refreshing view: {error}")
+            self.logger.error(f"Error raised while refreshing view: {error}")
         return False

@@ -20,7 +20,8 @@ TEST_GTFS_RT_FEED_STABLE_ID = "mdb-1561"
 date_string: Final[str] = "2024-01-31 00:00:00"
 date_format: Final[str] = "%Y-%m-%d %H:%M:%S"
 one_day: Final[timedelta] = timedelta(days=1)
-datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, date_format)
+datasets_download_first_date: Final[datetime] = datetime.strptime(
+    date_string, date_format)
 
 
 @contextlib.contextmanager
@@ -30,7 +31,8 @@ def populate_database(db: Database, data_dirs: str):
         # Check if connected to test DB.
         url = make_url(db.engine.url)
         if not is_test_db(url):
-            raise Exception("Not connected to MobilityDatabaseTest, aborting operation")
+            raise Exception(
+                "Not connected to MobilityDatabaseTest, aborting operation")
 
         # Default is to empty the database before populating. To not empty the database, set the environment variable
         if (keep_db_before_populating := os.getenv("KEEP_DB_BEFORE_POPULATING")) is None or not strtobool(
@@ -46,7 +48,8 @@ def populate_database(db: Database, data_dirs: str):
         ]
 
         if len(csv_filepaths) == 0:
-            raise Exception("No sources_test.csv file found in test_data directories")
+            raise Exception(
+                "No sources_test.csv file found in test_data directories")
 
         db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
         db_helper.initialize(trigger_downstream_tasks=False)

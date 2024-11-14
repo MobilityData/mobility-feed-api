@@ -6,7 +6,6 @@ from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import load_only, Query, class_mapper, Session
-
 from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 from sqlalchemy.orm import sessionmaker
 import logging
@@ -15,6 +14,7 @@ from typing import Final
 
 SHOULD_CLOSE_DB_SESSION: Final[str] = "SHOULD_CLOSE_DB_SESSION"
 lock = threading.Lock()
+
 
 def generate_unique_id() -> str:
     """
@@ -62,7 +62,7 @@ class Database:
                     cls.instance = object.__new__(cls)
         return cls.instance
 
-    def __init__(self, echo_sql=False):
+    def __init__(self, echo_sql=False, minconn=1, maxconn=20):
         """
         Initializes the database instance
         :param echo_sql: whether to echo the SQL queries or not
@@ -77,6 +77,7 @@ class Database:
                 return
             Database.initialized = True
             load_dotenv()
+            self.logger = logging.getLogger(__name__)
             self.engine = None
             self.session = None
             self.connection_attempts = 0
@@ -99,17 +100,20 @@ class Database:
         try:
             if self.engine is None:
                 self.connection_attempts += 1
-                self.logger.debug(f"Database connection attempt #{self.connection_attempts}.")
-                self.engine = create_engine(self.SQLALCHEMY_DATABASE_URL, echo=True)
+                self.logger.debug(
+                    f"Database connection attempt #{self.connection_attempts}.")
+                self.engine = create_engine(
+                    self.SQLALCHEMY_DATABASE_URL, echo=True, pool_size=5, max_overflow=0)
                 self.logger.debug("Database connected.")
             if self.session is not None and self.session.is_active:
                 self.session.close()
             self.session = Session(self.engine, autoflush=False)
         except Exception as e:
-            self.logger.error(f"Database new session creation failed with exception: \n {e}")
+            self.logger.error(
+                f"Database new session creation failed with exception: \n {e}")
         return self.is_connected()
 
-    def should_close_db_session(self): #todo: still necessary?
+    def should_close_db_session(self):  # todo: still necessary?
         return os.getenv("%s" % SHOULD_CLOSE_DB_SESSION, "false").lower() == "true"
 
     def close_session(self):
@@ -121,9 +125,9 @@ class Database:
             should_close = self.should_close_db_session()
             if should_close and self.session is not None and self.session.is_active:
                 self.session.close()
-                logging.info("Database session closed.")
+                self.logger.info("Database session closed.")
         except Exception as e:
-            logging.error(f"Session closing failed with exception: \n {e}")
+            self.logger.error(f"Session closing failed with exception: \n {e}")
         return self.is_connected()
 
     def select(
@@ -169,7 +173,7 @@ class Database:
                 return [list(group) for _, group in itertools.groupby(results, group_by)]
             return results
         except Exception as e:
-            logging.error(f"SELECT query failed with exception: \n{e}")
+            self.logger.error(f"SELECT query failed with exception: \n{e}")
             if self.session is not None:
                 self.session.rollback()
             return None
@@ -201,17 +205,21 @@ class Database:
         try:
             if not self.session or not self.session.is_active:
                 raise Exception("Inactive session")
-            results = [obj for obj in self.session.new if isinstance(obj, model)]
+            results = [
+                obj for obj in self.session.new if isinstance(obj, model)]
             if conditions:
                 for condition in conditions:
                     attribute_name = condition.left.name
                     attribute_value = condition.right.value
-                    results = [result for result in results if getattr(result, attribute_name) == attribute_value]
+                    results = [result for result in results if getattr(
+                        result, attribute_name) == attribute_value]
             if attributes:
-                results = [{attr: getattr(obj, attr) for attr in attributes} for obj in results]
+                results = [{attr: getattr(obj, attr)
+                            for attr in attributes} for obj in results]
             return results
         except Exception as e:
-            logging.error(f"Object selection within the uncommitted session objects failed with exception: \n{e}")
+            self.logger.error(
+                f"Object selection within the uncommitted session objects failed with exception: \n{e}")
             return []
 
     def merge(
@@ -237,7 +245,7 @@ class Database:
                 self.session.commit()
             return True
         except Exception as e:
-            logging.error(f"Merge query failed with exception: \n{e}")
+            self.logger.error(f"Merge query failed with exception: \n{e}")
             return False
         # finally:
         #     if not update_session:
@@ -255,7 +263,7 @@ class Database:
                 return True
             return False
         except Exception as e:
-            logging.error(f"Commit failed with exception: \n{e}")
+            self.logger.error(f"Commit failed with exception: \n{e}")
             return False
         finally:
             if self.session is not None:
@@ -273,7 +281,7 @@ class Database:
                 return True
             return False
         except Exception as e:
-            logging.error(f"Flush failed with exception: \n{e}")
+            self.logger.error(f"Flush failed with exception: \n{e}")
             return False
 
     def merge_relationship(
@@ -299,13 +307,16 @@ class Database:
         """
         try:
             primary_keys = inspect(parent_model).primary_key
-            conditions = [key == parent_key_values[key.name] for key in primary_keys]
+            conditions = [key == parent_key_values[key.name]
+                          for key in primary_keys]
 
             # Query for the existing parent using primary keys
             if uncommitted:
-                parent = self.select_from_active_session(parent_model, conditions)
+                parent = self.select_from_active_session(
+                    parent_model, conditions)
             else:
-                parent = self.select(parent_model, conditions, update_session=update_session)
+                parent = self.select(
+                    parent_model, conditions, update_session=update_session)
             if not parent:
                 return False
             else:
@@ -318,5 +329,6 @@ class Database:
                 return self.merge(parent, update_session=update_session, auto_commit=auto_commit)
             return True
         except Exception as e:
-            logging.error(f"Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}")
+            self.logger.error(
+                f"Adding {child.__class__.__name__} to {parent_model.__name__} failed with exception: \n{e}")
             return False
