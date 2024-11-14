@@ -112,12 +112,12 @@ export default function AssociatedGTFSRTFeeds({
   const gtfsFeeds =
     feeds?.filter((assocFeed) => assocFeed?.data_type === 'gtfs') ?? [];
   return (
-    <Box width={{ xs: '100%', md: '40%' }}>
+    <Box width={{ xs: '100%' }}>
       <ContentBox
         width={{ xs: '100%' }}
         title={'Related Schedule Feeds'}
         outlineColor={theme.palette.primary.dark}
-        margin={'0 0 8px'}
+        margin={`0 0 ${theme.spacing(3)}`}
         padding={2}
       >
         {feeds === undefined && <Typography>Loading...</Typography>}

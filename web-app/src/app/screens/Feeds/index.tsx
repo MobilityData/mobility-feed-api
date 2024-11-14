@@ -154,7 +154,7 @@ export default function Feed(): React.ReactElement {
   };
 
   return (
-    <Container component='main'>
+    <Container component='main' maxWidth='xl'>
       <CssBaseline />
       <Box
         sx={{
@@ -162,7 +162,6 @@ export default function Feed(): React.ReactElement {
           flexDirection: 'column',
         }}
         mx={{ xs: 0, m: 'auto' }}
-        maxWidth={{ xs: '100%', m: '1600px' }}
       >
         <Grid container spacing={2}>
           <Grid item xs={12}>

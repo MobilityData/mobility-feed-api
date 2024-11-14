@@ -45,6 +45,7 @@ import i18n from '../../i18n';
 import { NestedMenuItem } from 'mui-nested-menu';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import { fontFamily, theme } from '../Theme';
+import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -246,7 +247,7 @@ export default function DrawerAppBar(): React.ReactElement {
   const [activeTab, setActiveTab] = React.useState('');
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
-  >([]);
+  >(buildNavigationItems(defaultRemoteConfigValues));
   const [currentLanguage, setCurrentLanguage] = React.useState<
     string | undefined
   >(i18n.language);
