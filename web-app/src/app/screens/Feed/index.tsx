@@ -311,12 +311,15 @@ export default function Feed(): React.ReactElement {
           <Skeleton
             animation='wave'
             variant='rectangular'
-            sx={{ width: { xs: '100%', sm: '42%' }, height: '630px' }}
+            sx={{ width: { xs: '100%', sm: '475px' }, height: '630px' }}
           />
           <Skeleton
             animation='wave'
             variant='rectangular'
-            sx={{ width: { xs: '100%', sm: '58%' }, height: '630px' }}
+            sx={{
+              width: { xs: '100%', sm: 'calc(100% - 475px)' },
+              height: '630px',
+            }}
           />
         </Box>
       </Box>,
@@ -487,8 +490,9 @@ export default function Feed(): React.ReactElement {
           >
             {feed?.data_type === 'gtfs' && (
               <ContentBox
+                sx={{ flex: 'none' }}
                 title={t('boundingBoxTitle')}
-                width={{ xs: '100%', md: 'auto' }}
+                width={{ xs: '100%', md: '475px' }}
                 outlineColor={theme.palette.primary.dark}
                 padding={2}
               >

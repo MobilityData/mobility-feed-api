@@ -3,7 +3,6 @@ import {
   AppBar,
   Box,
   Divider,
-  Avatar,
   Drawer,
   IconButton,
   List,
@@ -70,10 +69,27 @@ const DrawerContent: React.FC<{
           navigateTo('/');
         }}
       >
-        <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
+        <picture style={{ display: 'flex' }}>
+          <source
+            media='(min-width: 50px)'
+            srcSet='/assets/MOBILTYDATA_logo_purple_M.webp'
+            width='50'
+            height='50'
+          />
+          <source src='/assets/MOBILTYDATA_logo_purple_M' type='image/png' />
+          <img
+            alt='MobilityData logo'
+            src='/assets/MOBILTYDATA_logo_purple_M'
+          />
+        </picture>
         <Typography
           variant='h6'
-          sx={{ my: 2, cursor: 'pointer', color: theme.palette.primary.main }}
+          sx={{
+            my: 2,
+            cursor: 'pointer',
+            color: theme.palette.primary.main,
+            fontWeight: 700,
+          }}
           data-testid='websiteTile'
         >
           {websiteTile}
@@ -384,10 +400,22 @@ export default function DrawerAppBar(): React.ReactElement {
               }}
               className='btn-link'
             >
-              <Avatar
-                alt='MobilityData logo'
-                src='/assets/MOBILTYDATA_logo_purple_M.png'
-              ></Avatar>
+              <picture style={{ display: 'flex' }}>
+                <source
+                  media='(min-width: 50px)'
+                  srcSet='/assets/MOBILTYDATA_logo_purple_M.webp'
+                  width='50'
+                  height='50'
+                />
+                <source
+                  src='/assets/MOBILTYDATA_logo_purple_M'
+                  type='image/png'
+                />
+                <img
+                  alt='MobilityData logo'
+                  src='/assets/MOBILTYDATA_logo_purple_M'
+                />
+              </picture>
               <Typography
                 variant='h5'
                 component='div'

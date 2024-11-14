@@ -12,6 +12,7 @@ import {
   Grid,
   InputAdornment,
   Pagination,
+  Skeleton,
   TableContainer,
   TextField,
   Typography,
@@ -293,7 +294,27 @@ export default function Feed(): React.ReactElement {
                 <Grid item xs={12} md={10}>
                   {feedStatus === 'loading' && (
                     <Grid item xs={12}>
-                      <h3>{t('common:loading')}</h3>
+                      <Skeleton
+                        animation='wave'
+                        variant='text'
+                        sx={{ fontSize: '1rem', width: '200px' }}
+                      />
+                      <Skeleton
+                        animation='wave'
+                        variant='text'
+                        sx={{ fontSize: '2rem', width: '100%' }}
+                      />
+                      <Skeleton
+                        animation='wave'
+                        variant='rectangular'
+                        width={'100%'}
+                        height={'1118px'}
+                      />
+                      <Skeleton
+                        animation='wave'
+                        variant='text'
+                        sx={{ fontSize: '2rem', width: '320px' }}
+                      />
                     </Grid>
                   )}
 
