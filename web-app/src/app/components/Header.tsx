@@ -76,10 +76,13 @@ const DrawerContent: React.FC<{
             width='50'
             height='50'
           />
-          <source src='/assets/MOBILTYDATA_logo_purple_M' type='image/png' />
+          <source
+            src='/assets/MOBILTYDATA_logo_purple_M.png'
+            type='image/png'
+          />
           <img
             alt='MobilityData logo'
-            src='/assets/MOBILTYDATA_logo_purple_M'
+            src='/assets/MOBILTYDATA_logo_purple_M.png'
           />
         </picture>
         <Typography
@@ -408,12 +411,12 @@ export default function DrawerAppBar(): React.ReactElement {
                   height='50'
                 />
                 <source
-                  src='/assets/MOBILTYDATA_logo_purple_M'
+                  src='/assets/MOBILTYDATA_logo_purple_M.png'
                   type='image/png'
                 />
                 <img
                   alt='MobilityData logo'
-                  src='/assets/MOBILTYDATA_logo_purple_M'
+                  src='/assets/MOBILTYDATA_logo_purple_M.png'
                 />
               </picture>
               <Typography
