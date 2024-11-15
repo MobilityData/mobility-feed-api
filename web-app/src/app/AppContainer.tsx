@@ -23,9 +23,11 @@ const AppContainer: React.FC<ContextProviderProps> = ({ children }) => {
           <LinearProgress />
         </Box>
       ) : (
-        children
+        <>
+          {children}
+          <Footer />
+        </>
       )}
-      <Footer />
     </Box>
   );
 };

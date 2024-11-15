@@ -7,6 +7,7 @@ export interface ContentBoxProps {
   outlineColor: string;
   padding?: Partial<SxProps>;
   margin?: string | number;
+  sx?: SxProps;
 }
 
 export const ContentBox = (
@@ -16,6 +17,7 @@ export const ContentBox = (
     <Box
       width={props.width}
       sx={{
+        ...props.sx,
         background: '#FFFFFF',
         borderRadius: '6px',
         border: `2px solid ${props.outlineColor}`,
