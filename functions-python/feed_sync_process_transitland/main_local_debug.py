@@ -16,12 +16,14 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 from feed_sync_process_transitland.src.main import process_feed_event
 import src.main
+from unittest.mock import Mock
+from google.cloud import pubsub_v1
 
+# Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
-# Create logger instance
 logger = logging.getLogger("feed_processor")
 handler = logging.StreamHandler()
 handler.setFormatter(
@@ -30,10 +32,8 @@ handler.setFormatter(
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
-
 src.main.logger = logger
 
-# Load environment variables from .env.local
 load_dotenv(dotenv_path=".env.local_test")
 
 
@@ -41,6 +41,35 @@ load_dotenv(dotenv_path=".env.local_test")
 class CloudEvent:
     attributes: dict
     data: dict
+
+
+# mock publisher client
+class MockPublisherClient:
+    def topic_path(self, project_id, topic_id):
+        return f"projects/{project_id}/topics/{topic_id}"
+
+    def publish(self, topic_path, data):
+        logger.info(
+            f"[LOCAL DEBUG] Would publish to {topic_path}: {data.decode('utf-8')}"
+        )
+        return Mock()  # Returns a mock future
+
+
+# Mock real publisher
+pubsub_v1.PublisherClient = MockPublisherClient
+
+
+def process_event_safely(cloud_event, description=""):
+    """Wrapper to handle event processing with better error handling"""
+    try:
+        logger.info(f"\nProcessing {description}:")
+        logger.info("-" * 50)
+        result = process_feed_event(cloud_event)
+        logger.info(f"Process result: {result}")
+    except Exception as e:
+        logger.error(f"Error processing {description}: {str(e)}")
+        return False
+    return True
 
 
 if __name__ == "__main__":
@@ -52,10 +81,11 @@ if __name__ == "__main__":
         "source": "//pubsub.googleapis.com/projects/sample-project/topics/sample-topic",
     }
 
+    # New Feed
     feed_payload = {
         "external_id": "test-feed-1",
         "feed_id": "feed1",
-        "feed_url": "http://example.com/test-feed",
+        "feed_url": "https://example.com/test-feed",
         "execution_id": "local-debug-123",
         "spec": "gtfs",
         "auth_info_url": None,
@@ -77,27 +107,25 @@ if __name__ == "__main__":
         }
     }
 
-    # Create and process cloud event
+    # Process new feed event
     cloud_event = CloudEvent(attributes, data)
-    logger.info("\nProcessing new feed event:")
-    logger.info("-" * 50)
-    process_feed_event(cloud_event)
+    new_feed_success = process_event_safely(cloud_event, "new feed event")
 
-    logger.info("\nProcessing update feed event:")
-    logger.info("-" * 50)
-    update_payload = feed_payload.copy()
-    update_payload["feed_url"] = "http://example.com/test-feed-updated"
-    update_payload["payload_type"] = "update"
+    # Update Feed (only if new feed was successful)
+    if new_feed_success:
+        update_payload = feed_payload.copy()
+        update_payload["feed_url"] = "http://example.com/test-feed-updated"
+        update_payload["payload_type"] = "update"
 
-    update_data = {
-        "message": {
-            "data": base64.b64encode(json.dumps(update_payload).encode("utf-8")).decode(
-                "utf-8"
-            )
+        update_data = {
+            "message": {
+                "data": base64.b64encode(
+                    json.dumps(update_payload).encode("utf-8")
+                ).decode("utf-8")
+            }
         }
-    }
 
-    cloud_event_update = CloudEvent(attributes, update_data)
-    process_feed_event(cloud_event_update)
+        cloud_event_update = CloudEvent(attributes, update_data)
+        process_event_safely(cloud_event_update, "update feed event")
 
     logger.info("Local debug session completed.")
