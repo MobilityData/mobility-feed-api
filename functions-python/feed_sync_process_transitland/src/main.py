@@ -303,23 +303,22 @@ class FeedProcessor:
         Returns:
             Tuple[Optional[str], Optional[str]]: Tuple of (feed_id, feed_url)
         """
-        result = (
-            self.session.query(Feed.id, Feed.producer_url)
-            .join(Externalid)
-            .filter(
-                Externalid.associated_id == external_id,
-                Externalid.source == source,
-                Feed.status == "active",
+        result = (self.session
+                  .query(Feed)
+                  .filter(
+            Feed.externalids.any(
+                associated_id=external_id,
+                source=source
+            ),
+            Feed.status == "active")
+                  .first()
+         )
+        if result is not None:
+            logger.info(
+                f"Retrieved feed {result.stable_id} info for external_id: {external_id}"
             )
-            .first()
-        )
-        if result:
-            logger.debug(
-                f"Retrieved current feed " f"info for external_id: {external_id}"
-            )
-            return result[0], result[1]
-
-        logger.debug(f"No existing feed found for external_id: {external_id}")
+            return result.id, result.producer_url
+        logging.info(f"No existing feed found for external_id: {external_id}")
         return None, None
 
     def publish_to_batch_topic(self, payload: FeedPayload) -> None:
