@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from feed_sync_process_transitland.src.main import process_feed_event
-import src.main
+import feed_sync_process_transitland.src.main
 from unittest.mock import Mock
 from google.cloud import pubsub_v1
 
