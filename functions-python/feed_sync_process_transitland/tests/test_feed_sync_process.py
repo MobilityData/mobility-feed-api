@@ -5,8 +5,6 @@ from unittest.mock import Mock, patch, call
 import pytest
 from google.cloud import pubsub_v1
 from sqlalchemy.orm import Session as DBSession
-from freezegun import freeze_time
-
 
 from feed_sync_process_transitland.src.main import (
     FeedProcessor,
@@ -148,7 +146,6 @@ def test_check_feed_url_exists(processor, db_session, mock_logger):
 def test_process_new_feed(processor, db_session, feed_payload, mock_logger, mock_feed):
     """Test processing new feeds creation"""
     feed_id = "12345678-1234-5678-1234-567812345678"
-    frozen_datetime = "2024-01-01 00:00:00"
 
     mock_feed = Mock(spec=Feed)
     mock_feed.id = feed_id
@@ -159,9 +156,9 @@ def test_process_new_feed(processor, db_session, feed_payload, mock_logger, mock
     mock_external_id.associated_id = feed_payload.external_id
     mock_external_id.source = feed_payload.source
 
-    with freeze_time(frozen_datetime), patch(
-        "uuid.uuid4", return_value=uuid.UUID(feed_id)
-    ), patch.object(processor, "check_feed_url_exists", return_value=False), patch(
+    with patch("uuid.uuid4", return_value=uuid.UUID(feed_id)), patch.object(
+        processor, "check_feed_url_exists", return_value=False
+    ), patch(
         "feed_sync_process_transitland.src.main.Feed", return_value=mock_feed
     ), patch(
         "feed_sync_process_transitland.src.main.Externalid",
