@@ -34,6 +34,9 @@ locals {
   function_gbfs_validation_report_config = jsondecode(file("${path.module}/../../functions-python/gbfs_validator/function_config.json"))
   function_gbfs_validation_report_zip = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
 
+  function_reverse_geolocation_populate_config = jsondecode(file("${path.module}/../../functions-python/reverse_geolocation_populate/function_config.json"))
+  function_reverse_geolocation_populate_zip = "${path.module}/../../functions-python/reverse_geolocation_populate/.dist/reverse_geolocation_populate.zip"
+
   function_feed_sync_dispatcher_transitland_config = jsondecode(file("${path.module}/../../functions-python/feed_sync_dispatcher_transitland/function_config.json"))
   function_feed_sync_dispatcher_transitland_zip = "${path.module}/../../functions-python/feed_sync_dispatcher_transitland/.dist/feed_sync_dispatcher_transitland.zip"
 }
@@ -45,7 +48,8 @@ locals {
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
     [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key]
+    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
+    [for x in local.function_gbfs_validation_report_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -114,6 +118,13 @@ resource "google_storage_bucket_object" "feed_sync_dispatcher_transitland_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "feed-sync-dispatcher-transitland-${substr(filebase64sha256(local.function_feed_sync_dispatcher_transitland_zip), 0, 10)}.zip"
   source = local.function_feed_sync_dispatcher_transitland_zip
+}
+
+# 7. Reverse geolocation populate
+resource "google_storage_bucket_object" "reverse_geolocation_populate_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "reverse-geolocation-populate-${substr(filebase64sha256(local.function_reverse_geolocation_populate_zip), 0, 10)}.zip"
+  source = local.function_reverse_geolocation_populate_zip
 }
 
 # Secrets access
@@ -535,6 +546,7 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
 resource "google_pubsub_topic" "transitland_feeds_dispatch" {
   name = "transitland-feeds-dispatch"
 }
+# 6.2 Create batch function that publishes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
   name        = "${local.function_feed_sync_dispatcher_transitland_config.name}-batch"
   description = local.function_feed_sync_dispatcher_transitland_config.description
@@ -571,7 +583,57 @@ resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_extract_location_config.secret_environment_variables
+      for_each = local.function_feed_sync_dispatcher_transitland_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 7. functions/reverse_geolocation_populate cloud function
+# 7.1 Creating bucket for storing processed data
+resource "google_storage_bucket" "reverse_geolocation_populate_bucket" {
+  name     = "reverse-geolocation-populate-${var.environment}"
+  location = var.gcp_region
+}
+# 7.2 Create http triggered function
+resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
+  name        = local.function_reverse_geolocation_populate_config.name
+  description = local.function_reverse_geolocation_populate_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_reverse_geolocation_populate_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.reverse_geolocation_populate_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      BUCKET_NAME = google_storage_bucket.reverse_geolocation_populate_bucket.name
+      PYTHONNODEBUGRANGES = 0
+    }
+    available_memory = local.function_reverse_geolocation_populate_config.available_memory
+    timeout_seconds = local.function_reverse_geolocation_populate_config.timeout
+    available_cpu = local.function_reverse_geolocation_populate_config.available_cpu
+    max_instance_request_concurrency = local.function_reverse_geolocation_populate_config.max_instance_request_concurrency
+    max_instance_count = local.function_reverse_geolocation_populate_config.max_instance_count
+    min_instance_count = local.function_reverse_geolocation_populate_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_reverse_geolocation_populate_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_reverse_geolocation_populate_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -583,7 +645,7 @@ resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
 }
 
 
-# IAM entry for all users to invoke the function 
+# IAM entry for all users to invoke the function
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
   project        = var.project_id
   location       = var.gcp_region
@@ -616,7 +678,12 @@ resource "google_project_iam_member" "event-receiving" {
 
 # Grant read access to the datasets bucket for the service account
 resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
-  bucket = "${var.datasets_bucket_name}-${var.environment}"
+  for_each = {
+    datasets_bucket = "${var.datasets_bucket_name}-${var.environment}"
+    reverse_geolocation_populate_bucket = google_storage_bucket.reverse_geolocation_populate_bucket.name
+  }
+  bucket = each.value
+  depends_on = [google_storage_bucket.reverse_geolocation_populate_bucket]
   role   = "roles/storage.objectViewer"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
@@ -624,8 +691,13 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 }
 
 # Grant write access to the gbfs bucket for the service account
-resource "google_storage_bucket_iam_binding" "gbfs_bucket_object_creator" {
-  bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
+  for_each = {
+    gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+    reverse_geolocation_populate_bucket = google_storage_bucket.reverse_geolocation_populate_bucket.name
+  }
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.reverse_geolocation_populate_bucket]
+  bucket = each.value
   role   = "roles/storage.objectCreator"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"

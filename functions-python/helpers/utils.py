@@ -17,7 +17,8 @@
 import hashlib
 import logging
 import os
-
+import pandas as pd
+import io
 import requests
 import urllib3
 from google.cloud import storage
@@ -38,6 +39,27 @@ def create_bucket(bucket_name):
         logging.info(f"Bucket {bucket} created.")
     else:
         logging.info(f"Bucket {bucket_name} already exists.")
+
+
+def save_to_bucket(bucket, file_name, data, content_type="text/csv"):
+    """
+    Saves data to a GCP storage bucket
+    :param bucket: GCP storage bucket
+    :param file_name: name of the file to save
+    :param data: data to save as a string
+    :param content_type: content type of the data
+    """
+    blob = bucket.blob(file_name)
+    blob.upload_from_string(data, content_type=content_type)
+    logging.info(f"File {file_name} uploaded to {bucket}.")
+
+
+def fetch_df_from_bucket(bucket, file_name):
+    """Fetch data as a DataFrame from the bucket."""
+    blob = bucket.blob(file_name)
+    if not blob.exists():
+        return None
+    return pd.read_csv(io.StringIO(blob.download_as_string().decode("utf-8")))
 
 
 def download_url_content(url, with_retry=False):
