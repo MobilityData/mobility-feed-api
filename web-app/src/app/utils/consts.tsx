@@ -221,7 +221,7 @@ export const DATASET_FEATURES: DatasetFeatures = {
     linkToInfo:
       'https://gtfs.org/getting-started/features/flexible-services/#booking-rules',
   },
-  'Fixed-Stops Demand Responsive Services': {
+  'Fixed-Stops Demand Responsive Transit': {
     component: 'Flexible Services',
     componentSubgroup: 'Flex',
     fileName: 'location_groups.txt',
@@ -261,6 +261,8 @@ export const DATASET_FEATURES: DatasetFeatures = {
       'https://gtfs.org/getting-started/features/base-add-ons/#frequency-based-service ',
   },
 };
+// SPELLING CORRECTIONS
+DATASET_FEATURES['Text-to-Speech'] = DATASET_FEATURES['Text-To-Speech'];
 
 // DEPRECATED FEATURES
 DATASET_FEATURES['Wheelchair Accessibility'] = {
@@ -274,7 +276,7 @@ DATASET_FEATURES['Transfer Fares'] = DATASET_FEATURES['Fare Transfers']; // as o
 DATASET_FEATURES['Pathways (basic)'] = DATASET_FEATURES['Pathway Connections']; // as of 6.0
 DATASET_FEATURES['Pathways (extra)'] = DATASET_FEATURES['Pathway Details']; // as of 6.0
 DATASET_FEATURES['Traversal Time'] =
-  DATASET_FEATURES['In-station traversal time'];
+  DATASET_FEATURES['In-station Traversal Time'];
 DATASET_FEATURES['Pathways Directions'] = {
   // as of 6.0
   component: 'Pathways',
