@@ -12,8 +12,6 @@ from sqlalchemy.orm import sessionmaker
 import logging
 from typing import Final
 
-
-SHOULD_CLOSE_DB_SESSION: Final[str] = "SHOULD_CLOSE_DB_SESSION"
 lock = threading.Lock()
 
 
@@ -125,9 +123,6 @@ class Database:
             raise
         finally:
             session.close()
-
-    def should_close_db_session(self):  # todo: still necessary?
-        return os.getenv("%s" % SHOULD_CLOSE_DB_SESSION, "false").lower() == "true"
 
     # def close_session(self):
     #     """

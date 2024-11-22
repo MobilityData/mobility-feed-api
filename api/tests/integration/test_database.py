@@ -169,8 +169,3 @@ def test_insert_and_select():
         results_after_session_closed = db.select(new_session, Feature, conditions=[Feature.name == feature_name])
         assert len(results_after_session_closed) == 1
         assert results_after_session_closed[0][0].name == feature_name
-
-
-if __name__ == "__main__":
-    os.environ["SHOULD_CLOSE_DB_SESSION"] = "true"
-    pytest.main()
