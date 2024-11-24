@@ -103,6 +103,7 @@ class Database:
             if database_url is None:
                 raise Exception("Database URL not provided.")
             self.engine = create_engine(database_url, echo=echo_sql, pool_size=10, max_overflow=0)
+            # creates a session factory
             self.Session = sessionmaker(bind=self.engine, autoflush=False)
 
     def is_connected(self):
@@ -123,20 +124,6 @@ class Database:
             raise
         finally:
             session.close()
-
-    # def close_session(self):
-    #     """
-    #     Closes a session
-    #     :return: True if the session was started, False otherwise
-    #     """
-    #     try:
-    #         should_close = self.should_close_db_session()
-    #         if should_close and self.session is not None and self.session.is_active:
-    #             self.session.close()
-    #             self.logger.info("Database session closed.")
-    #     except Exception as e:
-    #         self.logger.error(f"Session closing failed with exception: \n {e}")
-    #     return self.is_connected()
 
     def select(
         self,

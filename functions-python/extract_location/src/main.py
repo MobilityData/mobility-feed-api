@@ -122,21 +122,18 @@ def extract_location_pubsub(cloud_event: CloudEvent):
         geometry_polygon = create_polygon_wkt_element(bounds)
 
         db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-        session = None
         try:
-            session = db.start_db_session()
-            update_dataset_bounding_box(session, dataset_id, geometry_polygon)
-            update_location(reverse_coords(
-                location_geo_points), dataset_id, session)
+            with db.start_db_session() as session:
+                update_dataset_bounding_box(session, dataset_id, geometry_polygon)
+                update_location(
+                    reverse_coords(location_geo_points), dataset_id, session
+                )
         except Exception as e:
             error = f"Error updating location information in database: {e}"
             logging.error(f"[{dataset_id}] Error while processing: {e}")
-            if session is not None:
-                session.rollback()
             raise e
         finally:
-            if session is not None:
-                db.close_db_session(raise_exception=True)
+            pass
         logging.info(
             f"[{stable_id} - {dataset_id}] Location information updated successfully."
         )
@@ -183,8 +180,7 @@ def extract_location(cloud_event: CloudEvent):
     }
 
     # Create a new CloudEvent object to pass to the PubSub function
-    new_cloud_event = CloudEvent(
-        attributes=attributes, data=new_cloud_event_data)
+    new_cloud_event = CloudEvent(attributes=attributes, data=new_cloud_event_data)
 
     # Call the pubsub function with the constructed CloudEvent
     return extract_location_pubsub(new_cloud_event)
@@ -203,49 +199,46 @@ def extract_location_batch(_):
 
     # Get latest GTFS dataset with no bounding boxes
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-    session = None
     execution_id = str(uuid.uuid4())
     datasets_data = []
+
     try:
-        session = db.start_db_session()
-        # Select all latest datasets with no bounding boxes or all datasets if forced
-        datasets = (
-            session.query(Gtfsdataset)
-            .filter(
-                or_(
-                    force_datasets_update,
-                    Gtfsdataset.bounding_box == None,  # noqa: E711
+        with db.start_db_session() as session:
+            # Select all latest datasets with no bounding boxes or all datasets if forced
+            datasets = (
+                session.query(Gtfsdataset)
+                .filter(
+                    or_(
+                        force_datasets_update,
+                        Gtfsdataset.bounding_box == None,  # noqa: E711
+                    )
                 )
+                .filter(Gtfsdataset.latest)
+                .options(joinedload(Gtfsdataset.feed))
+                .all()
             )
-            .filter(Gtfsdataset.latest)
-            .options(joinedload(Gtfsdataset.feed))
-            .all()
-        )
-        for dataset in datasets:
-            data = {
-                "stable_id": dataset.feed.stable_id,
-                "dataset_id": dataset.stable_id,
-                "url": dataset.hosted_url,
-                "execution_id": execution_id,
-            }
-            datasets_data.append(data)
-            logging.info(f"Dataset {dataset.stable_id} added to the batch.")
+            for dataset in datasets:
+                data = {
+                    "stable_id": dataset.feed.stable_id,
+                    "dataset_id": dataset.stable_id,
+                    "url": dataset.hosted_url,
+                    "execution_id": execution_id,
+                }
+                datasets_data.append(data)
+                logging.info(f"Dataset {dataset.stable_id} added to the batch.")
 
     except Exception as e:
         logging.error(f"Error while fetching datasets: {e}")
         return "Error while fetching datasets.", 500
     finally:
-        if session is not None:
-            db.close_db_session(raise_exception=True)
+        pass
 
     # Trigger update location for each dataset by publishing to Pub/Sub
     publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(
-        os.getenv("PROJECT_ID"), pubsub_topic_name)
+    topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
     for data in datasets_data:
         message_data = json.dumps(data).encode("utf-8")
         future = publisher.publish(topic_path, message_data)
-        logging.info(
-            f"Published message to Pub/Sub with ID: {future.result()}")
+        logging.info(f"Published message to Pub/Sub with ID: {future.result()}")
 
     return f"Batch function triggered for {len(datasets_data)} datasets.", 200

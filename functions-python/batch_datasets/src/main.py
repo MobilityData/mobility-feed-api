@@ -105,16 +105,14 @@ def batch_datasets(request):
     :return: HTTP response object
     """
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-    session = None
     try:
-        session = db.start_db_session()
-        feeds = get_non_deprecated_feeds(session)
+        with db.start_db_session() as session:
+            feeds = get_non_deprecated_feeds(session)
     except Exception as error:
         print(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
     finally:
-        if session:
-            db.close_db_session(raise_exception=True)
+        pass
 
     print(f"Retrieved {len(feeds)} feeds.")
     publisher = get_pubsub_client()
