@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Union, TypeVar
 
 from sqlalchemy import or_
-from sqlalchemy import select, desc
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.query import Query
 
@@ -16,7 +16,6 @@ from database_gen.sqlacodegen_models import (
     Validationreport,
     t_location_with_translations_en,
     Entitytype,
-    Officialstatushistory,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
@@ -83,29 +82,6 @@ class FeedsApiImpl(BaseFeedsApi):
         else:
             raise_http_error(404, feed_not_found.format(id))
 
-    @staticmethod
-    def _get_latest_official_status_subquery(feed_query: Query, is_official: bool) -> Query:
-        """Get the latest official status per feed using a subquery."""
-        # Subquery to get the latest official status per feed
-        latest_status_subquery = (
-            Database()
-            .get_query_model(Officialstatushistory)
-            .with_entities(
-                Officialstatushistory.feed_id,
-                Officialstatushistory.is_official,
-                Officialstatushistory.timestamp,
-            )
-            .distinct(Officialstatushistory.feed_id)  # DISTINCT ON feed_id
-            .order_by(Officialstatushistory.feed_id, desc(Officialstatushistory.timestamp))
-            .subquery()
-        )
-
-        # Join with the main query and filter by is_official
-        return feed_query.join(
-            latest_status_subquery,
-            latest_status_subquery.c.feed_id == Feed.id,
-        ).filter(latest_status_subquery.c.is_official == is_official)
-
     def get_feeds(
         self,
         limit: int,
@@ -121,7 +97,7 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         feed_query = feed_filter.filter(Database().get_query_model(Feed))
         if is_official:
-            feed_query = self._get_latest_official_status_subquery(feed_query, is_official)
+            feed_query = feed_query.filter(Feed.official)
         feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
         feed_query = feed_query.filter(
             or_(
@@ -288,7 +264,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
         )
         if is_official:
-            feed_query = self._get_latest_official_status_subquery(feed_query, is_official)
+            feed_query = feed_query.filter(Feed.official)
         feed_query = feed_query.limit(limit).offset(offset)
         return self._get_response(feed_query, GtfsFeedImpl)
 
@@ -391,7 +367,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         )
         if is_official:
-            feed_query = self._get_latest_official_status_subquery(feed_query, is_official)
+            feed_query = feed_query.filter(Feed.official)
         feed_query = feed_query.limit(limit).offset(offset)
         return self._get_response(feed_query, GtfsRTFeedImpl)
 
