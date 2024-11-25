@@ -221,7 +221,39 @@ class FeedsApiImpl(BaseFeedsApi):
         dataset_latitudes: str,
         dataset_longitudes: str,
         bounding_filter_method: str,
+        never_return_wip: bool = False,
     ) -> List[GtfsFeed]:
+
+        feed_query = FeedsApiImpl.get_gtfs_feeds_query(
+            limit=limit,
+            offset=offset,
+            provider=provider,
+            producer_url=producer_url,
+            country_code=country_code,
+            subdivision_name=subdivision_name,
+            municipality=municipality,
+            dataset_latitudes=dataset_latitudes,
+            dataset_longitudes=dataset_longitudes,
+            bounding_filter_method=bounding_filter_method,
+            never_return_wip=never_return_wip,
+        )
+
+        return self._get_response(feed_query, GtfsFeedImpl)
+
+    @staticmethod
+    def get_gtfs_feeds_query(
+        limit: int,
+        offset: int,
+        provider: str,
+        producer_url: str,
+        country_code: str,
+        subdivision_name: str,
+        municipality: str,
+        dataset_latitudes: str,
+        dataset_longitudes: str,
+        bounding_filter_method: str,
+        never_return_wip: bool = False,
+    ) -> Query[any]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         gtfs_feed_filter = GtfsFeedFilter(
             stable_id=None,
@@ -239,19 +271,22 @@ class FeedsApiImpl(BaseFeedsApi):
             subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
         ).subquery()
 
-        feed_query = (
-            Database()
-            .get_session()
-            .query(Gtfsfeed)
-            .filter(Gtfsfeed.id.in_(subquery))
-            .filter(
+        feed_query = Database().get_session().query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
+        if never_return_wip:
+            feed_query = feed_query.filter(
+                or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
+            )
+        else:
+            feed_query = feed_query.filter(
                 or_(
                     Gtfsfeed.operational_status == None,  # noqa: E711
                     Gtfsfeed.operational_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
-            .options(
+
+        feed_query = (
+            feed_query.options(
                 joinedload(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
                 .joinedload(Validationreport.notices),
@@ -261,7 +296,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .limit(limit)
             .offset(offset)
         )
-        return self._get_response(feed_query, GtfsFeedImpl)
+        return feed_query
 
     def get_gtfs_rt_feed(
         self,
@@ -311,6 +346,7 @@ class FeedsApiImpl(BaseFeedsApi):
         country_code: str,
         subdivision_name: str,
         municipality: str,
+        never_return_wip: bool = False,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
         entity_types_list = entity_types.split(",") if entity_types else None
@@ -341,19 +377,22 @@ class FeedsApiImpl(BaseFeedsApi):
             .join(Location, Gtfsrealtimefeed.locations)
             .join(Entitytype, Gtfsrealtimefeed.entitytypes)
         ).subquery()
-        feed_query = (
-            Database()
-            .get_session()
-            .query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.id.in_(subquery))
-            .filter(
+        feed_query = Database().get_session().query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.id.in_(subquery))
+        if never_return_wip:
+            feed_query = feed_query.filter(
+                or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
+            )
+        else:
+            feed_query = feed_query.filter(
                 or_(
                     Gtfsrealtimefeed.operational_status == None,  # noqa: E711
                     Gtfsrealtimefeed.operational_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
-            .options(
+
+        feed_query = (
+            feed_query.options(
                 joinedload(Gtfsrealtimefeed.entitytypes),
                 joinedload(Gtfsrealtimefeed.gtfs_feeds),
                 *BasicFeedImpl.get_joinedload_options(),
@@ -362,6 +401,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .limit(limit)
             .offset(offset)
         )
+
         return self._get_response(feed_query, GtfsRTFeedImpl)
 
     @staticmethod
