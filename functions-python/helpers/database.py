@@ -17,14 +17,11 @@
 from contextlib import contextmanager
 import os
 import threading
-from typing import Final, Optional, TYPE_CHECKING
+from typing import Final, Optional
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 import logging
-
-if TYPE_CHECKING:
-    from sqlalchemy.engine import Engine
 
 DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
 
@@ -55,7 +52,7 @@ class Database:
 
     def __new__(cls, *args, **kwargs):
         if not isinstance(cls.instance, cls):
-            with lock:
+            with cls.lock:
                 if not isinstance(cls.instance, cls):
                     cls.instance = object.__new__(cls)
         return cls.instance

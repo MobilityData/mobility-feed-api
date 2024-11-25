@@ -18,7 +18,7 @@ import os
 import logging
 from datetime import datetime
 import requests
-from database.database import Database
+from helpers.database import Database
 import functions_framework
 from database_gen.sqlacodegen_models import (
     Validationreport,

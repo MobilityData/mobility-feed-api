@@ -10,7 +10,6 @@ from sqlalchemy.orm import load_only, Query, class_mapper, Session
 from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 from sqlalchemy.orm import sessionmaker
 import logging
-from typing import Final
 
 lock = threading.Lock()
 
@@ -76,7 +75,7 @@ class Database:
 
     def __new__(cls, *args, **kwargs):
         if not isinstance(cls.instance, cls):
-            with lock:
+            with cls.lock:
                 if not isinstance(cls.instance, cls):
                     cls.instance = object.__new__(cls)
         return cls.instance

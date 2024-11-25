@@ -3,7 +3,6 @@ from typing import Final
 
 import pytest
 from sqlalchemy.orm import Query
-import os
 
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import Feature, Gtfsdataset
