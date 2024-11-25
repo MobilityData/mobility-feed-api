@@ -15,7 +15,6 @@
 #
 
 import contextlib
-import os
 from typing import Final
 
 from sqlalchemy.engine import Engine
@@ -23,7 +22,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from database_gen.sqlacodegen_models import Base
-from helpers.database import get_db_engine
+from helpers.database import Database
 import logging
 
 logging.basicConfig()
@@ -47,9 +46,8 @@ excluded_tables: Final[list[str]] = [
 
 def get_testing_engine() -> Engine:
     """Returns a SQLAlchemy engine for the test db."""
-    return get_db_engine(
-        os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url), echo=False
-    )
+    db = Database(database_url=default_db_url, echo=False)
+    return db.engine
 
 
 def get_testing_session() -> Session:

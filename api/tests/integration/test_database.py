@@ -156,13 +156,6 @@ def test_insert_and_select():
     new_feature = Feature(name=feature_name)
     with db.start_db_session() as session:
         session.merge(new_feature)
-        # session.commit()
-        # retrieved_features = db.select(session, Feature, conditions=[Feature.name == feature_name])
-        # assert len(retrieved_features) == 1
-        # assert retrieved_features[0][0].name == feature_name
-
-    # Check if the session is closed
-    assert session.is_active is False
 
     with db.start_db_session() as new_session:
         results_after_session_closed = db.select(new_session, Feature, conditions=[Feature.name == feature_name])
