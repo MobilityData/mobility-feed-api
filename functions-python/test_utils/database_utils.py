@@ -46,14 +46,14 @@ excluded_tables: Final[list[str]] = [
 
 def get_testing_engine() -> Engine:
     """Returns a SQLAlchemy engine for the test db."""
-    db = Database(database_url=default_db_url, echo=False)
-    return db.engine
+    db = Database(database_url=default_db_url)
+    return db._get_engine(echo=False)
 
 
 def get_testing_session() -> Session:
     """Returns a SQLAlchemy session for the test db."""
-    engine = get_testing_engine()
-    return Session(bind=engine)
+    db = Database(database_url=default_db_url)
+    return db._get_session(echo=False)()
 
 
 def clean_testing_db():
@@ -84,3 +84,9 @@ def clean_testing_db():
         except Exception as error:
             trans.rollback()
             logging.error(f"Error while deleting from test db: {error}")
+
+
+def reset_database_class():
+    """Resets the Database class to its initial state."""
+    Database.instance = None
+    Database.initialized = False

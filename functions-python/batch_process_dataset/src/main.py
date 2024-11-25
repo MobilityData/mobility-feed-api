@@ -22,7 +22,7 @@ import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import functions_framework
 from cloudevents.http import CloudEvent
@@ -31,11 +31,14 @@ from sqlalchemy import func
 
 from database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
 from dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from helpers.database import Database
+from helpers.database import Database, refresh_materialized_view, with_db_session
 import logging
 
 from helpers.logger import Logger
 from helpers.utils import download_and_get_hash
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -202,50 +205,47 @@ class DatasetProcessor:
         )
         return temporary_file_path
 
-    def create_dataset(self, dataset_file: DatasetFile):
+    @with_db_session
+    def create_dataset(self, dataset_file: DatasetFile, db_session: "Session"):
         """
         Creates a new dataset in the database
         """
-        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
         try:
-            with db.start_db_session() as session:
-                # # Check latest version of the dataset
-                latest_dataset = (
-                    session.query(Gtfsdataset)
-                    .filter_by(latest=True, feed_id=self.feed_id)
-                    .one_or_none()
-                )
-                if not latest_dataset:
-                    logging.info(
-                        f"[{self.feed_stable_id}] No latest dataset found for feed."
-                    )
-
+            # Check latest version of the dataset
+            latest_dataset = (
+                db_session.query(Gtfsdataset)
+                .filter_by(latest=True, feed_id=self.feed_id)
+                .one_or_none()
+            )
+            if not latest_dataset:
                 logging.info(
-                    f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
+                    f"[{self.feed_stable_id}] No latest dataset found for feed."
                 )
-                new_dataset = Gtfsdataset(
-                    id=str(uuid.uuid4()),
-                    feed_id=self.feed_id,
-                    stable_id=dataset_file.stable_id,
-                    latest=True,
-                    bounding_box=None,
-                    note=None,
-                    hash=dataset_file.file_sha256_hash,
-                    downloaded_at=func.now(),
-                    hosted_url=dataset_file.hosted_url,
-                )
-                if latest_dataset:
-                    latest_dataset.latest = False
-                    session.add(latest_dataset)
-                session.add(new_dataset)
 
-                db.refresh_materialized_view(session, t_feedsearch.name)
-                session.commit()
-                logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
+            logging.info(
+                f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
+            )
+            new_dataset = Gtfsdataset(
+                id=str(uuid.uuid4()),
+                feed_id=self.feed_id,
+                stable_id=dataset_file.stable_id,
+                latest=True,
+                bounding_box=None,
+                note=None,
+                hash=dataset_file.file_sha256_hash,
+                downloaded_at=func.now(),
+                hosted_url=dataset_file.hosted_url,
+            )
+            if latest_dataset:
+                latest_dataset.latest = False
+                db_session.add(latest_dataset)
+            db_session.add(new_dataset)
+
+            refresh_materialized_view(db_session, t_feedsearch.name)
+            db_session.commit()
+            logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
-        finally:
-            pass
 
     def process(self) -> DatasetFile or None:
         """

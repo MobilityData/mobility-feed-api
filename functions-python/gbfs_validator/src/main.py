@@ -8,7 +8,7 @@ from typing import List
 import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1, storage
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, Session
 import traceback
 from database_gen.sqlacodegen_models import Gbfsfeed
 from dataset_service.main import (
@@ -18,7 +18,7 @@ from dataset_service.main import (
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from helpers.database import Database
+from helpers.database import Database, with_db_session
 from helpers.logger import Logger, StableIdFilter
 from helpers.parser import jsonify_pubsub
 from .gbfs_utils import (
@@ -33,19 +33,16 @@ logging.basicConfig(level=logging.INFO)
 BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
 
 
-def fetch_all_gbfs_feeds() -> List[Gbfsfeed]:
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+@with_db_session
+def fetch_all_gbfs_feeds(db_session: "Session") -> List[Gbfsfeed]:
     try:
-        with db.start_db_session() as session:
-            gbfs_feeds = (
-                session.query(Gbfsfeed).options(joinedload(Gbfsfeed.gbfsversions)).all()
-            )
-            return gbfs_feeds
+        gbfs_feeds = (
+            db_session.query(Gbfsfeed).options(joinedload(Gbfsfeed.gbfsversions)).all()
+        )
+        return gbfs_feeds
     except Exception as e:
         logging.error(f"Error fetching all GBFS feeds: {e}")
         raise e
-    finally:
-        pass
 
 
 @functions_framework.cloud_event
@@ -114,8 +111,6 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
             logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
             save_trace_with_error(trace, error_message, trace_service)
             return error_message
-        finally:
-            pass
 
         trace.status = Status.SUCCESS
         trace_service.save(trace)

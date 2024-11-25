@@ -7,16 +7,11 @@ from preprocessed_analytics.src.processors.gtfs_analytics_processor import (
 
 
 class TestGTFSAnalyticsProcessor(unittest.TestCase):
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.start_db_session"
-    )
+    @patch("preprocessed_analytics.src.processors.base_analytics_processor.Database")
     @patch(
         "preprocessed_analytics.src.processors.base_analytics_processor.storage.Client"
     )
-    def setUp(self, mock_storage_client, mock_start_db_session):
-        self.mock_session = MagicMock()
-        mock_start_db_session.return_value = self.mock_session
-
+    def setUp(self, mock_storage_client, _):
         self.mock_storage_client = mock_storage_client
         self.mock_bucket = MagicMock()
         self.mock_storage_client().bucket.return_value = self.mock_bucket

@@ -19,11 +19,12 @@ import os
 import threading
 from typing import Final, Optional
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text, Engine
+from sqlalchemy.orm import sessionmaker, Session
 import logging
 
 DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
+LOGGER = logging.getLogger(__name__)
 
 
 def with_db_session(func):
@@ -57,7 +58,7 @@ class Database:
                     cls.instance = object.__new__(cls)
         return cls.instance
 
-    def __init__(self, database_url: Optional[str] = None, echo: bool = True):
+    def __init__(self, database_url: Optional[str] = None, pool_size: int = 10):
         with Database.lock:
             if Database.initialized:
                 return
@@ -69,17 +70,28 @@ class Database:
             if self.database_url is None:
                 raise Exception("Database URL not provided.")
 
-            self.echo = echo
-            self.engine = create_engine(
-                self.database_url, echo=self.echo, pool_size=5, max_overflow=0
+            self.pool_size = pool_size
+
+            self._engines: dict[bool, "Engine"] = {}
+            self._Sessions: dict[bool, "sessionmaker[Session]"] = {}
+
+    def _get_engine(self, echo: bool) -> "Engine":
+        if echo not in self._engines:
+            engine = create_engine(
+                self.database_url, echo=echo, pool_size=self.pool_size, max_overflow=0
             )
-            self.connection_attempts: int = 0
-            self.Session = sessionmaker(bind=self.engine, autoflush=False)
-            self.logger = logging.getLogger(__name__)
+            self._engines[echo] = engine
+        return self._engines[echo]
+
+    def _get_session(self, echo: bool) -> "sessionmaker[Session]":
+        if echo not in self._Sessions:
+            engine = self._get_engine(echo)
+            self._Sessions[echo] = sessionmaker(bind=engine, autoflush=True)
+        return self._Sessions[echo]
 
     @contextmanager
-    def start_db_session(self):
-        session = self.Session()
+    def start_db_session(self, echo: bool = True):
+        session = self._get_session(echo)()
         try:
             yield session
             session.commit()
@@ -92,14 +104,15 @@ class Database:
     def is_session_reusable():
         return os.getenv("%s" % DB_REUSE_SESSION, "false").lower() == "true"
 
-    def refresh_materialized_view(self, session, view_name: str) -> bool:
-        """
-        Refresh Materialized view by name.
-        @return: True if the view was refreshed successfully, False otherwise
-        """
-        try:
-            session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
-            return True
-        except Exception as error:
-            self.logger.error(f"Error raised while refreshing view: {error}")
-            return False
+
+def refresh_materialized_view(session: "Session", view_name: str) -> bool:
+    """
+    Refresh Materialized view by name.
+    @return: True if the view was refreshed successfully, False otherwise
+    """
+    try:
+        session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
+        return True
+    except Exception as error:
+        LOGGER.error(f"Error raised while refreshing view: {error}")
+        return False

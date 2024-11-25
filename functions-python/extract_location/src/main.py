@@ -132,8 +132,6 @@ def extract_location_pubsub(cloud_event: CloudEvent):
             error = f"Error updating location information in database: {e}"
             logging.error(f"[{dataset_id}] Error while processing: {e}")
             raise e
-        finally:
-            pass
         logging.info(
             f"[{stable_id} - {dataset_id}] Location information updated successfully."
         )
