@@ -1,0 +1,42 @@
+{
+   "feeds": "フィード",
+   "dataType": "データタイプ",
+   "transitProvider": "交通機関プロバイダー",
+   "location": "場所",
+   "feedDescription": "フィードの説明",
+   "searchFor": "検索対象",
+   "resultsFor": "{{startResult}}-{{endResult}}/{{totalResults}} 件",
+   "deprecated": "非推奨",
+   "searchPlaceholder": "交通機関プロバイダー、フィード名、または場所",
+   "noResults": "申し訳ございませんが、「{{activeSearch}}」の検索結果は見つかりませんでした。",
+   "searchSuggestions": "検索候補: ",
+   "searchTips": {
+      "twoDigit": "国を検索するには2桁のコードを使用します (例: フランスの場合は「FR」)",
+      "fullName": "交通機関プロバイダーのフルネームを含めます (例:「TTC」ではなく「Toronto Transit Commission」)",
+      "checkSpelling": "スペルミス"
+   },
+   "errorAndContact": "インターネット接続を確認して、もう一度お試しください。問題が解決しない場合は、<1>お問い合わせください</1>さらにサポートが必要な場合は、お問い合わせください。",
+   "errorLoadingFeed": "フィード読み込み中にエラーが発生しました。",
+   "form": {
+      "addOrUpdateFeed": "フィードを追加または更新する",
+      "signUp": "GTFS フィードを追加または更新するには、Mobility Database アカウントにサインアップするか、ログインしてください。",
+      "signUpAction": "アカウントにサインアップする",
+      "loginSuccess": "ログインに成功しました。フィードを追加または更新できます。"
+   },
+   "seeFullList": "全リストを表示",
+   "hideFullList": "全リストを非表示",
+   "producerDownloadUrl": "プロデューサーのダウンロードURL",
+   "copyDownloadUrl": "ダウンロードURLをコピー",
+   "producerUrlCopied": "プロデューサーのURLがクリップボードにコピーされました",
+   "authenticationType": "認証タイプ",
+   "registerToDownloadFeed": "フィードをダウンロードするには登録してください",
+   "feedContactEmail": "フィードの連絡先メール",
+   "copyFeedContactEmail": "フィード連絡先メールをコピー",
+   "features": "機能",
+   "unableToDownloadFeed": "このフィードをダウンロードできません。このフィードのより新しいURLがある場合は、<1>こちらに送信してください</1>",
+   "feedHasBeenReplaced": "このフィードは別のプロデューサーURLに置き換えられました。{' '} <1>新しいフィードにここから移動します</1>.",
+   "downloadLatest": "最新版をダウンロード",
+   "seeLicense": "ライセンスを参照",
+   "boundingBoxTitle": "stops.txt からの境界ボックス",
+   "unableToGenerateBoundingBox": "境界ボックスを生成できません。"
+}
