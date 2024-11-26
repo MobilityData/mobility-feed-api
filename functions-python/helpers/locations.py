@@ -2,17 +2,16 @@ from typing import Dict, Optional
 from sqlalchemy.orm import Session
 import pycountry
 from database_gen.sqlacodegen_models import Feed, Location
-from helpers.logger import Logger
+import logging
 
-logger = Logger("locations").get_logger()
 
 def get_country_code(country_name: str) -> Optional[str]:
     """
     Get ISO 3166 country code from country name
-    
+
     Args:
         country_name (str): Full country name
-        
+
     Returns:
         Optional[str]: Two-letter ISO country code or None if not found
     """
@@ -21,15 +20,16 @@ def get_country_code(country_name: str) -> Optional[str]:
         country = pycountry.countries.get(name=country_name)
         if country:
             return country.alpha_2
-            
+
         # Try searching by name
         countries = pycountry.countries.search_fuzzy(country_name)
         if countries:
             return countries[0].alpha_2
-            
+
     except LookupError:
-        logger.error(f"Could not find country code for: {country_name}")
+        logging.error(f"Could not find country code for: {country_name}")
     return None
+
 
 def create_or_get_location(
     session: Session,
@@ -39,13 +39,13 @@ def create_or_get_location(
 ) -> Optional[Location]:
     """
     Create a new location or get existing one
-    
+
     Args:
         session: Database session
         country: Country name
         state_province: State/province name
         city_name: City name
-        
+
     Returns:
         Optional[Location]: Location object or None if creation failed
     """
@@ -59,27 +59,27 @@ def create_or_get_location(
         if country_code:
             location_components.append(country_code)
         else:
-            logger.error(f"Could not determine country code for {country}")
+            logging.error(f"Could not determine country code for {country}")
             return None
-            
+
     if state_province:
         location_components.append(state_province)
     if city_name:
         location_components.append(city_name)
-    
+
     location_id = "-".join(location_components)
-    
+
     # First check if location already exists
     existing_location = (
         session.query(Location)
         .filter(Location.id == location_id)
         .first()
     )
-    
+
     if existing_location:
-        logger.debug(f"Using existing location: {location_id}")
+        logging.debug(f"Using existing location: {location_id}")
         return existing_location
-        
+
     # Create new location
     location = Location(
         id=location_id,
@@ -89,15 +89,18 @@ def create_or_get_location(
         municipality=city_name
     )
     session.add(location)
-    logger.debug(f"Created new location: {location_id}")
-    
+    logging.debug(f"Created new location: {location_id}")
+
     return location
+
 
 def translate_feed_locations(feed: Feed, location_translations: Dict):
     """
     Translate the locations of a feed.
-    :param feed: The feed object
-    :param location_translations: The location translations
+
+    Args:
+        feed: The feed object
+        location_translations: The location translations
     """
     for location in feed.locations:
         location_translation = location_translations.get(location.id)

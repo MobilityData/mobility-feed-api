@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+
 @dataclass
 class TransitFeedSyncPayload:
     """Data class for transit feed processing payload"""
@@ -17,4 +18,4 @@ class TransitFeedSyncPayload:
     state_province: Optional[str]
     city_name: Optional[str]
     source: str
-    payload_type: str 
+    payload_type: str
