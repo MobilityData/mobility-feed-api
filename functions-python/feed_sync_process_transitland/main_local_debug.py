@@ -26,8 +26,8 @@ from dotenv import load_dotenv
 # Configure local logging first
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    stream=sys.stdout
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
 )
 
 logger = logging.getLogger("feed_processor")
@@ -38,6 +38,7 @@ logger = logging.getLogger("feed_processor")
 class MockLogger:
 
     """Mock logger class"""
+
     @staticmethod
     def init_logger():
         return MagicMock()
@@ -52,7 +53,7 @@ class MockLogger:
         pass
 
 
-with patch('helpers.logger.Logger', MockLogger):
+with patch("helpers.logger.Logger", MockLogger):
     from feed_sync_process_transitland.src.main import process_feed_event
 
 # Load environment variables
@@ -61,6 +62,7 @@ load_dotenv(dotenv_path=".env.rename_me")
 
 class CloudEvent:
     """Cloud Event data structure."""
+
     def __init__(self, attributes: dict, data: dict):
         self.attributes = attributes
         self.data = data
@@ -69,7 +71,7 @@ class CloudEvent:
 @pytest.fixture
 def mock_pubsub():
     """Fixture to mock PubSub client"""
-    with patch('google.cloud.pubsub_v1.PublisherClient') as mock_publisher:
+    with patch("google.cloud.pubsub_v1.PublisherClient") as mock_publisher:
         publisher_instance = MagicMock()
 
         def mock_topic_path(project_id, topic_id):
@@ -122,14 +124,14 @@ def main():
         "state_province": "CA",
         "city_name": "Test City",
         "source": "TLD",
-        "payload_type": "new"
+        "payload_type": "new",
     }
 
     # Create cloud event
     cloud_event = CloudEvent(
         attributes={
             "type": "com.google.cloud.pubsub.topic.publish",
-            "source": f"//pubsub.googleapis.com/projects/{os.getenv('PROJECT_ID')}/topics/test-topic"
+            "source": f"//pubsub.googleapis.com/projects/{os.getenv('PROJECT_ID')}/topics/test-topic",
         },
         data={
             "message": {
@@ -137,13 +139,13 @@ def main():
                     json.dumps(test_payload).encode("utf-8")
                 ).decode("utf-8")
             }
-        }
+        },
     )
 
     # Set up mocks
-    with patch('google.cloud.pubsub_v1.PublisherClient', new_callable=MagicMock) as mock_publisher, \
-         patch('google.cloud.logging.Client', MagicMock()):
-
+    with patch(
+        "google.cloud.pubsub_v1.PublisherClient", new_callable=MagicMock
+    ) as mock_publisher, patch("google.cloud.logging.Client", MagicMock()):
         publisher_instance = MagicMock()
 
         def mock_topic_path(project_id, topic_id):

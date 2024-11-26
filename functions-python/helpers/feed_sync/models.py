@@ -5,6 +5,7 @@ from typing import Optional
 @dataclass
 class TransitFeedSyncPayload:
     """Data class for transit feed processing payload"""
+
     external_id: str
     feed_id: str
     feed_url: str

@@ -35,7 +35,7 @@ def create_or_get_location(
     session: Session,
     country: Optional[str],
     state_province: Optional[str],
-    city_name: Optional[str]
+    city_name: Optional[str],
 ) -> Optional[Location]:
     """
     Create a new location or get existing one
@@ -71,9 +71,7 @@ def create_or_get_location(
 
     # First check if location already exists
     existing_location = (
-        session.query(Location)
-        .filter(Location.id == location_id)
-        .first()
+        session.query(Location).filter(Location.id == location_id).first()
     )
 
     if existing_location:
@@ -86,7 +84,7 @@ def create_or_get_location(
         country_code=country_code,
         country=country,
         subdivision_name=state_province,
-        municipality=city_name
+        municipality=city_name,
     )
     session.add(location)
     logging.debug(f"Created new location: {location_id}")

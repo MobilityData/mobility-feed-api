@@ -40,6 +40,7 @@ def mock_location():
 
 class MockLogger:
     """Mock logger for testing"""
+
     @staticmethod
     def init_logger():
         return MagicMock()
@@ -62,10 +63,9 @@ class MockLogger:
 @pytest.fixture(autouse=True)
 def mock_logging():
     """Mock both local and GCP logging."""
-    with patch('feed_sync_process_transitland.src.main.logger') as mock_log, \
-         patch('feed_sync_process_transitland.src.main.gcp_logger') as mock_gcp_log, \
-         patch('helpers.logger.Logger', MockLogger):
-
+    with patch("feed_sync_process_transitland.src.main.logger") as mock_log, patch(
+        "feed_sync_process_transitland.src.main.gcp_logger"
+    ) as mock_gcp_log, patch("helpers.logger.Logger", MockLogger):
         # Configure both loggers with all required methods
         for logger in [mock_log, mock_gcp_log]:
             logger.info = MagicMock()
@@ -120,11 +120,13 @@ class TestFeedProcessor:
     def test_get_current_feed_info(self, processor, feed_payload, mock_logging):
         """Test retrieving current feed information."""
         # Mock database query
-        processor.session.query.return_value.filter.return_value.first.return_value = Mock(
-            id="feed-uuid",
-            producer_url="http://example.com/feed",
-            stable_id="TLD-test123",
-            status="active"
+        processor.session.query.return_value.filter.return_value.first.return_value = (
+            Mock(
+                id="feed-uuid",
+                producer_url="http://example.com/feed",
+                stable_id="TLD-test123",
+                status="active",
+            )
         )
 
         feed_id, url = processor.get_current_feed_info(
@@ -140,7 +142,9 @@ class TestFeedProcessor:
         )
 
         # Test case when feed does not exist
-        processor.session.query.return_value.filter.return_value.first.return_value = None
+        processor.session.query.return_value.filter.return_value.first.return_value = (
+            None
+        )
         feed_id, url = processor.get_current_feed_info(
             feed_payload.external_id, feed_payload.source
         )
@@ -157,7 +161,9 @@ class TestFeedProcessor:
 
         # Test case: Active feed exists
         mock_feed = Mock(id="test-id", status="active")
-        processor.session.query.return_value.filter.return_value.first.return_value = mock_feed
+        processor.session.query.return_value.filter.return_value.first.return_value = (
+            mock_feed
+        )
 
         result = processor.check_feed_url_exists(test_url)
         assert result is True
@@ -175,7 +181,9 @@ class TestFeedProcessor:
         )
 
         # Test case: No feed exists
-        processor.session.query.return_value.filter.return_value.first.return_value = None
+        processor.session.query.return_value.filter.return_value.first.return_value = (
+            None
+        )
         result = processor.check_feed_url_exists(test_url)
         assert result is False
         mock_logging.debug.assert_called_with(
@@ -203,24 +211,32 @@ class TestFeedProcessor:
         with pytest.raises(Exception, match="Pub/Sub error"):
             processor.publish_to_batch_topic(feed_payload)
 
-        mock_logging.error.assert_called_with("Error publishing to dataset batch topic: Pub/Sub error")
+        mock_logging.error.assert_called_with(
+            "Error publishing to dataset batch topic: Pub/Sub error"
+        )
 
     @patch("feed_sync_process_transitland.src.main.start_db_session")
     @patch("feed_sync_process_transitland.src.main.FeedProcessor")
     @patch("feed_sync_process_transitland.src.main.close_db_session")
-    def test_process_feed_event_invalid_payload(self, close_db_mock, feed_processor_mock, start_db_mock, mock_logging):
+    def test_process_feed_event_invalid_payload(
+        self, close_db_mock, feed_processor_mock, start_db_mock, mock_logging
+    ):
         """Test Cloud Function with invalid payload."""
         # Simulate an invalid payload
         cloud_event = Mock()
         cloud_event.data = {
-            "message": {"data": base64.b64encode("invalid json".encode("utf-8")).decode()}
+            "message": {
+                "data": base64.b64encode("invalid json".encode("utf-8")).decode()
+            }
         }
 
         result = process_feed_event(cloud_event)
 
         # Assertions
         assert result[1] == 500
-        mock_logging.error.assert_called_with("Error processing feed event: Expecting value: line 1 column 1 (char 0)")
+        mock_logging.error.assert_called_with(
+            "Error processing feed event: Expecting value: line 1 column 1 (char 0)"
+        )
 
     def test_process_feed_error_handling(self, processor, feed_payload, mock_logging):
         """Test error handling during feed processing."""
@@ -274,7 +290,7 @@ class TestFeedProcessor:
         mock_feed = MagicMock()
         mock_feed.locations = []
         mock_feed.externalids = []
-        mock_feed.__name__ = 'Feed'  # Add __name__ attribute
+        mock_feed.__name__ = "Feed"  # Add __name__ attribute
 
         # Create a mock Location
         mock_location = MagicMock()
@@ -284,12 +300,15 @@ class TestFeedProcessor:
         mock_location.subdivision_name = "CA"
         mock_location.municipality = "Test City"
         mock_location.feeds = []
-        mock_location.__name__ = 'Location'  # Add __name__ attribute
+        mock_location.__name__ = "Location"  # Add __name__ attribute
 
-        with patch('database_gen.sqlacodegen_models.Feed', return_value=mock_feed), \
-             patch('helpers.locations.create_or_get_location', return_value=mock_location), \
-             patch('uuid.uuid4', return_value=uuid.UUID(new_feed_id)):
-
+        with patch(
+            "database_gen.sqlacodegen_models.Feed", return_value=mock_feed
+        ), patch(
+            "helpers.locations.create_or_get_location", return_value=mock_location
+        ), patch(
+            "uuid.uuid4", return_value=uuid.UUID(new_feed_id)
+        ):
             # Call the method under test
             processor.process_feed_update(feed_payload, old_feed_id)
 
@@ -297,15 +316,21 @@ class TestFeedProcessor:
             assert mock_old_feed.status == "deprecated"
 
             # Verify session operations
-            assert mock_session.add.call_count >= 3  # New feed, external ID, and redirect
+            assert (
+                mock_session.add.call_count >= 3
+            )  # New feed, external ID, and redirect
             mock_session.flush.assert_called_once()
 
             # Verify logging
-            mock_logging.debug.assert_any_call(f"Deprecating old feed ID: {old_feed_id}")
+            mock_logging.debug.assert_any_call(
+                f"Deprecating old feed ID: {old_feed_id}"
+            )
             mock_logging.debug.assert_any_call(
                 f"Created new external ID mapping for feed_id: {new_feed_id}"
             )
-            mock_logging.debug.assert_any_call(f"Created redirect from {old_feed_id} to {new_feed_id}")
+            mock_logging.debug.assert_any_call(
+                f"Created redirect from {old_feed_id} to {new_feed_id}"
+            )
             mock_logging.info.assert_any_call(
                 f"Updated feed for external_id: {feed_payload.external_id}, new feed_id: {new_feed_id}"
             )
@@ -327,22 +352,33 @@ class TestFeedProcessor:
         mock_old_feed = MagicMock(id=old_feed_id, status="active")
         processor.session.get.return_value = mock_old_feed
 
-        with patch('uuid.uuid4', side_effect=[uuid.UUID(second_feed_id), uuid.UUID(final_feed_id)]):
+        with patch(
+            "uuid.uuid4",
+            side_effect=[uuid.UUID(second_feed_id), uuid.UUID(final_feed_id)],
+        ):
             # First update
             processor.process_feed_update(feed_payload, old_feed_id)
             assert mock_old_feed.status == "deprecated"
             # Verify first stable_id format
             mock_feed_calls = processor.session.add.call_args_list
             first_feed_call = mock_feed_calls[0][0][0]
-            assert first_feed_call.stable_id == f"{feed_payload.source}-{feed_payload.external_id}"
+            assert (
+                first_feed_call.stable_id
+                == f"{feed_payload.source}-{feed_payload.external_id}"
+            )
 
             # Second update
             processor.process_feed_update(feed_payload, second_feed_id)
             # Verify second stable_id includes counter
             second_feed_call = processor.session.add.call_args_list[-3][0][0]
-            assert second_feed_call.stable_id == f"{feed_payload.source}-{feed_payload.external_id}_2"
+            assert (
+                second_feed_call.stable_id
+                == f"{feed_payload.source}-{feed_payload.external_id}_2"
+            )
 
-    def test_publish_to_batch_topic_message_format(self, processor, feed_payload, mock_logging):
+    def test_publish_to_batch_topic_message_format(
+        self, processor, feed_payload, mock_logging
+    ):
         """Test the format and content of messages published to batch topic."""
         # Define test_topic before using it
         test_topic = "test_topic"
@@ -362,7 +398,7 @@ class TestFeedProcessor:
 
         # Get the data that was published
         publish_call = processor.publisher.publish.call_args
-        published_data = json.loads(base64.b64decode(publish_call[1]['data']))
+        published_data = json.loads(base64.b64decode(publish_call[1]["data"]))
 
         # Verify the structure and content of the published message
         assert published_data == {
@@ -374,7 +410,7 @@ class TestFeedProcessor:
             "dataset_hash": None,
             "authentication_type": "0",
             "authentication_info_url": None,
-            "api_key_parameter_name": None
+            "api_key_parameter_name": None,
         }
 
         # Test case 2: Feed with authentication
@@ -387,7 +423,7 @@ class TestFeedProcessor:
 
         # Get the data that was published with auth
         publish_call = processor.publisher.publish.call_args
-        published_data = json.loads(base64.b64decode(publish_call[1]['data']))
+        published_data = json.loads(base64.b64decode(publish_call[1]["data"]))
 
         # Verify the structure and content of the authenticated message
         assert published_data == {
@@ -399,12 +435,14 @@ class TestFeedProcessor:
             "dataset_hash": None,
             "authentication_type": "api_key",
             "authentication_info_url": "https://auth.example.com",
-            "api_key_parameter_name": "api_key"
+            "api_key_parameter_name": "api_key",
         }
 
         # Verify logging
         mock_logging.debug.assert_any_call(f"Publishing to topic: {test_topic}")
-        mock_logging.debug.assert_any_call(f"Preparing to publish feed_id: {feed_payload.feed_id}")
+        mock_logging.debug.assert_any_call(
+            f"Preparing to publish feed_id: {feed_payload.feed_id}"
+        )
         mock_logging.info.assert_called_with(
             f"Published feed {feed_payload.feed_id} to dataset batch topic"
         )
@@ -416,31 +454,31 @@ class TestFeedProcessor:
         processor.publish_to_batch_topic(feed_payload)
 
         publish_call = processor.publisher.publish.call_args
-        published_data = json.loads(base64.b64decode(publish_call[1]['data']))
+        published_data = json.loads(base64.b64decode(publish_call[1]["data"]))
 
         assert published_data["authentication_type"] == "0"
 
     def test_check_feed_url_exists_comprehensive(self, processor, mock_logging):
         """Test comprehensive validation of feed URL existence in different states."""
         test_urls = {
-            'active_url': "https://example.com/feed/active",
-            'deprecated_url': "https://example.com/feed/deprecated",
-            'new_url': "https://example.com/feed/new"
+            "active_url": "https://example.com/feed/active",
+            "deprecated_url": "https://example.com/feed/deprecated",
+            "new_url": "https://example.com/feed/new",
         }
 
         # Mock feed objects with different statuses
         active_feed = Mock(
             id="active-feed-id",
-            producer_url=test_urls['active_url'],
+            producer_url=test_urls["active_url"],
             status="active",
-            stable_id="TLD-active"
+            stable_id="TLD-active",
         )
 
         deprecated_feed = Mock(
             id="deprecated-feed-id",
-            producer_url=test_urls['deprecated_url'],
+            producer_url=test_urls["deprecated_url"],
             status="deprecated",
-            stable_id="TLD-deprecated"
+            stable_id="TLD-deprecated",
         )
 
         # Setup query mock to return different results based on URL
@@ -448,9 +486,9 @@ class TestFeedProcessor:
             mock_filter = Mock()
             # Get the URL from the filter arguments
             url = args[0].right.value
-            if url == test_urls['active_url']:
+            if url == test_urls["active_url"]:
                 mock_filter.first.return_value = active_feed
-            elif url == test_urls['deprecated_url']:
+            elif url == test_urls["deprecated_url"]:
                 mock_filter.first.return_value = deprecated_feed
             else:
                 mock_filter.first.return_value = None
@@ -462,7 +500,7 @@ class TestFeedProcessor:
         processor.session.query.return_value = mock_query
 
         # Test Case 1: URL exists in active feed
-        result = processor.check_feed_url_exists(test_urls['active_url'])
+        result = processor.check_feed_url_exists(test_urls["active_url"])
         assert result is True
         mock_logging.info.assert_any_call(
             f"Found existing feed with URL: {test_urls['active_url']} (status: active)"
@@ -472,7 +510,7 @@ class TestFeedProcessor:
         mock_logging.reset_mock()
 
         # Test Case 2: URL exists in deprecated feed
-        result = processor.check_feed_url_exists(test_urls['deprecated_url'])
+        result = processor.check_feed_url_exists(test_urls["deprecated_url"])
         assert result is True
         mock_logging.error.assert_any_call(
             f"Feed URL {test_urls['deprecated_url']} exists in deprecated feed (id: {deprecated_feed.id}). "
@@ -483,7 +521,7 @@ class TestFeedProcessor:
         mock_logging.reset_mock()
 
         # Test Case 3: New URL that doesn't exist
-        result = processor.check_feed_url_exists(test_urls['new_url'])
+        result = processor.check_feed_url_exists(test_urls["new_url"])
         assert result is False
         mock_logging.debug.assert_any_call(
             f"No existing feed found with URL: {test_urls['new_url']}"
@@ -495,14 +533,14 @@ class TestFeedProcessor:
         # Test Case 4: Edge case - Empty URL
         result = processor.check_feed_url_exists("")
         assert result is False
-        mock_logging.debug.assert_any_call(
-            "No existing feed found with URL: "
-        )
+        mock_logging.debug.assert_any_call("No existing feed found with URL: ")
 
         # Test Case 5: Database error during URL check
-        processor.session.query.side_effect = SQLAlchemyError("Database connection error")
+        processor.session.query.side_effect = SQLAlchemyError(
+            "Database connection error"
+        )
 
         with pytest.raises(SQLAlchemyError) as exc_info:
-            processor.check_feed_url_exists(test_urls['active_url'])
+            processor.check_feed_url_exists(test_urls["active_url"])
 
         assert "Database connection error" in str(exc_info.value)

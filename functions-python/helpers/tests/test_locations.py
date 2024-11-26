@@ -3,7 +3,11 @@
 import unittest
 from unittest.mock import MagicMock
 from database_gen.sqlacodegen_models import Feed, Location
-from helpers.locations import translate_feed_locations, get_country_code, create_or_get_location
+from helpers.locations import (
+    translate_feed_locations,
+    get_country_code,
+    create_or_get_location,
+)
 
 
 class TestLocations(unittest.TestCase):
@@ -34,15 +38,17 @@ class TestLocations(unittest.TestCase):
             country_code="US",
             country="United States",
             subdivision_name="California",
-            municipality="San Francisco"
+            municipality="San Francisco",
         )
-        self.session.query.return_value.filter.return_value.first.return_value = mock_location
+        self.session.query.return_value.filter.return_value.first.return_value = (
+            mock_location
+        )
 
         result = create_or_get_location(
             self.session,
             country="United States",
             state_province="California",
-            city_name="San Francisco"
+            city_name="San Francisco",
         )
 
         self.assertEqual(result, mock_location)
@@ -56,7 +62,7 @@ class TestLocations(unittest.TestCase):
             self.session,
             country="United States",
             state_province="California",
-            city_name="San Francisco"
+            city_name="San Francisco",
         )
 
         self.assertIsNotNone(result)
@@ -70,10 +76,7 @@ class TestLocations(unittest.TestCase):
     def test_create_or_get_location_no_inputs(self):
         """Test with no location information provided."""
         result = create_or_get_location(
-            self.session,
-            country=None,
-            state_province=None,
-            city_name=None
+            self.session, country=None, state_province=None, city_name=None
         )
         self.assertIsNone(result)
 
@@ -83,7 +86,7 @@ class TestLocations(unittest.TestCase):
             self.session,
             country="Invalid Country",
             state_province="State",
-            city_name="City"
+            city_name="City",
         )
         self.assertIsNone(result)
 
