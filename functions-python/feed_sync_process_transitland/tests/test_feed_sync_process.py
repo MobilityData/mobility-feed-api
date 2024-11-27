@@ -137,7 +137,7 @@ class TestFeedProcessor:
         processor.session.query.return_value.filter.return_value.first.return_value = (
             Mock(
                 id="feed-uuid",
-                producer_url="http://example.com/feed",
+                producer_url="https://example.com/feed",
                 stable_id="TLD-test123",
                 status="active",
             )
@@ -149,7 +149,7 @@ class TestFeedProcessor:
 
         # Assertions
         assert feed_id == "feed-uuid"
-        assert url == "http://example.com/feed"
+        assert url == "https://example.com/feed"
         mock_logging.info.assert_called_with(
             f"Retrieved feed TLD-test123 info for external_id: "
             f"{feed_payload.external_id} (status: active)"
