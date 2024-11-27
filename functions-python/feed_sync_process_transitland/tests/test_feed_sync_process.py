@@ -115,7 +115,6 @@ class TestFeedProcessor:
         """Fixture for FeedProcessor with mocked dependencies."""
         # mock for the database session
         mock_session = Mock(spec=DBSession)
-        # mock publisher for Pub/Sub
         mock_publisher = Mock(spec=pubsub_v1.PublisherClient)
 
         processor = FeedProcessor(mock_session)
