@@ -150,75 +150,86 @@ class FeedProcessor:
         Args:
             payload (FeedPayload): The feed payload for new feed
         """
-        log_message(
-            "info", f"Starting new feed creation for external_id: {payload.external_id}"
-        )
-
-        # Check if feed with same URL exists
-        if self.check_feed_url_exists(payload.feed_url):
-            log_message("error", f"Feed URL already exists: {payload.feed_url}")
-            return
-
-        # Generate new feed ID and stable ID
-        feed_id = str(uuid.uuid4())
-        stable_id = f"{payload.source}-{payload.external_id}"
-
-        log_message(
-            "debug", f"Generated new feed_id: {feed_id} and stable_id: {stable_id}"
-        )
-
         try:
-            # Create new feed
-            new_feed = Feed(
-                id=feed_id,
-                data_type=payload.spec,
-                producer_url=payload.feed_url,
-                authentication_type=payload.type if payload.type else "0",
-                authentication_info_url=payload.auth_info_url,
-                api_key_parameter_name=payload.auth_param_name,
-                stable_id=stable_id,
-                status="active",
-                provider=payload.operator_name,
-                operational_status="wip",
-            )
-
-            # external ID mapping
-            external_id = Externalid(
-                feed_id=feed_id,
-                associated_id=payload.external_id,
-                source=payload.source,
-            )
-
-            # Add relationships
-            new_feed.externalids.append(external_id)
-
-            # Create or get location
-            location = create_or_get_location(
-                self.session, payload.country, payload.state_province, payload.city_name
-            )
-
-            if location is not None:  # Only append if location is not None
-                new_feed.locations.append(location)
-                log_message("debug", f"Added location information for feed: {feed_id}")
-            else:
-                log_message(
-                    "debug", f"No location information to add for feed: {feed_id}"
-                )
-
-            self.session.add(new_feed)
-            self.session.flush()
-
-            log_message("debug", f"Successfully created feed with ID: {feed_id}")
             log_message(
                 "info",
-                f"Created new feed with ID: {feed_id} for external_id: {payload.external_id}",
+                f"Starting new feed creation for external_id: {payload.external_id}",
             )
 
-        except Exception as e:
+            # Check if feed with same URL exists
+            if self.check_feed_url_exists(payload.feed_url):
+                log_message("error", f"Feed URL already exists: {payload.feed_url}")
+                return
+
+            # Generate new feed ID and stable ID
+            feed_id = str(uuid.uuid4())
+            stable_id = f"{payload.source}-{payload.external_id}"
+
             log_message(
-                "error",
-                f"Error creating new feed for external_id {payload.external_id}: {str(e)}",
+                "debug", f"Generated new feed_id: {feed_id} and stable_id: {stable_id}"
             )
+
+            try:
+                # Create new feed
+                new_feed = Feed(
+                    id=feed_id,
+                    data_type=payload.spec,
+                    producer_url=payload.feed_url,
+                    authentication_type=payload.type if payload.type else "0",
+                    authentication_info_url=payload.auth_info_url,
+                    api_key_parameter_name=payload.auth_param_name,
+                    stable_id=stable_id,
+                    status="active",
+                    provider=payload.operator_name,
+                    operational_status="wip",
+                )
+
+                # external ID mapping
+                external_id = Externalid(
+                    feed_id=feed_id,
+                    associated_id=payload.external_id,
+                    source=payload.source,
+                )
+
+                # Add relationships
+                new_feed.externalids.append(external_id)
+
+                # Create or get location
+                location = create_or_get_location(
+                    self.session,
+                    payload.country,
+                    payload.state_province,
+                    payload.city_name,
+                )
+
+                if location is not None:
+                    new_feed.locations.append(location)
+                    log_message(
+                        "debug", f"Added location information for feed: {feed_id}"
+                    )
+                else:
+                    log_message(
+                        "debug", f"No location information to add for feed: {feed_id}"
+                    )
+
+                self.session.add(new_feed)
+                self.session.flush()
+
+                log_message("debug", f"Successfully created feed with ID: {feed_id}")
+                log_message(
+                    "info",
+                    f"Created new feed with ID: {feed_id} for external_id: {payload.external_id}",
+                )
+
+            except SQLAlchemyError as e:
+                self.session.rollback()
+                error_msg = f"Database error creating feed for external_id {payload.external_id}: {str(e)}"
+                log_message("error", error_msg)
+                raise
+
+        except Exception as e:
+            error_msg = f"Database error creating feed for external_id {payload.external_id}: {str(e)}"
+            log_message("error", error_msg)
             raise
 
     def process_feed_update(self, payload: FeedPayload, old_feed_id: str) -> None:
@@ -329,17 +340,24 @@ class FeedProcessor:
 
     def check_feed_url_exists(self, feed_url: str) -> bool:
         """
-        Check if a feed with the given URL exists in any state
+        Check if a feed with the given URL exists in any state (active or deprecated).
+        This check is used to prevent creating new feeds with URLs that are already in use.
 
         Args:
             feed_url (str): The URL to check
 
         Returns:
-            bool: True if any feed with this URL exists and is active, or if URL exists in deprecated feed
+            bool: True if any feed with this URL exists (either active or deprecated),
+                 preventing creation of new feeds with duplicate URLs
         """
-        result = self.session.query(Feed).filter(Feed.producer_url == feed_url).first()
+        results = self.session.query(Feed).filter(Feed.producer_url == feed_url).all()
 
-        if result is not None:
+        if results:
+            if len(results) > 1:
+                log_message("warning", f"Multiple feeds found with URL: {feed_url}")
+                return True
+
+            result = results[0]
             if result.status == "active":
                 log_message(
                     "info", f"Found existing feed with URL: {feed_url} (status: active)"
