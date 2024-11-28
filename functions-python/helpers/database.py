@@ -18,13 +18,28 @@ import os
 import threading
 from typing import Final
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, text, event
+from sqlalchemy.orm import sessionmaker, mapper
 import logging
 
 DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
 lock = threading.Lock()
 global_session = None
+
+
+def set_cascade(mapper, class_):
+    if class_.__name__ == "Gtfsfeed":
+        for rel in class_.__mapper__.relationships:
+            if rel.key in [
+                "redirectingids",
+                "redirectingids_",
+                "externalids",
+                "externalids_",
+            ]:
+                rel.cascade = "all, delete-orphan"
+
+
+event.listen(mapper, "mapper_configured", set_cascade)
 
 
 def get_db_engine(database_url: str = None, echo: bool = True):

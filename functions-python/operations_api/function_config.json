@@ -1,0 +1,23 @@
+{
+  "name": "operations-api",
+  "description": "API containing the back-office operations",
+  "entry_point": "main",
+  "timeout": 540,
+  "memory": "1Gi",
+  "trigger_http": true,
+  "include_folders": ["database_gen", "helpers"],
+  "environment_variables": [],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_DATABASE_URL"
+    }
+  ],
+  "ingress_settings": "ALL",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 5,
+  "min_instance_count": 0,
+  "available_cpu": 1,
+  "build_settings": {
+    "pre_build_script": "../../scripts/api-operations-gen.sh"
+  }
+}
