@@ -20,3 +20,4 @@ google-cloud-storage
 
 # Additional packages for this function
 pandas
+pycountry
