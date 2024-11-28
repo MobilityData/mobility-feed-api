@@ -3,7 +3,6 @@ import {
   AppBar,
   Box,
   Divider,
-  Avatar,
   Drawer,
   IconButton,
   List,
@@ -45,6 +44,7 @@ import i18n from '../../i18n';
 import { NestedMenuItem } from 'mui-nested-menu';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import { fontFamily, theme } from '../Theme';
+import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
 
 const drawerWidth = 240;
 const websiteTile = 'Mobility Database';
@@ -69,10 +69,30 @@ const DrawerContent: React.FC<{
           navigateTo('/');
         }}
       >
-        <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
+        <picture style={{ display: 'flex' }}>
+          <source
+            media='(min-width: 50px)'
+            srcSet='/assets/MOBILTYDATA_logo_purple_M.webp'
+            width='50'
+            height='50'
+          />
+          <source
+            src='/assets/MOBILTYDATA_logo_purple_M.png'
+            type='image/png'
+          />
+          <img
+            alt='MobilityData logo'
+            src='/assets/MOBILTYDATA_logo_purple_M.png'
+          />
+        </picture>
         <Typography
           variant='h6'
-          sx={{ my: 2, cursor: 'pointer', color: theme.palette.primary.main }}
+          sx={{
+            my: 2,
+            cursor: 'pointer',
+            color: theme.palette.primary.main,
+            fontWeight: 700,
+          }}
           data-testid='websiteTile'
         >
           {websiteTile}
@@ -246,7 +266,7 @@ export default function DrawerAppBar(): React.ReactElement {
   const [activeTab, setActiveTab] = React.useState('');
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
-  >([]);
+  >(buildNavigationItems(defaultRemoteConfigValues));
   const [currentLanguage, setCurrentLanguage] = React.useState<
     string | undefined
   >(i18n.language);
@@ -383,10 +403,22 @@ export default function DrawerAppBar(): React.ReactElement {
               }}
               className='btn-link'
             >
-              <Avatar
-                alt='MobilityData logo'
-                src='/assets/MOBILTYDATA_logo_purple_M.png'
-              ></Avatar>
+              <picture style={{ display: 'flex' }}>
+                <source
+                  media='(min-width: 50px)'
+                  srcSet='/assets/MOBILTYDATA_logo_purple_M.webp'
+                  width='50'
+                  height='50'
+                />
+                <source
+                  src='/assets/MOBILTYDATA_logo_purple_M.png'
+                  type='image/png'
+                />
+                <img
+                  alt='MobilityData logo'
+                  src='/assets/MOBILTYDATA_logo_purple_M.png'
+                />
+              </picture>
               <Typography
                 variant='h5'
                 component='div'

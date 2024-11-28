@@ -38,8 +38,8 @@
 }
 
 #app-main-container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  position: relative;
+  min-height: 100vh;
+  padding-bottom: 230px; /* footer space */
+  box-sizing: border-box;
 }

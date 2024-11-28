@@ -12,6 +12,7 @@ import {
   Grid,
   InputAdornment,
   Pagination,
+  Skeleton,
   TableContainer,
   TextField,
   Typography,
@@ -154,7 +155,7 @@ export default function Feed(): React.ReactElement {
   };
 
   return (
-    <Container component='main'>
+    <Container component='main' maxWidth='xl'>
       <CssBaseline />
       <Box
         sx={{
@@ -162,7 +163,6 @@ export default function Feed(): React.ReactElement {
           flexDirection: 'column',
         }}
         mx={{ xs: 0, m: 'auto' }}
-        maxWidth={{ xs: '100%', m: '1600px' }}
       >
         <Grid container spacing={2}>
           <Grid item xs={12}>
@@ -294,7 +294,27 @@ export default function Feed(): React.ReactElement {
                 <Grid item xs={12} md={10}>
                   {feedStatus === 'loading' && (
                     <Grid item xs={12}>
-                      <h3>{t('common:loading')}</h3>
+                      <Skeleton
+                        animation='wave'
+                        variant='text'
+                        sx={{ fontSize: '1rem', width: '200px' }}
+                      />
+                      <Skeleton
+                        animation='wave'
+                        variant='text'
+                        sx={{ fontSize: '2rem', width: '100%' }}
+                      />
+                      <Skeleton
+                        animation='wave'
+                        variant='rectangular'
+                        width={'100%'}
+                        height={'1118px'}
+                      />
+                      <Skeleton
+                        animation='wave'
+                        variant='text'
+                        sx={{ fontSize: '2rem', width: '320px' }}
+                      />
                     </Grid>
                   )}
 

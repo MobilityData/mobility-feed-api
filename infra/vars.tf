@@ -63,3 +63,7 @@ variable "validator_endpoint" {
   type = string
   description = "URL of the validator endpoint"
 }
+
+variable "transitland_api_key" {
+  type = string
+}

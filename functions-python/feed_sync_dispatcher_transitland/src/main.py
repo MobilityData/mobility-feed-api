@@ -15,35 +15,34 @@
 #
 
 import json
-import os
 import logging
-import time
+import os
 import random
+import time
 from dataclasses import dataclass, asdict
 from typing import Optional, List
-import requests
-from requests.exceptions import RequestException, HTTPError
-import pandas as pd
 
 import functions_framework
+import pandas as pd
+import requests
 from google.cloud.pubsub_v1.futures import Future
+from requests.exceptions import RequestException, HTTPError
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 
+from database_gen.sqlacodegen_models import Gtfsfeed
 from helpers.feed_sync.feed_sync_common import FeedSyncProcessor, FeedSyncPayload
 from helpers.feed_sync.feed_sync_dispatcher import feed_sync_dispatcher
+from helpers.logger import Logger
 from helpers.pub_sub import get_pubsub_client, get_execution_id
 
 # Logging configuration
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO)
 
 # Environment variables
 PUBSUB_TOPIC_NAME = os.getenv("PUBSUB_TOPIC_NAME")
 PROJECT_ID = os.getenv("PROJECT_ID")
 FEEDS_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
-apikey = os.getenv("TRANSITLAND_API_KEY")
+TRANSITLAND_API_KEY = os.getenv("TRANSITLAND_API_KEY")
 TRANSITLAND_OPERATOR_URL = os.getenv("TRANSITLAND_OPERATOR_URL")
 TRANSITLAND_FEED_URL = os.getenv("TRANSITLAND_FEED_URL")
 spec = ["gtfs", "gtfs-rt"]
@@ -83,11 +82,16 @@ class TransitFeedSyncPayload:
 class TransitFeedSyncProcessor(FeedSyncProcessor):
     def check_url_status(self, url: str) -> bool:
         """
-        Checks if a URL returns a valid response (not 404 or 500).
+        Checks if a URL returns a valid response status code.
         """
         try:
+            logging.info(f"Checking URL: {url}")
+            if url is None or len(url) == 0:
+                logging.warning("URL is empty. Skipping check.")
+                return False
             response = requests.head(url, timeout=25)
-            return response.status_code not in {404, 500}
+            logging.info(f"URL status code: {response.status_code}")
+            return response.status_code < 400
         except requests.RequestException as e:
             logging.warning(f"Failed to reach {url}: {e}")
             return False
@@ -99,9 +103,17 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Process data synchronously to fetch, extract, combine, filter and prepare payloads for publishing
         to a queue based on conditions related to the data retrieved from TransitLand API.
         """
-        feeds_data = self.get_data(TRANSITLAND_FEED_URL, apikey, spec, session)
+        feeds_data = self.get_data(
+            TRANSITLAND_FEED_URL, TRANSITLAND_API_KEY, spec, session
+        )
+        logging.info("Fetched %s feeds from TransitLand API", len(feeds_data["feeds"]))
+
         operators_data = self.get_data(
-            TRANSITLAND_OPERATOR_URL, apikey, session=session
+            TRANSITLAND_OPERATOR_URL, TRANSITLAND_API_KEY, session=session
+        )
+        logging.info(
+            "Fetched %s operators from TransitLand API",
+            len(operators_data["operators"]),
         )
 
         feeds = self.extract_feeds_data(feeds_data)
@@ -151,12 +163,25 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             .str.lower()
             .isin([c.lower() for c in countries_not_included])
         ]
+        logging.info(
+            "Filtered out %s feeds from countries: %s",
+            len(df_grouped) - len(filtered_df),
+            countries_not_included,
+        )
 
         # Filtered out URLs that return undesired status codes
+        filtered_df = filtered_df.drop_duplicates(
+            subset=["feed_url"]
+        )  # Drop duplicates
         filtered_df = filtered_df[filtered_df["feed_url"].apply(self.check_url_status)]
+        logging.info(
+            "Filtered out %s feeds with invalid URLs",
+            len(df_grouped) - len(filtered_df),
+        )
 
         # Convert filtered DataFrame to dictionary format
         combined_data = filtered_df.to_dict(orient="records")
+        logging.info("Prepared %s feeds for publishing", len(combined_data))
 
         payloads = []
         for data in combined_data:
@@ -197,7 +222,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
     def get_data(
         self,
         url,
-        apikey,
+        api_key,
         spec=None,
         session=None,
         max_retries=3,
@@ -209,11 +234,13 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Handles rate limits, retries, and error cases.
         Returns the parsed data as a dictionary containing feeds and operators.
         """
-        headers = {"apikey": apikey}
+        headers = {"apikey": api_key}
         params = {"spec": spec} if spec else {}
         all_data = {"feeds": [], "operators": []}
         delay = initial_delay
+        response = None
 
+        logging.info("Fetching data from %s", url)
         while url:
             for attempt in range(max_retries):
                 try:
@@ -225,12 +252,17 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                     all_data["feeds"].extend(data.get("feeds", []))
                     all_data["operators"].extend(data.get("operators", []))
                     url = data.get("meta", {}).get("next")
+                    logging.info(
+                        "Fetched %s feeds and %s operators",
+                        len(all_data["feeds"]),
+                        len(all_data["operators"]),
+                    )
+                    logging.info("Next URL: %s", url)
                     delay = initial_delay
                     break
-
                 except (RequestException, HTTPError) as e:
                     logging.error("Attempt %s failed: %s", attempt + 1, e)
-                    if response.status_code == 429:
+                    if response is not None and response.status_code == 429:
                         logging.warning("Rate limit hit. Waiting for %s seconds", delay)
                         time.sleep(delay + random.uniform(0, 1))
                         delay = min(delay * 2, max_delay)
@@ -240,7 +272,9 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                         )
                         return all_data
                     else:
+                        logging.info("Retrying in %s seconds", delay)
                         time.sleep(delay)
+        logging.info("Finished fetching data.")
         return all_data
 
     def extract_feeds_data(self, feeds_data: dict) -> List[dict]:
@@ -297,13 +331,12 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         :param source: The source to filter by (e.g., 'TLD' for TransitLand)
         :return: True if the feed exists, False otherwise
         """
-        query = text(
-            "SELECT 1 FROM public.externalid WHERE associated_id = :external_id AND source = :source LIMIT 1"
+        results = (
+            db_session.query(Gtfsfeed)
+            .filter(Gtfsfeed.externalids.any(associated_id=external_id))
+            .all()
         )
-        result = db_session.execute(
-            query, {"external_id": external_id, "source": source}
-        ).fetchone()
-        return result is not None
+        return results is not None and len(results) > 0
 
     def get_mbd_feed_url(
         self, db_session: Session, external_id: str, source: str
@@ -315,19 +348,12 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         :param source: The source to filter by (e.g., 'TLD' for TransitLand)
         :return: feed_url in mbd if exists, otherwise None
         """
-        query = text(
-            """
-            SELECT f.producer_url
-            FROM public.feed f
-            JOIN public.externalid e ON f.id = e.feed_id
-            WHERE e.associated_id = :external_id AND e.source = :source
-            LIMIT 1
-            """
+        results = (
+            db_session.query(Gtfsfeed)
+            .filter(Gtfsfeed.externalids.any(associated_id=external_id))
+            .all()
         )
-        result = db_session.execute(
-            query, {"external_id": external_id, "source": source}
-        ).fetchone()
-        return result[0] if result else None
+        return results[0].producer_url if results else None
 
     def publish_callback(
         self, future: Future, payload: FeedSyncPayload, topic_path: str
@@ -350,6 +376,7 @@ def feed_sync_dispatcher_transitland(request):
     """
     HTTP Function entry point queries the transitland API and publishes events to a Pub/Sub topic to be processed.
     """
+    Logger.init_logger()
     publisher = get_pubsub_client()
     topic_path = publisher.topic_path(PROJECT_ID, PUBSUB_TOPIC_NAME)
     transit_land_feed_sync_processor = TransitFeedSyncProcessor()

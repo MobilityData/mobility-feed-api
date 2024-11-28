@@ -9,6 +9,7 @@ import {
   Typography,
   Button,
   Grid,
+  Skeleton,
 } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
 import '../../styles/SignUp.css';
@@ -265,11 +266,63 @@ export default function Feed(): React.ReactElement {
   }, [feed, needsToLoadFeed]);
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
-  if (needsToLoadFeed) {
+  const areDatasetsLoading =
+    feed?.data_type === 'gtfs' && datasetLoadingStatus === 'loading';
+  const isCurrenltyLoadingFeed =
+    feedLoadingStatus === 'loading' || areDatasetsLoading;
+  if (needsToLoadFeed || isCurrenltyLoadingFeed) {
     return wrapComponent(
       feedLoadingStatus,
       undefined,
-      <span>{t('common:loading')}</span>,
+      <Box>
+        <Skeleton
+          animation='wave'
+          variant='text'
+          sx={{ fontSize: '2rem', width: '300px' }}
+        />
+        <Skeleton
+          animation='wave'
+          variant='text'
+          sx={{ fontSize: '3rem', width: { xs: '100%', sm: '500px' } }}
+        />
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            width={'162px'}
+            height={'40px'}
+          />
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            width={'162px'}
+            height={'40px'}
+          />
+        </Box>
+        <Box
+          sx={{
+            mt: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 3,
+            flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          }}
+        >
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            sx={{ width: { xs: '100%', sm: '475px' }, height: '630px' }}
+          />
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            sx={{
+              width: { xs: '100%', sm: 'calc(100% - 475px)' },
+              height: '630px',
+            }}
+          />
+        </Box>
+      </Box>,
     );
   }
   const hasDatasets = datasets !== undefined && datasets.length > 0;
@@ -402,16 +455,12 @@ export default function Feed(): React.ReactElement {
             disableElevation
             variant='contained'
             sx={{ marginRight: 2, my: 1 }}
+            href={downloadLatestUrl}
+            target='_blank'
+            rel='noreferrer'
+            id='download-latest-button'
           >
-            <a
-              href={downloadLatestUrl}
-              target='_blank'
-              className='btn-link'
-              rel='noreferrer'
-              id='download-latest-button'
-            >
-              {t('downloadLatest')}
-            </a>
+            {t('downloadLatest')}
           </Button>
         )}
         {feed?.source_info?.license_url !== undefined &&
@@ -420,15 +469,11 @@ export default function Feed(): React.ReactElement {
               disableElevation
               variant='contained'
               sx={{ marginRight: 2 }}
+              href={feed?.source_info?.license_url}
+              target='_blank'
+              rel='noreferrer'
             >
-              <a
-                href={feed?.source_info?.license_url}
-                target='_blank'
-                className='btn-link'
-                rel='noreferrer'
-              >
-                {t('seeLicense')}
-              </a>
+              {t('seeLicense')}
             </Button>
           )}
       </Grid>
@@ -440,13 +485,14 @@ export default function Feed(): React.ReactElement {
               xs: feed?.data_type === 'gtfs' ? 'column-reverse' : 'column',
               md: 'row',
             }}
-            sx={{ gap: '10px' }}
+            sx={{ gap: 3, flexWrap: 'nowrap' }}
             justifyContent={'space-between'}
           >
             {feed?.data_type === 'gtfs' && (
               <ContentBox
+                sx={{ flex: 'none' }}
                 title={t('boundingBoxTitle')}
-                width={{ xs: '100%', md: '42%' }}
+                width={{ xs: '100%', md: '475px' }}
                 outlineColor={theme.palette.primary.dark}
                 padding={2}
               >
@@ -467,7 +513,7 @@ export default function Feed(): React.ReactElement {
               feed={feed}
               sortedProviders={sortedProviders}
               latestDataset={latestDataset}
-              width={{ xs: '100%', md: '55%' }}
+              width={{ xs: '100%' }}
             />
 
             {feed?.data_type === 'gtfs_rt' && relatedFeeds !== undefined && (
