@@ -25,6 +25,8 @@ from fastapi import HTTPException
 from starlette.datastructures import Headers
 from starlette.types import Scope
 
+from helpers.transform import to_boolean
+
 REQUEST_CTX_KEY = "request_context_key"
 _request_context: ContextVar[dict] = ContextVar(REQUEST_CTX_KEY, default={})
 cache = TTLCache(maxsize=1000, ttl=3600)
@@ -40,9 +42,7 @@ def validate_token_with_google(token: str, google_client_id: str) -> dict:
         HTTPException: 500, If the token validation fails.
     """
     try:
-        response = requests.get(
-            f"https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={token}"
-        )
+        response = get_tokeninfo_response(token)
         if response.status_code != 200:
             raise HTTPException(status_code=401, detail="Invalid access token")
 
@@ -57,6 +57,16 @@ def validate_token_with_google(token: str, google_client_id: str) -> dict:
     except requests.exceptions.RequestException as e:
         logging.error(f"Token validation failed: {e}")
         raise HTTPException(status_code=500, detail="Token validation failed")
+
+
+def get_tokeninfo_response(token):
+    """
+    Get the token info response from Google's tokeninfo endpoint.
+    """
+    response = requests.get(
+        f"https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={token}"
+    )
+    return response
 
 
 def get_token_info(token: str, google_client_id: str) -> dict:
@@ -194,7 +204,7 @@ class RequestContext:
             self.user_email = extract_authorization_oauth(headers, google_client_id)
         else:
             local_environment = os.getenv("LOCAL_ENV", False)
-            if not local_environment:
+            if not to_boolean(local_environment):
                 raise HTTPException(
                     status_code=401, detail="Authorization header not found"
                 )

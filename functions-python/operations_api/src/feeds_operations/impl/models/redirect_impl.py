@@ -20,7 +20,7 @@ from database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gtfsrealtimefeed,
 )
-from feeds_operations_gen.models.redirect import Redirect
+from ....feeds_operations_gen.models.redirect import Redirect
 from helpers.query_helper import query_feed_by_stable_id
 
 
@@ -55,12 +55,11 @@ class RedirectImpl(Redirect):
         """
         Convert a Pydantic model to a SQLAlchemy row object.
         """
+        if not source or not source.id:
+            raise ValueError("Invalid source object or source.id is not set")
         target_feed = query_feed_by_stable_id(
             session, redirect.target_id, source.data_type
         )
-
-        if not source or not source.id:
-            raise ValueError("Invalid source object or source.id is not set")
 
         if not target_feed or not target_feed.id:
             raise ValueError("Invalid target_feed object or target_feed.id is not set")
