@@ -176,7 +176,7 @@ class TestLocations(unittest.TestCase):
     def test_get_country_code_empty_string(self, mock_logging):
         """Test getting country code with empty string"""
         self.assertIsNone(get_country_code(""))
-        mock_logging.assert_called_with("Could not find country code for: ")
+        mock_logging.assert_called_with("Could not find country code for: empty string")
 
     def test_create_or_get_location_partial_info(self):
         """Test creating location with partial information"""
