@@ -1,10 +1,17 @@
 from datetime import datetime
 from typing import List, Union, TypeVar
 
-from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.query import Query
 
+from common.common import get_joinedload_options
+from common.error_handling import (
+    invalid_date_message,
+    feed_not_found,
+    gtfs_feed_not_found,
+    gtfs_rt_feed_not_found,
+    InternalHTTPException,
+)
 from database.database import Database
 from database_gen.sqlacodegen_models import (
     Feed,
@@ -14,23 +21,16 @@ from database_gen.sqlacodegen_models import (
     Location,
     Validationreport,
     t_location_with_translations_en,
-    Entitytype,
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
-from feeds.filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
-from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
+from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.error_handling import (
     raise_http_validation_error,
-    invalid_date_message,
     raise_http_error,
-    feed_not_found,
-    gtfs_feed_not_found,
-    gtfs_rt_feed_not_found,
 )
 from feeds.impl.models.basic_feed_impl import BasicFeedImpl
-from feeds.impl.models.entity_type_enum import EntityType
 from feeds.impl.models.gtfs_feed_impl import GtfsFeedImpl
 from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
@@ -38,9 +38,11 @@ from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
+from feeds.impl.error_handling import convert_exception
 from middleware.request_context import is_user_email_restricted
 from sqlalchemy import or_
 from utils.date_utils import valid_iso_date
+from common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query
 from utils.location_translation import (
     create_location_translation_object,
     LocationTranslation,
@@ -105,7 +107,7 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         # Results are sorted by provider
         feed_query = feed_query.order_by(Feed.provider, Feed.stable_id)
-        feed_query = feed_query.options(*BasicFeedImpl.get_joinedload_options())
+        feed_query = feed_query.options(*get_joinedload_options())
         if limit is not None:
             feed_query = feed_query.limit(limit)
         if offset is not None:
@@ -148,7 +150,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 joinedload(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
                 .joinedload(Validationreport.notices),
-                *BasicFeedImpl.get_joinedload_options(),
+                *get_joinedload_options(),
             )
         ).all()
         if len(results) > 0 and results[0].Gtfsfeed:
@@ -224,79 +226,27 @@ class FeedsApiImpl(BaseFeedsApi):
         never_return_wip: bool = False,
     ) -> List[GtfsFeed]:
 
-        feed_query = FeedsApiImpl.get_gtfs_feeds_query(
-            limit=limit,
-            offset=offset,
-            provider=provider,
-            producer_url=producer_url,
-            country_code=country_code,
-            subdivision_name=subdivision_name,
-            municipality=municipality,
-            dataset_latitudes=dataset_latitudes,
-            dataset_longitudes=dataset_longitudes,
-            bounding_filter_method=bounding_filter_method,
-            never_return_wip=never_return_wip,
-        )
+        try:
+            feed_query = get_gtfs_feeds_query(
+                limit=limit,
+                offset=offset,
+                provider=provider,
+                producer_url=producer_url,
+                country_code=country_code,
+                subdivision_name=subdivision_name,
+                municipality=municipality,
+                dataset_latitudes=dataset_latitudes,
+                dataset_longitudes=dataset_longitudes,
+                bounding_filter_method=bounding_filter_method,
+                never_return_wip=never_return_wip,
+            )
+        except InternalHTTPException as e:
+            # get_gtfs_feeds_query cannot throw HTTPException since it's part of fastapi and it's
+            # not necessarily deployed (e.g. for python functions). Instead it throws an InternalHTTPException
+            # that needs to be converted to HTTPException before being thrown.
+            raise convert_exception(e)
 
         return self._get_response(feed_query, GtfsFeedImpl)
-
-    @staticmethod
-    def get_gtfs_feeds_query(
-        limit: int,
-        offset: int,
-        provider: str,
-        producer_url: str,
-        country_code: str,
-        subdivision_name: str,
-        municipality: str,
-        dataset_latitudes: str,
-        dataset_longitudes: str,
-        bounding_filter_method: str,
-        never_return_wip: bool = False,
-    ) -> Query[any]:
-        """Get some (or all) GTFS feeds from the Mobility Database."""
-        gtfs_feed_filter = GtfsFeedFilter(
-            stable_id=None,
-            provider__ilike=provider,
-            producer_url__ilike=producer_url,
-            location=LocationFilter(
-                country_code=country_code,
-                subdivision_name__ilike=subdivision_name,
-                municipality__ilike=municipality,
-            ),
-        )
-
-        subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id).join(Location, Gtfsfeed.locations))
-        subquery = DatasetsApiImpl.apply_bounding_filtering(
-            subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
-        ).subquery()
-
-        feed_query = Database().get_session().query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
-        if never_return_wip:
-            feed_query = feed_query.filter(
-                or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
-            )
-        else:
-            feed_query = feed_query.filter(
-                or_(
-                    Gtfsfeed.operational_status == None,  # noqa: E711
-                    Gtfsfeed.operational_status != "wip",
-                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
-                )
-            )
-
-        feed_query = (
-            feed_query.options(
-                joinedload(Gtfsfeed.gtfsdatasets)
-                .joinedload(Gtfsdataset.validation_reports)
-                .joinedload(Validationreport.notices),
-                *BasicFeedImpl.get_joinedload_options(),
-            )
-            .order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-            .limit(limit)
-            .offset(offset)
-        )
-        return feed_query
 
     def get_gtfs_rt_feed(
         self,
@@ -326,7 +276,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .options(
                 joinedload(Gtfsrealtimefeed.entitytypes),
                 joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                *BasicFeedImpl.get_joinedload_options(),
+                *get_joinedload_options(),
             )
         ).all()
 
@@ -349,58 +299,20 @@ class FeedsApiImpl(BaseFeedsApi):
         never_return_wip: bool = False,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
-        entity_types_list = entity_types.split(",") if entity_types else None
-
-        # Validate entity types using the EntityType enum
-        if entity_types_list:
-            try:
-                entity_types_list = [EntityType(et.strip()).value for et in entity_types_list]
-            except ValueError:
-                raise_http_validation_error(
-                    "Entity types must be the value 'vp,' 'sa,' or 'tu,'. "
-                    "When provided a list values must be separated by commas."
-                )
-
-        gtfs_rt_feed_filter = GtfsRtFeedFilter(
-            stable_id=None,
-            provider__ilike=provider,
-            producer_url__ilike=producer_url,
-            entity_types=EntityTypeFilter(name__in=entity_types_list),
-            location=LocationFilter(
+        try:
+            feed_query = get_gtfs_rt_feeds_query(
+                limit=limit,
+                offset=offset,
+                provider=provider,
+                producer_url=producer_url,
+                entity_types=entity_types,
                 country_code=country_code,
-                subdivision_name__ilike=subdivision_name,
-                municipality__ilike=municipality,
-            ),
-        )
-        subquery = gtfs_rt_feed_filter.filter(
-            select(Gtfsrealtimefeed.id)
-            .join(Location, Gtfsrealtimefeed.locations)
-            .join(Entitytype, Gtfsrealtimefeed.entitytypes)
-        ).subquery()
-        feed_query = Database().get_session().query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.id.in_(subquery))
-        if never_return_wip:
-            feed_query = feed_query.filter(
-                or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
+                subdivision_name=subdivision_name,
+                municipality=municipality,
+                never_return_wip=never_return_wip,
             )
-        else:
-            feed_query = feed_query.filter(
-                or_(
-                    Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                    Gtfsrealtimefeed.operational_status != "wip",
-                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
-                )
-            )
-
-        feed_query = (
-            feed_query.options(
-                joinedload(Gtfsrealtimefeed.entitytypes),
-                joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                *BasicFeedImpl.get_joinedload_options(),
-            )
-            .order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
-            .limit(limit)
-            .offset(offset)
-        )
+        except InternalHTTPException as e:
+            raise convert_exception(e)
 
         return self._get_response(feed_query, GtfsRTFeedImpl)
 

@@ -13,34 +13,35 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-import json
-from datetime import datetime
-
+import argparse
 import pandas as pd
 import os
 
 from dotenv import load_dotenv
 import functions_framework
 
-# from dataset_service.main import BatchExecutionService, BatchExecution
+from packaging.version import Version
+from functools import reduce
+
+from geoalchemy2.shape import to_shape
+
+from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 from helpers.database import start_db_session, close_db_session
-
-# from feeds_gen.apis.feeds_api_base import BaseFeedsApi
-from feeds.impl.feeds_api_impl import FeedsApiImpl
 from collections import OrderedDict
-
-
-class CustomJSONEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
-
+from common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query
 
 load_dotenv()
+csv_default_file_path = "./output.csv"
+csv_file_path = csv_default_file_path
 
 
 class DataCollector:
+    """
+    A class used to collect and organize data into rows and headers for CSV output.
+    One particularity of this class is that it uses an OrderedDict to store the data, so that the order of the columns
+    is preserved when writing to CSV.
+    """
+
     def __init__(self):
         self.data = OrderedDict()
         self.rows = []
@@ -60,17 +61,12 @@ class DataCollector:
         df.to_csv(csv_file_path, index=False)
 
 
-project_id = os.getenv("PROJECT_ID")
-
-
 @functions_framework.http
-def create_csv():
+def create_csv(request=None):
     """
-    HTTP Function entry point queries the datasets and publishes them to a Pub/Sub topic to be processed.
+    HTTP Function entry point Reads the DB and outputs a csv file with feeds data.
     This function requires the following environment variables to be set:
-        PUBSUB_TOPIC_NAME: name of the Pub/Sub topic to publish to
         FEEDS_DATABASE_URL: database URL
-        PROJECT_ID: GCP project ID
     :param request: HTTP request object
     :return: HTTP response object
     """
@@ -78,8 +74,8 @@ def create_csv():
         db_url = os.getenv("FEEDS_DATABASE_URL")
         session = start_db_session(db_url)
 
-        gtfs_feeds = FeedsApiImpl().get_gtfs_feeds(
-            limit=10,
+        gtfs_feeds_query = get_gtfs_feeds_query(
+            limit=None,
             offset=0,
             provider=None,
             producer_url=None,
@@ -92,13 +88,12 @@ def create_csv():
             never_return_wip=True,
         )
 
-        gtfs_dict = [obj.to_dict() for obj in gtfs_feeds]
+        gtfs_feeds = gtfs_feeds_query.all()
 
-        # Convert the list of dictionaries to a JSON string
-        json_string = json.dumps(gtfs_dict, indent=4, cls=CustomJSONEncoder)
+        print(f"Retrieved {len(gtfs_feeds)} GTFS feeds.")
 
-        gtfs_rt_feeds = FeedsApiImpl().get_gtfs_rt_feeds(
-            limit=10,
+        gtfs_rt_feeds_query = get_gtfs_rt_feeds_query(
+            limit=None,
             offset=0,
             provider=None,
             producer_url=None,
@@ -109,8 +104,9 @@ def create_csv():
             never_return_wip=True,
         )
 
-        # Print the JSON string
-        print(json_string)
+        gtfs_rt_feeds = gtfs_rt_feeds_query.all()
+
+        print(f"Retrieved {len(gtfs_rt_feeds)} GTFS realtime feeds.")
 
     except Exception as error:
         print(f"Error retrieving feeds: {error}")
@@ -118,59 +114,76 @@ def create_csv():
     finally:
         close_db_session(session)
 
-    print(f"Retrieved {len(gtfs_feeds)} feeds.")
-
     data_collector = DataCollector()
 
-    # Step 2: Add data to the DataFrame
     for feed in gtfs_feeds:
-        print(f"Processing feed {feed.id}")
-        data = get_feed_data(feed)
+        # print(f"Processing feed {feed.stable_id}")
+        data = get_feed_csv_data(feed)
 
         for key, value in data.items():
             data_collector.add_data(key, value)
         data_collector.finalize_row()
+    print(f"Procewssed {len(gtfs_feeds)} GTFS feeds.")
 
     for feed in gtfs_rt_feeds:
-        print(f"Processing rt feed {feed.id}")
-        data = get_gtfs_rt_feed_data(feed)
+        # print(f"Processing rt feed {feed.stable_id}")
+        data = get_gtfs_rt_feed_csv_data(feed)
         for key, value in data.items():
             data_collector.add_data(key, value)
         data_collector.finalize_row()
+    print(f"Processed {len(gtfs_rt_feeds)} GTFS realtime feeds.")
 
-    csv_file_path = "/Users/jcpitre/Google Drive/My Drive/temp/output.csv"
     data_collector.write_csv(csv_file_path)
 
-    return f"Printed {len(gtfs_feeds)} feeds to csv."
+    print(f"Wrote {len(gtfs_feeds)} feeds to {csv_file_path}.")
+    return f"Wrote {len(gtfs_feeds)} feeds to {csv_file_path}."
 
 
-def get_feed_data(
-    feed,
-):  # id, latest, limit, offset, downloaded_after, downloaded_before
-    feeds_api = FeedsApiImpl()
-    latest_dataset = feeds_api.get_gtfs_feed_datasets(
-        gtfs_feed_id=feed.id,
-        latest=True,
-        limit=None,
-        offset=None,
-        downloaded_after=None,
-        downloaded_before=None,
+def get_feed_csv_data(feed: Gtfsfeed):
+    """
+    This function takes a GtfsFeed and returns a dictionary with the data to be written to the CSV file.
+    """
+    latest_dataset = next(
+        (
+            dataset
+            for dataset in (feed.gtfsdatasets or [])
+            if dataset and dataset.latest
+        ),
+        None,
     )
 
-    # Get the features from the latest dataset
     joined_features = ""
     validated_at = None
-    if latest_dataset and latest_dataset[0]:
-        validation_report = latest_dataset[0].validation_report
-        if validation_report:
-            if validation_report.features:
-                features = validation_report.features
-                joined_features = "|".join(features) if features else ""
-            if validation_report.validated_at:
-                validated_at = validation_report.validated_at
+    minimum_latitude = maximum_latitude = minimum_longitude = maximum_longitude = None
+
+    if latest_dataset and latest_dataset.validation_reports:
+        # Keep the report from the more recent validator version
+        latest_report = reduce(
+            lambda a, b: a
+            if Version(a.validator_version) > Version(b.validator_version)
+            else b,
+            latest_dataset.validation_reports,
+        )
+        if latest_report:
+            if latest_report.features:
+                features = latest_report.features
+                joined_features = (
+                    "|".join(feature.name for feature in features if feature.name)
+                    if features
+                    else ""
+                )
+            if latest_report.validated_at:
+                validated_at = latest_report.validated_at
+        if latest_dataset.bounding_box:
+            shape = to_shape(latest_dataset.bounding_box)
+            if shape and shape.bounds:
+                minimum_latitude = shape.bounds[1]
+                maximum_latitude = shape.bounds[3]
+                minimum_longitude = shape.bounds[0]
+                maximum_longitude = shape.bounds[2]
 
     data = {
-        "mdb_source_id": feed.id,
+        "mdb_source_id": feed.stable_id,
         "data_type": feed.data_type,
         "entity_type": None,
         "location.country_code": ""
@@ -187,32 +200,16 @@ def get_feed_data(
         "note": feed.note,
         "feed_contact_email": feed.feed_contact_email,
         "static_reference": None,
-        "urls.direct_download": feed.source_info.producer_url,
-        "urls.authentication_type": feed.source_info.authentication_type,
-        "urls.authentication_info": feed.source_info.authentication_info_url,
-        "urls.api_key_parameter_name": feed.source_info.api_key_parameter_name,
-        "urls.latest": feed.latest_dataset.hosted_url if feed.latest_dataset else None,
-        "urls.license": feed.source_info.license_url,
-        "location.bounding_box.minimum_latitude": (
-            feed.latest_dataset.bounding_box.minimum_latitude
-            if feed.latest_dataset and feed.latest_dataset.bounding_box
-            else None
-        ),
-        "location.bounding_box.maximum_latitude": (
-            feed.latest_dataset.bounding_box.maximum_latitude
-            if feed.latest_dataset and feed.latest_dataset.bounding_box
-            else None
-        ),
-        "location.bounding_box.minimum_longitude": (
-            feed.latest_dataset.bounding_box.minimum_longitude
-            if feed.latest_dataset and feed.latest_dataset.bounding_box
-            else None
-        ),
-        "location.bounding_box.maximum_longitude": (
-            feed.latest_dataset.bounding_box.maximum_longitude
-            if feed.latest_dataset and feed.latest_dataset.bounding_box
-            else None
-        ),
+        "urls.direct_download": feed.producer_url,
+        "urls.authentication_type": feed.authentication_type,
+        "urls.authentication_info": feed.authentication_info_url,
+        "urls.api_key_parameter_name": feed.api_key_parameter_name,
+        "urls.latest": latest_dataset.hosted_url if latest_dataset else None,
+        "urls.license": feed.license_url,
+        "location.bounding_box.minimum_latitude": minimum_latitude,
+        "location.bounding_box.maximum_latitude": maximum_latitude,
+        "location.bounding_box.minimum_longitude": minimum_longitude,
+        "location.bounding_box.maximum_longitude": maximum_longitude,
         "location.bounding_box.extracted_on": validated_at,
         # We use the report validated_at date as the extracted_on date
         "status": feed.status,
@@ -222,11 +219,29 @@ def get_feed_data(
     redirect_ids = ""
     redirect_comments = ""
     # Add concatenated redirect IDs
-    if feed.redirects:
-        valid_redirects = [redirect.target_id.strip() for redirect in feed.redirects]
-        redirect_ids = "|".join(valid_redirects)
-        valid_comments = [redirect.comment.strip() for redirect in feed.redirects]
-        redirect_comments = "|".join(valid_comments) if any(valid_comments) else ""
+    if feed.redirectingids:
+        for redirect in feed.redirectingids:
+            if redirect and redirect.target and redirect.target.stable_id:
+                stripped_id = redirect.target.stable_id.strip()
+                if stripped_id:
+                    redirect_ids = (
+                        redirect_ids + "|" + stripped_id
+                        if redirect_ids
+                        else stripped_id
+                    )
+                    redirect_comments = (
+                        redirect_comments + "|" + redirect.redirect_comment
+                        if redirect_comments
+                        else redirect.redirect_comment
+                    )
+        if redirect_ids == "":
+            redirect_comments = ""
+        else:
+            # If there is no comment but we do have redirects, use an empty string instead of a
+            # potentially a bunch of vertical bars.
+            redirect_comments = (
+                "" if redirect_comments.strip("|") == "" else redirect_comments
+            )
 
     data["redirect.id"] = redirect_ids
     data["redirect.comment"] = redirect_comments
@@ -234,25 +249,30 @@ def get_feed_data(
     return data
 
 
-def get_gtfs_rt_feed_data(
-    feed,
-):  # id, latest, limit, offset, downloaded_after, downloaded_before
+def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
+    """
+    This function takes a GtfsRTFeed and returns a dictionary with the data to be written to the CSV file.
+    """
     entity_types = ""
-    if feed.entity_types:
+    if feed.entitytypes:
         valid_entity_types = [
-            entity_type.strip() for entity_type in feed.entity_types if entity_type
+            entity_type.name.strip()
+            for entity_type in feed.entitytypes
+            if entity_type and entity_type.name
         ]
         entity_types = "|".join(valid_entity_types)
 
     static_references = ""
-    if feed.feed_references:
+    if feed.gtfs_feeds:
         valid_feed_references = [
-            reference.strip() for reference in feed.feed_references if reference
+            feed_reference.stable_id.strip()
+            for feed_reference in feed.gtfs_feeds
+            if feed_reference and feed_reference.stable_id
         ]
         static_references = "|".join(valid_feed_references)
 
     data = {
-        "mdb_source_id": feed.id,
+        "mdb_source_id": feed.stable_id,
         "data_type": feed.data_type,
         "entity_type": entity_types,
         "location.country_code": ""
@@ -269,38 +289,33 @@ def get_gtfs_rt_feed_data(
         "note": feed.note,
         "feed_contact_email": feed.feed_contact_email,
         "static_reference": static_references,
-        "urls.direct_download": feed.source_info.producer_url,
-        "urls.authentication_type": feed.source_info.authentication_type,
-        "urls.authentication_info": feed.source_info.authentication_info_url,
-        "urls.api_key_parameter_name": feed.source_info.api_key_parameter_name,
+        "urls.direct_download": feed.producer_url,
+        "urls.authentication_type": feed.authentication_type,
+        "urls.authentication_info": feed.authentication_info_url,
+        "urls.api_key_parameter_name": feed.api_key_parameter_name,
         "urls.latest": None,
-        "urls.license": feed.source_info.license_url,
+        "urls.license": feed.license_url,
         "location.bounding_box.minimum_latitude": None,
         "location.bounding_box.maximum_latitude": None,
         "location.bounding_box.minimum_longitude": None,
         "location.bounding_box.maximum_longitude": None,
         "location.bounding_box.extracted_on": None,
         "features": None,
+        "redirect.id": None,
+        "redirect.comment": None,
     }
-
-    redirect_ids = ""
-    redirect_comments = ""
-    # Add concatenated redirect IDs
-    if feed.redirects:
-        valid_redirects = [redirect.target_id.strip() for redirect in feed.redirects]
-        redirect_ids = "|".join(valid_redirects)
-        valid_comments = [redirect.comment.strip() for redirect in feed.redirects]
-        redirect_comments = "|".join(valid_comments) if any(valid_comments) else ""
-
-    data["redirect.id"] = redirect_ids
-    data["redirect.comment"] = redirect_comments
 
     return data
 
 
 def main():
-    # parser = argparse.ArgumentParser(description="Retrieve and print non-deprecated feeds.")
-    # args = parser.parse_args()
+    global csv_file_path
+    parser = argparse.ArgumentParser(description="Export DB feed contents to csv.")
+    parser.add_argument(
+        "--outpath", help="Path to the output csv file. Default is ./output.csv"
+    )
+    args = parser.parse_args()
+    csv_file_path = args.outpath if args.outpath else csv_default_file_path
     create_csv()
 
 

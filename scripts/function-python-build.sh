@@ -99,7 +99,7 @@ build_function() {
     exit 1
   fi
 
-  rm -rif "$FX_DIST_PATH"
+  rm -rf "$FX_DIST_PATH"
   mkdir "$FX_DIST_PATH"
 
   cp -R "$FX_SOURCE_PATH" "$FX_DIST_BUILD"
