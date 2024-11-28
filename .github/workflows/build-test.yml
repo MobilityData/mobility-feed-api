@@ -80,6 +80,10 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
 
+      - name: Generate Operations API code
+        run: |
+          scripts/api-operations-gen.sh
+
       - name: Unit tests - API
         shell: bash
         run: |
