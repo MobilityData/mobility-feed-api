@@ -8,7 +8,6 @@ import os
 
 import pytest
 from google.api_core.exceptions import DeadlineExceeded
-from google.cloud import pubsub_v1
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DBSession
 
@@ -118,13 +117,14 @@ class TestFeedProcessor:
         """Fixture for FeedProcessor with mocked dependencies."""
         # mock for the database session
         mock_session = Mock(spec=DBSession)
-        mock_publisher = Mock(spec=pubsub_v1.PublisherClient)
 
-        processor = FeedProcessor(mock_session)
-        processor.publisher = mock_publisher
-        mock_publisher.topic_path = Mock()  # Ensure `topic_path` method exists
-        mock_publisher.publish = Mock()
-        processor.publisher = mock_publisher
+        # Mock the PublisherClient
+        with patch("google.cloud.pubsub_v1.PublisherClient") as MockPublisherClient:
+            mock_publisher = MockPublisherClient.return_value
+            processor = FeedProcessor(mock_session)
+            processor.publisher = mock_publisher
+            mock_publisher.topic_path = Mock()
+            mock_publisher.publish = Mock()
 
         mock_query = Mock()
         mock_filter = Mock()
