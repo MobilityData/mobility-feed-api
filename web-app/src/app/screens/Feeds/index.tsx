@@ -48,6 +48,9 @@ export default function Feed(): React.ReactElement {
   );
   const [activeSearch, setActiveSearch] = useState(searchParams.get('q') ?? '');
   const [searchQuery, setSearchQuery] = useState(activeSearch);
+  const [expandedElements, setExpandedElements] = useState<
+    Record<string, boolean>
+  >(setInitialExpandGroup());
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
     searchParams.get('features')?.split(',') ?? [],
   );
@@ -144,6 +147,14 @@ export default function Feed(): React.ReactElement {
     }
   };
 
+  function setInitialExpandGroup(): Record<string, boolean> {
+    const expandGroup: Record<string, boolean> = {};
+    Object.keys(groupFeaturesByComponent()).forEach((featureGroup) => {
+      expandGroup[featureGroup] = true;
+    });
+    return expandGroup;
+  }
+
   function generateCheckboxStructure(): CheckboxStructure[] {
     const groupedFeatures = groupFeaturesByComponent();
     return Object.entries(groupedFeatures)
@@ -154,7 +165,7 @@ export default function Feed(): React.ReactElement {
         checked: features.every((feature) =>
           selectedFeatures.includes(feature.feature),
         ),
-        seeChildren: true,
+        seeChildren: expandedElements[parent],
         type: 'checkbox',
         children: features.map((feature) => {
           return {
@@ -307,6 +318,18 @@ export default function Feed(): React.ReactElement {
                   <SearchHeader variant='h6'>Features</SearchHeader>
                   <NestedCheckboxList
                     checkboxData={featureCheckboxData}
+                    onExpandGroupChange={(checkboxData) => {
+                      const newExpandGroup: Record<string, boolean> = {};
+                      checkboxData.forEach((cd) => {
+                        if (cd.seeChildren !== undefined) {
+                          newExpandGroup[cd.title] = cd.seeChildren;
+                        }
+                      });
+                      setExpandedElements({
+                        ...expandedElements,
+                        ...newExpandGroup,
+                      });
+                    }}
                     onCheckboxChange={(checkboxData) => {
                       const selelectedFeatures: string[] = [];
                       checkboxData.forEach((checkbox) => {

@@ -14,6 +14,7 @@ import { theme } from '../Theme';
 interface NestedCheckboxListProps {
   checkboxData: CheckboxStructure[];
   onCheckboxChange: (checkboxData: CheckboxStructure[]) => void;
+  onExpandGroupChange?: (checkboxData: CheckboxStructure[]) => void;
 }
 
 // NOTE: Although the data structure allows for multiple levels of nesting, the current implementation only supports two levels.
@@ -29,6 +30,7 @@ export interface CheckboxStructure {
 export default function NestedCheckboxList({
   checkboxData,
   onCheckboxChange,
+  onExpandGroupChange,
 }: NestedCheckboxListProps): JSX.Element {
   const [checkboxStructure, setCheckboxStructure] =
     React.useState<CheckboxStructure[]>(checkboxData);
@@ -71,14 +73,15 @@ export default function NestedCheckboxList({
                       edge={'end'}
                       aria-label='expand'
                       onClick={() => {
-                        setCheckboxStructure((prev) => {
-                          checkboxData.seeChildren =
-                            checkboxData.seeChildren === undefined
-                              ? true
-                              : !checkboxData.seeChildren;
-                          return [...prev];
-                        });
-                        // NOTE: Expand changes will not output to parent
+                        checkboxData.seeChildren =
+                          checkboxData.seeChildren === undefined
+                            ? true
+                            : !checkboxData.seeChildren;
+                        checkboxStructure[index] = checkboxData;
+                        setCheckboxStructure([...checkboxStructure]);
+                        if (onExpandGroupChange !== undefined) {
+                          onExpandGroupChange([...checkboxStructure]);
+                        }
                       }}
                     >
                       {checkboxData.seeChildren !== undefined &&
