@@ -87,6 +87,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 cat $ABS_SCRIPTPATH/../config/.env.local > $ABS_SCRIPTPATH/../.env
+PYTHONPATH_ORIGINAL=$PYTHONPATH
 
 execute_tests() {
   printf "\nExecuting tests in $1\n"
@@ -97,6 +98,10 @@ execute_tests() {
   venv/bin/python -m pip install --disable-pip-version-check -r requirements.txt >/dev/null
   venv/bin/python -m pip install --disable-pip-version-check -r requirements_dev.txt >/dev/null
   venv/bin/python -m pip install --disable-pip-version-check coverage >/dev/null
+
+  # Setting PYTHONPATH to functions-python and the current function source directory
+  export PYTHONPATH="$ABS_SCRIPTPATH/../functions-python:$ABS_SCRIPTPATH/$1/src:$PYTHONPATH_ORIGINAL"
+  printf "PYTHONPATH=$PYTHONPATH\n"
 
   # Run tests with coverage
   venv/bin/coverage run --branch -m pytest -W 'ignore::DeprecationWarning' tests
@@ -140,8 +145,6 @@ fi
 execute_python_tests() {
   printf "\nExecuting python tests in $1\n"
   cd $ABS_SCRIPTPATH/../$1
-  export PYTHONPATH="$ABS_SCRIPTPATH/../functions-python:$PYTHONPATH"
-  printf "PYTHONPATH=$PYTHONPATH\n"
 
   # Function to determine if a directory is valid for test execution
   should_directory_contain_tests() {

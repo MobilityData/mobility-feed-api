@@ -20,7 +20,7 @@ from database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gtfsrealtimefeed,
 )
-from ....feeds_operations_gen.models.redirect import Redirect
+from feeds_operations_gen.models.redirect import Redirect
 from helpers.query_helper import query_feed_by_stable_id
 
 

@@ -20,7 +20,7 @@ from database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Gbfsfeed,
 )
-from ....feeds_operations_gen.models.external_id import ExternalId
+from feeds_operations_gen.models.external_id import ExternalId
 
 
 class ExternalIdImpl(ExternalId):

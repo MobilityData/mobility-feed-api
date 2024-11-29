@@ -26,7 +26,7 @@ from database_gen.sqlacodegen_models import Gtfsfeed
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
-from feeds_operations.impl.request_validator import validate_request
+from .request_validator import validate_request
 from feeds_operations_gen.apis.operations_api_base import BaseOperationsApi
 from feeds_operations_gen.models.data_type import DataType
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
