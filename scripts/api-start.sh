@@ -5,4 +5,4 @@
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 PORT=8080
-(cd $SCRIPT_PATH/../api/src && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --env-file ../../config/.env.local)
+(cd $SCRIPT_PATH/../api/src && uvicorn main:app --host 0.0.0.0 --port $PORT 1 --env-file ../../config/.env.local)

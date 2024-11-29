@@ -168,12 +168,6 @@ class Database:
             self.logger.error(f"SELECT query failed with exception: \n{e}")
             return None
 
-    # def get_session(self) -> Session:
-    #     """
-    #     :return: the current session
-    #     """
-    #     return self.session
-
     def get_query_model(self, session: Session, model: Type[Base]) -> Query:
         """
         :param model: the sqlalchemy model to query
