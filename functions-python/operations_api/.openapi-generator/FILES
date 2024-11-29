@@ -4,6 +4,7 @@ src/feeds_operations_gen/apis/operations_api.py
 src/feeds_operations_gen/apis/operations_api_base.py
 src/feeds_operations_gen/main.py
 src/feeds_operations_gen/models/__init__.py
+src/feeds_operations_gen/models/authentication_type.py
 src/feeds_operations_gen/models/basic_feed.py
 src/feeds_operations_gen/models/data_type.py
 src/feeds_operations_gen/models/entity_type.py

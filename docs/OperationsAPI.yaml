@@ -3,9 +3,9 @@ info:
   version: 1.0.0
   title: Mobility Database Catalog Operations
   description: |
-    API for the Mobility Database Catalog Operations. See [https://mobilitydatabase.org/](https://mobilitydatabase.org/). This is an API for internal management tool.
-    
-    The Mobility Database Operation API uses API Token authentication.
+    API for the Mobility Database Catalog Operations. See [https://mobilitydatabase.org/](https://mobilitydatabase.org/). 
+    This API was designed for internal use and is not intended to be used by the general public.
+    The Mobility Database Operation API uses Auth2.0 authentication.
   termsOfService: https://mobilitydatabase.org/terms-and-conditions
   contact:
     name: MobilityData
@@ -22,23 +22,35 @@ tags:
 paths:
   /v1/operations/feeds/gtfs:
     put:
-      description: Update the specified feed in the Mobility Database.
+      description: Update the specified GTFS feed in the Mobility Database.
       tags:
         - "operations"
       operationId: updateGtfsFeed
       security:
         - ApiKeyAuth: []
       requestBody:
-        description: Payload to update the specified feed. Must be either a GtfsFeed or GtfsRTFeed object.
+        description: Payload to update the specified GTFS feed.
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateRequestGtfsFeed"
       responses:
-        204:
+        200:
           description: >
             The feed was successfully updated. No content is returned.
+        204:
+          description: >
+            The feed update request was successfully received, but the update process was skipped as the request matches with the source feed.
+        400:
+          description: >
+            The request was invalid.
+        401:
+          description: >
+            The request was not authenticated or has invalid authentication credentials.
+        500:
+          description: >
+            An internal server error occurred.
 
 components:
   schemas:
@@ -68,21 +80,7 @@ components:
         data_type:
           $ref: "#/components/schemas/DataType"
         status:
-          description: >
-            Describes status of the Feed. Should be one of 
-              * `active` Feed should be used in public trip planners.
-              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-              * `development` Feed is being used for development purposes and should not be used in public trip planners.
-          type: string
-          enum:
-            - active
-            - deprecated
-            - inactive
-            - development
-          example: deprecated
-#           Have to put the enum inline because of a bug in openapi-generator
-#          $ref: "#/components/schemas/FeedStatus"
+         $ref: "#/components/schemas/FeedStatus"
         created_at:
           description: The date and time the feed was added to the database, in ISO 8601 date-time format.
           type: string
@@ -106,6 +104,7 @@ components:
         feed_contact_email:
           description: Use to contact the feed producer.
           type: string
+          format: email
           example: someEmail@ladotbus.com
         source_info:
           $ref: "#/components/schemas/SourceInfo"
@@ -184,19 +183,6 @@ components:
         - id
         - status
 
-    EntityType:
-      type: string
-      enum:
-        - vp
-        - tu
-        - sa
-      example: vp
-      description: >
-        The type of realtime entry:
-          * vp - vehicle positions
-          * tu - trip updates
-          * sa - service alerts
-
     ExternalIds:
       type: array
       items:
@@ -225,18 +211,7 @@ components:
           format: url
           example: https://ladotbus.com/gtfs
         authentication_type:
-          description: >
-            Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
-              * 0 or (empty) - No authentication required.
-              * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
-              * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
-            When not provided, the authentication type is assumed to be 0.
-          type: string
-          enum:
-            - 0
-            - 1
-            - 2
-          example: 2
+          $ref: "#/components/schemas/Authentication_type"
         authentication_info_url:
           description: >
             Contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created. 
@@ -255,6 +230,19 @@ components:
           type: string
           format: url
           example: https://www.ladottransit.com/dla.html
+
+    EntityType:
+      type: string
+      enum:
+        - vp
+        - tu
+        - sa
+      example: vp
+      description: >
+        The type of realtime entry:
+          * vp - vehicle positions
+          * tu - trip updates
+          * sa - service alerts
 
     FeedStatus:
       description: >
@@ -283,6 +271,20 @@ components:
         - gtfs_rt
         - gbfs
       example: gtfs
+
+    Authentication_type:
+      description: >
+        Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
+          * 0 or (empty) - No authentication required.
+          * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
+          * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
+        When not provided, the authentication type is assumed to be 0.
+      type: string
+      enum:
+        - 0
+        - 1
+        - 2
+      example: 2
 
   parameters:
     feed_id_path_param:
