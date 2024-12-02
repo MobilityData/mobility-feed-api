@@ -179,6 +179,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Redirect"
+      # This is a temporary fix as the operational status is not visible yet.
+        operational_status_action:
+          type: string
+          enum:
+            - no_change
+            - wip
+            - clear            
       required:
         - id
         - status
@@ -279,7 +286,7 @@ components:
           * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
           * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
         When not provided, the authentication type is assumed to be 0.
-      type: string
+      type: integer
       enum:
         - 0
         - 1

@@ -14,13 +14,13 @@
 #  limitations under the License.
 #
 
-from flask import Response
 import logging
 import os
 from typing import Annotated
 
 from fastapi import HTTPException
 from pydantic import Field
+from starlette.responses import Response
 
 from database_gen.sqlacodegen_models import Gtfsfeed
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
@@ -91,10 +91,22 @@ class OperationsApiImpl(BaseOperationsApi):
             if feed is None:
                 raise HTTPException(status_code=400, detail=f"Feed ID not found: {id}")
 
+            logging.info(
+                f"Feed ID: {id} attempting to update with the following request: {update_request_gtfs_feed}"
+            )
             diff = self.detect_changes(feed, update_request_gtfs_feed)
-            if len(diff.affected_paths) > 0:
+            if len(diff.affected_paths) > 0 or (
+                update_request_gtfs_feed.operational_status_action is not None
+                and update_request_gtfs_feed.operational_status_action != "no_change"
+            ):
                 UpdateRequestGtfsFeedImpl.to_orm(
                     update_request_gtfs_feed, feed, session
+                )
+                # This is a temporary solution as the operational_status is not visible in the diff
+                feed.operational_status = (
+                    "wip"
+                    if update_request_gtfs_feed.operational_status_action == "wip"
+                    else ""
                 )
                 session.add(feed)
                 session.commit()

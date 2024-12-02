@@ -1,6 +1,6 @@
 from database_gen.sqlacodegen_models import Externalid, Gtfsfeed
-from operations_api.src.feeds_operations_gen.models.external_id import ExternalId
-from operations_api.src.feeds_operations.impl.models.external_id_impl import (
+from feeds_operations_gen.models.external_id import ExternalId
+from feeds_operations.impl.models.external_id_impl import (
     ExternalIdImpl,
 )
 

@@ -17,7 +17,7 @@
 import pytest
 from pydantic import BaseModel
 from fastapi import HTTPException
-from operations_api.src.feeds_operations.impl.request_validator import validate_request
+from feeds_operations.impl.request_validator import validate_request
 
 
 class MockImplModel(BaseModel):

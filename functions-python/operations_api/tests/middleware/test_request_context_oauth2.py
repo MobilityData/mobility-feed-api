@@ -18,7 +18,7 @@ import pytest
 from fastapi import HTTPException
 from unittest.mock import patch
 from starlette.datastructures import Headers
-from operations_api.src.middleware.request_context_oauth2 import RequestContext
+from middleware.request_context_oauth2 import RequestContext
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def scope():
     return _scope
 
 
-@patch("operations_api.src.middleware.request_context_oauth2.get_tokeninfo_response")
+@patch("middleware.request_context_oauth2.get_tokeninfo_response")
 def test_request_context_initialization(
     mock_get_tokeninfo_response, scope, monkeypatch
 ):
@@ -90,7 +90,7 @@ def test_request_context_missing_authorization(scope, monkeypatch):
     assert exc_info.value.detail == "Authorization header not found"
 
 
-@patch("operations_api.src.middleware.request_context_oauth2.get_tokeninfo_response")
+@patch("middleware.request_context_oauth2.get_tokeninfo_response")
 def test_request_context_invalid_token(mock_get_tokeninfo_response, scope, monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
     monkeypatch.setenv("LOCAL_ENV", "False")

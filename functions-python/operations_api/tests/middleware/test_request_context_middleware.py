@@ -20,7 +20,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Receive, Scope, Send
 
-from operations_api.src.middleware.request_context_middleware import (
+from middleware.request_context_middleware import (
     RequestContextMiddleware,
 )
 
@@ -48,7 +48,7 @@ def scope():
 
 
 @pytest.mark.asyncio
-@patch("operations_api.src.middleware.request_context_middleware.RequestContext")
+@patch("middleware.request_context_middleware.RequestContext")
 async def test_request_context_middleware(mock_request_context, scope, monkeypatch):
     token = "test-token"
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")

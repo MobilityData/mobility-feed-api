@@ -92,7 +92,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 update_request.source_info is None
                 or update_request.source_info.authentication_type is None
             )
-            else str(update_request.source_info.authentication_type)
+            else str(update_request.source_info.authentication_type.value)
         )
         entity.authentication_info_url = (
             None
@@ -138,3 +138,4 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 for item in update_request.external_ids
             ]
         )
+        return entity

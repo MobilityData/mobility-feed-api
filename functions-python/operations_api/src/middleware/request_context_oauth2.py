@@ -47,7 +47,6 @@ def validate_token_with_google(token: str, google_client_id: str) -> dict:
             raise HTTPException(status_code=401, detail="Invalid access token")
 
         token_info = response.json()
-        logging.info(f"Token info: {token_info}")
 
         # Ensure the token is for the expected client
         if token_info.get("audience") != google_client_id:
@@ -107,7 +106,6 @@ def extract_authorization_oauth(headers: dict, google_client_id: str) -> str:
         HTTPException: 400, If the email is not found in the token.
     """
     auth_header = headers.get("Authorization")
-    logging.info(f"Auth header: {auth_header}")
 
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
