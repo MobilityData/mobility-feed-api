@@ -38,9 +38,11 @@ import {
   getInitialSelectedFeedTypes,
 } from './utility';
 import { SearchHeader } from './styles';
+import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const { config } = useRemoteConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchLimit] = useState(20); // leaving possibility to edit in future
   const [selectedFeedTypes, setSelectedFeedTypes] = useState(
@@ -291,7 +293,17 @@ export default function Feed(): React.ReactElement {
                 spacing={1}
                 sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' } }}
               >
-                <Grid item xs={12} md={2} sx={{ minWidth: '275px', pr: 2 }}>
+                <Grid
+                  item
+                  xs={12}
+                  md={2}
+                  sx={{
+                    minWidth: config.enableFeatureFilterSearch
+                      ? '275px'
+                      : '220px',
+                    pr: 2,
+                  }}
+                >
                   <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
                   <NestedCheckboxList
                     checkboxData={[
@@ -315,36 +327,40 @@ export default function Feed(): React.ReactElement {
                       });
                     }}
                   ></NestedCheckboxList>
-                  <SearchHeader variant='h6'>Features</SearchHeader>
-                  <NestedCheckboxList
-                    checkboxData={featureCheckboxData}
-                    onExpandGroupChange={(checkboxData) => {
-                      const newExpandGroup: Record<string, boolean> = {};
-                      checkboxData.forEach((cd) => {
-                        if (cd.seeChildren !== undefined) {
-                          newExpandGroup[cd.title] = cd.seeChildren;
-                        }
-                      });
-                      setExpandedElements({
-                        ...expandedElements,
-                        ...newExpandGroup,
-                      });
-                    }}
-                    onCheckboxChange={(checkboxData) => {
-                      const selelectedFeatures: string[] = [];
-                      checkboxData.forEach((checkbox) => {
-                        if (checkbox.children !== undefined) {
-                          checkbox.children.forEach((child) => {
-                            if (child.checked) {
-                              selelectedFeatures.push(child.title);
+                  {config.enableFeatureFilterSearch && (
+                    <>
+                      <SearchHeader variant='h6'>Features</SearchHeader>
+                      <NestedCheckboxList
+                        checkboxData={featureCheckboxData}
+                        onExpandGroupChange={(checkboxData) => {
+                          const newExpandGroup: Record<string, boolean> = {};
+                          checkboxData.forEach((cd) => {
+                            if (cd.seeChildren !== undefined) {
+                              newExpandGroup[cd.title] = cd.seeChildren;
                             }
                           });
-                        }
-                      });
-                      setActivePagination(1);
-                      setSelectedFeatures(selelectedFeatures);
-                    }}
-                  />
+                          setExpandedElements({
+                            ...expandedElements,
+                            ...newExpandGroup,
+                          });
+                        }}
+                        onCheckboxChange={(checkboxData) => {
+                          const selelectedFeatures: string[] = [];
+                          checkboxData.forEach((checkbox) => {
+                            if (checkbox.children !== undefined) {
+                              checkbox.children.forEach((child) => {
+                                if (child.checked) {
+                                  selelectedFeatures.push(child.title);
+                                }
+                              });
+                            }
+                          });
+                          setActivePagination(1);
+                          setSelectedFeatures(selelectedFeatures);
+                        }}
+                      />
+                    </>
+                  )}
                 </Grid>
 
                 <Grid item xs={12} md={10}>
