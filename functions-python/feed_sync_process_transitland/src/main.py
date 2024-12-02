@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from database_gen.sqlacodegen_models import Feed, Externalid, Redirectingid
 from sqlalchemy.exc import SQLAlchemyError
 
-from helpers.database import Database, with_db_session
+from helpers.database import Database
 from helpers.logger import Logger, StableIdFilter
 from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 from helpers.locations import create_or_get_location
