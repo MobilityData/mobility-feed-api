@@ -19,6 +19,7 @@ from unittest.mock import patch, MagicMock
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import Receive, Scope, Send
+import asyncio
 
 from middleware.request_context_middleware import (
     RequestContextMiddleware,
@@ -65,8 +66,6 @@ async def test_request_context_middleware(mock_request_context, scope, monkeypat
 
     async def mock_send(message):
         pass
-
-    import asyncio
 
     try:
         await asyncio.wait_for(

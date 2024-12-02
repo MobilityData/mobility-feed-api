@@ -43,19 +43,19 @@ def validate_token_with_google(token: str, google_client_id: str) -> dict:
     """
     try:
         response = get_tokeninfo_response(token)
-        if response.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid access token")
-
-        token_info = response.json()
-
-        # Ensure the token is for the expected client
-        if token_info.get("audience") != google_client_id:
-            raise HTTPException(status_code=401, detail="Invalid token audience")
-
-        return token_info
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         logging.error(f"Token validation failed: {e}")
         raise HTTPException(status_code=500, detail="Token validation failed")
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid access token")
+
+    token_info = response.json()
+    # Ensure the token is for the expected client
+    if token_info.get("audience") != google_client_id:
+        raise HTTPException(status_code=401, detail="Invalid token audience")
+
+    return token_info
 
 
 def get_tokeninfo_response(token):
@@ -113,12 +113,10 @@ def extract_authorization_oauth(headers: dict, google_client_id: str) -> str:
         )
 
     token = auth_header.split(" ")[1]
-    logging.info(f"Token: {token}")
 
     token_info = get_token_info(token, google_client_id)
 
     email = token_info.get("email")
-    logging.info(f"Email: {email}")
     if not email:
         raise HTTPException(status_code=400, detail="Email not found in token")
 
@@ -197,7 +195,7 @@ class RequestContext:
         # auth header is used for local development
         self.user_email = headers.get("x-goog-authenticated-user-email")
 
-        if headers.get("authorization"):
+        if headers.get("authorization") is not None:
             google_client_id = os.getenv("GOOGLE_CLIENT_ID")
             self.user_email = extract_authorization_oauth(headers, google_client_id)
         else:

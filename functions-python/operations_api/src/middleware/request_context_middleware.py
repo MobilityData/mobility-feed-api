@@ -32,20 +32,6 @@ class RequestContextMiddleware:
         self.logger = logging.getLogger()
         self.app = app
 
-    @staticmethod
-    def extract_response_info(headers):
-        """
-        Extracts the content type and content length from the response headers.
-        """
-        content_type = None
-        content_length = None
-        for key, value in headers:
-            if key == b"content-length":
-                content_length = int(value)
-            elif key == b"content-type":
-                content_type = value
-        return content_type, content_length
-
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """
         Middleware to set the request context and authorize requests.
