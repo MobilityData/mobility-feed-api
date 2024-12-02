@@ -1,3 +1,11 @@
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "5.34.0"
+    }
+  }
+}
 #
 # MobilityData 2023
 #
@@ -36,6 +44,9 @@ locals {
 
   function_feed_sync_dispatcher_transitland_config = jsondecode(file("${path.module}/../../functions-python/feed_sync_dispatcher_transitland/function_config.json"))
   function_feed_sync_dispatcher_transitland_zip = "${path.module}/../../functions-python/feed_sync_dispatcher_transitland/.dist/feed_sync_dispatcher_transitland.zip"
+
+  function_feed_sync_process_transitland_config = jsondecode(file("${path.module}/../../functions-python/feed_sync_process_transitland/function_config.json"))
+  function_feed_sync_process_transitland_zip = "${path.module}/../../functions-python/feed_sync_process_transitland/.dist/feed_sync_process_transitland.zip"
 }
 
 locals {
@@ -58,6 +69,9 @@ data "google_vpc_access_connector" "vpc_connector" {
   project = local.vpc_connector_project
 }
 
+data "google_pubsub_topic" "datasets_batch_topic" {
+  name = "datasets-batch-topic-${var.environment}"
+}
 
 # Service account to execute the cloud functions
 resource "google_service_account" "functions_service_account" {
@@ -114,6 +128,13 @@ resource "google_storage_bucket_object" "feed_sync_dispatcher_transitland_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "feed-sync-dispatcher-transitland-${substr(filebase64sha256(local.function_feed_sync_dispatcher_transitland_zip), 0, 10)}.zip"
   source = local.function_feed_sync_dispatcher_transitland_zip
+}
+
+# 7. Feed sync process transitland
+resource "google_storage_bucket_object" "feed_sync_process_transitland_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "feed-sync-process-transitland-${substr(filebase64sha256(local.function_feed_sync_process_transitland_zip), 0, 10)}.zip"
+  source = local.function_feed_sync_process_transitland_zip
 }
 
 # Secrets access
@@ -183,7 +204,7 @@ resource "google_cloudfunctions2_function" "extract_location" {
     }
     event_filters {
       attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
+      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/*/*/*.zip"
       operator = "match-path-pattern"
     }
   }
@@ -582,6 +603,58 @@ resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
   }
 }
 
+# 7. functions/feed_sync_process_transitland cloud function
+resource "google_cloudfunctions2_function" "feed_sync_process_transitland" {
+  name        = "${local.function_feed_sync_process_transitland_config.name}-pubsub"
+  description = local.function_feed_sync_process_transitland_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+  event_trigger {
+    trigger_region        = var.gcp_region
+    service_account_email = google_service_account.functions_service_account.email
+    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic          = google_pubsub_topic.transitland_feeds_dispatch.id
+    retry_policy          = "RETRY_POLICY_RETRY"
+  }
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_feed_sync_process_transitland_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.feed_sync_process_transitland_zip.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_feed_sync_process_transitland_config.memory
+    timeout_seconds = local.function_feed_sync_process_transitland_config.timeout
+    available_cpu = local.function_feed_sync_process_transitland_config.available_cpu
+    max_instance_request_concurrency = local.function_feed_sync_process_transitland_config.max_instance_request_concurrency
+    max_instance_count = local.function_feed_sync_process_transitland_config.max_instance_count
+    min_instance_count = local.function_feed_sync_process_transitland_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = var.environment == "dev" ? "ALLOW_ALL" : local.function_feed_sync_process_transitland_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      DB_REUSE_SESSION = "True"
+      PROJECT_ID = var.project_id
+      PUBSUB_TOPIC_NAME = google_pubsub_topic.transitland_feeds_dispatch.name
+      DATASET_BATCH_TOPIC_NAME = data.google_pubsub_topic.datasets_batch_topic.name
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_feed_sync_process_transitland_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
 
 # IAM entry for all users to invoke the function 
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
@@ -695,6 +768,7 @@ resource "google_pubsub_topic_iam_member" "functions_publisher" {
     dataset_updates = google_pubsub_topic.dataset_updates.name
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
     feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
+    dataset_batch = data.google_pubsub_topic.datasets_batch_topic.name
   }
 
   project = var.project_id

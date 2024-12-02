@@ -14,13 +14,18 @@
 #  limitations under the License.
 #
 
+import logging
 import os
 import threading
 from typing import Final
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
+from sqlalchemy import text
+from sqlalchemy.orm import class_mapper
 from sqlalchemy.orm import sessionmaker
-import logging
+
+from database_gen.sqlacodegen_models import Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
+
 
 DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
 lock = threading.Lock()
@@ -43,7 +48,7 @@ def start_new_db_session(database_url: str = None, echo: bool = True):
     return sessionmaker(bind=get_db_engine(database_url, echo=echo))()
 
 
-def start_singleton_db_session(database_url: str = None):
+def start_singleton_db_session(database_url: str = None, echo: bool = True):
     """
     :return: Database singleton session
     """
@@ -52,7 +57,7 @@ def start_singleton_db_session(database_url: str = None):
         if global_session is not None:
             logging.info("Database session reused.")
             return global_session
-        global_session = start_new_db_session(database_url)
+        global_session = start_new_db_session(database_url, echo)
         logging.info("Singleton Database session started.")
         return global_session
     except Exception as error:
@@ -67,7 +72,7 @@ def start_db_session(database_url: str = None, echo: bool = True):
     try:
         lock.acquire()
         if is_session_reusable():
-            return start_singleton_db_session(database_url)
+            return start_singleton_db_session(database_url, echo=echo)
         logging.info("Not reusing the previous session, starting new database session.")
         return start_new_db_session(database_url, echo)
     except Exception as error:
@@ -109,3 +114,27 @@ def refresh_materialized_view(session, view_name: str) -> bool:
     except Exception as error:
         logging.error(f"Error raised while refreshing view: {error}")
     return False
+
+
+def configure_polymorphic_mappers():
+    """
+    Configure the polymorphic mappers allowing polymorphic values on relationships.
+    """
+    feed_mapper = class_mapper(Feed)
+    # Configure the polymorphic mapper using date_type as discriminator for the Feed class
+    feed_mapper.polymorphic_on = Feed.data_type
+    feed_mapper.polymorphic_identity = Feed.__tablename__.lower()
+
+    gtfsfeed_mapper = class_mapper(Gtfsfeed)
+    gtfsfeed_mapper.inherits = feed_mapper
+    gtfsfeed_mapper.polymorphic_identity = Gtfsfeed.__tablename__.lower()
+
+    gtfsrealtimefeed_mapper = class_mapper(Gtfsrealtimefeed)
+    gtfsrealtimefeed_mapper.inherits = feed_mapper
+    gtfsrealtimefeed_mapper.polymorphic_identity = (
+        Gtfsrealtimefeed.__tablename__.lower()
+    )
+
+    gbfsfeed_mapper = class_mapper(Gbfsfeed)
+    gbfsfeed_mapper.inherits = feed_mapper
+    gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
