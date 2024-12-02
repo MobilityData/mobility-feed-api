@@ -43,6 +43,12 @@ def mock_location():
     return Mock()
 
 
+@pytest.fixture
+def mock_db():
+    with patch("feed_sync_process_transitland.src.main.Database") as mock_db:
+        yield mock_db
+
+
 class MockLogger:
     """Mock logger for testing"""
 
@@ -608,7 +614,7 @@ class TestFeedProcessor:
             assert not mock_new_feed.locations
 
     def test_process_feed_event_database_connection_error(
-        self, processor, feed_payload, mock_logging
+        self, processor, feed_payload, mock_logging, mock_db
     ):
         """Test feed event processing with database connection error."""
         # Create cloud event with valid payload
@@ -620,21 +626,18 @@ class TestFeedProcessor:
         cloud_event.data = {"message": {"data": payload_data}}
 
         # Mock database session to raise error
-        with patch(
-            "feed_sync_process_transitland.src.main.start_db_session"
-        ) as mock_start_session:
-            mock_start_session.side_effect = SQLAlchemyError(
-                "Database connection error"
-            )
+        mock_db.return_value.start_db_session.side_effect = SQLAlchemyError(
+            "Database connection error"
+        )
 
-            result = process_feed_event(cloud_event)
-            assert result[1] == 500
-            mock_logging.error.assert_called_with(
-                "Error processing feed event: Database connection error"
-            )
+        result = process_feed_event(cloud_event)
+        assert result[1] == 500
+        mock_logging.error.assert_called_with(
+            "Error processing feed event: Database connection error"
+        )
 
     def test_process_feed_event_pubsub_error(
-        self, processor, feed_payload, mock_logging
+        self, processor, feed_payload, mock_logging, mock_db
     ):
         """Test feed event processing handles missing credentials error."""
         # Create cloud event with valid payload
@@ -648,19 +651,18 @@ class TestFeedProcessor:
         cloud_event.data = {"message": {"data": payload_data}}
 
         # Mock database session with minimal setup
-        mock_session = Mock()
+        mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.all.return_value = []
+        mock_db.return_value.start_db_session.return_value.__enter__.return_value = (
+            mock_session
+        )
 
         # Process event and verify error handling
-        with patch(
-            "feed_sync_process_transitland.src.main.start_db_session",
-            return_value=mock_session,
-        ):
-            result = process_feed_event(cloud_event)
-            assert result[1] == 500
-            mock_logging.error.assert_called_with(
-                "Error processing feed event: File dummy-credentials.json was not found."
-            )
+        result = process_feed_event(cloud_event)
+        assert result[1] == 500
+        mock_logging.error.assert_called_with(
+            "Error processing feed event: File dummy-credentials.json was not found."
+        )
 
     def test_process_feed_event_malformed_cloud_event(self, mock_logging):
         """Test feed event processing with malformed cloud event."""

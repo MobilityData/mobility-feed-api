@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from database_gen.sqlacodegen_models import Feed, Externalid, Redirectingid
 from sqlalchemy.exc import SQLAlchemyError
 
-from helpers.database import start_db_session, close_db_session
+from helpers.database import Database, with_db_session
 from helpers.logger import Logger, StableIdFilter
 from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 from helpers.locations import create_or_get_location
@@ -455,20 +455,14 @@ def process_feed_event(cloud_event):
         # Decode payload from Pub/Sub message
         pubsub_message = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         message_data = json.loads(pubsub_message)
-
         payload = FeedPayload(**message_data)
-
-        db_session = start_db_session(FEEDS_DATABASE_URL)
-
-        try:
+        db = Database(FEEDS_DATABASE_URL)
+        with db.start_db_session() as db_session:
             processor = FeedProcessor(db_session)
             processor.process_feed(payload)
 
             log_message("info", f"Successfully processed feed: {payload.external_id}")
             return "Success", 200
-
-        finally:
-            close_db_session(db_session)
 
     except Exception as e:
         error_msg = f"Error processing feed event: {str(e)}"
