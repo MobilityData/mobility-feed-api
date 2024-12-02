@@ -501,6 +501,27 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
   attempt_deadline = "320s"
 }
 
+resource "google_cloud_scheduler_job" "transit_land_scraping_scheduler" {
+  name = "transitland-scraping-scheduler-${var.environment}"
+  description = "Schedule the transitland scraping function"
+  time_zone = "Etc/UTC"
+  schedule = var.transitland_scraping_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.feed_sync_dispatcher_transitland, google_cloudfunctions2_function_iam_member.transitland_feeds_dispatcher_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.feed_sync_dispatcher_transitland.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+  }
+  attempt_deadline = "320s"
+}
+
 # 5.3 Create function that subscribes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
   name        = "${local.function_gbfs_validation_report_config.name}-pubsub"
@@ -758,6 +779,14 @@ resource "google_cloudfunctions2_function_iam_member" "gbfs_validator_batch_invo
   project        = var.project_id
   location       = var.gcp_region
   cloud_function = google_cloudfunctions2_function.gbfs_validator_batch.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloudfunctions2_function_iam_member" "transitland_feeds_dispatcher_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.feed_sync_dispatcher_transitland.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
