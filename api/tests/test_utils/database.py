@@ -63,7 +63,6 @@ def populate_database(db: Database, data_dirs: str):
         else:
             db_helper = DatabasePopulateTestDataHelper(json_filepaths)
             db_helper.populate()
-            db.flush()
         yield db
         # Dump the DB data if requested by providing a file name for the dump
         if (test_db_dump_filename := os.getenv("TEST_DB_DUMP_FILENAME")) is not None:

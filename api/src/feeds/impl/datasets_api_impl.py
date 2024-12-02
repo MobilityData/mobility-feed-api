@@ -3,9 +3,9 @@ from typing import Tuple
 
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
-from sqlalchemy.orm import Query
+from sqlalchemy.orm import Query, Session
 
-from database.database import Database
+from database.database import Database, with_db_session
 from database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Feed,
@@ -93,9 +93,10 @@ class DatasetsApiImpl(BaseDatasetsApi):
             raise_http_validation_error(invalid_bounding_method.format(bounding_filter_method))
 
     @staticmethod
-    def get_datasets_gtfs(query: Query, limit: int = None, offset: int = None) -> List[GtfsDataset]:
+    def get_datasets_gtfs(query: Query, session: Session, limit: int = None, offset: int = None) -> List[GtfsDataset]:
         # Results are sorted by stable_id because Database.select(group_by=) requires it so
         dataset_groups = Database().select(
+            session=session,
             query=query.order_by(Gtfsdataset.stable_id),
             limit=limit,
             offset=offset,
@@ -109,15 +110,13 @@ class DatasetsApiImpl(BaseDatasetsApi):
             gtfs_datasets.append(GtfsDatasetImpl.from_orm(dataset_objects[0]))
         return gtfs_datasets
 
-    def get_dataset_gtfs(
-        self,
-        id: str,
-    ) -> GtfsDataset:
+    @with_db_session
+    def get_dataset_gtfs(self, id: str, db_session: Session) -> GtfsDataset:
         """Get the specified dataset from the Mobility Database."""
 
         query = DatasetsApiImpl.create_dataset_query().filter(Gtfsdataset.stable_id == id)
 
-        if (ret := DatasetsApiImpl.get_datasets_gtfs(query)) and len(ret) == 1:
+        if (ret := DatasetsApiImpl.get_datasets_gtfs(query, db_session)) and len(ret) == 1:
             return ret[0]
         else:
             raise_http_error(404, dataset_not_found.format(id))

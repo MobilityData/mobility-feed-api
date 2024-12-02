@@ -204,13 +204,13 @@ def empty_database(db, url):
         )
 
         try:
-            for table_name in tables_to_delete:
-                table = Base.metadata.tables[table_name]
-                delete_stmt = delete(table)
-                db.session.execute(delete_stmt)
+            with db.start_db_session() as session:
+                for table_name in tables_to_delete:
+                    table = Base.metadata.tables[table_name]
+                    delete_stmt = delete(table)
+                    session.execute(delete_stmt)
 
-            db.commit()
+                session.commit()
 
         except Exception as error:
-            db.session.rollback()
             logging.error(f"Error while deleting from test db: {error}")

@@ -70,10 +70,6 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         }
       }
       env {
-        name = "SHOULD_CLOSE_DB_SESSION"
-        value = "false"
-      }
-      env {
         name = "PROJECT_ID"
         value = data.google_project.project.project_id
       }

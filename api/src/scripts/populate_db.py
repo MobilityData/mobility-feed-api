@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 from pathlib import Path
-from typing import Type
+from typing import Type, TYPE_CHECKING
 
 import pandas
 from dotenv import load_dotenv
@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 from database.database import Database
 from database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
 from utils.logger import Logger
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 logging.basicConfig()
 logging.getLogger("sqlalchemy.engine").setLevel(logging.ERROR)
@@ -56,12 +59,14 @@ class DatabasePopulateHelper:
 
         self.filter_data()
 
-    def query_feed_by_stable_id(self, stable_id: str, data_type: str | None) -> Gtfsrealtimefeed | Gtfsfeed | None:
+    def query_feed_by_stable_id(
+        self, session: "Session", stable_id: str, data_type: str | None
+    ) -> Gtfsrealtimefeed | Gtfsfeed | None:
         """
         Query the feed by stable id
         """
         model = self.get_model(data_type)
-        return self.db.session.query(model).filter(model.stable_id == stable_id).first()
+        return session.query(model).filter(model.stable_id == stable_id).first()
 
     @staticmethod
     def get_model(data_type: str | None) -> Type[Feed]:

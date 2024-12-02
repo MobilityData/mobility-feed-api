@@ -19,7 +19,7 @@ from dataset_service.main import (
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from helpers.database import start_db_session
+from helpers.database import Database
 from helpers.logger import Logger
 from helpers.parser import jsonify_pubsub
 from .bounding_box.bounding_box_extractor import (
@@ -121,20 +121,17 @@ def extract_location_pubsub(cloud_event: CloudEvent):
 
         geometry_polygon = create_polygon_wkt_element(bounds)
 
-        session = None
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
         try:
-            session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-            update_dataset_bounding_box(session, dataset_id, geometry_polygon)
-            update_location(reverse_coords(location_geo_points), dataset_id, session)
+            with db.start_db_session() as session:
+                update_dataset_bounding_box(session, dataset_id, geometry_polygon)
+                update_location(
+                    reverse_coords(location_geo_points), dataset_id, session
+                )
         except Exception as e:
             error = f"Error updating location information in database: {e}"
             logging.error(f"[{dataset_id}] Error while processing: {e}")
-            if session is not None:
-                session.rollback()
             raise e
-        finally:
-            if session is not None:
-                session.close()
         logging.info(
             f"[{stable_id} - {dataset_id}] Location information updated successfully."
         )
@@ -199,40 +196,40 @@ def extract_location_batch(_):
         return "PUBSUB_TOPIC_NAME environment variable not set.", 500
 
     # Get latest GTFS dataset with no bounding boxes
-    session = None
+    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     execution_id = str(uuid.uuid4())
     datasets_data = []
+
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        # Select all latest datasets with no bounding boxes or all datasets if forced
-        datasets = (
-            session.query(Gtfsdataset)
-            .filter(
-                or_(
-                    force_datasets_update,
-                    Gtfsdataset.bounding_box == None,  # noqa: E711
+        with db.start_db_session() as session:
+            # Select all latest datasets with no bounding boxes or all datasets if forced
+            datasets = (
+                session.query(Gtfsdataset)
+                .filter(
+                    or_(
+                        force_datasets_update,
+                        Gtfsdataset.bounding_box == None,  # noqa: E711
+                    )
                 )
+                .filter(Gtfsdataset.latest)
+                .options(joinedload(Gtfsdataset.feed))
+                .all()
             )
-            .filter(Gtfsdataset.latest)
-            .options(joinedload(Gtfsdataset.feed))
-            .all()
-        )
-        for dataset in datasets:
-            data = {
-                "stable_id": dataset.feed.stable_id,
-                "dataset_id": dataset.stable_id,
-                "url": dataset.hosted_url,
-                "execution_id": execution_id,
-            }
-            datasets_data.append(data)
-            logging.info(f"Dataset {dataset.stable_id} added to the batch.")
+            for dataset in datasets:
+                data = {
+                    "stable_id": dataset.feed.stable_id,
+                    "dataset_id": dataset.stable_id,
+                    "url": dataset.hosted_url,
+                    "execution_id": execution_id,
+                }
+                datasets_data.append(data)
+                logging.info(f"Dataset {dataset.stable_id} added to the batch.")
 
     except Exception as e:
         logging.error(f"Error while fetching datasets: {e}")
         return "Error while fetching datasets.", 500
     finally:
-        if session is not None:
-            session.close()
+        pass
 
     # Trigger update location for each dataset by publishing to Pub/Sub
     publisher = pubsub_v1.PublisherClient()

@@ -2,10 +2,10 @@ from datetime import datetime
 from typing import List, Union, TypeVar
 
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, Session
 from sqlalchemy.orm.query import Query
 
-from database.database import Database
+from database.database import Database, with_db_session
 from database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
@@ -59,20 +59,19 @@ class FeedsApiImpl(BaseFeedsApi):
 
     APIFeedType = Union[BasicFeed, GtfsFeed, GtfsRTFeed]
 
-    def get_feed(
-        self,
-        id: str,
-    ) -> BasicFeed:
+    @with_db_session
+    def get_feed(self, id: str, db_session: Session) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
         feed = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
-            .filter(Database().get_query_model(Feed))
+            .filter(Database().get_query_model(db_session, Feed))
             .filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
             .filter(
                 or_(
                     Feed.operational_status == None,  # noqa: E711
                     Feed.operational_status != "wip",
-                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                    # Allow all feeds to be returned if the user is not restricted
+                    not is_user_email_restricted(),
                 )
             )
             .first()
@@ -82,19 +81,15 @@ class FeedsApiImpl(BaseFeedsApi):
         else:
             raise_http_error(404, feed_not_found.format(id))
 
+    @with_db_session
     def get_feeds(
-        self,
-        limit: int,
-        offset: int,
-        status: str,
-        provider: str,
-        producer_url: str,
+        self, limit: int, offset: int, status: str, provider: str, producer_url: str, db_session: Session
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
         feed_filter = FeedFilter(
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
-        feed_query = feed_filter.filter(Database().get_query_model(Feed))
+        feed_query = feed_filter.filter(Database().get_query_model(db_session, Feed))
         feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
         feed_query = feed_query.filter(
             or_(
@@ -114,19 +109,17 @@ class FeedsApiImpl(BaseFeedsApi):
         results = feed_query.all()
         return [BasicFeedImpl.from_orm(feed) for feed in results]
 
-    def get_gtfs_feed(
-        self,
-        id: str,
-    ) -> GtfsFeed:
+    @with_db_session
+    def get_gtfs_feed(self, id: str, db_session: Session) -> GtfsFeed:
         """Get the specified gtfs feed from the Mobility Database."""
-        feed, translations = self._get_gtfs_feed(id)
+        feed, translations = self._get_gtfs_feed(id, db_session)
         if feed:
             return GtfsFeedImpl.from_orm(feed, translations)
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
     @staticmethod
-    def _get_gtfs_feed(stable_id: str) -> tuple[Gtfsfeed | None, dict[str, LocationTranslation]]:
+    def _get_gtfs_feed(stable_id: str, db_session: Session) -> tuple[Gtfsfeed | None, dict[str, LocationTranslation]]:
         results = (
             FeedFilter(
                 stable_id=stable_id,
@@ -134,7 +127,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 provider__ilike=None,
                 producer_url__ilike=None,
             )
-            .filter(Database().get_session().query(Gtfsfeed, t_location_with_translations_en))
+            .filter(db_session.query(Gtfsfeed, t_location_with_translations_en))
             .filter(
                 or_(
                     Gtfsfeed.operational_status == None,  # noqa: E711
@@ -156,6 +149,7 @@ class FeedsApiImpl(BaseFeedsApi):
             return results[0].Gtfsfeed, translations
         return None, {}
 
+    @with_db_session
     def get_gtfs_feed_datasets(
         self,
         gtfs_feed_id: str,
@@ -164,6 +158,7 @@ class FeedsApiImpl(BaseFeedsApi):
         offset: int,
         downloaded_after: str,
         downloaded_before: str,
+        db_session: Session,
     ) -> List[GtfsDataset]:
         """Get a list of datasets related to a feed."""
         if downloaded_before and not valid_iso_date(downloaded_before):
@@ -179,7 +174,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 provider__ilike=None,
                 producer_url__ilike=None,
             )
-            .filter(Database().get_query_model(Gtfsfeed))
+            .filter(Database().get_query_model(db_session, Gtfsfeed))
             .filter(
                 or_(
                     Feed.operational_status == None,  # noqa: E711
@@ -196,19 +191,20 @@ class FeedsApiImpl(BaseFeedsApi):
         # Replace Z with +00:00 to make the datetime object timezone aware
         # Due to https://github.com/python/cpython/issues/80010, once migrate to Python 3.11, we can use fromisoformat
         query = GtfsDatasetFilter(
-            downloaded_at__lte=datetime.fromisoformat(downloaded_before.replace("Z", "+00:00"))
-            if downloaded_before
-            else None,
-            downloaded_at__gte=datetime.fromisoformat(downloaded_after.replace("Z", "+00:00"))
-            if downloaded_after
-            else None,
+            downloaded_at__lte=(
+                datetime.fromisoformat(downloaded_before.replace("Z", "+00:00")) if downloaded_before else None
+            ),
+            downloaded_at__gte=(
+                datetime.fromisoformat(downloaded_after.replace("Z", "+00:00")) if downloaded_after else None
+            ),
         ).filter(DatasetsApiImpl.create_dataset_query().filter(Feed.stable_id == gtfs_feed_id))
 
         if latest:
             query = query.filter(Gtfsdataset.latest)
 
-        return DatasetsApiImpl.get_datasets_gtfs(query, limit=limit, offset=offset)
+        return DatasetsApiImpl.get_datasets_gtfs(query, session=db_session, limit=limit, offset=offset)
 
+    @with_db_session
     def get_gtfs_feeds(
         self,
         limit: int,
@@ -221,6 +217,7 @@ class FeedsApiImpl(BaseFeedsApi):
         dataset_latitudes: str,
         dataset_longitudes: str,
         bounding_filter_method: str,
+        db_session: Session,
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         gtfs_feed_filter = GtfsFeedFilter(
@@ -240,9 +237,7 @@ class FeedsApiImpl(BaseFeedsApi):
         ).subquery()
 
         feed_query = (
-            Database()
-            .get_session()
-            .query(Gtfsfeed)
+            db_session.query(Gtfsfeed)
             .filter(Gtfsfeed.id.in_(subquery))
             .filter(
                 or_(
@@ -261,12 +256,10 @@ class FeedsApiImpl(BaseFeedsApi):
             .limit(limit)
             .offset(offset)
         )
-        return self._get_response(feed_query, GtfsFeedImpl)
+        return self._get_response(feed_query, GtfsFeedImpl, db_session)
 
-    def get_gtfs_rt_feed(
-        self,
-        id: str,
-    ) -> GtfsRTFeed:
+    @with_db_session
+    def get_gtfs_rt_feed(self, id: str, db_session: Session) -> GtfsRTFeed:
         """Get the specified GTFS Realtime feed from the Mobility Database."""
         gtfs_rt_feed_filter = GtfsRtFeedFilter(
             stable_id=id,
@@ -276,9 +269,7 @@ class FeedsApiImpl(BaseFeedsApi):
             location=None,
         )
         results = gtfs_rt_feed_filter.filter(
-            Database()
-            .get_session()
-            .query(Gtfsrealtimefeed, t_location_with_translations_en)
+            db_session.query(Gtfsrealtimefeed, t_location_with_translations_en)
             .filter(
                 or_(
                     Gtfsrealtimefeed.operational_status == None,  # noqa: E711
@@ -301,6 +292,7 @@ class FeedsApiImpl(BaseFeedsApi):
         else:
             raise_http_error(404, gtfs_rt_feed_not_found.format(id))
 
+    @with_db_session
     def get_gtfs_rt_feeds(
         self,
         limit: int,
@@ -311,6 +303,7 @@ class FeedsApiImpl(BaseFeedsApi):
         country_code: str,
         subdivision_name: str,
         municipality: str,
+        db_session: Session,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
         entity_types_list = entity_types.split(",") if entity_types else None
@@ -342,9 +335,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .join(Entitytype, Gtfsrealtimefeed.entitytypes)
         ).subquery()
         feed_query = (
-            Database()
-            .get_session()
-            .query(Gtfsrealtimefeed)
+            db_session.query(Gtfsrealtimefeed)
             .filter(Gtfsrealtimefeed.id.in_(subquery))
             .filter(
                 or_(
@@ -362,22 +353,20 @@ class FeedsApiImpl(BaseFeedsApi):
             .limit(limit)
             .offset(offset)
         )
-        return self._get_response(feed_query, GtfsRTFeedImpl)
+        return self._get_response(feed_query, GtfsRTFeedImpl, db_session)
 
     @staticmethod
-    def _get_response(feed_query: Query, impl_cls: type[T]) -> List[T]:
+    def _get_response(feed_query: Query, impl_cls: type[T], db_session: "Session") -> List[T]:
         """Get the response for the feed query."""
         results = feed_query.all()
-        location_translations = get_feeds_location_translations(results)
+        location_translations = get_feeds_location_translations(results, db_session)
         response = [impl_cls.from_orm(feed, location_translations) for feed in results]
         return list({feed.id: feed for feed in response}.values())
 
-    def get_gtfs_feed_gtfs_rt_feeds(
-        self,
-        id: str,
-    ) -> List[GtfsRTFeed]:
+    @with_db_session
+    def get_gtfs_feed_gtfs_rt_feeds(self, id: str, db_session: Session) -> List[GtfsRTFeed]:
         """Get a list of GTFS Realtime related to a GTFS feed."""
-        feed, translations = self._get_gtfs_feed(id)
+        feed, translations = self._get_gtfs_feed(id, db_session)
         if feed:
             return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed, translations) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
