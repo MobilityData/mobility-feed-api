@@ -53,6 +53,10 @@ class OperationsApiImpl(BaseOperationsApi):
         """
         # Normalize the feed and the update request and compare them
         copy_feed = UpdateRequestGtfsFeedImpl.from_orm(feed)
+        # Temporary solution to update the operational status
+        copy_feed.operational_status_action = (
+            update_request_gtfs_feed.operational_status_action
+        )
         diff = DeepDiff(
             copy_feed.model_dump(),
             update_request_gtfs_feed.model_dump(),
@@ -89,7 +93,10 @@ class OperationsApiImpl(BaseOperationsApi):
                 session, update_request_gtfs_feed.id, DataType.GTFS.name
             )
             if feed is None:
-                raise HTTPException(status_code=400, detail=f"Feed ID not found: {id}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Feed ID not found: {update_request_gtfs_feed.id}",
+                )
 
             logging.info(
                 f"Feed ID: {id} attempting to update with the following request: {update_request_gtfs_feed}"
@@ -104,9 +111,9 @@ class OperationsApiImpl(BaseOperationsApi):
                 )
                 # This is a temporary solution as the operational_status is not visible in the diff
                 feed.operational_status = (
-                    "wip"
-                    if update_request_gtfs_feed.operational_status_action == "wip"
-                    else ""
+                    feed.operational_status
+                    if update_request_gtfs_feed.operational_status_action == "no_change"
+                    else update_request_gtfs_feed.operational_status_action
                 )
                 session.add(feed)
                 session.commit()
@@ -119,6 +126,8 @@ class OperationsApiImpl(BaseOperationsApi):
                 return Response(status_code=204)
         except Exception as e:
             logging.error(f"Failed to update feed ID: {id}. Error: {e}")
+            if isinstance(e, HTTPException):
+                raise e
             raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
         finally:
             if session:
