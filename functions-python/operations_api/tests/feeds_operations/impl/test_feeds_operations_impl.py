@@ -1,5 +1,6 @@
 import os
 from unittest import mock
+from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
@@ -39,6 +40,7 @@ def update_request_gtfs_feed():
     )
 
 
+@patch("helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -46,12 +48,13 @@ def update_request_gtfs_feed():
     },
 )
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_no_changes(update_request_gtfs_feed):
+async def test_update_gtfs_feed_no_changes(_, update_request_gtfs_feed):
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 204
 
 
+@patch("helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -59,7 +62,7 @@ async def test_update_gtfs_feed_no_changes(update_request_gtfs_feed):
     },
 )
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_field_change(update_request_gtfs_feed):
+async def test_update_gtfs_feed_field_change(_, update_request_gtfs_feed):
     update_request_gtfs_feed.feed_name = "New feed name"
     with get_testing_session() as session:
         api = OperationsApiImpl()
@@ -74,6 +77,7 @@ async def test_update_gtfs_feed_field_change(update_request_gtfs_feed):
         assert db_feed.feed_name == "New feed name"
 
 
+@patch("helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -81,7 +85,7 @@ async def test_update_gtfs_feed_field_change(update_request_gtfs_feed):
     },
 )
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_set_wip(update_request_gtfs_feed):
+async def test_update_gtfs_feed_set_wip(_, update_request_gtfs_feed):
     update_request_gtfs_feed.operational_status_action = "wip"
     with get_testing_session() as session:
         api = OperationsApiImpl()
@@ -96,6 +100,7 @@ async def test_update_gtfs_feed_set_wip(update_request_gtfs_feed):
         assert db_feed.operational_status == "wip"
 
 
+@patch("helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -103,7 +108,7 @@ async def test_update_gtfs_feed_set_wip(update_request_gtfs_feed):
     },
 )
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_invalid_feed(update_request_gtfs_feed):
+async def test_update_gtfs_feed_invalid_feed(_, update_request_gtfs_feed):
     update_request_gtfs_feed.id = "invalid"
     api = OperationsApiImpl()
     with pytest.raises(HTTPException) as exc_info:

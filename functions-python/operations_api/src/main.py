@@ -21,6 +21,9 @@ import functions_framework
 import asyncio
 
 from middleware.request_context_middleware import RequestContextMiddleware
+from helpers.logger import Logger
+
+Logger.init_logger()
 
 app = FastAPI(
     title="Mobility Database Catalog Operations",

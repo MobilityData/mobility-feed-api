@@ -32,11 +32,9 @@ from feeds_operations_gen.models.data_type import DataType
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
 from helpers.database import start_db_session
 from helpers.query_helper import query_feed_by_stable_id
-from helpers.logger import Logger
 from deepdiff import DeepDiff
 
 logging.basicConfig(level=logging.INFO)
-Logger.init_logger()
 
 
 class OperationsApiImpl(BaseOperationsApi):
