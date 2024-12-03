@@ -28,7 +28,9 @@
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
-FUNCTIONS_PATH="$SCRIPT_PATH/../functions-python"
+ROOT_PATH="$SCRIPT_PATH/.."
+FUNCTIONS_PATH="$ROOT_PATH/functions-python"
+COMMON_PATH="$ROOT_PATH/api/src"
 
 # function printing usage
 display_usage() {
@@ -88,6 +90,22 @@ build_function() {
   FX_SOURCE_PATH="$FUNCTIONS_PATH/$function_name/src"
   FX_DIST_PATH="$FX_PATH/.dist"
   FX_DIST_BUILD="$FX_DIST_PATH/build"
+  FX_CONFIG_FILE="$FX_PATH/function_config.json"
+
+  printf "\nBuilding function $function_name\n"
+  # verify if the function's folder exists
+  if [ ! -d "$FX_PATH" ]; then
+    printf "\nERROR: function's folder \"$FX_PATH\" does not exist"
+    display_usage
+    exit 1
+  fi
+
+  # verify that the function config file exists
+   if [ ! -f "$FX_CONFIG_FILE" ]; then
+    printf "\nERROR: function's config file \"$FX_CONFIG_FILE\" does not exist"
+    display_usage
+    exit 1
+  fi
 
   rm -rf "$FX_DIST_PATH"
   mkdir "$FX_DIST_PATH"
@@ -96,32 +114,46 @@ build_function() {
   cp "$FX_PATH/requirements.txt" "$FX_DIST_BUILD"
 
   # include folders that are in the src function_config file as a json property called "include_folders"
-  include_folders=$(cat "$FX_PATH/function_config.json" | jq -r '.include_folders[]')
-  if [ -z "$include_folders" ]; then
-    printf "\nINFO: function_config.json file does not contain a property called include_folders"
-  else
-    printf "\nINFO: function_config.json file contains a property called include_folders"
-  fi
-  for folder in $include_folders; do
-    printf "\nINFO: Including .py and .json files from folder $FX_PATH/../$folder, excluding 'tests' and 'venv' directories\n"
+  include_folders=$(jq -r .include_folders[] $FX_CONFIG_FILE)
 
-    # Find all .py and .json files, excluding those in 'tests' or 'venv' directories
-    find "$FX_PATH/../$folder" \( -type d -name "tests" -o -type d -name "venv" \) -prune -o \( -name "*.py" -o -name "*.json" \) -print | while read file; do
-        if [ -d "$file" ]; then continue; fi
-        relative_path="${file#$FX_PATH/../}"
-        dest_path="$FX_DIST_BUILD/$relative_path"
+  copy_folders_to_build $FUNCTIONS_PATH "$include_folders" "include_folders"
+  include_api_folders=$(jq -r '.include_api_folders[]' $FX_CONFIG_FILE 2> /dev/null)
+  copy_folders_to_build $COMMON_PATH "$include_api_folders" "include_api_folders"
 
-        # Create the directory structure for the current file in the destination
-        mkdir -p "$(dirname "$dest_path")"
-
-        # Copy the file to the destination
-        cp "$file" "$dest_path"
-    done
-  done
 
   (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
   printf "\nCompleted building function $function_name\n"
 }
+
+copy_folders_to_build() {
+  root_folder=$1
+  folders=$2
+  property=$3
+  if [ -z "$folders" ]; then
+    printf "\nINFO: function_config.json file does not contain a property called $property\n"
+  else
+    printf "\nINFO: function_config.json file contains a property called $property\n"
+  fi
+  for folder in $folders; do
+    printf "\nINFO: Including .py and .json files from folder $root_folder/$folder, excluding 'tests' and 'venv' directories\n"
+    # Find all .py and .json files, excluding those in 'tests' or 'venv' directories
+    if [ ! -e $root_folder/$folder ]; then
+      echo "ERROR ---> Folder $root_folder/$folder does not exist"
+      continue
+    fi
+    (cd $root_folder && find "$folder" \( -type d -name "tests" -o -type d -name "venv" \) -prune -o \( -name "*.py" -o -name "*.json" \) -print) | while read file; do
+
+        if [ -d "$root_folder/$file" ]; then continue; fi
+        dest_path="$FX_DIST_BUILD/$file"
+        # Create the directory structure for the current file in the destination
+        mkdir -p "$(dirname "$dest_path")"
+
+        # Copy the file to the destination
+        cp "$root_folder/$file" "$dest_path"
+    done
+  done
+}
+
 
 if [ "$ALL" = "true" ]; then
   # get all the functions in the functions-python folder that contain a function_config.json file
