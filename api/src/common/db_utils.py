@@ -19,7 +19,6 @@ from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 
 from common.entity_type_enum import EntityType
 
-from middleware.request_context import is_user_email_restricted
 from sqlalchemy import or_
 
 
@@ -34,7 +33,7 @@ def get_gtfs_feeds_query(
     dataset_latitudes: str | None,
     dataset_longitudes: str | None,
     bounding_filter_method: str | None,
-    never_return_wip: bool = False,
+    include_wip: bool = False,
 ) -> Query[any]:
     """Get the DB query to use to retrieve the GTFS feeds.."""
     gtfs_feed_filter = GtfsFeedFilter(
@@ -54,17 +53,9 @@ def get_gtfs_feeds_query(
     ).subquery()
 
     feed_query = Database().get_session().query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
-    if never_return_wip:
+    if not include_wip:
         feed_query = feed_query.filter(
             or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
-        )
-    else:
-        feed_query = feed_query.filter(
-            or_(
-                Gtfsfeed.operational_status == None,  # noqa: E711
-                Gtfsfeed.operational_status != "wip",
-                not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
-            )
         )
 
     feed_query = (
@@ -90,7 +81,7 @@ def get_gtfs_rt_feeds_query(
     country_code: str | None,
     subdivision_name: str | None,
     municipality: str | None,
-    never_return_wip: bool = False,
+    include_wip: bool = False,
 ) -> Query:
     """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
     entity_types_list = entity_types.split(",") if entity_types else None
@@ -122,16 +113,12 @@ def get_gtfs_rt_feeds_query(
         .join(Entitytype, Gtfsrealtimefeed.entitytypes)
     ).subquery()
     feed_query = Database().get_session().query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.id.in_(subquery))
-    if never_return_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
-        )
-    else:
+
+    if not include_wip:
         feed_query = feed_query.filter(
             or_(
                 Gtfsrealtimefeed.operational_status == None,  # noqa: E711
                 Gtfsrealtimefeed.operational_status != "wip",
-                not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
             )
         )
 

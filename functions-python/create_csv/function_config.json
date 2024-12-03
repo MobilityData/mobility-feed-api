@@ -1,12 +1,12 @@
 {
-  "name": "batch-datasets",
-  "description": "Retrieve all feeds and publish them to Pub/Sub for processing the datasets",
-  "entry_point": "batch_datasets",
+  "name": "create-csv",
+  "description": "Create a csv of all feeds",
+  "entry_point": "create_csv",
   "timeout": 20,
   "memory": "256Mi",
   "trigger_http": true,
   "include_folders": ["helpers", "dataset_service"],
-  "include_common_folders": ["utils", "database_gen", "common", "database", "feeds/filters", "middleware"],
+  "include_common_folders": ["utils", "database_gen", "common", "database", "feeds/filters"],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"

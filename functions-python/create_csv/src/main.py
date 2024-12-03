@@ -85,7 +85,7 @@ def create_csv(request=None):
             dataset_latitudes=None,
             dataset_longitudes=None,
             bounding_filter_method=None,
-            never_return_wip=True,
+            include_wip=False,
         )
 
         gtfs_feeds = gtfs_feeds_query.all()
@@ -101,7 +101,7 @@ def create_csv(request=None):
             country_code=None,
             subdivision_name=None,
             municipality=None,
-            never_return_wip=True,
+            include_wip=False,
         )
 
         gtfs_rt_feeds = gtfs_rt_feeds_query.all()
