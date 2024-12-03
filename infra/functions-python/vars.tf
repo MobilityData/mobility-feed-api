@@ -69,3 +69,8 @@ variable "transitland_api_key" {
     type        = string
     description = "Transitland API key"
 }
+
+variable "authorization_google_client_id" {
+  type = string
+  description = "Google client ID"
+}

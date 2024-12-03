@@ -105,8 +105,9 @@ module "functions-python" {
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
+  
   transitland_api_key = var.transitland_api_key
-  validator_endpoint = var.validator_endpoint
+  authorization_google_client_id = var.oauth2_client_id
 }
 
 module "workflows" {

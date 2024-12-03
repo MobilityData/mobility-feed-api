@@ -36,6 +36,9 @@ locals {
 
   function_feed_sync_dispatcher_transitland_config = jsondecode(file("${path.module}/../../functions-python/feed_sync_dispatcher_transitland/function_config.json"))
   function_feed_sync_dispatcher_transitland_zip = "${path.module}/../../functions-python/feed_sync_dispatcher_transitland/.dist/feed_sync_dispatcher_transitland.zip"
+
+  function_operations_api_config = jsondecode(file("${path.module}/../../functions-python/operations_api/function_config.json"))
+  function_operations_api_zip = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
 }
 
 locals {
@@ -114,6 +117,13 @@ resource "google_storage_bucket_object" "feed_sync_dispatcher_transitland_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "feed-sync-dispatcher-transitland-${substr(filebase64sha256(local.function_feed_sync_dispatcher_transitland_zip), 0, 10)}.zip"
   source = local.function_feed_sync_dispatcher_transitland_zip
+}
+
+# 7. Operations API
+resource "google_storage_bucket_object" "operations_api_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "operations-api-${substr(filebase64sha256(local.function_operations_api_zip), 0, 10)}.zip"
+  source = local.function_operations_api_zip
 }
 
 # Secrets access
@@ -582,6 +592,49 @@ resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
   }
 }
 
+resource "google_cloudfunctions2_function" "operations_api" {
+  name        = "${local.function_operations_api_config.name}"
+  description = local.function_operations_api_config.description
+  location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_operations_api_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.operations_api_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID = var.project_id
+      PYTHONNODEBUGRANGES = 0
+      GOOGLE_CLIENT_ID = var.authorization_google_client_id
+    }
+    available_memory = local.function_operations_api_config.available_memory
+    timeout_seconds = local.function_operations_api_config.timeout
+    available_cpu = local.function_operations_api_config.available_cpu
+    max_instance_request_concurrency = local.function_operations_api_config.max_instance_request_concurrency
+    max_instance_count = local.function_operations_api_config.max_instance_count
+    min_instance_count = local.function_operations_api_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_operations_api_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_operations_api_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
 
 # IAM entry for all users to invoke the function 
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
