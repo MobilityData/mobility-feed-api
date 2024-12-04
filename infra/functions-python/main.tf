@@ -612,7 +612,7 @@ resource "google_cloudfunctions2_function" "operations_api" {
     environment_variables = {
       PROJECT_ID = var.project_id
       PYTHONNODEBUGRANGES = 0
-      GOOGLE_CLIENT_ID = var.authorization_google_client_id
+      GOOGLE_CLIENT_ID = var.operations_oauth2_client_id
     }
     available_memory = local.function_operations_api_config.memory
     timeout_seconds = local.function_operations_api_config.timeout

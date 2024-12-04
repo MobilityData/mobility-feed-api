@@ -70,7 +70,7 @@ variable "transitland_api_key" {
     description = "Transitland API key"
 }
 
-variable "authorization_google_client_id" {
+variable "operations_oauth2_client_id" {
   type = string
-  description = "Google client ID"
+  description = "value of the OAuth2 client id for the Operations API"
 }
