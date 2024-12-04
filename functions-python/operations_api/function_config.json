@@ -16,7 +16,7 @@
       "key": "FEEDS_DATABASE_URL"
     }
   ],
-  "ingress_settings": "ALL",
+  "ingress_settings": "ALLOW_ALL",
   "max_instance_request_concurrency": 1,
   "max_instance_count": 5,
   "min_instance_count": 0,
