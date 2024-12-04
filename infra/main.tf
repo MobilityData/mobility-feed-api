@@ -107,7 +107,7 @@ module "functions-python" {
   environment = var.environment
   
   transitland_api_key = var.transitland_api_key
-  authorization_google_client_id = var.oauth2_client_id
+  operations_oauth2_client_id = var.operations_oauth2_client_id
 }
 
 module "workflows" {
