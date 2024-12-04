@@ -28,6 +28,10 @@ global_session = None
 
 
 def set_cascade(mapper, class_):
+    """
+    Set cascade for relationships in Gtfsfeed.
+    This allows to delete/add the relationships when their respective relation array changes.
+    """
     if class_.__name__ == "Gtfsfeed":
         for rel in class_.__mapper__.relationships:
             if rel.key in [

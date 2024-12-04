@@ -52,6 +52,38 @@ paths:
           description: >
             An internal server error occurred.
 
+  /v1/operations/feeds/gtfs_rt:
+    put:
+      description: Update the specified GTFS-RT feed in the Mobility Database.
+      tags:
+        - "operations"
+      operationId: updateGtfsRtFeed
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        description: Payload to update the specified GTFS-RT feed.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRequestGtfsRtFeed"
+      responses:
+        200:
+          description: >
+            The feed was successfully updated. No content is returned.
+        204:
+          description: >
+            The feed update request was successfully received, but the update process was skipped as the request matches with the source feed.
+        400:
+          description: >
+            The request was invalid.
+        401:
+          description: >
+            The request was not authenticated or has invalid authentication credentials.
+        500:
+          description: >
+            An internal server error occurred.            
+
 components:
   schemas:
     Redirect:
@@ -65,27 +97,16 @@ components:
           description: A comment explaining the redirect.
           type: string
           example: Redirected because of a change of URL.
-    BasicFeed:
+
+    UpdateRequestGtfsRtFeed:
       type: object
-      discriminator:
-        propertyName: data_type
-        mapping:
-          gtfs: '#/components/schemas/GtfsFeed'
-          gtfs_rt: '#/components/schemas/GtfsRTFeed'
       properties:
         id:
           description: Unique identifier used as a key for the feeds table.
           type: string
           example: mdb-1210
-        data_type:
-          $ref: "#/components/schemas/DataType"
         status:
-         $ref: "#/components/schemas/FeedStatus"
-        created_at:
-          description: The date and time the feed was added to the database, in ISO 8601 date-time format.
-          type: string
-          example: 2023-07-10T22:06:00Z
-          format: date-time
+          $ref: "#/components/schemas/FeedStatus"
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
         provider:
@@ -104,7 +125,6 @@ components:
         feed_contact_email:
           description: Use to contact the feed producer.
           type: string
-          format: email
           example: someEmail@ladotbus.com
         source_info:
           $ref: "#/components/schemas/SourceInfo"
@@ -112,38 +132,28 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Redirect"
+        entity_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntityType"
+        feed_references:
+          description:
+            A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+          type: array
+          items:
+            type: string
+            example: "mdb-20"            
+      # This is a temporary fix as the operational status is not visible yet.
+        operational_status_action:
+          type: string
+          enum:
+            - no_change
+            - wip
+            - clear            
       required:
         - id
-        - data_type
         - status
-
-    GtfsFeed:
-      allOf:
-        - $ref: "#/components/schemas/BasicFeed"
-        - type: object
-        # TODO add this properties when implementing the get endpoint
-          # properties:
-          #   locations:
-          #     $ref: "#/components/schemas/Locations"
-          #   latest_dataset:
-          #     $ref: "#/components/schemas/LatestDataset"
-
-    UpdateRequestGtfsRtFeed:
-      allOf:
-        - $ref: "#/components/schemas/BasicFeed"
-        - type: object
-          properties:
-            entity_types:
-              type: array
-              items:
-                $ref: "#/components/schemas/EntityType"
-            feed_references:
-              description:
-                A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
-              type: array
-              items:
-                type: string
-                example: "mdb-20"
+        - entity_types
 
     UpdateRequestGtfsFeed:
       type: object
