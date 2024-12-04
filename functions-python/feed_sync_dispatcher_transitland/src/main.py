@@ -181,7 +181,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         for data in combined_data:
             external_id = data["feeds_onestop_id"]
             feed_url = data["feed_url"]
-            source = "TLD"
+            source = "tld"
 
             if not self.check_external_id(db_session, external_id, source):
                 payload_type = "new"
@@ -208,7 +208,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
                 country=data["country"],
                 state_province=data["state_province"],
                 city_name=data["city_name"],
-                source="TLD",
+                source="tld",
                 payload_type=payload_type,
             )
             payloads.append(FeedSyncPayload(external_id=external_id, payload=payload))
@@ -337,7 +337,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Checks if the external_id exists in the public.externalid table for the given source.
         :param db_session: SQLAlchemy session
         :param external_id: The external_id (feeds_onestop_id) to check
-        :param source: The source to filter by (e.g., 'TLD' for TransitLand)
+        :param source: The source to filter by (e.g., 'tld' for TransitLand)
         :return: True if the feed exists, False otherwise
         """
         results = (
@@ -354,7 +354,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
         Retrieves the feed_url from the public.feed table in the mbd for the given external_id.
         :param db_session: SQLAlchemy session
         :param external_id: The external_id (feeds_onestop_id) from TransitLand
-        :param source: The source to filter by (e.g., 'TLD' for TransitLand)
+        :param source: The source to filter by (e.g., 'tld' for TransitLand)
         :return: feed_url in mbd if exists, otherwise None
         """
         results = (
