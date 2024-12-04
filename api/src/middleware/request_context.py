@@ -94,7 +94,10 @@ class RequestContext:
     def __repr__(self) -> str:
         # Omitting sensitive data like email and jwt assertion
         safe_properties = dict(
-            user_id=self.user_id, client_user_agent=self.client_user_agent, client_host=self.client_host
+            user_id=self.user_id,
+            client_user_agent=self.client_user_agent,
+            client_host=self.client_host,
+            email=self.user_email,
         )
         return f"request-context={safe_properties})"
 
@@ -108,8 +111,8 @@ def is_user_email_restricted() -> bool:
     Check if an email's domain is restricted (e.g., for WIP visibility).
     """
     request_context = get_request_context()
-    if not isinstance(request_context, RequestContext):
-        return True  # Default to restricted
-    email = get_request_context().user_email
+    if not request_context:
+        return True
+    email = request_context["user_email"]
     unrestricted_domains = ["mobilitydata.org"]
     return not email or not any(email.endswith(f"@{domain}") for domain in unrestricted_domains)
