@@ -95,4 +95,4 @@ class TestRequestContext(unittest.TestCase):
         ]
         request_context = RequestContext(scope=scope_instance)
         _request_context.set(request_context)
-        self.assertTrue(is_user_email_restricted())
+        self.assertFalse(is_user_email_restricted())

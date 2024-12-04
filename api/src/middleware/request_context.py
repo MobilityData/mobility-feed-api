@@ -111,5 +111,5 @@ def is_user_email_restricted() -> bool:
     if not isinstance(request_context, RequestContext):
         return True  # Default to restricted
     email = get_request_context().user_email
-    unrestricted_domains = ["@mobilitydata.org"]
+    unrestricted_domains = ["mobilitydata.org"]
     return not email or not any(email.endswith(f"@{domain}") for domain in unrestricted_domains)
