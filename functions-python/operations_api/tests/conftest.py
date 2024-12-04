@@ -47,7 +47,24 @@ feed_mdb_40 = Gtfsfeed(
     status="active",
     feed_contact_email="feed_contact_email",
     provider="provider",
-    # gtfs_rt_feeds=[feed_mdb_41],
+    gtfs_rt_feeds=[feed_mdb_41],
+)
+
+feed_mdb_400 = Gtfsfeed(
+    id="mdb-400",
+    data_type="gtfs",
+    feed_name="London Transit Commission",
+    note="note",
+    producer_url="producer_url",
+    authentication_type="1",
+    authentication_info_url="authentication_info_url",
+    api_key_parameter_name="api_key_parameter_name",
+    license_url="license_url",
+    stable_id="mdb-400",
+    status="active",
+    feed_contact_email="feed_contact_email",
+    provider="provider",
+    gtfs_rt_feeds=[],
 )
 
 
@@ -62,6 +79,7 @@ def populate_database():
     session.add(feed_mdb_41)
     # session.flush()
     session.add(feed_mdb_40)
+    session.add(feed_mdb_400)
     session.commit()
 
 

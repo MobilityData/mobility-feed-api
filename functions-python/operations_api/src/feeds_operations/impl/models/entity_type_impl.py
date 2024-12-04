@@ -26,8 +26,17 @@ class EntityTypeImpl(BaseModel):
         return EntityType(obj.name.lower())
 
     @classmethod
-    def to_orm(cls, entity_type: EntityType) -> EntityTypeOrm:
+    def to_orm(cls, entity_type: EntityType, session) -> EntityTypeOrm:
         """
         Convert a Pydantic model to a SQLAlchemy row object.
         """
-        return EntityTypeOrm(name=entity_type.name.upper())
+        result = (
+            session.query(EntityTypeOrm)
+            .filter(EntityTypeOrm.name == entity_type.name)
+            .first()
+        )
+        return (
+            result
+            if result is not None
+            else EntityTypeOrm(name=entity_type.name.upper())
+        )

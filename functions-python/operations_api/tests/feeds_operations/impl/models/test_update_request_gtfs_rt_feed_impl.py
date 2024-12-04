@@ -4,6 +4,7 @@ from database_gen.sqlacodegen_models import (
     Redirectingid,
     Externalid,
     Gtfsrealtimefeed,
+    Entitytype,
 )
 from feeds_operations.impl.models.update_request_gtfs_rt_feed_impl import (
     UpdateRequestGtfsRtFeedImpl,
@@ -85,10 +86,16 @@ def test_to_orm():
     )
     entity = Gtfsrealtimefeed(id="1", stable_id="stable_id", data_type="gtfs")
     target_feed = Gtfsfeed(id=2, stable_id="target_stable_id")
+    resulting_entity = Entitytype(name="VP")
+
     session = MagicMock()
-    session.query.return_value.filter.return_value.first.return_value = target_feed
+    session.query.return_value.filter.return_value.first.side_effect = [
+        target_feed,
+        resulting_entity,
+    ]
 
     result = UpdateRequestGtfsRtFeedImpl.to_orm(update_request, entity, session)
+    assert result is not None
     assert result.status == "active"
     assert result.provider == "provider"
     assert result.feed_name == "feed_name"
@@ -121,8 +128,12 @@ def test_to_orm_invalid_source_info():
     )
     entity = Gtfsrealtimefeed(id="1", stable_id="stable_id", data_type="gtfs")
     target_feed = Gtfsfeed(id=2, stable_id="target_stable_id")
+
     session = MagicMock()
-    session.query.return_value.filter.return_value.first.return_value = target_feed
+    session.query.return_value.filter.return_value.first.side_effect = [
+        target_feed,
+        None,
+    ]
 
     result = UpdateRequestGtfsRtFeedImpl.to_orm(update_request, entity, session)
 

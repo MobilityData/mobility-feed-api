@@ -19,12 +19,38 @@ import threading
 from typing import Final
 
 from sqlalchemy import create_engine, text, event
-from sqlalchemy.orm import sessionmaker, mapper
+from sqlalchemy.orm import sessionmaker, mapper, class_mapper
 import logging
+
+from database_gen.sqlacodegen_models import Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 
 DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
 lock = threading.Lock()
 global_session = None
+
+
+def configure_polymorphic_mappers():
+    """
+    Configure the polymorphic mappers allowing polymorphic values on relationships.
+    """
+    feed_mapper = class_mapper(Feed)
+    # Configure the polymorphic mapper using date_type as discriminator for the Feed class
+    feed_mapper.polymorphic_on = Feed.data_type
+    feed_mapper.polymorphic_identity = Feed.__tablename__.lower()
+
+    gtfsfeed_mapper = class_mapper(Gtfsfeed)
+    gtfsfeed_mapper.inherits = feed_mapper
+    gtfsfeed_mapper.polymorphic_identity = Gtfsfeed.__tablename__.lower()
+
+    gtfsrealtimefeed_mapper = class_mapper(Gtfsrealtimefeed)
+    gtfsrealtimefeed_mapper.inherits = feed_mapper
+    gtfsrealtimefeed_mapper.polymorphic_identity = (
+        Gtfsrealtimefeed.__tablename__.lower()
+    )
+
+    gbfsfeed_mapper = class_mapper(Gbfsfeed)
+    gbfsfeed_mapper.inherits = feed_mapper
+    gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
 
 
 def set_cascade(mapper, class_):
@@ -43,7 +69,16 @@ def set_cascade(mapper, class_):
                 rel.cascade = "all, delete-orphan"
 
 
-event.listen(mapper, "mapper_configured", set_cascade)
+def mapper_configure_listener(mapper, class_):
+    """
+    Mapper configure listener
+    """
+    set_cascade(mapper, class_)
+    configure_polymorphic_mappers()
+
+
+# Add the mapper_configure_listener to the mapper_configured event
+event.listen(mapper, "mapper_configured", mapper_configure_listener)
 
 
 def get_db_engine(database_url: str = None, echo: bool = True):

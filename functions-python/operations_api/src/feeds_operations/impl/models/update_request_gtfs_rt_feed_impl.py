@@ -148,7 +148,10 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
         entity.entitytypes = (
             []
             if update_request.entity_types is None
-            else [EntityTypeImpl.to_orm(item) for item in update_request.entity_types]
+            else [
+                EntityTypeImpl.to_orm(item, session)
+                for item in update_request.entity_types
+            ]
         )
         entity.gtfs_feeds = (
             []
