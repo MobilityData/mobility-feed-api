@@ -13,8 +13,25 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-from database_gen.sqlacodegen_models import Gtfsfeed
+from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Entitytype
 from test_utils.database_utils import clean_testing_db, get_testing_session
+
+feed_mdb_41 = Gtfsrealtimefeed(
+    id="mdb-41",
+    data_type="gtfs_rt",
+    feed_name="London Transit Commission(RT",
+    note="note",
+    producer_url="producer_url",
+    authentication_type="1",
+    authentication_info_url="authentication_info_url",
+    api_key_parameter_name="api_key_parameter_name",
+    license_url="license_url",
+    stable_id="mdb-41",
+    status="active",
+    feed_contact_email="feed_contact_email",
+    provider="provider",
+    entitytypes=[Entitytype(name="vp")],
+)
 
 feed_mdb_40 = Gtfsfeed(
     id="mdb-40",
@@ -30,6 +47,7 @@ feed_mdb_40 = Gtfsfeed(
     status="active",
     feed_contact_email="feed_contact_email",
     provider="provider",
+    # gtfs_rt_feeds=[feed_mdb_41],
 )
 
 
@@ -37,15 +55,12 @@ def populate_database():
     """
     Populates the database with fake data with the following distribution:
     - 1 GTFS feeds
-        - 5 active
-        - 5 inactive
-    - 5 GTFS Realtime feeds
-    - 9 GTFS datasets
-        - 3 active in active feeds
-        - 6 active in inactive feeds
+    - 1 GTFS Realtime feeds
     """
     session = get_testing_session()
 
+    session.add(feed_mdb_41)
+    # session.flush()
     session.add(feed_mdb_40)
     session.commit()
 

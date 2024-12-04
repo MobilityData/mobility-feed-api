@@ -16,7 +16,7 @@
 
 import logging
 import os
-from typing import Annotated, Type
+from typing import Annotated
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
@@ -50,7 +50,7 @@ class OperationsApiImpl(BaseOperationsApi):
     def detect_changes(
         feed: Gtfsfeed,
         update_request_feed: UpdateRequestGtfsFeed | UpdateRequestGtfsRtFeed,
-        impl_class: Type[UpdateRequestGtfsFeedImpl] | Type[UpdateRequestGtfsRtFeedImpl],
+        impl_class: UpdateRequestGtfsFeedImpl | UpdateRequestGtfsRtFeedImpl,
     ) -> DeepDiff:
         """
         Detect changes between the feed and the update request.
@@ -74,7 +74,7 @@ class OperationsApiImpl(BaseOperationsApi):
             logging.info("Detect update changes: no changes detected")
         return diff
 
-    @validate_request(Type[UpdateRequestGtfsFeed], "update_request_gtfs_feed")
+    @validate_request(UpdateRequestGtfsFeed, "update_request_gtfs_feed")
     async def update_gtfs_feed(
         self,
         update_request_gtfs_feed: Annotated[
@@ -92,7 +92,7 @@ class OperationsApiImpl(BaseOperationsApi):
         ...
         return await self._update_feed(update_request_gtfs_feed, DataType.GTFS)
 
-    @validate_request(Type[UpdateRequestGtfsRtFeed], "update_request_gtfs_rt_feed")
+    @validate_request(UpdateRequestGtfsRtFeed, "update_request_gtfs_rt_feed")
     async def update_gtfs_rt_feed(
         self,
         update_request_gtfs_rt_feed: Annotated[
@@ -121,7 +121,7 @@ class OperationsApiImpl(BaseOperationsApi):
         try:
             session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
             feed: Gtfsfeed = query_feed_by_stable_id(
-                session, update_request_feed.id, data_type.name
+                session, update_request_feed.id, data_type.value
             )
             if feed is None:
                 raise HTTPException(
