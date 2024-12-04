@@ -653,6 +653,23 @@ resource "google_cloud_run_service_iam_member" "tokens_cloud_run_invoker" {
   member         = "allUsers"
 }
 
+# Allow Operations API function to be called by all users
+resource "google_cloudfunctions2_function_iam_member" "operations_api_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.operations_api.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "allUsers"
+}
+
+resource "google_cloud_run_service_iam_member" "operastions_cloud_run_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  service        = google_cloudfunctions2_function.operations_api.name
+  role           = "roles/run.invoker"
+  member         = "allUsers"
+}
+
 # Permissions on the service account used by the function and Eventarc trigger
 resource "google_project_iam_member" "invoking" {
   project = var.project_id
