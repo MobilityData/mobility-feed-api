@@ -60,6 +60,7 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         return "Invalid Pub/Sub message data."
 
     try:
+        logging.info(f"Message data: {message_json}")
         execution_id = message_json["execution_id"]
         stable_id = message_json["stable_id"]
         url = message_json["url"]
