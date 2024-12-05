@@ -18,7 +18,7 @@ import os
 from unittest import mock
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from batch_datasets.src.main import get_non_deprecated_feeds, batch_datasets
+from main import get_non_deprecated_feeds, batch_datasets
 from test_utils.database_utils import get_testing_session, default_db_url
 
 
@@ -39,8 +39,8 @@ def test_get_non_deprecated_feeds():
         "FEEDS_LIMIT": "5",
     },
 )
-@patch("batch_datasets.src.main.publish")
-@patch("batch_datasets.src.main.get_pubsub_client")
+@patch("main.publish")
+@patch("main.get_pubsub_client")
 def test_batch_datasets(mock_client, mock_publish):
     mock_client.return_value = MagicMock()
     with get_testing_session() as session:
@@ -64,7 +64,7 @@ def test_batch_datasets(mock_client, mock_publish):
                     ]
 
 
-@patch("batch_datasets.src.main.start_db_session")
+@patch("main.start_db_session")
 def test_batch_datasets_exception(start_db_session_mock):
     exception_message = "Failure occurred"
     start_db_session_mock.side_effect = Exception(exception_message)

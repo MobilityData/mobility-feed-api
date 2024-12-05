@@ -15,7 +15,7 @@ from database_gen.sqlacodegen_models import Feed
 from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 
 with mock.patch("helpers.logger.Logger.init_logger") as mock_init_logger:
-    from feed_sync_process_transitland.src.main import (
+    from main import (
         FeedProcessor,
         process_feed_event,
         log_message,
@@ -68,8 +68,8 @@ class MockLogger:
 @pytest.fixture(autouse=True)
 def mock_logging():
     """Mock both local and GCP logging."""
-    with patch("feed_sync_process_transitland.src.main.logger") as mock_log, patch(
-        "feed_sync_process_transitland.src.main.gcp_logger"
+    with patch("main.logger") as mock_log, patch(
+        "main.gcp_logger"
     ) as mock_gcp_log, patch("helpers.logger.Logger", MockLogger):
         for logger in [mock_log, mock_gcp_log]:
             logger.info = MagicMock()
@@ -620,9 +620,7 @@ class TestFeedProcessor:
         cloud_event.data = {"message": {"data": payload_data}}
 
         # Mock database session to raise error
-        with patch(
-            "feed_sync_process_transitland.src.main.start_db_session"
-        ) as mock_start_session:
+        with patch("main.start_db_session") as mock_start_session:
             mock_start_session.side_effect = SQLAlchemyError(
                 "Database connection error"
             )
@@ -653,7 +651,7 @@ class TestFeedProcessor:
 
         # Process event and verify error handling
         with patch(
-            "feed_sync_process_transitland.src.main.start_db_session",
+            "main.start_db_session",
             return_value=mock_session,
         ):
             result = process_feed_event(cloud_event)

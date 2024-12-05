@@ -3,7 +3,7 @@ import unittest
 from typing import Final
 from unittest import mock
 
-from helpers.database import refresh_materialized_view, start_db_session
+from database import refresh_materialized_view, start_db_session
 
 default_db_url: Final[
     str

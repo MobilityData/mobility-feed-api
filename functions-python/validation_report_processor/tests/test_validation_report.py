@@ -13,7 +13,7 @@ from database_gen.sqlacodegen_models import (
 )
 from helpers.database import start_db_session
 from test_utils.database_utils import default_db_url
-from validation_report_processor.src.main import (
+from main import (
     read_json_report,
     get_feature,
     get_dataset,
@@ -174,8 +174,8 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         self.assertEqual(status, 500)
 
-    @patch("validation_report_processor.src.main.Logger")
-    @patch("validation_report_processor.src.main.create_validation_report_entities")
+    @patch("main.Logger")
+    @patch("main.create_validation_report_entities")
     def test_process_validation_report(self, create_validation_report_entities_mock, _):
         request = MagicMock(
             get_json=MagicMock(
@@ -189,8 +189,8 @@ class TestValidationReportProcessor(unittest.TestCase):
         process_validation_report(request)
         create_validation_report_entities_mock.assert_called_once()
 
-    @patch("validation_report_processor.src.main.Logger")
-    @patch("validation_report_processor.src.main.create_validation_report_entities")
+    @patch("main.Logger")
+    @patch("main.create_validation_report_entities")
     def test_process_validation_report_invalid_request(
         self, create_validation_report_entities_mock, _
     ):

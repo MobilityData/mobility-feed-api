@@ -6,14 +6,14 @@ import pandas
 from faker import Faker
 from geoalchemy2 import WKTElement
 
-from extract_location.src.bounding_box.bounding_box_extractor import (
+from bounding_box.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
 )
-from extract_location.src.reverse_geolocation.location_extractor import (
+from reverse_geolocation.location_extractor import (
     get_unique_countries,
 )
-from extract_location.src.stops_utils import get_gtfs_feed_bounds_and_points
+from stops_utils import get_gtfs_feed_bounds_and_points
 
 faker = Faker()
 

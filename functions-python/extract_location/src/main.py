@@ -22,12 +22,12 @@ from dataset_service.main import (
 from helpers.database import start_db_session
 from helpers.logger import Logger
 from helpers.parser import jsonify_pubsub
-from .bounding_box.bounding_box_extractor import (
+from bounding_box.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
 )
-from .reverse_geolocation.location_extractor import update_location, reverse_coords
-from .stops_utils import get_gtfs_feed_bounds_and_points
+from reverse_geolocation.location_extractor import update_location, reverse_coords
+from stops_utils import get_gtfs_feed_bounds_and_points
 
 logging.basicConfig(level=logging.INFO)
 
