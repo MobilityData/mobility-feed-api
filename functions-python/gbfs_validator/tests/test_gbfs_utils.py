@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 import requests
 
 from dataset_service.main import Status
-from gbfs_validator.src.gbfs_utils import (
+from gbfs_utils import (
     fetch_gbfs_files,
     upload_gbfs_file_to_bucket,
     save_trace_with_error,
@@ -30,7 +30,7 @@ class TestGbfsUtils(unittest.TestCase):
         self.assertEqual(result, {"key": "value"})
         mock_get.assert_called_once_with("http://example.com")
 
-    @patch("gbfs_validator.src.gbfs_utils.upload_gbfs_file_to_bucket")
+    @patch("gbfs_utils.upload_gbfs_file_to_bucket")
     def test_create_gbfs_json_with_bucket_paths_empty_data(self, mock_upload):
         mock_bucket = MagicMock()
         gbfs_data = {"data": {}}
@@ -69,7 +69,7 @@ class TestGbfsUtils(unittest.TestCase):
         )
         self.assertIsNone(result)
 
-    @patch("gbfs_validator.src.gbfs_utils.upload_gbfs_file_to_bucket")
+    @patch("gbfs_utils.upload_gbfs_file_to_bucket")
     def test_create_gbfs_json_with_bucket_paths(self, mock_upload):
         mock_upload.return_value = "http://new-url.com"
 
@@ -83,7 +83,7 @@ class TestGbfsUtils(unittest.TestCase):
         self.validator.create_gbfs_json_with_bucket_paths(mock_bucket, gbfs_data)
         self.assertEqual(self.validator.hosted_url, "http://new-url.com")
 
-    @patch("gbfs_validator.src.gbfs_utils.upload_gbfs_file_to_bucket")
+    @patch("gbfs_utils.upload_gbfs_file_to_bucket")
     def test_create_gbfs_json_with_bucket_paths_2(self, mock_upload):
         mock_upload.return_value = "http://new-url.com"
 
@@ -150,8 +150,8 @@ class TestGbfsUtils(unittest.TestCase):
         )
         mock_blob_obj.upload_from_string.assert_called_once()
 
-    @patch("gbfs_validator.src.gbfs_utils.Gbfsvalidationreport")
-    @patch("gbfs_validator.src.gbfs_utils.Gbfsnotice")
+    @patch("gbfs_utils.Gbfsvalidationreport")
+    @patch("gbfs_utils.Gbfsnotice")
     def test_save_snapshot_and_report(self, mock_gbfsnotice, mock_gbfsvalidationreport):
         mock_session = MagicMock()
         mock_snapshot = MagicMock()

@@ -3,7 +3,7 @@
 import unittest
 from unittest.mock import MagicMock
 from database_gen.sqlacodegen_models import Feed, Location
-from helpers.locations import (
+from locations import (
     translate_feed_locations,
     get_country_code,
     create_or_get_location,
@@ -172,7 +172,7 @@ class TestLocations(unittest.TestCase):
             get_country_code("Great Britain"), "GB"
         )  # Should match United Kingdom
 
-    @patch("helpers.locations.logging.error")
+    @patch("locations.logging.error")
     def test_get_country_code_empty_string(self, mock_logging):
         """Test getting country code with empty string"""
         self.assertIsNone(get_country_code(""))

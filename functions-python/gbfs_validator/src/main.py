@@ -21,7 +21,7 @@ from dataset_service.main import (
 from helpers.database import start_db_session
 from helpers.logger import Logger, StableIdFilter
 from helpers.parser import jsonify_pubsub
-from .gbfs_utils import (
+from gbfs_utils import (
     GBFSValidator,
     fetch_gbfs_files,
     save_trace_with_error,

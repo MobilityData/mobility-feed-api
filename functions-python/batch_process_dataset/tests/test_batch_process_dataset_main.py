@@ -6,7 +6,7 @@ import unittest
 from hashlib import sha256
 from typing import Final
 from unittest.mock import patch, MagicMock, Mock, mock_open
-from batch_process_dataset.src.main import (
+from main import (
     DatasetProcessor,
     DatasetFile,
     process_dataset,
@@ -40,8 +40,8 @@ def create_cloud_event(mock_data):
 
 
 class TestDatasetProcessor(unittest.TestCase):
-    @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
-    @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
+    @patch("main.DatasetProcessor.upload_file_to_storage")
+    @patch("main.DatasetProcessor.download_content")
     def test_upload_dataset_diff_hash(
         self, mock_download_url_content, upload_file_to_storage
     ):
@@ -80,8 +80,8 @@ class TestDatasetProcessor(unittest.TestCase):
         # Upload to storage is called twice, one for the latest and one for the timestamped one
         self.assertEqual(upload_file_to_storage.call_count, 2)
 
-    @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
-    @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
+    @patch("main.DatasetProcessor.upload_file_to_storage")
+    @patch("main.DatasetProcessor.download_content")
     def test_upload_dataset_same_hash(
         self, mock_download_url_content, upload_file_to_storage
     ):
@@ -112,8 +112,8 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob.make_public.assert_not_called()
         mock_download_url_content.assert_called_once()
 
-    @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
-    @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
+    @patch("main.DatasetProcessor.upload_file_to_storage")
+    @patch("main.DatasetProcessor.download_content")
     def test_upload_dataset_not_zip(
         self, mock_download_url_content, upload_file_to_storage
     ):
@@ -144,8 +144,8 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob.make_public.assert_not_called()
         mock_download_url_content.assert_called_once()
 
-    @patch("batch_process_dataset.src.main.DatasetProcessor.upload_file_to_storage")
-    @patch("batch_process_dataset.src.main.DatasetProcessor.download_content")
+    @patch("main.DatasetProcessor.upload_file_to_storage")
+    @patch("main.DatasetProcessor.download_content")
     def test_upload_dataset_download_exception(
         self, mock_download_url_content, upload_file_to_storage
     ):
@@ -355,9 +355,9 @@ class TestDatasetProcessor(unittest.TestCase):
         self.assertIsNone(result)
         processor.create_dataset.assert_not_called()
 
-    @patch("batch_process_dataset.src.main.Logger")
-    @patch("batch_process_dataset.src.main.DatasetTraceService")
-    @patch("batch_process_dataset.src.main.DatasetProcessor")
+    @patch("main.Logger")
+    @patch("main.DatasetTraceService")
+    @patch("main.DatasetProcessor")
     def test_process_dataset_normal_execution(
         self, mock_dataset_processor, mock_dataset_trace, _
     ):
@@ -391,9 +391,9 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_dataset_processor.assert_called_once()
         mock_dataset_processor_instance.process.assert_called_once()
 
-    @patch("batch_process_dataset.src.main.Logger")
-    @patch("batch_process_dataset.src.main.DatasetTraceService")
-    @patch("batch_process_dataset.src.main.DatasetProcessor")
+    @patch("main.Logger")
+    @patch("main.DatasetTraceService")
+    @patch("main.DatasetProcessor")
     def test_process_dataset_exception(
         self, mock_dataset_processor, mock_dataset_trace, _
     ):
@@ -419,8 +419,8 @@ class TestDatasetProcessor(unittest.TestCase):
         except AttributeError:
             assert True
 
-    @patch("batch_process_dataset.src.main.Logger")
-    @patch("batch_process_dataset.src.main.DatasetTraceService")
+    @patch("main.Logger")
+    @patch("main.DatasetTraceService")
     def test_process_dataset_missing_stable_id(self, mock_dataset_trace, _):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url

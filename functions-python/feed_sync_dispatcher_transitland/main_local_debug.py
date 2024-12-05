@@ -10,7 +10,7 @@
 # Usage:
 # - python feed_sync_dispatcher_transitland/main_local_debug.py
 
-from src.main import feed_sync_dispatcher_transitland
+from main import feed_sync_dispatcher_transitland
 from dotenv import load_dotenv
 
 # Load environment variables from .env.local
