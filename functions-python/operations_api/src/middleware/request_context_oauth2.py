@@ -41,6 +41,7 @@ def validate_token_with_google(token: str, google_client_id: str) -> dict:
         HTTPException: 401, If the token is invalid or the audience is not the expected client.
         HTTPException: 500, If the token validation fails.
     """
+    logging.info(f"Validating token with Google: {token}")
     try:
         response = get_tokeninfo_response(token)
     except Exception as e:
