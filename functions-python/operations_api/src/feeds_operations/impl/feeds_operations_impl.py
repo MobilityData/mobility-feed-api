@@ -151,7 +151,8 @@ class OperationsApiImpl(BaseOperationsApi):
                     else update_request_feed.operational_status_action
                 )
                 session.add(feed)
-                refreshed = refresh_materialized_view(session, t_feedsearch.name, False)
+                session.flush()
+                refreshed = refresh_materialized_view(session, t_feedsearch.name)
                 logging.info(
                     f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
                 )
@@ -170,6 +171,7 @@ class OperationsApiImpl(BaseOperationsApi):
             logging.error(
                 f"Failed to update feed ID: {update_request_feed.id}. Error: {e}"
             )
+            session.rollback()
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
