@@ -82,6 +82,8 @@ fi
 
 setup_function() {
   function_name=$1
+  # Remove ending / if any
+  function_name=${function_name%/}
   echo "Setting up function $function_name"
   # verify if the function's folder exists
   if [ ! -d "$FUNCTIONS_PATH/$function_name" ]; then
