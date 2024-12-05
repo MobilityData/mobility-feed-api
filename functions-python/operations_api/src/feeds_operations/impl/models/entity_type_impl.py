@@ -32,11 +32,11 @@ class EntityTypeImpl(BaseModel):
         """
         result = (
             session.query(EntityTypeOrm)
-            .filter(EntityTypeOrm.name == entity_type.name)
+            .filter(EntityTypeOrm.name.ilike(entity_type.name))
             .first()
         )
         return (
             result
             if result is not None
-            else EntityTypeOrm(name=entity_type.name.upper())
+            else EntityTypeOrm(name=entity_type.name.lower())
         )
