@@ -152,13 +152,17 @@ def close_db_session(session, raise_exception: bool = False):
             raise error
 
 
-def refresh_materialized_view(session, view_name: str) -> bool:
+def refresh_materialized_view(session, view_name: str, concurrently=True) -> bool:
     """
     Refresh Materialized view by name.
     @return: True if the view was refreshed successfully, False otherwise
     """
     try:
-        session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
+        session.execute(
+            text(
+                f"REFRESH MATERIALIZED VIEW {'CONCURRENTLY' if concurrently else ''} {view_name}"
+            )
+        )
         return True
     except Exception as error:
         logging.error(f"Error raised while refreshing view: {error}")

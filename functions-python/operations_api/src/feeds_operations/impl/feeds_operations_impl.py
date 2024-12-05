@@ -151,9 +151,11 @@ class OperationsApiImpl(BaseOperationsApi):
                     else update_request_feed.operational_status_action
                 )
                 session.add(feed)
+                refreshed = refresh_materialized_view(session, t_feedsearch.name, False)
+                logging.info(
+                    f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
+                )
                 session.commit()
-                # Refresh the materialized view has to be done after the commit
-                refresh_materialized_view(session, t_feedsearch.name)
                 logging.info(
                     f"Feed ID: {update_request_feed.id} updated successfully with the following changes: "
                     f"{diff.values()}"
