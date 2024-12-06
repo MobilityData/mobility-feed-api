@@ -48,6 +48,7 @@ feed_mdb_40 = Gtfsfeed(
     feed_contact_email="feed_contact_email",
     provider="provider",
     gtfs_rt_feeds=[feed_mdb_41],
+    operational_status="wip",
 )
 
 feed_mdb_400 = Gtfsfeed(

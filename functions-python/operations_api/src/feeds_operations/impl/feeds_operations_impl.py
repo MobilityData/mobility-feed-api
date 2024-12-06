@@ -120,14 +120,9 @@ class OperationsApiImpl(BaseOperationsApi):
         session = None
         try:
             session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-            feed: Gtfsfeed = query_feed_by_stable_id(
-                session, update_request_feed.id, data_type.value
+            feed = await OperationsApiImpl.fetch_feed(
+                data_type, session, update_request_feed
             )
-            if feed is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Feed ID not found: {update_request_feed.id}",
-                )
 
             logging.info(
                 f"Feed ID: {update_request_feed.id} attempting to update with the following request: "
@@ -143,14 +138,9 @@ class OperationsApiImpl(BaseOperationsApi):
                 update_request_feed.operational_status_action is not None
                 and update_request_feed.operational_status_action != "no_change"
             ):
-                impl_class.to_orm(update_request_feed, feed, session)
-                # This is a temporary solution as the operational_status is not visible in the diff
-                feed.operational_status = (
-                    feed.operational_status
-                    if update_request_feed.operational_status_action == "no_change"
-                    else update_request_feed.operational_status_action
+                await OperationsApiImpl._populate_feed_values(
+                    feed, impl_class, session, update_request_feed
                 )
-                session.add(feed)
                 session.flush()
                 refreshed = refresh_materialized_view(session, t_feedsearch.name)
                 logging.info(
@@ -178,3 +168,24 @@ class OperationsApiImpl(BaseOperationsApi):
         finally:
             if session:
                 session.close()
+
+    @staticmethod
+    async def _populate_feed_values(feed, impl_class, session, update_request_feed):
+        impl_class.to_orm(update_request_feed, feed, session)
+        action = update_request_feed.operational_status_action
+        # This is a temporary solution as the operational_status is not visible in the diff
+        if action is not None and not action.lower() == "no_change":
+            feed.operational_status = "wip" if action.lower() == "wip" else None
+        session.add(feed)
+
+    @staticmethod
+    async def fetch_feed(data_type, session, update_request_feed):
+        feed: Gtfsfeed = query_feed_by_stable_id(
+            session, update_request_feed.id, data_type.value
+        )
+        if feed is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Feed ID not found: {update_request_feed.id}",
+            )
+        return feed

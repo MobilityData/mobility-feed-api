@@ -149,7 +149,7 @@ components:
           enum:
             - no_change
             - wip
-            - clear            
+            - published
       required:
         - id
         - status
@@ -195,7 +195,7 @@ components:
           enum:
             - no_change
             - wip
-            - clear            
+            - published
       required:
         - id
         - status
