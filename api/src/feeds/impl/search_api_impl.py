@@ -42,7 +42,7 @@ class SearchApiImpl(BaseSearchApi):
             or_(
                 t_feedsearch.c.operational_status == None,  # noqa: E711
                 t_feedsearch.c.operational_status != "wip",
-                is_user_email_restricted(),
+                not is_user_email_restricted(),
             )
         )
         if feed_id:

@@ -77,6 +77,12 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         name = "PROJECT_ID"
         value = data.google_project.project.project_id
       }
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
     }
   }
 }
