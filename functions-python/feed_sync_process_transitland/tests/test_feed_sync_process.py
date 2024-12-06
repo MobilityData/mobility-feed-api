@@ -378,7 +378,7 @@ class TestFeedProcessor:
             )
         ]
         processor.feed_stable_id = "tld-feed1"
-        processor._update_feed = MagicMock(
+        processor._deprecate_old_feed = MagicMock(
             return_value=Feed(
                 id="feed-uuid",
                 producer_url="https://example.com/different",
@@ -406,11 +406,11 @@ class TestFeedProcessor:
     def test_update_feed(self, create_new_feed_mock, processor, feed_payload):
         """Test updating an existing feed."""
         # No matching feed
-        processor._update_feed(feed_payload, None)
+        processor._deprecate_old_feed(feed_payload, None)
         create_new_feed_mock.assert_called_once()
         # Provided id but no db entity
         processor.session.get.return_value = None
-        processor._update_feed(feed_payload, "feed-uuid")
+        processor._deprecate_old_feed(feed_payload, "feed-uuid")
         create_new_feed_mock.assert_called()
         # Update existing feed
         returned_feed = Gtfsfeed(
@@ -420,5 +420,5 @@ class TestFeedProcessor:
             status="active",
         )
         processor.session.get.return_value = returned_feed
-        processor._update_feed(feed_payload, "feed-uuid")
+        processor._deprecate_old_feed(feed_payload, "feed-uuid")
         assert returned_feed.status == "deprecated"

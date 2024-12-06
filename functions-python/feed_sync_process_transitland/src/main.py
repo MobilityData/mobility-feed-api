@@ -94,7 +94,7 @@ class FeedProcessor:
         if reference_count > 0:
             logging.info(f"Updating feed for stable_id: {self.feed_stable_id}")
             self.feed_stable_id = f"{self.feed_stable_id}_{reference_count}".lower()
-            new_feed = self._update_feed(payload, active_match[0].id)
+            new_feed = self._deprecate_old_feed(payload, active_match[0].id)
         else:
             logging.info(
                 f"No matching stable_id. Creating new feed for {payload.external_id}."
@@ -117,8 +117,10 @@ class FeedProcessor:
             .all()
         )
 
-    def _update_feed(self, payload: FeedPayload, old_feed_id: Optional[str]) -> Feed:
-        """Update an existing feed with a new URL."""
+    def _deprecate_old_feed(
+        self, payload: FeedPayload, old_feed_id: Optional[str]
+    ) -> Feed:
+        """Update the status of an old feed and create a new one."""
         if old_feed_id:
             old_feed = self.session.get(Feed, old_feed_id)
             if old_feed:
