@@ -21,7 +21,6 @@ from typing import Final
 
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker, mapper, class_mapper
-import logging
 
 from database_gen.sqlacodegen_models import Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 
