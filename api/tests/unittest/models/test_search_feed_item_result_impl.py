@@ -23,6 +23,7 @@ search_item = FeedSearchRow(
     data_type="gtfs",
     status="active",
     feed_name="feed_name",
+    official=None,
     note="note",
     feed_contact_email="feed_contact_email",
     producer_url="producer_url",

@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Union, TypeVar
 
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.query import Query
@@ -39,7 +40,6 @@ from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from middleware.request_context import is_user_email_restricted
-from sqlalchemy import or_
 from utils.date_utils import valid_iso_date
 from utils.location_translation import (
     create_location_translation_object,
@@ -96,6 +96,7 @@ class FeedsApiImpl(BaseFeedsApi):
         status: str,
         provider: str,
         producer_url: str,
+        is_official: bool,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
@@ -104,6 +105,8 @@ class FeedsApiImpl(BaseFeedsApi):
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
         feed_query = feed_filter.filter(Database().get_query_model(Feed))
+        if is_official:
+            feed_query = feed_query.filter(Feed.official)
         feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
         feed_query = feed_query.filter(
             or_(
@@ -230,6 +233,7 @@ class FeedsApiImpl(BaseFeedsApi):
         dataset_latitudes: str,
         dataset_longitudes: str,
         bounding_filter_method: str,
+        is_official: bool,
     ) -> List[GtfsFeed]:
         """Get some (or all) GTFS feeds from the Mobility Database."""
         gtfs_feed_filter = GtfsFeedFilter(
@@ -269,9 +273,10 @@ class FeedsApiImpl(BaseFeedsApi):
                 *BasicFeedImpl.get_joinedload_options(),
             )
             .order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-            .limit(limit)
-            .offset(offset)
         )
+        if is_official:
+            feed_query = feed_query.filter(Feed.official)
+        feed_query = feed_query.limit(limit).offset(offset)
         return self._get_response(feed_query, GtfsFeedImpl)
 
     def get_gtfs_rt_feed(
@@ -322,6 +327,7 @@ class FeedsApiImpl(BaseFeedsApi):
         country_code: str,
         subdivision_name: str,
         municipality: str,
+        is_official: bool,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
         entity_types_list = entity_types.split(",") if entity_types else None
@@ -370,9 +376,10 @@ class FeedsApiImpl(BaseFeedsApi):
                 *BasicFeedImpl.get_joinedload_options(),
             )
             .order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
-            .limit(limit)
-            .offset(offset)
         )
+        if is_official:
+            feed_query = feed_query.filter(Feed.official)
+        feed_query = feed_query.limit(limit).offset(offset)
         return self._get_response(feed_query, GtfsRTFeedImpl)
 
     @staticmethod

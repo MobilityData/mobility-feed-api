@@ -14,6 +14,7 @@ from database_gen.sqlacodegen_models import (
     Feature,
     t_feedsearch,
     Location,
+    Officialstatushistory,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
 from utils.logger import Logger
@@ -172,6 +173,14 @@ class DatabasePopulateTestDataHelper:
                 )
                 locations.append(location)
             feed.locations = locations
+            if "official" in feed_data:
+                official_status_history = Officialstatushistory(
+                    feed_id=feed.id,
+                    is_official=feed_data["official"],
+                    reviewer_email="dev@test.com",
+                    timestamp=feed_data["created_at"],
+                )
+                feed.officialstatushistories.append(official_status_history)
             self.db.session.add(feed)
             logger.info(f"Added feed {feed.stable_id}")
 

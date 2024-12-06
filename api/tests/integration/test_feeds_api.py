@@ -246,6 +246,44 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "/v1/gtfs_feeds",
+        "/v1/gtfs_rt_feeds",
+        "/v1/feeds",
+    ],
+)
+def test_feeds_filter_by_official(client: TestClient, endpoint):
+    # 1 - Test with official=false should return all feeds
+    response_no_filter = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+    )
+    assert response_no_filter.status_code == 200
+    response_no_filter_json = response_no_filter.json()
+    response_official_false = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params=[("is_official", "false")],
+    )
+    assert response_official_false.status_code == 200
+    response_official_false_json = response_official_false.json()
+    assert response_no_filter_json == response_official_false_json, "official=false parameter should return all feeds"
+    # 2 - Test with official=true should return at least one feed
+    response = client.request(
+        "GET",
+        endpoint,
+        headers=authHeaders,
+        params=[("is_official", "true")],
+    )
+    assert response.status_code == 200
+    json_response = response.json()
+    assert len(json_response) < len(response_no_filter_json), "Not all feeds are official"
+
+
 def test_non_existent_gtfs_rt_feed_get(client: TestClient):
     """Test case for feeds_gtfs_rt_id_get with a non-existent feed"""
     response = client.request(

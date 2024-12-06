@@ -138,6 +138,12 @@ export interface components {
        * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
+      /**
+       * @description A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
+       *
+       * @example true
+       */
+      official?: boolean;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
@@ -202,6 +208,12 @@ export interface components {
        * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
+      /**
+       * @description A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
+       *
+       * @example true
+       */
+      official?: boolean;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
@@ -495,6 +507,8 @@ export interface components {
       | 'disjoint';
     /** @description If true, only return the latest dataset. */
     latest_query_param?: boolean;
+    /** @description If true, only return official feeds. */
+    is_official_query_param?: boolean;
     /** @description The number of items to be returned. */
     limit_query_param?: number;
     /** @description Offset of the first item to return. */
@@ -545,6 +559,7 @@ export interface operations {
         status?: components['parameters']['status'];
         provider?: components['parameters']['provider'];
         producer_url?: components['parameters']['producer_url'];
+        is_official?: components['parameters']['is_official_query_param'];
       };
     };
     responses: {
@@ -586,6 +601,7 @@ export interface operations {
         dataset_latitudes?: components['parameters']['dataset_latitudes'];
         dataset_longitudes?: components['parameters']['dataset_longitudes'];
         bounding_filter_method?: components['parameters']['bounding_filter_method'];
+        is_official?: components['parameters']['is_official_query_param'];
       };
     };
     responses: {
@@ -609,6 +625,7 @@ export interface operations {
         country_code?: components['parameters']['country_code'];
         subdivision_name?: components['parameters']['subdivision_name'];
         municipality?: components['parameters']['municipality'];
+        is_official?: components['parameters']['is_official_query_param'];
       };
     };
     responses: {
@@ -746,6 +763,7 @@ export interface operations {
         status?: components['parameters']['statuses'];
         feed_id?: components['parameters']['feed_id_query_param'];
         data_type?: components['parameters']['data_type_query_param'];
+        is_official?: components['parameters']['is_official_query_param'];
         search_query?: components['parameters']['search_text_query_param'];
       };
     };
