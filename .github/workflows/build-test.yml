@@ -80,6 +80,10 @@ jobs:
           scripts/setup-openapi-generator.sh
           scripts/api-gen.sh
 
+      - name: Generate Operations API code
+        run: |
+          scripts/api-operations-gen.sh
+
       - name: Unit tests - API
         shell: bash
         run: |
@@ -104,9 +108,16 @@ jobs:
           path: api/src/database_gen/
           overwrite: true
 
-      - name: API generated code
+      - name: Upload API generated code
         uses: actions/upload-artifact@v4
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
+          overwrite: true
+
+      - name: Upload Operations API generated code
+        uses: actions/upload-artifact@v4
+        with:
+          name: feeds_operations_gen
+          path: functions-python/operations_api/src/feeds_operations_gen/
           overwrite: true
