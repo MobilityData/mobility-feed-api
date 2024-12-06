@@ -112,7 +112,7 @@ class TransitFeedSyncProcessor(FeedSyncProcessor):
             "Fetched %s operators from TransitLand API",
             len(operators_data["operators"]),
         )
-        all_urls = list(db_session.query(Feed.producer_url).all())
+        all_urls = set([element[0] for element in db_session.query(Feed.producer_url).all()])
         feeds = self.extract_feeds_data(feeds_data, all_urls)
         operators = self.extract_operators_data(operators_data)
 
