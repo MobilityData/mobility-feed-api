@@ -14,13 +14,13 @@
 #  limitations under the License.
 #
 
+import logging
 import os
 import threading
 from typing import Final
 
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker, mapper, class_mapper
-import logging
 
 from database_gen.sqlacodegen_models import Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 
@@ -97,7 +97,7 @@ def start_new_db_session(database_url: str = None, echo: bool = True):
     return sessionmaker(bind=get_db_engine(database_url, echo=echo))()
 
 
-def start_singleton_db_session(database_url: str = None):
+def start_singleton_db_session(database_url: str = None, echo: bool = True):
     """
     :return: Database singleton session
     """
@@ -106,7 +106,7 @@ def start_singleton_db_session(database_url: str = None):
         if global_session is not None:
             logging.info("Database session reused.")
             return global_session
-        global_session = start_new_db_session(database_url)
+        global_session = start_new_db_session(database_url, echo)
         logging.info("Singleton Database session started.")
         return global_session
     except Exception as error:
@@ -121,7 +121,7 @@ def start_db_session(database_url: str = None, echo: bool = True):
     try:
         lock.acquire()
         if is_session_reusable():
-            return start_singleton_db_session(database_url)
+            return start_singleton_db_session(database_url, echo=echo)
         logging.info("Not reusing the previous session, starting new database session.")
         return start_new_db_session(database_url, echo)
     except Exception as error:

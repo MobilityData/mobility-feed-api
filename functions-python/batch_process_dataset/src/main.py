@@ -323,7 +323,8 @@ def process_dataset(cloud_event: CloudEvent):
     dataset_file: DatasetFile = None
     error_message = None
     try:
-        #  Extract  data from message
+        #  Extract data from message
+        logging.info(f"Cloud Event: {cloud_event}")
         data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         json_payload = json.loads(data)
         logging.info(
@@ -331,6 +332,12 @@ def process_dataset(cloud_event: CloudEvent):
         )
         stable_id = json_payload["feed_stable_id"]
         execution_id = json_payload["execution_id"]
+    except Exception as e:
+        error_message = f"[{stable_id}] Error parsing message: [{e}]"
+        logging.error(error_message)
+        logging.error(f"Function completed with error:{error_message}")
+        return
+    try:
         trace_service = DatasetTraceService()
 
         trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
