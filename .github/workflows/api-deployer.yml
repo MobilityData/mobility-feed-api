@@ -57,7 +57,7 @@ on:
         required: true
         type: string
       OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD:
-        description: Oauth client id part of the authoriation for the operations API
+        description: Oauth client id part of the authorization for the operations API
         required: true
         type: string
 
