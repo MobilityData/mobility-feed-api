@@ -2,10 +2,13 @@ import React, { useMemo } from 'react';
 import { type MRT_Cell, type MRT_ColumnDef } from 'material-react-table';
 import { format } from 'date-fns';
 import { type GTFSFeedMetrics } from '../types';
-import { groupFeatures, getGroupColor } from '../../../utils/analytics';
 import { useNavigate } from 'react-router-dom';
-import { Box, MenuItem, Stack, Tooltip } from '@mui/material';
+import { Box, IconButton, MenuItem, Stack, Tooltip } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
+import {
+  getComponentDecorators,
+  groupFeaturesByComponent,
+} from '../../../utils/consts';
 
 /**
  * Returns the columns for the feed analytics table.
@@ -285,75 +288,55 @@ export const useTableColumns = (
         },
         enableSorting: false,
         Cell: ({ cell }: { cell: MRT_Cell<GTFSFeedMetrics> }) => {
-          const { groupedFeatures, otherFeatures } = groupFeatures(
+          const groupedFeatures = groupFeaturesByComponent(
             cell.getValue<string[]>(),
           );
           return (
             <div>
-              {Object.entries(groupedFeatures).map(
-                ([group, features], index) => (
-                  <div key={index} style={{ marginBottom: '10px' }}>
-                    <div
-                      style={{
-                        background: getGroupColor(group),
-                        color: 'black',
-                        borderRadius: '5px',
-                        padding: 5,
-                        marginLeft: 5,
-                        marginBottom: 5,
-                        width: 'fit-content',
-                      }}
-                    >
-                      {group}:
-                    </div>
-                    {features.map((feature, index) => (
+              {Object.entries(groupedFeatures)
+                .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                .map(([group, features], index) => {
+                  const componentDecorator = getComponentDecorators(group);
+                  return (
+                    <div key={index} style={{ marginBottom: '10px' }}>
                       <div
-                        key={index}
-                        style={{ cursor: 'pointer', marginLeft: '10px' }}
-                        className={'navigable-list-item'}
-                        onClick={() => {
-                          navigate(
-                            `/metrics/gtfs/features?featureName=${feature}`,
-                          );
+                        style={{
+                          background: componentDecorator.color,
+                          color: 'black',
+                          borderRadius: '5px',
+                          padding: 5,
+                          marginLeft: 5,
+                          marginBottom: 5,
+                          width: 'fit-content',
                         }}
                       >
-                        {feature}
+                        {group}
                       </div>
-                    ))}
-                  </div>
-                ),
-              )}
-              {otherFeatures.length > 0 && (
-                <div>
-                  <div
-                    style={{
-                      background: getGroupColor('Other'),
-                      color: 'black',
-                      borderRadius: '5px',
-                      padding: 5,
-                      marginLeft: 5,
-                      marginBottom: 5,
-                      width: 'fit-content',
-                    }}
-                  >
-                    Empty Group:
-                  </div>
-                  {otherFeatures.map((feature, index) => (
-                    <div
-                      key={index}
-                      style={{ cursor: 'pointer', marginLeft: '10px' }}
-                      className={'navigable-list-item'}
-                      onClick={() => {
-                        navigate(
-                          `/metrics/gtfs/features?featureName=${feature}`,
-                        );
-                      }}
-                    >
-                      {feature}
+                      {features.map((featureData, index) => (
+                        <div
+                          key={index}
+                          style={{ cursor: 'pointer', marginLeft: '10px' }}
+                          className={'navigable-list-item'}
+                          onClick={() => {
+                            navigate(
+                              `/metrics/gtfs/features?featureName=${featureData.feature}`,
+                            );
+                          }}
+                        >
+                          {featureData.feature}
+                          {featureData.componentSubgroup !== undefined && (
+                            <Tooltip
+                              title={featureData.componentSubgroup}
+                              placement={'top'}
+                            >
+                              <IconButton>{componentDecorator.icon}</IconButton>
+                            </Tooltip>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
             </div>
           );
         },

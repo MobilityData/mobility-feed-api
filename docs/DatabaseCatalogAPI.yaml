@@ -47,6 +47,7 @@ paths:
         - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/is_official_query_param"
 
       security:
         - Authentication: [ ]
@@ -97,6 +98,7 @@ paths:
         - $ref: "#/components/parameters/dataset_latitudes"
         - $ref: "#/components/parameters/dataset_longitudes"
         - $ref: "#/components/parameters/bounding_filter_method"
+        - $ref: "#/components/parameters/is_official_query_param"
 
       security:
         - Authentication: []
@@ -123,6 +125,7 @@ paths:
         - $ref: "#/components/parameters/country_code"
         - $ref: "#/components/parameters/subdivision_name"
         - $ref: "#/components/parameters/municipality"
+        - $ref: "#/components/parameters/is_official_query_param"
       security:
         - Authentication: []
       responses:
@@ -279,6 +282,7 @@ paths:
         - $ref: "#/components/parameters/statuses"
         - $ref: "#/components/parameters/feed_id_query_param"
         - $ref: "#/components/parameters/data_type_query_param"
+        - $ref: "#/components/parameters/is_official_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
       security:
         - Authentication: []
@@ -352,6 +356,12 @@ components:
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
+        official:
+            description: >
+                A boolean value indicating if the feed is official or not. 
+                Official feeds are provided by the transit agency or a trusted source.
+            type: boolean
+            example: true
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
         provider:
@@ -463,6 +473,12 @@ components:
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
+        official:
+            description: >
+                A boolean value indicating if the feed is official or not. 
+                Official feeds are provided by the transit agency or a trusted source.
+            type: boolean
+            example: true
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
         provider:
@@ -988,6 +1004,15 @@ components:
       name: latest
       in: query
       description: If true, only return the latest dataset.
+      required: False
+      schema:
+        type: boolean
+        default: false
+
+    is_official_query_param:
+      name: is_official
+      in: query
+      description: If true, only return official feeds.
       required: False
       schema:
         type: boolean

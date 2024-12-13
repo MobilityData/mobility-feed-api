@@ -28,11 +28,14 @@ import {
 import * as React from 'react';
 import { useTheme } from '@mui/material/styles';
 import { InfoOutlined, ListAltOutlined } from '@mui/icons-material';
-import { featureGroups, getGroupColor } from '../../../utils/analytics';
 import { type FeatureMetrics } from '../types';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 import MUITooltip from '@mui/material/Tooltip';
 import { GTFS_ORG_LINK } from '../../../constants/Navigation';
+import {
+  DATASET_FEATURES,
+  getComponentDecorators,
+} from '../../../utils/consts';
 
 export default function GTFSFeatureAnalytics(): React.ReactElement {
   const navigateTo = useNavigate();
@@ -44,6 +47,16 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const { config } = useRemoteConfig();
 
+  const getUniqueKeyStringValues = (key: keyof FeatureMetrics): string[] => {
+    const subGroups = new Set<string>();
+    data.forEach((item) => {
+      if (item[key] !== undefined) {
+        subGroups.add(item[key] as string);
+      }
+    });
+    return Array.from(subGroups);
+  };
+
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       try {
@@ -54,13 +67,15 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
           throw new Error('Network response was not ok');
         }
         const fetchedData = await response.json();
-        const dataWithGroups = fetchedData.map((feature: FeatureMetrics) => ({
-          ...feature,
-          latest_feed_count: feature.feeds_count.slice(-1)[0],
-          feature_group: Object.keys(featureGroups).find((group) =>
-            featureGroups[group].includes(feature.feature),
-          ),
-        }));
+        const dataWithGroups = fetchedData.map((feature: FeatureMetrics) => {
+          return {
+            ...feature,
+            latest_feed_count: feature.feeds_count.slice(-1)[0],
+            feature_group: DATASET_FEATURES[feature.feature]?.component,
+            feature_sub_group:
+              DATASET_FEATURES[feature.feature]?.componentSubgroup,
+          };
+        });
         setData(dataWithGroups);
       } catch (error) {
         if (error instanceof Error) {
@@ -118,13 +133,34 @@ export default function GTFSFeatureAnalytics(): React.ReactElement {
         header: 'Feature Group',
         size: 200,
         filterVariant: 'multi-select',
-        filterSelectOptions: Object.keys(featureGroups),
+        filterSelectOptions: getUniqueKeyStringValues('feature_group'),
         Cell: ({ cell }: { cell: MRT_Cell<FeatureMetrics> }) => {
           const group = cell.getValue<string>();
           return group == null ? null : (
             <span
               style={{
-                backgroundColor: getGroupColor(group),
+                backgroundColor: getComponentDecorators(group).color,
+                borderRadius: '5px',
+                padding: '2px 8px',
+              }}
+            >
+              {group}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'feature_sub_group',
+        header: 'Feature Sub Group',
+        size: 200,
+        filterVariant: 'multi-select',
+        filterSelectOptions: getUniqueKeyStringValues('feature_sub_group'),
+        Cell: ({ cell }: { cell: MRT_Cell<FeatureMetrics> }) => {
+          const group = cell.getValue<string>();
+          return group == null ? null : (
+            <span
+              style={{
+                backgroundColor: getComponentDecorators(group).color,
                 borderRadius: '5px',
                 padding: '2px 8px',
               }}

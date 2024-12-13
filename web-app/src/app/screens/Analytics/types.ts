@@ -41,6 +41,7 @@ export interface FeatureMetrics {
   feeds_count: number[];
   latest_feed_count: number;
   feature_group?: string; // Add a property to handle feature grouping
+  feature_sub_group?: string;
 }
 
 export interface AnalyticsFile {

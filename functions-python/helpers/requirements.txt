@@ -23,3 +23,6 @@ google-cloud-bigquery
 google-api-core
 google-cloud-firestore
 google-cloud-bigquery
+
+#Additional package
+pycountry

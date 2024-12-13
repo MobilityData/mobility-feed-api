@@ -1,5 +1,12 @@
+import AccessibleIcon from '@mui/icons-material/Accessible';
+import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import EscalatorIcon from '@mui/icons-material/Escalator';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+
 interface DatasetFeature {
   component: string;
+  componentSubgroup?: string;
   fileName: string;
   linkToInfo: string;
 }
@@ -11,6 +18,53 @@ export function getDataFeatureUrl(feature: string): string {
     DATASET_FEATURES[feature]?.linkToInfo ??
     DATASET_FEATURES.overview.linkToInfo
   );
+}
+
+export interface DatasetComponentFeature extends DatasetFeature {
+  feature: string;
+}
+
+export function groupFeaturesByComponent(
+  features: string[] = Object.keys(DATASET_FEATURES),
+): Record<string, DatasetComponentFeature[]> {
+  const groupedFeatures: Record<string, DatasetComponentFeature[]> = {};
+
+  features.forEach((feature) => {
+    const featureData = DATASET_FEATURES[feature];
+    if (featureData !== undefined) {
+      const component =
+        featureData.component !== '' ? featureData.component : 'Other';
+      if (groupedFeatures[component] === undefined) {
+        groupedFeatures[component] = [];
+      }
+      groupedFeatures[component].push({ ...featureData, feature });
+    }
+  });
+  return groupedFeatures;
+}
+
+export function getComponentDecorators(component: string): {
+  color: string;
+  icon: JSX.Element;
+} {
+  switch (component) {
+    case 'Accessibility':
+      return { color: '#BDE4A7', icon: <AccessibleIcon /> };
+    case 'Base add-ons':
+      return { color: '#f0f0f0', icon: <DirectionsBusIcon /> };
+    case 'Fares v2':
+      return { color: '#C2D6FF', icon: <MonetizationOnIcon /> };
+    case 'Fares':
+      return { color: '#d1e4ff', icon: <MonetizationOnIcon /> };
+    case 'Pathways':
+      return { color: '#fdd4e0', icon: <EscalatorIcon /> };
+    case 'Flexible Services':
+      return { color: '#fcb68e', icon: <AltRouteIcon /> };
+    case 'Flex':
+      return { color: '#FBA674', icon: <AltRouteIcon /> };
+    default:
+      return { color: '#f7f7f7', icon: <></> };
+  }
 }
 
 export const DATASET_FEATURES: DatasetFeatures = {
@@ -63,35 +117,41 @@ export const DATASET_FEATURES: DatasetFeatures = {
   },
   'Fare Products': {
     component: 'Fares',
+    componentSubgroup: 'Fares v2',
     fileName: 'fare_products.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/fares/#fare-products',
   },
   'Fare Media': {
     component: 'Fares',
+    componentSubgroup: 'Fares v2',
     fileName: 'fare_media.txt',
     linkToInfo: 'https://gtfs.org/getting-started/features/fares/#fare-media',
   },
   'Route-Based Fares': {
     component: 'Fares',
+    componentSubgroup: 'Fares v2',
     fileName: 'routes.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/fares/#route-based-fares',
   },
   'Time-Based Fares': {
     component: 'Fares',
+    componentSubgroup: 'Fares v2',
     fileName: 'timeframes.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/fares/#time-based-fares',
   },
   'Zone-Based Fares': {
     component: 'Fares',
+    componentSubgroup: 'Fares v2',
     fileName: 'areas.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/fares/#zone-based-fares',
   },
   'Fare Transfers': {
     component: 'Fares',
+    componentSubgroup: 'Fares v2',
     fileName: 'fare_transfer_rules.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/fares/#fare-transfers',
@@ -156,24 +216,28 @@ export const DATASET_FEATURES: DatasetFeatures = {
   },
   'Booking Rules': {
     component: 'Flexible Services',
+    componentSubgroup: 'Flex',
     fileName: 'routes.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/flexible-services/#booking-rules',
   },
-  'Fixed-Stops Demand Responsive Services': {
+  'Fixed-Stops Demand Responsive Transit': {
     component: 'Flexible Services',
+    componentSubgroup: 'Flex',
     fileName: 'location_groups.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/flexible-services/#fixed-stops-demand-responsive-services',
   },
   'Zone-Based Demand Responsive Services': {
     component: 'Flexible Services',
+    componentSubgroup: 'Flex',
     fileName: 'stop_times.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/flexible-services/#zone-based-demand-responsive-services',
   },
   'Predefined Routes with Deviation': {
     component: 'Flexible Services',
+    componentSubgroup: 'Flex',
     fileName: 'stop_times.txt',
     linkToInfo:
       'https://gtfs.org/getting-started/features/flexible-services/#predefined-routes-with-deviation',
@@ -197,6 +261,8 @@ export const DATASET_FEATURES: DatasetFeatures = {
       'https://gtfs.org/getting-started/features/base-add-ons/#frequency-based-service ',
   },
 };
+// SPELLING CORRECTIONS
+DATASET_FEATURES['Text-to-Speech'] = DATASET_FEATURES['Text-To-Speech'];
 
 // DEPRECATED FEATURES
 DATASET_FEATURES['Wheelchair Accessibility'] = {
@@ -210,7 +276,7 @@ DATASET_FEATURES['Transfer Fares'] = DATASET_FEATURES['Fare Transfers']; // as o
 DATASET_FEATURES['Pathways (basic)'] = DATASET_FEATURES['Pathway Connections']; // as of 6.0
 DATASET_FEATURES['Pathways (extra)'] = DATASET_FEATURES['Pathway Details']; // as of 6.0
 DATASET_FEATURES['Traversal Time'] =
-  DATASET_FEATURES['In-station traversal time'];
+  DATASET_FEATURES['In-station Traversal Time'];
 DATASET_FEATURES['Pathways Directions'] = {
   // as of 6.0
   component: 'Pathways',
