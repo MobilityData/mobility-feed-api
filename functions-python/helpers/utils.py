@@ -41,7 +41,7 @@ def create_bucket(bucket_name):
         logging.info(f"Bucket {bucket_name} already exists.")
 
 
-def save_to_bucket(bucket, file_name, data, content_type="text/csv"):
+def save_to_bucket(bucket, file_name, data, content_type="text/csv") -> storage.Blob:
     """
     Saves data to a GCP storage bucket
     :param bucket: GCP storage bucket
@@ -52,6 +52,7 @@ def save_to_bucket(bucket, file_name, data, content_type="text/csv"):
     blob = bucket.blob(file_name)
     blob.upload_from_string(data, content_type=content_type)
     logging.info(f"File {file_name} uploaded to {bucket}.")
+    return blob
 
 
 def fetch_df_from_bucket(bucket, file_name):

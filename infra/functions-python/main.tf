@@ -595,12 +595,6 @@ resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
 }
 
 # 7. functions/reverse_geolocation_populate cloud function
-# 7.1 Creating bucket for storing processed data
-resource "google_storage_bucket" "reverse_geolocation_populate_bucket" {
-  name     = "reverse-geolocation-populate-${var.environment}"
-  location = var.gcp_region
-}
-# 7.2 Create http triggered function
 resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
   name        = local.function_reverse_geolocation_populate_config.name
   description = local.function_reverse_geolocation_populate_config.description
@@ -619,7 +613,6 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
   }
   service_config {
     environment_variables = {
-      BUCKET_NAME = google_storage_bucket.reverse_geolocation_populate_bucket.name
       PYTHONNODEBUGRANGES = 0
     }
     available_memory = local.function_reverse_geolocation_populate_config.available_memory
@@ -643,7 +636,6 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
     }
   }
 }
-
 
 # IAM entry for all users to invoke the function
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
@@ -680,10 +672,9 @@ resource "google_project_iam_member" "event-receiving" {
 resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
   for_each = {
     datasets_bucket = "${var.datasets_bucket_name}-${var.environment}"
-    reverse_geolocation_populate_bucket = google_storage_bucket.reverse_geolocation_populate_bucket.name
   }
   bucket = each.value
-  depends_on = [google_storage_bucket.reverse_geolocation_populate_bucket]
+  depends_on = []
   role   = "roles/storage.objectViewer"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
@@ -694,9 +685,8 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
   for_each = {
     gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
-    reverse_geolocation_populate_bucket = google_storage_bucket.reverse_geolocation_populate_bucket.name
   }
-  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.reverse_geolocation_populate_bucket]
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
   bucket = each.value
   role   = "roles/storage.objectCreator"
   members = [

@@ -1,14 +1,18 @@
-DROP TABLE IF EXISTS AdminGeography;
-CREATE TABLE IF NOT EXISTS AdminGeography (
-    id VARCHAR(255) PRIMARY KEY,
-    location_id VARCHAR(255),
-    geonames_id VARCHAR(255) NOT NULL UNIQUE,
-    coordinates GEOMETRY(GeometryCollection, 4326),
-    FOREIGN KEY (location_id) REFERENCES Location(id)
+DROP TABLE IF EXISTS GeoPolygon;
+CREATE TABLE IF NOT EXISTS GeoPolygon (
+    osm_id INTEGER PRIMARY KEY,
+    admin_level INTEGER,
+    name VARCHAR(255),
+    iso_3166_1_code VARCHAR(3),
+    iso_3166_2_code VARCHAR(5),
+    geometry GEOGRAPHY
 );
-
-CREATE INDEX IF NOT EXISTS idx_admin_geography_geom ON AdminGeography USING GIST (coordinates);
-
-CREATE TABLE IF NOT EXISTS SupportedReverseGeocodingCountry (
-    country_code VARCHAR(3) PRIMARY KEY
-);
+CREATE INDEX IF NOT EXISTS idx_geo_polygon_geom ON GeoPolygon USING GIST (geometry);
+drop index if exists idx_geo_polygon_geom;
+ALTER TABLE geopolygon
+ALTER COLUMN geometry TYPE geometry USING geometry::geometry;
+ALTER TABLE geopolygon
+ALTER COLUMN geometry TYPE geometry USING ST_SetSRID(geometry::geometry, 4326);
+CREATE INDEX if not exists idx_geopolygon_geometry ON geopolygon USING GIST (geometry);
+alter table geopolygon
+alter column iso_3166_2_code type varchar(8);
