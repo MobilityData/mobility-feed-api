@@ -14,8 +14,8 @@
   ],
   "ingress_settings": "ALLOW_ALL",
   "max_instance_request_concurrency": 1,
-  "max_instance_count": 1,
+  "max_instance_count": 10,
   "min_instance_count": 0,
-  "available_cpu": 1,
-  "available_memory": "2Gi"
+  "available_cpu": 2,
+  "available_memory": "4Gi"
 }

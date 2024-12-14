@@ -763,6 +763,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
+      DB_REUSE_SESSION = "True"
     }
     available_memory = local.function_reverse_geolocation_populate_config.available_memory
     timeout_seconds = local.function_reverse_geolocation_populate_config.timeout
@@ -959,5 +960,12 @@ resource "google_pubsub_topic_iam_member" "functions_subscriber" {
 resource "google_project_iam_member" "datastore_owner" {
   project = var.project_id
   role    = "roles/datastore.owner"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant permissions to the service account to create bigquery jobs
+resource "google_project_iam_member" "bigquery_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
