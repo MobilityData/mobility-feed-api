@@ -1,6 +1,7 @@
 [run]
 omit =
     */test*/*
+    */database_gen/*
     */dataset_service/*
     */helpers/*
 

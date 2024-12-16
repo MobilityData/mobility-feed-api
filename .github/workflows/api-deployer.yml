@@ -56,6 +56,10 @@ on:
         description: Validator endpoint
         required: true
         type: string
+      OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD:
+        description: Oauth client id part of the authorization for the operations API
+        required: true
+        type: string
 
 env:
   python_version: '3.11'
@@ -247,6 +251,11 @@ jobs:
           name: feeds_gen
           path: api/src/feeds_gen/
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: feeds_operations_gen
+          path: functions-python/operations_api/src/feeds_operations_gen/
+
       - name: Build python functions
         run: |
           scripts/function-python-build.sh --all
@@ -282,11 +291,12 @@ jobs:
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           TRANSITLAND_API_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/TansitLand API Key/credential"
+          OPERATIONS_OAUTH2_CLIENT_ID: ${{ inputs.OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD }}
 
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID
 
       - uses: hashicorp/setup-terraform@v3
         with:

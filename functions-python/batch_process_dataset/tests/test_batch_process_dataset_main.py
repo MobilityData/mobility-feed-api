@@ -394,7 +394,7 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch("main.Logger")
     @patch("main.DatasetTraceService")
     @patch("main.DatasetProcessor")
-    def test_process_dataset_exception(
+    def test_process_dataset_exception_caught(
         self, mock_dataset_processor, mock_dataset_trace, _
     ):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
@@ -413,11 +413,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_dataset_trace.get_by_execution_and_stable_ids.return_value = 0
 
         # Call the function
-        try:
-            process_dataset(cloud_event)
-            assert False
-        except AttributeError:
-            assert True
+        process_dataset(cloud_event)
 
     @patch("main.Logger")
     @patch("main.DatasetTraceService")

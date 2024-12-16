@@ -46,6 +46,7 @@ from utils.location_translation import (
     LocationTranslation,
     get_feeds_location_translations,
 )
+from utils.logger import Logger
 
 T = TypeVar("T", bound="BasicFeed")
 
@@ -59,11 +60,17 @@ class FeedsApiImpl(BaseFeedsApi):
 
     APIFeedType = Union[BasicFeed, GtfsFeed, GtfsRTFeed]
 
+    def __init__(self) -> None:
+        self.logger = Logger("FeedsApiImpl").get_logger()
+
     def get_feed(
         self,
         id: str,
     ) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
+        is_email_restricted = is_user_email_restricted()
+        self.logger.info(f"User email is restricted: {is_email_restricted}")
+
         feed = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
             .filter(Database().get_query_model(Feed))
@@ -72,7 +79,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 or_(
                     Feed.operational_status == None,  # noqa: E711
                     Feed.operational_status != "wip",
-                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                    not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
                 )
             )
             .first()
@@ -91,6 +98,8 @@ class FeedsApiImpl(BaseFeedsApi):
         producer_url: str,
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
+        is_email_restricted = is_user_email_restricted()
+        self.logger.info(f"User email is restricted: {is_email_restricted}")
         feed_filter = FeedFilter(
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
@@ -100,7 +109,7 @@ class FeedsApiImpl(BaseFeedsApi):
             or_(
                 Feed.operational_status == None,  # noqa: E711
                 Feed.operational_status != "wip",
-                not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
             )
         )
         # Results are sorted by provider
@@ -239,6 +248,8 @@ class FeedsApiImpl(BaseFeedsApi):
             subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
         ).subquery()
 
+        is_email_restricted = is_user_email_restricted()
+        self.logger.info(f"User email is restricted: {is_email_restricted}")
         feed_query = (
             Database()
             .get_session()
@@ -248,7 +259,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 or_(
                     Gtfsfeed.operational_status == None,  # noqa: E711
                     Gtfsfeed.operational_status != "wip",
-                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
+                    not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
                 )
             )
             .options(

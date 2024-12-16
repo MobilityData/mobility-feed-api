@@ -113,8 +113,16 @@ build_function() {
 
   # We'll assume that we build only if there is an entry_point defined.
   if jq -e '.entry_point' "$FX_CONFIG_FILE" > /dev/null; then
-     rm -rf "$FX_DIST_PATH"
-     mkdir "$FX_DIST_PATH"
+    rm -rf "$FX_DIST_PATH"
+    mkdir "$FX_DIST_PATH"
+
+    # Run pre_build script if specified
+    pre_build_script=$(jq -r '.build_settings.pre_build_script // empty' "$FX_PATH/function_config.json")
+    if [ -n "$pre_build_script" ]; then
+      printf "\nRunning pre_build script: $pre_build_script\n"
+      (cd "$FX_PATH" && eval "$pre_build_script")
+      printf "\nCompleted running pre_build script\n"
+    fi
 
      # Use rsync instead of cp -R to exclude some directories that are not useful for deployment
      rsync -av --exclude 'shared' --exclude 'test_shared' "$FX_SOURCE_PATH/" "$FX_DIST_BUILD/"

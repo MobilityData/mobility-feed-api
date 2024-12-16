@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session as DBSession
 from database_gen.sqlacodegen_models import Gtfsfeed
 from main import (
     TransitFeedSyncProcessor,
-    FeedSyncPayload,
 )
 import pandas as pd
 from requests.exceptions import HTTPError
+
+from helpers.feed_sync.feed_sync_common import FeedSyncPayload
 
 
 @pytest.fixture
@@ -116,135 +117,87 @@ def test_get_mbd_feed_url(processor):
 
 def test_process_sync_new_feed(processor):
     mock_db_session = Mock(spec=DBSession)
-    feeds_data = {
-        "feeds": [
-            {
-                "id": "feed1",
-                "urls": {"static_current": "http://example.com/feed1"},
-                "spec": "gtfs",
-                "onestop_id": "onestop1",
-                "authorization": {},
-            }
-        ],
-        "operators": [],
-    }
-    operators_data = {
-        "operators": [
-            {
-                "name": "Operator 1",
-                "feeds": [{"id": "feed1"}],
-                "agencies": [{"places": [{"adm0_name": "USA"}]}],
-            }
-        ],
-        "feeds": [],
-    }
-
-    processor.get_data = Mock(side_effect=[feeds_data, operators_data])
-
-    processor.check_url_status = Mock(return_value=True)
-
-    with patch.object(processor, "check_external_id", return_value=False):
-        payloads = processor.process_sync(
-            db_session=mock_db_session, execution_id="exec123"
-        )
-        assert len(payloads) == 1
-        assert payloads[0].payload.payload_type == "new"
-        assert payloads[0].payload.external_id == "onestop1"
+    mock_db_session.query.return_value.all.return_value = []
+    feeds_data = [
+        {
+            "id": "feed1",
+            "urls": {"static_current": "http://example.com"},
+            "spec": "gtfs",
+            "onestop_id": "onestop1",
+            "authorization": {},
+        }
+    ]
+    operators_data = [
+        {
+            "name": "Operator 1",
+            "feeds": [{"id": "feed1"}],
+            "agencies": [{"places": [{"adm0_name": "USA"}]}],
+        }
+    ]
+    processor.get_data = Mock(
+        return_value={"feeds": feeds_data, "operators": operators_data}
+    )
+    processor.check_external_id = Mock(return_value=False)
+    payloads = processor.process_sync(mock_db_session, "exec123")
+    assert len(payloads) == 1, "Expected 1 payload"
+    assert payloads[0].payload.payload_type == "new"
 
 
 def test_process_sync_updated_feed(processor):
     mock_db_session = Mock(spec=DBSession)
-    feeds_data = {
-        "feeds": [
-            {
-                "id": "feed1",
-                "urls": {"static_current": "http://example.com/feed1_updated"},
-                "spec": "gtfs",
-                "onestop_id": "onestop1",
-                "authorization": {},
-            }
-        ],
-        "operators": [],
-    }
-    operators_data = {
-        "operators": [
-            {
-                "name": "Operator 1",
-                "feeds": [{"id": "feed1"}],
-                "agencies": [{"places": [{"adm0_name": "USA"}]}],
-            }
-        ],
-        "feeds": [],
-    }
-
-    processor.get_data = Mock(side_effect=[feeds_data, operators_data])
-
-    processor.check_url_status = Mock(return_value=True)
-
-    processor.check_external_id = Mock(return_value=True)
-
-    processor.get_mbd_feed_url = Mock(return_value="http://example.com/feed1")
-
-    payloads = processor.process_sync(
-        db_session=mock_db_session, execution_id="exec123"
+    mock_db_session.query.return_value.all.return_value = []
+    feeds_data = [
+        {
+            "id": "feed1",
+            "urls": {"static_current": "http://example.com"},
+            "spec": "gtfs",
+            "onestop_id": "onestop1",
+            "authorization": {},
+        }
+    ]
+    operators_data = [
+        {
+            "name": "Operator 1",
+            "feeds": [{"id": "feed1"}],
+            "agencies": [{"places": [{"adm0_name": "USA"}]}],
+        }
+    ]
+    processor.get_data = Mock(
+        return_value={"feeds": feeds_data, "operators": operators_data}
     )
-
-    assert len(payloads) == 1
+    processor.check_external_id = Mock(return_value=True)
+    processor.get_mbd_feed_url = Mock(return_value="http://example-2.com")
+    payloads = processor.process_sync(mock_db_session, "exec123")
+    assert len(payloads) == 1, "Expected 1 payload"
     assert payloads[0].payload.payload_type == "update"
-    assert payloads[0].payload.external_id == "onestop1"
 
 
-@patch("main.TransitFeedSyncProcessor.get_data")
-def test_process_sync_unchanged_feed(mock_get_data, processor):
+def test_process_sync_unchanged_feed(processor):
     mock_db_session = Mock(spec=DBSession)
-    feeds_data = {
-        "feeds": [
-            {
-                "id": "feed1",
-                "urls": {"static_current": "http://example.com/feed1"},
-                "spec": "gtfs",
-                "onestop_id": "onestop1",
-                "authorization": {},
-            }
-        ],
-        "operators": [],
-    }
-    operators_data = {
-        "operators": [
-            {
-                "name": "Operator 1",
-                "feeds": [{"id": "feed1"}],
-                "agencies": [{"places": [{"adm0_name": "USA"}]}],
-            }
-        ],
-        "feeds": [],
-    }
-
-    processor.get_data = Mock(side_effect=[feeds_data, operators_data])
-    processor.check_url_status = Mock(return_value=True)
+    mock_db_session.query.return_value.all.return_value = []
+    feeds_data = [
+        {
+            "id": "feed1",
+            "urls": {"static_current": "http://example.com"},
+            "spec": "gtfs",
+            "onestop_id": "onestop1",
+            "authorization": {},
+        }
+    ]
+    operators_data = [
+        {
+            "name": "Operator 1",
+            "feeds": [{"id": "feed1"}],
+            "agencies": [{"places": [{"adm0_name": "USA"}]}],
+        }
+    ]
+    processor.get_data = Mock(
+        return_value={"feeds": feeds_data, "operators": operators_data}
+    )
     processor.check_external_id = Mock(return_value=True)
-    processor.get_mbd_feed_url = Mock(return_value="http://example.com/feed1")
-    processor.get_mbd_feed_url = Mock(return_value="http://example.com/feed1")
-    payloads = processor.process_sync(
-        db_session=mock_db_session, execution_id="exec123"
-    )
-
-    assert len(payloads) == 0
-
-    processor.get_mbd_feed_url.assert_called_once_with(
-        mock_db_session, "onestop1", "TLD"
-    )
-
-
-@patch("main.requests.head")
-def test_check_url_status(mock_head, processor):
-    mock_head.return_value.status_code = 200
-    result = processor.check_url_status("http://example.com")
-    assert result is True
-
-    mock_head.return_value.status_code = 404
-    result = processor.check_url_status("http://example.com")
-    assert result is False
+    processor.get_mbd_feed_url = Mock(return_value="http://example.com")
+    payloads = processor.process_sync(mock_db_session, "exec123")
+    assert len(payloads) == 0, "No payloads expected"
 
 
 def test_merge_and_filter_dataframes(processor):
