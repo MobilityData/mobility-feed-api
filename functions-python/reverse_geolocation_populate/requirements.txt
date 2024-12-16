@@ -23,5 +23,4 @@ cloudevents~=1.10.1
 
 # Additional packages for this function
 gtfs-kit
-pandas
 pycountry

@@ -26,4 +26,3 @@ google-cloud-bigquery
 
 # Additional package
 pycountry
-pandas
