@@ -24,5 +24,6 @@ google-api-core
 google-cloud-firestore
 google-cloud-bigquery
 
-#Additional package
+# Additional package
 pycountry
+pandas
