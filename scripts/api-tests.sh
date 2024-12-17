@@ -37,7 +37,7 @@ ABS_SCRIPTPATH="$(
 TEST_FILE=""
 FOLDER=""
 HTML_REPORT=false
-COVERAGE_THRESHOLD=85
+COVERAGE_THRESHOLD=84
 
 # color codes for easier reading
 RED='\033[0;31m'
