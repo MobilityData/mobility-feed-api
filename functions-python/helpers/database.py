@@ -18,7 +18,7 @@ from contextlib import contextmanager
 import logging
 import os
 import threading
-from typing import Final, Optional
+from typing import Optional
 
 from sqlalchemy import create_engine, text, event, Engine
 from sqlalchemy.orm import sessionmaker, Session, mapper, class_mapper

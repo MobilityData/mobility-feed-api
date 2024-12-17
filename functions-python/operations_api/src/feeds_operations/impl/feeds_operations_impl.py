@@ -15,7 +15,6 @@
 #
 
 import logging
-import os
 from typing import Annotated
 
 from deepdiff import DeepDiff
@@ -33,7 +32,7 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from helpers.database import start_db_session, refresh_materialized_view
+from helpers.database import with_db_session, refresh_materialized_view
 from helpers.query_helper import query_feed_by_stable_id
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
@@ -107,21 +106,21 @@ class OperationsApiImpl(BaseOperationsApi):
             - 400: Feed ID not found.
             - 500: Internal server error.
         """
-        return await self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
+        return self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
 
+    @with_db_session
     async def _update_feed(
         self,
         update_request_feed: UpdateRequestGtfsFeed | UpdateRequestGtfsRtFeed,
         data_type: DataType,
+        db_session,
     ) -> Response:
         """
         Update the specified feed in the Mobility Database
         """
-        session = None
         try:
-            session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
             feed = await OperationsApiImpl.fetch_feed(
-                data_type, session, update_request_feed
+                data_type, db_session, update_request_feed
             )
 
             logging.info(
@@ -139,14 +138,14 @@ class OperationsApiImpl(BaseOperationsApi):
                 and update_request_feed.operational_status_action != "no_change"
             ):
                 await OperationsApiImpl._populate_feed_values(
-                    feed, impl_class, session, update_request_feed
+                    feed, impl_class, db_session, update_request_feed
                 )
-                session.flush()
-                refreshed = refresh_materialized_view(session, t_feedsearch.name)
+                db_session.flush()
+                refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
                 logging.info(
                     f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
                 )
-                session.commit()
+                db_session.commit()
                 logging.info(
                     f"Feed ID: {update_request_feed.id} updated successfully with the following changes: "
                     f"{diff.values()}"
@@ -161,13 +160,9 @@ class OperationsApiImpl(BaseOperationsApi):
             logging.error(
                 f"Failed to update feed ID: {update_request_feed.id}. Error: {e}"
             )
-            session.rollback()
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
-        finally:
-            if session:
-                session.close()
 
     @staticmethod
     async def _populate_feed_values(feed, impl_class, session, update_request_feed):
