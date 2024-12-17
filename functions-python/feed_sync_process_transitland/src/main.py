@@ -24,10 +24,10 @@ from google.cloud import pubsub_v1
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from database_gen.sqlacodegen_models import Feed
-from helpers.database import start_db_session, configure_polymorphic_mappers
-from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
+from helpers.database import Database, configure_polymorphic_mappers
 from helpers.logger import Logger
+from database_gen.sqlacodegen_models import Feed
+from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 from .feed_processor_utils import check_url_status, create_new_feed
 
 # Environment variables
@@ -187,8 +187,9 @@ def process_feed_event(cloud_event) -> None:
     try:
         message_data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         payload = FeedPayload(**json.loads(message_data))
-        db_session = start_db_session(FEEDS_DATABASE_URL)
-        processor = FeedProcessor(db_session)
-        processor.process_feed(payload)
+        db = Database(FEEDS_DATABASE_URL)
+        with db.start_db_session() as db_session:
+            processor = FeedProcessor(db_session)
+            processor.process_feed(payload)
     except Exception as e:
         logging.error(f"Error processing feed event: {str(e)}")

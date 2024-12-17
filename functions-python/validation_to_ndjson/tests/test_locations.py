@@ -5,14 +5,16 @@ from validation_to_ndjson.src.utils.locations import get_feed_location
 
 
 class TestFeedsLocations(unittest.TestCase):
-    @patch("validation_to_ndjson.src.utils.locations.start_db_session")
+    @patch("validation_to_ndjson.src.utils.locations.Database")
     @patch("validation_to_ndjson.src.utils.locations.os.getenv")
     @patch("validation_to_ndjson.src.utils.locations.joinedload")
-    def test_get_feeds_locations_map(self, _, mock_getenv, mock_start_db_session):
+    def test_get_feeds_locations_map(self, _, mock_getenv, mock_database):
         mock_getenv.return_value = "fake_database_url"
 
         mock_session = MagicMock()
-        mock_start_db_session.return_value = mock_session
+        mock_database.return_value.start_db_session.return_value.__enter__.return_value = (
+            mock_session
+        )
 
         mock_feed = MagicMock()
         mock_feed.stable_id = "feed1"
@@ -28,7 +30,7 @@ class TestFeedsLocations(unittest.TestCase):
         mock_session.query.return_value = mock_query
         result = get_feed_location("gtfs", "feed1")
 
-        mock_start_db_session.assert_called_once_with("fake_database_url")
+        mock_database.assert_called_once_with(database_url="fake_database_url")
         mock_session.query.assert_called_once()  # Verify that query was called
         mock_query.filter.assert_called_once()  # Verify that filter was applied
         mock_query.filter.return_value.filter.return_value.options.assert_called_once()
@@ -36,10 +38,10 @@ class TestFeedsLocations(unittest.TestCase):
 
         self.assertEqual(result, [mock_location1, mock_location2])  # Verify the mapping
 
-    @patch("validation_to_ndjson.src.utils.locations.start_db_session")
-    def test_get_feeds_locations_map_no_feeds(self, mock_start_db_session):
+    @patch("validation_to_ndjson.src.utils.locations.Database")
+    def test_get_feeds_locations_map_no_feeds(self, mock_database):
         mock_session = MagicMock()
-        mock_start_db_session.return_value = mock_session
+        mock_database.return_value.start_db_session.return_value = mock_session
 
         mock_query = MagicMock()
         mock_query.filter.return_value.filter.return_value.options.return_value.all.return_value = (
@@ -50,5 +52,5 @@ class TestFeedsLocations(unittest.TestCase):
 
         result = get_feed_location("test_data_type", "test_stable_id")
 
-        mock_start_db_session.assert_called_once()
+        mock_database.return_value.start_db_session.assert_called_once()
         self.assertEqual(result, [])  # The result should be an empty dictionary
