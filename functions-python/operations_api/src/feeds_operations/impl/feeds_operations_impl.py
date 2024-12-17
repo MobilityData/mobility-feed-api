@@ -33,7 +33,7 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from helpers.database import Database, with_db_session, refresh_materialized_view
+from helpers.database import Database, refresh_materialized_view
 from helpers.query_helper import query_feed_by_stable_id
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
