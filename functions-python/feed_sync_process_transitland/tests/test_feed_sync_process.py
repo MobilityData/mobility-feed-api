@@ -300,11 +300,7 @@ class TestFeedProcessor:
             mock_session
         )
 
-        with patch(
-            "feed_sync_process_transitland.src.main.start_db_session",
-            return_value=mock_session,
-        ):
-            process_feed_event(cloud_event)
+        process_feed_event(cloud_event)
 
     def test_process_feed_event_malformed_cloud_event(self, mock_logging):
         """Test feed event processing with malformed cloud event."""

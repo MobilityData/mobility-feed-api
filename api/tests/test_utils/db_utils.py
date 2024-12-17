@@ -210,7 +210,5 @@ def empty_database(db, url):
                     delete_stmt = delete(table)
                     session.execute(delete_stmt)
 
-                session.commit()
-
         except Exception as error:
             logging.error(f"Error while deleting from test db: {error}")

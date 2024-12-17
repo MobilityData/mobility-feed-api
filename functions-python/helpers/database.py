@@ -25,7 +25,6 @@ from sqlalchemy.orm import sessionmaker, Session, mapper, class_mapper
 
 from database_gen.sqlacodegen_models import Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 
-DB_REUSE_SESSION: Final[str] = "DB_REUSE_SESSION"
 LOGGER = logging.getLogger(__name__)
 
 
@@ -172,9 +171,6 @@ class Database:
             raise
         finally:
             session.close()
-
-    def is_session_reusable():
-        return os.getenv("%s" % DB_REUSE_SESSION, "false").lower() == "true"
 
 
 def refresh_materialized_view(session: "Session", view_name: str) -> bool:

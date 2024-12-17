@@ -11,8 +11,6 @@ from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefe
 from sqlalchemy.orm import sessionmaker
 import logging
 
-lock = threading.Lock()
-
 
 def generate_unique_id() -> str:
     """
@@ -112,7 +110,8 @@ class Database:
             database_url = os.getenv("FEEDS_DATABASE_URL")
             if database_url is None:
                 raise Exception("Database URL not provided.")
-            self.engine = create_engine(database_url, echo=echo_sql, pool_size=10, max_overflow=0)
+            self.pool_size = int(os.getenv("DB_POOL_SIZE", 10))
+            self.engine = create_engine(database_url, echo=echo_sql, pool_size=self.pool_size, max_overflow=0)
             # creates a session factory
             self.Session = sessionmaker(bind=self.engine, autoflush=False)
 
@@ -154,17 +153,19 @@ class Database:
         group_by: Callable = None,
     ):
         """
-        Executes a query on the database
-        :param model: the sqlalchemy model to query
-        :param query: the sqlalchemy ORM query execute
-        :param conditions: list of conditions (filters for the query)
-        :param attributes: list of model's attribute names that you want to fetch. If not given, fetches all attributes.
-        :param update_session: option to update session before running the query (defaults to True)
-        :param limit: the optional number of rows to limit the query with
-        :param offset: the optional number of rows to offset the query with
-        :param group_by: an optional function, when given query results will group by return value of group_by function.
-        Query needs to order the return values by the key being grouped by
-        :return: None if database is inaccessible, the results of the query otherwise
+        Executes a query on the database.
+
+        :param session: The SQLAlchemy session object used to interact with the database.
+        :param model: The SQLAlchemy model to query. If not provided, the query parameter must be given.
+        :param query: The SQLAlchemy ORM query to execute. If not provided, a query will be created using the model.
+        :param conditions: A list of conditions (filters) to apply to the query. Each condition should be a SQLAlchemy
+                        expression.
+        :param attributes: A list of model's attribute names to fetch. If not provided, all attributes will be fetched.
+        :param limit: An optional integer to limit the number of rows returned by the query.
+        :param offset: An optional integer to offset the number of rows returned by the query.
+        :param group_by: An optional function to group the query results by the return value of the function. The query
+                        needs to order the return values by the key being grouped by.
+        :return: None if the database is inaccessible, otherwise the results of the query.
         """
         try:
             if query is None:
