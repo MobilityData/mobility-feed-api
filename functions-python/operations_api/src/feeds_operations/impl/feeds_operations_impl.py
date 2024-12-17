@@ -15,6 +15,7 @@
 #
 
 import logging
+import os
 from typing import Annotated
 
 from deepdiff import DeepDiff
@@ -32,7 +33,7 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from helpers.database import with_db_session, refresh_materialized_view
+from helpers.database import Database, with_db_session, refresh_materialized_view
 from helpers.query_helper import query_feed_by_stable_id
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
@@ -116,8 +117,9 @@ class OperationsApiImpl(BaseOperationsApi):
         """
         Update the specified feed in the Mobility Database
         """
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
         try:
-            with with_db_session() as db_session:
+            with db.start_db_session() as db_session:
                 feed = await OperationsApiImpl.fetch_feed(
                     data_type, db_session, update_request_feed
                 )
