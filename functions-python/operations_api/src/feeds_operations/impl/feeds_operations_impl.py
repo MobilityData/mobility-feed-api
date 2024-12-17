@@ -106,56 +106,55 @@ class OperationsApiImpl(BaseOperationsApi):
             - 400: Feed ID not found.
             - 500: Internal server error.
         """
-        return self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
+        return await self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
 
-    @with_db_session
     async def _update_feed(
         self,
         update_request_feed: UpdateRequestGtfsFeed | UpdateRequestGtfsRtFeed,
         data_type: DataType,
-        db_session,
     ) -> Response:
         """
         Update the specified feed in the Mobility Database
         """
         try:
-            feed = await OperationsApiImpl.fetch_feed(
-                data_type, db_session, update_request_feed
-            )
+            with with_db_session() as db_session:
+                feed = await OperationsApiImpl.fetch_feed(
+                    data_type, db_session, update_request_feed
+                )
 
-            logging.info(
-                f"Feed ID: {update_request_feed.id} attempting to update with the following request: "
-                f"{update_request_feed}"
-            )
-            impl_class = (
-                UpdateRequestGtfsFeedImpl
-                if data_type == DataType.GTFS
-                else UpdateRequestGtfsRtFeedImpl
-            )
-            diff = self.detect_changes(feed, update_request_feed, impl_class)
-            if len(diff.affected_paths) > 0 or (
-                update_request_feed.operational_status_action is not None
-                and update_request_feed.operational_status_action != "no_change"
-            ):
-                await OperationsApiImpl._populate_feed_values(
-                    feed, impl_class, db_session, update_request_feed
-                )
-                db_session.flush()
-                refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
                 logging.info(
-                    f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
+                    f"Feed ID: {update_request_feed.id} attempting to update with the following request: "
+                    f"{update_request_feed}"
                 )
-                db_session.commit()
-                logging.info(
-                    f"Feed ID: {update_request_feed.id} updated successfully with the following changes: "
-                    f"{diff.values()}"
+                impl_class = (
+                    UpdateRequestGtfsFeedImpl
+                    if data_type == DataType.GTFS
+                    else UpdateRequestGtfsRtFeedImpl
                 )
-                return Response(status_code=200)
-            else:
-                logging.info(
-                    f"No changes detected for feed ID: {update_request_feed.id}"
-                )
-                return Response(status_code=204)
+                diff = self.detect_changes(feed, update_request_feed, impl_class)
+                if len(diff.affected_paths) > 0 or (
+                    update_request_feed.operational_status_action is not None
+                    and update_request_feed.operational_status_action != "no_change"
+                ):
+                    await OperationsApiImpl._populate_feed_values(
+                        feed, impl_class, db_session, update_request_feed
+                    )
+                    db_session.flush()
+                    refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
+                    logging.info(
+                        f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
+                    )
+                    db_session.commit()
+                    logging.info(
+                        f"Feed ID: {update_request_feed.id} updated successfully with the following changes: "
+                        f"{diff.values()}"
+                    )
+                    return Response(status_code=200)
+                else:
+                    logging.info(
+                        f"No changes detected for feed ID: {update_request_feed.id}"
+                    )
+                    return Response(status_code=204)
         except Exception as e:
             logging.error(
                 f"Failed to update feed ID: {update_request_feed.id}. Error: {e}"
