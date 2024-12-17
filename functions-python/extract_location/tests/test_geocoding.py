@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
+import pytest
 from sqlalchemy.orm import Session
 
 from extract_location.src.reverse_geolocation.geocoded_location import GeocodedLocation
