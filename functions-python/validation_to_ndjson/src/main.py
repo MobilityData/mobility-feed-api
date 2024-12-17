@@ -5,7 +5,7 @@ from cloudevents.http import CloudEvent
 
 from helpers.logger import Logger
 from google.cloud import storage
-from .validation_report_converter import (
+from validation_report_converter import (
     ValidationReportConverter,
     project_id,
     bucket_name,

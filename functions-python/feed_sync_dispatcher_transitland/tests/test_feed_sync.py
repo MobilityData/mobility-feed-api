@@ -4,7 +4,7 @@ from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
 
 from database_gen.sqlacodegen_models import Gtfsfeed
-from feed_sync_dispatcher_transitland.src.main import (
+from main import (
     TransitFeedSyncProcessor,
 )
 import pandas as pd
@@ -18,7 +18,7 @@ def processor():
     return TransitFeedSyncProcessor()
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.requests.Session.get")
+@patch("main.requests.Session.get")
 def test_get_data(mock_get, processor):
     mock_response = Mock()
     mock_response.json.return_value = {
@@ -43,7 +43,7 @@ def test_get_data(mock_get, processor):
     assert result["feeds"][0]["id"] == "feed1"
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.requests.Session.get")
+@patch("main.requests.Session.get")
 def test_get_data_rate_limit(mock_get, processor):
     mock_response = Mock()
     mock_response.status_code = 429
@@ -60,16 +60,18 @@ def test_get_data_rate_limit(mock_get, processor):
 
 
 def test_extract_feeds_data(processor):
-    feeds_data = [
-        {
-            "id": "feed1",
-            "urls": {"static_current": "http://example.com"},
-            "spec": "gtfs",
-            "onestop_id": "onestop1",
-            "authorization": {},
-        }
-    ]
-    result = processor.extract_feeds_data(feeds_data, [])
+    feeds_data = {
+        "feeds": [
+            {
+                "id": "feed1",
+                "urls": {"static_current": "http://example.com/feed1"},
+                "spec": "gtfs",
+                "onestop_id": "onestop1",
+                "authorization": {},
+            }
+        ]
+    }
+    result = processor.extract_feeds_data(feeds_data)
     assert len(result) == 1
     assert result[0]["feed_id"] == "feed1"
 

@@ -5,7 +5,8 @@
   "timeout": 3600,
   "memory": "256Mi",
   "trigger_http": true,
-  "include_folders": ["database_gen", "helpers"],
+  "include_folders": ["helpers"],
+  "include_api_folders": ["database_gen"],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"

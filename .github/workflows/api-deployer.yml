@@ -201,10 +201,6 @@ jobs:
           name: database_gen
           path: api/src/database_gen/
 
-      - name: Copy to db models to functions directory
-        run: |
-          cp -R api/src/database_gen/ functions-python/database_gen
-
       # api schema was generated and uploaded in api-build-test job above.
       - uses: actions/download-artifact@v4
         with:
@@ -248,10 +244,6 @@ jobs:
         with:
           name: database_gen
           path: api/src/database_gen/
-
-      - name: Copy to db models to functions directory
-        run: |
-          cp -R api/src/database_gen/ functions-python/database_gen
 
       # api schema was generated and uploaded in api-build-test job above.
       - uses: actions/download-artifact@v4

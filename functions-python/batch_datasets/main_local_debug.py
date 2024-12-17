@@ -12,7 +12,7 @@
 
 # Usage:
 # - python batch_datasets/main_local_debug.py
-from src.main import batch_datasets
+from main import batch_datasets
 from dotenv import load_dotenv
 
 # Load environment variables from .env.local

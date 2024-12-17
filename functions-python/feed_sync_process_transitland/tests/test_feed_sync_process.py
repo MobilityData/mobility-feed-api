@@ -12,7 +12,7 @@ from database_gen.sqlacodegen_models import Feed, Gtfsfeed
 from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 
 with mock.patch("helpers.logger.Logger.init_logger") as mock_init_logger:
-    from feed_sync_process_transitland.src.main import (
+    from main import (
         FeedProcessor,
         process_feed_event,
     )
@@ -64,9 +64,7 @@ class MockLogger:
 @pytest.fixture(autouse=True)
 def mock_logging():
     """Mock both local and GCP logging."""
-    with patch("feed_sync_process_transitland.src.main.logging") as mock_log, patch(
-        "feed_sync_process_transitland.src.main.Logger", MockLogger
-    ):
+    with patch("main.logging") as mock_log, patch("main.Logger", MockLogger):
         for logger in [mock_log]:
             logger.info = MagicMock()
             logger.error = MagicMock()
@@ -247,6 +245,7 @@ class TestFeedProcessor:
         process_feed_event(cloud_event)
 
         # Test case 3: Type error
+        mock_logging.error.reset_mock()
         type_error_payload = {"external_id": 12345, "feed_url": True, "feed_id": None}
         payload_data = base64.b64encode(
             json.dumps(type_error_payload).encode("utf-8")
@@ -268,9 +267,7 @@ class TestFeedProcessor:
         cloud_event.data = {"message": {"data": payload_data}}
 
         # Mock database session to raise error
-        with patch(
-            "feed_sync_process_transitland.src.main.start_db_session"
-        ) as mock_start_session:
+        with patch("main.start_db_session") as mock_start_session:
             mock_start_session.side_effect = SQLAlchemyError(
                 "Database connection error"
             )
@@ -297,7 +294,7 @@ class TestFeedProcessor:
 
         # Process event and verify error handling
         with patch(
-            "feed_sync_process_transitland.src.main.start_db_session",
+            "main.start_db_session",
             return_value=mock_session,
         ):
             process_feed_event(cloud_event)
