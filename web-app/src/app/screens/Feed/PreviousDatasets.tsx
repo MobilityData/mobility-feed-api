@@ -165,54 +165,45 @@ export default function PreviousDatasets({
                     {(dataset.validation_report === null ||
                       dataset.validation_report === undefined) && (
                       <Button
+                        LinkComponent={'a'}
                         variant='contained'
                         sx={{ mx: 2 }}
                         disableElevation
                         endIcon={<LaunchOutlined />}
+                        href={WEB_VALIDATOR_LINK}
+                        target='_blank'
+                        rel='noreferrer'
                       >
-                        <a
-                          href={WEB_VALIDATOR_LINK}
-                          target='_blank'
-                          className='btn-link'
-                          rel='noreferrer'
-                        >
-                          Run Validator Yourself
-                        </a>
+                        Run Validator Yourself
                       </Button>
                     )}
                     {dataset.validation_report != null && (
                       <>
                         <Button
+                          LinkComponent={'a'}
                           variant='contained'
                           sx={{ mx: 2 }}
                           disableElevation
                           endIcon={<LaunchOutlined />}
+                          href={`${dataset?.validation_report?.url_html}`}
+                          target='_blank'
+                          rel='noreferrer'
+                          data-testid='validation-report-html'
                         >
-                          <a
-                            href={`${dataset?.validation_report?.url_html}`}
-                            target='_blank'
-                            className='btn-link'
-                            rel='noreferrer'
-                            data-testid='validation-report-html'
-                          >
-                            View Report
-                          </a>
+                          View Report
                         </Button>
                         <Button
+                          LinkComponent={'a'}
                           variant='contained'
                           sx={{ mx: 2, my: { xs: 1, xl: 0 } }}
                           endIcon={<LaunchOutlined />}
                           disableElevation
+                          href={`${dataset?.validation_report?.url_json}`}
+                          target='_blank'
+                          rel='noreferrer'
+                          data-testid='validation-report-json'
                         >
-                          <a
-                            href={`${dataset?.validation_report?.url_json}`}
-                            target='_blank'
-                            className='btn-link'
-                            rel='noreferrer'
-                            data-testid='validation-report-json'
-                          >
-                            JSON Version
-                          </a>
+                          JSON Version
                         </Button>
                       </>
                     )}

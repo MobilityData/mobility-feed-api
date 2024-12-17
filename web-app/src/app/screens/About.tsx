@@ -2,7 +2,6 @@ import * as React from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
-import '../styles/SignUp.css';
 import { Button, Typography } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 import { theme } from '../Theme';

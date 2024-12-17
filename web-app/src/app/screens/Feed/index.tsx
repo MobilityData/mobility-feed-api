@@ -12,7 +12,6 @@ import {
   Skeleton,
 } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
-import '../../styles/SignUp.css';
 import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
 import { useAppDispatch } from '../../hooks';
