@@ -158,7 +158,7 @@ export default function FeedSummary({
             sx={{ display: 'flex', overflowWrap: 'anywhere' }}
             data-testid='producer-url'
           >
-            {feed?.source_info?.producer_url !== undefined && (
+            {feed?.source_info?.producer_url != undefined && (
               <a
                 href={feed?.source_info?.producer_url}
                 target='_blank'
@@ -238,7 +238,7 @@ export default function FeedSummary({
       )}
 
       {feed?.data_type === 'gtfs' &&
-        feed?.feed_contact_email !== undefined &&
+        feed?.feed_contact_email != undefined &&
         feed?.feed_contact_email.length > 0 && (
           <Box sx={boxElementStyle}>
             <Typography
@@ -248,7 +248,7 @@ export default function FeedSummary({
             >
               {t('feedContactEmail')}
             </Typography>
-            {feed?.feed_contact_email !== undefined &&
+            {feed?.feed_contact_email != undefined &&
               feed?.feed_contact_email.length > 0 && (
                 <Button
                   sx={{ textOverflow: 'ellipsis', cursor: 'initial' }}
@@ -276,7 +276,7 @@ export default function FeedSummary({
           </Box>
         )}
 
-      {latestDataset?.validation_report?.features !== undefined && (
+      {latestDataset?.validation_report?.features != undefined && (
         <Box sx={boxElementStyle}>
           <Typography
             variant='subtitle1'

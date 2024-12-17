@@ -34,7 +34,6 @@ import {
   Snackbar,
   Tooltip,
 } from '@mui/material';
-import '../styles/SignUp.css';
 import {
   selectEmailLoginError,
   selectUserProfileStatus,
@@ -286,7 +285,6 @@ export default function SignIn(): React.ReactElement {
         <Button
           variant='outlined'
           color='primary'
-          className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
           onClick={() => {
@@ -298,7 +296,6 @@ export default function SignIn(): React.ReactElement {
         <Button
           variant='outlined'
           color='primary'
-          className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
           onClick={() => {
@@ -313,7 +310,6 @@ export default function SignIn(): React.ReactElement {
             color='primary'
             sx={{ mb: 2 }}
             startIcon={<AppleIcon />}
-            className='sso-button'
             onClick={() => {
               signInWithProvider(OauthProvider.Apple);
             }}
