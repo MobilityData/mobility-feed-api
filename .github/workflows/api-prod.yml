@@ -18,6 +18,7 @@ jobs:
       GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
       TF_APPLY: true
       VALIDATOR_ENDPOINT: https://gtfs-validator-web-mbzoxaljzq-ue.a.run.app
+      OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_RETOOL_OAUTH2_CREDS/username"
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.PROD_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}

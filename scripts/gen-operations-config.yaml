@@ -1,0 +1,9 @@
+# Documentation, https://openapi-generator.tech/docs/generators/python-fastapi/
+additionalProperties:
+  packageName: feeds_operations_gen
+  # modelNameSuffix: Api
+  removeOperationIdPrefix: true
+  fastapiImplementationPackage: feeds_operations.impl
+  useTags: false
+  # Adding this commented line for future reference as it is not currently supported by the fastApi generator
+  # legacyDiscriminatorBehavior: true

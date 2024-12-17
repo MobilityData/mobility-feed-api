@@ -92,6 +92,14 @@ build_function() {
   rm -rf "$FX_DIST_PATH"
   mkdir "$FX_DIST_PATH"
 
+  # Run pre_build script if specified
+  pre_build_script=$(jq -r '.build_settings.pre_build_script // empty' "$FX_PATH/function_config.json")
+  if [ -n "$pre_build_script" ]; then
+    printf "\nRunning pre_build script: $pre_build_script\n"
+    (cd "$FX_PATH" && eval "$pre_build_script")
+    printf "\nCompleted running pre_build script\n"
+  fi
+
   cp -R "$FX_SOURCE_PATH" "$FX_DIST_BUILD"
   cp "$FX_PATH/requirements.txt" "$FX_DIST_BUILD"
 

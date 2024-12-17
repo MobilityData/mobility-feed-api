@@ -310,6 +310,23 @@ def process_dataset(cloud_event: CloudEvent):
     stable_id = "UNKNOWN"
     execution_id = "UNKNOWN"
     bucket_name = os.getenv("DATASETS_BUCKET_NANE")
+
+    try:
+        #  Extract data from message
+        logging.info(f"Cloud Event: {cloud_event}")
+        data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
+        json_payload = json.loads(data)
+        logging.info(
+            f"[{json_payload['feed_stable_id']}] JSON Payload: {json.dumps(json_payload)}"
+        )
+        stable_id = json_payload["feed_stable_id"]
+        execution_id = json_payload["execution_id"]
+    except Exception as e:
+        error_message = f"[{stable_id}] Error parsing message: [{e}]"
+        logging.error(error_message)
+        logging.error(f"Function completed with error:{error_message}")
+        return
+
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
         with db.start_db_session():
@@ -327,7 +344,6 @@ def process_dataset(cloud_event: CloudEvent):
             stable_id = json_payload["feed_stable_id"]
             execution_id = json_payload["execution_id"]
             trace_service = DatasetTraceService()
-
             trace = trace_service.get_by_execution_and_stable_ids(
                 execution_id, stable_id
             )

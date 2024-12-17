@@ -46,9 +46,20 @@ def configure_polymorphic_mappers():
 
 def with_db_session(func):
     """
-    Decorator to handle the session management
-    :param func: the function to decorate
-    :return: the decorated function
+    Decorator to handle the session management for the decorated function.
+
+    This decorator ensures that a database session is properly created, committed, rolled back in case of an exception,
+    and closed. It uses the @contextmanager decorator to manage the lifecycle of the session, providing a clean and
+    efficient way to handle database interactions.
+
+    How it works:
+        - The decorator checks if a 'db_session' keyword argument is provided to the decorated function.
+        - If 'db_session' is not provided, it creates a new Database instance and starts a new session using the
+          start_db_session context manager.
+        - The context manager ensures that the session is properly committed if no exceptions occur, rolled back if an
+          exception occurs, and closed in either case.
+        - The session is then passed to the decorated function as the 'db_session' keyword argument.
+        - If 'db_session' is already provided, it simply calls the decorated function with the existing session.
     """
 
     def wrapper(*args, **kwargs):
@@ -114,6 +125,13 @@ class Database:
 
     @contextmanager
     def start_db_session(self):
+        """
+        Context manager to start a database session with optional echo.
+
+        This method manages the lifecycle of a database session, ensuring that the session is properly created,
+        committed, rolled back in case of an exception, and closed. The @contextmanager decorator simplifies
+        resource management by handling the setup and cleanup logic within a single function.
+        """
         session = self.Session()
         try:
             yield session
