@@ -52,9 +52,14 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
         start_time = datetime.now()
         configure_polymorphic_mappers()
 
-        # Compare the database to the CSV file
-        df_from_db = generate_system_csv_from_db(self.df, self.db.session)
-        added_or_updated_feeds, deprecated_feeds = compare_db_to_csv(df_from_db, self.df, self.logger)
+        try:
+            with self.db.start_db_session() as session:
+                # Compare the database to the CSV file
+                df_from_db = generate_system_csv_from_db(self.df, session)
+                added_or_updated_feeds, deprecated_feeds = compare_db_to_csv(df_from_db, self.df, self.logger)
+        except Exception as e:
+            self.logger.error(f"Failed to compare the database to the CSV file. Error: {e}")
+            return
 
         self.deprecate_feeds(deprecated_feeds)
         if added_or_updated_feeds is None:
