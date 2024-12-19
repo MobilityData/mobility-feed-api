@@ -76,6 +76,11 @@ resource "google_storage_bucket" "datasets_bucket" {
   soft_delete_policy {
     retention_duration_seconds = local.retention_duration_seconds
   }
+  cors {
+    origin = ["*"]
+    method = ["GET"]
+    response_header = ["*"]
+  }
 }
 
 # Grant permissions to the service account to access the datasets bucket
