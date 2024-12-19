@@ -12,7 +12,7 @@ from database_gen.sqlacodegen_models import Geopolygon
 from helpers.database import start_db_session
 from helpers.logger import Logger
 from geoalchemy2.shape import to_shape
-from reverse_geolocation.src.common import ERROR_STATUS_CODE
+from common import ERROR_STATUS_CODE
 from shapely.validation import make_valid
 import matplotlib.pyplot as plt
 

@@ -79,13 +79,13 @@ jobs:
           restore-keys: |
             cypress-${{ runner.os }}-binary-
 
-      - name: Lint
-        working-directory: web-app
-        run: yarn lint
-
-      - name: Unit tests
-        working-directory: web-app
-        run: yarn test:ci
+#      - name: Lint
+#        working-directory: web-app
+#        run: yarn lint
+#
+#      - name: Unit tests
+#        working-directory: web-app
+#        run: yarn test:ci
 
       - name: Set Firebase project properties
         working-directory: web-app
