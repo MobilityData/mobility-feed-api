@@ -1,0 +1,20 @@
+{
+  "name": "reverse-geolocation",
+  "description": "Function to reverse geolocate coordinates",
+  "entry_point": "reverse_geolocation",
+  "timeout": 3600,
+  "trigger_http": false,
+  "include_folders": ["database_gen", "helpers"],
+  "environment_variables": [],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_DATABASE_URL"
+    }
+  ],
+  "ingress_settings": "ALLOW_ALL",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 10,
+  "min_instance_count": 0,
+  "available_cpu": 1,
+  "available_memory": "4Gi"
+}

@@ -235,6 +235,12 @@ resource "google_project_iam_member" "cloud_tasks_admin" {
   member  = "serviceAccount:${google_service_account.ci_service_account.email}"
 }
 
+resource "google_project_iam_member" "cloudtasks_viewer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.admin"
+  member  = "serviceAccount:${google_service_account.ci_service_account.email}"
+}
+
 resource "google_storage_bucket" "tf_state_bucket" {
   name          = "${var.terraform_state_bucket_name_prefix}-${var.environment}"
   force_destroy = false

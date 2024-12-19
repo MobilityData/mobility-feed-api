@@ -37,7 +37,6 @@ import {
   selectDatasetsLoadingStatus,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
-import { Map } from '../../components/Map';
 import PreviousDatasets from './PreviousDatasets';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
@@ -51,6 +50,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 import { theme } from '../../Theme';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
+import { MapGeoJSON } from '../../components/MapGeoJSON';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -503,7 +503,12 @@ export default function Feed(): React.ReactElement {
                 )}
                 {boundingBox !== undefined && (
                   <Box width={{ xs: '100%' }} sx={{ mt: 2, mb: 2 }}>
-                    <Map polygon={boundingBox} />
+                    {/* <Map polygon={boundingBox} /> */}
+                    {latestDataset?.hosted_url !== undefined && (
+                      <MapGeoJSON
+                        latest_dataset_url={latestDataset?.hosted_url}
+                      />
+                    )}
                   </Box>
                 )}
                 <DataQualitySummary latestDataset={latestDataset} />

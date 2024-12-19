@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import os
 
 import google.cloud.logging
 from google.cloud.logging_v2 import Client
@@ -45,11 +46,24 @@ class Logger:
     @staticmethod
     def init_logger() -> Client:
         """
-        Initializes the logger
+        Initializes the logger for both local debugging and GCP environments.
         """
-        client = google.cloud.logging.Client()
-        client.get_default_handler()
-        client.setup_logging()
+        try:
+            # Check if running in a GCP environment (default credentials available)
+            if os.getenv("ENV") == "local":
+                # Local environment: use standard logging
+                logging.basicConfig(level=logging.DEBUG)
+                logging.info("Local logger initialized (standard logging).")
+                client = None  # Return None since cloud client is not used
+            else:
+                client = google.cloud.logging.Client()
+                client.setup_logging()
+                logging.info("Google Cloud Logging initialized.")
+        except Exception as e:
+            logging.error(f"Failed to initialize logging: {e}")
+            logging.basicConfig(level=logging.DEBUG)
+            logging.info("Fallback to standard local logging.")
+            client = None
         return client
 
     def get_logger(self) -> Client:
