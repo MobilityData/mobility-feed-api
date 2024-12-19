@@ -14,7 +14,7 @@ from google.cloud import storage
 from database_gen.sqlacodegen_models import Geopolygon
 from helpers.database import start_db_session
 from helpers.logger import Logger
-from reverse_geolocation.src.common import ERROR_STATUS_CODE
+from common import ERROR_STATUS_CODE
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)

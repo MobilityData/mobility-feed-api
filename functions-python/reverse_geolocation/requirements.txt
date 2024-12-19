@@ -27,3 +27,4 @@ google-cloud-storage
 pycountry
 shapely
 gtfs-kit
+matplotlib
