@@ -6,6 +6,7 @@ import { theme } from '../Theme';
 import EmailIcon from '@mui/icons-material/Email';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useTranslation } from 'react-i18next';
+import { MainPageHeader } from '../styles/PageHeader.style';
 
 const ContactUsItem = styled(Card)(({ theme }) => ({
   padding: theme.spacing(2),
@@ -48,97 +49,88 @@ const SlackSvg = (
 export default function ContactUs(): React.ReactElement {
   const { t } = useTranslation('contactUs');
   return (
-    <Container component='main'>
-      <Box sx={{ maxWidth: '1000px', width: '100%', mx: 'auto' }}>
-        <Typography
-          component='h1'
-          variant='h4'
-          color='primary'
-          sx={{ fontWeight: 700 }}
-        >
-          {t('title')}
-        </Typography>
-        <Box
-          sx={{
-            mt: 2,
-            display: 'flex',
-            flexWrap: 'wrap',
-          }}
-        >
-          <ContactUsItem variant='outlined'>
-            <Box className='item-container'>
-              <EmailIcon color='primary' className='mui-icon' />
-              <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
-                {t('email.title')}
-              </Typography>
-            </Box>
-            <Typography variant='body1'>
-              {t('email.description')}{' '}
-              <a href='mailto:api@mobilitydata.org'>api@mobilitydata.org</a>
+    <Container component='main' maxWidth={'lg'}>
+      <MainPageHeader>{t('title')}</MainPageHeader>
+      <Box
+        sx={{
+          mt: 2,
+          display: 'flex',
+          flexWrap: 'wrap',
+        }}
+      >
+        <ContactUsItem variant='outlined'>
+          <Box className='item-container'>
+            <EmailIcon color='primary' className='mui-icon' />
+            <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
+              {t('email.title')}
             </Typography>
-          </ContactUsItem>
+          </Box>
+          <Typography variant='body1'>
+            {t('email.description')}{' '}
+            <a href='mailto:api@mobilitydata.org'>api@mobilitydata.org</a>
+          </Typography>
+        </ContactUsItem>
 
-          <ContactUsItem variant='outlined'>
-            <Box className='item-container'>
-              {SlackSvg}
-              <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
-                {t('slack.title')}
-              </Typography>
-            </Box>
-            <Typography variant='body1'>{t('slack.description')}</Typography>
-            <Button
-              variant={'contained'}
-              className='action-button'
-              href='https://share.mobilitydata.org/slack'
-              target='_blank'
-              rel='noopener noreferrer'
-            >
-              {t('slack.action')}
-            </Button>
-          </ContactUsItem>
-
-          <ContactUsItem variant='outlined'>
-            <Box className='item-container'>
-              <GitHubIcon color='primary' className='mui-icon' />
-              <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
-                {t('contribute.title')}
-              </Typography>
-            </Box>
-            <Typography variant='body1' className='text-body'>
-              {t('contribute.description')}
+        <ContactUsItem variant='outlined'>
+          <Box className='item-container'>
+            {SlackSvg}
+            <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
+              {t('slack.title')}
             </Typography>
-            <Button
-              variant={'contained'}
-              className='action-button'
-              href='https://github.com/MobilityData/mobility-feed-api'
-              target='_blank'
-              rel='noopener noreferrer'
-            >
-              {t('contribute.action')}
-            </Button>
-          </ContactUsItem>
+          </Box>
+          <Typography variant='body1'>{t('slack.description')}</Typography>
+          <Button
+            variant={'contained'}
+            className='action-button'
+            href='https://share.mobilitydata.org/slack'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            {t('slack.action')}
+          </Button>
+        </ContactUsItem>
 
-          <ContactUsItem variant='outlined'>
-            <Box className='item-container'>
-              <GitHubIcon color='primary' className='mui-icon' />
-              <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
-                {t('addFeeds.title')}
-              </Typography>
-            </Box>
-            <Typography variant='body1' className='text-body'>
-              {t('addFeeds.description')}
+        <ContactUsItem variant='outlined'>
+          <Box className='item-container'>
+            <GitHubIcon color='primary' className='mui-icon' />
+            <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
+              {t('contribute.title')}
             </Typography>
-            <Button
-              variant={'contained'}
-              className='action-button'
-              href='https://github.com/MobilityData/mobility-database-catalogs'
-              target='_blank'
-              rel='noopener noreferrer'
-            >
-              {t('addFeeds.action')}
-            </Button>
-          </ContactUsItem>
-        </Box>
+          </Box>
+          <Typography variant='body1' className='text-body'>
+            {t('contribute.description')}
+          </Typography>
+          <Button
+            variant={'contained'}
+            className='action-button'
+            href='https://github.com/MobilityData/mobility-feed-api'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            {t('contribute.action')}
+          </Button>
+        </ContactUsItem>
+
+        <ContactUsItem variant='outlined'>
+          <Box className='item-container'>
+            <GitHubIcon color='primary' className='mui-icon' />
+            <Typography variant='h6' color='primary' sx={{ fontWeight: 700 }}>
+              {t('addFeeds.title')}
+            </Typography>
+          </Box>
+          <Typography variant='body1' className='text-body'>
+            {t('addFeeds.description')}
+          </Typography>
+          <Button
+            variant={'contained'}
+            className='action-button'
+            href='https://github.com/MobilityData/mobility-database-catalogs'
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            {t('addFeeds.action')}
+          </Button>
+        </ContactUsItem>
       </Box>
     </Container>
   );

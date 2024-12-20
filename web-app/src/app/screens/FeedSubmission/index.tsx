@@ -7,7 +7,6 @@ import {
   Container,
   CssBaseline,
   Typography,
-  colors,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { selectIsAuthenticated } from '../../store/profile-selectors';
@@ -16,7 +15,8 @@ import Contribute from '../Contribute';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import FeedSubmissionForm from './Form';
-import { theme } from '../../Theme';
+import { MainPageHeader } from '../../styles/PageHeader.style';
+import { ColoredContainer } from '../../styles/PageLayout.style';
 
 function Component(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -36,13 +36,7 @@ function Component(): React.ReactElement {
       >
         {!isAuthenticated && (
           <>
-            <Typography
-              variant='h5'
-              color='primary'
-              sx={{ fontWeight: 'bold', ml: 0 }}
-            >
-              {t('form.addOrUpdateFeed')}
-            </Typography>
+            <MainPageHeader>{t('form.addOrUpdateFeed')}</MainPageHeader>
             <Typography sx={{ my: 2 }}>{t('form.signUp')}</Typography>
             <Button variant='contained'>
               <a href='/sign-up?add_feed=true' className='btn-link'>
@@ -66,12 +60,7 @@ function Component(): React.ReactElement {
               </Alert>
             )}
 
-            <Box
-              sx={{
-                p: 3,
-                background: colors.grey[100],
-              }}
-            >
+            <ColoredContainer>
               <Typography>
                 Do you have any questions about how to submit a feed?{' '}
                 <a
@@ -82,30 +71,13 @@ function Component(): React.ReactElement {
                   Read our FAQ
                 </a>
               </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                mx: 'auto',
-                mb: '80px',
-                maxWidth: '750px',
-              }}
-            >
-              <Typography
-                component='h1'
-                variant='h4'
-                sx={{
-                  color: theme.palette.primary.main,
-                  fontWeight: 'bold',
-                  my: 3,
-                  ml: 0,
-                }}
-              >
+            </ColoredContainer>
+            <Container maxWidth='md'>
+              <MainPageHeader sx={{ my: 3 }}>
                 Add or update a feed
-              </Typography>
+              </MainPageHeader>
               <FeedSubmissionForm />
-            </Box>
+            </Container>
           </>
         )}
       </Box>
