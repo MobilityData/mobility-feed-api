@@ -36,8 +36,15 @@ import {
   getDataTypeParamFromSelectedFeedTypes,
   getInitialSelectedFeedTypes,
 } from './utility';
-import { SearchHeader, stickyHeaderStyle } from './styles';
+import {
+  chipHolderStyles,
+  searchBarStyles,
+  SearchHeader,
+  stickyHeaderStyles,
+} from './Feeds.styles';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
+import { MainPageHeader } from '../../styles/PageHeader.style';
+import { ColoredContainer } from '../../styles/PageLayout.style';
 
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -241,54 +248,30 @@ export default function Feed(): React.ReactElement {
         }}
         mx={{ xs: 0, md: 'auto' }}
       >
-        <Box sx={{ maxWidth: '1600px', mx: 'auto', width: '100%' }}>
-          <Typography
-            ref={containerRef}
-            component='h1'
-            variant='h4'
-            color='primary'
-            sx={{ fontWeight: 700 }}
-          >
-            {t('feeds')}
-          </Typography>
+        <Container
+          disableGutters
+          maxWidth={'xl'}
+          sx={{ boxSizing: 'content-box' }}
+        >
+          <MainPageHeader ref={containerRef}>
+            {t('common:feeds')}
+          </MainPageHeader>
           {activeSearch !== '' && (
             <Typography variant='subtitle1'>
               {t('searchFor')}: <b>{activeSearch}</b>
             </Typography>
           )}
-        </Box>
-        <Box
-          className={isSticky ? 'sticky' : ''}
-          sx={{
-            ...(isSticky ? stickyHeaderStyle : {}),
-            display: 'flex',
-            alignItems: 'center',
-            position: 'sticky',
-            zIndex: 1,
-            top: '65px',
-            background: theme.palette.background.default,
-            transition: 'box-shadow 0.3s ease-in-out',
-            mx: '-24px',
-          }}
-        >
-          <Box
+        </Container>
+        <Box sx={stickyHeaderStyles({ theme, isSticky })}>
+          <Container
+            maxWidth={'xl'}
             component='form'
             onSubmit={(event) => {
               event.preventDefault();
               setActivePagination(1);
               setActiveSearch(searchQuery);
             }}
-            sx={{
-              display: 'flex',
-              width: '100%',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              maxWidth: '1600px',
-              mx: 'auto',
-              px: 3,
-              py: 2,
-              boxSizing: 'content-box',
-            }}
+            sx={searchBarStyles}
           >
             <TextField
               sx={{
@@ -323,276 +306,249 @@ export default function Feed(): React.ReactElement {
             >
               {t('common:search')}
             </Button>
-          </Box>
+          </Container>
         </Box>
 
-        <Box sx={{ maxWidth: '1600px', mx: 'auto', width: '100%' }}>
-          <Box
-            width={'100%'}
+        <ColoredContainer maxWidth={'xl'} sx={{ pt: 2 }}>
+          <Grid
+            container
+            spacing={1}
             sx={{
-              background: theme.palette.background.paper,
-              borderRadius: '6px 0px 0px 6px',
-              px: {
-                xs: 2,
-                md: 3,
-              },
-              py: 2,
               color: 'black',
               fontSize: '18px',
               fontWeight: 700,
-              mr: 0,
+              mt: 0,
+              flexWrap: { xs: 'wrap', md: 'nowrap' },
             }}
           >
             <Grid
-              container
-              spacing={1}
-              sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' } }}
+              item
+              xs={12}
+              md={2}
+              sx={{
+                minWidth: config.enableFeatureFilterSearch ? '275px' : '220px',
+                pr: 2,
+              }}
             >
-              <Grid
-                item
-                xs={12}
-                md={2}
-                sx={{
-                  minWidth: config.enableFeatureFilterSearch
-                    ? '275px'
-                    : '220px',
-                  pr: 2,
+              <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
+              <NestedCheckboxList
+                checkboxData={[
+                  {
+                    title: t('common:gtfsSchedule'),
+                    checked: selectedFeedTypes.gtfs,
+                    type: 'checkbox',
+                  },
+                  {
+                    title: t('common:gtfsRealtime'),
+                    checked: selectedFeedTypes.gtfs_rt,
+                    type: 'checkbox',
+                  },
+                ]}
+                onCheckboxChange={(checkboxData) => {
+                  setActivePagination(1);
+                  setSelectedFeedTypes({
+                    ...selectedFeedTypes,
+                    gtfs: checkboxData[0].checked,
+                    gtfs_rt: checkboxData[1].checked,
+                  });
                 }}
-              >
-                <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
-                <NestedCheckboxList
-                  checkboxData={[
-                    {
-                      title: t('common:gtfsSchedule'),
-                      checked: selectedFeedTypes.gtfs,
-                      type: 'checkbox',
-                    },
-                    {
-                      title: t('common:gtfsRealtime'),
-                      checked: selectedFeedTypes.gtfs_rt,
-                      type: 'checkbox',
-                    },
-                  ]}
-                  onCheckboxChange={(checkboxData) => {
-                    setActivePagination(1);
-                    setSelectedFeedTypes({
-                      ...selectedFeedTypes,
-                      gtfs: checkboxData[0].checked,
-                      gtfs_rt: checkboxData[1].checked,
-                    });
-                  }}
-                ></NestedCheckboxList>
-                {config.enableFeatureFilterSearch && (
-                  <>
-                    <SearchHeader variant='h6'>Features</SearchHeader>
-                    <NestedCheckboxList
-                      checkboxData={featureCheckboxData}
-                      onExpandGroupChange={(checkboxData) => {
-                        const newExpandGroup: Record<string, boolean> = {};
-                        checkboxData.forEach((cd) => {
-                          if (cd.seeChildren !== undefined) {
-                            newExpandGroup[cd.title] = cd.seeChildren;
-                          }
-                        });
-                        setExpandedElements({
-                          ...expandedElements,
-                          ...newExpandGroup,
-                        });
-                      }}
-                      onCheckboxChange={(checkboxData) => {
-                        const selelectedFeatures: string[] = [];
-                        checkboxData.forEach((checkbox) => {
-                          if (checkbox.children !== undefined) {
-                            checkbox.children.forEach((child) => {
-                              if (child.checked) {
-                                selelectedFeatures.push(child.title);
-                              }
-                            });
-                          }
-                        });
-                        setActivePagination(1);
-                        setSelectedFeatures([...selelectedFeatures]);
-                      }}
-                    />
-                  </>
-                )}
-              </Grid>
-
-              <Grid item xs={12} md={10}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 1,
-                    minHeight: '31px',
-                    width: '100%',
-                    alignItems: 'center',
-                    mb: 1,
-                  }}
-                >
-                  {selectedFeedTypes.gtfs && (
-                    <Chip
-                      color='secondary'
-                      size='small'
-                      label={t('common:gtfsSchedule')}
-                      onDelete={() => {
-                        setActivePagination(1);
-                        setSelectedFeedTypes({
-                          ...selectedFeedTypes,
-                          gtfs: false,
-                        });
-                      }}
-                    />
-                  )}
-                  {selectedFeedTypes.gtfs_rt && (
-                    <Chip
-                      color='secondary'
-                      size='small'
-                      label={t('common:gtfsRealtime')}
-                      onDelete={() => {
-                        setActivePagination(1);
-                        setSelectedFeedTypes({
-                          ...selectedFeedTypes,
-                          gtfs_rt: false,
-                        });
-                      }}
-                    />
-                  )}
-                  {selectedFeatures.map((feature) => (
-                    <Chip
-                      color='secondary'
-                      size='small'
-                      label={feature}
-                      key={feature}
-                      onDelete={() => {
-                        setSelectedFeatures([
-                          ...selectedFeatures.filter((sf) => sf !== feature),
-                        ]);
-                      }}
-                    />
-                  ))}
-                  {(selectedFeatures.length > 0 ||
-                    selectedFeedTypes.gtfs_rt ||
-                    selectedFeedTypes.gtfs) && (
-                    <Button
-                      variant={'text'}
-                      onClick={clearAllFilters}
-                      size={'small'}
-                      color={'secondary'}
-                    >
-                      Clear All
-                    </Button>
-                  )}
-                </Box>
-                {feedStatus === 'loading' && (
-                  <Grid item xs={12}>
-                    <Skeleton
-                      animation='wave'
-                      variant='text'
-                      sx={{ fontSize: '1rem', width: '200px' }}
-                    />
-                    <Skeleton
-                      animation='wave'
-                      variant='text'
-                      sx={{ fontSize: '2rem', width: '100%' }}
-                    />
-                    <Skeleton
-                      animation='wave'
-                      variant='rectangular'
-                      width={'100%'}
-                      height={'1118px'}
-                    />
-                    <Skeleton
-                      animation='wave'
-                      variant='text'
-                      sx={{ fontSize: '2rem', width: '320px' }}
-                    />
-                  </Grid>
-                )}
-
-                {feedStatus === 'error' && (
-                  <Grid item xs={12}>
-                    <h3>{t('common:errors.generic')}</h3>
-                    <Typography>
-                      <Trans i18nKey='errorAndContact'>
-                        Please check your internet connection and try again. If
-                        the problem persists{' '}
-                        <a href='mailto:api@mobilitydata.org'>contact us</a> for
-                        for further assistance.
-                      </Trans>
-                    </Typography>
-                  </Grid>
-                )}
-
-                {feedsData !== undefined && feedStatus === 'loaded' && (
-                  <>
-                    {feedsData?.results?.length === 0 &&
-                      activeSearch.trim().length > 0 && (
-                        <Grid item xs={12}>
-                          <h3>{t('noResults', { activeSearch })}</h3>
-                          <Typography>{t('searchSuggestions')}</Typography>
-                          <ul>
-                            <li>
-                              <Typography>
-                                {t('searchTips.twoDigit')}
-                              </Typography>
-                            </li>
-                            <li>
-                              <Typography>
-                                {t('searchTips.fullName')}
-                              </Typography>
-                            </li>
-                            <li>
-                              <Typography>
-                                {t('searchTips.checkSpelling')}
-                              </Typography>
-                            </li>
-                          </ul>
-                        </Grid>
-                      )}
-                    {feedsData?.results !== undefined &&
-                      feedsData?.results !== null &&
-                      feedsData?.results?.length > 0 && (
-                        <TableContainer>
-                          <Grid item xs={12}>
-                            <Typography
-                              variant='subtitle2'
-                              sx={{ fontWeight: 'bold' }}
-                              gutterBottom
-                            >
-                              {getSearchResultNumbers()}
-                            </Typography>
-                          </Grid>
-                          <SearchTable feedsData={feedsData} />
-                          <Pagination
-                            sx={{
-                              mt: 2,
-                              button: {
-                                backgroundColor: 'white',
-                                color: theme.palette.primary.main,
-                              },
-                            }}
-                            color='primary'
-                            page={activePagination}
-                            shape='rounded'
-                            count={
-                              feedsData.total !== undefined
-                                ? Math.ceil(feedsData.total / searchLimit)
-                                : 1
+              ></NestedCheckboxList>
+              {config.enableFeatureFilterSearch && (
+                <>
+                  <SearchHeader variant='h6'>Features</SearchHeader>
+                  <NestedCheckboxList
+                    checkboxData={featureCheckboxData}
+                    onExpandGroupChange={(checkboxData) => {
+                      const newExpandGroup: Record<string, boolean> = {};
+                      checkboxData.forEach((cd) => {
+                        if (cd.seeChildren !== undefined) {
+                          newExpandGroup[cd.title] = cd.seeChildren;
+                        }
+                      });
+                      setExpandedElements({
+                        ...expandedElements,
+                        ...newExpandGroup,
+                      });
+                    }}
+                    onCheckboxChange={(checkboxData) => {
+                      const selelectedFeatures: string[] = [];
+                      checkboxData.forEach((checkbox) => {
+                        if (checkbox.children !== undefined) {
+                          checkbox.children.forEach((child) => {
+                            if (child.checked) {
+                              selelectedFeatures.push(child.title);
                             }
-                            onChange={(event, value) => {
-                              event.preventDefault();
-                              setActivePagination(value);
-                            }}
-                          />
-                        </TableContainer>
-                      )}
-                  </>
-                )}
-              </Grid>
+                          });
+                        }
+                      });
+                      setActivePagination(1);
+                      setSelectedFeatures([...selelectedFeatures]);
+                    }}
+                  />
+                </>
+              )}
             </Grid>
-          </Box>
-        </Box>
+
+            <Grid item xs={12} md={10}>
+              <Box sx={chipHolderStyles}>
+                {selectedFeedTypes.gtfs && (
+                  <Chip
+                    color='secondary'
+                    size='small'
+                    label={t('common:gtfsSchedule')}
+                    onDelete={() => {
+                      setActivePagination(1);
+                      setSelectedFeedTypes({
+                        ...selectedFeedTypes,
+                        gtfs: false,
+                      });
+                    }}
+                  />
+                )}
+                {selectedFeedTypes.gtfs_rt && (
+                  <Chip
+                    color='secondary'
+                    size='small'
+                    label={t('common:gtfsRealtime')}
+                    onDelete={() => {
+                      setActivePagination(1);
+                      setSelectedFeedTypes({
+                        ...selectedFeedTypes,
+                        gtfs_rt: false,
+                      });
+                    }}
+                  />
+                )}
+                {selectedFeatures.map((feature) => (
+                  <Chip
+                    color='secondary'
+                    size='small'
+                    label={feature}
+                    key={feature}
+                    onDelete={() => {
+                      setSelectedFeatures([
+                        ...selectedFeatures.filter((sf) => sf !== feature),
+                      ]);
+                    }}
+                  />
+                ))}
+                {(selectedFeatures.length > 0 ||
+                  selectedFeedTypes.gtfs_rt ||
+                  selectedFeedTypes.gtfs) && (
+                  <Button
+                    variant={'text'}
+                    onClick={clearAllFilters}
+                    size={'small'}
+                    color={'secondary'}
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </Box>
+              {feedStatus === 'loading' && (
+                <Grid item xs={12}>
+                  <Skeleton
+                    animation='wave'
+                    variant='text'
+                    sx={{ fontSize: '1rem', width: '200px' }}
+                  />
+                  <Skeleton
+                    animation='wave'
+                    variant='text'
+                    sx={{ fontSize: '2rem', width: '100%' }}
+                  />
+                  <Skeleton
+                    animation='wave'
+                    variant='rectangular'
+                    width={'100%'}
+                    height={'1118px'}
+                  />
+                  <Skeleton
+                    animation='wave'
+                    variant='text'
+                    sx={{ fontSize: '2rem', width: '320px' }}
+                  />
+                </Grid>
+              )}
+
+              {feedStatus === 'error' && (
+                <Grid item xs={12}>
+                  <h3>{t('common:errors.generic')}</h3>
+                  <Typography>
+                    <Trans i18nKey='errorAndContact'>
+                      Please check your internet connection and try again. If
+                      the problem persists{' '}
+                      <a href='mailto:api@mobilitydata.org'>contact us</a> for
+                      for further assistance.
+                    </Trans>
+                  </Typography>
+                </Grid>
+              )}
+
+              {feedsData !== undefined && feedStatus === 'loaded' && (
+                <>
+                  {feedsData?.results?.length === 0 &&
+                    activeSearch.trim().length > 0 && (
+                      <Grid item xs={12}>
+                        <h3>{t('noResults', { activeSearch })}</h3>
+                        <Typography>{t('searchSuggestions')}</Typography>
+                        <ul>
+                          <li>
+                            <Typography>{t('searchTips.twoDigit')}</Typography>
+                          </li>
+                          <li>
+                            <Typography>{t('searchTips.fullName')}</Typography>
+                          </li>
+                          <li>
+                            <Typography>
+                              {t('searchTips.checkSpelling')}
+                            </Typography>
+                          </li>
+                        </ul>
+                      </Grid>
+                    )}
+                  {feedsData?.results !== undefined &&
+                    feedsData?.results !== null &&
+                    feedsData?.results?.length > 0 && (
+                      <TableContainer>
+                        <Grid item xs={12}>
+                          <Typography
+                            variant='subtitle2'
+                            sx={{ fontWeight: 'bold' }}
+                            gutterBottom
+                          >
+                            {getSearchResultNumbers()}
+                          </Typography>
+                        </Grid>
+                        <SearchTable feedsData={feedsData} />
+                        <Pagination
+                          sx={{
+                            mt: 2,
+                            button: {
+                              backgroundColor: 'white',
+                              color: theme.palette.primary.main,
+                            },
+                          }}
+                          color='primary'
+                          page={activePagination}
+                          shape='rounded'
+                          count={
+                            feedsData.total !== undefined
+                              ? Math.ceil(feedsData.total / searchLimit)
+                              : 1
+                          }
+                          onChange={(event, value) => {
+                            event.preventDefault();
+                            setActivePagination(value);
+                          }}
+                        />
+                      </TableContainer>
+                    )}
+                </>
+              )}
+            </Grid>
+          </Grid>
+        </ColoredContainer>
       </Box>
     </Container>
   );
