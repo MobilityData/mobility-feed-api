@@ -28,7 +28,7 @@ from database_gen.sqlacodegen_models import Feed
 from helpers.database import start_db_session, configure_polymorphic_mappers
 from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 from helpers.logger import Logger
-from .feed_processor_utils import check_url_status, create_new_feed
+from feed_processor_utils import check_url_status, create_new_feed
 
 # Environment variables
 PROJECT_ID = os.getenv("PROJECT_ID")

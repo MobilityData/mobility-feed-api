@@ -13,7 +13,7 @@ from feeds_operations_gen.models.external_id import ExternalId
 from feeds_operations_gen.models.feed_status import FeedStatus
 from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
-from operations_api.tests.conftest import feed_mdb_40
+from conftest import feed_mdb_40
 from test_utils.database_utils import get_testing_session, default_db_url
 
 

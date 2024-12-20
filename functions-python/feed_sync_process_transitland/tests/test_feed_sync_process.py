@@ -326,7 +326,7 @@ class TestFeedProcessor:
         # Verify error handling
         mock_logging.error.assert_called()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_process_new_feed_or_skip(
         self, create_new_feed_mock, processor, feed_payload, mock_logging
     ):
@@ -337,7 +337,7 @@ class TestFeedProcessor:
         processor._process_new_feed_or_skip(feed_payload)
         create_new_feed_mock.assert_called_once()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_process_new_feed_skip(
         self, create_new_feed_mock, processor, feed_payload, mock_logging
     ):
@@ -348,7 +348,7 @@ class TestFeedProcessor:
         processor._process_new_feed_or_skip(feed_payload)
         create_new_feed_mock.assert_not_called()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_process_existing_feed_refs(
         self, create_new_feed_mock, processor, feed_payload, mock_logging
     ):
@@ -399,7 +399,7 @@ class TestFeedProcessor:
         _ = processor._process_existing_feed_refs(feed_payload, matching_feeds)
         create_new_feed_mock.assert_called_once()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_update_feed(self, create_new_feed_mock, processor, feed_payload):
         """Test updating an existing feed."""
         # No matching feed

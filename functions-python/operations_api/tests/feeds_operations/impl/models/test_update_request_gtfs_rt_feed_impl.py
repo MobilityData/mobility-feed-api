@@ -16,8 +16,8 @@ from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from operations_api.src.feeds_operations.impl.models.redirect_impl import RedirectImpl
-from operations_api.src.feeds_operations.impl.models.external_id_impl import (
+from feeds_operations.impl.models.redirect_impl import RedirectImpl
+from feeds_operations.impl.models.external_id_impl import (
     ExternalIdImpl,
 )
 

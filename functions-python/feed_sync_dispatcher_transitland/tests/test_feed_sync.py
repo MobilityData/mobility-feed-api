@@ -60,18 +60,16 @@ def test_get_data_rate_limit(mock_get, processor):
 
 
 def test_extract_feeds_data(processor):
-    feeds_data = {
-        "feeds": [
-            {
-                "id": "feed1",
-                "urls": {"static_current": "http://example.com/feed1"},
-                "spec": "gtfs",
-                "onestop_id": "onestop1",
-                "authorization": {},
-            }
-        ]
-    }
-    result = processor.extract_feeds_data(feeds_data)
+    feeds_data = [
+        {
+            "id": "feed1",
+            "urls": {"static_current": "http://example.com"},
+            "spec": "gtfs",
+            "onestop_id": "onestop1",
+            "authorization": {},
+        }
+    ]
+    result = processor.extract_feeds_data(feeds_data, [])
     assert len(result) == 1
     assert result[0]["feed_id"] == "feed1"
 

@@ -14,7 +14,7 @@ from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from operations_api.tests.conftest import feed_mdb_41
+from conftest import feed_mdb_41
 from test_utils.database_utils import get_testing_session, default_db_url
 
 

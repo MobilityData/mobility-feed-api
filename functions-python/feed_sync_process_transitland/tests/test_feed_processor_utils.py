@@ -3,7 +3,7 @@ from unittest.mock import patch
 import requests
 
 from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
-from feed_sync_process_transitland.src.feed_processor_utils import (
+from feed_processor_utils import (
     check_url_status,
     get_feed_model,
     get_tlnd_authentication_type,
