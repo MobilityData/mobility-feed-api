@@ -314,9 +314,7 @@ export default function Feed(): React.ReactElement {
             container
             spacing={1}
             sx={{
-              color: 'black',
               fontSize: '18px',
-              fontWeight: 700,
               mt: 0,
               flexWrap: { xs: 'wrap', md: 'nowrap' },
             }}
