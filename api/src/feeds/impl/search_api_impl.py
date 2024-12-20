@@ -1,9 +1,9 @@
 from typing import List
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Query
+from sqlalchemy.orm import Query, Session
 
-from database.database import Database
+from database.database import Database, with_db_session
 from database.sql_functions.unaccent import unaccent
 from database_gen.sqlacodegen_models import t_feedsearch
 from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
@@ -93,6 +93,7 @@ class SearchApiImpl(BaseSearchApi):
         query = SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status, is_official)
         return query.order_by(rank_expression.desc())
 
+    @with_db_session
     def search_feeds(
         self,
         limit: int,
@@ -102,15 +103,18 @@ class SearchApiImpl(BaseSearchApi):
         data_type: str,
         is_official: bool,
         search_query: str,
+        db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
         query = self.create_search_query(status, feed_id, data_type, is_official, search_query)
         feed_rows = Database().select(
+            session=db_session,
             query=query,
             limit=limit,
             offset=offset,
         )
         feed_total_count = Database().select(
+            session=db_session,
             query=self.create_count_search_query(status, feed_id, data_type, is_official, search_query),
         )
         if feed_rows is None or feed_total_count is None:

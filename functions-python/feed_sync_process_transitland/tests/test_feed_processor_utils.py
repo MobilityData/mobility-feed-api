@@ -9,9 +9,9 @@ from feed_sync_process_transitland.src.feed_processor_utils import (
     get_tlnd_authentication_type,
     create_new_feed,
 )
-from helpers.database import start_db_session, configure_polymorphic_mappers
+from helpers.database import configure_polymorphic_mappers
 from helpers.feed_sync.models import TransitFeedSyncPayload
-from test_utils.database_utils import default_db_url
+from test_utils.database_utils import default_db_url, get_testing_session
 
 
 @patch("requests.head")
@@ -68,7 +68,7 @@ def test_create_new_feed_gtfs_rt():
     }
     feed_payload = TransitFeedSyncPayload(**payload)
     configure_polymorphic_mappers()
-    session = start_db_session(default_db_url, echo=False)
+    session = get_testing_session()
     new_feed = create_new_feed(session, "tld-102_tu", feed_payload)
     session.delete(new_feed)
     assert new_feed.stable_id == "tld-102_tu"

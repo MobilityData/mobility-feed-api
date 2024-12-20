@@ -148,10 +148,12 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    feed_mdb_10 = Database().get_query_model(Gtfsfeed).filter(Gtfsfeed.stable_id == "mdb-10").first()
-    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_gtfs_feed = response.json()[0]
-    assert_gtfs(feed_mdb_10, response_gtfs_feed)
+    db = Database()
+    with db.start_db_session() as session:
+        feed_mdb_10 = db.get_query_model(session, Gtfsfeed).filter(Gtfsfeed.stable_id == "mdb-10").first()
+        assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+        response_gtfs_feed = response.json()[0]
+        assert_gtfs(feed_mdb_10, response_gtfs_feed)
 
 
 def test_gtfs_feeds_get_no_bounding_box(client: TestClient, mocker):
@@ -196,10 +198,14 @@ def test_gtfs_feed_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    gtfs_feed = Database().get_query_model(Gtfsfeed).filter(Gtfsfeed.stable_id == TEST_GTFS_FEED_STABLE_IDS[0]).first()
-    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_gtfs_feed = response.json()
-    assert_gtfs(gtfs_feed, response_gtfs_feed)
+    db = Database()
+    with db.start_db_session() as session:
+        gtfs_feed = (
+            db.get_query_model(session, Gtfsfeed).filter(Gtfsfeed.stable_id == TEST_GTFS_FEED_STABLE_IDS[0]).first()
+        )
+        assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+        response_gtfs_feed = response.json()
+        assert_gtfs(gtfs_feed, response_gtfs_feed)
 
 
 def test_gtfs_rt_feeds_get(client: TestClient, mocker):
@@ -212,16 +218,17 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    gtfs_rt_feed = (
-        Database()
-        .get_query_model(Gtfsrealtimefeed)
-        .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
-        .first()
-    )
+    db = Database()
+    with db.start_db_session() as session:
+        gtfs_rt_feed = (
+            db.get_query_model(session, Gtfsrealtimefeed)
+            .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
+            .first()
+        )
 
-    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_gtfs_rt_feed = response.json()[0]
-    assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
+        assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+        response_gtfs_rt_feed = response.json()[0]
+        assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
 
 
 def test_gtfs_rt_feed_get(client: TestClient, mocker):
@@ -236,13 +243,14 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
 
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     response_gtfs_rt_feed = response.json()
-    gtfs_rt_feed = (
-        Database()
-        .get_query_model(Gtfsrealtimefeed)
-        .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
-        .first()
-    )
-    assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
+    db = Database()
+    with db.start_db_session() as session:
+        gtfs_rt_feed = (
+            db.get_query_model(session, Gtfsrealtimefeed)
+            .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
+            .first()
+        )
+        assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
 
 
 def assert_gtfs(gtfs_feed, response_gtfs_feed):

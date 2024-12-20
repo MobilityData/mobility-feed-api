@@ -1,4 +1,5 @@
 import os
+from typing import TYPE_CHECKING
 from datetime import datetime
 
 import pycountry
@@ -18,6 +19,9 @@ from scripts.populate_db import DatabasePopulateHelper, set_up_configs
 from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
     """
@@ -30,12 +34,14 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         Can also be a single string with a file name.
         """
         super().__init__(filepaths)
-        self.added_gtfs_feeds = []  # Keep track of the feeds that have been added to the database
+        # Keep track of the feeds that have been added to the database
+        self.added_gtfs_feeds = []
 
     def filter_data(self):
         self.df = self.df[(self.df.data_type == "gtfs") | (self.df.data_type == "gtfs-rt")]
         self.df = set_up_defaults(self.df)
-        self.added_gtfs_feeds = []  # Keep track of the feeds that have been added to the database
+        # Keep track of the feeds that have been added to the database
+        self.added_gtfs_feeds = []
 
     def get_data_type(self, row):
         """
@@ -58,7 +64,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             return pycountry.countries.get(alpha_2=country_code).name
         return None
 
-    def populate_location(self, feed, row, stable_id):
+    def populate_location(self, session, feed, row, stable_id):
         """
         Populate the location for the feed
         """
@@ -75,7 +81,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             self.logger.warning(f"Location ID is empty for feed {stable_id}")
             feed.locations.clear()
         else:
-            location = self.db.session.get(Location, location_id)
+            location = session.get(Location, location_id)
             location = (
                 location
                 if location
@@ -89,24 +95,25 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             )
             feed.locations = [location]
 
-    def process_entity_types(self, feed: Gtfsrealtimefeed, row, stable_id):
+    def process_entity_types(self, session: "Session", feed: Gtfsrealtimefeed, row, stable_id):
         """
         Process the entity types for the feed
         """
         entity_types = self.get_safe_value(row, "entity_type", "").replace("|", "-").split("-")
         if len(entity_types) > 0:
             for entity_type_name in entity_types:
-                entity_type = self.db.session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
+                entity_type = session.query(Entitytype).filter(Entitytype.name == entity_type_name).first()
+
                 if not entity_type:
                     entity_type = Entitytype(name=entity_type_name)
                 if all(entity_type.name != entity.name for entity in feed.entitytypes):
                     feed.entitytypes.append(entity_type)
-                    self.db.session.flush()
+                    session.flush()
         else:
             self.logger.warning(f"Entity types array is empty for feed {stable_id}")
             feed.entitytypes.clear()
 
-    def process_feed_references(self):
+    def process_feed_references(self, session: "Session"):
         """
         Process the feed references
         """
@@ -116,18 +123,18 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             data_type = self.get_data_type(row)
             if data_type != "gtfs_rt":
                 continue
-            gtfs_rt_feed = self.query_feed_by_stable_id(stable_id, "gtfs_rt")
+            gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
             static_reference = self.get_safe_value(row, "static_reference", "")
             if static_reference:
                 gtfs_stable_id = f"mdb-{int(float(static_reference))}"
-                gtfs_feed = self.query_feed_by_stable_id(gtfs_stable_id, "gtfs")
+                gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
                 already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
                 if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
                     gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
                     # Flush to avoid FK violation
-                    self.db.session.flush()
+                    session.flush()
 
-    def process_redirects(self):
+    def process_redirects(self, session: "Session"):
         """
         Process the redirects
         """
@@ -138,7 +145,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             redirects_ids = str(raw_redirects).split("|") if raw_redirects is not None else []
             if len(redirects_ids) == 0:
                 continue
-            feed = self.query_feed_by_stable_id(stable_id, None)
+            feed = self.query_feed_by_stable_id(session, stable_id, None)
             raw_comments = row.get("redirect.comment", None)
             comments = raw_comments.split("|") if raw_comments is not None else []
             if len(redirects_ids) != len(comments) and len(comments) > 0:
@@ -154,7 +161,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     comment = ""
 
                 target_stable_id = f"mdb-{int(float(mdb_source_id.strip()))}"
-                target_feed = self.query_feed_by_stable_id(target_stable_id, None)
+                target_feed = self.query_feed_by_stable_id(session, target_stable_id, None)
                 if not target_feed:
                     self.logger.warning(f"Could not find redirect target feed {target_stable_id} for feed {stable_id}")
                     continue
@@ -167,9 +174,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                             Redirectingid(source_id=feed.id, target_id=target_feed.id, redirect_comment=comment)
                         )
                         # Flush to avoid FK violation
-                        self.db.session.flush()
+                        session.flush()
 
-    def populate_db(self):
+    def populate_db(self, session: "Session"):
         """
         Populate the database with the sources.csv data
         """
@@ -179,7 +186,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             # Create or update the GTFS feed
             data_type = self.get_data_type(row)
             stable_id = self.get_stable_id(row)
-            feed = self.query_feed_by_stable_id(stable_id, data_type)
+            feed = self.query_feed_by_stable_id(session, stable_id, data_type)
             if feed:
                 self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
             else:
@@ -187,10 +194,11 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     id=generate_unique_id(),
                     data_type=data_type,
                     stable_id=stable_id,
-                    created_at=datetime.now(pytz.utc),  # Current timestamp with UTC timezone
+                    # Current timestamp with UTC timezone
+                    created_at=datetime.now(pytz.utc),
                 )
                 self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
-                self.db.session.add(feed)
+                session.add(feed)
                 if data_type == "gtfs":
                     self.added_gtfs_feeds.append(feed)
                 feed.externalids = [
@@ -212,16 +220,16 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.feed_contact_email = self.get_safe_value(row, "feed_contact_email", "")
             feed.provider = self.get_safe_value(row, "provider", "")
 
-            self.populate_location(feed, row, stable_id)
+            self.populate_location(session, feed, row, stable_id)
             if data_type == "gtfs_rt":
-                self.process_entity_types(feed, row, stable_id)
+                self.process_entity_types(session, feed, row, stable_id)
 
-            self.db.session.add(feed)
-            self.db.session.flush()
+            session.add(feed)
+            session.flush()
         # This need to be done after all feeds are added to the session to avoid FK violation
-        self.process_feed_references()
-        self.process_redirects()
-        self.post_process_locations()
+        self.process_feed_references(session)
+        self.process_redirects(session)
+        self.post_process_locations(session)
 
     def trigger_downstream_tasks(self):
         """
@@ -236,13 +244,14 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         env = os.getenv("ENV")
         self.logger.info(f"ENV = {env}")
         if os.getenv("ENV", "local") != "local":
-            publish_all(self.added_gtfs_feeds)  # Publishes the new feeds to the Pub/Sub topic to download the datasets
+            # Publishes the new feeds to the Pub/Sub topic to download the datasets
+            publish_all(self.added_gtfs_feeds)
 
-    def post_process_locations(self):
+    def post_process_locations(self, session: "Session"):
         """
         Set the country for any location entry that does not have one.
         """
-        query = self.db.session.query(Location).filter(Location.country.is_(None))
+        query = session.query(Location).filter(Location.country.is_(None))
         result = query.all()
         set_country_count = 0
         for location in result:
@@ -250,26 +259,26 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             if country:
                 location.country = country  # Set the country field to the desired value
                 set_country_count += 1
-        self.db.session.commit()
+        session.commit()
         self.logger.info(f"Had to set the country for {set_country_count} locations")
 
     # Extracted the following code from main, so it can be executed as a library function
     def initialize(self, trigger_downstream_tasks: bool = True):
         try:
             configure_polymorphic_mappers()
-            self.populate_db()
-            self.db.session.commit()
+            with self.db.start_db_session() as session:
+                self.populate_db(session)
+                session.commit()
 
-            self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-            self.db.session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
-            self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
-            self.db.session.commit()
-            self.logger.info("\n----- Database populated with sources.csv data. -----")
-            if trigger_downstream_tasks:
-                self.trigger_downstream_tasks()
+                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
+                session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
+                session.commit()
+                self.logger.info("\n----- Database populated with sources.csv data. -----")
+                if trigger_downstream_tasks:
+                    self.trigger_downstream_tasks()
         except Exception as e:
             self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
-            self.db.session.rollback()
             exit(1)
 
 
