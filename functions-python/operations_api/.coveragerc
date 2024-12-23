@@ -1,0 +1,11 @@
+[run]
+omit =
+    */test*/*
+    */helpers/*
+    */database_gen/*
+    */dataset_service/*
+    */feeds_operations_gen/*
+
+[report]
+exclude_lines =
+    if __name__ == .__main__.:

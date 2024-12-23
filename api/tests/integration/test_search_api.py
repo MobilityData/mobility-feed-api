@@ -388,3 +388,26 @@ def test_search_feeds_filter_accents(client: TestClient, values: dict):
     assert len(response_body.results) == len(values["expected_ids"])
     assert response_body.total == len(values["expected_ids"])
     assert all(result.id in values["expected_ids"] for result in response_body.results)
+
+
+def test_search_filter_by_official_status(client: TestClient):
+    """
+    Retrieve feeds with the official status.
+    """
+    params = [
+        ("limit", 100),
+        ("offset", 0),
+        ("is_official", "true"),
+    ]
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    assert response_body.total == 2, "There should be 2 official feeds in extra_test_data.json"

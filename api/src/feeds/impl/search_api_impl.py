@@ -1,9 +1,9 @@
 from typing import List
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Query
+from sqlalchemy.orm import Query, Session
 
-from database.database import Database
+from database.database import Database, with_db_session
 from database.sql_functions.unaccent import unaccent
 from database_gen.sqlacodegen_models import t_feedsearch
 from feeds.impl.models.search_feed_item_result_impl import SearchFeedItemResultImpl
@@ -31,7 +31,7 @@ class SearchApiImpl(BaseSearchApi):
         return func.plainto_tsquery("english", unaccent(parsed_query))
 
     @staticmethod
-    def add_search_query_filters(query, search_query, data_type, feed_id, status) -> Query:
+    def add_search_query_filters(query, search_query, data_type, feed_id, status, is_official) -> Query:
         """
         Add filters to the search query.
         Filter values are trimmed and converted to lowercase.
@@ -42,7 +42,7 @@ class SearchApiImpl(BaseSearchApi):
             or_(
                 t_feedsearch.c.operational_status == None,  # noqa: E711
                 t_feedsearch.c.operational_status != "wip",
-                is_user_email_restricted(),
+                not is_user_email_restricted(),
             )
         )
         if feed_id:
@@ -53,6 +53,8 @@ class SearchApiImpl(BaseSearchApi):
             status_list = [s.strip().lower() for s in status[0].split(",") if s]
             if status_list:
                 query = query.where(t_feedsearch.c.status.in_([s.strip().lower() for s in status_list]))
+        if is_official is not None and is_official:
+            query = query.where(t_feedsearch.c.official == is_official)
         if search_query and len(search_query.strip()) > 0:
             query = query.filter(
                 t_feedsearch.c.document.op("@@")(SearchApiImpl.get_parsed_search_tsquery(search_query))
@@ -60,15 +62,23 @@ class SearchApiImpl(BaseSearchApi):
         return query
 
     @staticmethod
-    def create_count_search_query(status: List[str], feed_id: str, data_type: str, search_query: str) -> Query:
+    def create_count_search_query(
+        status: List[str],
+        feed_id: str,
+        data_type: str,
+        is_official: bool,
+        search_query: str,
+    ) -> Query:
         """
         Create a search query for the database.
         """
         query = select(func.count(t_feedsearch.c.feed_id))
-        return SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
+        return SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status, is_official)
 
     @staticmethod
-    def create_search_query(status: List[str], feed_id: str, data_type: str, search_query: str) -> Query:
+    def create_search_query(
+        status: List[str], feed_id: str, data_type: str, is_official: bool, search_query: str
+    ) -> Query:
         """
         Create a search query for the database.
         """
@@ -80,9 +90,10 @@ class SearchApiImpl(BaseSearchApi):
             rank_expression,
             *feed_search_columns,
         )
-        query = SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status)
+        query = SearchApiImpl.add_search_query_filters(query, search_query, data_type, feed_id, status, is_official)
         return query.order_by(rank_expression.desc())
 
+    @with_db_session
     def search_feeds(
         self,
         limit: int,
@@ -90,17 +101,21 @@ class SearchApiImpl(BaseSearchApi):
         status: List[str],
         feed_id: str,
         data_type: str,
+        is_official: bool,
         search_query: str,
+        db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
-        query = self.create_search_query(status, feed_id, data_type, search_query)
+        query = self.create_search_query(status, feed_id, data_type, is_official, search_query)
         feed_rows = Database().select(
+            session=db_session,
             query=query,
             limit=limit,
             offset=offset,
         )
         feed_total_count = Database().select(
-            query=self.create_count_search_query(status, feed_id, data_type, search_query),
+            session=db_session,
+            query=self.create_count_search_query(status, feed_id, data_type, is_official, search_query),
         )
         if feed_rows is None or feed_total_count is None:
             return SearchFeeds200Response(

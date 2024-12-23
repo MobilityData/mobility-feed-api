@@ -207,6 +207,9 @@ def update_location(
         .filter(Gtfsfeed.stable_id == dataset.feed.stable_id)
         .one_or_none()
     )
+    if gtfs_feed is None:
+        logging.error(f"Feed {dataset.feed.stable_id} not found a GTFS feed.")
+        raise Exception(f"Feed {dataset.feed.stable_id} not found a GTFS feed.")
 
     for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
         logging.info(f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}")

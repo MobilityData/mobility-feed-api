@@ -13,7 +13,7 @@ from database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsdataset,
 )
-from helpers.database import start_db_session
+from helpers.database import Database
 
 
 class NoFeedDataException(Exception):
@@ -23,7 +23,7 @@ class NoFeedDataException(Exception):
 class BaseAnalyticsProcessor:
     def __init__(self, run_date):
         self.run_date = run_date
-        self.session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
+        self.session = Database().start_db_session(echo=False)
         self.processed_feeds = set()
         self.data = []
         self.feed_metrics_data = []

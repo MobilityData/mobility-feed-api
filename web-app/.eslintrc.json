@@ -28,7 +28,8 @@
       "react/react-in-jsx-scope": "off",
       "prettier/prettier": "error",
       "@typescript-eslint/ban-tslint-comment": "off",
-      "react/prop-types": "off"
+      "react/prop-types": "off",
+      "eqeqeq": "off"
     }
   }
   

@@ -18,6 +18,7 @@ import os
 import logging
 from datetime import datetime
 import requests
+from helpers.database import Database
 import functions_framework
 from database_gen.sqlacodegen_models import (
     Validationreport,
@@ -25,7 +26,6 @@ from database_gen.sqlacodegen_models import (
     Notice,
     Gtfsdataset,
 )
-from helpers.database import start_db_session, close_db_session
 from helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
@@ -189,40 +189,37 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id, version
     except Exception as error:
         return str(error), 500
 
-    session = None
+    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        logging.info("Database session started.")
+        with db.start_db_session() as session:
+            logging.info("Database session started.")
 
-        # Generate the database entities required for the report
-        try:
-            entities = generate_report_entities(
-                version,
-                validated_at,
-                json_report,
-                dataset_stable_id,
-                session,
-                feed_stable_id,
-            )
-        except Exception as error:
-            return str(error), 200  # Report already exists
+            # Generate the database entities required for the report
+            try:
+                entities = generate_report_entities(
+                    version,
+                    validated_at,
+                    json_report,
+                    dataset_stable_id,
+                    session,
+                    feed_stable_id,
+                )
+            except Exception as error:
+                return str(error), 200  # Report already exists
 
-        # Commit the entities to the database
-        for entity in entities:
-            session.add(entity)
-        logging.info(f"Committing {len(entities)} entities to the database.")
-        session.commit()
+            # Commit the entities to the database
+            for entity in entities:
+                session.add(entity)
+            logging.info(f"Committing {len(entities)} entities to the database.")
+            session.commit()
 
-        logging.info("Entities committed successfully.")
-        return f"Created {len(entities)} entities.", 200
+            logging.info("Entities committed successfully.")
+            return f"Created {len(entities)} entities.", 200
     except Exception as error:
         logging.error(f"Error creating validation report entities: {error}")
-        if session:
-            session.rollback()
         return f"Error creating validation report entities: {error}", 500
     finally:
-        close_db_session(session)
-        logging.info("Database session closed.")
+        pass
 
 
 def get_validation_report(report_id, session):

@@ -95,7 +95,7 @@ resource "google_eventarc_trigger" "gtfs_validator_trigger" {
   }
   matching_criteria {
     attribute = "resourceName"
-    value     = "projects/_/buckets/${var.datasets_bucket_name}-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
+    value     = "projects/_/buckets/${var.datasets_bucket_name}-${var.environment}/objects/*/*/*.zip"
     operator = "match-path-pattern"
   }
 
