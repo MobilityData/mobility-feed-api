@@ -266,12 +266,12 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("main.start_db_session")
+    @patch("main.Database")
     @patch("main.pubsub_v1.PublisherClient")
     @patch("main.Logger")
     @patch("uuid.uuid4")
     def test_extract_location_batch(
-        self, uuid_mock, logger_mock, publisher_client_mock, start_db_session_mock
+        self, uuid_mock, logger_mock, publisher_client_mock, database_mock
     ):
         mock_session = MagicMock()
         mock_dataset1 = Gtfsdataset(
@@ -298,7 +298,9 @@ class TestMainFunctions(unittest.TestCase):
             mock_dataset2,
         ]
         uuid_mock.return_value = "batch-uuid"
-        start_db_session_mock.return_value = mock_session
+        database_mock.return_value.start_db_session.return_value.__enter__.return_value = (
+            mock_session
+        )
 
         mock_publisher = MagicMock()
         publisher_client_mock.return_value = mock_publisher
@@ -356,10 +358,12 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("main.start_db_session")
+    @patch("main.Database")
     @patch("main.Logger")
-    def test_extract_location_batch_exception(self, logger_mock, start_db_session_mock):
-        start_db_session_mock.side_effect = Exception("Database error")
+    def test_extract_location_batch_exception(self, logger_mock, database_mock):
+        database_mock.return_value.start_db_session.side_effect = Exception(
+            "Database error"
+        )
 
         response = extract_location_batch(None)
         self.assertEqual(response, ("Error while fetching datasets.", 500))

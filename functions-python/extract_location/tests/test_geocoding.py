@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
+import pytest
 from sqlalchemy.orm import Session
 
 from reverse_geolocation.geocoded_location import GeocodedLocation
@@ -10,17 +11,11 @@ from reverse_geolocation.location_extractor import (
 
 
 class TestGeocoding(unittest.TestCase):
-    def myAssertEquals(self, actual, expected):
-        if actual != expected:
-            print(f"Assertion failed: {actual} != {expected}")
-
+    @pytest.mark.skip(reason="no way of currently testing this")
     def test_reverse_coord(self):
         lat, lon = 34.0522, -118.2437  # Coordinates for Los Angeles, California, USA
         result = GeocodedLocation.reverse_coord(lat, lon)
-        self.myAssertEquals(
-            result, ("US", "United States", "California", "Los Angeles")
-        )
-        # self.assertEqual(result, ("US", "United States", "California", "Los Angeles"))
+        self.assertEqual(result, ("US", "United States", "California", "Los Angeles"))
 
     @patch("requests.get")
     def test_reverse_coords(self, mock_get):

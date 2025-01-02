@@ -64,10 +64,14 @@ def test_batch_datasets(mock_client, mock_publish):
                     ]
 
 
-@patch("main.start_db_session")
-def test_batch_datasets_exception(start_db_session_mock):
+@patch("main.Database")
+def test_batch_datasets_exception(database_mock):
     exception_message = "Failure occurred"
-    start_db_session_mock.side_effect = Exception(exception_message)
+    mock_session = MagicMock()
+    mock_session.side_effect = Exception(exception_message)
+
+    database_mock.return_value.start_db_session.return_value = mock_session
+
     with pytest.raises(Exception) as exec_info:
         batch_datasets(Mock())
 

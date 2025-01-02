@@ -5,7 +5,7 @@ from geoalchemy2 import WKTElement
 from google.cloud.sql.connector.instance import logger
 from sqlalchemy import text
 
-from database.database import Database
+from database.database import with_db_session
 from database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Validationreport,
@@ -18,6 +18,10 @@ from database_gen.sqlacodegen_models import (
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
 from utils.logger import Logger
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 class DatabasePopulateTestDataHelper:
@@ -32,14 +36,14 @@ class DatabasePopulateTestDataHelper:
         Can also be a single string with a file name.
         """
         self.logger = Logger(self.__class__.__module__).get_logger()
-        self.db = Database()
 
         if not isinstance(filepaths, list):
             self.filepaths = [filepaths]
         else:
             self.filepaths = filepaths
 
-    def populate_test_datasets(self, filepath):
+    @with_db_session
+    def populate_test_datasets(self, filepath, db_session: "Session"):
         """
         Populate the database with the test datasets
         """
@@ -49,14 +53,14 @@ class DatabasePopulateTestDataHelper:
 
         # GTFS Feeds
         if "feeds" in data:
-            self.populate_test_feeds(data["feeds"])
+            self.populate_test_feeds(data["feeds"], db_session)
 
         # GTFS Datasets
         dataset_dict = {}
         if "datasets" in data:
             for dataset in data["datasets"]:
                 # query the db using feed_id to get the feed object
-                gtfsfeed = self.db.session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == dataset["feed_stable_id"]).all()
+                gtfsfeed = db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == dataset["feed_stable_id"]).all()
                 if not gtfsfeed:
                     self.logger.error(f"No feed found with stable_id: {dataset['feed_stable_id']}")
                     continue
@@ -69,13 +73,14 @@ class DatabasePopulateTestDataHelper:
                     hosted_url=dataset["hosted_url"],
                     hash=dataset["hash"],
                     downloaded_at=dataset["downloaded_at"],
-                    bounding_box=None
-                    if dataset.get("bounding_box") is None
-                    else WKTElement(dataset["bounding_box"], srid=4326),
+                    bounding_box=(
+                        None if dataset.get("bounding_box") is None else WKTElement(dataset["bounding_box"], srid=4326)
+                    ),
                     validation_reports=[],
                 )
                 dataset_dict[dataset["id"]] = gtfs_dataset
-                self.db.session.add(gtfs_dataset)
+                db_session.add(gtfs_dataset)
+        db_session.commit()
 
         # Validation reports
         if "validation_reports" in data:
@@ -91,7 +96,7 @@ class DatabasePopulateTestDataHelper:
                 )
                 dataset_dict[report["dataset_id"]].validation_reports.append(validation_report)
                 validation_report_dict[report["id"]] = validation_report
-                self.db.session.add(validation_report)
+                db_session.add(validation_report)
 
         # Notices
         if "notices" in data:
@@ -103,22 +108,24 @@ class DatabasePopulateTestDataHelper:
                     notice_code=report_notice["notice_code"],
                     total_notices=report_notice["total_notices"],
                 )
-                self.db.session.add(notice)
+                db_session.add(notice)
         # Features
         if "features" in data:
             for featureName in data["features"]:
                 feature = Feature(name=featureName)
-                self.db.session.add(feature)
+                db_session.add(feature)
+
+        db_session.commit()
 
         # Features in Validation Reports
         if "validation_report_features" in data:
             for report_features in data["validation_report_features"]:
                 validation_report_dict[report_features["validation_report_id"]].features.append(
-                    self.db.session.query(Feature).filter(Feature.name == report_features["feature_name"]).first()
+                    db_session.query(Feature).filter(Feature.name == report_features["feature_name"]).first()
                 )
 
-        self.db.session.commit()
-        self.db.session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+        db_session.commit()
+        db_session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
 
     def populate(self):
         """
@@ -135,7 +142,7 @@ class DatabasePopulateTestDataHelper:
 
         self.logger.info("Database populated with test data")
 
-    def populate_test_feeds(self, feeds_data):
+    def populate_test_feeds(self, feeds_data, db_session: "Session"):
         for feed_data in feeds_data:
             feed = Gtfsfeed(
                 id=str(uuid4()),
@@ -159,7 +166,7 @@ class DatabasePopulateTestDataHelper:
                     location_data["subdivision_name"],
                     location_data["municipality"],
                 )
-                location = self.db.session.get(Location, location_id)
+                location = db_session.get(Location, location_id)
                 location = (
                     location
                     if location
@@ -181,7 +188,8 @@ class DatabasePopulateTestDataHelper:
                     timestamp=feed_data["created_at"],
                 )
                 feed.officialstatushistories.append(official_status_history)
-            self.db.session.add(feed)
+            db_session.add(feed)
+            db_session.commit()
             logger.info(f"Added feed {feed.stable_id}")
 
 

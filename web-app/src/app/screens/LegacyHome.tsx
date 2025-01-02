@@ -3,7 +3,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import '../styles/SignUp.css';
 import { Button, Grid } from '@mui/material';
 import { Download, Login } from '@mui/icons-material';
 import { theme } from '../Theme';

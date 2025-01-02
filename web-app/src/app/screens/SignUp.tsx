@@ -36,7 +36,6 @@ import {
   POST_REGISTRATION_TARGET,
   SIGN_IN_TARGET,
 } from '../constants/Navigation';
-import '../styles/SignUp.css';
 import { selectSignUpError, selectUserProfileStatus } from '../store/selectors';
 import { ProfileErrorSource, OauthProvider, oathProviders } from '../types';
 import {
@@ -394,7 +393,6 @@ export default function SignUp(): React.ReactElement {
           color='primary'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
-          className='sso-button'
           onClick={() => {
             signInWithProvider(OauthProvider.Google);
           }}
@@ -406,7 +404,6 @@ export default function SignUp(): React.ReactElement {
           color='primary'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
-          className='sso-button'
           onClick={() => {
             signInWithProvider(OauthProvider.Github);
           }}
@@ -419,7 +416,6 @@ export default function SignUp(): React.ReactElement {
             color='primary'
             sx={{ mb: 2 }}
             startIcon={<AppleIcon />}
-            className='sso-button'
             onClick={() => {
               signInWithProvider(OauthProvider.Apple);
             }}

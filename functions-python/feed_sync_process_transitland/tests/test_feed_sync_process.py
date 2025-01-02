@@ -39,6 +39,12 @@ def mock_location():
     return Mock()
 
 
+@pytest.fixture
+def mock_db():
+    with patch("main.Database") as mock_db:
+        yield mock_db
+
+
 class MockLogger:
     """Mock logger for testing"""
 
@@ -245,7 +251,6 @@ class TestFeedProcessor:
         process_feed_event(cloud_event)
 
         # Test case 3: Type error
-        mock_logging.error.reset_mock()
         type_error_payload = {"external_id": 12345, "feed_url": True, "feed_id": None}
         payload_data = base64.b64encode(
             json.dumps(type_error_payload).encode("utf-8")
@@ -255,7 +260,7 @@ class TestFeedProcessor:
         process_feed_event(cloud_event)
 
     def test_process_feed_event_database_connection_error(
-        self, processor, feed_payload, mock_logging
+        self, processor, feed_payload, mock_logging, mock_db
     ):
         """Test feed event processing with database connection error."""
         # Create cloud event with valid payload
@@ -267,15 +272,13 @@ class TestFeedProcessor:
         cloud_event.data = {"message": {"data": payload_data}}
 
         # Mock database session to raise error
-        with patch("main.start_db_session") as mock_start_session:
-            mock_start_session.side_effect = SQLAlchemyError(
-                "Database connection error"
-            )
-
-            process_feed_event(cloud_event)
+        mock_db.return_value.start_db_session.side_effect = SQLAlchemyError(
+            "Database connection error"
+        )
+        process_feed_event(cloud_event)
 
     def test_process_feed_event_pubsub_error(
-        self, processor, feed_payload, mock_logging
+        self, processor, feed_payload, mock_logging, mock_db
     ):
         """Test feed event processing handles missing credentials error."""
         # Create cloud event with valid payload
@@ -289,15 +292,13 @@ class TestFeedProcessor:
         cloud_event.data = {"message": {"data": payload_data}}
 
         # Mock database session with minimal setup
-        mock_session = Mock()
+        mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.all.return_value = []
+        mock_db.return_value.start_db_session.return_value.__enter__.return_value = (
+            mock_session
+        )
 
-        # Process event and verify error handling
-        with patch(
-            "main.start_db_session",
-            return_value=mock_session,
-        ):
-            process_feed_event(cloud_event)
+        process_feed_event(cloud_event)
 
     def test_process_feed_event_malformed_cloud_event(self, mock_logging):
         """Test feed event processing with malformed cloud event."""

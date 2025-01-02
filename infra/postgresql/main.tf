@@ -106,7 +106,7 @@ resource "google_secret_manager_secret" "secret_db_url" {
 
 resource "google_secret_manager_secret_version" "secret_version" {
   secret = google_secret_manager_secret.secret_db_url.id
-  secret_data = "postgresql://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
+  secret_data = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
 }
 
 output "instance_address" {

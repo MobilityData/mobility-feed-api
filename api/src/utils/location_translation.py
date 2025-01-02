@@ -1,9 +1,12 @@
 import pycountry
+from typing import TYPE_CHECKING
 from sqlalchemy.engine.result import Row
 
-from database.database import Database
 from database_gen.sqlacodegen_models import Location as LocationOrm, t_location_with_translations_en
 from database_gen.sqlacodegen_models import Feed as FeedOrm
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 class LocationTranslation:
@@ -48,7 +51,7 @@ def get_feeds_location_ids(feeds: list[FeedOrm]) -> list[str]:
     return location_ids
 
 
-def get_feeds_location_translations(feeds: list[FeedOrm]) -> dict[str, LocationTranslation]:
+def get_feeds_location_translations(feeds: list[FeedOrm], db_session: "Session") -> dict[str, LocationTranslation]:
     """
     Get the location translations of a list of feeds.
     :param feeds: The list of feeds
@@ -56,9 +59,7 @@ def get_feeds_location_translations(feeds: list[FeedOrm]) -> dict[str, LocationT
     """
     location_ids = get_feeds_location_ids(feeds)
     location_translations = (
-        Database()
-        .get_session()
-        .query(t_location_with_translations_en)
+        db_session.query(t_location_with_translations_en)
         .filter(t_location_with_translations_en.c.location_id.in_(location_ids))
         .all()
     )

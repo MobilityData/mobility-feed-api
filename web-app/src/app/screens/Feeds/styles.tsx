@@ -1,4 +1,4 @@
-import { styled, Typography } from '@mui/material';
+import { styled, type SxProps, Typography } from '@mui/material';
 
 export const SearchHeader = styled(Typography)(({ theme }) => ({
   '&:not(:first-of-type)': {
@@ -12,3 +12,7 @@ export const SearchHeader = styled(Typography)(({ theme }) => ({
     background: theme.palette.text.primary,
   },
 }));
+
+export const stickyHeaderStyle: SxProps = {
+  boxShadow: '0 6px 22px rgba(15,39,65,.1),0 5px 20px rgba(57,89,250,.08)',
+};
