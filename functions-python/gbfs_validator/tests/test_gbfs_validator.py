@@ -194,7 +194,7 @@ class TestMainFunctions(unittest.TestCase):
         },
     )
     @patch("main.fetch_all_gbfs_feeds")
-    @patch("src.main.Logger")
+    @patch("main.Logger")
     def test_gbfs_validator_batch_fetch_exception(self, _, mock_fetch_all_gbfs_feeds):
         # Prepare mocks
         mock_fetch_all_gbfs_feeds.side_effect = Exception("Database error")
