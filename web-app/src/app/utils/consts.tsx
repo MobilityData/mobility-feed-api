@@ -32,14 +32,14 @@ export function groupFeaturesByComponent(
   features.forEach((feature) => {
     const featureData = DATASET_FEATURES[feature];
     if (featureData !== undefined) {
-      const component = featureData.component ?? 'Other';
+      const component =
+        featureData.component !== '' ? featureData.component : 'Other';
       if (groupedFeatures[component] === undefined) {
         groupedFeatures[component] = [];
       }
       groupedFeatures[component].push({ ...featureData, feature });
     }
   });
-
   return groupedFeatures;
 }
 

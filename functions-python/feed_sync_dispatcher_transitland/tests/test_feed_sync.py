@@ -4,7 +4,7 @@ from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
 
 from database_gen.sqlacodegen_models import Gtfsfeed
-from feed_sync_dispatcher_transitland.src.main import (
+from main import (
     TransitFeedSyncProcessor,
     FeedSyncPayload,
 )
@@ -17,7 +17,7 @@ def processor():
     return TransitFeedSyncProcessor()
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.requests.Session.get")
+@patch("main.requests.Session.get")
 def test_get_data(mock_get, processor):
     mock_response = Mock()
     mock_response.json.return_value = {
@@ -42,7 +42,7 @@ def test_get_data(mock_get, processor):
     assert result["feeds"][0]["id"] == "feed1"
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.requests.Session.get")
+@patch("main.requests.Session.get")
 def test_get_data_rate_limit(mock_get, processor):
     mock_response = Mock()
     mock_response.status_code = 429
@@ -194,7 +194,7 @@ def test_process_sync_updated_feed(processor):
     assert payloads[0].payload.external_id == "onestop1"
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.TransitFeedSyncProcessor.get_data")
+@patch("main.TransitFeedSyncProcessor.get_data")
 def test_process_sync_unchanged_feed(mock_get_data, processor):
     mock_db_session = Mock(spec=DBSession)
     feeds_data = {
@@ -236,7 +236,7 @@ def test_process_sync_unchanged_feed(mock_get_data, processor):
     )
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.requests.head")
+@patch("main.requests.head")
 def test_check_url_status(mock_head, processor):
     mock_head.return_value.status_code = 200
     result = processor.check_url_status("http://example.com")

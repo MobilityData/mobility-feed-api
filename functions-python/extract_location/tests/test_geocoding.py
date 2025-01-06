@@ -2,8 +2,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 
-from extract_location.src.reverse_geolocation.geocoded_location import GeocodedLocation
-from extract_location.src.reverse_geolocation.location_extractor import (
+from reverse_geolocation.geocoded_location import GeocodedLocation
+from reverse_geolocation.location_extractor import (
     reverse_coords,
     update_location,
 )
@@ -124,9 +124,7 @@ class TestGeocoding(unittest.TestCase):
         self.assertEqual(location.translations[1].municipality, "San Francisco")
         self.assertEqual(location.translations[1].subdivision_name, "Californie")
 
-    @patch(
-        "extract_location.src.reverse_geolocation.geocoded_location.GeocodedLocation.reverse_coord"
-    )
+    @patch("reverse_geolocation.geocoded_location.GeocodedLocation.reverse_coord")
     def test_reverse_coords_decision(self, mock_reverse_coord):
         mock_reverse_coord.side_effect = [
             ("US", "United States", "California", "Los Angeles"),
