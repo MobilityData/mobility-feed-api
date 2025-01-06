@@ -243,7 +243,7 @@ class FeedsApiImpl(BaseFeedsApi):
         except InternalHTTPException as e:
             # get_gtfs_feeds_query cannot throw HTTPException since it's part of fastapi and it's
             # not necessarily deployed (e.g. for python functions). Instead it throws an InternalHTTPException
-            # that needs to be converted to HTTPException before being thrown.
+            # that needs to be converted to HTTPException before being returned to the calling api.
             raise convert_exception(e)
 
         return self._get_response(feed_query, GtfsFeedImpl)
