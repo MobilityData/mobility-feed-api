@@ -50,6 +50,7 @@ display_usage() {
 
 FX_NAME_PARAM=''
 ALL='false'
+CLEAN='false'
 while [[ $# -gt 0 ]]; do
   key="$1"
 
@@ -66,6 +67,10 @@ while [[ $# -gt 0 ]]; do
     FX_NAME_PARAM="$2"
     shift # past argument
     shift # past value
+    ;;
+  --clean)
+    CLEAN="true"
+    shift
     ;;
   *)      # unknown option
     shift # past argument
@@ -138,17 +143,36 @@ create_symbolic_links() {
 
   for folder in $folders; do
     src_folder="$root_folder/$folder"
-    relative_path=$(python3 -c "import os.path; print(os.path.relpath('$src_folder', '$dst_folder'))")
-    echo "INFO: Linking $relative_path to $dst_folder"
-    (cd $dst_folder && ln -s $relative_path)
+    if [[ "$dst_folder" != "$src_folder"* ]]; then
+      relative_path=$(python3 -c "import os.path; print(os.path.relpath(\"$src_folder\", \"$dst_folder\"))")
+      echo "INFO: Linking $relative_path to $dst_folder"
+      (cd $dst_folder && ln -s $relative_path)
+    else
+      echo "INFO: $dst_folder is a descendant of $src_folder, skipping"
+    fi
   done
+}
+
+clean_shared_folders() {
+  function_name=$1
+  # Remove ending / if any
+  function_name=${function_name%/}
+  echo "INFO: Cleaning shared folders for function $function_name"
+  rm "$FUNCTIONS_PATH/$function_name/src/shared/"* > /dev/null 2>&1
+  rmdir "$FUNCTIONS_PATH/$function_name/src/shared" > /dev/null 2>&1
+  rm "$FUNCTIONS_PATH/$function_name/src/test_shared/"* > /dev/null 2>&1
+  rmdir "$FUNCTIONS_PATH/$function_name/src/test_shared" > /dev/null 2>&1
 }
 
 if [ "$ALL" = "true" ]; then
   # get all the functions in the functions-python folder that contain a function_config.json file
   for function in $(find "$FUNCTIONS_PATH" -maxdepth 2 -name "function_config.json"); do
     function_name=$(echo "$function" | rev | cut -d '/' -f 2 | rev)
-    setup_function $function_name
+    if [ "$CLEAN" = "true" ]; then
+      clean_shared_folders $function_name
+    else
+      setup_function $function_name
+    fi
   done
 else
   if [ -z "$FX_NAME_PARAM" ]; then
@@ -156,5 +180,9 @@ else
     display_usage
     exit 1
   fi
-  setup_function $FX_NAME_PARAM
+  if [ "$CLEAN" = "true" ]; then
+    clean_shared_folders $FX_NAME_PARAM
+  else
+    setup_function $FX_NAME_PARAM
+  fi
 fi
