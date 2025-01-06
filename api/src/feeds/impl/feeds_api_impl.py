@@ -4,7 +4,7 @@ from typing import List, Union, TypeVar
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.query import Query
 
-from common.common import get_joinedload_options
+from common.db_utils import get_joinedload_options
 from common.error_handling import (
     invalid_date_message,
     feed_not_found,
