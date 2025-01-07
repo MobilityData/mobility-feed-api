@@ -2,13 +2,8 @@ import * as React from 'react';
 import {
   AppBar,
   Box,
-  Divider,
   Drawer,
   IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
   Toolbar,
   Typography,
   Button,
@@ -16,7 +11,6 @@ import {
   Menu,
   MenuItem,
   Select,
-  type SxProps,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -25,18 +19,15 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import {
   navigationAccountItem,
   SIGN_IN_TARGET,
-  ACCOUNT_TARGET,
   buildNavigationItems,
+  gtfsMetricsNavItems,
+  gbfsMetricsNavItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { TreeView } from '@mui/x-tree-view/TreeView';
-import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { BikeScooterOutlined, OpenInNew } from '@mui/icons-material';
 import '../styles/Header.css';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
@@ -45,219 +36,8 @@ import { NestedMenuItem } from 'mui-nested-menu';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import { fontFamily, theme } from '../Theme';
 import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
-
-const drawerWidth = 240;
-const websiteTile = 'Mobility Database';
-const DrawerContent: React.FC<{
-  onLogoutClick: React.MouseEventHandler;
-  onNavigationClick: (target: NavigationItem | string) => void;
-  navigationItems: NavigationItem[];
-  metricsOptionsEnabled: boolean;
-}> = ({
-  onLogoutClick,
-  onNavigationClick,
-  navigationItems,
-  metricsOptionsEnabled,
-}) => {
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const navigateTo = useNavigate();
-  return (
-    <Box>
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-        onClick={() => {
-          navigateTo('/');
-        }}
-      >
-        <picture style={{ display: 'flex' }}>
-          <source
-            media='(min-width: 50px)'
-            srcSet='/assets/MOBILTYDATA_logo_purple_M.webp'
-            width='50'
-            height='50'
-          />
-          <source
-            src='/assets/MOBILTYDATA_logo_purple_M.png'
-            type='image/png'
-          />
-          <img
-            alt='MobilityData logo'
-            src='/assets/MOBILTYDATA_logo_purple_M.png'
-          />
-        </picture>
-        <Typography
-          variant='h6'
-          sx={{
-            my: 2,
-            cursor: 'pointer',
-            color: theme.palette.primary.main,
-            fontWeight: 700,
-          }}
-          data-testid='websiteTile'
-        >
-          {websiteTile}
-        </Typography>
-      </Box>
-      <Divider />
-      <List>
-        {navigationItems.map((item) => (
-          <ListItem
-            key={item.title}
-            disablePadding
-            onClick={() => {
-              onNavigationClick(item);
-            }}
-          >
-            <ListItemButton
-              sx={{
-                textAlign: 'left',
-                p: 0,
-                pl: '16px',
-              }}
-            >
-              <ListItemText
-                sx={{
-                  '.MuiTypography-root': { fontFamily: fontFamily.secondary },
-                }}
-              >
-                {item.title}{' '}
-                {item.external === true ? (
-                  <OpenInNew sx={{ verticalAlign: 'middle' }} />
-                ) : null}
-              </ListItemText>
-            </ListItemButton>
-          </ListItem>
-        ))}
-        <Divider sx={{ mt: 2, mb: 2 }} />
-        {metricsOptionsEnabled && (
-          <TreeView
-            defaultCollapseIcon={<ExpandMoreIcon />}
-            defaultExpandIcon={<ChevronRightIcon />}
-            sx={{ textAlign: 'left' }}
-          >
-            <TreeItem
-              nodeId='1'
-              label='GTFS Metrics'
-              sx={{
-                color: theme.palette.primary.main,
-                '.MuiTreeItem-label': { fontFamily: fontFamily.secondary },
-              }}
-            >
-              <TreeItem
-                nodeId='2'
-                label='Feeds'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick('/metrics/gtfs/feeds');
-                }}
-              />
-              <TreeItem
-                nodeId='3'
-                label='Notices'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick('/metrics/gtfs/notices');
-                }}
-              />
-              <TreeItem
-                nodeId='4'
-                label='Features'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick('/metrics/gtfs/features');
-                }}
-              />
-            </TreeItem>
-            <TreeItem
-              nodeId='5'
-              label='GBFS Metrics'
-              sx={{ color: theme.palette.primary.main }}
-            >
-              <TreeItem
-                nodeId='6'
-                label='Feeds'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick('/metrics/gbfs/feeds');
-                }}
-              />
-              <TreeItem
-                nodeId='7'
-                label='Notices'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick('/metrics/gbfs/notices');
-                }}
-              />
-              <TreeItem
-                nodeId='8'
-                label='Versions'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick('/metrics/gbfs/versions');
-                }}
-              />
-            </TreeItem>
-          </TreeView>
-        )}
-
-        {isAuthenticated ? (
-          <TreeView
-            defaultCollapseIcon={<ExpandMoreIcon />}
-            defaultExpandIcon={<ChevronRightIcon />}
-            sx={{ textAlign: 'left' }}
-          >
-            <TreeItem
-              nodeId='1'
-              label='Account'
-              sx={{
-                color: theme.palette.primary.main,
-                '.MuiTreeItem-label': { fontFamily: fontFamily.secondary },
-              }}
-              data-cy='accountHeader'
-            >
-              <TreeItem
-                nodeId='2'
-                label='Account Details'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick(ACCOUNT_TARGET);
-                }}
-                icon={<AccountCircleIcon fontSize='small' />}
-              />
-              <TreeItem
-                nodeId='4'
-                label='Sign Out'
-                sx={{ color: '#7c7c7c' }}
-                onClick={onLogoutClick}
-                icon={<LogoutIcon fontSize='small' />}
-              />
-            </TreeItem>
-          </TreeView>
-        ) : (
-          <ListItem
-            sx={{ color: theme.palette.primary.main }}
-            onClick={() => {
-              onNavigationClick(SIGN_IN_TARGET);
-            }}
-            key={'Login'}
-            disablePadding
-          >
-            <ListItemButton
-              sx={{
-                textAlign: 'left',
-                p: 0,
-                pl: '16px',
-              }}
-            >
-              <ListItemText>Login</ListItemText>
-            </ListItemButton>
-          </ListItem>
-        )}
-      </List>
-    </Box>
-  );
-};
+import { animatedButtonStyling } from './Header.style';
+import DrawerContent from './HeaderMobileDrawer';
 
 export default function DrawerAppBar(): React.ReactElement {
   const location = useLocation();
@@ -327,43 +107,6 @@ export default function DrawerAppBar(): React.ReactElement {
 
   const metricsOptionsEnabled =
     config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
-  const AnimatedButtonStyling: SxProps = {
-    minWidth: 'fit-content',
-    px: 0,
-    mx: {
-      md: 1,
-      lg: 2,
-    },
-    fontFamily: fontFamily.secondary,
-    '&:hover, &.active': {
-      backgroundColor: 'transparent',
-      '&::after': {
-        transform: 'scaleX(1)',
-        left: 0,
-        right: 0,
-        transformOrigin: 'left',
-      },
-    },
-    '&.active.short': {
-      '&::after': {
-        right: '20px',
-      },
-    },
-    '&::after': {
-      content: '""',
-      height: '2px',
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: theme.palette.primary.main,
-      opacity: 0.7,
-      transition: 'transform 0.9s cubic-bezier(0.19, 1, 0.22, 1)',
-      transform: 'scaleX(0)',
-      transformOrigin: 'right',
-      pointerEvents: 'none',
-    },
-  };
 
   return (
     <Box
@@ -428,7 +171,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   display: { xs: 'none', md: 'block' },
                 }}
               >
-                {websiteTile}
+                Mobility Database
               </Typography>
             </a>
           </Box>
@@ -437,7 +180,7 @@ export default function DrawerAppBar(): React.ReactElement {
             {navigationItems.map((item) => (
               <Button
                 sx={{
-                  ...AnimatedButtonStyling,
+                  ...animatedButtonStyling,
                   color: theme.palette.text.primary,
                 }}
                 href={item.external === true ? item.target : '/' + item.target}
@@ -462,7 +205,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   endIcon={<ArrowDropDownIcon />}
                   onClick={handleMenuOpen}
                   sx={{
-                    ...AnimatedButtonStyling,
+                    ...animatedButtonStyling,
                     color: theme.palette.text.primary,
                   }}
                   id='analytics-button-menu'
@@ -485,54 +228,32 @@ export default function DrawerAppBar(): React.ReactElement {
                     parentMenuOpen={Boolean(anchorEl)}
                     leftIcon={<DirectionsBusIcon />}
                   >
-                    <MenuItem
-                      onClick={() => {
-                        handleMenuItemClick('/metrics/gtfs/feeds');
-                      }}
-                    >
-                      Feeds
-                    </MenuItem>
-                    <MenuItem
-                      onClick={() => {
-                        handleMenuItemClick('/metrics/gtfs/notices');
-                      }}
-                    >
-                      Notices
-                    </MenuItem>
-                    <MenuItem
-                      onClick={() => {
-                        handleMenuItemClick('/metrics/gtfs/features');
-                      }}
-                    >
-                      Features
-                    </MenuItem>
+                    {gtfsMetricsNavItems.map((item) => (
+                      <MenuItem
+                        key={item.title}
+                        onClick={() => {
+                          handleMenuItemClick(item.target);
+                        }}
+                      >
+                        {item.title}
+                      </MenuItem>
+                    ))}
                   </NestedMenuItem>
                   <NestedMenuItem
                     label='GBFS'
                     parentMenuOpen={Boolean(anchorEl)}
                     leftIcon={<BikeScooterOutlined />}
                   >
-                    <MenuItem
-                      onClick={() => {
-                        handleMenuItemClick('/metrics/gbfs/feeds');
-                      }}
-                    >
-                      Feeds
-                    </MenuItem>
-                    <MenuItem
-                      onClick={() => {
-                        handleMenuItemClick('/metrics/gbfs/notices');
-                      }}
-                    >
-                      Notices
-                    </MenuItem>
-                    <MenuItem
-                      onClick={() => {
-                        handleMenuItemClick('/metrics/gbfs/versions');
-                      }}
-                    >
-                      Versions
-                    </MenuItem>
+                    {gbfsMetricsNavItems.map((item) => (
+                      <MenuItem
+                        key={item.title}
+                        onClick={() => {
+                          handleMenuItemClick(item.target);
+                        }}
+                      >
+                        {item.title}
+                      </MenuItem>
+                    ))}
                   </NestedMenuItem>
                 </Menu>
               </>
@@ -546,7 +267,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   onClick={handleMenuOpen}
                   endIcon={<ArrowDropDownIcon />}
                   id='account-button-menu'
-                  sx={AnimatedButtonStyling}
+                  sx={animatedButtonStyling}
                   className={activeTab === '/account' ? 'active short' : ''}
                 >
                   Account
@@ -612,13 +333,12 @@ export default function DrawerAppBar(): React.ReactElement {
             display: { xs: 'block', md: 'none' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: drawerWidth,
+              width: '240px',
             },
           }}
         >
           <DrawerContent
             onLogoutClick={handleLogoutClick}
-            onNavigationClick={handleNavigation}
             navigationItems={navigationItems}
             metricsOptionsEnabled={metricsOptionsEnabled}
           />

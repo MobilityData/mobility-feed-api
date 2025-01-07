@@ -49,7 +49,7 @@ import {
 import { Trans, useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 import { theme } from '../../Theme';
-import { Helmet, HelmetProvider } from 'react-helmet-async';
+import { Helmet } from 'react-helmet-async';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -176,11 +176,9 @@ const wrapComponent = (
       maxWidth='xl'
     >
       {descriptionMeta !== undefined && (
-        <HelmetProvider>
-          <Helmet>
-            <meta name='description' content={descriptionMeta} />
-          </Helmet>
-        </HelmetProvider>
+        <Helmet>
+          <meta name='description' content={descriptionMeta} />
+        </Helmet>
       )}
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>

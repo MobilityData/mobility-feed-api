@@ -41,10 +41,8 @@ const ActionBox = ({
     }}
   >
     <IconComponent sx={{ width: '100%', height: iconHeight }} />
-    <Button variant='contained' sx={{ m: 2, px: 2 }}>
-      <a href={buttonHref} className='btn-link' rel='noreferrer'>
-        {buttonText}
-      </a>
+    <Button variant='contained' href={buttonHref} sx={{ m: 2, px: 2 }}>
+      {buttonText}
     </Button>
   </Box>
 );
