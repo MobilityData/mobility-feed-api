@@ -1,6 +1,5 @@
 import * as React from 'react';
 import Button from '@mui/material/Button';
-import CssBaseline from '@mui/material/CssBaseline';
 import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -88,7 +87,6 @@ export default function ChangePassword(): React.ReactElement {
 
   return (
     <Container component='main' maxWidth='sm'>
-      <CssBaseline />
       <Box
         sx={{
           display: 'flex',

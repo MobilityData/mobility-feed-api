@@ -1,5 +1,4 @@
 import * as React from 'react';
-import CssBaseline from '@mui/material/CssBaseline';
 import '../styles/Account.css';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
@@ -298,7 +297,6 @@ export default function APIAccount(): React.ReactElement {
           {t('accessToken.refreshSuccess')}
         </Alert>
       </Snackbar>
-      <CssBaseline />
       <Typography
         component='h1'
         variant='h4'
