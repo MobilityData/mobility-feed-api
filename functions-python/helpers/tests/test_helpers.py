@@ -65,8 +65,8 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_1(self):
-        mock_binary_data = b"binary data for auth type 1"
+    def test_download_and_get_hash_auth_type_2(self):
+        mock_binary_data = b"binary data for auth type 2"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "test_file.txt"
         url = "https://test.com"
@@ -104,8 +104,8 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_2(self):
-        mock_binary_data = b"binary data for auth type 2"
+    def test_download_and_get_hash_auth_type_1(self):
+        mock_binary_data = b"binary data for auth type 1"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "test_file.txt"
         base_url = "https://test.com"
