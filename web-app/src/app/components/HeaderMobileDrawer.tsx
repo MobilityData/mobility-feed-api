@@ -11,7 +11,12 @@ import {
 } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { ACCOUNT_TARGET, gbfsMetricsNavItems, gtfsMetricsNavItems, SIGN_IN_TARGET } from '../constants/Navigation';
+import {
+  ACCOUNT_TARGET,
+  gbfsMetricsNavItems,
+  gtfsMetricsNavItems,
+  SIGN_IN_TARGET,
+} from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { selectIsAuthenticated } from '../store/profile-selectors';
 import { theme, fontFamily } from '../Theme';

@@ -1,4 +1,4 @@
-import { type SxProps, Theme } from '@mui/material';
+import { type SxProps, type Theme } from '@mui/material';
 import { fontFamily } from '../Theme';
 
 export const mobileNavElementStyle: SxProps<Theme> = (theme) => ({
