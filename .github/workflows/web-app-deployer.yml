@@ -269,6 +269,13 @@ jobs:
       - name: Build
         working-directory: web-app
         run: yarn build:${FIREBASE_PROJECT}
+      
+      - name: Set robots.txt
+        working-directory: web-app
+        run: |
+          if [ "${{ inputs.FIREBASE_PROJECT }}" != "prod" ]; then
+            mv public/robots.staging.txt public/robots.txt
+          fi
 
       - name: Select Firebase Project
         working-directory: web-app
