@@ -148,7 +148,7 @@ class TestHelpers(unittest.TestCase):
     #     if os.path.exists(file_path):
     #         os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_1():
+    def test_download_and_get_hash_auth_type_1(self):
         url = "http://example.com/data"
         api_key_parameter_name = "api_key"
         credentials = "test_api_key"
@@ -185,7 +185,7 @@ class TestHelpers(unittest.TestCase):
                 )
                 assert result is not None
 
-    def test_download_and_get_hash_auth_type_2():
+    def test_download_and_get_hash_auth_type_2(self):
         url = "http://example.com/data"
         api_key_parameter_name = "Authorization"
         credentials = "Bearer test_token"
