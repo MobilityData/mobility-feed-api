@@ -6,7 +6,7 @@ import os
 import logging
 from google.cloud import storage
 from utils.locations import get_feed_location
-from helpers.bq_schema.schema import (
+from shared.helpers.bq_schema.schema import (
     json_schema_map,
     load_json_schema,
     filter_json_by_schema,

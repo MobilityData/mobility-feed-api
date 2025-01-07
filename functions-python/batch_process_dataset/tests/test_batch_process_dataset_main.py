@@ -11,8 +11,8 @@ from main import (
     DatasetFile,
     process_dataset,
 )
-from database_gen.sqlacodegen_models import Gtfsfeed
-from test_utils.database_utils import get_testing_session, default_db_url
+from shared.database_gen.sqlacodegen_models import Gtfsfeed
+from test_shared.test_utils.database_utils import get_testing_session, default_db_url
 from cloudevents.http import CloudEvent
 
 public_url = (

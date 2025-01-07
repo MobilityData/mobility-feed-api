@@ -8,10 +8,10 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DBSession
 
-from database_gen.sqlacodegen_models import Feed, Gtfsfeed
-from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
+from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 
-with mock.patch("helpers.logger.Logger.init_logger") as mock_init_logger:
+with mock.patch("shared.helpers.logger.Logger.init_logger") as mock_init_logger:
     from main import (
         FeedProcessor,
         process_feed_event,

@@ -23,7 +23,7 @@ from fastapi import HTTPException
 from pydantic import Field
 from starlette.responses import Response
 
-from database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
@@ -33,8 +33,8 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from helpers.database import Database, refresh_materialized_view
-from helpers.query_helper import query_feed_by_stable_id
+from shared.helpers.database import Database, refresh_materialized_view
+from shared.helpers.query_helper import query_feed_by_stable_id
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
 

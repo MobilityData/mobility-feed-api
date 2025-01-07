@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch, Mock
 from faker import Faker
 from google.cloud import storage
 
-from test_utils.database_utils import default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 from main import (
     get_latest_datasets_without_validation_reports,
     get_datasets_for_validation,

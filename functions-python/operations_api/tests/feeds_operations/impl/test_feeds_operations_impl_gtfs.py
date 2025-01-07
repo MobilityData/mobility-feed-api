@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from starlette.responses import Response
 
-from database_gen.sqlacodegen_models import Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
 from feeds_operations_gen.models.authentication_type import AuthenticationType
 from feeds_operations_gen.models.external_id import ExternalId
@@ -14,7 +14,7 @@ from feeds_operations_gen.models.feed_status import FeedStatus
 from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
 from conftest import feed_mdb_40
-from test_utils.database_utils import get_testing_session, default_db_url
+from test_shared.test_utils.database_utils import get_testing_session, default_db_url
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def update_request_gtfs_feed():
     )
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -55,7 +55,7 @@ async def test_update_gtfs_feed_no_changes(_, update_request_gtfs_feed):
     assert response.status_code == 204
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -84,7 +84,7 @@ async def test_update_gtfs_feed_field_change(_, update_request_gtfs_feed):
         assert db_feed.feed_name == "New feed name"
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -107,7 +107,7 @@ async def test_update_gtfs_feed_set_wip(_, update_request_gtfs_feed):
         assert db_feed.operational_status == "wip"
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -130,7 +130,7 @@ async def test_update_gtfs_feed_set_wip_publish(_, update_request_gtfs_feed):
         assert db_feed.operational_status is None
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -153,7 +153,7 @@ async def test_update_gtfs_feed_set_wip_nochange(_, update_request_gtfs_feed):
         assert db_feed.operational_status is None
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {

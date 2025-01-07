@@ -11,17 +11,17 @@ from google.cloud import pubsub_v1
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 
-from database_gen.sqlacodegen_models import Gtfsdataset
-from dataset_service.main import (
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.dataset_service.main import (
     DatasetTraceService,
     DatasetTrace,
     Status,
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from helpers.database import Database
-from helpers.logger import Logger
-from helpers.parser import jsonify_pubsub
+from shared.helpers.database import Database
+from shared.helpers.logger import Logger
+from shared.helpers.parser import jsonify_pubsub
 from bounding_box.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,

@@ -9,7 +9,7 @@ from main import (
 
 class TestMain(unittest.TestCase):
     @patch("main.BigQueryDataTransferGTFS")
-    @patch("helpers.logger.Logger.init_logger")
+    @patch("shared.helpers.logger.Logger.init_logger")
     @patch("main.logging.info")
     def test_ingest_data_to_big_query_gtfs(
         self, mock_logging_info, mock_init_logger, mock_big_query_transfer_gtfs
@@ -28,7 +28,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(response, ("Data successfully loaded to BigQuery", 200))
 
     @patch("main.BigQueryDataTransferGBFS")
-    @patch("helpers.logger.Logger.init_logger")
+    @patch("shared.helpers.logger.Logger.init_logger")
     @patch("main.logging.info")
     def test_ingest_data_to_big_query_gbfs(
         self, mock_logging_info, mock_init_logger, mock_biq_query_transfer_gbfs

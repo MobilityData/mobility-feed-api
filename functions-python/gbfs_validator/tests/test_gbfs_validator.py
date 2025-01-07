@@ -13,8 +13,8 @@ from main import (
     gbfs_validator_batch,
     fetch_all_gbfs_feeds,
 )
-from test_utils.database_utils import default_db_url, reset_database_class
-from helpers.database import Database
+from test_shared.test_utils.database_utils import default_db_url, reset_database_class
+from shared.helpers.database import Database
 
 
 class TestMainFunctions(unittest.TestCase):
@@ -100,7 +100,7 @@ class TestMainFunctions(unittest.TestCase):
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
-    @patch("helpers.database.Database")
+    @patch("shared.helpers.database.Database")
     @patch("main.pubsub_v1.PublisherClient")
     @patch("main.fetch_all_gbfs_feeds")
     @patch("main.Logger")
@@ -136,7 +136,7 @@ class TestMainFunctions(unittest.TestCase):
         result = gbfs_validator_batch(None)
         self.assertEqual(result[1], 500)
 
-    @patch("helpers.database.Database")
+    @patch("shared.helpers.database.Database")
     @patch("main.Logger")
     def test_fetch_all_gbfs_feeds(self, _, mock_database):
         mock_session = MagicMock()
@@ -156,7 +156,7 @@ class TestMainFunctions(unittest.TestCase):
         db._get_session.return_value.assert_called_once()
         mock_session.close.assert_called_once()
 
-    @patch("helpers.database.Database")
+    @patch("shared.helpers.database.Database")
     @patch("main.Logger")
     def test_fetch_all_gbfs_feeds_exception(self, _, mock_database):
         mock_session = MagicMock()
@@ -176,7 +176,7 @@ class TestMainFunctions(unittest.TestCase):
         db._get_session.return_value.assert_called_once()
         mock_session.close.assert_called_once()
 
-    @patch("helpers.database.Database")
+    @patch("shared.helpers.database.Database")
     def test_fetch_all_gbfs_feeds_none_session(self, mock_database):
         mock_database.return_value = None
 
@@ -211,7 +211,7 @@ class TestMainFunctions(unittest.TestCase):
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
-    @patch("helpers.database.Database")
+    @patch("shared.helpers.database.Database")
     @patch("main.pubsub_v1.PublisherClient")
     @patch("main.fetch_all_gbfs_feeds")
     @patch("main.Logger")

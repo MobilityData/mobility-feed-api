@@ -2,7 +2,7 @@
 
 import unittest
 from unittest.mock import MagicMock
-from database_gen.sqlacodegen_models import Feed, Location
+from shared.database_gen.sqlacodegen_models import Feed, Location
 from locations import (
     translate_feed_locations,
     get_country_code,

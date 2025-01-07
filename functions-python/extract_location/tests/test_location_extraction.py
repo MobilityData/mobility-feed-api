@@ -9,13 +9,13 @@ import numpy as np
 from cloudevents.http import CloudEvent
 from faker import Faker
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Feed
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed
 from main import (
     extract_location,
     extract_location_pubsub,
     extract_location_batch,
 )
-from test_utils.database_utils import default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 
 faker = Faker()
 

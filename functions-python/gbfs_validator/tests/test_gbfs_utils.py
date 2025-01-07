@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 
 import requests
 
-from dataset_service.main import Status
+from shared.dataset_service.main import Status
 from gbfs_utils import (
     fetch_gbfs_files,
     upload_gbfs_file_to_bucket,

@@ -24,10 +24,10 @@ from google.cloud import pubsub_v1
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from helpers.database import Database, configure_polymorphic_mappers
-from helpers.logger import Logger
-from database_gen.sqlacodegen_models import Feed
-from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
+from shared.helpers.database import Database, configure_polymorphic_mappers
+from shared.helpers.logger import Logger
+from shared.database_gen.sqlacodegen_models import Feed
+from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 from feed_processor_utils import check_url_status, create_new_feed
 
 # Environment variables

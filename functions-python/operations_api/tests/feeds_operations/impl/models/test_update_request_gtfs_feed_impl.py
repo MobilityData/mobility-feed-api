@@ -1,5 +1,5 @@
 from unittest.mock import Mock, MagicMock
-from database_gen.sqlacodegen_models import Gtfsfeed, Redirectingid, Externalid
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Redirectingid, Externalid
 from feeds_operations_gen.models.authentication_type import AuthenticationType
 from feeds_operations_gen.models.feed_status import FeedStatus
 from feeds_operations_gen.models.source_info import SourceInfo

@@ -1,6 +1,11 @@
 from typing import Type
 
-from database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    Gtfsrealtimefeed,
+    Gtfsfeed,
+    Gbfsfeed,
+)
 
 feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": Gbfsfeed}
 

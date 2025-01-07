@@ -3,14 +3,14 @@ from unittest.mock import Mock, patch, call
 from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
 
-from database_gen.sqlacodegen_models import Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed
 from main import (
     TransitFeedSyncProcessor,
 )
 import pandas as pd
 from requests.exceptions import HTTPError
 
-from helpers.feed_sync.feed_sync_common import FeedSyncPayload
+from shared.helpers.feed_sync.feed_sync_common import FeedSyncPayload
 
 
 @pytest.fixture

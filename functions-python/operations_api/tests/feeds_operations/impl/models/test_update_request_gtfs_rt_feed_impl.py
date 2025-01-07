@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Redirectingid,
     Externalid,

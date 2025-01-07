@@ -7,13 +7,13 @@ import pandas as pd
 from google.cloud import storage
 from sqlalchemy.orm import Query
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gbfssnapshot,
     Gtfsfeed,
     Gtfsdataset,
 )
-from helpers.database import Database
+from shared.helpers.database import Database
 
 
 class NoFeedDataException(Exception):

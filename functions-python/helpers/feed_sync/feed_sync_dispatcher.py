@@ -18,9 +18,9 @@ import json
 import os
 import logging
 
-from helpers.database import Database
-from helpers.feed_sync.feed_sync_common import FeedSyncProcessor
-from helpers.pub_sub import get_pubsub_client, publish
+from ..database import Database
+from .feed_sync_common import FeedSyncProcessor
+from ..pub_sub import get_pubsub_client, publish
 
 
 def feed_sync_dispatcher(

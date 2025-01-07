@@ -2,16 +2,16 @@ from unittest.mock import patch
 
 import requests
 
-from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 from feed_processor_utils import (
     check_url_status,
     get_feed_model,
     get_tlnd_authentication_type,
     create_new_feed,
 )
-from helpers.database import configure_polymorphic_mappers
-from helpers.feed_sync.models import TransitFeedSyncPayload
-from test_utils.database_utils import default_db_url, get_testing_session
+from shared.helpers.database import configure_polymorphic_mappers
+from shared.helpers.feed_sync.models import TransitFeedSyncPayload
+from test_shared.test_utils.database_utils import default_db_url, get_testing_session
 
 
 @patch("requests.head")

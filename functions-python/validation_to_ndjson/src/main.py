@@ -3,7 +3,7 @@ import logging
 import functions_framework
 from cloudevents.http import CloudEvent
 
-from helpers.logger import Logger
+from shared.helpers.logger import Logger
 from google.cloud import storage
 from validation_report_converter import (
     ValidationReportConverter,

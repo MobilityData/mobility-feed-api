@@ -19,7 +19,7 @@ from unittest import mock
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from main import get_non_deprecated_feeds, batch_datasets
-from test_utils.database_utils import get_testing_session, default_db_url
+from test_shared.test_utils.database_utils import get_testing_session, default_db_url
 
 
 def test_get_non_deprecated_feeds():
@@ -46,10 +46,12 @@ def test_batch_datasets(mock_client, mock_publish):
     with get_testing_session() as session:
         feeds = get_non_deprecated_feeds(session)
         with patch(
-            "dataset_service.main.BatchExecutionService.__init__", return_value=None
+            "shared.dataset_service.main.BatchExecutionService.__init__",
+            return_value=None,
         ):
             with patch(
-                "dataset_service.main.BatchExecutionService.save", return_value=None
+                "shared.dataset_service.main.BatchExecutionService.save",
+                return_value=None,
             ):
                 batch_datasets(Mock())
                 assert mock_publish.call_count == 5

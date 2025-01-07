@@ -5,14 +5,14 @@ from unittest.mock import MagicMock, patch
 
 from faker import Faker
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Feature,
     Gtfsdataset,
     Gtfsfeed,
     Validationreport,
 )
 
-from test_utils.database_utils import default_db_url, get_testing_session
+from test_shared.test_utils.database_utils import default_db_url, get_testing_session
 from main import (
     read_json_report,
     get_feature,

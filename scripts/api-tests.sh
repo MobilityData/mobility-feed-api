@@ -100,7 +100,7 @@ execute_tests() {
   venv/bin/python -m pip install --disable-pip-version-check coverage >/dev/null
 
 # Run tests with coverage. Add the path to the main file and the shared packages that were linked.
-  PT="src:src/shared:src/test_shared:tests:$PYTHONPATH"
+  PT="src:tests:$PYTHONPATH"
   PYTHONPATH="$PT" venv/bin/coverage run --branch -m pytest -W 'ignore::DeprecationWarning' tests
   # Fail if tests fail
   if [ $? -ne 0 ]; then
