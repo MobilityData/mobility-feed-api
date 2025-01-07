@@ -269,6 +269,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   id='account-button-menu'
                   sx={animatedButtonStyling}
                   className={activeTab === '/account' ? 'active short' : ''}
+                  data-cy='accountHeader'
                 >
                   Account
                 </Button>
