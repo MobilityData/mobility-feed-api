@@ -162,7 +162,7 @@ copy_folders_to_build() {
     ) | while read file; do
 
         if [ -d "$root_folder/$file" ]; then continue; fi
-        dest_path="$FX_DIST_BUILD/$file"
+        dest_path="$FX_DIST_BUILD/shared/$file"
         # Create the directory structure for the current file in the destination
         mkdir -p "$(dirname "$dest_path")"
 
