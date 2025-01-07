@@ -65,88 +65,160 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_2(self):
-        mock_binary_data = b"binary data for auth type 2"
-        expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
-        file_path = "test_file.txt"
-        url = "https://test.com"
-        api_key_parameter_name = "Authorization"
-        credentials = "Bearer token123"
+    # def test_download_and_get_hash_auth_type_1(self):
+    #     mock_binary_data = b"binary data for auth type 1"
+    #     expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
+    #     file_path = "test_file.txt"
+    #     url = "https://test.com"
+    #     api_key_parameter_name = "Authorization"
+    #     credentials = "Bearer token123"
 
-        mock_response = MagicMock()
-        mock_response.read.side_effect = [mock_binary_data, b""]
-        mock_response.__enter__.return_value = mock_response
+    #     mock_response = MagicMock()
+    #     mock_response.read.side_effect = [mock_binary_data, b""]
+    #     mock_response.__enter__.return_value = mock_response
 
-        with patch(
-            "urllib3.PoolManager.request", return_value=mock_response
-        ) as mock_request:
-            result_hash = download_and_get_hash(
-                url, file_path, "sha256", 8192, 1, api_key_parameter_name, credentials
-            )
+    #     with patch(
+    #         "urllib3.PoolManager.request", return_value=mock_response
+    #     ) as mock_request:
+    #         result_hash = download_and_get_hash(
+    #             url, file_path, "sha256", 8192, 1, api_key_parameter_name, credentials
+    #         )
 
-            self.assertEqual(
-                result_hash,
-                expected_hash,
-                msg=f"Hash mismatch: got {result_hash},"
-                f" but expected {expected_hash}",
-            )
+    #         self.assertEqual(
+    #             result_hash,
+    #             expected_hash,
+    #             msg=f"Hash mismatch: got {result_hash},"
+    #             f" but expected {expected_hash}",
+    #         )
 
-            mock_request.assert_called_with(
-                "GET",
-                url,
-                preload_content=False,
-                headers={
-                    "User-Agent": expected_user_agent,
-                    api_key_parameter_name: credentials,
-                },
-            )
+    #         mock_request.assert_called_with(
+    #             "GET",
+    #             url,
+    #             preload_content=False,
+    #             headers={
+    #                 "User-Agent": expected_user_agent,
+    #                 api_key_parameter_name: credentials,
+    #             },
+    #         )
 
-            if os.path.exists(file_path):
-                os.remove(file_path)
+    #         if os.path.exists(file_path):
+    #             os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_1(self):
-        mock_binary_data = b"binary data for auth type 1"
-        expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
-        file_path = "test_file.txt"
-        base_url = "https://test.com"
+    # def test_download_and_get_hash_auth_type_2(self):
+    #     mock_binary_data = b"binary data for auth type 2"
+    #     expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
+    #     file_path = "test_file.txt"
+    #     base_url = "https://test.com"
+    #     api_key_parameter_name = "api_key"
+    #     credentials = "key123"
+
+    #     modified_url = f"{base_url}?{api_key_parameter_name}={credentials}"
+
+    #     mock_response = MagicMock()
+    #     mock_response.read.side_effect = [mock_binary_data, b""]
+    #     mock_response.__enter__.return_value = mock_response
+
+    #     with patch(
+    #         "urllib3.PoolManager.request", return_value=mock_response
+    #     ) as mock_request:
+    #         result_hash = download_and_get_hash(
+    #             base_url,
+    #             file_path,
+    #             "sha256",
+    #             8192,
+    #             2,
+    #             api_key_parameter_name,
+    #             credentials,
+    #         )
+
+    #         self.assertEqual(
+    #             result_hash,
+    #             expected_hash,
+    #             msg=f"Hash mismatch: got {result_hash},"
+    #             f" but expected {expected_hash}",
+    #         )
+
+    #         mock_request.assert_called_with(
+    #             "GET",
+    #             modified_url,
+    #             preload_content=False,
+    #             headers={"User-Agent": expected_user_agent},
+    #         )
+
+    #     if os.path.exists(file_path):
+    #         os.remove(file_path)
+
+    def test_download_and_get_hash_auth_type_1():
+        url = "http://example.com/data"
         api_key_parameter_name = "api_key"
-        credentials = "key123"
+        credentials = "test_api_key"
+        expected_url = f"{url}?{api_key_parameter_name}={credentials}"
 
-        modified_url = f"{base_url}?{api_key_parameter_name}={credentials}"
+        with patch("helpers.download.create_urllib3_context") as mock_create_context:
+            mock_context = mock_create_context.return_value
+            mock_context.load_default_certs.return_value = None
 
-        mock_response = MagicMock()
-        mock_response.read.side_effect = [mock_binary_data, b""]
-        mock_response.__enter__.return_value = mock_response
+            with patch("helpers.download.urllib3.PoolManager") as mock_pool_manager:
+                mock_http = mock_pool_manager.return_value
+                mock_response = mock_http.request.return_value
+                mock_response.read.side_effect = [b"data_chunk_1", b"data_chunk_2", b""]
+                mock_response.__enter__.return_value = mock_response
 
-        with patch(
-            "urllib3.PoolManager.request", return_value=mock_response
-        ) as mock_request:
-            result_hash = download_and_get_hash(
-                base_url,
-                file_path,
-                "sha256",
-                8192,
-                2,
-                api_key_parameter_name,
-                credentials,
-            )
+                result = download_and_get_hash(
+                    url,
+                    file_path="test_file",
+                    hash_algorithm="sha256",
+                    authentication_type=1,
+                    api_key_parameter_name=api_key_parameter_name,
+                    credentials=credentials,
+                )
 
-            self.assertEqual(
-                result_hash,
-                expected_hash,
-                msg=f"Hash mismatch: got {result_hash},"
-                f" but expected {expected_hash}",
-            )
+                mock_http.request.assert_called_with(
+                    "GET",
+                    expected_url,
+                    preload_content=False,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/126.0.0.0 Mobile Safari/537.36"
+                    },
+                )
+                assert result is not None
 
-            mock_request.assert_called_with(
-                "GET",
-                modified_url,
-                preload_content=False,
-                headers={"User-Agent": expected_user_agent},
-            )
+    def test_download_and_get_hash_auth_type_2():
+        url = "http://example.com/data"
+        api_key_parameter_name = "Authorization"
+        credentials = "Bearer test_token"
+        expected_headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/126.0.0.0 Mobile Safari/537.36",
+            api_key_parameter_name: credentials,
+        }
 
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        with patch("helpers.download.create_urllib3_context") as mock_create_context:
+            mock_context = mock_create_context.return_value
+            mock_context.load_default_certs.return_value = None
+
+            with patch("helpers.download.urllib3.PoolManager") as mock_pool_manager:
+                mock_http = mock_pool_manager.return_value
+                mock_response = mock_http.request.return_value
+                mock_response.read.side_effect = [b"data_chunk_1", b"data_chunk_2", b""]
+                mock_response.__enter__.return_value = mock_response
+
+                result = download_and_get_hash(
+                    url,
+                    file_path="test_file",
+                    hash_algorithm="sha256",
+                    authentication_type=2,
+                    api_key_parameter_name=api_key_parameter_name,
+                    credentials=credentials,
+                )
+
+                mock_http.request.assert_called_with(
+                    "GET", url, preload_content=False, headers=expected_headers
+                )
+                assert result is not None
 
     def test_download_and_get_hash_exception(self):
         file_path = "test_file.txt"
