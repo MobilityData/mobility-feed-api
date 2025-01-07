@@ -100,6 +100,10 @@ export const theme = createTheme({
             border: `2px solid ${palette.primary.main}`,
             color: palette.primary.main,
           },
+          '&.MuiButton-outlinedPrimary': {
+            border: `2px solid ${palette.primary.main}`,
+            padding: '6px 16px',
+          },
           '&.MuiButton-outlinedPrimary:hover': {
             backgroundColor: palette.primary.main,
             color: palette.primary.contrastText,
