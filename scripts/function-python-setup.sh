@@ -99,6 +99,7 @@ setup_function() {
 
   FX_PATH="$FUNCTIONS_PATH/$function_name"
   FX_SOURCE_PATH="$FUNCTIONS_PATH/$function_name/src"
+  FX_TEST_SOURCE_PATH="$FUNCTIONS_PATH/$function_name/tests"
   FX_CONFIG_FILE="$FX_PATH/function_config.json"
 
   # verify if the function's folder exists
@@ -125,10 +126,11 @@ setup_function() {
   create_symbolic_links "$API_PATH" "$include_api_folders" "$dst_folder"
 
   # We'll hardcode all the shared packages that are needed for testing
-  dst_folder="$FX_SOURCE_PATH/test_shared"
-  rm -rf "$dst_folder"
+  dst_folder="$FX_TEST_SOURCE_PATH/test_shared"
+  rm -rf "$dst_folder"/*
+  rmdir "$dst_folder"
   mkdir -p "$dst_folder"
-  create_symbolic_links "$FUNCTIONS_PATH" "helpers test_utils validation_to_ndjson" "$dst_folder"
+  create_symbolic_links "$FUNCTIONS_PATH" "test_utils" "$dst_folder"
 
 }
 
