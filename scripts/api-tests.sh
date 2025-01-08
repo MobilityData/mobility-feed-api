@@ -87,7 +87,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 cat $ABS_SCRIPTPATH/../config/.env.local > $ABS_SCRIPTPATH/../.env
-PYTHONPATH_ORIGINAL=$PYTHONPATH
 
 execute_tests() {
   printf "\nExecuting tests in $1\n"

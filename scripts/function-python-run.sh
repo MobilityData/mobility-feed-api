@@ -102,7 +102,17 @@ if [ -z "$target" ]; then
   exit 1
 fi
 
-export PYTHONPATH="$FX_PATH:$FX_PATH/shared:$PYTHONPATH"
+export PYTHONPATH="$FX_PATH"
 
+# Install a virgin python virtual environment and provision it with the required packages so it's the same as
+# the one deployed that will be deployed in the cloud
+pushd "$FUNCTIONS_PATH/$function_name" >/dev/null
+printf "\nINFO: installing python virtual environment"
+rm -rf venv
+pip3 install --disable-pip-version-check virtualenv > /dev/null
+python3 -m virtualenv venv > /dev/null
+venv/bin/python -m pip install --disable-pip-version-check -r requirements.txt >/dev/null
+popd > /dev/null
 
-functions-framework --target "$target" --debug --source "$FX_PATH/main.py" --signature-type http
+printf "\nINFO: running function in functions-framework"
+"$FUNCTIONS_PATH/$function_name"/venv/bin/functions-framework --target "$target" --debug --source "$FX_PATH/main.py" --signature-type http
