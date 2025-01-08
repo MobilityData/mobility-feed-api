@@ -1,14 +1,12 @@
 name: Build and Test
 on:
-#  pull_request:
-#    branches: [ main ]
-#    paths-ignore:
-#      - '**.md'
-#      - "web-app/**"
-#      - "functions/**"
-#      - ".github/workflows/web-*.yml"
-  push:
-    branches: [ functions-python-refactoring ]
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - "web-app/**"
+      - "functions/**"
+      - ".github/workflows/web-*.yml"
   workflow_call:
 
 env:

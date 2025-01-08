@@ -125,7 +125,7 @@ build_function() {
     fi
 
      # Use rsync instead of cp -R to exclude some directories that are not useful for deployment
-     rsync -av --exclude 'shared' --exclude 'test_shared' "$FX_SOURCE_PATH/" "$FX_DIST_BUILD/"
+     rsync -av --quiet --exclude 'shared' --exclude 'test_shared' "$FX_SOURCE_PATH/" "$FX_DIST_BUILD/"
      cp "$FX_PATH/requirements.txt" "$FX_DIST_BUILD"
 
      copy_folders_to_build $FUNCTIONS_PATH "$include_folders" "include_folders"

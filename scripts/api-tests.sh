@@ -140,7 +140,6 @@ fi
 execute_python_tests() {
   printf "\nExecuting python tests in $1\n"
   cd "$ABS_SCRIPTPATH/../$1"
-  printf "PYTHONPATH=$PYTHONPATH\n"
 
   # Function to determine if a directory is valid for test execution
   directory_contains_tests() {
@@ -150,8 +149,9 @@ execute_python_tests() {
 
   # Check if the specified folder itself contains a 'tests' directory
   if [[ -d "tests" ]]; then
-    # Some packages in functions-python and api/src need to be linked inside the functions src
-    # folder so they will be available when running the tests. Use the packages defined in function_config.json
+    # Some packages in functions-python and api/src need to be linked inside the functions src and tests
+    # folders so they will be available when running the tests. Use the packages defined in function_config.json
+    # or test_config.json
     $ABS_SCRIPTPATH/function-python-setup.sh --function_name `basename $1`
     printf "\nFound 'tests' directory in $1. Executing tests directly...\n"
     execute_tests "../$1"

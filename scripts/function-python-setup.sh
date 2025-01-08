@@ -17,9 +17,8 @@
 
 # Link all the necessary packages in one or many python functions so they can run self contained.
 # The script will link all the folders defined in the function_config.json file in the property "include_folders" and
-# "include_api_folders.
-# All linked libraries will be in functions-python/<function_name>/src/shared.
-# To run or test the functions, you need to add the folder to PYTHONPATH.
+# "include_api_folders". Or it will do the same with test_config.json
+# All linked libraries will be in functions-python/<function_name>/src/shared or tests/test_shared for testing libraries.
 # The script receives the name of the function as parameter.
 # The function must be located in the folder `functions-python/<function_name>`.
 # The function config must be defined in the file `functions-python/<function_name>/function_config.json`.
@@ -133,8 +132,8 @@ setup_function() {
 
   # We'll hardcode all the shared packages that are needed for testing
   dst_folder="$FX_TEST_SOURCE_PATH/test_shared"
-  rm -rf "$dst_folder"/*
-  rmdir "$dst_folder"
+  rm -rf "$dst_folder"/* > /dev/null 2>&1
+  rmdir "$dst_folder" > /dev/null 2>&1
   mkdir -p "$dst_folder"
   create_symbolic_links "$FUNCTIONS_PATH" "test_utils" "$dst_folder"
 
