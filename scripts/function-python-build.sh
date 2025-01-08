@@ -78,7 +78,7 @@ fi
 
 build_function() {
   function_name=$1
-  printf "\nBuilding function $function_name"
+  printf "\nBuilding function $function_name "
   # verify if the function's folder exists
   if [ ! -d "$FUNCTIONS_PATH/$function_name" ]; then
     printf "\nERROR: function's folder does not exist"

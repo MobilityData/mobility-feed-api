@@ -37,7 +37,7 @@ API_PATH="$ROOT_PATH/api/src"
 
 # function printing usage
 display_usage() {
-  printf "\nThis script links packages related to a python function in folders shared and test_shared in the function's src folder"
+  printf "\nThis script links packages related to a python function in folders shared and test_shared in the function's src and tests folder"
   printf "\nso they are available when running the tests."
   printf "\nScript Usage:\n"
   echo "Usage: $0 [options]"
@@ -101,6 +101,7 @@ setup_function() {
   FX_SOURCE_PATH="$FUNCTIONS_PATH/$function_name/src"
   FX_TEST_SOURCE_PATH="$FUNCTIONS_PATH/$function_name/tests"
   FX_CONFIG_FILE="$FX_PATH/function_config.json"
+  TEST_CONFIG_FILE="$FX_PATH/test_config.json"
 
   # verify if the function's folder exists
   if [ ! -d "$FX_PATH" ]; then
@@ -110,14 +111,19 @@ setup_function() {
   fi
 
   # verify that the function config file exists
-   if [ ! -f "$FX_CONFIG_FILE" ]; then
+  if [ -f "$FX_CONFIG_FILE" ]; then
+    # Collect folders specified with "include_folders" and "include_api_folders" of function_config.json
+    include_folders=$(jq -r .include_folders[] $FX_CONFIG_FILE 2> /dev/null)
+    include_api_folders=$(jq -r '.include_api_folders[]' $FX_CONFIG_FILE 2> /dev/null)
+  elif [ -f "$TEST_CONFIG_FILE" ]; then
+    # The folder is not a function since it does not have a function_config.json.
+    # But maybe some tests have are to be run and they might need folders.
+    include_folders=$(jq -r .include_folders[] $TEST_CONFIG_FILE 2> /dev/null)
+    include_api_folders=$(jq -r '.include_api_folders[]' $TEST_CONFIG_FILE 2> /dev/null)
+  else
     echo "Config file \"$FX_CONFIG_FILE\" does not exist, no setting up to do."
     exit 0
   fi
-
-  # include folders that are in the src function_config file as a json property called "include_folders"
-  include_folders=$(jq -r .include_folders[] $FX_CONFIG_FILE 2> /dev/null)
-  include_api_folders=$(jq -r '.include_api_folders[]' $FX_CONFIG_FILE 2> /dev/null)
 
   dst_folder="$FX_SOURCE_PATH/shared"
   rm -rf "$dst_folder"
