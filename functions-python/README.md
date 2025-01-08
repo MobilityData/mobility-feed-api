@@ -80,7 +80,7 @@ e.g.:
    - functions-python/batch_datasets/tests/test_shared
      - test_utils -> symlink to functions-python/test_utils
 
-The python codee should refer to these shared folders to import the necessary modules.
+The python code should refer to these shared folders to import the necessary modules.
 e.g. in `batch_datasets/src/main.py` we use the import:
 ```
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
@@ -167,6 +167,6 @@ This will
 
 - You can open the function directly in Pycharm, e.g. open `functions-python/batch_datasets` directly.
 - You need to set `batch_datasets/src` as the source root in Pycharm.
-  - You need to set the python interpreter to the one in the virtual environment created by 
+- You need to set the python interpreter to the one in the virtual environment created by 
 the `function-python-build.sh` or `api-tests.sh` script, i.e. `functions-python/batch_datasets/venv`
-  - This will provide an environment the same or similar to the one used in deployment and allow you to catch issues early.
+- This will provide an environment the same or similar to the one used in deployment and allow you to catch issues early.
