@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from big_query_ingestion.src.gbfs.gbfs_big_query_ingest import BigQueryDataTransferGBFS
+from gbfs.gbfs_big_query_ingest import BigQueryDataTransferGBFS
 
 
 class TestBigQueryDataTransferGBFS(unittest.TestCase):

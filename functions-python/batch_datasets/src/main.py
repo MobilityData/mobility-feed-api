@@ -25,9 +25,9 @@ from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
-from dataset_service.main import BatchExecutionService, BatchExecution
-from helpers.database import Database
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
+from shared.dataset_service.main import BatchExecutionService, BatchExecution
+from shared.helpers.database import Database
 
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")

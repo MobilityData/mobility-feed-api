@@ -1,4 +1,4 @@
-from database_gen.sqlacodegen_models import Externalid, Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Externalid, Gtfsfeed
 from feeds_operations_gen.models.external_id import ExternalId
 from feeds_operations.impl.models.external_id_impl import (
     ExternalIdImpl,

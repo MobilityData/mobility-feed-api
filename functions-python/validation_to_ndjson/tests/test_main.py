@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from cloudevents.http import CloudEvent
-from validation_to_ndjson.src.main import (
+from main import (
     convert_reports_to_ndjson,
     batch_convert_reports_to_ndjson,
     parse_resource_data,
@@ -9,9 +9,9 @@ from validation_to_ndjson.src.main import (
 
 
 class TestReportConversionFunctions(unittest.TestCase):
-    @patch("validation_to_ndjson.src.main.Logger.init_logger")
-    @patch("validation_to_ndjson.src.main.ValidationReportConverter.get_converter")
-    @patch("validation_to_ndjson.src.main.parse_resource_data")
+    @patch("main.Logger.init_logger")
+    @patch("main.ValidationReportConverter.get_converter")
+    @patch("main.parse_resource_data")
     def test_convert_reports_to_ndjson(
         self, mock_parse_resource_data, mock_get_converter, mock_init_logger
     ):
@@ -51,9 +51,9 @@ class TestReportConversionFunctions(unittest.TestCase):
         mock_converter_instance.process.assert_called_once()
         self.assertEqual(result, ("stable_id", "dataset_id", "url"))
 
-    @patch("validation_to_ndjson.src.main.Logger.init_logger")
-    @patch("validation_to_ndjson.src.main.storage.Client")
-    @patch("validation_to_ndjson.src.main.convert_reports_to_ndjson")
+    @patch("main.Logger.init_logger")
+    @patch("main.storage.Client")
+    @patch("main.convert_reports_to_ndjson")
     def test_batch_convert_reports_to_ndjson(
         self, mock_convert_reports_to_ndjson, mock_storage_client, mock_init_logger
     ):

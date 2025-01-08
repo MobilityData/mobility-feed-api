@@ -3,16 +3,14 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime
 import pandas as pd
 
-from preprocessed_analytics.src.processors.base_analytics_processor import (
+from processors.base_analytics_processor import (
     BaseAnalyticsProcessor,
 )
 
 
 class TestBaseAnalyticsProcessor(unittest.TestCase):
-    @patch("preprocessed_analytics.src.processors.base_analytics_processor.Database")
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.storage.Client"
-    )
+    @patch("processors.base_analytics_processor.Database")
+    @patch("processors.base_analytics_processor.storage.Client")
     def setUp(self, mock_storage_client, _):
         self.mock_storage_client = mock_storage_client
         self.mock_bucket = MagicMock()
@@ -21,9 +19,7 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
         self.run_date = datetime(2024, 8, 22)
         self.processor = BaseAnalyticsProcessor(self.run_date)
 
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.pd.read_json"
-    )
+    @patch("processors.base_analytics_processor.pd.read_json")
     def test_load_json_exists(self, mock_read_json):
         mock_blob = MagicMock()
         mock_blob.exists.return_value = True
@@ -58,20 +54,14 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
         )
         mock_blob.make_public.assert_called_once()
 
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor._save_json"
-    )
+    @patch("processors.base_analytics_processor.BaseAnalyticsProcessor._save_json")
     def test_save_analytics(self, _):
         self.processor.data = [{"key": "value"}]
         with self.assertRaises(NotImplementedError):
             self.processor.save_analytics()
 
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor._save_json"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.storage.Blob"
-    )
+    @patch("processors.base_analytics_processor.BaseAnalyticsProcessor._save_json")
+    @patch("processors.base_analytics_processor.storage.Blob")
     def test_update_analytics_files(self, mock_blob, mock_save_json):
         mock_blob = MagicMock()
         self.mock_bucket.list_blobs.return_value = [mock_blob]
@@ -82,21 +72,15 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
 
         mock_save_json.assert_called_once()
 
+    @patch("processors.base_analytics_processor.BaseAnalyticsProcessor.get_latest_data")
     @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor.get_latest_data"
+        "processors.base_analytics_processor.BaseAnalyticsProcessor.process_feed_data"
     )
+    @patch("processors.base_analytics_processor.BaseAnalyticsProcessor.save_analytics")
     @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor.process_feed_data"
+        "processors.base_analytics_processor.BaseAnalyticsProcessor.update_analytics_files"
     )
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor.save_analytics"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor.update_analytics_files"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.BaseAnalyticsProcessor.save_summary"
-    )
+    @patch("processors.base_analytics_processor.BaseAnalyticsProcessor.save_summary")
     def test_run(
         self,
         mock_save_summary,

@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 from sqlalchemy.orm import Session
 import pycountry
-from database_gen.sqlacodegen_models import Feed, Location
+from shared.database_gen.sqlacodegen_models import Feed, Location
 import logging
 
 

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 from feeds_operations_gen.models.entity_type import EntityType
-from database_gen.sqlacodegen_models import Entitytype as EntityTypeOrm
+from shared.database_gen.sqlacodegen_models import Entitytype as EntityTypeOrm
 
 
 class EntityTypeImpl(BaseModel):

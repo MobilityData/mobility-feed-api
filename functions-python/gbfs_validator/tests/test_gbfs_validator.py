@@ -8,13 +8,13 @@ from unittest.mock import patch, MagicMock
 
 from cloudevents.http import CloudEvent
 
-from gbfs_validator.src.main import (
+from main import (
     gbfs_validator_pubsub,
     gbfs_validator_batch,
     fetch_all_gbfs_feeds,
 )
-from test_utils.database_utils import default_db_url, reset_database_class
-from helpers.database import Database
+from test_shared.test_utils.database_utils import default_db_url, reset_database_class
+from shared.helpers.database import Database
 
 
 class TestMainFunctions(unittest.TestCase):
@@ -33,15 +33,15 @@ class TestMainFunctions(unittest.TestCase):
             "VALIDATOR_URL": "https://mock-validator-url.com",
         },
     )
-    @patch("gbfs_validator.src.main.Database")
-    @patch("gbfs_validator.src.main.DatasetTraceService")
-    @patch("gbfs_validator.src.main.fetch_gbfs_files")
-    @patch("gbfs_validator.src.main.GBFSValidator.create_gbfs_json_with_bucket_paths")
-    @patch("gbfs_validator.src.main.GBFSValidator.create_snapshot")
-    @patch("gbfs_validator.src.main.GBFSValidator.validate_gbfs_feed")
-    @patch("gbfs_validator.src.main.save_snapshot_and_report")
-    @patch("gbfs_validator.src.main.Logger")
-    @patch("gbfs_validator.src.main.storage.Client")
+    @patch("main.Database")
+    @patch("main.DatasetTraceService")
+    @patch("main.fetch_gbfs_files")
+    @patch("main.GBFSValidator.create_gbfs_json_with_bucket_paths")
+    @patch("main.GBFSValidator.create_snapshot")
+    @patch("main.GBFSValidator.validate_gbfs_feed")
+    @patch("main.save_snapshot_and_report")
+    @patch("main.Logger")
+    @patch("main.storage.Client")
     def test_gbfs_validator_pubsub(
         self,
         __,
@@ -100,10 +100,10 @@ class TestMainFunctions(unittest.TestCase):
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
-    @patch("helpers.database.Database")
-    @patch("gbfs_validator.src.main.pubsub_v1.PublisherClient")
-    @patch("gbfs_validator.src.main.fetch_all_gbfs_feeds")
-    @patch("gbfs_validator.src.main.Logger")
+    @patch("shared.helpers.database.Database")
+    @patch("main.pubsub_v1.PublisherClient")
+    @patch("main.fetch_all_gbfs_feeds")
+    @patch("main.Logger")
     def test_gbfs_validator_batch(
         self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client, mock_database
     ):
@@ -130,14 +130,14 @@ class TestMainFunctions(unittest.TestCase):
         mock_fetch_all_gbfs_feeds.assert_called_once()
         self.assertEqual(mock_publisher.publish.call_count, 2)
 
-    @patch("gbfs_validator.src.main.Logger")
+    @patch("main.Logger")
     def test_gbfs_validator_batch_missing_topic(self, _):  # mock_logger
         # Call the function
         result = gbfs_validator_batch(None)
         self.assertEqual(result[1], 500)
 
-    @patch("helpers.database.Database")
-    @patch("gbfs_validator.src.main.Logger")
+    @patch("shared.helpers.database.Database")
+    @patch("main.Logger")
     def test_fetch_all_gbfs_feeds(self, _, mock_database):
         mock_session = MagicMock()
         db = Database()
@@ -156,8 +156,8 @@ class TestMainFunctions(unittest.TestCase):
         db._get_session.return_value.assert_called_once()
         mock_session.close.assert_called_once()
 
-    @patch("helpers.database.Database")
-    @patch("gbfs_validator.src.main.Logger")
+    @patch("shared.helpers.database.Database")
+    @patch("main.Logger")
     def test_fetch_all_gbfs_feeds_exception(self, _, mock_database):
         mock_session = MagicMock()
         db = Database()
@@ -176,7 +176,7 @@ class TestMainFunctions(unittest.TestCase):
         db._get_session.return_value.assert_called_once()
         mock_session.close.assert_called_once()
 
-    @patch("helpers.database.Database")
+    @patch("shared.helpers.database.Database")
     def test_fetch_all_gbfs_feeds_none_session(self, mock_database):
         mock_database.return_value = None
 
@@ -193,8 +193,8 @@ class TestMainFunctions(unittest.TestCase):
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
-    @patch("gbfs_validator.src.main.fetch_all_gbfs_feeds")
-    @patch("gbfs_validator.src.main.Logger")
+    @patch("main.fetch_all_gbfs_feeds")
+    @patch("main.Logger")
     def test_gbfs_validator_batch_fetch_exception(self, _, mock_fetch_all_gbfs_feeds):
         # Prepare mocks
         mock_fetch_all_gbfs_feeds.side_effect = Exception("Database error")
@@ -211,10 +211,10 @@ class TestMainFunctions(unittest.TestCase):
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
-    @patch("helpers.database.Database")
-    @patch("gbfs_validator.src.main.pubsub_v1.PublisherClient")
-    @patch("gbfs_validator.src.main.fetch_all_gbfs_feeds")
-    @patch("gbfs_validator.src.main.Logger")
+    @patch("shared.helpers.database.Database")
+    @patch("main.pubsub_v1.PublisherClient")
+    @patch("main.fetch_all_gbfs_feeds")
+    @patch("main.Logger")
     def test_gbfs_validator_batch_publish_exception(
         self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client, mock_database
     ):

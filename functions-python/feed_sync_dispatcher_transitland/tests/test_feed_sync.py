@@ -3,14 +3,14 @@ from unittest.mock import Mock, patch, call
 from requests import Session as RequestsSession
 from sqlalchemy.orm import Session as DBSession
 
-from database_gen.sqlacodegen_models import Gtfsfeed
-from feed_sync_dispatcher_transitland.src.main import (
+from shared.database_gen.sqlacodegen_models import Gtfsfeed
+from main import (
     TransitFeedSyncProcessor,
 )
 import pandas as pd
 from requests.exceptions import HTTPError
 
-from helpers.feed_sync.feed_sync_common import FeedSyncPayload
+from shared.helpers.feed_sync.feed_sync_common import FeedSyncPayload
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def processor():
     return TransitFeedSyncProcessor()
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.requests.Session.get")
+@patch("main.requests.Session.get")
 def test_get_data(mock_get, processor):
     mock_response = Mock()
     mock_response.json.return_value = {
@@ -43,7 +43,7 @@ def test_get_data(mock_get, processor):
     assert result["feeds"][0]["id"] == "feed1"
 
 
-@patch("feed_sync_dispatcher_transitland.src.main.requests.Session.get")
+@patch("main.requests.Session.get")
 def test_get_data_rate_limit(mock_get, processor):
     mock_response = Mock()
     mock_response.status_code = 429

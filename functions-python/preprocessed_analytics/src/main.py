@@ -6,10 +6,10 @@ import flask
 import functions_framework
 from flask import Response
 
-from helpers.logger import Logger
-from .processors.base_analytics_processor import NoFeedDataException
-from .processors.gbfs_analytics_processor import GBFSAnalyticsProcessor
-from .processors.gtfs_analytics_processor import GTFSAnalyticsProcessor
+from shared.helpers.logger import Logger
+from processors.base_analytics_processor import NoFeedDataException
+from processors.gbfs_analytics_processor import GBFSAnalyticsProcessor
+from processors.gtfs_analytics_processor import GTFSAnalyticsProcessor
 
 logging.basicConfig(level=logging.INFO)
 

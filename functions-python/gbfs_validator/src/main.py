@@ -10,18 +10,18 @@ from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1, storage
 from sqlalchemy.orm import joinedload, Session
 import traceback
-from database_gen.sqlacodegen_models import Gbfsfeed
-from dataset_service.main import (
+from shared.database_gen.sqlacodegen_models import Gbfsfeed
+from shared.dataset_service.main import (
     DatasetTraceService,
     DatasetTrace,
     Status,
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from helpers.database import Database, with_db_session
-from helpers.logger import Logger, StableIdFilter
-from helpers.parser import jsonify_pubsub
-from .gbfs_utils import (
+from shared.helpers.database import Database, with_db_session
+from shared.helpers.logger import Logger, StableIdFilter
+from shared.helpers.parser import jsonify_pubsub
+from gbfs_utils import (
     GBFSValidator,
     fetch_gbfs_files,
     save_trace_with_error,
