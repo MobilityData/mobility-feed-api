@@ -1,9 +1,0 @@
-[run]
-omit =
-    */test*/*
-    */dataset_service/*
-    */helpers/*
-
-[report]
-exclude_lines =
-    if __name__ == .__main__.:
