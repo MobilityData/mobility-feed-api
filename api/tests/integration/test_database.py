@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.orm import Query
 import os
 
-from common.db_utils import apply_bounding_filtering
+from common.common import apply_bounding_filtering
 from database.database import Database, generate_unique_id
 from database_gen.sqlacodegen_models import Feature, Validationreport, Gtfsdataset
 from feeds.impl.datasets_api_impl import DatasetsApiImpl

@@ -4,7 +4,7 @@ from typing import List, Union, TypeVar
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.query import Query
 
-from common.db_utils import get_joinedload_options
+from common.common import get_joinedload_options
 from common.error_handling import (
     invalid_date_message,
     feed_not_found,
@@ -243,7 +243,7 @@ class FeedsApiImpl(BaseFeedsApi):
         except InternalHTTPException as e:
             # get_gtfs_feeds_query cannot throw HTTPException since it's part of fastapi and it's
             # not necessarily deployed (e.g. for python functions). Instead it throws an InternalHTTPException
-            # that needs to be converted to HTTPException before being returned to the calling api.
+            # that needs to be converted to HTTPException before being thrown.
             raise convert_exception(e)
 
         return self._get_response(feed_query, GtfsFeedImpl)

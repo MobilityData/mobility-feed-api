@@ -40,11 +40,9 @@ display_usage() {
   echo "Options:"
   echo "  -h|--help                           Display help content."
   echo "  --function_name <FUNCTION_NAME>     Name of the function to be executed."
-  echo "  --index <integer>                   One based index of the function to be executed, if more than one function are decorated."
   exit 1
 }
 
-index=1
 function_name=''
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -59,17 +57,13 @@ while [[ $# -gt 0 ]]; do
     shift # past argument
     shift # past value
     ;;
-  --index)
-    index="$2"
-    shift # past argument
-    shift # past value
-    ;;
   *)      # unknown option
     shift # past argument
     ;;
   esac
 done
 
+export PYTHONPATH="$FUNCTIONS_PATH:$PYTHONPATH"
 FX_PATH="$FUNCTIONS_PATH/$function_name/src"
 
 if [ ! -d "$FX_PATH" ]; then
@@ -90,19 +84,13 @@ else
 fi
 
 # extract the --target value from the function's name main.py file with @functions_framework.http annotation
-target=$(grep -zoE "@functions_framework\.http\s*\n\s*def [a-zA-Z_][a-zA-Z_0-9]*" "$FX_PATH/main.py" \
-  | grep -oE "def [a-zA-Z_][a-zA-Z_0-9]*" \
-  | cut -d ' ' -f 2 \
-  | sed -n "${index}p")
+target=$(grep -zoE "@functions_framework\.http\s*\n\s*def [a-zA-Z_][a-zA-Z_0-9]*" "$FX_PATH/main.py" | grep -oE "def [a-zA-Z_][a-zA-Z_0-9]*" | cut -d ' ' -f 2)
 
 # verify if the target is not empty
 if [ -z "$target" ]; then
-  printf "\nERROR: function's main.py file does not contain a @functions_framework.http annotation or wrong index"
+  printf "\nERROR: function's main.py file does not contain a @functions_framework.http annotation"
   display_usage
   exit 1
 fi
-
-export PYTHONPATH="$FX_PATH:$FX_PATH/shared:$PYTHONPATH"
-
 
 functions-framework --target "$target" --debug --source "$FX_PATH/main.py" --signature-type http

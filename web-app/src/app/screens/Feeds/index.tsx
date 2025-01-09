@@ -4,9 +4,11 @@ import { useSelector } from 'react-redux';
 import {
   Box,
   Button,
-  Chip,
+  Checkbox,
   Container,
   CssBaseline,
+  FormControlLabel,
+  FormGroup,
   Grid,
   InputAdornment,
   Pagination,
@@ -29,20 +31,42 @@ import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
 import { Trans, useTranslation } from 'react-i18next';
 import { theme } from '../../Theme';
-import { groupFeaturesByComponent } from '../../utils/consts';
-import NestedCheckboxList, {
-  type CheckboxStructure,
-} from '../../components/NestedCheckboxList';
-import {
-  getDataTypeParamFromSelectedFeedTypes,
-  getInitialSelectedFeedTypes,
-} from './utility';
-import { SearchHeader } from './styles';
-import { useRemoteConfig } from '../../context/RemoteConfigProvider';
+
+const getDataTypeParamFromSelectedFeedTypes = (
+  selectedFeedTypes: Record<string, boolean>,
+): 'gtfs' | 'gtfs_rt' | undefined => {
+  let dataTypeQueryParam: 'gtfs' | 'gtfs_rt' | undefined;
+  if (selectedFeedTypes.gtfs && !selectedFeedTypes.gtfs_rt) {
+    dataTypeQueryParam = 'gtfs';
+  } else if (!selectedFeedTypes.gtfs && selectedFeedTypes.gtfs_rt) {
+    dataTypeQueryParam = 'gtfs_rt';
+  } else if (!selectedFeedTypes.gtfs && !selectedFeedTypes.gtfs_rt) {
+    dataTypeQueryParam = undefined;
+  }
+  return dataTypeQueryParam;
+};
+
+const getInitialSelectedFeedTypes = (
+  searchParams: URLSearchParams,
+): Record<string, boolean> => {
+  const gtfsSearch = searchParams.get('gtfs');
+  const gtfsRtSearch = searchParams.get('gtfs_rt');
+
+  if (gtfsSearch === null && gtfsRtSearch === null) {
+    return {
+      gtfs: true,
+      gtfs_rt: true,
+    };
+  } else {
+    return {
+      gtfs: gtfsSearch === 'true',
+      gtfs_rt: gtfsRtSearch === 'true',
+    };
+  }
+};
 
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
-  const { config } = useRemoteConfig();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchLimit] = useState(20); // leaving possibility to edit in future
   const [selectedFeedTypes, setSelectedFeedTypes] = useState(
@@ -50,15 +74,6 @@ export default function Feed(): React.ReactElement {
   );
   const [activeSearch, setActiveSearch] = useState(searchParams.get('q') ?? '');
   const [searchQuery, setSearchQuery] = useState(activeSearch);
-  const [expandedElements, setExpandedElements] = useState<
-    Record<string, boolean>
-  >(setInitialExpandGroup());
-  const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
-    searchParams.get('features')?.split(',') ?? [],
-  );
-  const [featureCheckboxData, setFeatureCheckboxData] = useState<
-    CheckboxStructure[]
-  >([]);
   const [activePagination, setActivePagination] = useState(
     searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1,
   );
@@ -97,30 +112,20 @@ export default function Feed(): React.ReactElement {
   }, [user, activeSearch, activePagination, selectedFeedTypes, searchLimit]);
 
   useEffect(() => {
-    const newSearchParams = new URLSearchParams();
-    if (activeSearch !== '') {
-      newSearchParams.set('q', activeSearch);
+    const oldSearch = searchParams.get('q') ?? '';
+    const oldPagination =
+      searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1;
+    if (oldSearch === activeSearch && oldPagination === activePagination) {
+      return;
     }
 
+    const newSearchParams = new URLSearchParams();
+    newSearchParams.set('q', activeSearch);
     if (activePagination !== 1) {
       newSearchParams.set('o', activePagination.toString());
     }
-    if (selectedFeedTypes.gtfs) {
-      newSearchParams.set('gtfs', 'true');
-    } else {
-      newSearchParams.delete('gtfs');
-    }
-    if (selectedFeedTypes.gtfs_rt) {
-      newSearchParams.set('gtfs_rt', 'true');
-    } else {
-      newSearchParams.delete('gtfs_rt');
-    }
-    if (selectedFeatures.length > 0) {
-      newSearchParams.set('features', selectedFeatures.join(','));
-    }
-
     setSearchParams(newSearchParams);
-  }, [activeSearch, activePagination, selectedFeedTypes, selectedFeatures]);
+  }, [activeSearch, activePagination]);
 
   useEffect(() => {
     const newQuery = searchParams.get('q') ?? '';
@@ -148,51 +153,6 @@ export default function Feed(): React.ReactElement {
       return '';
     }
   };
-
-  function setInitialExpandGroup(): Record<string, boolean> {
-    const expandGroup: Record<string, boolean> = {};
-    Object.keys(groupFeaturesByComponent()).forEach((featureGroup) => {
-      expandGroup[featureGroup] = true;
-    });
-    return expandGroup;
-  }
-
-  function generateCheckboxStructure(): CheckboxStructure[] {
-    const groupedFeatures = groupFeaturesByComponent();
-    return Object.entries(groupedFeatures)
-      .filter(([parent]) => parent !== 'Other')
-      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-      .map(([parent, features]) => ({
-        title: parent,
-        checked: features.every((feature) =>
-          selectedFeatures.includes(feature.feature),
-        ),
-        seeChildren: expandedElements[parent],
-        type: 'checkbox',
-        children: features.map((feature) => {
-          return {
-            title: feature.feature,
-            type: 'checkbox',
-            checked: selectedFeatures.some(
-              (selectedFeature) => selectedFeature === feature.feature,
-            ),
-          };
-        }),
-      }));
-  }
-
-  function clearAllFilters(): void {
-    setActivePagination(1);
-    setSelectedFeedTypes({
-      gtfs: false,
-      gtfs_rt: false,
-    });
-    setSelectedFeatures([]);
-  }
-
-  React.useEffect(() => {
-    setFeatureCheckboxData(generateCheckboxStructure());
-  }, [selectedFeatures]);
 
   return (
     <Container component='main' maxWidth='xl'>
@@ -277,158 +237,61 @@ export default function Feed(): React.ReactElement {
               sx={{
                 background: theme.palette.background.paper,
                 borderRadius: '6px 0px 0px 6px',
-                px: {
+                p: {
                   xs: 2,
-                  md: 3,
+                  md: 5,
                 },
-                py: 2,
                 color: 'black',
                 fontSize: '18px',
                 fontWeight: 700,
                 mr: 0,
               }}
             >
-              <Grid
-                container
-                spacing={1}
-                sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' } }}
-              >
-                <Grid
-                  item
-                  xs={12}
-                  md={2}
-                  sx={{
-                    minWidth: config.enableFeatureFilterSearch
-                      ? '275px'
-                      : '220px',
-                    pr: 2,
-                  }}
-                >
-                  <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
-                  <NestedCheckboxList
-                    checkboxData={[
-                      {
-                        title: t('common:gtfsSchedule'),
-                        checked: selectedFeedTypes.gtfs,
-                        type: 'checkbox',
+              <Grid container spacing={1}>
+                <Grid item xs={12} md={2}>
+                  <Typography variant='h6'>{t('dataType')}</Typography>
+                  <FormGroup
+                    sx={{
+                      flexDirection: {
+                        xs: 'row',
+                        md: 'column',
                       },
-                      {
-                        title: t('common:gtfsRealtime'),
-                        checked: selectedFeedTypes.gtfs_rt,
-                        type: 'checkbox',
-                      },
-                    ]}
-                    onCheckboxChange={(checkboxData) => {
-                      setActivePagination(1);
-                      setSelectedFeedTypes({
-                        ...selectedFeedTypes,
-                        gtfs: checkboxData[0].checked,
-                        gtfs_rt: checkboxData[1].checked,
-                      });
                     }}
-                  ></NestedCheckboxList>
-                  {config.enableFeatureFilterSearch && (
-                    <>
-                      <SearchHeader variant='h6'>Features</SearchHeader>
-                      <NestedCheckboxList
-                        checkboxData={featureCheckboxData}
-                        onExpandGroupChange={(checkboxData) => {
-                          const newExpandGroup: Record<string, boolean> = {};
-                          checkboxData.forEach((cd) => {
-                            if (cd.seeChildren !== undefined) {
-                              newExpandGroup[cd.title] = cd.seeChildren;
-                            }
-                          });
-                          setExpandedElements({
-                            ...expandedElements,
-                            ...newExpandGroup,
-                          });
-                        }}
-                        onCheckboxChange={(checkboxData) => {
-                          const selelectedFeatures: string[] = [];
-                          checkboxData.forEach((checkbox) => {
-                            if (checkbox.children !== undefined) {
-                              checkbox.children.forEach((child) => {
-                                if (child.checked) {
-                                  selelectedFeatures.push(child.title);
-                                }
-                              });
-                            }
-                          });
-                          setActivePagination(1);
-                          setSelectedFeatures(selelectedFeatures);
-                        }}
-                      />
-                    </>
-                  )}
+                  >
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={selectedFeedTypes.gtfs}
+                          onChange={(e) => {
+                            setActivePagination(1);
+                            setSelectedFeedTypes({
+                              ...selectedFeedTypes,
+                              gtfs: e.target.checked,
+                            });
+                          }}
+                        />
+                      }
+                      label={t('common:gtfsSchedule')}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={selectedFeedTypes.gtfs_rt}
+                          onChange={(e) => {
+                            setActivePagination(1);
+                            setSelectedFeedTypes({
+                              ...selectedFeedTypes,
+                              gtfs_rt: e.target.checked,
+                            });
+                          }}
+                        />
+                      }
+                      label={t('common:gtfsRealtime')}
+                    />
+                  </FormGroup>
                 </Grid>
 
                 <Grid item xs={12} md={10}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 1,
-                      minHeight: '31px',
-                      width: '100%',
-                      alignItems: 'center',
-                      mb: 1,
-                    }}
-                  >
-                    {selectedFeedTypes.gtfs && (
-                      <Chip
-                        color='secondary'
-                        size='small'
-                        label={t('common:gtfsSchedule')}
-                        onDelete={() => {
-                          setActivePagination(1);
-                          setSelectedFeedTypes({
-                            ...selectedFeedTypes,
-                            gtfs: false,
-                          });
-                        }}
-                      />
-                    )}
-                    {selectedFeedTypes.gtfs_rt && (
-                      <Chip
-                        color='secondary'
-                        size='small'
-                        label={t('common:gtfsRealtime')}
-                        onDelete={() => {
-                          setActivePagination(1);
-                          setSelectedFeedTypes({
-                            ...selectedFeedTypes,
-                            gtfs_rt: false,
-                          });
-                        }}
-                      />
-                    )}
-                    {selectedFeatures.map((feature) => (
-                      <Chip
-                        color='secondary'
-                        size='small'
-                        label={feature}
-                        key={feature}
-                        onDelete={() => {
-                          setSelectedFeatures(
-                            selectedFeatures.filter((sf) => sf !== feature),
-                          );
-                        }}
-                      />
-                    ))}
-                    {(selectedFeatures.length > 0 ||
-                      selectedFeedTypes.gtfs_rt ||
-                      selectedFeedTypes.gtfs) && (
-                      <Button
-                        variant={'text'}
-                        onClick={clearAllFilters}
-                        size={'small'}
-                        color={'secondary'}
-                      >
-                        Clear All
-                      </Button>
-                    )}
-                  </Box>
                   {feedStatus === 'loading' && (
                     <Grid item xs={12}>
                       <Skeleton

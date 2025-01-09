@@ -7,7 +7,7 @@ from faker import Faker
 from google.cloud import storage
 
 from test_utils.database_utils import default_db_url
-from main import (
+from update_validation_report.src.main import (
     get_latest_datasets_without_validation_reports,
     get_datasets_for_validation,
     update_validation_report,
@@ -91,19 +91,19 @@ class TestUpdateReportProcessor(unittest.TestCase):
         },
     )
     @patch(
-        "main.get_latest_datasets_without_validation_reports",
+        "update_validation_report.src.main.get_latest_datasets_without_validation_reports",
         autospec=True,
         return_value=[("feed1", "dataset1")],
     )
     @patch(
-        "main.get_datasets_for_validation",
+        "update_validation_report.src.main.get_datasets_for_validation",
         autospec=True,
         return_value=[("feed1", "dataset1")],
     )
     @patch("google.cloud.storage.Blob", autospec=True)
     @patch("requests.get", autospec=True)
     @patch("google.cloud.storage.Client", autospec=True)
-    @patch("main.Logger", autospec=True)
+    @patch("update_validation_report.src.main.Logger", autospec=True)
     @patch("google.cloud.workflows_v1.WorkflowsClient", autospec=True)
     @patch("google.cloud.workflows.executions_v1.ExecutionsClient", autospec=True)
     @patch("google.cloud.workflows.executions_v1.Execution", autospec=True)

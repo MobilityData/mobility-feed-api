@@ -5,8 +5,7 @@
   "timeout": 20,
   "memory": "256Mi",
   "trigger_http": true,
-  "include_folders": ["helpers", "dataset_service"],
-  "include_api_folders": ["database_gen"],
+  "include_folders": ["database_gen", "helpers", "dataset_service"],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"

@@ -30,7 +30,7 @@
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 ROOT_PATH="$SCRIPT_PATH/.."
 FUNCTIONS_PATH="$ROOT_PATH/functions-python"
-API_SRC_PATH="$ROOT_PATH/api/src"
+COMMON_PATH="$ROOT_PATH/api/src"
 
 # function printing usage
 display_usage() {
@@ -78,20 +78,13 @@ fi
 
 build_function() {
   function_name=$1
-  printf "\nBuilding function $function_name"
-  # verify if the function's folder exists
-  if [ ! -d "$FUNCTIONS_PATH/$function_name" ]; then
-    printf "\nERROR: function's folder does not exist"
-    display_usage
-    exit 1
-  fi
-
   FX_PATH="$FUNCTIONS_PATH/$function_name"
   FX_SOURCE_PATH="$FUNCTIONS_PATH/$function_name/src"
   FX_DIST_PATH="$FX_PATH/.dist"
   FX_DIST_BUILD="$FX_DIST_PATH/build"
   FX_CONFIG_FILE="$FX_PATH/function_config.json"
 
+  printf "\nBuilding function $function_name\n"
   # verify if the function's folder exists
   if [ ! -d "$FX_PATH" ]; then
     printf "\nERROR: function's folder \"$FX_PATH\" does not exist"
@@ -106,26 +99,21 @@ build_function() {
     exit 1
   fi
 
+  rm -rf "$FX_DIST_PATH"
+  mkdir "$FX_DIST_PATH"
+
+  cp -R "$FX_SOURCE_PATH" "$FX_DIST_BUILD"
+  cp "$FX_PATH/requirements.txt" "$FX_DIST_BUILD"
+
   # include folders that are in the src function_config file as a json property called "include_folders"
-  include_folders=$(jq -r .include_folders[] $FX_CONFIG_FILE 2> /dev/null)
-  # And include_api_folders (if any). These will be taken from api/src
-  include_api_folders=$(jq -r '.include_api_folders[]' $FX_CONFIG_FILE 2> /dev/null)
+  include_folders=$(jq -r .include_folders[] $FX_CONFIG_FILE)
 
-  # We'll assume that we build only if there is an entry_point defined.
-  if jq -e '.entry_point' "$FX_CONFIG_FILE" > /dev/null; then
-     rm -rf "$FX_DIST_PATH"
-     mkdir "$FX_DIST_PATH"
+  copy_folders_to_build $FUNCTIONS_PATH "$include_folders" "include_folders"
+  include_common_folders=$(jq -r '.include_common_folders[]' $FX_CONFIG_FILE 2> /dev/null)
+  copy_folders_to_build $COMMON_PATH "$include_common_folders" "include_common_folders"
 
-     # Use rsync instead of cp -R to exclude some directories that are not useful for deployment
-     rsync -av --exclude 'shared' --exclude 'test_shared' "$FX_SOURCE_PATH/" "$FX_DIST_BUILD/"
-     cp "$FX_PATH/requirements.txt" "$FX_DIST_BUILD"
 
-     copy_folders_to_build $FUNCTIONS_PATH "$include_folders" "include_folders"
-     copy_folders_to_build $API_SRC_PATH "$include_api_folders" "include_api_folders"
-
-     (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
-  fi
-
+  (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
   printf "\nCompleted building function $function_name\n"
 }
 
@@ -139,19 +127,13 @@ copy_folders_to_build() {
     printf "\nINFO: function_config.json file contains a property called $property\n"
   fi
   for folder in $folders; do
-
     printf "\nINFO: Including .py and .json files from folder $root_folder/$folder, excluding 'tests' and 'venv' directories\n"
     # Find all .py and .json files, excluding those in 'tests' or 'venv' directories
     if [ ! -e $root_folder/$folder ]; then
       echo "ERROR ---> Folder $root_folder/$folder does not exist"
       continue
     fi
-    (
-      cd "$root_folder" &&
-        find "$folder" \
-          \( -type d \( -name "tests" -o -name "venv" -o -name "shared" -o -name "test_shared" \) \) -prune -o \
-          \( -name "*.py" -o -name "*.json" \) -print
-    ) | while read file; do
+    (cd $root_folder && find "$folder" \( -type d -name "tests" -o -type d -name "venv" \) -prune -o \( -name "*.py" -o -name "*.json" \) -print) | while read file; do
 
         if [ -d "$root_folder/$file" ]; then continue; fi
         dest_path="$FX_DIST_BUILD/$file"
@@ -163,6 +145,7 @@ copy_folders_to_build() {
     done
   done
 }
+
 
 if [ "$ALL" = "true" ]; then
   # get all the functions in the functions-python folder that contain a function_config.json file
