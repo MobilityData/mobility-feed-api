@@ -28,13 +28,17 @@ from google.cloud import storage
 from sqlalchemy.engine import Row
 from sqlalchemy.engine.interfaces import Any
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed, Validationreport
-from helpers.database import Database
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    Gtfsfeed,
+    Validationreport,
+)
+from shared.helpers.database import Database
 from google.cloud import workflows_v1
 from google.cloud.workflows import executions_v1
 from google.cloud.workflows.executions_v1 import Execution
 
-from helpers.logger import Logger
+from shared.helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
 env = os.getenv("ENV", "dev").lower()

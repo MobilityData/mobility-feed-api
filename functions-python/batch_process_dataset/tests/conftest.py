@@ -17,8 +17,12 @@
 from faker import Faker
 from faker.generator import random
 from datetime import datetime
-from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Gtfsdataset
-from test_utils.database_utils import clean_testing_db, get_testing_session
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Gtfsdataset,
+)
+from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
 
 
 def populate_database():

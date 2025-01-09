@@ -1,14 +1,14 @@
 from unittest.mock import Mock, MagicMock
-from database_gen.sqlacodegen_models import Gtfsfeed, Redirectingid, Externalid
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Redirectingid, Externalid
 from feeds_operations_gen.models.authentication_type import AuthenticationType
 from feeds_operations_gen.models.feed_status import FeedStatus
 from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
-from operations_api.src.feeds_operations.impl.models.update_request_gtfs_feed_impl import (
+from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
-from operations_api.src.feeds_operations.impl.models.redirect_impl import RedirectImpl
-from operations_api.src.feeds_operations.impl.models.external_id_impl import (
+from feeds_operations.impl.models.redirect_impl import RedirectImpl
+from feeds_operations.impl.models.external_id_impl import (
     ExternalIdImpl,
 )
 

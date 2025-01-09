@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
-from dataset_service.main import (
+from main import (
     DatasetTrace,
     DatasetTraceService,
     Status,
@@ -74,7 +74,7 @@ class TestDatasetService(unittest.TestCase):
         mock_datastore_client.key.assert_called_once_with("batch_execution", "123")
 
     @patch("google.cloud.datastore.Client")
-    @patch("dataset_service.main.DatasetTraceService._entity_to_dataset_trace")
+    @patch("main.DatasetTraceService._entity_to_dataset_trace")
     def test_get_by_execution_and_stable_ids(
         self, mock_entity_to_dataset_trace, mock_datastore_client
     ):

@@ -21,8 +21,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from database_gen.sqlacodegen_models import Base
-from helpers.database import Database
+from shared.database_gen.sqlacodegen_models import Base
+from shared.helpers.database import Database
 import logging
 
 logging.basicConfig()

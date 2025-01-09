@@ -1,6 +1,6 @@
 import os
 
-from ..common.bq_data_transfer import BigQueryDataTransfer
+from common.bq_data_transfer import BigQueryDataTransfer
 
 
 class BigQueryDataTransferGTFS(BigQueryDataTransfer):

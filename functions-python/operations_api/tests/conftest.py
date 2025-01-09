@@ -13,8 +13,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Entitytype
-from test_utils.database_utils import clean_testing_db, get_testing_session
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Entitytype,
+)
+from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
 
 feed_mdb_41 = Gtfsrealtimefeed(
     id="mdb-41",

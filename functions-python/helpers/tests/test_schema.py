@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch, mock_open
 from google.cloud import bigquery
 
-from helpers.bq_schema.schema import (
+from bq_schema.schema import (
     filter_json_by_schema,
     load_json_schema,
     json_schema_to_bigquery,
