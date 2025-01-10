@@ -422,7 +422,7 @@ export default function Feed(): React.ReactElement {
         />
       )}
       <Box>
-        {latestDataset?.downloaded_at != undefined && (
+        {latestDataset?.validation_report?.validated_at != undefined && (
           <>
             <Typography
               data-testid='last-updated'
@@ -431,7 +431,7 @@ export default function Feed(): React.ReactElement {
               component={'div'}
             >
               {`${t('qualityReportUpdated')}: ${new Date(
-                latestDataset.downloaded_at,
+                latestDataset.validation_report.validated_at,
               ).toDateString()}`}
             </Typography>
             {/* TODO: add timestamp for badge verify */}
