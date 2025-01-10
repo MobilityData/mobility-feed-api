@@ -8,6 +8,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
   styled,
 } from '@mui/material';
@@ -24,6 +25,8 @@ import { useTranslation } from 'react-i18next';
 import GtfsRtEntities from './GtfsRtEntities';
 import { theme } from '../../Theme';
 import { Link } from 'react-router-dom';
+import VerifiedIcon from '@mui/icons-material/Verified';
+import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -213,7 +216,25 @@ export default function SearchTable({
             }}
           >
             <TableCell className='feed-column' component={Box}>
-              {getProviderElement(feed)}
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {getProviderElement(feed)}
+                {feed.official === true && (
+                  <Tooltip
+                    title={t('officialFeedTooltipShort')}
+                    placement='top'
+                  >
+                    <VerifiedIcon
+                      sx={(theme) => ({
+                        display: 'block',
+                        borderRadius: '50%',
+                        padding: '0.1rem',
+                        ml: 1,
+                        ...verificationBadgeStyle(theme),
+                      })}
+                    ></VerifiedIcon>
+                  </Tooltip>
+                )}
+              </Box>
             </TableCell>
             <TableCell className='feed-column' component={Box}>
               {getLocationName(feed.locations)}
@@ -252,7 +273,7 @@ export default function SearchTable({
             }}
           >
             <Typography variant='h6' sx={{ p: 0, fontSize: '16px' }}>
-              Transit Providers - {providersPopoverData[0]}
+              {t('transitProvider')} - {providersPopoverData[0]}
             </Typography>
           </Box>
 
@@ -264,8 +285,9 @@ export default function SearchTable({
               {providersPopoverData.length > 10 && (
                 <li>
                   <b>
-                    See detail page to view {providersPopoverData.length - 10}{' '}
-                    others
+                    {t('seeDetailPageProviders', {
+                      providersCount: providersPopoverData.length - 10,
+                    })}
                   </b>
                 </li>
               )}

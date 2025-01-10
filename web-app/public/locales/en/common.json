@@ -36,5 +36,12 @@
     "country": "Country",
     "chooseCountry": "Choose a country",
     "region": "Region",
-    "municipality": "Municipality"
+    "municipality": "Municipality",
+    "feedback": {
+        "errors": "errors",
+        "noErrors": "No errors",
+        "noWarnings": "No warnings",
+        "warnings": "warnings",
+        "infoNotices": "Info notices"
+    }
 }

@@ -34,7 +34,7 @@ import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import i18n from '../../i18n';
 import { NestedMenuItem } from 'mui-nested-menu';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
-import { fontFamily, theme } from '../Theme';
+import { fontFamily } from '../Theme';
 import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
 import { animatedButtonStyling } from './Header.style';
 import DrawerContent from './HeaderMobileDrawer';
@@ -179,10 +179,10 @@ export default function DrawerAppBar(): React.ReactElement {
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
               <Button
-                sx={{
-                  ...animatedButtonStyling,
+                sx={(theme) => ({
+                  ...animatedButtonStyling(theme),
                   color: theme.palette.text.primary,
-                }}
+                })}
                 href={item.external === true ? item.target : '/' + item.target}
                 key={item.title}
                 target={item.external === true ? '_blank' : '_self'}
@@ -204,10 +204,10 @@ export default function DrawerAppBar(): React.ReactElement {
                   aria-haspopup='true'
                   endIcon={<ArrowDropDownIcon />}
                   onClick={handleMenuOpen}
-                  sx={{
-                    ...animatedButtonStyling,
+                  sx={(theme) => ({
+                    ...animatedButtonStyling(theme),
                     color: theme.palette.text.primary,
-                  }}
+                  })}
                   id='analytics-button-menu'
                   className={
                     activeTab.includes('metrics') ? 'active short' : ''

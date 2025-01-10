@@ -23,6 +23,13 @@ import { useTranslation } from 'react-i18next';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { theme } from '../../Theme';
 import { getDataFeatureUrl } from '../../utils/consts';
+import PublicIcon from '@mui/icons-material/Public';
+import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import LinkIcon from '@mui/icons-material/Link';
+import DatasetIcon from '@mui/icons-material/Dataset';
+import LayersIcon from '@mui/icons-material/Layers';
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -47,6 +54,14 @@ const boxElementStyleProducerURL: SxProps = {
   width: '100%',
   mb: 1,
 };
+
+const StyledTitleContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  gap: theme.spacing(1),
+  marginBottom: theme.spacing(1),
+  marginTop: theme.spacing(3),
+  alignItems: 'center',
+}));
 
 const ResponsiveListItem = styled('li')(({ theme }) => ({
   width: '100%',
@@ -83,25 +98,23 @@ export default function FeedSummary({
       padding={2}
     >
       <Box sx={boxElementStyle}>
-        <Typography
-          variant='subtitle1'
-          gutterBottom
-          sx={{ fontWeight: 'bold' }}
-        >
-          {t('location')}
-        </Typography>
+        <StyledTitleContainer>
+          <PublicIcon></PublicIcon>
+          <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+            {t('location')}
+          </Typography>
+        </StyledTitleContainer>
         <Typography variant='body1' data-testid='location'>
           {getLocationName(feed?.locations)}
         </Typography>
       </Box>
       <Box sx={boxElementStyleTransitProvider}>
-        <Typography
-          variant='subtitle1'
-          gutterBottom
-          sx={{ fontWeight: 'bold' }}
-        >
-          {t('transitProvider')}
-        </Typography>
+        <StyledTitleContainer>
+          <DirectionsBusIcon></DirectionsBusIcon>
+          <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+            {t('transitProvider')}
+          </Typography>
+        </StyledTitleContainer>
         <Box>
           <ul
             style={{
@@ -146,13 +159,12 @@ export default function FeedSummary({
         </Box>
       </Box>
       <Box sx={boxElementStyleProducerURL}>
-        <Typography
-          variant='subtitle1'
-          gutterBottom
-          sx={{ fontWeight: 'bold' }}
-        >
-          {t('producerDownloadUrl')}
-        </Typography>
+        <StyledTitleContainer>
+          <LinkIcon></LinkIcon>
+          <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+            {t('producerDownloadUrl')}
+          </Typography>
+        </StyledTitleContainer>
         <Box>
           <Typography
             sx={{ display: 'flex', overflowWrap: 'anywhere' }}
@@ -194,13 +206,12 @@ export default function FeedSummary({
       </Box>
 
       <Box sx={boxElementStyle}>
-        <Typography
-          variant='subtitle1'
-          gutterBottom
-          sx={{ fontWeight: 'bold' }}
-        >
-          {t('dataType')}
-        </Typography>
+        <StyledTitleContainer>
+          <DatasetIcon></DatasetIcon>
+          <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+            {t('dataType')}
+          </Typography>
+        </StyledTitleContainer>
         <Typography data-testid='data-type'>
           {feed?.data_type === 'gtfs' && t('common:gtfsSchedule')}
           {feed?.data_type === 'gtfs_rt' && t('common:gtfsRealtime')}
@@ -209,18 +220,18 @@ export default function FeedSummary({
 
       {feed?.source_info?.authentication_type !== 0 && (
         <Box sx={boxElementStyle}>
-          <Typography
-            variant='subtitle1'
-            gutterBottom
-            sx={{ fontWeight: 'bold' }}
-          >
-            {t('authenticationType')}
-          </Typography>
-          <Typography data-testid='data-type'>
-            {feed?.source_info?.authentication_type === 1 && t('common:apiKey')}
-            {feed?.source_info?.authentication_type === 2 &&
-              t('common:httpHeader')}
-          </Typography>
+          <StyledTitleContainer>
+            <LockIcon></LockIcon>
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              {t('authenticationType')}
+            </Typography>
+            <Typography data-testid='data-type'>
+              {feed?.source_info?.authentication_type === 1 &&
+                t('common:apiKey')}
+              {feed?.source_info?.authentication_type === 2 &&
+                t('common:httpHeader')}
+            </Typography>
+          </StyledTitleContainer>
         </Box>
       )}
 
@@ -241,13 +252,12 @@ export default function FeedSummary({
         feed?.feed_contact_email != undefined &&
         feed?.feed_contact_email.length > 0 && (
           <Box sx={boxElementStyle}>
-            <Typography
-              variant='subtitle1'
-              gutterBottom
-              sx={{ fontWeight: 'bold' }}
-            >
-              {t('feedContactEmail')}
-            </Typography>
+            <StyledTitleContainer>
+              <EmailIcon></EmailIcon>
+              <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+                {t('feedContactEmail')}
+              </Typography>
+            </StyledTitleContainer>
             {feed?.feed_contact_email != undefined &&
               feed?.feed_contact_email.length > 0 && (
                 <Button
@@ -278,24 +288,26 @@ export default function FeedSummary({
 
       {latestDataset?.validation_report?.features != undefined && (
         <Box sx={boxElementStyle}>
-          <Typography
-            variant='subtitle1'
-            gutterBottom
-            sx={{ fontWeight: 'bold', display: 'flex' }}
-          >
-            {t('features')}
-            <Tooltip title='More Info' placement='top'>
-              <IconButton
-                href='https://gtfs.org/getting_started/features/overview/'
-                target='_blank'
-                rel='noopener noreferrer'
-                size='small'
-                sx={{ ml: 1 }}
-              >
-                <OpenInNewIcon fontSize='small' />
-              </IconButton>
-            </Tooltip>
-          </Typography>
+          <StyledTitleContainer>
+            <LayersIcon></LayersIcon>
+            <Typography
+              variant='subtitle1'
+              sx={{ fontWeight: 'bold', display: 'flex' }}
+            >
+              {t('features')}
+              <Tooltip title='More Info' placement='top'>
+                <IconButton
+                  href='https://gtfs.org/getting_started/features/overview/'
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  size='small'
+                  sx={{ ml: 1 }}
+                >
+                  <OpenInNewIcon fontSize='small' />
+                </IconButton>
+              </Tooltip>
+            </Typography>
+          </StyledTitleContainer>
 
           <Grid container spacing={1}>
             {latestDataset.validation_report?.features?.map((feature) => (

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Box, Grid, type SxProps } from '@mui/material';
+import { Box, Typography, type SxProps } from '@mui/material';
 
 export interface ContentBoxProps {
   title: string;
@@ -17,7 +17,6 @@ export const ContentBox = (
     <Box
       width={props.width}
       sx={{
-        ...props.sx,
         background: '#FFFFFF',
         borderRadius: '6px',
         border: `2px solid ${props.outlineColor}`,
@@ -26,19 +25,15 @@ export const ContentBox = (
         fontSize: '18px',
         fontWeight: 700,
         mr: 0,
+        ...props.sx,
       }}
     >
-      <Grid
-        container
-        sx={{
-          width: '100%',
-        }}
-      >
-        <Grid item xs={12} fontSize={24}>
+      {props.title.trim() !== '' && (
+        <Typography variant='h5' sx={{ flexShrink: 0, mb: 1 }}>
           {props.title}
-        </Grid>
-        {props.children}
-      </Grid>
+        </Typography>
+      )}
+      {props.children}
     </Box>
   );
 };
