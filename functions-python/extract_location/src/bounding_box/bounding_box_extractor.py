@@ -1,7 +1,7 @@
 import numpy
 from geoalchemy2 import WKTElement
 
-from database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
 
 
 def create_polygon_wkt_element(bounds: numpy.ndarray) -> WKTElement:

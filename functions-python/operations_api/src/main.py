@@ -21,7 +21,7 @@ import functions_framework
 import asyncio
 
 from middleware.request_context_middleware import RequestContextMiddleware
-from helpers.logger import Logger
+from shared.helpers.logger import Logger
 
 Logger.init_logger()
 

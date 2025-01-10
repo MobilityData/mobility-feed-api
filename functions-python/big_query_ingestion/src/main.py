@@ -2,9 +2,9 @@ import logging
 
 import functions_framework
 
-from helpers.logger import Logger
-from .gbfs.gbfs_big_query_ingest import BigQueryDataTransferGBFS
-from .gtfs.gtfs_big_query_ingest import BigQueryDataTransferGTFS
+from shared.helpers.logger import Logger
+from gbfs.gbfs_big_query_ingest import BigQueryDataTransferGBFS
+from gtfs.gtfs_big_query_ingest import BigQueryDataTransferGTFS
 
 logging.basicConfig(level=logging.INFO)
 

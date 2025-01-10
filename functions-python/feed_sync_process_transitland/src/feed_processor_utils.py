@@ -4,15 +4,15 @@ from datetime import datetime
 from typing import Tuple, Optional
 from sqlalchemy.orm import Session
 import requests
-from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
-from database_gen.sqlacodegen_models import (
+from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
+from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Externalid,
     Entitytype,
     Feed,
 )
-from helpers.locations import create_or_get_location
+from shared.helpers.locations import create_or_get_location
 
 
 def check_url_status(url: str) -> bool:

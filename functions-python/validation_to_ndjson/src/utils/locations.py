@@ -3,8 +3,8 @@ from typing import List
 
 from sqlalchemy.orm import joinedload
 
-from database_gen.sqlacodegen_models import Feed, Location
-from helpers.database import Database
+from shared.database_gen.sqlacodegen_models import Feed, Location
+from shared.helpers.database import Database
 
 
 def get_feed_location(data_type: str, stable_id: str) -> List[Location]:

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from database_gen.sqlacodegen_models import Redirectingid, Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Redirectingid, Gtfsfeed
 from feeds_operations_gen.models.redirect import Redirect
 from feeds_operations.impl.models.redirect_impl import RedirectImpl
 

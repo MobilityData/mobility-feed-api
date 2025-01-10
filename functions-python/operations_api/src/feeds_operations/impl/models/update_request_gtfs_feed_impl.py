@@ -14,7 +14,7 @@
 #  limitations under the License.
 #
 
-from database_gen.sqlacodegen_models import Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed
 from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
 from feeds_operations.impl.models.redirect_impl import RedirectImpl
 from feeds_operations_gen.models.source_info import SourceInfo

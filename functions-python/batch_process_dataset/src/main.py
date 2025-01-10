@@ -29,13 +29,13 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
 
-from database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
-from dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from helpers.database import Database, refresh_materialized_view, with_db_session
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
+from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
+from shared.helpers.database import Database, refresh_materialized_view, with_db_session
 import logging
 
-from helpers.logger import Logger
-from helpers.utils import download_and_get_hash
+from shared.helpers.logger import Logger
+from shared.helpers.utils import download_and_get_hash
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

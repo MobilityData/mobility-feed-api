@@ -18,15 +18,15 @@ import os
 import logging
 from datetime import datetime
 import requests
-from helpers.database import Database
+from shared.helpers.database import Database
 import functions_framework
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Validationreport,
     Feature,
     Notice,
     Gtfsdataset,
 )
-from helpers.logger import Logger
+from shared.helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
 

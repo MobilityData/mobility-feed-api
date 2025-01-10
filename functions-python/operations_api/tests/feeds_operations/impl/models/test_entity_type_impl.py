@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from database_gen.sqlacodegen_models import Entitytype
+from shared.database_gen.sqlacodegen_models import Entitytype
 from feeds_operations.impl.models.entity_type_impl import EntityTypeImpl
 from feeds_operations_gen.models.entity_type import EntityType
 

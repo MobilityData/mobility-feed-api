@@ -23,7 +23,12 @@ from typing import Optional
 from sqlalchemy import create_engine, text, event, Engine
 from sqlalchemy.orm import sessionmaker, Session, mapper, class_mapper
 
-from database_gen.sqlacodegen_models import Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Gbfsfeed,
+)
 
 LOGGER = logging.getLogger(__name__)
 
