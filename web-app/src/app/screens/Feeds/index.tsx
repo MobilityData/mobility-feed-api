@@ -380,7 +380,7 @@ export default function Feed(): React.ReactElement {
               ></NestedCheckboxList>
               {config.enableIsOfficialFilterSearch && (
                 <>
-                  <SearchHeader variant='h6'>Attributes</SearchHeader>
+                  <SearchHeader variant='h6'>Tags</SearchHeader>
                   <NestedCheckboxList
                     checkboxData={[
                       {
