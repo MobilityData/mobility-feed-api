@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy.orm.query import Query
 
+from common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query, get_joinedload_options
 from database.database import Database, with_db_session
 from database_gen.sqlacodegen_models import (
     Feed,
@@ -19,16 +20,15 @@ from database_gen.sqlacodegen_models import (
 )
 from feeds.filters.feed_filter import FeedFilter
 from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
-from feeds.filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
+from feeds.filters.gtfs_feed_filter import LocationFilter
 from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
-from feeds.impl.error_handling import (
-    raise_http_validation_error,
+from common.error_handling import (
     invalid_date_message,
-    raise_http_error,
     feed_not_found,
     gtfs_feed_not_found,
     gtfs_rt_feed_not_found,
+    InternalHTTPException,
 )
 from feeds.impl.models.basic_feed_impl import BasicFeedImpl
 from feeds.impl.models.entity_type_enum import EntityType
@@ -39,6 +39,7 @@ from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
+from impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from middleware.request_context import is_user_email_restricted
 from utils.date_utils import valid_iso_date
 from utils.location_translation import (
@@ -117,7 +118,7 @@ class FeedsApiImpl(BaseFeedsApi):
         )
         # Results are sorted by provider
         feed_query = feed_query.order_by(Feed.provider, Feed.stable_id)
-        feed_query = feed_query.options(*BasicFeedImpl.get_joinedload_options())
+        feed_query = feed_query.options(*get_joinedload_options())
         if limit is not None:
             feed_query = feed_query.limit(limit)
         if offset is not None:
@@ -158,7 +159,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 joinedload(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
                 .joinedload(Validationreport.notices),
-                *BasicFeedImpl.get_joinedload_options(),
+                *get_joinedload_options(),
             )
         ).all()
         if len(results) > 0 and results[0].Gtfsfeed:
@@ -237,47 +238,30 @@ class FeedsApiImpl(BaseFeedsApi):
         is_official: bool,
         db_session: Session,
     ) -> List[GtfsFeed]:
-        """Get some (or all) GTFS feeds from the Mobility Database."""
-        gtfs_feed_filter = GtfsFeedFilter(
-            stable_id=None,
-            provider__ilike=provider,
-            producer_url__ilike=producer_url,
-            location=LocationFilter(
+        try:
+            include_wip = not is_user_email_restricted()
+            feed_query = get_gtfs_feeds_query(
+                limit=limit,
+                offset=offset,
+                provider=provider,
+                producer_url=producer_url,
                 country_code=country_code,
-                subdivision_name__ilike=subdivision_name,
-                municipality__ilike=municipality,
-            ),
-        )
-
-        subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id).join(Location, Gtfsfeed.locations))
-        subquery = DatasetsApiImpl.apply_bounding_filtering(
-            subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
-        ).subquery()
-
-        is_email_restricted = is_user_email_restricted()
-        self.logger.info(f"User email is restricted: {is_email_restricted}")
-        feed_query = (
-            db_session.query(Gtfsfeed)
-            .filter(Gtfsfeed.id.in_(subquery))
-            .filter(
-                or_(
-                    Gtfsfeed.operational_status == None,  # noqa: E711
-                    Gtfsfeed.operational_status != "wip",
-                    not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
-                )
+                subdivision_name=subdivision_name,
+                municipality=municipality,
+                dataset_latitudes=dataset_latitudes,
+                dataset_longitudes=dataset_longitudes,
+                bounding_filter_method=bounding_filter_method,
+                is_official=is_official,
+                db_session=db_session,
+                include_wip=include_wip,
             )
-            .options(
-                joinedload(Gtfsfeed.gtfsdatasets)
-                .joinedload(Gtfsdataset.validation_reports)
-                .joinedload(Validationreport.notices),
-                *BasicFeedImpl.get_joinedload_options(),
-            )
-            .order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-        )
-        if is_official:
-            feed_query = feed_query.filter(Feed.official)
-        feed_query = feed_query.limit(limit).offset(offset)
-        return self._get_response(feed_query, GtfsFeedImpl, db_session)
+        except InternalHTTPException as e:
+            # get_gtfs_feeds_query cannot throw HTTPException since it's part of fastapi and it's
+            # not necessarily deployed (e.g. for python functions). Instead it throws an InternalHTTPException
+            # that needs to be converted to HTTPException before being thrown.
+            raise convert_exception(e)
+
+        return self._get_response(feed_query, GtfsFeedImpl)
 
     @with_db_session
     def get_gtfs_rt_feed(self, id: str, db_session: Session) -> GtfsRTFeed:
@@ -303,7 +287,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .options(
                 joinedload(Gtfsrealtimefeed.entitytypes),
                 joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                *BasicFeedImpl.get_joinedload_options(),
+                *get_joinedload_options(),
             )
         ).all()
 
@@ -328,6 +312,26 @@ class FeedsApiImpl(BaseFeedsApi):
         db_session: Session,
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
+        try:
+            include_wip = not is_user_email_restricted()
+            feed_query = get_gtfs_rt_feeds_query(
+                limit=limit,
+                offset=offset,
+                provider=provider,
+                producer_url=producer_url,
+                entity_types=entity_types,
+                country_code=country_code,
+                subdivision_name=subdivision_name,
+                municipality=municipality,
+                is_official=is_official,
+                include_wip=include_wip,
+                db_session=db_session,
+            )
+        except InternalHTTPException as e:
+            raise convert_exception(e)
+
+        return self._get_response(feed_query, GtfsRTFeedImpl)
+
         entity_types_list = entity_types.split(",") if entity_types else None
 
         # Validate entity types using the EntityType enum
@@ -369,7 +373,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .options(
                 joinedload(Gtfsrealtimefeed.entitytypes),
                 joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                *BasicFeedImpl.get_joinedload_options(),
+                *get_joinedload_options(),
             )
             .order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         )

@@ -1,0 +1,20 @@
+{
+  "name": "create-csv",
+  "description": "Create a csv of all feeds",
+  "entry_point": "create_csv",
+  "timeout": 20,
+  "memory": "256Mi",
+  "trigger_http": true,
+  "include_folders": ["helpers", "dataset_service"],
+  "include_api_folders": ["utils", "database", "feeds/filters", "common", "database_gen"],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_DATABASE_URL"
+    }
+  ],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 20,
+  "max_instance_count": 10,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}

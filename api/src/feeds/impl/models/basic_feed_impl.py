@@ -1,6 +1,3 @@
-from sqlalchemy.orm import joinedload
-from sqlalchemy.orm.strategy_options import _AbstractLoad
-
 from database_gen.sqlacodegen_models import Feed
 from feeds.impl.models.external_id_impl import ExternalIdImpl
 from feeds.impl.models.redirect_impl import RedirectImpl
@@ -48,16 +45,6 @@ class BaseFeedImpl(BasicFeed):
             ),
             redirects=sorted([RedirectImpl.from_orm(item) for item in feed.redirectingids], key=lambda x: x.target_id),
         )
-
-    @staticmethod
-    def get_joinedload_options() -> [_AbstractLoad]:
-        """Returns common joinedload options for feeds queries."""
-        return [
-            joinedload(Feed.locations),
-            joinedload(Feed.externalids),
-            joinedload(Feed.redirectingids),
-            joinedload(Feed.officialstatushistories),
-        ]
 
 
 class BasicFeedImpl(BaseFeedImpl, BasicFeed):

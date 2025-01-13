@@ -149,6 +149,8 @@ create_symbolic_links() {
   fi
 
   for folder in $folders; do
+    # In case the folder is made of more than one level (e.g. "feeds/filters") just link the parent (e.g. "feeds")
+    folder=$(echo $folder | cut -d '/' -f 1)
     src_folder="$root_folder/$folder"
     if [[ "$dst_folder" != "$src_folder"* ]]; then
       relative_path=$(python3 -c "import os.path; print(os.path.relpath(\"$src_folder\", \"$dst_folder\"))")
