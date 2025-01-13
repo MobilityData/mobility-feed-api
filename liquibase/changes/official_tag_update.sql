@@ -2,7 +2,7 @@
 
 UPDATE public.feed f
 SET 
-  official = TRUE
+  official = TRUE,
   official_updated_at = NOW()
 FROM public.externalid e
 WHERE f.id = e.feed_id

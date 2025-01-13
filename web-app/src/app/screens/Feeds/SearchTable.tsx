@@ -216,7 +216,13 @@ export default function SearchTable({
             }}
           >
             <TableCell className='feed-column' component={Box}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
                 {getProviderElement(feed)}
                 {feed.official === true && (
                   <Tooltip
