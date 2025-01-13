@@ -93,5 +93,6 @@
   "officialFeedTooltipShort": "Verified feed: Confirmed by the transit provider or the Mobility Database team for rider use.",
   "seeDetailPageProviders": "See detail page to view {providersCount} others",
   "openFullQualityReport": "Open Full Quality Report",
-  "qualityReportUpdated": "Quality report updated"
+  "qualityReportUpdated": "Quality report updated",
+  "officialFeedUpdated": "Official verification updated"
 }

@@ -362,6 +362,12 @@ components:
                 Official feeds are provided by the transit agency or a trusted source.
             type: boolean
             example: true
+        official_updated_at:
+            description: >
+                The date and time the official status was last updated, in ISO 8601 date-time format.
+            type: string
+            example: 2023-07-10T22:06:00Z
+            format: date-time
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
         provider:

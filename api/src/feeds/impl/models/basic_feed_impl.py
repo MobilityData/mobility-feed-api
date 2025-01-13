@@ -23,14 +23,12 @@ class BaseFeedImpl(BasicFeed):
     def from_orm(cls, feed: Feed | None, _=None) -> BasicFeed | None:
         if not feed:
             return None
-        latest_official_status = None
-        if len(feed.officialstatushistories) > 0:
-            latest_official_status = max(feed.officialstatushistories, key=lambda x: x.timestamp).is_official
         return cls(
             id=feed.stable_id,
             data_type=feed.data_type,
             status=feed.status,
-            official=latest_official_status,
+            official=feed.official,
+            official_updated_at=feed.official_updated_at,
             created_at=feed.created_at,
             external_ids=sorted(
                 [ExternalIdImpl.from_orm(item) for item in feed.externalids], key=lambda x: x.external_id

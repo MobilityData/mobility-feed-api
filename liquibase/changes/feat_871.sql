@@ -1,0 +1,1 @@
+ALTER TABLE Feed ADD COLUMN official_updated_at TIMESTAMP DEFAULT NULL;

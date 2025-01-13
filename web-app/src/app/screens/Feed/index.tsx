@@ -423,19 +423,28 @@ export default function Feed(): React.ReactElement {
       )}
       <Box>
         {latestDataset?.validation_report?.validated_at != undefined && (
-          <>
-            <Typography
-              data-testid='last-updated'
-              variant={'caption'}
-              width={'100%'}
-              component={'div'}
-            >
-              {`${t('qualityReportUpdated')}: ${new Date(
-                latestDataset.validation_report.validated_at,
-              ).toDateString()}`}
-            </Typography>
-            {/* TODO: add timestamp for badge verify */}
-          </>
+          <Typography
+            data-testid='last-updated'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {`${t('qualityReportUpdated')}: ${new Date(
+              latestDataset.validation_report.validated_at,
+            ).toDateString()}`}
+          </Typography>
+        )}
+        {feed?.official_updated_at != undefined && (
+          <Typography
+            data-testid='last-updated'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {`${t('officialFeedUpdated')}: ${new Date(
+              feed?.official_updated_at,
+            ).toDateString()}`}
+          </Typography>
         )}
       </Box>
 
