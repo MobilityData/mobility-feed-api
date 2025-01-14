@@ -144,6 +144,13 @@ export interface components {
        * @example true
        */
       official?: boolean;
+      /**
+       * Format: date-time
+       * @description The date and time the official status was last updated, in ISO 8601 date-time format.
+       *
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      official_updated_at?: string;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.

@@ -1,7 +1,9 @@
 -- Query to update official tag for feeds with contact email in the feed table where the source is mdb
 
 UPDATE public.feed f
-SET official = TRUE
+SET 
+  official = TRUE,
+  official_updated_at = NOW()
 FROM public.externalid e
 WHERE f.id = e.feed_id
   AND f.feed_contact_email LIKE '%@%'

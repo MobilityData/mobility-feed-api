@@ -56,6 +56,9 @@ export default function Feed(): React.ReactElement {
   );
   const [isSticky, setIsSticky] = useState(false);
   const [activeSearch, setActiveSearch] = useState(searchParams.get('q') ?? '');
+  const [isOfficialFeedSearch, setIsOfficialFeedSearch] = useState(
+    Boolean(searchParams.get('official')) ?? false,
+  );
   const [searchQuery, setSearchQuery] = useState(activeSearch);
   const [expandedElements, setExpandedElements] = useState<
     Record<string, boolean>
@@ -94,6 +97,7 @@ export default function Feed(): React.ReactElement {
             offset: paginationOffset,
             search_query: activeSearch,
             data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
+            is_official: isOfficialFeedSearch,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
             status: ['active', 'inactive', 'development'],
@@ -101,7 +105,15 @@ export default function Feed(): React.ReactElement {
         },
       }),
     );
-  }, [user, activeSearch, activePagination, selectedFeedTypes, searchLimit]);
+  }, [
+    user,
+    activeSearch,
+    activePagination,
+    selectedFeedTypes,
+    searchLimit,
+    isOfficialFeedSearch,
+    selectedFeatures,
+  ]);
 
   useEffect(() => {
     const newSearchParams = new URLSearchParams();
@@ -121,10 +133,19 @@ export default function Feed(): React.ReactElement {
     if (selectedFeatures.length > 0) {
       newSearchParams.set('features', selectedFeatures.join(','));
     }
+    if (isOfficialFeedSearch) {
+      newSearchParams.set('official', 'true');
+    }
     if (searchParams.toString() !== newSearchParams.toString()) {
       setSearchParams(newSearchParams, { replace: false });
     }
-  }, [activeSearch, activePagination, selectedFeedTypes, selectedFeatures]);
+  }, [
+    activeSearch,
+    activePagination,
+    selectedFeedTypes,
+    selectedFeatures,
+    isOfficialFeedSearch,
+  ]);
 
   // When url updates, it will update the state of the search page
   // This is to ensure that the search page is in sync with the url
@@ -143,6 +164,11 @@ export default function Feed(): React.ReactElement {
     const newFeatures = searchParams.get('features')?.split(',') ?? [];
     if (newFeatures.join(',') !== selectedFeatures.join(',')) {
       setSelectedFeatures([...newFeatures]);
+    }
+
+    const newSearchOfficial = Boolean(searchParams.get('official')) ?? false;
+    if (newSearchOfficial !== isOfficialFeedSearch) {
+      setIsOfficialFeedSearch(newSearchOfficial);
     }
 
     const newFeedTypes = getInitialSelectedFeedTypes(searchParams);
@@ -214,6 +240,7 @@ export default function Feed(): React.ReactElement {
       gtfs_rt: false,
     });
     setSelectedFeatures([]);
+    setIsOfficialFeedSearch(false);
   }
 
   React.useEffect(() => {
@@ -351,6 +378,25 @@ export default function Feed(): React.ReactElement {
                   });
                 }}
               ></NestedCheckboxList>
+              {config.enableIsOfficialFilterSearch && (
+                <>
+                  <SearchHeader variant='h6'>Tags</SearchHeader>
+                  <NestedCheckboxList
+                    checkboxData={[
+                      {
+                        title: 'Official Feeds',
+                        checked: isOfficialFeedSearch,
+                        type: 'checkbox',
+                      },
+                    ]}
+                    onCheckboxChange={(checkboxData) => {
+                      setActivePagination(1);
+                      setIsOfficialFeedSearch(checkboxData[0].checked);
+                    }}
+                  ></NestedCheckboxList>
+                </>
+              )}
+
               {config.enableFeatureFilterSearch && (
                 <>
                   <SearchHeader variant='h6'>Features</SearchHeader>
@@ -417,6 +463,17 @@ export default function Feed(): React.ReactElement {
                     }}
                   />
                 )}
+                {isOfficialFeedSearch && (
+                  <Chip
+                    color='secondary'
+                    size='small'
+                    label={'Official Feeds'}
+                    onDelete={() => {
+                      setActivePagination(1);
+                      setIsOfficialFeedSearch(false);
+                    }}
+                  />
+                )}
                 {selectedFeatures.map((feature) => (
                   <Chip
                     color='secondary'
@@ -431,6 +488,7 @@ export default function Feed(): React.ReactElement {
                   />
                 ))}
                 {(selectedFeatures.length > 0 ||
+                  isOfficialFeedSearch ||
                   selectedFeedTypes.gtfs_rt ||
                   selectedFeedTypes.gtfs) && (
                   <Button
@@ -485,26 +543,31 @@ export default function Feed(): React.ReactElement {
 
               {feedsData !== undefined && feedStatus === 'loaded' && (
                 <>
-                  {feedsData?.results?.length === 0 &&
-                    activeSearch.trim().length > 0 && (
-                      <Grid item xs={12}>
-                        <h3>{t('noResults', { activeSearch })}</h3>
-                        <Typography>{t('searchSuggestions')}</Typography>
-                        <ul>
-                          <li>
-                            <Typography>{t('searchTips.twoDigit')}</Typography>
-                          </li>
-                          <li>
-                            <Typography>{t('searchTips.fullName')}</Typography>
-                          </li>
-                          <li>
-                            <Typography>
-                              {t('searchTips.checkSpelling')}
-                            </Typography>
-                          </li>
-                        </ul>
-                      </Grid>
-                    )}
+                  {feedsData?.results?.length === 0 && (
+                    <Grid item xs={12}>
+                      <h3>{t('noResults', { activeSearch })}</h3>
+                      <Typography>{t('searchSuggestions')}</Typography>
+                      <ul>
+                        <li>
+                          <Typography>{t('searchTips.twoDigit')}</Typography>
+                        </li>
+                        <li>
+                          <Typography>{t('searchTips.fullName')}</Typography>
+                        </li>
+                        <li>
+                          <Typography>
+                            Try adjusting your filters, or removing strict
+                            criteria
+                          </Typography>
+                        </li>
+                        <li>
+                          <Typography>
+                            {t('searchTips.checkSpelling')}
+                          </Typography>
+                        </li>
+                      </ul>
+                    </Grid>
+                  )}
                   {feedsData?.results !== undefined &&
                     feedsData?.results !== null &&
                     feedsData?.results?.length > 0 && (
