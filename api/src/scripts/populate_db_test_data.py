@@ -5,8 +5,8 @@ from geoalchemy2 import WKTElement
 from google.cloud.sql.connector.instance import logger
 from sqlalchemy import text
 
-from database.database import with_db_session
-from database_gen.sqlacodegen_models import (
+from shared.database.database import with_db_session
+from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Validationreport,
     Gtfsfeed,

@@ -6,7 +6,7 @@
   "memory": "256Mi",
   "trigger_http": true,
   "include_folders": ["helpers", "dataset_service"],
-  "include_api_folders": ["utils", "database", "feeds/filters", "common", "database_gen"],
+  "include_api_folders": ["utils", "database", "feeds_filters", "common", "database_gen"],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"

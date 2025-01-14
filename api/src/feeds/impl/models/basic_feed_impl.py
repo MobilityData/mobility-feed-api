@@ -1,4 +1,4 @@
-from database_gen.sqlacodegen_models import Feed
+from shared.database_gen.sqlacodegen_models import Feed
 from feeds.impl.models.external_id_impl import ExternalIdImpl
 from feeds.impl.models.redirect_impl import RedirectImpl
 from feeds_gen.models.basic_feed import BasicFeed

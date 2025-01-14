@@ -7,8 +7,8 @@ from typing import Type, TYPE_CHECKING
 import pandas
 from dotenv import load_dotenv
 
-from database.database import Database
-from database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
+from shared.database.database import Database
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
 from utils.logger import Logger
 
 if TYPE_CHECKING:

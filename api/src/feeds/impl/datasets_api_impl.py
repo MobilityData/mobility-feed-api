@@ -3,12 +3,15 @@ from typing import Tuple
 
 from sqlalchemy.orm import Query, Session
 
-from database.database import Database, with_db_session
-from database_gen.sqlacodegen_models import (
+from shared.database.database import Database, with_db_session
+from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
+    Feed,
 )
 from feeds.impl.error_handling import (
     raise_http_error,
+)
+from shared.common.error_handling import (
     dataset_not_found,
 )
 from feeds.impl.models.gtfs_dataset_impl import GtfsDatasetImpl
@@ -22,6 +25,16 @@ class DatasetsApiImpl(BaseDatasetsApi):
     All methods from the parent class `feeds_gen.apis.datasets_api_base.BaseDatasetsApi` should be implemented.
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
+
+    @staticmethod
+    def create_dataset_query() -> Query:
+        return Query(
+            [
+                Gtfsdataset,
+                Gtfsdataset.bounding_box.ST_AsGeoJSON(),
+                Feed.stable_id,
+            ]
+        ).join(Feed, Feed.id == Gtfsdataset.feed_id)
 
     @staticmethod
     def get_datasets_gtfs(query: Query, session: Session, limit: int = None, offset: int = None) -> List[GtfsDataset]:

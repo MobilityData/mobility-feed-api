@@ -4,9 +4,9 @@ from typing import Final
 import pytest
 from sqlalchemy.orm import Query
 
-from common.common import apply_bounding_filtering
-from database.database import Database, generate_unique_id
-from database_gen.sqlacodegen_models import Feature, Gtfsdataset
+from shared.common.db_utils import apply_bounding_filtering
+from shared.database.database import Database, generate_unique_id
+from shared.database_gen.sqlacodegen_models import Feature, Gtfsdataset
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker

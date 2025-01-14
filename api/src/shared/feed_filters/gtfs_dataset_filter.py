@@ -2,7 +2,7 @@ from typing import Optional
 from datetime import datetime
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from utils.param_utils import normalize_str_parameter
 
 

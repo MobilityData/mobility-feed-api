@@ -4,7 +4,7 @@ from datetime import datetime
 
 from geoalchemy2 import WKTElement
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Redirectingid,
     Feature,
     Validationreport,

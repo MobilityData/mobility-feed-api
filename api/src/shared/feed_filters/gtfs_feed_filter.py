@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi_filter.contrib.sqlalchemy import Filter
 
-from database_gen.sqlacodegen_models import Location, Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Location, Gtfsfeed
 from utils.param_utils import normalize_str_parameter
 
 

@@ -6,9 +6,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy.orm.query import Query
 
-from common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query, get_joinedload_options
-from database.database import Database, with_db_session
-from database_gen.sqlacodegen_models import (
+from shared.common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query, get_joinedload_options
+from shared.database.database import Database, with_db_session
+from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
     Gtfsfeed,
@@ -18,12 +18,12 @@ from database_gen.sqlacodegen_models import (
     t_location_with_translations_en,
     Entitytype,
 )
-from feeds.filters.feed_filter import FeedFilter
-from feeds.filters.gtfs_dataset_filter import GtfsDatasetFilter
-from feeds.filters.gtfs_feed_filter import LocationFilter
-from feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
+from shared.feed_filters.feed_filter import FeedFilter
+from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
+from shared.feed_filters.gtfs_feed_filter import LocationFilter
+from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
-from common.error_handling import (
+from shared.common.error_handling import (
     invalid_date_message,
     feed_not_found,
     gtfs_feed_not_found,
@@ -39,7 +39,7 @@ from feeds_gen.models.basic_feed import BasicFeed
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 from feeds_gen.models.gtfs_feed import GtfsFeed
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
-from impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
+from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from middleware.request_context import is_user_email_restricted
 from utils.date_utils import valid_iso_date
 from utils.location_translation import (
@@ -252,8 +252,8 @@ class FeedsApiImpl(BaseFeedsApi):
                 dataset_longitudes=dataset_longitudes,
                 bounding_filter_method=bounding_filter_method,
                 is_official=is_official,
-                db_session=db_session,
                 include_wip=include_wip,
+                db_session=db_session,
             )
         except InternalHTTPException as e:
             # get_gtfs_feeds_query cannot throw HTTPException since it's part of fastapi and it's
@@ -261,7 +261,7 @@ class FeedsApiImpl(BaseFeedsApi):
             # that needs to be converted to HTTPException before being thrown.
             raise convert_exception(e)
 
-        return self._get_response(feed_query, GtfsFeedImpl)
+        return self._get_response(feed_query, GtfsFeedImpl, db_session)
 
     @with_db_session
     def get_gtfs_rt_feed(self, id: str, db_session: Session) -> GtfsRTFeed:
@@ -330,7 +330,7 @@ class FeedsApiImpl(BaseFeedsApi):
         except InternalHTTPException as e:
             raise convert_exception(e)
 
-        return self._get_response(feed_query, GtfsRTFeedImpl)
+        return self._get_response(feed_query, GtfsRTFeedImpl, db_session)
 
         entity_types_list = entity_types.split(",") if entity_types else None
 

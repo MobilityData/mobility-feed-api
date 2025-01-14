@@ -5,7 +5,7 @@ from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
 from .error_handling import raise_internal_http_validation_error, invalid_bounding_method, invalid_bounding_coordinates
-from ..database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
     Gtfsfeed,
@@ -15,14 +15,14 @@ from ..database_gen.sqlacodegen_models import (
     Entitytype,
 )
 
-from shared.feeds.filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
-from shared.feeds.filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
+from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
+from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 
 from .entity_type_enum import EntityType
 
 from sqlalchemy import or_
 
-from impl.error_handling import raise_http_validation_error
+from feeds.impl.error_handling import raise_http_validation_error
 
 
 def get_gtfs_feeds_query(

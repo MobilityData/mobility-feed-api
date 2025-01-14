@@ -5,9 +5,16 @@ import json
 
 from fastapi.testclient import TestClient
 
-from database.database import Database
-from database_gen.sqlacodegen_models import Feed, Externalid, Gtfsdataset, Redirectingid, Gtfsfeed, Gtfsrealtimefeed
-from feeds.filters.feed_filter import FeedFilter
+from shared.database.database import Database
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    Externalid,
+    Gtfsdataset,
+    Redirectingid,
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+)
+from shared.feed_filters.feed_filter import FeedFilter
 from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 from tests.test_utils.token import authHeaders

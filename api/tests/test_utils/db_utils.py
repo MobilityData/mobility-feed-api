@@ -8,7 +8,7 @@ from geoalchemy2.shape import to_shape
 from sqlalchemy import Inspector, delete
 import json
 
-from database_gen.sqlacodegen_models import Base
+from shared.database_gen.sqlacodegen_models import Base
 
 
 class CustomEncoder(json.JSONEncoder):

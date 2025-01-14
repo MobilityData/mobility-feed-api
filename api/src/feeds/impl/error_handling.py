@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from common.error_handling import InternalHTTPException
+from shared.common.error_handling import InternalHTTPException
 
 
 def convert_exception(input_exception: InternalHTTPException) -> HTTPException:

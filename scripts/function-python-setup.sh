@@ -32,7 +32,7 @@
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 ROOT_PATH=$(realpath "$SCRIPT_PATH/..")
 FUNCTIONS_PATH="$ROOT_PATH/functions-python"
-API_PATH="$ROOT_PATH/api/src"
+API_PATH="$ROOT_PATH/api/src/shared"
 
 # function printing usage
 display_usage() {
@@ -44,6 +44,7 @@ display_usage() {
   echo "  -h|--help                           Display help content."
   echo "  --function_name <FUNCTION_NAME>     Name of the function to be executed."
   echo "  --all                               Build all functions."
+  echo "  --clean                             Clean shared folders."
   exit 1
 }
 
