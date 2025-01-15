@@ -155,8 +155,8 @@ resource "google_storage_bucket_object" "operations_api_zip" {
 # 9. Export CSV
 resource "google_storage_bucket_object" "export_csv_zip" {
   bucket = google_storage_bucket.functions_bucket.name
-  name   = "create-csv-${substr(filebase64sha256(local.function_create_csv_zip), 0, 10)}.zip"
-  source = local.function_create_csv_zip
+  name   = "export-csv-${substr(filebase64sha256(local.function_export_csv_zip), 0, 10)}.zip"
+  source = local.function_export_csv_zip
 }
 
 # Secrets access
@@ -515,13 +515,13 @@ resource "google_cloudfunctions2_function" "export_csv" {
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_preprocessed_analytics.name
+        object = google_storage_bucket_object.export_csv_zip.name
       }
     }
   }
   service_config {
     environment_variables = {
-      DATASETS_BUCKET_NANE = google_storage_bucket.datasets_bucket.name
+      DATASETS_BUCKET_NANE = var.datasets_bucket_name
     }
     available_memory                 = local.function_export_csv_config.memory
     timeout_seconds                  = local.function_export_csv_config.timeout
