@@ -23,6 +23,8 @@ terraform {
 #
 
 locals {
+  x_number_of_concurrent_instance = 4
+
   function_tokens_config = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
   function_tokens_zip    = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
 
@@ -346,6 +348,46 @@ resource "google_cloudfunctions2_function" "extract_location_batch" {
 }
 
 # 3. functions/validation_report_processor cloud function
+
+# Create a dead letter queue for the cloud tasks
+resource "google_cloud_tasks_queue" "cloud_tasks_dead_letter_queue" {
+  name     = "cloud-tasks-dead-letter-queue-${var.environment}"
+  location = var.gcp_region
+
+  # Optionally set rate limits for the DLQ
+  rate_limits {
+    max_dispatches_per_second = 5
+    max_concurrent_dispatches = 2
+  }
+
+  # Optional retry configuration for DLQ
+  retry_config {
+    max_attempts  = 0  # Prevent retries in the DLQ
+    min_backoff   = "1s"
+    max_backoff   = "10s"
+  }
+}
+
+# Create a queue for the cloud tasks
+# The 2X rate is defined as 4*2 concurrent dispatches and 1 dispatch per second
+resource "google_cloud_tasks_queue" "cloud_tasks_2x_rate_queue" {
+  name     = "cloud-tasks-2x-rate-queue-${var.environment}"
+  location = var.gcp_region
+
+  rate_limits {
+    max_concurrent_dispatches = local.x_number_of_concurrent_instance * 2
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~two hours
+    max_attempts  = 120
+    min_backoff   = "20s"
+    max_backoff   = "60s"
+    max_doublings = 2
+  }
+}
+
 resource "google_cloudfunctions2_function" "process_validation_report" {
   name        = local.function_process_validation_report_config.name
   description = local.function_process_validation_report_config.description

@@ -52,9 +52,29 @@ resource "google_project_iam_member" "workflows_invoker" {
   member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
 }
 
+# This permission is added to allow the workflow to act as the service account and generate tokens.
+# This is required for the workflow to call a cloud tasks that generates a token to call the a cloud run service or function.
+resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
+  member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
+}
+
 resource "google_project_iam_member" "cloud_run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
+  member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
+}
+
+resource "google_project_iam_member" "service_account_workflow_cloudtasks_enqueuer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.enqueuer"
+  member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
+}
+
+resource "google_project_iam_member" "service_account_workflow_cloudtasks_viewer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.viewer"
   member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
 }
 

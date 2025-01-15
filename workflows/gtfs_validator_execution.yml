@@ -19,6 +19,9 @@ main:
             - datasetID: ${text.split(data.resourceName, "/")[6]}
             - region: ${resource.labels.location}
             - projectID: ${resource.labels.project_id}
+            # Extracts the environment from the project ID. Ex: mobility-feeds-prod -> prod. Values: prod, qa, dev
+            - environment: ${text.split(projectID, "-")[2]}
+            - cloudTaskName: ${"cloud-tasks-2x-rate-queue-" + environment}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
             - headers:
                   Content-Type: application/json
@@ -221,23 +224,78 @@ main:
             switch:
                 - condition: ${byPassDbUpdate}
                   next: successfulExecution
-      - updateDatabase:
-          call: http.post
-          args:
-            url: ${"https://" + region + "-" + projectID + ".cloudfunctions.net/process-validation-report"}
-            auth:
-              type: OIDC
-            body:
+      - createPayload:
+          assign:
+            - payloadTask:
                 feed_id: ${feedID}
                 dataset_id: ${datasetID}
                 validator_version: ${validatorVersion}
-            headers: ${headers}
-          result: updateDatabaseResponse
-      - logUpdateDatabaseResponse:
+            - payloadTaskBase64: '${base64.encode(json.encode(payloadTask))}'
+      - enqueueTask:
+          call: googleapis.cloudtasks.v2beta3.projects.locations.queues.tasks.create
+          args:
+            parent: ${"projects/" + projectID + "/locations/" + region + "/queues/" + cloudTaskName}
+            body:
+              task:
+                httpRequest:
+                  url: ${"https://" + region + "-" + projectID + ".cloudfunctions.net/process-validation-report"}
+                  httpMethod: POST
+                  oidcToken:
+                    serviceAccountEmail: "workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com"
+                  body: ${payloadTaskBase64}
+                  headers:
+                    Content-Type: application/json
+          result: taskResponse
+      - logTaskCreation:
           call: sys.log
           args:
-              text: ${updateDatabaseResponse}
-              severity: INFO
+            text: ${"Created task for feed " + feedID + " Task ID:" + taskResponse.name}
+            severity: INFO
+      # The waitForTaskCompletion will wait for HTTP error status 404 from google API.
+      # The cloud tasks API doesn't return a status field and when the task success it HTTP returns 404(tasks not found).
+      - waitForTaskCompletion:
+          try:
+            steps:
+              - getTaskStatus:
+                  call: googleapis.cloudtasks.v2beta3.projects.locations.queues.tasks.get
+                  args:
+                    name: ${taskResponse.name}
+                  result: taskStatus
+              - printTaskStatus:
+                  call: sys.log
+                  args:
+                    text: ${taskStatus}
+                    severity: INFO
+                  next: retryTaskStatus
+          except:
+            as: error
+            steps:
+              - printExceptTaskStatus:
+                  call: sys.log
+                  args:
+                    text: ${"HTTP error raised while calling get tasks endpoint:" + error.message}
+                    severity: INFO
+              - printExceptTaskStatus1:
+                  call: sys.log
+                  args:
+                    text: ${json.encode_to_string(error)}
+                    severity: INFO
+              - handle404:
+                  switch:
+                    - condition: ${error.code == 404}
+                      next: logTaskCompletion
+                    - condition: ${error.code != 404}
+                      raise: ${error}
+      - retryTaskStatus:
+          call: sys.sleep
+          args:
+            seconds: 30
+          next: waitForTaskCompletion
+      - logTaskCompletion:
+          call: sys.log
+          args:
+            text: ${"Completed task for feed " + feedID + " Task ID:" + taskResponse.name}
+            severity: INFO
           next: successfulExecution
       - fileExistenceTimeout:
           steps:
