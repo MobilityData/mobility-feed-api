@@ -30,7 +30,7 @@
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 ROOT_PATH="$SCRIPT_PATH/.."
 FUNCTIONS_PATH="$ROOT_PATH/functions-python"
-API_SRC_PATH="$ROOT_PATH/api/src"
+API_SRC_PATH="$ROOT_PATH/api/src/shared"
 
 # function printing usage
 display_usage() {
