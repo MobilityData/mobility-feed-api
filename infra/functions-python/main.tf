@@ -50,6 +50,10 @@ locals {
 
   function_operations_api_config = jsondecode(file("${path.module}/../../functions-python/operations_api/function_config.json"))
   function_operations_api_zip = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
+
+  function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
+  function_export_csv_zip = "${path.module}/../../functions-python/operations_api/.dist/export_csv.zip"
+
 }
 
 locals {
@@ -59,7 +63,8 @@ locals {
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
     [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key]
+    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
+    [for x in local.function_export_csv_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -145,6 +150,13 @@ resource "google_storage_bucket_object" "operations_api_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "operations-api-${substr(filebase64sha256(local.function_operations_api_zip), 0, 10)}.zip"
   source = local.function_operations_api_zip
+}
+
+# 9. Export CSV
+resource "google_storage_bucket_object" "export_csv_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "create-csv-${substr(filebase64sha256(local.function_create_csv_zip), 0, 10)}.zip"
+  source = local.function_create_csv_zip
 }
 
 # Secrets access
@@ -487,6 +499,56 @@ resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
       }
     }
   }
+}
+
+# 6. functions/export_csv cloud function
+resource "google_cloudfunctions2_function" "export_csv" {
+  name        = "${local.function_export_csv_config.name}"
+  project     = var.project_id
+  description = local.function_export_csv_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_export_csv_config.entry_point}"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.function_preprocessed_analytics.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      DATASETS_BUCKET_NANE = google_storage_bucket.datasets_bucket.name
+    }
+    available_memory                 = local.function_export_csv_config.memory
+    timeout_seconds                  = local.function_export_csv_config.timeout
+    available_cpu                    = local.function_export_csv_config.available_cpu
+    max_instance_request_concurrency = local.function_export_csv_config.max_instance_request_concurrency
+    max_instance_count               = local.function_export_csv_config.max_instance_count
+    min_instance_count               = local.function_export_csv_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each    = local.function_export_csv_config.secret_environment_variables
+      PROJECT_ID  = var.project_id
+      ENVIRONMENT = var.environment
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_export_csv_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+
 }
 
 # Schedule the batch function to run

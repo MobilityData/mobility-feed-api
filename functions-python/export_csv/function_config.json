@@ -1,6 +1,6 @@
 {
   "name": "create-csv",
-  "description": "Export a csv of feeds in the DB",
+  "description": "Export the DB feed data as a csv file",
   "entry_point": "export_csv",
   "timeout": 20,
   "memory": "256Mi",

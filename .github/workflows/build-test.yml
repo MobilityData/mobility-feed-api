@@ -107,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: database_gen
-          path: api/src/database_gen/
+          path: api/src/shared/database_gen/
           overwrite: true
 
       - name: Upload API generated code
