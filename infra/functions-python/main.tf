@@ -522,6 +522,8 @@ resource "google_cloudfunctions2_function" "export_csv" {
   service_config {
     environment_variables = {
       DATASETS_BUCKET_NANE = var.datasets_bucket_name
+      PROJECT_ID  = var.project_id
+      ENVIRONMENT = var.environment
     }
     available_memory                 = local.function_export_csv_config.memory
     timeout_seconds                  = local.function_export_csv_config.timeout
@@ -533,11 +535,7 @@ resource "google_cloudfunctions2_function" "export_csv" {
     ingress_settings                 = "ALLOW_ALL"
     vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
-    dynamic "secret_environment_variables" {
-      for_each    = local.function_export_csv_config.secret_environment_variables
-      PROJECT_ID  = var.project_id
-      ENVIRONMENT = var.environment
-    }
+
     dynamic "secret_environment_variables" {
       for_each = local.function_export_csv_config.secret_environment_variables
       content {
