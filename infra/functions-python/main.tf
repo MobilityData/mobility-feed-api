@@ -52,7 +52,7 @@ locals {
   function_operations_api_zip = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
 
   function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
-  function_export_csv_zip = "${path.module}/../../functions-python/operations_api/.dist/export_csv.zip"
+  function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
 
 }
 
