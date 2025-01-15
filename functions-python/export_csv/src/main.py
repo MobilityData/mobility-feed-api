@@ -63,7 +63,7 @@ class DataCollector:
 
 
 @functions_framework.http
-def create_csv(request=None):
+def export_csv(request=None):
     """
     HTTP Function entry point Reads the DB and outputs a csv file with feeds data.
     This function requires the following environment variables to be set:
@@ -318,7 +318,7 @@ def main():
     )
     args = parser.parse_args()
     csv_file_path = args.outpath if args.outpath else csv_default_file_path
-    create_csv()
+    export_csv()
 
 
 if __name__ == "__main__":

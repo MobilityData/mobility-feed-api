@@ -1,7 +1,7 @@
 {
   "name": "create-csv",
-  "description": "Create a csv of all feeds",
-  "entry_point": "create_csv",
+  "description": "Export a csv of feeds in the DB",
+  "entry_point": "export_csv",
   "timeout": 20,
   "memory": "256Mi",
   "trigger_http": true,
