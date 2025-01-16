@@ -116,6 +116,7 @@ module "workflows" {
   gcp_region         = var.gcp_region
   environment        = var.environment
   validator_endpoint = var.validator_endpoint
+  processing_report_cloud_task_name = module.functions-python.processing_report_cloud_task_name
 }
 
 module "feed-api-load-balancer" {

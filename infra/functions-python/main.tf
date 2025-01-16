@@ -370,8 +370,12 @@ resource "google_cloud_tasks_queue" "cloud_tasks_dead_letter_queue" {
 
 # Create a queue for the cloud tasks
 # The 2X rate is defined as 4*2 concurrent dispatches and 1 dispatch per second
+# The name of the queue need to be dynamic due to GCP limitations
+# references:
+#   - https://cloud.google.com/tasks/docs/deleting-appengine-queues-and-tasks#deleting_queues
+#   - https://issuetracker.google.com/issues/263947953
 resource "google_cloud_tasks_queue" "cloud_tasks_2x_rate_queue" {
-  name     = "cloud-tasks-2x-rate-queue-${var.environment}"
+  name     = "cloud-tasks-2x-rate-queue-${var.environment}-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   location = var.gcp_region
 
   rate_limits {
@@ -386,6 +390,10 @@ resource "google_cloud_tasks_queue" "cloud_tasks_2x_rate_queue" {
     max_backoff   = "60s"
     max_doublings = 2
   }
+}
+
+output "processing_report_cloud_task_name" {
+  value = google_cloud_tasks_queue.cloud_tasks_2x_rate_queue.name
 }
 
 resource "google_cloudfunctions2_function" "process_validation_report" {

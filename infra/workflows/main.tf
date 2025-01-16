@@ -90,6 +90,7 @@ resource "google_workflows_workflow" "gtfs_validator_execution" {
     reports_bucket_name   = lower(var.environment) == "prod" ? var.reports_bucket_name : "stg-${var.reports_bucket_name}"
     validator_endpoint    = var.validator_endpoint
     environment           = lower(var.environment)
+    processing_report_cloud_task_name       = var.processing_report_cloud_task_name
   }
   source_contents         = file("${path.module}../../../workflows/gtfs_validator_execution.yml")
 }

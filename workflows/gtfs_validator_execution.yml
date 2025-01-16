@@ -19,9 +19,10 @@ main:
             - datasetID: ${text.split(data.resourceName, "/")[6]}
             - region: ${resource.labels.location}
             - projectID: ${resource.labels.project_id}
-            # Extracts the environment from the project ID. Ex: mobility-feeds-prod -> prod. Values: prod, qa, dev
-            - environment: ${text.split(projectID, "-")[2]}
-            - cloudTaskName: ${"cloud-tasks-2x-rate-queue-" + environment}
+            - environment: ${sys.get_env("environment")}
+            # The cloud tasks are sensitive to deletion.
+            # This is why we need to have this as a parameter set at deploying time.
+            - cloudTaskName: ${sys.get_env("processing_report_cloud_task_name")}
             - serviceAccountEmail: ${"workflows-service-account@mobility-feeds-" + environment + ".iam.gserviceaccount.com"}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
             - headers:
