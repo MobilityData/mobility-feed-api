@@ -16,7 +16,7 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
       - PGUSER=${PGUSER}
     volumes:
-      - ./data:/var/lib/postgresql@13/data
+      - ./data:/var/lib/postgresql/data
     expose:
       - ${POSTGRES_PORT}
     ports:
@@ -40,7 +40,7 @@ services:
       - POSTGRES_PORT=${POSTGRES_PORT}
       - PGUSER=${PGUSER}
     volumes:
-      - ./data-test:/var/lib/postgresql@13/data
+      - ./data-test:/var/lib/postgresql/data
     expose:
       - ${POSTGRES_TEST_PORT}
     ports:
