@@ -16,6 +16,7 @@ fastapi-filter[sqlalchemy]==1.0.0
 # SQL Alchemy and Geo Alchemy
 SQLAlchemy==2.0.23
 geoalchemy2==0.14.7
+shapely
 
 # Google specific packages for this function
 google-cloud-pubsub
