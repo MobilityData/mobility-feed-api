@@ -8,8 +8,6 @@ on:
       - "functions/**"
       - ".github/workflows/web-*.yml"
   workflow_call:
-  push:
-    branches: [ 779-generate-new-sourcescsv-from-postgresql-database2 ]
 
 env:
   python_version: '3.11'
