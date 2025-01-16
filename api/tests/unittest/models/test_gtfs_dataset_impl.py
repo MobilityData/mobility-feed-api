@@ -42,8 +42,8 @@ class TestGtfsDatasetImpl(unittest.TestCase):
                 Validationreport(validator_version="0.2.0"),
                 Validationreport(validator_version="1.1.1"),
             ],
-            service_date_range_start= date(2024, 1, 1),
-            service_date_range_end= date(2025, 1, 1),
+            service_date_range_start=date(2024, 1, 1),
+            service_date_range_end=date(2025, 1, 1),
         )
         result = GtfsDatasetImpl.from_orm(orm)
         assert result.id == "stable_id"
