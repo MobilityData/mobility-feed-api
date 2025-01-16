@@ -8,6 +8,7 @@ from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 
+from datetime import date
 
 class GtfsDatasetImpl(GtfsDataset):
     """Implementation of the `GtfsDataset` model.
@@ -49,4 +50,6 @@ class GtfsDatasetImpl(GtfsDataset):
             hash=gtfs_dataset.hash,
             bounding_box=BoundingBoxImpl.from_orm(gtfs_dataset.bounding_box),
             validation_report=cls.from_orm_latest_validation_report(gtfs_dataset.validation_reports),
+            service_date_range_start=gtfs_dataset.service_date_range_start,
+            service_date_range_end=gtfs_dataset.service_date_range_end
         )

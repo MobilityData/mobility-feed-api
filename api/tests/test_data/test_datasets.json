@@ -8,7 +8,9 @@
       "downloaded_at": "2024-02-01T00:00:00Z",
       "hash": "hash-1",
       "latest": true,
-      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     },
     {
       "id": "dataset-2",
@@ -17,7 +19,9 @@
       "downloaded_at": "2024-01-01T00:00:00Z",
       "hash": "hash-2",
       "latest": false,
-      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     },
     {
       "id": "dataset-3",
@@ -26,7 +30,9 @@
       "downloaded_at": "2024-01-01T00:00:00Z",
       "hash": "hash-3",
       "latest": true,
-      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     },
     {
       "id": "dataset-4",
@@ -35,7 +41,9 @@
       "downloaded_at": "2024-02-01T00:00:00Z",
       "hash": "hash-4",
       "latest": false,
-      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     },
     {
       "id": "dataset-5",
@@ -44,7 +52,9 @@
       "downloaded_at": "2024-01-01T00:00:00Z",
       "hash": "hash-5",
       "latest": true,
-      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))"
+      "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     }
   ],
   "validation_reports": [
