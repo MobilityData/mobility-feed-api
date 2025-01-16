@@ -579,6 +579,16 @@ components:
           description: A hash of the dataset.
           type: string
           example: ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
+        service_date_range_start:
+          description: The start date of the service date range for the dataset.
+          type: string
+          example: 2023-07-10
+          format: date
+        service_date_range_end:
+          description: The start date of the service date range for the dataset.
+          type: string
+          example: 2023-07-10
+          format: date
         validation_report:
           type: object
           properties:
@@ -767,6 +777,16 @@ components:
               $ref: "#/components/schemas/BoundingBox"
             validation_report:
               $ref: "#/components/schemas/ValidationReport"
+            service_date_range_start:
+              description: The start date of the service date range for the dataset.
+              type: string
+              example: 2023-07-10
+              format: date
+            service_date_range_end:
+              description: The start date of the service date range for the dataset.
+              type: string
+              example: 2023-07-10
+              format: date
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.

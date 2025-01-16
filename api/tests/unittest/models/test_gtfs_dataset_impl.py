@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, date
 
 from geoalchemy2 import WKTElement
 
@@ -42,6 +42,8 @@ class TestGtfsDatasetImpl(unittest.TestCase):
                 Validationreport(validator_version="0.2.0"),
                 Validationreport(validator_version="1.1.1"),
             ],
+            service_date_range_start=date(2024, 1, 1),
+            service_date_range_end=date(2025, 1, 1),
         )
         result = GtfsDatasetImpl.from_orm(orm)
         assert result.id == "stable_id"
@@ -56,5 +58,7 @@ class TestGtfsDatasetImpl(unittest.TestCase):
         assert result.bounding_box.minimum_longitude == 3.0
         assert result.bounding_box.maximum_longitude == 4.0
         assert result.validation_report.validator_version == "1.1.1"
+        assert result.service_date_range_start == date(2024, 1, 1)
+        assert result.service_date_range_end == date(2025, 1, 1)
 
         assert GtfsDatasetImpl.from_orm(None) is None
