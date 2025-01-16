@@ -1,5 +1,5 @@
 {
-  "name": "create-csv",
+  "name": "export-csv",
   "description": "Export the DB feed data as a csv file",
   "entry_point": "export_csv",
   "timeout": 20,
