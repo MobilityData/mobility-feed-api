@@ -276,6 +276,18 @@ export interface components {
        * @example ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
        */
       hash?: string;
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_start?: string;
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_end?: string;
       validation_report?: {
         /** @example 10 */
         total_error?: number;
@@ -401,6 +413,18 @@ export interface components {
       hash?: string;
       bounding_box?: components['schemas']['BoundingBox'];
       validation_report?: components['schemas']['ValidationReport'];
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_start?: string;
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_end?: string;
     };
     /** @description Bounding box of the dataset when it was first added to the catalog. */
     BoundingBox: {
