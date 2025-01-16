@@ -22,6 +22,7 @@ main:
             # Extracts the environment from the project ID. Ex: mobility-feeds-prod -> prod. Values: prod, qa, dev
             - environment: ${text.split(projectID, "-")[2]}
             - cloudTaskName: ${"cloud-tasks-2x-rate-queue-" + environment}
+            - serviceAccountEmail: ${"workflows-service-account@mobility-feeds-" + environment + ".iam.gserviceaccount.com"}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
             - headers:
                   Content-Type: application/json
@@ -241,7 +242,7 @@ main:
                   url: ${"https://" + region + "-" + projectID + ".cloudfunctions.net/process-validation-report"}
                   httpMethod: POST
                   oidcToken:
-                    serviceAccountEmail: "workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com"
+                    serviceAccountEmail: ${serviceAccountEmail}
                   body: ${payloadTaskBase64}
                   headers:
                     Content-Type: application/json
