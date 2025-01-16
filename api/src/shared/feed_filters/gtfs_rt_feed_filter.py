@@ -4,7 +4,7 @@ from fastapi_filter.contrib.sqlalchemy import Filter
 
 from shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed, Entitytype
 from shared.feed_filters.gtfs_feed_filter import LocationFilter
-from utils.param_utils import normalize_str_parameter
+from shared.feed_filters.param_utils import normalize_str_parameter
 
 
 class EntityTypeFilter(Filter):

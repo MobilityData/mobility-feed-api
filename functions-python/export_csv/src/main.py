@@ -29,7 +29,7 @@ from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 from collections import OrderedDict
 from shared.common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query
 
-from helpers.database import Database
+from shared.helpers.database import Database
 
 load_dotenv()
 csv_default_file_path = "./output.csv"
@@ -112,28 +112,28 @@ def export_csv(request=None):
 
             print(f"Retrieved {len(gtfs_rt_feeds)} GTFS realtime feeds.")
 
+            data_collector = DataCollector()
+
+            for feed in gtfs_feeds:
+                # print(f"Processing feed {feed.stable_id}")
+                data = get_feed_csv_data(feed)
+
+                for key, value in data.items():
+                    data_collector.add_data(key, value)
+                data_collector.finalize_row()
+            print(f"Procewssed {len(gtfs_feeds)} GTFS feeds.")
+
+            for feed in gtfs_rt_feeds:
+                # print(f"Processing rt feed {feed.stable_id}")
+                data = get_gtfs_rt_feed_csv_data(feed)
+                for key, value in data.items():
+                    data_collector.add_data(key, value)
+                data_collector.finalize_row()
+            print(f"Processed {len(gtfs_rt_feeds)} GTFS realtime feeds.")
+
     except Exception as error:
         print(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
-
-    data_collector = DataCollector()
-
-    for feed in gtfs_feeds:
-        # print(f"Processing feed {feed.stable_id}")
-        data = get_feed_csv_data(feed)
-
-        for key, value in data.items():
-            data_collector.add_data(key, value)
-        data_collector.finalize_row()
-    print(f"Procewssed {len(gtfs_feeds)} GTFS feeds.")
-
-    for feed in gtfs_rt_feeds:
-        # print(f"Processing rt feed {feed.stable_id}")
-        data = get_gtfs_rt_feed_csv_data(feed)
-        for key, value in data.items():
-            data_collector.add_data(key, value)
-        data_collector.finalize_row()
-    print(f"Processed {len(gtfs_rt_feeds)} GTFS realtime feeds.")
 
     data_collector.write_csv(csv_file_path)
 

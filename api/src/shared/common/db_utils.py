@@ -4,7 +4,6 @@ from sqlalchemy.orm import joinedload, Session
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
-from .error_handling import raise_internal_http_validation_error, invalid_bounding_method, invalid_bounding_coordinates
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
@@ -22,7 +21,7 @@ from .entity_type_enum import EntityType
 
 from sqlalchemy import or_
 
-from feeds.impl.error_handling import raise_http_validation_error
+from .error_handling import raise_internal_http_validation_error, invalid_bounding_coordinates, invalid_bounding_method
 
 
 def get_gtfs_feeds_query(
@@ -153,7 +152,9 @@ def apply_bounding_filtering(
         len(bounding_latitudes_tokens := bounding_latitudes.split(",")) != 2
         or len(bounding_longitudes_tokens := bounding_longitudes.split(",")) != 2
     ):
-        raise_http_validation_error(invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes))
+        raise_internal_http_validation_error(
+            invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes)
+        )
     min_latitude, max_latitude = bounding_latitudes_tokens
     min_longitude, max_longitude = bounding_longitudes_tokens
     try:
@@ -162,7 +163,9 @@ def apply_bounding_filtering(
         min_longitude = float(min_longitude)
         max_longitude = float(max_longitude)
     except ValueError:
-        raise_http_validation_error(invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes))
+        raise_internal_http_validation_error(
+            invalid_bounding_coordinates.format(bounding_latitudes, bounding_longitudes)
+        )
     points = [
         (min_longitude, min_latitude),
         (min_longitude, max_latitude),
@@ -188,7 +191,7 @@ def apply_bounding_filtering(
     elif bounding_filter_method == "disjoint":
         return query.filter(Gtfsdataset.bounding_box.ST_Disjoint(bounding_box))
     else:
-        raise_http_validation_error(invalid_bounding_method.format(bounding_filter_method))
+        raise_internal_http_validation_error(invalid_bounding_method.format(bounding_filter_method))
 
 
 def get_joinedload_options() -> [_AbstractLoad]:
