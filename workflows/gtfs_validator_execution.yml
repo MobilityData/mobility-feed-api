@@ -277,11 +277,6 @@ main:
                   args:
                     text: ${"HTTP error raised while calling get tasks endpoint:" + error.message}
                     severity: INFO
-              - printExceptTaskStatus1:
-                  call: sys.log
-                  args:
-                    text: ${json.encode_to_string(error)}
-                    severity: INFO
               - handle404:
                   switch:
                     - condition: ${error.code == 404}
