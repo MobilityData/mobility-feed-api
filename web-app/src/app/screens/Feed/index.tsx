@@ -417,6 +417,7 @@ export default function Feed(): React.ReactElement {
 
       {feed?.data_type === 'gtfs' && (
         <DataQualitySummary
+          feedStatus={feed?.status}
           isOfficialFeed={feed.official === true}
           latestDataset={latestDataset}
         />
