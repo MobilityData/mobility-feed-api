@@ -30,6 +30,7 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   featureFlagBypass: string;
   enableFeatureFilterSearch: boolean;
   enableIsOfficialFilterSearch: boolean;
+  enableFeedStatusBadge: boolean;
 }
 
 const featureByPassDefault: BypassConfig = {
@@ -50,6 +51,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   featureFlagBypass: JSON.stringify(featureByPassDefault),
   enableFeatureFilterSearch: false,
   enableIsOfficialFilterSearch: false,
+  enableFeedStatusBadge: false,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;
