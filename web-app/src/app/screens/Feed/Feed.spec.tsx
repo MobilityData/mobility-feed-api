@@ -88,6 +88,13 @@ const mockFeedRT: GTFSRTFeedType = {
   feed_references: ['mdb-y'],
 };
 
+jest.mock('firebase/compat/app', () => ({
+  initializeApp: jest.fn(),
+  remoteConfig: jest.fn(() => ({
+    settings: { minimumFetchIntervalMillis: 3600000 },
+  })),
+}));
+
 describe('Feed page', () => {
   afterEach(cleanup);
 
