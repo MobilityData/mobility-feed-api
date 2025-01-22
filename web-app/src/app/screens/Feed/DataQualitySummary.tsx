@@ -8,6 +8,7 @@ import VerifiedIcon from '@mui/icons-material/Verified';
 import { useTranslation } from 'react-i18next';
 import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
 import { FeedStatusChip } from '../../components/FeedStatus';
+import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 
 export interface DataQualitySummaryProps {
   feedStatus: components['schemas']['BasicFeed']['status'];
@@ -21,6 +22,7 @@ export default function DataQualitySummary({
   latestDataset,
 }: DataQualitySummaryProps): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const { config } = useRemoteConfig();
   return (
     <Box data-testid='data-quality-summary' sx={{ my: 2 }}>
       {(latestDataset?.validation_report === undefined ||
@@ -28,7 +30,9 @@ export default function DataQualitySummary({
         <WarningContentBox>{t('errorLoadingQualityReport')}</WarningContentBox>
       )}
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-        <FeedStatusChip status={feedStatus ?? ''}></FeedStatusChip>
+        {config.enableFeedStatusBadge && (
+          <FeedStatusChip status={feedStatus ?? ''}></FeedStatusChip>
+        )}
         {isOfficialFeed && (
           <Tooltip title={t('officialFeedTooltip')} placement='top'>
             <Chip
