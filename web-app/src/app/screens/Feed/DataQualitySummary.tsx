@@ -7,13 +7,16 @@ import { WarningContentBox } from '../../components/WarningContentBox';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { useTranslation } from 'react-i18next';
 import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
+import { FeedStatusChip } from '../../components/FeedStatus';
 
 export interface DataQualitySummaryProps {
+  feedStatus: components['schemas']['BasicFeed']['status'];
   isOfficialFeed: boolean;
   latestDataset: components['schemas']['GtfsDataset'] | undefined;
 }
 
 export default function DataQualitySummary({
+  feedStatus,
   isOfficialFeed,
   latestDataset,
 }: DataQualitySummaryProps): React.ReactElement {
@@ -24,7 +27,8 @@ export default function DataQualitySummary({
         latestDataset.validation_report === null) && (
         <WarningContentBox>{t('errorLoadingQualityReport')}</WarningContentBox>
       )}
-      <Box sx={{ display: 'flex', gap: 1 }}>
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <FeedStatusChip status={feedStatus ?? ''}></FeedStatusChip>
         {isOfficialFeed && (
           <Tooltip title={t('officialFeedTooltip')} placement='top'>
             <Chip
