@@ -30,6 +30,9 @@ import DatasetIcon from '@mui/icons-material/Dataset';
 import LayersIcon from '@mui/icons-material/Layers';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
+import DateRangeIcon from '@mui/icons-material/DateRange';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { FeedStatusIndicator } from '../../components/FeedStatus';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -58,7 +61,7 @@ const boxElementStyleProducerURL: SxProps = {
 const StyledTitleContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   gap: theme.spacing(1),
-  marginBottom: theme.spacing(1),
+  marginBottom: '4px',
   marginTop: theme.spacing(3),
   alignItems: 'center',
 }));
@@ -72,6 +75,35 @@ const ResponsiveListItem = styled('li')(({ theme }) => ({
     width: 'calc(50% - 15px)',
   },
 }));
+
+const formatServiceDateRange = (
+  dateStart: string,
+  dateEnd: string,
+): JSX.Element => {
+  const startDate = new Date(dateStart);
+  const endDate = new Date(dateEnd);
+  const formattedDateStart = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(startDate);
+  const formattedDateEnd = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(endDate);
+  return (
+    <Box>
+      <Typography variant='body1'>
+        {formattedDateStart}{' '}
+        <Typography component={'span'} sx={{ mx: 2, fontSize: '14px' }}>
+          -
+        </Typography>{' '}
+        {formattedDateEnd}
+      </Typography>
+    </Box>
+  );
+};
 
 export default function FeedSummary({
   feed,
@@ -89,7 +121,6 @@ export default function FeedSummary({
   const hasAuthenticationInfo =
     feed?.source_info?.authentication_info_url !== undefined &&
     feed?.source_info.authentication_info_url.trim() !== '';
-
   return (
     <ContentBox
       width={width}
@@ -158,6 +189,34 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
+      {latestDataset?.service_date_range_start != undefined &&
+        latestDataset.service_date_range_end != undefined && (
+          <Box sx={boxElementStyle}>
+            <StyledTitleContainer>
+              <DateRangeIcon></DateRangeIcon>
+              <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+                {t('serviceDateRange')}
+                <Tooltip title={t('serviceDateRangeTooltip')} placement='top'>
+                  <IconButton>
+                    <InfoOutlinedIcon />
+                  </IconButton>
+                </Tooltip>
+              </Typography>
+            </StyledTitleContainer>
+            <Typography
+              variant='body1'
+              sx={{ display: 'flex', alignItems: 'center', gap: 3 }}
+            >
+              {formatServiceDateRange(
+                latestDataset?.service_date_range_start,
+                latestDataset?.service_date_range_end,
+              )}
+              <FeedStatusIndicator
+                status={feed?.status ?? ''}
+              ></FeedStatusIndicator>
+            </Typography>
+          </Box>
+        )}
       <Box sx={boxElementStyleProducerURL}>
         <StyledTitleContainer>
           <LinkIcon></LinkIcon>

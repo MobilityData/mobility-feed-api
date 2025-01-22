@@ -94,5 +94,29 @@
   "seeDetailPageProviders": "See detail page to view {providersCount} others",
   "openFullQualityReport": "Open Full Quality Report",
   "qualityReportUpdated": "Quality report updated",
-  "officialFeedUpdated": "Official verification updated"
+  "officialFeedUpdated": "Official verification updated",
+  "serviceDateRange": "Service Date Range",
+  "serviceDateRangeTooltip": "Dates are relative to local timezone",
+  "feedStatus": {
+    "active": {
+      "label": "Active",
+      "toolTip": "Active Feed",
+      "toolTipLong": "This feed is currently active and being used."
+    },
+    "inactive": {
+      "label": "Inactive",
+      "toolTip": "Inactive Feed",
+      "toolTipLong": "This feed is currently inactive and not being used."
+    },
+    "deprecated": {
+      "label": "Deprecated",
+      "toolTip": "Deprecated Feed",
+      "toolTipLong": "This feed is deprecated and should not be used."
+    },
+    "future": {
+      "label": "Future",
+      "toolTip": "Future Feed",
+      "toolTipLong": "This feed is not yet active but will be used in the future."
+    }
+  }
 }
