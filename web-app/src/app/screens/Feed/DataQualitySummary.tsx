@@ -99,7 +99,7 @@ export default function DataQualitySummary({
                         ?.unique_warning_count} ${t(
                         'common:feedback.warnings',
                       )}`
-                    : t('common:feedback.no_warnings')
+                    : t('common:feedback.noWarnings')
                 }
                 color={
                   latestDataset?.validation_report?.unique_warning_count !==
