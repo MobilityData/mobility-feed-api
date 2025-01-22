@@ -52,6 +52,9 @@ locals {
 
   function_operations_api_config = jsondecode(file("${path.module}/../../functions-python/operations_api/function_config.json"))
   function_operations_api_zip = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
+
+  function_backfill_dataset_service_date_range_config = jsondecode(file("${path.module}/../../functions-python/backfill_dataset_service_date_range/function_config.json"))
+  function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/operations_api.zip"
 }
 
 locals {
@@ -61,7 +64,8 @@ locals {
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
     [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key]
+    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
+    [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -148,6 +152,14 @@ resource "google_storage_bucket_object" "operations_api_zip" {
   name   = "operations-api-${substr(filebase64sha256(local.function_operations_api_zip), 0, 10)}.zip"
   source = local.function_operations_api_zip
 }
+
+# 9. Backfill Gtfs Datasets Service Date Range
+resource "google_storage_bucket_object" "function_backfill_dataset_service_date_range_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "backfill-dataset-service-date-range-${substr(filebase64sha256(local.function_operations_api_zip), 0, 10)}.zip"
+  source = local.function_operations_api_zip
+}
+
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
@@ -758,6 +770,52 @@ resource "google_cloudfunctions2_function" "feed_sync_process_transitland" {
         version    = "latest"
       }
     }
+  }
+}
+
+# 9. functions/backfill_dataset_service_date_range cloud function
+# Fills all the NULL values for service date range in the gtfs datasets table
+
+resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range" {
+  name        = local.function_backfill_dataset_service_date_range_config.name
+  description = local.function_backfill_dataset_service_date_range_config.description
+  location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project = var.project_id
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_backfill_dataset_service_date_range_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.backfill_dataset_service_date_range_zip.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_backfill_dataset_service_date_range_config.memory
+    available_cpu    = local.function_backfill_dataset_service_date_range_config.available_cpu
+    timeout_seconds  = local.function_backfill_dataset_service_date_range_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+    environment_variables = {
+      # prevents multiline logs from being truncated on GCP console
+      PYTHONNODEBUGRANGES = 0
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_backfill_dataset_service_date_range_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+    service_account_email            = google_service_account.functions_service_account.email
+    max_instance_request_concurrency = local.function_backfill_dataset_service_date_range_config.max_instance_request_concurrency
+    max_instance_count               = local.function_backfill_dataset_service_date_range_config.max_instance_count
+    min_instance_count               = local.function_backfill_dataset_service_date_range_config.min_instance_count
   }
 }
 
