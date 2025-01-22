@@ -117,7 +117,6 @@ def backfill_datasets(session: "Session"):
 def backfill_dataset_service_date_range(_):
     """Fills gtfs dataset service date range from the latest validation report."""
     Logger.init_logger()
-    logging.info("Function triggered")
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     change_count = 0
     try:

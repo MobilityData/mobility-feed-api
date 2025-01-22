@@ -1,8 +1,11 @@
 from unittest.mock import patch, Mock, MagicMock
-from main import backfill_datasets
+from main import backfill_datasets, backfill_dataset_service_date_range
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from test_shared.test_utils.database_utils import default_db_url
 
 import requests
+
+import os
 
 
 @patch("requests.get")
@@ -136,3 +139,16 @@ def test_backfill_datasets_fail_to_get_validation_report(mock_get):
     assert changes_count == 0
     mock_get.assert_called_once_with("http://missing.com/report.json")
     mock_session.commit.assert_called_once()
+
+
+@patch("main.Logger", autospec=True)
+@patch("main.backfill_datasets")
+def test_backfill_dataset_service_date_range(mock_backfill_datasets, mock_logger):
+    mock_backfill_datasets.return_value = 5
+
+    with patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url}):
+        response_body, status_code = backfill_dataset_service_date_range(None)
+
+    mock_backfill_datasets.asser_called_once()
+    assert response_body == "Script executed successfully. 5 datasets updated"
+    assert status_code == 200
