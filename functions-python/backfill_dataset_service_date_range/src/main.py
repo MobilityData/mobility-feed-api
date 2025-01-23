@@ -8,7 +8,7 @@ from shared.helpers.database import Database
 
 from typing import TYPE_CHECKING
 from sqlalchemy.orm import joinedload
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
 
@@ -25,6 +25,14 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 logging.basicConfig(level=logging.INFO)
+
+
+def is_version_gte(target_version: str, version_field):
+    target_parts = func.string_to_array(target_version, ".")
+    version_parts = func.string_to_array(version_field, ".")
+    return func.array_to_string(version_parts, ".") >= func.array_to_string(
+        target_parts, "."
+    )
 
 
 # function backfills the service date range columns in the gtfsdataset table that are null
@@ -49,7 +57,7 @@ def backfill_datasets(session: "Session"):
         )
         .filter(
             Gtfsdataset.validation_reports.any(
-                Validationreport.validator_version >= "6.0.0"
+                is_version_gte("6.0.0", Validationreport.validator_version)
             )
         )
     ).all()

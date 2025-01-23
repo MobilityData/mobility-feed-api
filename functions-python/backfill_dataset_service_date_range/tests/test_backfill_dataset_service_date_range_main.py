@@ -1,11 +1,21 @@
 from unittest.mock import patch, Mock, MagicMock
-from main import backfill_datasets, backfill_dataset_service_date_range
+from main import backfill_datasets, backfill_dataset_service_date_range, is_version_gte
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from test_shared.test_utils.database_utils import default_db_url
 
 import requests
 
 import os
+
+
+def version_compare():
+    assert not is_version_gte("6.0.0", "1")
+    assert not is_version_gte("6.0.0", "1.1")
+    assert not is_version_gte("6.0.0", "1.1.1")
+    assert is_version_gte("6.0.0", "6.0.0-SNAPSHOT")
+    assert is_version_gte("6.0.0", "6.0.2")
+    assert is_version_gte("6.0.0", "6.1.0")
+    assert is_version_gte("6.0.0", "10.1.0-SNAPSHOT")
 
 
 @patch("requests.get")
