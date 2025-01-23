@@ -18,8 +18,17 @@ def version_compare():
     assert is_version_gte("6.0.0", "10.1.0-SNAPSHOT")
 
 
+@patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
-def test_backfill_datasets(mock_get):
+def test_backfill_datasets(mock_get, mock_storage_client):
+    # Mock the storage client and bucket
+    mock_bucket = MagicMock()
+    mock_client_instance = mock_storage_client.return_value
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_blob.exists.return_value = False
+    mock_bucket.blob.return_value = mock_blob
+
     mock_session = MagicMock()
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
@@ -74,10 +83,19 @@ def test_backfill_datasets(mock_get):
     mock_session.commit.assert_called_once()
 
 
+@patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
-def test_backfill_datasets_no_validation_reports(mock_get):
+def test_backfill_datasets_no_validation_reports(mock_get, mock_storage_client):
     # Mock the session and query
     mock_session = MagicMock()
+
+    # Mock the storage client and bucket
+    mock_bucket = MagicMock()
+    mock_client_instance = mock_storage_client.return_value
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_blob.exists.return_value = False
+    mock_bucket.blob.return_value = mock_blob
 
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
@@ -98,9 +116,18 @@ def test_backfill_datasets_no_validation_reports(mock_get):
     mock_session.commit.assert_called_once()
 
 
+@patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
-def test_backfill_datasets_invalid_json(mock_get):
+def test_backfill_datasets_invalid_json(mock_get, mock_storage_client):
     mock_session = MagicMock()
+
+    # Mock the storage client and bucket
+    mock_bucket = MagicMock()
+    mock_client_instance = mock_storage_client.return_value
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_blob.exists.return_value = False
+    mock_bucket.blob.return_value = mock_blob
 
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
@@ -134,9 +161,19 @@ def test_backfill_datasets_invalid_json(mock_get):
     mock_session.commit.assert_called_once()
 
 
+@patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
-def test_invalid_validation_report_values(mock_get):
+def test_invalid_validation_report_values(mock_get, mock_storage_client):
     mock_session = MagicMock()
+
+    # Mock the storage client and bucket
+    mock_bucket = MagicMock()
+    mock_client_instance = mock_storage_client.return_value
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_blob.exists.return_value = False
+    mock_bucket.blob.return_value = mock_blob
+
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
     mock_dataset.stable_id = "mdb-392-202406181921"
@@ -199,9 +236,18 @@ def test_invalid_validation_report_values(mock_get):
     assert changes_count == 0
 
 
+@patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
-def test_backfill_datasets_fail_to_get_validation_report(mock_get):
+def test_backfill_datasets_fail_to_get_validation_report(mock_get, mock_storage_client):
     mock_session = MagicMock()
+
+    # Mock the storage client and bucket
+    mock_bucket = MagicMock()
+    mock_client_instance = mock_storage_client.return_value
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_blob.exists.return_value = False
+    mock_bucket.blob.return_value = mock_blob
 
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
