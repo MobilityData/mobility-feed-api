@@ -40,7 +40,10 @@ def test_backfill_datasets(mock_get):
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "summary": {
-            "feedInfo": {"feedStartDate": "2023-01-01", "feedEndDate": "2023-12-31"}
+            "feedInfo": {
+                "feedServiceWindowStart": "2023-01-01",
+                "feedServiceWindowEnd": "2023-12-31",
+            }
         }
     }
     mock_get.return_value = mock_response

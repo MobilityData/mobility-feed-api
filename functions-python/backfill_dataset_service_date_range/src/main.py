@@ -10,10 +10,16 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
 
 import requests
 import json
+
+#
+from google.cloud import storage
+
+env = os.getenv("ENV", "dev").lower()
+bucket_name = f"mobilitydata-datasets-{env}"
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -24,8 +30,14 @@ logging.basicConfig(level=logging.INFO)
 # function backfills the service date range columns in the gtfsdataset table that are null
 # this will not overwrite any existing values
 def backfill_datasets(session: "Session"):
-    # Only care about datasets where service_date_range_start and service_date_range_end are NULL
+    # Only care about datasets where service_date_range_start or service_date_range_end are NULL
     changes_count = 0
+    total_changes_count = 0
+    elements_per_commit = 100
+    # blob setup
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+
     datasets = (
         session.query(Gtfsdataset)
         .options(joinedload(Gtfsdataset.validation_reports))
@@ -35,12 +47,16 @@ def backfill_datasets(session: "Session"):
                 Gtfsdataset.service_date_range_end.is_(None),
             )
         )
+        .filter(
+            Gtfsdataset.validation_reports.any(
+                Validationreport.validator_version >= "6.0.0"
+            )
+        )
     )
 
     for dataset in datasets:
-        print(f"Processing gtfsdataset ID {dataset.id}")
+        logging.info(f"Processing gtfsdataset ID {dataset.id}")
         gtfsdataset_id = dataset.id
-
         # Get the latest validation report for the dataset
         latest_validation_report = max(
             dataset.validation_reports,
@@ -49,7 +65,7 @@ def backfill_datasets(session: "Session"):
         )
 
         if not latest_validation_report:
-            print(
+            logging.info(
                 f"Skipping gtfsdataset ID {gtfsdataset_id}: no validation reports found."
             )
             continue
@@ -58,28 +74,37 @@ def backfill_datasets(session: "Session"):
 
         try:
             # Download the JSON report
-            response = requests.get(json_report_url)
-            response.raise_for_status()
-            json_data = response.json()
+            blob_url = f"{dataset.feed.stable_id}/{gtfsdataset_id}/{gtfsdataset_id}.zip"
+            logging.info("Blob URL: " + blob_url)
+            dataset_blob = bucket.blob(blob_url)
+            if not dataset_blob.exists():
+                logging.info("Blob not found, downloading from URL")
+                response = requests.get(json_report_url)
+                response.raise_for_status()
+                json_data = response.json()
+            else:
+                logging.info("Blob found, downloading from blob")
+                json_data = json.loads(dataset_blob.download_as_string())
+
             extracted_service_start_date = (
                 json_data.get("summary", {})
                 .get("feedInfo", {})
-                .get("feedStartDate", None)
+                .get("feedServiceWindowStart", None)
             )
             extracted_service_end_date = (
                 json_data.get("summary", {})
                 .get("feedInfo", {})
-                .get("feedEndDate", None)
+                .get("feedServiceWindowEnd", None)
             )
 
             if extracted_service_start_date is None:
-                print(
+                logging.info(
                     f"Key 'summary.feedInfo.feedStartDate' not found in JSON for gtfsdataset ID {gtfsdataset_id}."
                 )
                 continue
 
             if extracted_service_end_date is None:
-                print(
+                logging.info(
                     f"Key 'summary.feedInfo.feedEndDate' not found in JSON for gtfsdataset ID {gtfsdataset_id}."
                 )
                 continue
@@ -90,27 +115,43 @@ def backfill_datasets(session: "Session"):
             formatted_dates = (
                 extracted_service_start_date + " - " + extracted_service_end_date
             )
-            print(
+            logging.info(
                 f"Updated gtfsdataset ID {gtfsdataset_id} with value: {formatted_dates}"
             )
+            total_changes_count += 1
             changes_count += 1
+            if changes_count >= elements_per_commit:
+                try:
+                    changes_count = 0
+                    session.commit()
+                    logging.info(f"{changes_count} elements committed.")
+                except Exception as e:
+                    logging.error("Error committing changes:", e)
+                    session.rollback()
+                    session.close()
+                    raise Exception(f"Error creating dataset: {e}")
 
         except requests.RequestException as e:
-            print(f"Error downloading JSON for gtfsdataset ID {gtfsdataset_id}: {e}")
+            logging.error(
+                f"Error downloading JSON for gtfsdataset ID {gtfsdataset_id}: {e}"
+            )
         except json.JSONDecodeError as e:
-            print(f"Error parsing JSON for gtfsdataset ID {gtfsdataset_id}: {e}")
+            logging.error(
+                f"Error parsing JSON for gtfsdataset ID {gtfsdataset_id}: {e}"
+            )
         except Exception as e:
-            print(f"Error processing gtfsdataset ID {gtfsdataset_id}: {e}")
+            logging.error(f"Error processing gtfsdataset ID {gtfsdataset_id}: {e}")
 
     try:
         session.commit()
-        print("Database changes committed.")
-    except Exception as e:
-        print("Error committing changes:", e)
-        session.rollback()
-    finally:
+        logging.info("Database changes committed.")
         session.close()
-        return changes_count
+        return total_changes_count
+    except Exception as e:
+        logging.error("Error committing changes:", e)
+        session.rollback()
+        session.close()
+        raise Exception(f"Error creating dataset: {e}")
 
 
 @functions_framework.http
@@ -125,9 +166,7 @@ def backfill_dataset_service_date_range(_):
             change_count = backfill_datasets(session)
 
     except Exception as error:
-        logging.error(f"Error creating validation report entities: {error}")
-        return f"Error creating validation report entities: {error}", 500
-    finally:
-        pass
+        logging.error(f"Error setting the datasets service date range values: {error}")
+        return f"Error setting the datasets service date range values: {error}", 500
 
     return f"Script executed successfully. {change_count} datasets updated", 200
