@@ -11,29 +11,34 @@ import os
 @patch("requests.get")
 def test_backfill_datasets(mock_get):
     mock_session = MagicMock()
-    mock_query = mock_session.query.return_value
-    mock_query.options.return_value = mock_query
-
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
+    mock_dataset.stable_id = "mdb-392-202406181921"
     mock_dataset.service_date_range_end = None
     mock_dataset.service_date_range_start = None
     mock_dataset.validation_reports = [
         MagicMock(
+            validator_version="6.0.0",
             validated_at="2022-01-01T00:00:00Z",
             json_report="http://example-2.com/report.json",
         ),
         MagicMock(
+            validator_version="5.0.0",
             validated_at="2023-01-01T00:00:00Z",
             json_report="http://example-3.com/report.json",
         ),
         MagicMock(
+            validator_version="6.0.0",
             validated_at="2024-01-01T00:00:00Z",
             json_report="http://example-1.com/report.json",
         ),
     ]
 
-    mock_query.filter.return_value = [mock_dataset]
+    mock_query = MagicMock()
+    mock_query.options.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.all.return_value = [mock_dataset]
+    mock_session.query.return_value = mock_query
 
     # Mock the requests.get response
     mock_response = Mock()
@@ -63,16 +68,19 @@ def test_backfill_datasets(mock_get):
 def test_backfill_datasets_no_validation_reports(mock_get):
     # Mock the session and query
     mock_session = MagicMock()
-    mock_query = mock_session.query.return_value
-    mock_query.options.return_value = mock_query
 
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
+    mock_dataset.stable_id = "mdb-392-202406181921"
     mock_dataset.service_date_range_end = None
     mock_dataset.service_date_range_start = None
     mock_dataset.validation_reports = []
 
-    mock_query.filter.return_value = [mock_dataset]
+    mock_query = MagicMock()
+    mock_query.options.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.all.return_value = [mock_dataset]
+    mock_session.query.return_value = mock_query
 
     changes_count = backfill_datasets(mock_session)
 
@@ -83,11 +91,10 @@ def test_backfill_datasets_no_validation_reports(mock_get):
 @patch("requests.get")
 def test_backfill_datasets_invalid_json(mock_get):
     mock_session = MagicMock()
-    mock_query = mock_session.query.return_value
-    mock_query.options.return_value = mock_query
 
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
+    mock_dataset.stable_id = "mdb-392-202406181921"
     mock_dataset.service_date_range_end = None
     mock_dataset.service_date_range_start = None
     mock_dataset.validation_reports = [
@@ -97,7 +104,11 @@ def test_backfill_datasets_invalid_json(mock_get):
         )
     ]
 
-    mock_query.filter.return_value = [mock_dataset]
+    mock_query = MagicMock()
+    mock_query.options.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.all.return_value = [mock_dataset]
+    mock_session.query.return_value = mock_query
 
     # Mock the requests.get response
     mock_response = Mock()
@@ -114,13 +125,77 @@ def test_backfill_datasets_invalid_json(mock_get):
 
 
 @patch("requests.get")
+def test_invalid_validation_report_values(mock_get):
+    mock_session = MagicMock()
+    mock_dataset = Mock(spec=Gtfsdataset)
+    mock_dataset.id = 1
+    mock_dataset.stable_id = "mdb-392-202406181921"
+    mock_dataset.service_date_range_end = None
+    mock_dataset.service_date_range_start = None
+    mock_dataset.validation_reports = [
+        MagicMock(
+            validator_version="6.0.0",
+            validated_at="2024-01-01T00:00:00Z",
+            json_report="http://example-1.com/report.json",
+        ),
+    ]
+
+    mock_dataset_2 = Mock(spec=Gtfsdataset)
+    mock_dataset_2.id = 2
+    mock_dataset_2.stable_id = "mdb-2-202406181921"
+    mock_dataset_2.service_date_range_end = None
+    mock_dataset_2.service_date_range_start = None
+    mock_dataset_2.validation_reports = [
+        MagicMock(
+            validator_version="6.0.0",
+            validated_at="2024-01-01T00:00:00Z",
+            json_report="http://example-3.com/report.json",
+        ),
+    ]
+
+    mock_query = MagicMock()
+    mock_query.options.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.all.return_value = [mock_dataset, mock_dataset_2]
+    mock_session.query.return_value = mock_query
+
+    mock_get.side_effect = [
+        MagicMock(
+            status_code=200,
+            json=lambda: {
+                "summary": {
+                    "feedInfo": {
+                        "feedServiceWindowStart": "",
+                        "feedServiceWindowEnd": "2023-12-31",
+                    }
+                }
+            },
+        ),
+        MagicMock(
+            status_code=200,
+            json=lambda: {
+                "summary": {
+                    "feedInfo": {
+                        "feedServiceWindowStart": "2023-01-01",
+                        "feedServiceWindowEnd": "",
+                    }
+                }
+            },
+        ),
+    ]
+
+    changes_count = backfill_datasets(mock_session)
+
+    assert changes_count == 0
+
+
+@patch("requests.get")
 def test_backfill_datasets_fail_to_get_validation_report(mock_get):
     mock_session = MagicMock()
-    mock_query = mock_session.query.return_value
-    mock_query.options.return_value = mock_query
 
     mock_dataset = Mock(spec=Gtfsdataset)
     mock_dataset.id = 1
+    mock_dataset.stable_id = "mdb-392-202406181921"
     mock_dataset.service_date_range_end = None
     mock_dataset.service_date_range_start = None
     mock_dataset.validation_reports = [
@@ -130,7 +205,11 @@ def test_backfill_datasets_fail_to_get_validation_report(mock_get):
         )
     ]
 
-    mock_query.filter.return_value = [mock_dataset]
+    mock_query = MagicMock()
+    mock_query.options.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.all.return_value = [mock_dataset]
+    mock_session.query.return_value = mock_query
 
     # Mock the requests.get response
     mock_response = Mock()
@@ -155,3 +234,21 @@ def test_backfill_dataset_service_date_range(mock_backfill_datasets, mock_logger
     mock_backfill_datasets.asser_called_once()
     assert response_body == "Script executed successfully. 5 datasets updated"
     assert status_code == 200
+
+
+@patch("main.Logger", autospec=True)
+@patch("main.backfill_datasets")
+def test_backfill_dataset_service_date_range_error_raised(
+    mock_backfill_datasets, mock_logger
+):
+    mock_backfill_datasets.side_effect = Exception("Mocked exception")
+
+    with patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url}):
+        response_body, status_code = backfill_dataset_service_date_range(None)
+
+    mock_backfill_datasets.asser_called_once()
+    assert (
+        response_body
+        == "Error setting the datasets service date range values: Mocked exception"
+    )
+    assert status_code == 500

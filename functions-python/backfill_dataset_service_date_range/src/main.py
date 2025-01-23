@@ -14,8 +14,8 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
 
 import requests
 import json
+from datetime import datetime
 
-#
 from google.cloud import storage
 
 env = os.getenv("ENV", "dev").lower()
@@ -52,11 +52,14 @@ def backfill_datasets(session: "Session"):
                 Validationreport.validator_version >= "6.0.0"
             )
         )
-    )
+    ).all()
+
+    logging.info(f"Found {len(datasets)} datasets to process.")
 
     for dataset in datasets:
-        logging.info(f"Processing gtfsdataset ID {dataset.id}")
-        gtfsdataset_id = dataset.id
+        logging.info(f"Processing gtfsdataset ID {dataset.stable_id}")
+        gtfsdataset_id = dataset.stable_id
+        feed_stable_id = "-".join(gtfsdataset_id.split("-")[0:2])
         # Get the latest validation report for the dataset
         latest_validation_report = max(
             dataset.validation_reports,
@@ -74,7 +77,7 @@ def backfill_datasets(session: "Session"):
 
         try:
             # Download the JSON report
-            blob_url = f"{dataset.feed.stable_id}/{gtfsdataset_id}/{gtfsdataset_id}.zip"
+            blob_url = f"{feed_stable_id}/{gtfsdataset_id}/report_{latest_validation_report.validator_version}.json"
             logging.info("Blob URL: " + blob_url)
             dataset_blob = bucket.blob(blob_url)
             if not dataset_blob.exists():
@@ -97,15 +100,25 @@ def backfill_datasets(session: "Session"):
                 .get("feedServiceWindowEnd", None)
             )
 
-            if extracted_service_start_date is None:
-                logging.info(
-                    f"Key 'summary.feedInfo.feedStartDate' not found in JSON for gtfsdataset ID {gtfsdataset_id}."
+            try:
+                datetime.strptime(extracted_service_start_date, "%Y-%m-%d")
+            except ValueError:
+                logging.error(
+                    f"""
+                    Key 'summary.feedInfo.feedStartDate' not found or bad value in
+                    JSON for gtfsdataset ID {gtfsdataset_id}. value: {extracted_service_start_date}
+                    """
                 )
                 continue
 
-            if extracted_service_end_date is None:
-                logging.info(
-                    f"Key 'summary.feedInfo.feedEndDate' not found in JSON for gtfsdataset ID {gtfsdataset_id}."
+            try:
+                datetime.strptime(extracted_service_end_date, "%Y-%m-%d")
+            except ValueError:
+                logging.error(
+                    f"""
+                    Key 'summary.feedInfo.feedEndDate' not found or bad value in
+                    JSON for gtfsdataset ID {gtfsdataset_id}. value: {extracted_service_end_date}
+                    """
                 )
                 continue
 
