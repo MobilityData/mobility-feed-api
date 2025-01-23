@@ -14,8 +14,10 @@
 #  limitations under the License.
 #
 import argparse
-import pandas as pd
 import os
+import re
+
+import pandas as pd
 
 from dotenv import load_dotenv
 import functions_framework
@@ -27,7 +29,7 @@ from geoalchemy2.shape import to_shape
 
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 from collections import OrderedDict
-from shared.common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query
+from shared.common.db_utils import get_all_gtfs_rt_feeds_query, get_all_gtfs_feeds_query
 
 from shared.helpers.database import Database
 
@@ -57,9 +59,12 @@ class DataCollector:
         self.rows.append(self.data.copy())
         self.data = OrderedDict()
 
-    def write_csv(self, csv_file_path):
+    def write_csv_to_file(self, csv_file_path):
         df = pd.DataFrame(self.rows, columns=self.headers)
         df.to_csv(csv_file_path, index=False)
+
+    def get_dataframe(self) -> pd:
+        return pd.DataFrame(self.rows, columns=self.headers)
 
 
 @functions_framework.http
@@ -71,21 +76,20 @@ def export_csv(request=None):
     :param request: HTTP request object
     :return: HTTP response object
     """
+    data_collector = collect_data()
+    data_collector.write_csv_to_file(csv_file_path)
+    return f"Export of database feeds to CSV file {csv_file_path}."
+
+
+def collect_data() -> DataCollector:
+    """
+    Collect data from the DB and write the output to a DataCollector.
+    :return: A filled DataCollector
+    """
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
         with db.start_db_session() as session:
-            gtfs_feeds_query = get_gtfs_feeds_query(
-                limit=None,
-                offset=0,
-                provider=None,
-                producer_url=None,
-                country_code=None,
-                subdivision_name=None,
-                municipality=None,
-                dataset_latitudes=None,
-                dataset_longitudes=None,
-                bounding_filter_method=None,
-                is_official=None,
+            gtfs_feeds_query = get_all_gtfs_feeds_query(
                 include_wip=False,
                 db_session=session,
             )
@@ -94,16 +98,7 @@ def export_csv(request=None):
 
             print(f"Retrieved {len(gtfs_feeds)} GTFS feeds.")
 
-            gtfs_rt_feeds_query = get_gtfs_rt_feeds_query(
-                limit=None,
-                offset=0,
-                provider=None,
-                producer_url=None,
-                entity_types=None,
-                country_code=None,
-                subdivision_name=None,
-                municipality=None,
-                is_official=None,
+            gtfs_rt_feeds_query = get_all_gtfs_rt_feeds_query(
                 include_wip=False,
                 db_session=session,
             )
@@ -134,11 +129,13 @@ def export_csv(request=None):
     except Exception as error:
         print(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
+    data_collector.write_csv_to_file(csv_file_path)
+    return data_collector
 
-    data_collector.write_csv(csv_file_path)
 
-    print(f"Wrote {len(gtfs_feeds)} feeds to {csv_file_path}.")
-    return f"Wrote {len(gtfs_feeds)} feeds to {csv_file_path}."
+def extract_numeric_version(version):
+    match = re.match(r"(\d+\.\d+\.\d+)", version)
+    return match.group(1) if match else version
 
 
 def get_feed_csv_data(feed: Gtfsfeed):
@@ -162,15 +159,19 @@ def get_feed_csv_data(feed: Gtfsfeed):
         # Keep the report from the more recent validator version
         latest_report = reduce(
             lambda a, b: a
-            if Version(a.validator_version) > Version(b.validator_version)
+            if Version(extract_numeric_version(a.validator_version))
+            > Version(extract_numeric_version(b.validator_version))
             else b,
             latest_dataset.validation_reports,
         )
+
         if latest_report:
             if latest_report.features:
                 features = latest_report.features
                 joined_features = (
-                    "|".join(feature.name for feature in features if feature.name)
+                    "|".join(
+                        sorted(feature.name for feature in features if feature.name)
+                    )
                     if features
                     else ""
                 )
@@ -185,7 +186,7 @@ def get_feed_csv_data(feed: Gtfsfeed):
                 maximum_longitude = shape.bounds[2]
 
     data = {
-        "mdb_source_id": feed.stable_id,
+        "id": feed.stable_id,
         "data_type": feed.data_type,
         "entity_type": None,
         "location.country_code": ""
@@ -262,6 +263,7 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
             for entity_type in feed.entitytypes
             if entity_type and entity_type.name
         ]
+        valid_entity_types = sorted(valid_entity_types)
         entity_types = "|".join(valid_entity_types)
 
     static_references = ""
@@ -274,7 +276,7 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
         static_references = "|".join(valid_feed_references)
 
     data = {
-        "mdb_source_id": feed.stable_id,
+        "id": feed.stable_id,
         "data_type": feed.data_type,
         "entity_type": entity_types,
         "location.country_code": ""

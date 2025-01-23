@@ -13,15 +13,19 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-# TODO: These tests are just stolen from batch_datasets so the testing is successful. Replace with real tests
 
 from faker import Faker
-from faker.generator import random
 from datetime import datetime
+
+from geoalchemy2 import WKTElement
+
+from shared.database_gen.sqlacodegen_models import Validationreport, Feature
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gtfsdataset,
+    Location,
+    Entitytype,
 )
 from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
 
@@ -38,23 +42,25 @@ def populate_database():
         - 3 active in active feeds
         - 6 active in inactive feeds
     """
+    clean_testing_db()
     session = get_testing_session()
     fake = Faker()
-    for i in range(10):
+    for i in range(3):
         feed = Gtfsfeed(
             id=fake.uuid4(),
             data_type="gtfs",
-            feed_name=fake.name(),
-            note=fake.sentence(),
-            producer_url=fake.url(),
+            feed_name=f"gtfs-{i} Some fake name",
+            note=f"gtfs-{i} Some fake note",
+            producer_url=f"https://gtfs-{i}_some_fake_producer_url",
             authentication_type="0" if (i in [0, 1, 2]) else "1",
             authentication_info_url=None,
             api_key_parameter_name=None,
-            license_url=fake.url(),
-            stable_id=fake.uuid4(),
-            status="active" if (i in [0, 1, 2]) else "inactive",
-            feed_contact_email=fake.email(),
-            provider=fake.company(),
+            license_url=f"https://gtfs-{i}_some_fake_license_url",
+            stable_id=f"gtfs-{i}",
+            status="active",
+            # status="active" if (i in [0, 1]) else "inactive",
+            feed_contact_email=f"gtfs-{i}_some_fake_email@fake.com",
+            provider=f"gtfs-{i} Some fake company",
         )
         session.add(feed)
 
@@ -62,52 +68,104 @@ def populate_database():
         feed = Gtfsfeed(
             id=fake.uuid4(),
             data_type="gtfs",
-            feed_name=fake.name(),
-            note=fake.sentence(),
-            producer_url=fake.url(),
-            authentication_type="0" if (i in [0, 1, 2]) else "1",
+            feed_name=f"gtfs-deprecated-{i} Some fake name",
+            note=f"gtfs-deprecated-{i} Some fake note",
+            producer_url=f"https://gtfs-deprecated-{i}_some_fake_producer_url",
+            authentication_type="0" if (i == 0) else "1",
             authentication_info_url=None,
             api_key_parameter_name=None,
-            license_url=fake.url(),
-            stable_id=fake.uuid4(),
+            license_url=f"https://gtfs-{i}_some_fake_license_url",
+            stable_id=f"gtfs-deprecated-{i}",
             status="deprecated",
-            feed_contact_email=fake.email(),
-            provider=fake.company(),
+            feed_contact_email=f"gtfs-deprecated-{i}_some_fake_email@fake.com",
+            provider=f"gtfs-deprecated-{i} Some fake company",
         )
         session.add(feed)
 
+    location_entity = Location(id="CA-quebec-montreal")
+
+    location_entity.country = "Canada"
+    location_entity.country_code = "CA"
+    location_entity.subdivision_name = "Quebec"
+    location_entity.municipality = "Montreal"
+    session.add(location_entity)
+    locations = [location_entity]
+
+    feature1 = Feature(name="Shapes")
+    session.add(feature1)
+    feature2 = Feature(name="Route Colors")
+    session.add(feature2)
+
     # GTFS datasets leaving one active feed without a dataset
-    active_gtfs_feeds = session.query(Gtfsfeed).all()
-    for i in range(1, 9):
+    active_gtfs_feeds = (
+        session.query(Gtfsfeed)
+        .filter(Gtfsfeed.status == "active")
+        .order_by(Gtfsfeed.stable_id)
+        .all()
+    )
+
+    for i in range(1, 4):
+        feed_index = 0 if i in [1, 2] else i - 1
+        wkt_polygon = "POLYGON((-18 -9, -18 9, 18 9, 18 -9, -18 -9))"
+        wkt_element = WKTElement(wkt_polygon, srid=4326)
         gtfs_dataset = Gtfsdataset(
             id=fake.uuid4(),
-            feed_id=active_gtfs_feeds[i].id,
-            latest=True,
-            bounding_box="POLYGON((-180 -90, -180 90, 180 90, 180 -90, -180 -90))",
-            hosted_url=fake.url(),
-            note=fake.sentence(),
+            feed_id=active_gtfs_feeds[feed_index].id,
+            latest=True if i != 2 else False,
+            bounding_box=wkt_element,
+            hosted_url=f"https://dataset-{i}_some_fake_hosted_url",
+            note=f"dataset-{i} Some fake note",
             hash=fake.sha256(),
             downloaded_at=datetime.utcnow(),
-            stable_id=fake.uuid4(),
+            stable_id=f"dataset-{i}",
         )
-        session.add(gtfs_dataset)
+        validation_report = Validationreport(
+            id=fake.uuid4(),
+            validator_version="6.0.1",
+            validated_at=datetime(2025, 1, 12),
+            html_report=fake.url(),
+            json_report=fake.url(),
+        )
+        validation_report.features.append(feature1)
+        validation_report.features.append(feature2)
+
+        session.add(validation_report)
+        gtfs_dataset.validation_reports.append(validation_report)
+
+        if i in [1, 2]:
+            gtfs_dataset.locations = locations
+            active_gtfs_feeds[i].locations = locations
+
+        active_gtfs_feeds[feed_index].gtfsdatasets.append(gtfs_dataset)
+
+    # active_gtfs_feeds[0].gtfsdatasets.append() = gtfs_datasets
+
+    vp_entitytype = session.query(Entitytype).filter_by(name="vp").first()
+    if not vp_entitytype:
+        vp_entitytype = Entitytype(name="vp")
+        session.add(vp_entitytype)
+    tu_entitytype = session.query(Entitytype).filter_by(name="tu").first()
+    if not tu_entitytype:
+        tu_entitytype = Entitytype(name="tu")
+        session.add(tu_entitytype)
 
     # GTFS Realtime feeds
-    for _ in range(5):
+    for i in range(3):
         gtfs_rt_feed = Gtfsrealtimefeed(
             id=fake.uuid4(),
             data_type="gtfs_rt",
-            feed_name=fake.company(),
-            note=fake.sentence(),
-            producer_url=fake.url(),
-            authentication_type=random.choice(["0", "1", "2"]),
-            authentication_info_url=fake.url(),
-            api_key_parameter_name=fake.word(),
-            license_url=fake.url(),
-            stable_id=fake.uuid4(),
-            status=random.choice(["active", "inactive"]),
-            feed_contact_email=fake.email(),
-            provider=fake.company(),
+            feed_name=f"gtfs-rt-{i} Some fake name",
+            note=f"gtfs-rt-{i} Some fake note",
+            producer_url=f"https://gtfs-rt-{i}_some_fake_producer_url",
+            authentication_type=str(i),
+            authentication_info_url=f"https://gtfs-rt-{i}_some_fake_authentication_info_url",
+            api_key_parameter_name=f"gtfs-rt-{i}_fake_api_key_parameter_name",
+            license_url=f"https://gtfs-rt-{i}_some_fake_license_url",
+            stable_id=f"gtfs-rt-{i}",
+            status="inactive" if i == 1 else "active",
+            feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
+            provider=f"gtfs-rt-{i} Some fake company",
+            entitytypes=[vp_entitytype, tu_entitytype] if (i == 0) else [vp_entitytype],
         )
         session.add(gtfs_rt_feed)
 
@@ -136,7 +194,7 @@ def pytest_sessionfinish(session, exitstatus):
     Called after whole test run finished, right before
     returning the exit status to the system.
     """
-    clean_testing_db()
+    # clean_testing_db()
 
 
 def pytest_unconfigure(config):

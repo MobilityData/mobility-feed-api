@@ -52,10 +52,10 @@ display_usage() {
   printf "\nScript Usage:\n"
   echo "Usage: $0 [options]"
   echo "Options:"
-  echo "  -test_file <TEST_FILE>   Test file name to be executed."
-  echo "  -folder <FOLDER>         Folder name to be executed."
-  echo "  -html_report             Generate HTML coverage report."
-  echo "  -help                    Display help content."
+  echo "  --test_file <TEST_FILE>   Test file name to be executed."
+  echo "  --folder <FOLDER>         Folder name to be executed."
+  echo "  --html_report             Generate HTML coverage report."
+  echo "  --help                    Display help content."
   exit 1
 }
 

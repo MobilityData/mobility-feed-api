@@ -74,6 +74,29 @@ def get_gtfs_feeds_query(
     return feed_query
 
 
+def get_all_gtfs_feeds_query(
+    include_wip: bool = False,
+    db_session: Session = None,
+) -> Query[any]:
+    """Get the DB query to use to retrieve all the GTFS feeds, filtering out the WIP is needed"""
+
+    feed_query = db_session.query(Gtfsfeed)
+
+    if not include_wip:
+        feed_query = feed_query.filter(
+            or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
+        )
+
+    feed_query = feed_query.options(
+        joinedload(Gtfsfeed.gtfsdatasets)
+        .joinedload(Gtfsdataset.validation_reports)
+        .joinedload(Validationreport.notices),
+        *get_joinedload_options(),
+    ).order_by(Gtfsfeed.stable_id)
+
+    return feed_query
+
+
 def get_gtfs_rt_feeds_query(
     limit: int | None,
     offset: int | None,
@@ -134,6 +157,30 @@ def get_gtfs_rt_feeds_query(
     if is_official:
         feed_query = feed_query.filter(Feed.official)
     feed_query = feed_query.limit(limit).offset(offset)
+    return feed_query
+
+
+def get_all_gtfs_rt_feeds_query(
+    include_wip: bool = False,
+    db_session: Session = None,
+) -> Query:
+    """Get the DB query to use to retrieve all the GTFS rt feeds, filtering out the WIP is needed"""
+    feed_query = db_session.query(Gtfsrealtimefeed)
+
+    if not include_wip:
+        feed_query = feed_query.filter(
+            or_(
+                Gtfsrealtimefeed.operational_status == None,  # noqa: E711
+                Gtfsrealtimefeed.operational_status != "wip",
+            )
+        )
+
+    feed_query = feed_query.options(
+        joinedload(Gtfsrealtimefeed.entitytypes),
+        joinedload(Gtfsrealtimefeed.gtfs_feeds),
+        *get_joinedload_options(),
+    ).order_by(Gtfsfeed.stable_id)
+
     return feed_query
 
 
