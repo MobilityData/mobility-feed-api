@@ -54,7 +54,7 @@ locals {
   function_operations_api_zip = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
 
   function_backfill_dataset_service_date_range_config = jsondecode(file("${path.module}/../../functions-python/backfill_dataset_service_date_range/function_config.json"))
-  function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/operations_api.zip"
+  function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/backfill_dataset_service_date_range.zip"
 }
 
 locals {
@@ -156,8 +156,8 @@ resource "google_storage_bucket_object" "operations_api_zip" {
 # 9. Backfill Gtfs Datasets Service Date Range
 resource "google_storage_bucket_object" "function_backfill_dataset_service_date_range_zip" {
   bucket = google_storage_bucket.functions_bucket.name
-  name   = "backfill-dataset-service-date-range-${substr(filebase64sha256(local.function_operations_api_zip), 0, 10)}.zip"
-  source = local.function_operations_api_zip
+  name   = "backfill-dataset-service-date-range-${substr(filebase64sha256(local.function_backfill_dataset_service_date_range_zip), 0, 10)}.zip"
+  source = local.function_backfill_dataset_service_date_range_zip
 }
 
 
