@@ -1,12 +1,11 @@
 from functools import reduce
 
-from packaging.version import Version
-
 from database_gen.sqlacodegen_models import Gtfsdataset
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.latest_dataset_validation_report import LatestDatasetValidationReport
+from utils.model_utils import compare_java_versions
 
 
 class LatestDatasetImpl(LatestDataset):
@@ -28,7 +27,7 @@ class LatestDatasetImpl(LatestDataset):
         validation_report: LatestDatasetValidationReport | None = None
         if dataset.validation_reports:
             latest_report = reduce(
-                lambda a, b: a if Version(a.validator_version) > Version(b.validator_version) else b,
+                lambda a, b: a if compare_java_versions(a.validator_version, b.validator_version) == 1 else b,
                 dataset.validation_reports,
             )
             (
