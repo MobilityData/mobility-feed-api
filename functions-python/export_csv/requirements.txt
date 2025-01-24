@@ -1,6 +1,4 @@
 # Common packages
-functions-framework==3.*
-google-cloud-logging
 psycopg2-binary==2.9.6
 aiohttp~=3.10.5
 asyncio~=3.4.3
@@ -19,8 +17,7 @@ SQLAlchemy==2.0.23
 geoalchemy2==0.14.7
 shapely
 
-# Google specific packages for this function
-google-cloud-pubsub
-google-cloud-datastore
-cloudevents~=1.10.1
-
+# Google
+google-cloud-storage
+functions-framework==3.*
+google-cloud-logging

@@ -14,6 +14,8 @@
 #  limitations under the License.
 #
 import io
+import os
+
 import pandas as pd
 import pandas.testing as pdt
 import main
@@ -34,7 +36,12 @@ gtfs-rt-2,gtfs_rt,vp,,,,gtfs-rt-2 Some fake company,gtfs-rt-2 Some fake name,gtf
 
 
 def test_export_csv():
+    os.environ[
+        "FEEDS_DATABASE_URL"
+    ] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
     data_collector = main.collect_data()
+    print(f"Collected data for {len(data_collector.rows)} feeds.")
+
     df_extracted = data_collector.get_dataframe()
 
     csv_buffer = io.StringIO(expected_csv)

@@ -24,7 +24,7 @@ import functions_framework
 
 from packaging.version import Version
 from functools import reduce
-
+from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
@@ -68,7 +68,13 @@ class DataCollector:
 
 
 @functions_framework.http
-def export_csv(request=None):
+def export_and_upload_csv(request=None):
+    response = export_csv()
+    upload_file_to_storage(csv_file_path, "001_csv/sources_v2.csv")
+    return response
+
+
+def export_csv():
     """
     HTTP Function entry point Reads the DB and outputs a csv file with feeds data.
     This function requires the following environment variables to be set:
@@ -78,7 +84,7 @@ def export_csv(request=None):
     """
     data_collector = collect_data()
     data_collector.write_csv_to_file(csv_file_path)
-    return f"Export of database feeds to CSV file {csv_file_path}."
+    return f"Exported {len(data_collector.rows)} feeds to CSV file {csv_file_path}."
 
 
 def collect_data() -> DataCollector:
@@ -87,6 +93,7 @@ def collect_data() -> DataCollector:
     :return: A filled DataCollector
     """
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+    print(f"Using database {db.database_url}")
     try:
         with db.start_db_session() as session:
             gtfs_feeds_query = get_all_gtfs_feeds_query(
@@ -116,7 +123,7 @@ def collect_data() -> DataCollector:
                 for key, value in data.items():
                     data_collector.add_data(key, value)
                 data_collector.finalize_row()
-            print(f"Procewssed {len(gtfs_feeds)} GTFS feeds.")
+            print(f"Processed {len(gtfs_feeds)} GTFS feeds.")
 
             for feed in gtfs_rt_feeds:
                 # print(f"Processing rt feed {feed.stable_id}")
@@ -312,11 +319,27 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
     return data
 
 
+def upload_file_to_storage(source_file_path, target_path):
+    """
+    Uploads a file to the GCP bucket
+    """
+    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
+    bucket = storage.Client().get_bucket(bucket_name)
+    blob = bucket.blob(target_path)
+    with open(source_file_path, "rb") as file:
+        blob.upload_from_file(file)
+    blob.make_public()
+    return blob
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export DB feed contents to csv.")
     parser.add_argument(
         "--outpath", help="Path to the output csv file. Default is ./output.csv"
     )
+    os.environ[
+        "FEEDS_DATABASE_URL"
+    ] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
     args = parser.parse_args()
     csv_file_path = args.outpath if args.outpath else csv_default_file_path
     export_csv()
