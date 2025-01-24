@@ -19,7 +19,11 @@ from datetime import datetime
 
 from geoalchemy2 import WKTElement
 
-from shared.database_gen.sqlacodegen_models import Validationreport, Feature
+from shared.database_gen.sqlacodegen_models import (
+    Validationreport,
+    Feature,
+    Redirectingid,
+)
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
@@ -45,23 +49,51 @@ def populate_database():
     clean_testing_db()
     session = get_testing_session()
     fake = Faker()
+
+    feeds = []
+    # We create 3 feeds. The first one is active. The third one is inactive and redirected to the first one.
+    # The second one is active but not redirected.
+    # First fill the generic paramaters
     for i in range(3):
         feed = Gtfsfeed(
-            id=fake.uuid4(),
             data_type="gtfs",
             feed_name=f"gtfs-{i} Some fake name",
             note=f"gtfs-{i} Some fake note",
             producer_url=f"https://gtfs-{i}_some_fake_producer_url",
-            authentication_type="0" if (i in [0, 1, 2]) else "1",
             authentication_info_url=None,
             api_key_parameter_name=None,
             license_url=f"https://gtfs-{i}_some_fake_license_url",
             stable_id=f"gtfs-{i}",
-            status="active",
-            # status="active" if (i in [0, 1]) else "inactive",
             feed_contact_email=f"gtfs-{i}_some_fake_email@fake.com",
             provider=f"gtfs-{i} Some fake company",
         )
+        feeds.append(feed)
+
+    # Then fill the specific parameters for each feed
+    target_feed = feeds[0]
+    target_feed.id = "e3155a30-81d8-40bb-9e10-013a60436d86"  # Just an invented uuid
+    target_feed.authentication_type = "0"
+    target_feed.status = "active"
+
+    source_feed = feeds[2]
+    source_feed.id = "6e7c5f17-537a-439a-bf99-9c37f1f01030"
+    source_feed.authentication_type = "0"
+    source_feed.status = "inactive"
+    source_feed.redirectingids = [
+        Redirectingid(
+            source_id=source_feed.id,
+            target_id=target_feed.id,
+            redirect_comment="Some redirect comment",
+            target=target_feed,
+        )
+    ]
+
+    feed = feeds[1]
+    feed.id = fake.uuid4()
+    feed.authentication_type = "0"
+    feed.status = "active"
+
+    for feed in feeds:
         session.add(feed)
 
     for i in range(2):
@@ -104,8 +136,9 @@ def populate_database():
         .all()
     )
 
+    # the first 2 datasets are for the first feed
     for i in range(1, 4):
-        feed_index = 0 if i in [1, 2] else i - 1
+        feed_index = 0 if i in [1, 2] else 1
         wkt_polygon = "POLYGON((-18 -9, -18 9, 18 9, 18 -9, -18 -9))"
         wkt_element = WKTElement(wkt_polygon, srid=4326)
         gtfs_dataset = Gtfsdataset(
@@ -132,11 +165,11 @@ def populate_database():
         session.add(validation_report)
         gtfs_dataset.validation_reports.append(validation_report)
 
-        if i in [1, 2]:
-            gtfs_dataset.locations = locations
-            active_gtfs_feeds[i].locations = locations
+        gtfs_dataset.locations = locations
 
         active_gtfs_feeds[feed_index].gtfsdatasets.append(gtfs_dataset)
+    active_gtfs_feeds[0].locations = locations
+    active_gtfs_feeds[1].locations = locations
 
     # active_gtfs_feeds[0].gtfsdatasets.append() = gtfs_datasets
 

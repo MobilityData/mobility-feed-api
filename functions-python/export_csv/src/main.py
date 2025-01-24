@@ -312,8 +312,7 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
     return data
 
 
-def main():
-    global csv_file_path
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Export DB feed contents to csv.")
     parser.add_argument(
         "--outpath", help="Path to the output csv file. Default is ./output.csv"
@@ -321,7 +320,3 @@ def main():
     args = parser.parse_args()
     csv_file_path = args.outpath if args.outpath else csv_default_file_path
     export_csv()
-
-
-if __name__ == "__main__":
-    main()
