@@ -25,7 +25,7 @@ describe('Feed page', () => {
   });
 
   it('should render the last updated date', () => {
-    cy.get('[data-testid="last-updated"]').should('contain', 'Last updated on');
+    cy.get('[data-testid="last-updated"]').should('contain', 'Quality report updated');
   });
 
   it('should render download button', () => {

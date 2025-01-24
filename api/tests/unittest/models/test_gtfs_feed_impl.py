@@ -1,6 +1,6 @@
 import copy
 import unittest
-from datetime import datetime
+from datetime import datetime, date
 
 from geoalchemy2 import WKTElement
 
@@ -87,6 +87,8 @@ gtfs_feed_orm = Gtfsfeed(
             note="note",
             downloaded_at=datetime(year=2022, month=12, day=31, hour=13, minute=45, second=56),
             hash="hash",
+            service_date_range_start=date(2024, 1, 1),
+            service_date_range_end=date(2025, 1, 1),
             bounding_box=WKTElement(POLYGON, srid=4326),
             latest=True,
             validation_reports=[
@@ -169,6 +171,8 @@ expected_gtfs_feed_result = GtfsFeedImpl(
             unique_warning_count=4,
             unique_info_count=2,
         ),
+        service_date_range_start="2024-01-01",
+        service_date_range_end="2025-01-01",
     ),
 )
 

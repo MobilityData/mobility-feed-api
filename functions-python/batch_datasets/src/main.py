@@ -25,9 +25,9 @@ from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-from database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
-from dataset_service.main import BatchExecutionService, BatchExecution
-from helpers.database import start_db_session, close_db_session
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
+from shared.dataset_service.main import BatchExecutionService, BatchExecution
+from shared.helpers.database import Database
 
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
@@ -104,14 +104,15 @@ def batch_datasets(request):
     :param request: HTTP request object
     :return: HTTP response object
     """
+    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        feeds = get_non_deprecated_feeds(session)
+        with db.start_db_session() as session:
+            feeds = get_non_deprecated_feeds(session)
     except Exception as error:
         print(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
     finally:
-        close_db_session(session)
+        pass
 
     print(f"Retrieved {len(feeds)} feeds.")
     publisher = get_pubsub_client()

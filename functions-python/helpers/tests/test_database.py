@@ -3,7 +3,7 @@ import unittest
 from typing import Final
 from unittest import mock
 
-from helpers.database import refresh_materialized_view, start_db_session
+from database import refresh_materialized_view, Database
 
 default_db_url: Final[
     str
@@ -23,15 +23,17 @@ class TestDatabase(unittest.TestCase):
     def test_refresh_materialized_view_existing_view(self):
         view_name = "feedsearch"
 
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        result = refresh_materialized_view(session, view_name)
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+        with db.start_db_session() as session:
+            result = refresh_materialized_view(session, view_name)
 
         self.assertTrue(result)
 
     def test_refresh_materialized_view_invalid_view(self):
         view_name = "invalid_view_name"
 
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-        result = refresh_materialized_view(session, view_name)
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+        with db.start_db_session() as session:
+            result = refresh_materialized_view(session, view_name)
 
         self.assertFalse(result)

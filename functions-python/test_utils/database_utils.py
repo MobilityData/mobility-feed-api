@@ -15,15 +15,14 @@
 #
 
 import contextlib
-import os
 from typing import Final
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from database_gen.sqlacodegen_models import Base
-from helpers.database import get_db_engine
+from shared.database_gen.sqlacodegen_models import Base
+from shared.helpers.database import Database
 import logging
 
 logging.basicConfig()
@@ -47,15 +46,14 @@ excluded_tables: Final[list[str]] = [
 
 def get_testing_engine() -> Engine:
     """Returns a SQLAlchemy engine for the test db."""
-    return get_db_engine(
-        os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url), echo=False
-    )
+    db = Database(database_url=default_db_url)
+    return db._get_engine(echo=False)
 
 
 def get_testing_session() -> Session:
     """Returns a SQLAlchemy session for the test db."""
-    engine = get_testing_engine()
-    return Session(bind=engine)
+    db = Database(database_url=default_db_url)
+    return db._get_session(echo=False)()
 
 
 def clean_testing_db():
@@ -86,3 +84,9 @@ def clean_testing_db():
         except Exception as error:
             trans.rollback()
             logging.error(f"Error while deleting from test db: {error}")
+
+
+def reset_database_class():
+    """Resets the Database class to its initial state."""
+    Database.instance = None
+    Database.initialized = False

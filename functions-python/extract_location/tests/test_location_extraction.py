@@ -9,20 +9,20 @@ import numpy as np
 from cloudevents.http import CloudEvent
 from faker import Faker
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Feed
-from extract_location.src.main import (
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed
+from main import (
     extract_location,
     extract_location_pubsub,
     extract_location_batch,
 )
-from test_utils.database_utils import default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 
 faker = Faker()
 
 
 class TestMainFunctions(unittest.TestCase):
-    @patch("extract_location.src.main.Logger")
-    @patch("extract_location.src.main.DatasetTraceService")
+    @patch("main.Logger")
+    @patch("main.DatasetTraceService")
     def test_extract_location_exception(self, _, __):
         data = {"stable_id": faker.pystr(), "dataset_id": faker.pystr()}
         message_data = base64.b64encode(json.dumps(data).encode("utf-8")).decode(
@@ -63,10 +63,10 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
-    @patch("extract_location.src.main.update_dataset_bounding_box")
-    @patch("extract_location.src.main.Logger")
-    @patch("extract_location.src.main.DatasetTraceService")
+    @patch("main.get_gtfs_feed_bounds_and_points")
+    @patch("main.update_dataset_bounding_box")
+    @patch("main.Logger")
+    @patch("main.DatasetTraceService")
     def test_extract_location(
         self, __, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
@@ -112,12 +112,10 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
-    @patch("extract_location.src.main.update_dataset_bounding_box")
-    @patch(
-        "extract_location.src.main.DatasetTraceService.get_by_execution_and_stable_ids"
-    )
-    @patch("extract_location.src.main.Logger")
+    @patch("main.get_gtfs_feed_bounds_and_points")
+    @patch("main.update_dataset_bounding_box")
+    @patch("main.DatasetTraceService.get_by_execution_and_stable_ids")
+    @patch("main.Logger")
     @patch("google.cloud.datastore.Client")
     def test_extract_location_max_executions(
         self, _, __, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
@@ -154,10 +152,10 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
-    @patch("extract_location.src.main.update_dataset_bounding_box")
-    @patch("extract_location.src.main.DatasetTraceService")
-    @patch("extract_location.src.main.Logger")
+    @patch("main.get_gtfs_feed_bounds_and_points")
+    @patch("main.update_dataset_bounding_box")
+    @patch("main.DatasetTraceService")
+    @patch("main.Logger")
     def test_extract_location_cloud_event(
         self, _, mock_dataset_trace, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
@@ -198,9 +196,9 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.get_gtfs_feed_bounds_and_points")
-    @patch("extract_location.src.main.update_dataset_bounding_box")
-    @patch("extract_location.src.main.Logger")
+    @patch("main.get_gtfs_feed_bounds_and_points")
+    @patch("main.update_dataset_bounding_box")
+    @patch("main.Logger")
     def test_extract_location_cloud_event_error(
         self, _, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
@@ -225,9 +223,9 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.stops_utils.get_gtfs_feed_bounds_and_points")
-    @patch("extract_location.src.main.update_dataset_bounding_box")
-    @patch("extract_location.src.main.Logger")
+    @patch("stops_utils.get_gtfs_feed_bounds_and_points")
+    @patch("main.update_dataset_bounding_box")
+    @patch("main.Logger")
     def test_extract_location_exception_2(
         self, _, update_bb_mock, get_gtfs_feed_bounds_mock
     ):
@@ -268,12 +266,12 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.start_db_session")
-    @patch("extract_location.src.main.pubsub_v1.PublisherClient")
-    @patch("extract_location.src.main.Logger")
+    @patch("main.Database")
+    @patch("main.pubsub_v1.PublisherClient")
+    @patch("main.Logger")
     @patch("uuid.uuid4")
     def test_extract_location_batch(
-        self, uuid_mock, logger_mock, publisher_client_mock, start_db_session_mock
+        self, uuid_mock, logger_mock, publisher_client_mock, database_mock
     ):
         mock_session = MagicMock()
         mock_dataset1 = Gtfsdataset(
@@ -300,7 +298,9 @@ class TestMainFunctions(unittest.TestCase):
             mock_dataset2,
         ]
         uuid_mock.return_value = "batch-uuid"
-        start_db_session_mock.return_value = mock_session
+        database_mock.return_value.start_db_session.return_value.__enter__.return_value = (
+            mock_session
+        )
 
         mock_publisher = MagicMock()
         publisher_client_mock.return_value = mock_publisher
@@ -342,7 +342,7 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.Logger")
+    @patch("main.Logger")
     def test_extract_location_batch_no_topic_name(self, logger_mock):
         response = extract_location_batch(None)
         self.assertEqual(
@@ -358,10 +358,12 @@ class TestMainFunctions(unittest.TestCase):
             "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
         },
     )
-    @patch("extract_location.src.main.start_db_session")
-    @patch("extract_location.src.main.Logger")
-    def test_extract_location_batch_exception(self, logger_mock, start_db_session_mock):
-        start_db_session_mock.side_effect = Exception("Database error")
+    @patch("main.Database")
+    @patch("main.Logger")
+    def test_extract_location_batch_exception(self, logger_mock, database_mock):
+        database_mock.return_value.start_db_session.side_effect = Exception(
+            "Database error"
+        )
 
         response = extract_location_batch(None)
         self.assertEqual(response, ("Error while fetching datasets.", 500))

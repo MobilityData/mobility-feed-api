@@ -5,15 +5,15 @@ from unittest.mock import MagicMock, patch
 
 from faker import Faker
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Feature,
     Gtfsdataset,
     Gtfsfeed,
     Validationreport,
 )
-from helpers.database import start_db_session
-from test_utils.database_utils import default_db_url
-from validation_report_processor.src.main import (
+
+from test_shared.test_utils.database_utils import default_db_url, get_testing_session
+from main import (
     read_json_report,
     get_feature,
     get_dataset,
@@ -51,10 +51,11 @@ class TestValidationReportProcessor(unittest.TestCase):
 
     def test_get_feature(self):
         """Test get_feature function."""
-        session = start_db_session(default_db_url)
+        session = get_testing_session()
         feature_name = faker.word()
         feature = get_feature(feature_name, session)
         session.add(feature)
+        session.flush()
         same_feature = get_feature(feature_name, session)
 
         self.assertIsInstance(feature, Feature)
@@ -65,7 +66,7 @@ class TestValidationReportProcessor(unittest.TestCase):
 
     def test_get_dataset(self):
         """Test get_dataset function."""
-        session = start_db_session(default_db_url)
+        session = get_testing_session()
         dataset_stable_id = faker.word()
         dataset = get_dataset(dataset_stable_id, session)
         self.assertIsNone(dataset)
@@ -79,6 +80,7 @@ class TestValidationReportProcessor(unittest.TestCase):
         try:
             session.add(feed)
             session.add(dataset)
+            session.flush()
             returned_dataset = get_dataset(dataset_stable_id, session)
             self.assertIsNotNone(returned_dataset)
             self.assertEqual(returned_dataset, dataset)
@@ -116,7 +118,7 @@ class TestValidationReportProcessor(unittest.TestCase):
         dataset = Gtfsdataset(
             id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
         )
-        session = start_db_session(default_db_url)
+        session = get_testing_session()
         try:
             session.add(feed)
             session.add(dataset)
@@ -174,8 +176,8 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         self.assertEqual(status, 500)
 
-    @patch("validation_report_processor.src.main.Logger")
-    @patch("validation_report_processor.src.main.create_validation_report_entities")
+    @patch("main.Logger")
+    @patch("main.create_validation_report_entities")
     def test_process_validation_report(self, create_validation_report_entities_mock, _):
         request = MagicMock(
             get_json=MagicMock(
@@ -189,8 +191,8 @@ class TestValidationReportProcessor(unittest.TestCase):
         process_validation_report(request)
         create_validation_report_entities_mock.assert_called_once()
 
-    @patch("validation_report_processor.src.main.Logger")
-    @patch("validation_report_processor.src.main.create_validation_report_entities")
+    @patch("main.Logger")
+    @patch("main.create_validation_report_entities")
     def test_process_validation_report_invalid_request(
         self, create_validation_report_entities_mock, _
     ):

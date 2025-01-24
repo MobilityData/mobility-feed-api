@@ -1,7 +1,7 @@
 import json
 import unittest
 from unittest.mock import patch, MagicMock
-from validation_to_ndjson.src.validation_report_converter import (
+from validation_report_converter import (
     ValidationReportConverter,
     GTFSValidationReportConverter,
     GBFSValidationReportConverter,
@@ -10,8 +10,8 @@ from validation_to_ndjson.src.validation_report_converter import (
 
 class TestValidationReportConverter(unittest.TestCase):
     @patch("requests.get")
-    @patch("validation_to_ndjson.src.validation_report_converter.get_feed_location")
-    @patch("validation_to_ndjson.src.validation_report_converter.load_json_schema")
+    @patch("validation_report_converter.get_feed_location")
+    @patch("validation_report_converter.load_json_schema")
     def setUp(self, mock_load_json_schema, mock_get_feed_location, mock_requests_get):
         # Mock the JSON schema loading
         mock_json_schema = {
@@ -71,8 +71,8 @@ class TestValidationReportConverter(unittest.TestCase):
             validation_report_url="http://example.com/report.json",
         )
 
-    @patch("validation_to_ndjson.src.validation_report_converter.filter_json_by_schema")
-    @patch("validation_to_ndjson.src.validation_report_converter.storage.Client")
+    @patch("validation_report_converter.filter_json_by_schema")
+    @patch("validation_report_converter.storage.Client")
     def test_process_gtfs_report(self, mock_storage_client, mock_filter_json_by_schema):
         mock_filter_json_by_schema.return_value = {
             "feedId": "feed1",
@@ -103,8 +103,8 @@ class TestValidationReportConverter(unittest.TestCase):
             expected_ndjson_content
         )
 
-    @patch("validation_to_ndjson.src.validation_report_converter.filter_json_by_schema")
-    @patch("validation_to_ndjson.src.validation_report_converter.storage.Client")
+    @patch("validation_report_converter.filter_json_by_schema")
+    @patch("validation_report_converter.storage.Client")
     def test_process_gbfs_report(self, mock_storage_client, mock_filter_json_by_schema):
         mock_filter_json_by_schema.return_value = {
             "feedId": "feed2",

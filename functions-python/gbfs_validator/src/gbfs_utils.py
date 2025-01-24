@@ -7,12 +7,12 @@ from typing import Dict, Any, Optional
 
 import requests
 from google.cloud import storage
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Gbfssnapshot,
     Gbfsvalidationreport,
     Gbfsnotice,
 )
-from dataset_service.main import Status
+from shared.dataset_service.main import Status
 
 
 class GBFSValidator:

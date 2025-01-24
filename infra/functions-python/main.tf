@@ -23,6 +23,8 @@ terraform {
 #
 
 locals {
+  x_number_of_concurrent_instance = 4
+  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
   function_tokens_config = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
   function_tokens_zip    = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
 
@@ -357,6 +359,34 @@ resource "google_cloudfunctions2_function" "extract_location_batch" {
 }
 
 # 3. functions/validation_report_processor cloud function
+# Create a queue for the cloud tasks
+# The 2X rate is defined as 4*2 concurrent dispatches and 1 dispatch per second
+# The name of the queue need to be dynamic due to GCP limitations
+# references:
+#   - https://cloud.google.com/tasks/docs/deleting-appengine-queues-and-tasks#deleting_queues
+#   - https://issuetracker.google.com/issues/263947953
+resource "google_cloud_tasks_queue" "cloud_tasks_2x_rate_queue" {
+  name     = "cloud-tasks-2x-rate-queue-${var.environment}-${local.deployment_timestamp}"
+  location = var.gcp_region
+
+  rate_limits {
+    max_concurrent_dispatches = local.x_number_of_concurrent_instance * 2
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~two hours
+    max_attempts  = 120
+    min_backoff   = "20s"
+    max_backoff   = "60s"
+    max_doublings = 2
+  }
+}
+
+output "processing_report_cloud_task_name" {
+  value = google_cloud_tasks_queue.cloud_tasks_2x_rate_queue.name
+}
+
 resource "google_cloudfunctions2_function" "process_validation_report" {
   name        = local.function_process_validation_report_config.name
   description = local.function_process_validation_report_config.description

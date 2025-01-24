@@ -1,22 +1,15 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
-from preprocessed_analytics.src.processors.gtfs_analytics_processor import (
+from processors.gtfs_analytics_processor import (
     GTFSAnalyticsProcessor,
 )
 
 
 class TestGTFSAnalyticsProcessor(unittest.TestCase):
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.start_db_session"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.storage.Client"
-    )
-    def setUp(self, mock_storage_client, mock_start_db_session):
-        self.mock_session = MagicMock()
-        mock_start_db_session.return_value = self.mock_session
-
+    @patch("processors.base_analytics_processor.Database")
+    @patch("processors.base_analytics_processor.storage.Client")
+    def setUp(self, mock_storage_client, _):
         self.mock_storage_client = mock_storage_client
         self.mock_bucket = MagicMock()
         self.mock_storage_client().bucket.return_value = self.mock_bucket
@@ -24,17 +17,13 @@ class TestGTFSAnalyticsProcessor(unittest.TestCase):
         self.run_date = datetime(2024, 8, 22)
         self.processor = GTFSAnalyticsProcessor(self.run_date)
 
+    @patch("processors.gtfs_analytics_processor.GTFSAnalyticsProcessor.get_latest_data")
     @patch(
-        "preprocessed_analytics.src.processors.gtfs_analytics_processor.GTFSAnalyticsProcessor.get_latest_data"
+        "processors.gtfs_analytics_processor.GTFSAnalyticsProcessor.process_feed_data"
     )
+    @patch("processors.gtfs_analytics_processor.GTFSAnalyticsProcessor.save")
     @patch(
-        "preprocessed_analytics.src.processors.gtfs_analytics_processor.GTFSAnalyticsProcessor.process_feed_data"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.gtfs_analytics_processor.GTFSAnalyticsProcessor.save"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.gtfs_analytics_processor.GTFSAnalyticsProcessor"
+        "processors.gtfs_analytics_processor.GTFSAnalyticsProcessor"
         ".update_analytics_files"
     )
     def test_run(
@@ -117,12 +106,8 @@ class TestGTFSAnalyticsProcessor(unittest.TestCase):
         self.assertEqual(len(self.processor.features_metrics_data), 1)
         self.assertEqual(len(self.processor.notices_metrics_data), 3)
 
-    @patch(
-        "preprocessed_analytics.src.processors.gtfs_analytics_processor.GTFSAnalyticsProcessor._save_blob"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.gtfs_analytics_processor.GTFSAnalyticsProcessor._load_json"
-    )
+    @patch("processors.gtfs_analytics_processor.GTFSAnalyticsProcessor._save_blob")
+    @patch("processors.gtfs_analytics_processor.GTFSAnalyticsProcessor._load_json")
     def test_save(self, mock_load_json, mock_save_blob):
         mock_load_json.return_value = (
             {

@@ -25,7 +25,7 @@ from fastapi import HTTPException
 from starlette.datastructures import Headers
 from starlette.types import Scope
 
-from helpers.transform import to_boolean
+from shared.helpers.transform import to_boolean
 
 REQUEST_CTX_KEY = "request_context_key"
 _request_context: ContextVar[dict] = ContextVar(REQUEST_CTX_KEY, default={})

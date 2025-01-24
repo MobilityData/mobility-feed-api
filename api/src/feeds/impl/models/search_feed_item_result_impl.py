@@ -44,6 +44,8 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 hosted_url=feed_search_row.latest_dataset_hosted_url,
                 downloaded_at=feed_search_row.latest_dataset_downloaded_at,
                 hash=feed_search_row.latest_dataset_hash,
+                service_date_range_start=feed_search_row.latest_dataset_service_date_range_start,
+                service_date_range_end=feed_search_row.latest_dataset_service_date_range_end,
             )
             if feed_search_row.latest_dataset_id
             else None,

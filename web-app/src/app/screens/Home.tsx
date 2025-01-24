@@ -3,7 +3,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import '../styles/SignUp.css';
 import { Button, Divider, InputAdornment, TextField } from '@mui/material';
 import {
   Search,
@@ -42,10 +41,8 @@ const ActionBox = ({
     }}
   >
     <IconComponent sx={{ width: '100%', height: iconHeight }} />
-    <Button variant='contained' sx={{ m: 2, px: 2 }}>
-      <a href={buttonHref} className='btn-link' rel='noreferrer'>
-        {buttonText}
-      </a>
+    <Button variant='contained' href={buttonHref} sx={{ m: 2, px: 2 }}>
+      {buttonText}
     </Button>
   </Box>
 );
@@ -110,7 +107,7 @@ function Component(): React.ReactElement {
             component='span'
             sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
           >
-            2000
+            3000
           </Box>
           transit data feeds from
           <Box
@@ -238,7 +235,7 @@ function Component(): React.ReactElement {
         >
           The Mobility Database is an international catalog of public transit
           data for transit agencies, rider-facing apps, technology vendors,
-          researchers, and others to use. It features over 2,000 GTFS and GTFS
+          researchers, and others to use. It features over 3,000 GTFS and GTFS
           Realtime feeds, including 500+ feeds unavailable on the old
           TransitFeeds website.
           <br />

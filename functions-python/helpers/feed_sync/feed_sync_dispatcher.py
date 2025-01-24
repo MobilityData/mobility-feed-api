@@ -18,9 +18,9 @@ import json
 import os
 import logging
 
-from helpers.database import start_db_session, close_db_session
-from helpers.feed_sync.feed_sync_common import FeedSyncProcessor
-from helpers.pub_sub import get_pubsub_client, publish
+from ..database import Database
+from .feed_sync_common import FeedSyncProcessor
+from ..pub_sub import get_pubsub_client, publish
 
 
 def feed_sync_dispatcher(
@@ -34,15 +34,15 @@ def feed_sync_dispatcher(
     :return: HTTP response object
     """
     publisher = get_pubsub_client()
+    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
-        payloads = feed_sync_processor.process_sync(session, execution_id)
+        with db.start_db_session() as session:
+            payloads = feed_sync_processor.process_sync(session, execution_id)
     except Exception as error:
         logging.error(f"Error processing feeds sync: {error}")
         raise Exception(f"Error processing feeds sync: {error}")
     finally:
-        close_db_session(session)
-
+        pass
     logging.info(f"Total feeds to add/update: {len(payloads)}.")
 
     for payload in payloads:

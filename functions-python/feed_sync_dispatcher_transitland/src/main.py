@@ -27,12 +27,12 @@ from google.cloud.pubsub_v1.futures import Future
 from requests.exceptions import RequestException, HTTPError
 from sqlalchemy.orm import Session
 
-from database_gen.sqlacodegen_models import Feed
-from helpers.feed_sync.feed_sync_common import FeedSyncProcessor, FeedSyncPayload
-from helpers.feed_sync.feed_sync_dispatcher import feed_sync_dispatcher
-from helpers.feed_sync.models import TransitFeedSyncPayload
-from helpers.logger import Logger
-from helpers.pub_sub import get_pubsub_client, get_execution_id
+from shared.database_gen.sqlacodegen_models import Feed
+from shared.helpers.feed_sync.feed_sync_common import FeedSyncProcessor, FeedSyncPayload
+from shared.helpers.feed_sync.feed_sync_dispatcher import feed_sync_dispatcher
+from shared.helpers.feed_sync.models import TransitFeedSyncPayload
+from shared.helpers.logger import Logger
+from shared.helpers.pub_sub import get_pubsub_client, get_execution_id
 from typing import Tuple, List
 from collections import defaultdict
 

@@ -1,22 +1,15 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
-from preprocessed_analytics.src.processors.gbfs_analytics_processor import (
+from processors.gbfs_analytics_processor import (
     GBFSAnalyticsProcessor,
 )
 
 
 class TestGBFSAnalyticsProcessor(unittest.TestCase):
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.start_db_session"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.base_analytics_processor.storage.Client"
-    )
-    def setUp(self, mock_storage_client, mock_start_db_session):
-        self.mock_session = MagicMock()
-        mock_start_db_session.return_value = self.mock_session
-
+    @patch("processors.base_analytics_processor.Database")
+    @patch("processors.base_analytics_processor.storage.Client")
+    def setUp(self, mock_storage_client, _):
         self.mock_storage_client = mock_storage_client
         self.mock_bucket = MagicMock()
         self.mock_storage_client().bucket.return_value = self.mock_bucket
@@ -24,17 +17,13 @@ class TestGBFSAnalyticsProcessor(unittest.TestCase):
         self.run_date = datetime(2024, 8, 22)
         self.processor = GBFSAnalyticsProcessor(self.run_date)
 
+    @patch("processors.gbfs_analytics_processor.GBFSAnalyticsProcessor.get_latest_data")
     @patch(
-        "preprocessed_analytics.src.processors.gbfs_analytics_processor.GBFSAnalyticsProcessor.get_latest_data"
+        "processors.gbfs_analytics_processor.GBFSAnalyticsProcessor.process_feed_data"
     )
+    @patch("processors.gbfs_analytics_processor.GBFSAnalyticsProcessor.save")
     @patch(
-        "preprocessed_analytics.src.processors.gbfs_analytics_processor.GBFSAnalyticsProcessor.process_feed_data"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.gbfs_analytics_processor.GBFSAnalyticsProcessor.save"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.gbfs_analytics_processor."
+        "processors.gbfs_analytics_processor."
         "GBFSAnalyticsProcessor.update_analytics_files"
     )
     def test_run(
@@ -115,12 +104,8 @@ class TestGBFSAnalyticsProcessor(unittest.TestCase):
         self.assertEqual(len(self.processor.versions_metrics_data), 2)
         self.assertEqual(len(self.processor.notices_metrics_data), 2)
 
-    @patch(
-        "preprocessed_analytics.src.processors.gbfs_analytics_processor.GBFSAnalyticsProcessor._save_blob"
-    )
-    @patch(
-        "preprocessed_analytics.src.processors.gbfs_analytics_processor.GBFSAnalyticsProcessor._load_json"
-    )
+    @patch("processors.gbfs_analytics_processor.GBFSAnalyticsProcessor._save_blob")
+    @patch("processors.gbfs_analytics_processor.GBFSAnalyticsProcessor._load_json")
     def test_save(self, mock_load_json, mock_save_blob):
         # Mock the return values of _load_json
         # First two calls return empty lists, the last one returns data

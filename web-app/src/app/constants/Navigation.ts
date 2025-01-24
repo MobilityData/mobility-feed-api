@@ -20,6 +20,42 @@ export const WEB_VALIDATOR_LINK = 'https://gtfs-validator.mobilitydata.org';
 export const GTFS_ORG_LINK = 'https://gtfs.org';
 export const GBFS_LINK = 'https://github.com/MobilityData/gbfs';
 
+export const gtfsMetricsNavItems: NavigationItem[] = [
+  {
+    title: 'Feeds',
+    target: '/metrics/gtfs/feeds',
+    color: 'inherit',
+  },
+  {
+    title: 'Notices',
+    target: '/metrics/gtfs/notices',
+    color: 'inherit',
+  },
+  {
+    title: 'Features',
+    target: '/metrics/gtfs/features',
+    color: 'inherit',
+  },
+];
+
+export const gbfsMetricsNavItems: NavigationItem[] = [
+  {
+    title: 'Feeds',
+    target: '/metrics/gbfs/feeds',
+    color: 'inherit',
+  },
+  {
+    title: 'Notices',
+    target: '/metrics/gbfs/notices',
+    color: 'inherit',
+  },
+  {
+    title: 'Versions',
+    target: '/metrics/gbfs/versions',
+    color: 'inherit',
+  },
+];
+
 export function buildNavigationItems(
   featureFlags: RemoteConfigValues,
 ): NavigationItem[] {

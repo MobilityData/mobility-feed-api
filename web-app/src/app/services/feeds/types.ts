@@ -144,6 +144,13 @@ export interface components {
        * @example true
        */
       official?: boolean;
+      /**
+       * Format: date-time
+       * @description The date and time the official status was last updated, in ISO 8601 date-time format.
+       *
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      official_updated_at?: string;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
@@ -269,6 +276,18 @@ export interface components {
        * @example ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
        */
       hash?: string;
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_start?: string;
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_end?: string;
       validation_report?: {
         /** @example 10 */
         total_error?: number;
@@ -394,6 +413,18 @@ export interface components {
       hash?: string;
       bounding_box?: components['schemas']['BoundingBox'];
       validation_report?: components['schemas']['ValidationReport'];
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_start?: string;
+      /**
+       * Format: date
+       * @description The start date of the service date range for the dataset.
+       * @example "2023-07-10T00:00:00.000Z"
+       */
+      service_date_range_end?: string;
     };
     /** @description Bounding box of the dataset when it was first added to the catalog. */
     BoundingBox: {

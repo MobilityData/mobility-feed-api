@@ -7,7 +7,9 @@
       "hosted_url": "https://example.com/dataset-1",
       "hash": "hash",
       "downloaded_at": "2024-01-31T00:00:00+00:00",
-      "feed_stable_id": "mdb-1"
+      "feed_stable_id": "mdb-1",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     },
     {
       "id": "dataset-2",
@@ -16,7 +18,9 @@
       "hosted_url": "https://example.com/dataset-2",
       "hash": "hash",
       "downloaded_at": "2024-02-01T00:00:00+00:00",
-      "feed_stable_id": "mdb-1"
+      "feed_stable_id": "mdb-1",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     },
     {
       "id": "dataset-3",
@@ -25,7 +29,9 @@
       "hosted_url": "https://example.com/dataset-3",
       "hash": "hash",
       "downloaded_at": "2024-02-02T00:00:00+00:00",
-      "feed_stable_id": "mdb-10"
+      "feed_stable_id": "mdb-10",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     },
     {
       "id": "dataset-4",
@@ -34,7 +40,9 @@
       "hosted_url": "https://example.com/dataset-4",
       "hash": "hash",
       "downloaded_at": "2024-02-03T00:00:00+00:00",
-      "feed_stable_id": "mdb-10"
+      "feed_stable_id": "mdb-10",
+      "service_date_range_start": "2024-01-01",
+      "service_date_range_end":"2025-01-01"
     }
   ],
   "validation_reports": [

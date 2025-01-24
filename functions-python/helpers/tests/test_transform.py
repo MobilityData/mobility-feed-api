@@ -1,4 +1,4 @@
-from helpers.transform import to_boolean
+from transform import to_boolean
 
 
 def test_to_boolean():

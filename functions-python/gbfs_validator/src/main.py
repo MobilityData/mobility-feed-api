@@ -8,20 +8,20 @@ from typing import List
 import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import pubsub_v1, storage
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, Session
 import traceback
-from database_gen.sqlacodegen_models import Gbfsfeed
-from dataset_service.main import (
+from shared.database_gen.sqlacodegen_models import Gbfsfeed
+from shared.dataset_service.main import (
     DatasetTraceService,
     DatasetTrace,
     Status,
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from helpers.database import start_db_session
-from helpers.logger import Logger, StableIdFilter
-from helpers.parser import jsonify_pubsub
-from .gbfs_utils import (
+from shared.helpers.database import Database, with_db_session
+from shared.helpers.logger import Logger, StableIdFilter
+from shared.helpers.parser import jsonify_pubsub
+from gbfs_utils import (
     GBFSValidator,
     fetch_gbfs_files,
     save_trace_with_error,
@@ -33,20 +33,16 @@ logging.basicConfig(level=logging.INFO)
 BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
 
 
-def fetch_all_gbfs_feeds() -> List[Gbfsfeed]:
-    session = None
+@with_db_session
+def fetch_all_gbfs_feeds(db_session: "Session") -> List[Gbfsfeed]:
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
         gbfs_feeds = (
-            session.query(Gbfsfeed).options(joinedload(Gbfsfeed.gbfsversions)).all()
+            db_session.query(Gbfsfeed).options(joinedload(Gbfsfeed.gbfsversions)).all()
         )
         return gbfs_feeds
     except Exception as e:
         logging.error(f"Error fetching all GBFS feeds: {e}")
         raise e
-    finally:
-        if session:
-            session.close()
 
 
 @functions_framework.cloud_event
@@ -92,7 +88,6 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
             save_trace_with_error(trace, error_message, trace_service)
             return error_message
 
-        session = None
         try:
             storage_client = storage.Client()
             bucket = storage_client.bucket(BUCKET_NAME)
@@ -108,17 +103,14 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         try:
             snapshot = validator.create_snapshot(feed_id)
             validation_results = validator.validate_gbfs_feed(bucket)
-            session = start_db_session(os.getenv("FEEDS_DATABASE_URL"))
-            save_snapshot_and_report(session, snapshot, validation_results)
-
+            db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+            with db.start_db_session() as session:
+                save_snapshot_and_report(session, snapshot, validation_results)
         except Exception as e:
             error_message = f"Error validating GBFS feed: {e}"
             logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
             save_trace_with_error(trace, error_message, trace_service)
             return error_message
-        finally:
-            if session:
-                session.close()
 
         trace.status = Status.SUCCESS
         trace_service.save(trace)

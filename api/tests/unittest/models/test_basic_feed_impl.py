@@ -1,6 +1,6 @@
 import copy
 import unittest
-from datetime import datetime
+from datetime import datetime, date
 
 from database_gen.sqlacodegen_models import (
     Feed,
@@ -64,6 +64,8 @@ feed_orm = Feed(
             downloaded_at="downloaded_at",
             hash="hash",
             bounding_box="bounding_box",
+            service_date_range_start=date(2024, 1, 1),
+            service_date_range_end=date(2025, 1, 1),
             validation_reports=[
                 Validationreport(
                     id="id",

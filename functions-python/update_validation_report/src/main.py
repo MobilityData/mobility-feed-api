@@ -28,13 +28,17 @@ from google.cloud import storage
 from sqlalchemy.engine import Row
 from sqlalchemy.engine.interfaces import Any
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed, Validationreport
-from helpers.database import start_db_session
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    Gtfsfeed,
+    Validationreport,
+)
+from shared.helpers.database import Database
 from google.cloud import workflows_v1
 from google.cloud.workflows import executions_v1
 from google.cloud.workflows.executions_v1 import Execution
 
-from helpers.logger import Logger
+from shared.helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
 env = os.getenv("ENV", "dev").lower()
@@ -72,10 +76,11 @@ def update_validation_report(request: flask.Request):
     validator_version = get_validator_version(validator_endpoint)
     logging.info(f"Accessing bucket {bucket_name}")
 
-    session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
-    latest_datasets = get_latest_datasets_without_validation_reports(
-        session, validator_version, force_update
-    )
+    db = Database()
+    with db.start_db_session(echo=False) as session:
+        latest_datasets = get_latest_datasets_without_validation_reports(
+            session, validator_version, force_update
+        )
     logging.info(f"Retrieved {len(latest_datasets)} latest datasets.")
 
     valid_latest_datasets = get_datasets_for_validation(latest_datasets)

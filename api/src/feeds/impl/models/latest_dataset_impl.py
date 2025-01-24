@@ -52,6 +52,8 @@ class LatestDatasetImpl(LatestDataset):
             hosted_url=dataset.hosted_url,
             bounding_box=BoundingBoxImpl.from_orm(dataset.bounding_box),
             downloaded_at=dataset.downloaded_at,
+            service_date_range_start=dataset.service_date_range_start,
+            service_date_range_end=dataset.service_date_range_end,
             hash=dataset.hash,
             validation_report=validation_report,
         )
