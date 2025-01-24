@@ -4,7 +4,7 @@ import pycountry
 
 from google.cloud import bigquery
 from geoalchemy2 import WKTElement
-from helpers.database import start_db_session
+from helpers.database import Database
 from helpers.logger import Logger
 from database_gen.sqlacodegen_models import Geopolygon
 import functions_framework
@@ -193,7 +193,7 @@ def reverse_geolocation_populate(request):
     logging.info("Reverse geolocation database population triggered.")
 
     try:
-        session = start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
+        session = Database().start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
     except Exception as e:
         logging.error(f"Error connecting to the database: {e}")
         return str(e), 500
