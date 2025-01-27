@@ -50,6 +50,13 @@ import { Trans, useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 import { theme } from '../../Theme';
 import { Helmet } from 'react-helmet-async';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import DownloadIcon from '@mui/icons-material/Download';
+import {
+  ctaContainerStyle,
+  feedDetailContentContainerStyle,
+  mapBoxPositionStyle,
+} from './Feed.styles';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -131,7 +138,7 @@ export function getFeedTitleElement(
   }
   if (
     feed?.data_type === 'gtfs_rt' &&
-    feed?.feed_name !== undefined &&
+    feed?.feed_name != undefined &&
     feed?.feed_name !== ''
   ) {
     realtimeFeedName = ` - ${feed?.feed_name}`;
@@ -148,7 +155,7 @@ export function getFeedTitleElement(
       data-testid='feed-provider'
     >
       {mainProvider + (realtimeFeedName ?? '')}
-      {extraProviders !== undefined && (
+      {extraProviders != undefined && (
         <Typography
           component={'span'}
           sx={{
@@ -224,7 +231,7 @@ export default function Feed(): React.ReactElement {
   const sortedProviders = formatProvidersSorted(feed?.provider ?? '');
 
   useEffect(() => {
-    if (user !== undefined && feedId !== undefined && needsToLoadFeed) {
+    if (user != undefined && feedId != undefined && needsToLoadFeed) {
       dispatch(clearDataset());
       dispatch(loadingFeed({ feedId }));
     }
@@ -242,7 +249,7 @@ export default function Feed(): React.ReactElement {
     if (
       feed?.data_type === 'gtfs_rt' &&
       feedLoadingStatus === 'loaded' &&
-      feed.feed_references !== undefined
+      feed.feed_references != undefined
     ) {
       dispatch(
         loadingRelatedFeeds({
@@ -251,7 +258,7 @@ export default function Feed(): React.ReactElement {
       );
     }
     if (
-      feedId !== undefined &&
+      feedId != undefined &&
       feed?.data_type === 'gtfs' &&
       feedLoadingStatus === 'loaded'
     ) {
@@ -282,6 +289,21 @@ export default function Feed(): React.ReactElement {
           variant='text'
           sx={{ fontSize: '3rem', width: { xs: '100%', sm: '500px' } }}
         />
+        <Skeleton
+          animation='wave'
+          variant='rounded'
+          height={'30px'}
+          width={'300px'}
+        />
+        <Box
+          sx={{
+            background: 'rgba(0,0,0,0.2)',
+            height: '1px',
+            width: '100%',
+            mb: 3,
+            mt: 2,
+          }}
+        ></Box>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Skeleton
             animation='wave'
@@ -308,13 +330,13 @@ export default function Feed(): React.ReactElement {
           <Skeleton
             animation='wave'
             variant='rectangular'
-            sx={{ width: { xs: '100%', sm: '475px' }, height: '630px' }}
+            sx={{ width: { xs: '100%', sm: '100%' }, height: '630px' }}
           />
           <Skeleton
             animation='wave'
             variant='rectangular'
             sx={{
-              width: { xs: '100%', sm: 'calc(100% - 475px)' },
+              width: { xs: '100%', sm: '100%' },
               height: '630px',
             }}
           />
@@ -322,9 +344,9 @@ export default function Feed(): React.ReactElement {
       </Box>,
     );
   }
-  const hasDatasets = datasets !== undefined && datasets.length > 0;
+  const hasDatasets = datasets != undefined && datasets.length > 0;
   const hasFeedRedirect =
-    feed?.redirects !== undefined && feed?.redirects.length > 0;
+    feed?.redirects != undefined && feed?.redirects.length > 0;
   const downloadLatestUrl =
     feed?.data_type === 'gtfs'
       ? feed?.latest_dataset?.hosted_url
@@ -338,7 +360,7 @@ export default function Feed(): React.ReactElement {
       feed.data_type,
       feed?.feed_name,
     ),
-    <Grid container spacing={2}>
+    <Box>
       <Grid container item xs={12} spacing={3} alignItems={'center'}>
         <Grid
           item
@@ -376,10 +398,8 @@ export default function Feed(): React.ReactElement {
           </Typography>
         </Grid>
       </Grid>
-      <Grid item xs={12}>
-        {getFeedTitleElement(sortedProviders, feed, t)}
-      </Grid>
-      {feed !== undefined &&
+      <Box sx={{ mt: 2 }}>{getFeedTitleElement(sortedProviders, feed, t)}</Box>
+      {feed != undefined &&
         feed.feed_name !== '' &&
         feed?.data_type === 'gtfs' && (
           <Grid item xs={12}>
@@ -394,16 +414,42 @@ export default function Feed(): React.ReactElement {
             </Typography>
           </Grid>
         )}
-      {latestDataset?.downloaded_at !== undefined && (
-        <Grid item xs={12}>
-          <Typography data-testid='last-updated'>
-            {`Last updated on ${new Date(
-              latestDataset.downloaded_at,
+
+      {feed?.data_type === 'gtfs' && (
+        <DataQualitySummary
+          feedStatus={feed?.status}
+          isOfficialFeed={feed.official === true}
+          latestDataset={latestDataset}
+        />
+      )}
+      <Box>
+        {latestDataset?.validation_report?.validated_at != undefined && (
+          <Typography
+            data-testid='last-updated'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {`${t('qualityReportUpdated')}: ${new Date(
+              latestDataset.validation_report.validated_at,
             ).toDateString()}`}
           </Typography>
-        </Grid>
-      )}
-      {feed?.data_type === 'gtfs_rt' && feed.entity_types !== undefined && (
+        )}
+        {feed?.official_updated_at != undefined && (
+          <Typography
+            data-testid='last-updated'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {`${t('officialFeedUpdated')}: ${new Date(
+              feed?.official_updated_at,
+            ).toDateString()}`}
+          </Typography>
+        )}
+      </Box>
+
+      {feed?.data_type === 'gtfs_rt' && feed.entity_types != undefined && (
         <Grid item xs={12}>
           <Typography variant='h5'>
             {' '}
@@ -424,14 +470,12 @@ export default function Feed(): React.ReactElement {
         datasetLoadingStatus === 'loaded' &&
         !hasDatasets &&
         !hasFeedRedirect && (
-          <Grid item xs={12}>
-            <WarningContentBox>
-              <Trans i18nKey='unableToDownloadFeed'>
-                Unable to download this feed. If there is a more recent URL for
-                this feed, <a href='/contribute'>please submit it here</a>
-              </Trans>
-            </WarningContentBox>
-          </Grid>
+          <WarningContentBox>
+            <Trans i18nKey='unableToDownloadFeed'>
+              Unable to download this feed. If there is a more recent URL for
+              this feed, <a href='/contribute'>please submit it here</a>
+            </Trans>
+          </WarningContentBox>
         )}
       {hasFeedRedirect && (
         <Grid item xs={12}>
@@ -446,21 +490,33 @@ export default function Feed(): React.ReactElement {
           </WarningContentBox>
         </Grid>
       )}
-      <Grid item xs={12} marginBottom={2}>
-        {feedType === 'gtfs' && downloadLatestUrl !== undefined && (
+      <Box sx={ctaContainerStyle}>
+        {feedType === 'gtfs' && downloadLatestUrl != undefined && (
           <Button
             disableElevation
             variant='contained'
-            sx={{ marginRight: 2, my: 1 }}
             href={downloadLatestUrl}
             target='_blank'
             rel='noreferrer'
             id='download-latest-button'
+            endIcon={<DownloadIcon></DownloadIcon>}
           >
             {t('downloadLatest')}
           </Button>
         )}
-        {feed?.source_info?.license_url !== undefined &&
+        {latestDataset?.validation_report?.url_html != undefined && (
+          <Button
+            variant='contained'
+            disableElevation
+            href={`${latestDataset?.validation_report?.url_html}`}
+            target='_blank'
+            rel='noreferrer'
+            endIcon={<OpenInNewIcon></OpenInNewIcon>}
+          >
+            {t('openFullQualityReport')}
+          </Button>
+        )}
+        {feed?.source_info?.license_url != undefined &&
           feed?.source_info?.license_url !== '' && (
             <Button
               disableElevation
@@ -469,66 +525,63 @@ export default function Feed(): React.ReactElement {
               href={feed?.source_info?.license_url}
               target='_blank'
               rel='noreferrer'
+              endIcon={<OpenInNewIcon></OpenInNewIcon>}
             >
               {t('seeLicense')}
             </Button>
           )}
-      </Grid>
+      </Box>
       <Grid item xs={12}>
-        <Grid item xs={12} container rowSpacing={2}>
-          <Grid
-            container
-            direction={{
-              xs: feed?.data_type === 'gtfs' ? 'column-reverse' : 'column',
-              md: 'row',
-            }}
-            sx={{ gap: 3, flexWrap: 'nowrap' }}
-            justifyContent={'space-between'}
-          >
-            {feed?.data_type === 'gtfs' && (
-              <ContentBox
-                sx={{ flex: 'none' }}
-                title={t('boundingBoxTitle')}
-                width={{ xs: '100%', md: '475px' }}
-                outlineColor={theme.palette.primary.dark}
-                padding={2}
-              >
-                {boundingBox === undefined && (
-                  <WarningContentBox>
-                    {t('unableToGenerateBoundingBox')}
-                  </WarningContentBox>
-                )}
-                {boundingBox !== undefined && (
-                  <Box width={{ xs: '100%' }} sx={{ mt: 2, mb: 2 }}>
-                    <Map polygon={boundingBox} />
-                  </Box>
-                )}
-                <DataQualitySummary latestDataset={latestDataset} />
-              </ContentBox>
-            )}
-            <FeedSummary
-              feed={feed}
-              sortedProviders={sortedProviders}
-              latestDataset={latestDataset}
-              width={{ xs: '100%' }}
-            />
+        <Box
+          sx={feedDetailContentContainerStyle({
+            theme,
+            isGtfsSchedule: feed?.data_type === 'gtfs',
+          })}
+        >
+          {feed?.data_type === 'gtfs' && (
+            <ContentBox
+              sx={{
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+              title={t('boundingBoxTitle')}
+              width={{ xs: '100%', md: '100%' }}
+              outlineColor={theme.palette.primary.dark}
+              padding={2}
+            >
+              {boundingBox === undefined && (
+                <WarningContentBox>
+                  {t('unableToGenerateBoundingBox')}
+                </WarningContentBox>
+              )}
+              {boundingBox !== undefined && (
+                <Box sx={mapBoxPositionStyle}>
+                  <Map polygon={boundingBox} />
+                </Box>
+              )}
+            </ContentBox>
+          )}
+          <FeedSummary
+            feed={feed}
+            sortedProviders={sortedProviders}
+            latestDataset={latestDataset}
+            width={{ xs: '100%' }}
+          />
 
-            {feed?.data_type === 'gtfs_rt' && relatedFeeds !== undefined && (
-              <AssociatedFeeds
-                feeds={relatedFeeds.filter((f) => f?.id !== feed.id)}
-                gtfsRtFeeds={relatedGtfsRtFeeds.filter(
-                  (f) => f?.id !== feed.id,
-                )}
-              />
-            )}
-          </Grid>
-        </Grid>
+          {feed?.data_type === 'gtfs_rt' && relatedFeeds != undefined && (
+            <AssociatedFeeds
+              feeds={relatedFeeds.filter((f) => f?.id !== feed.id)}
+              gtfsRtFeeds={relatedGtfsRtFeeds.filter((f) => f?.id !== feed.id)}
+            />
+          )}
+        </Box>
       </Grid>
       {feed?.data_type === 'gtfs' && hasDatasets && (
         <Grid item xs={12}>
           <PreviousDatasets datasets={datasets} />
         </Grid>
       )}
-    </Grid>,
+    </Box>,
   );
 }

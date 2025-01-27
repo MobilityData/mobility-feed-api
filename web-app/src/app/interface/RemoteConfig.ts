@@ -29,6 +29,8 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   gbfsMetricsBucketEndpoint: string;
   featureFlagBypass: string;
   enableFeatureFilterSearch: boolean;
+  enableIsOfficialFilterSearch: boolean;
+  enableFeedStatusBadge: boolean;
 }
 
 const featureByPassDefault: BypassConfig = {
@@ -48,6 +50,8 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
     'https://storage.googleapis.com/mobilitydata-gbfs-analytics-dev',
   featureFlagBypass: JSON.stringify(featureByPassDefault),
   enableFeatureFilterSearch: false,
+  enableIsOfficialFilterSearch: false,
+  enableFeedStatusBadge: false,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;

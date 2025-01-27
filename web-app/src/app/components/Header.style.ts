@@ -1,14 +1,19 @@
-import { type SxProps, type Theme } from '@mui/material';
+import { type Theme } from '@mui/material';
+import { type SystemStyleObject } from '@mui/system';
 import { fontFamily } from '../Theme';
 
-export const mobileNavElementStyle: SxProps<Theme> = (theme) => ({
+export const mobileNavElementStyle = (
+  theme: Theme,
+): SystemStyleObject<Theme> => ({
   width: '100%',
   justifyContent: 'flex-start',
   pl: 3,
   color: theme.palette.text.primary,
 });
 
-export const animatedButtonStyling: SxProps<Theme> = (theme) => ({
+export const animatedButtonStyling = (
+  theme: Theme,
+): SystemStyleObject<Theme> => ({
   minWidth: 'fit-content',
   px: 0,
   mx: {

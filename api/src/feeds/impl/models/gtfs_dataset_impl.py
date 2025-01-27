@@ -1,12 +1,11 @@
 from functools import reduce
 from typing import List
 
-from packaging.version import Version
-
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.gtfs_dataset import GtfsDataset
+from utils.model_utils import compare_java_versions
 
 
 class GtfsDatasetImpl(GtfsDataset):
@@ -30,7 +29,8 @@ class GtfsDatasetImpl(GtfsDataset):
         """
         if validation_reports:
             latest_report = reduce(
-                lambda a, b: a if Version(a.validator_version) > Version(b.validator_version) else b, validation_reports
+                lambda a, b: a if compare_java_versions(a.validator_version, b.validator_version) == 1 else b,
+                validation_reports,
             )
             return ValidationReportImpl.from_orm(latest_report)
         return None
@@ -49,4 +49,6 @@ class GtfsDatasetImpl(GtfsDataset):
             hash=gtfs_dataset.hash,
             bounding_box=BoundingBoxImpl.from_orm(gtfs_dataset.bounding_box),
             validation_report=cls.from_orm_latest_validation_report(gtfs_dataset.validation_reports),
+            service_date_range_start=gtfs_dataset.service_date_range_start,
+            service_date_range_end=gtfs_dataset.service_date_range_end,
         )

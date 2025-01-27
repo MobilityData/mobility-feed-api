@@ -1,8 +1,8 @@
 {
-  "name": "process-validation-report",
-  "description": "Processes the GTFS validation report to update the database",
-  "entry_point": "process_validation_report",
-  "timeout": 540,
+  "name": "backfill-dataset-service-date-range",
+  "description": "For each dataset, backfill the dataset service with the date range of the dataset",
+  "entry_point": "backfill_dataset_service_date_range",
+  "timeout": 3600,
   "memory": "2Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
@@ -13,7 +13,7 @@
     }
   ],
   "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
-  "max_instance_request_concurrency": 8,
+  "max_instance_request_concurrency": 1,
   "max_instance_count": 1,
   "min_instance_count": 0,
   "available_cpu": 1
