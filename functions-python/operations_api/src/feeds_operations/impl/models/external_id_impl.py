@@ -14,7 +14,7 @@
 #  limitations under the License.
 #
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Externalid,
     Gtfsfeed,
     Gtfsrealtimefeed,

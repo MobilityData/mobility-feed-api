@@ -5,7 +5,7 @@ from datetime import datetime
 from google.cloud import bigquery, storage
 from google.cloud.bigquery.job import LoadJobConfig, SourceFormat
 
-from helpers.bq_schema.schema import json_schema_to_bigquery, load_json_schema
+from shared.helpers.bq_schema.schema import json_schema_to_bigquery, load_json_schema
 
 # Environment variables
 project_id = os.getenv("PROJECT_ID")

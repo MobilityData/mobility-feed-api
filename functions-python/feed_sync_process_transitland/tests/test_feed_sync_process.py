@@ -8,11 +8,11 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session as DBSession
 
-from database_gen.sqlacodegen_models import Feed, Gtfsfeed
-from helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
+from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 
-with mock.patch("helpers.logger.Logger.init_logger") as mock_init_logger:
-    from feed_sync_process_transitland.src.main import (
+with mock.patch("shared.helpers.logger.Logger.init_logger") as mock_init_logger:
+    from main import (
         FeedProcessor,
         process_feed_event,
     )
@@ -41,7 +41,7 @@ def mock_location():
 
 @pytest.fixture
 def mock_db():
-    with patch("feed_sync_process_transitland.src.main.Database") as mock_db:
+    with patch("main.Database") as mock_db:
         yield mock_db
 
 
@@ -70,9 +70,7 @@ class MockLogger:
 @pytest.fixture(autouse=True)
 def mock_logging():
     """Mock both local and GCP logging."""
-    with patch("feed_sync_process_transitland.src.main.logging") as mock_log, patch(
-        "feed_sync_process_transitland.src.main.Logger", MockLogger
-    ):
+    with patch("main.logging") as mock_log, patch("main.Logger", MockLogger):
         for logger in [mock_log]:
             logger.info = MagicMock()
             logger.error = MagicMock()
@@ -329,7 +327,7 @@ class TestFeedProcessor:
         # Verify error handling
         mock_logging.error.assert_called()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_process_new_feed_or_skip(
         self, create_new_feed_mock, processor, feed_payload, mock_logging
     ):
@@ -340,7 +338,7 @@ class TestFeedProcessor:
         processor._process_new_feed_or_skip(feed_payload)
         create_new_feed_mock.assert_called_once()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_process_new_feed_skip(
         self, create_new_feed_mock, processor, feed_payload, mock_logging
     ):
@@ -351,7 +349,7 @@ class TestFeedProcessor:
         processor._process_new_feed_or_skip(feed_payload)
         create_new_feed_mock.assert_not_called()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_process_existing_feed_refs(
         self, create_new_feed_mock, processor, feed_payload, mock_logging
     ):
@@ -402,7 +400,7 @@ class TestFeedProcessor:
         _ = processor._process_existing_feed_refs(feed_payload, matching_feeds)
         create_new_feed_mock.assert_called_once()
 
-    @patch("feed_sync_process_transitland.src.main.create_new_feed")
+    @patch("main.create_new_feed")
     def test_update_feed(self, create_new_feed_mock, processor, feed_payload):
         """Test updating an existing feed."""
         # No matching feed

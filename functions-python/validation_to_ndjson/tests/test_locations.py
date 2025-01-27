@@ -1,13 +1,13 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
-from validation_to_ndjson.src.utils.locations import get_feed_location
+from utils.locations import get_feed_location
 
 
 class TestFeedsLocations(unittest.TestCase):
-    @patch("validation_to_ndjson.src.utils.locations.Database")
-    @patch("validation_to_ndjson.src.utils.locations.os.getenv")
-    @patch("validation_to_ndjson.src.utils.locations.joinedload")
+    @patch("utils.locations.Database")
+    @patch("utils.locations.os.getenv")
+    @patch("utils.locations.joinedload")
     def test_get_feeds_locations_map(self, _, mock_getenv, mock_database):
         mock_getenv.return_value = "fake_database_url"
 
@@ -38,7 +38,7 @@ class TestFeedsLocations(unittest.TestCase):
 
         self.assertEqual(result, [mock_location1, mock_location2])  # Verify the mapping
 
-    @patch("validation_to_ndjson.src.utils.locations.Database")
+    @patch("utils.locations.Database")
     def test_get_feeds_locations_map_no_feeds(self, mock_database):
         mock_session = MagicMock()
         mock_database.return_value.start_db_session.return_value = mock_session

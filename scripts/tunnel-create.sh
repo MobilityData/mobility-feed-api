@@ -39,6 +39,8 @@ PORT="5432"
 TARGET_PORT="5432"
 TARGET_ACCOUNT=""
 DB_INSTANCE=""
+RETRY_INTERVAL=5
+MAX_RETRIES=12
 
 display_usage() {
     printf "\nThis script creates a SSH tunnel between the local machine and a GCP database using a GCP instance deployed in the same VPC."
@@ -137,15 +139,21 @@ fi
 # Getting the first IP
 ip=$(echo $ips | sed "s/\['\([^']*\)'.*/\1/")
 
-# Wait 15s to allow the machine to be up before creating the tunnel
-echo "Sleeping for 15s..."
-sleep 15
-echo "Compute engine should be ready to use now"
+# Creating SSH tunnel with retry mechanism
+retry_count=0
+while [ $retry_count -lt $MAX_RETRIES ]; do
+    ssh -o StrictHostKeyChecking=no -fN -L ${PORT}:${target_ip}:${TARGET_PORT} ${TARGET_ACCOUNT}@${ip}
+    if [ $? -eq 0 ]; then
+        echo "SSH tunnel created successfully"
+        break
+    else
+        echo "Error creating SSH tunnel, retrying in ${RETRY_INTERVAL}s..."
+        sleep ${RETRY_INTERVAL}
+        retry_count=$((retry_count + 1))
+    fi
+done
 
-# Creating SSH tunnel
-ssh -o StrictHostKeyChecking=no -fN -L ${PORT}:${target_ip}:${TARGET_PORT} ${TARGET_ACCOUNT}@${ip}
-
-if [ $? -ne 0 ]; then
-    printf "\nError creating SSH tunnel\n"
+if [ $retry_count -eq $MAX_RETRIES ]; then
+    printf "\nError creating SSH tunnel after ${MAX_RETRIES} attempts\n"
     exit 1
 fi

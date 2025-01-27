@@ -4,7 +4,7 @@ import sqlalchemy
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import func, and_
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gbfssnapshot,
     Gbfsvalidationreport,

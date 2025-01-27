@@ -3,7 +3,7 @@ from typing import List, Dict
 import sqlalchemy
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import func, and_
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Gtfsfeed,
     Validationreport,
@@ -13,7 +13,7 @@ from database_gen.sqlacodegen_models import (
     t_location_with_translations_en,
     Location,
 )
-from helpers.locations import translate_feed_locations
+from shared.helpers.locations import translate_feed_locations
 from .base_analytics_processor import BaseAnalyticsProcessor
 
 

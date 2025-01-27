@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from starlette.responses import Response
 
-from database_gen.sqlacodegen_models import Gtfsrealtimefeed
+from shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
 from feeds_operations_gen.models.authentication_type import AuthenticationType
 from feeds_operations_gen.models.entity_type import EntityType
@@ -14,8 +14,8 @@ from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from operations_api.tests.conftest import feed_mdb_41
-from test_utils.database_utils import get_testing_session, default_db_url
+from conftest import feed_mdb_41
+from test_shared.test_utils.database_utils import get_testing_session, default_db_url
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def update_request_gtfs_rt_feed():
     )
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {
@@ -66,7 +66,7 @@ async def test_update_gtfs_feed_field_change(_, update_request_gtfs_rt_feed):
         assert db_feed.feed_name == "New feed name"
 
 
-@patch("helpers.logger.Logger")
+@patch("shared.helpers.logger.Logger")
 @mock.patch.dict(
     os.environ,
     {

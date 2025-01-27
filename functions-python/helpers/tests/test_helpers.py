@@ -7,8 +7,8 @@ from unittest.mock import patch
 import pytest
 import urllib3_mock
 
-from helpers.logger import Logger
-from helpers.utils import create_bucket, download_and_get_hash, download_url_content
+from logger import Logger
+from utils import create_bucket, download_and_get_hash, download_url_content
 
 responses = urllib3_mock.Responses("requests.packages.urllib3")
 expected_user_agent = (

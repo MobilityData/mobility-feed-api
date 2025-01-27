@@ -11,6 +11,7 @@ import { app } from '../firebase';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import AppContainer from './AppContainer';
+import { HelmetProvider } from 'react-helmet-async';
 
 function App(): React.ReactElement {
   const dispatch = useDispatch();
@@ -29,17 +30,19 @@ function App(): React.ReactElement {
   }, [dispatch]);
 
   return (
-    <RemoteConfigProvider>
-      <I18nextProvider i18n={i18n}>
-        <Suspense>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <BrowserRouter>
-              <AppContainer>{isAppReady ? <AppRouter /> : null}</AppContainer>
-            </BrowserRouter>
-          </LocalizationProvider>
-        </Suspense>
-      </I18nextProvider>
-    </RemoteConfigProvider>
+    <HelmetProvider>
+      <RemoteConfigProvider>
+        <I18nextProvider i18n={i18n}>
+          <Suspense>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <BrowserRouter>
+                <AppContainer>{isAppReady ? <AppRouter /> : null}</AppContainer>
+              </BrowserRouter>
+            </LocalizationProvider>
+          </Suspense>
+        </I18nextProvider>
+      </RemoteConfigProvider>
+    </HelmetProvider>
   );
 }
 

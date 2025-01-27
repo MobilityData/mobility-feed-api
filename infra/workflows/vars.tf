@@ -51,3 +51,8 @@ variable "validator_endpoint" {
   type = string
   description = "URL of the validator endpoint"
 }
+
+variable "processing_report_cloud_task_name" {
+  type = string
+  description = "The cloud task name to call the process report task"
+}

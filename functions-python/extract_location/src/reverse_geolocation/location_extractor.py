@@ -4,14 +4,14 @@ from typing import Tuple, List
 
 from sqlalchemy.orm import Session
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Location,
     Translation,
     t_feedsearch,
     Gtfsfeed,
 )
-from helpers.database import refresh_materialized_view
+from shared.helpers.database import refresh_materialized_view
 from .geocoded_location import GeocodedLocation
 
 

@@ -23,6 +23,8 @@ terraform {
 #
 
 locals {
+  x_number_of_concurrent_instance = 4
+  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
   function_tokens_config = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
   function_tokens_zip    = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
 
@@ -50,6 +52,9 @@ locals {
 
   function_operations_api_config = jsondecode(file("${path.module}/../../functions-python/operations_api/function_config.json"))
   function_operations_api_zip = "${path.module}/../../functions-python/operations_api/.dist/operations_api.zip"
+
+  function_backfill_dataset_service_date_range_config = jsondecode(file("${path.module}/../../functions-python/backfill_dataset_service_date_range/function_config.json"))
+  function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/backfill_dataset_service_date_range.zip"
 }
 
 locals {
@@ -59,7 +64,8 @@ locals {
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
     [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key]
+    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
+    [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -146,6 +152,14 @@ resource "google_storage_bucket_object" "operations_api_zip" {
   name   = "operations-api-${substr(filebase64sha256(local.function_operations_api_zip), 0, 10)}.zip"
   source = local.function_operations_api_zip
 }
+
+# 9. Backfill Gtfs Datasets Service Date Range
+resource "google_storage_bucket_object" "backfill_dataset_service_date_range_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "backfill-dataset-service-date-range-${substr(filebase64sha256(local.function_backfill_dataset_service_date_range_zip), 0, 10)}.zip"
+  source = local.function_backfill_dataset_service_date_range_zip
+}
+
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
@@ -346,6 +360,34 @@ resource "google_cloudfunctions2_function" "extract_location_batch" {
 }
 
 # 3. functions/validation_report_processor cloud function
+# Create a queue for the cloud tasks
+# The 2X rate is defined as 4*2 concurrent dispatches and 1 dispatch per second
+# The name of the queue need to be dynamic due to GCP limitations
+# references:
+#   - https://cloud.google.com/tasks/docs/deleting-appengine-queues-and-tasks#deleting_queues
+#   - https://issuetracker.google.com/issues/263947953
+resource "google_cloud_tasks_queue" "cloud_tasks_2x_rate_queue" {
+  name     = "cloud-tasks-2x-rate-queue-${var.environment}-${local.deployment_timestamp}"
+  location = var.gcp_region
+
+  rate_limits {
+    max_concurrent_dispatches = local.x_number_of_concurrent_instance * 2
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~two hours
+    max_attempts  = 120
+    min_backoff   = "20s"
+    max_backoff   = "60s"
+    max_doublings = 2
+  }
+}
+
+output "processing_report_cloud_task_name" {
+  value = google_cloud_tasks_queue.cloud_tasks_2x_rate_queue.name
+}
+
 resource "google_cloudfunctions2_function" "process_validation_report" {
   name        = local.function_process_validation_report_config.name
   description = local.function_process_validation_report_config.description
@@ -728,6 +770,52 @@ resource "google_cloudfunctions2_function" "feed_sync_process_transitland" {
         version    = "latest"
       }
     }
+  }
+}
+
+# 9. functions/backfill_dataset_service_date_range cloud function
+# Fills all the NULL values for service date range in the gtfs datasets table
+
+resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range" {
+  name        = local.function_backfill_dataset_service_date_range_config.name
+  description = local.function_backfill_dataset_service_date_range_config.description
+  location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project = var.project_id
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_backfill_dataset_service_date_range_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.backfill_dataset_service_date_range_zip.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_backfill_dataset_service_date_range_config.memory
+    available_cpu    = local.function_backfill_dataset_service_date_range_config.available_cpu
+    timeout_seconds  = local.function_backfill_dataset_service_date_range_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+    environment_variables = {
+      # prevents multiline logs from being truncated on GCP console
+      PYTHONNODEBUGRANGES = 0
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_backfill_dataset_service_date_range_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+    service_account_email            = google_service_account.functions_service_account.email
+    max_instance_request_concurrency = local.function_backfill_dataset_service_date_range_config.max_instance_request_concurrency
+    max_instance_count               = local.function_backfill_dataset_service_date_range_config.max_instance_count
+    min_instance_count               = local.function_backfill_dataset_service_date_range_config.min_instance_count
   }
 }
 

@@ -14,7 +14,7 @@ export const SearchHeader = styled(Typography)(({ theme }) => ({
 }));
 
 export const chipHolderStyles: SxProps<Theme> = (theme) => ({
-  pdisplay: 'flex',
+  display: 'flex',
   flexWrap: 'wrap',
   gap: 1,
   minHeight: '31px',

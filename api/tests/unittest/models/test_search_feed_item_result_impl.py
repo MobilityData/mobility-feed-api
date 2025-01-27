@@ -40,6 +40,8 @@ search_item = FeedSearchRow(
     latest_dataset_downloaded_at=downloaded_at,
     latest_dataset_bounding_box=None,
     latest_dataset_hash="latest_dataset_hash",
+    latest_dataset_service_date_range_start="2030-10-10",
+    latest_dataset_service_date_range_end="2031-10-10",
     external_ids=[],
     redirect_ids=[],
     feed_reference_ids=[],
@@ -80,6 +82,8 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
                 hosted_url=item.latest_dataset_hosted_url,
                 downloaded_at=item.latest_dataset_downloaded_at,
                 hash=item.latest_dataset_hash,
+                service_date_range_start=item.latest_dataset_service_date_range_start,
+                service_date_range_end=item.latest_dataset_service_date_range_end,
             ),
         )
         assert result == expected

@@ -14,14 +14,14 @@
 #  limitations under the License.
 #
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Redirectingid,
     Gtfsfeed,
     Gbfsfeed,
     Gtfsrealtimefeed,
 )
 from feeds_operations_gen.models.redirect import Redirect
-from helpers.query_helper import query_feed_by_stable_id
+from shared.helpers.query_helper import query_feed_by_stable_id
 
 
 class RedirectImpl(Redirect):
