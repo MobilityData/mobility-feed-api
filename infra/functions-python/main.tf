@@ -108,6 +108,18 @@ resource "google_storage_bucket" "gbfs_snapshots_bucket" {
   name     = "${var.gbfs_bucket_name}-${var.environment}"
 }
 
+resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
+  bucket = google_storage_bucket.datasets_bucket.name
+  role   = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_project_iam_member" "datasets_bucket_functions_service_account" {
+  project = var.project_id
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+  role    = "roles/storage.admin"
+}
+
 # Cloud function source code zip files:
 # 1. Tokens
 resource "google_storage_bucket_object" "function_token_zip" {
@@ -856,8 +868,7 @@ resource "google_cloudfunctions2_function" "export_csv" {
   }
   service_config {
     environment_variables = {
-      DATASETS_BUCKET_NANE = var.datasets_bucket_name
-      QAZ = "${var.datasets_bucket_name}-${var.environment}"
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
       PROJECT_ID  = var.project_id
       ENVIRONMENT = var.environment
     }
@@ -931,15 +942,6 @@ resource "google_project_iam_member" "event-receiving" {
   role    = "roles/eventarc.eventReceiver"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
   depends_on = [google_project_iam_member.invoking]
-}
-
-# Grant read access to the datasets bucket for the service account
-resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
-  bucket = "${var.datasets_bucket_name}-${var.environment}"
-  role   = "roles/storage.objectViewer"
-  members = [
-    "serviceAccount:${google_service_account.functions_service_account.email}"
-  ]
 }
 
 # Grant write access to the gbfs bucket for the service account

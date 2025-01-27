@@ -324,6 +324,7 @@ def upload_file_to_storage(source_file_path, target_path):
     Uploads a file to the GCP bucket
     """
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
+    print(f"Uploading file to bucket {bucket_name} at path {target_path}")
     bucket = storage.Client().get_bucket(bucket_name)
     blob = bucket.blob(target_path)
     with open(source_file_path, "rb") as file:
