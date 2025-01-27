@@ -318,6 +318,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
 
+      - name: Persist TF plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan.txt
+          path: infra/terraform-plan.txt
+          overwrite: true
+
       - name: Terraform Apply
         if: ${{ inputs.TF_APPLY }}
         run: |
@@ -326,10 +333,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
-
-      - name: Persist TF plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan.txt
-          path: infra/terraform-plan.txt
-          overwrite: true

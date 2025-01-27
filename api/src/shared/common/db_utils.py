@@ -12,6 +12,7 @@ from shared.database_gen.sqlacodegen_models import (
     Validationreport,
     Gtfsrealtimefeed,
     Entitytype,
+    Redirectingid,
 )
 
 from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
@@ -90,7 +91,7 @@ def get_all_gtfs_feeds_query(
     feed_query = feed_query.options(
         joinedload(Gtfsfeed.gtfsdatasets)
         .joinedload(Gtfsdataset.validation_reports)
-        .joinedload(Validationreport.notices),
+        .joinedload(Validationreport.features),
         *get_joinedload_options(),
     ).order_by(Gtfsfeed.stable_id)
 
@@ -246,6 +247,6 @@ def get_joinedload_options() -> [_AbstractLoad]:
     return [
         joinedload(Feed.locations),
         joinedload(Feed.externalids),
-        joinedload(Feed.redirectingids),
+        joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         joinedload(Feed.officialstatushistories),
     ]

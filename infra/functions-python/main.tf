@@ -88,6 +88,10 @@ data "google_pubsub_topic" "datasets_batch_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
 
+data "google_storage_bucket" "datasets_bucket" {
+  name = "${var.datasets_bucket_name}-${var.environment}"
+}
+
 # Service account to execute the cloud functions
 resource "google_service_account" "functions_service_account" {
   account_id   = "functions-service-account"
@@ -853,6 +857,7 @@ resource "google_cloudfunctions2_function" "export_csv" {
   service_config {
     environment_variables = {
       DATASETS_BUCKET_NANE = var.datasets_bucket_name
+      QAZ = "${var.datasets_bucket_name}-${var.environment}"
       PROJECT_ID  = var.project_id
       ENVIRONMENT = var.environment
     }
