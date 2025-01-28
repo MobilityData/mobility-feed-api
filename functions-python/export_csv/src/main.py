@@ -28,7 +28,7 @@ from functools import reduce
 from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
-from helpers.logger import Logger
+from shared.helpers.logger import Logger
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 from collections import OrderedDict
 from shared.common.db_utils import get_all_gtfs_rt_feeds_query, get_all_gtfs_feeds_query
