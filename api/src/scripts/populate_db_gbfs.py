@@ -4,8 +4,8 @@ import pandas as pd
 import pytz
 import pycountry
 
-from database.database import generate_unique_id, configure_polymorphic_mappers
-from database_gen.sqlacodegen_models import Gbfsfeed, Location, Gbfsversion, Externalid
+from shared.database.database import generate_unique_id, configure_polymorphic_mappers
+from shared.database_gen.sqlacodegen_models import Gbfsfeed, Location, Gbfsversion, Externalid
 from scripts.gbfs_utils.comparison import generate_system_csv_from_db, compare_db_to_csv
 from scripts.gbfs_utils.fetching import fetch_data, get_data_content, get_gbfs_versions
 from scripts.gbfs_utils.license import get_license_url

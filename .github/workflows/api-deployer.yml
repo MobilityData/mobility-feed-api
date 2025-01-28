@@ -199,7 +199,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: database_gen
-          path: api/src/database_gen/
+          path: api/src/shared/database_gen/
 
       # api schema was generated and uploaded in api-build-test job above.
       - uses: actions/download-artifact@v4
@@ -219,7 +219,7 @@ jobs:
       - name: Build & Publish Docker Image
         run: |
           # We want to generate the image even if it's the same commit that has been tagged. So use the version
-          # (coming from the tag) in the docker image tag (If the docket tag does not change it's won't be uploaded)
+          # (coming from the tag) in the docker image tag (If the docker tag does not change it won't be uploaded)
           DOCKER_IMAGE_VERSION=$EXTRACTED_VERSION.$FEED_API_IMAGE_VERSION
           scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $DOCKER_IMAGE_VERSION
 
@@ -243,7 +243,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: database_gen
-          path: api/src/database_gen/
+          path: api/src/shared/database_gen/
 
       # api schema was generated and uploaded in api-build-test job above.
       - uses: actions/download-artifact@v4
@@ -318,6 +318,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
 
+      - name: Persist TF plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan.txt
+          path: infra/terraform-plan.txt
+          overwrite: true
+
       - name: Terraform Apply
         if: ${{ inputs.TF_APPLY }}
         run: |
@@ -326,10 +333,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
-
-      - name: Persist TF plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan.txt
-          path: infra/terraform-plan.txt
-          overwrite: true

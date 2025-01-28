@@ -1,6 +1,6 @@
 from functools import reduce
 
-from database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.latest_dataset import LatestDataset

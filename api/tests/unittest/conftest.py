@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from database.database import Database
+from shared.database.database import Database
 from main import app as application
 from tests.test_utils.database import populate_database
 

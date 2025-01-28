@@ -1,4 +1,4 @@
-from database_gen.sqlacodegen_models import Externalid
+from shared.database_gen.sqlacodegen_models import Externalid
 from feeds_gen.models.external_id import ExternalId
 
 

@@ -7,7 +7,7 @@ from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import load_only, Query, class_mapper, Session
-from database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
+from shared.database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 from sqlalchemy.orm import sessionmaker
 import logging
 

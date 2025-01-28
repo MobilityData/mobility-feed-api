@@ -55,6 +55,9 @@ locals {
 
   function_backfill_dataset_service_date_range_config = jsondecode(file("${path.module}/../../functions-python/backfill_dataset_service_date_range/function_config.json"))
   function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/backfill_dataset_service_date_range.zip"
+
+  function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
+  function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
 }
 
 locals {
@@ -65,7 +68,8 @@ locals {
     [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key]
+    [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
+    [for x in local.function_export_csv_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -82,6 +86,10 @@ data "google_pubsub_topic" "datasets_batch_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
 
+data "google_storage_bucket" "datasets_bucket" {
+  name = "${var.datasets_bucket_name}-${var.environment}"
+}
+
 # Service account to execute the cloud functions
 resource "google_service_account" "functions_service_account" {
   account_id   = "functions-service-account"
@@ -96,6 +104,18 @@ resource "google_storage_bucket" "functions_bucket" {
 resource "google_storage_bucket" "gbfs_snapshots_bucket" {
   location = var.gcp_region
   name     = "${var.gbfs_bucket_name}-${var.environment}"
+}
+
+resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
+  bucket = data.google_storage_bucket.datasets_bucket.name
+  role   = "roles/storage.admin"
+  member = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_project_iam_member" "datasets_bucket_functions_service_account" {
+  project = var.project_id
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+  role    = "roles/storage.admin"
 }
 
 # Cloud function source code zip files:
@@ -160,6 +180,13 @@ resource "google_storage_bucket_object" "backfill_dataset_service_date_range_zip
   source = local.function_backfill_dataset_service_date_range_zip
 }
 
+
+# 10. Export CSV
+resource "google_storage_bucket_object" "export_csv_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "export-csv-${substr(filebase64sha256(local.function_export_csv_zip), 0, 10)}.zip"
+  source = local.function_export_csv_zip
+}
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
@@ -819,7 +846,55 @@ resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range"
   }
 }
 
-# IAM entry for all users to invoke the function 
+# 10. functions/export_csv cloud function
+resource "google_cloudfunctions2_function" "export_csv" {
+  name        = "${local.function_export_csv_config.name}"
+  project     = var.project_id
+  description = local.function_export_csv_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_export_csv_config.entry_point}"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.export_csv_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      DATASETS_BUCKET_NAME = data.google_storage_bucket.datasets_bucket.name
+      PROJECT_ID  = var.project_id
+      ENVIRONMENT = var.environment
+    }
+    available_memory                 = local.function_export_csv_config.memory
+    timeout_seconds                  = local.function_export_csv_config.timeout
+    available_cpu                    = local.function_export_csv_config.available_cpu
+    max_instance_request_concurrency = local.function_export_csv_config.max_instance_request_concurrency
+    max_instance_count               = local.function_export_csv_config.max_instance_count
+    min_instance_count               = local.function_export_csv_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_export_csv_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+
+}
+
+# IAM entry for all users to invoke the function
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
   project        = var.project_id
   location       = var.gcp_region
@@ -865,15 +940,6 @@ resource "google_project_iam_member" "event-receiving" {
   role    = "roles/eventarc.eventReceiver"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
   depends_on = [google_project_iam_member.invoking]
-}
-
-# Grant read access to the datasets bucket for the service account
-resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
-  bucket = "${var.datasets_bucket_name}-${var.environment}"
-  role   = "roles/storage.objectViewer"
-  members = [
-    "serviceAccount:${google_service_account.functions_service_account.email}"
-  ]
 }
 
 # Grant write access to the gbfs bucket for the service account

@@ -1,7 +1,7 @@
 from functools import reduce
 from typing import List
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.gtfs_dataset import GtfsDataset

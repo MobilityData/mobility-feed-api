@@ -1,6 +1,6 @@
 import pandas as pd
 from sqlalchemy.orm import joinedload
-from database_gen.sqlacodegen_models import Gbfsfeed
+from shared.database_gen.sqlacodegen_models import Gbfsfeed
 
 
 def generate_system_csv_from_db(df, db_session):

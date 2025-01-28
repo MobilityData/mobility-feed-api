@@ -1,6 +1,6 @@
 from typing import Dict
 
-from database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
+from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
 from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds.impl.models.location_impl import LocationImpl

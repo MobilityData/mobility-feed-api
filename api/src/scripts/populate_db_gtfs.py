@@ -6,8 +6,8 @@ import pycountry
 import pytz
 from sqlalchemy import text
 
-from database.database import generate_unique_id, configure_polymorphic_mappers
-from database_gen.sqlacodegen_models import (
+from shared.database.database import generate_unique_id, configure_polymorphic_mappers
+from shared.database_gen.sqlacodegen_models import (
     Entitytype,
     Externalid,
     Gtfsrealtimefeed,
