@@ -70,7 +70,7 @@ class DataCollector:
 @functions_framework.http
 def export_and_upload_csv(request=None):
     response = export_csv()
-    upload_file_to_storage(csv_file_path, "001_csv/sources_v2.csv")
+    upload_file_to_storage(csv_file_path, "sources_v2.csv")
     return response
 
 
@@ -192,6 +192,18 @@ def get_feed_csv_data(feed: Gtfsfeed):
                 minimum_longitude = shape.bounds[0]
                 maximum_longitude = shape.bounds[2]
 
+    latest_url = latest_dataset.hosted_url if latest_dataset else None
+    if latest_url:
+        # The url for the latest dataset contains the dataset id which includes the date.
+        # e.g. https://dev-files.mobilitydatabase.org/mdb-1/mdb-1-202408202229/mdb-1-202408202229.zip
+        # For the latest url we just want something using latest.zip, e.g:
+        # https://dev-files.mobilitydatabase.org/mdb-1/latest.zip
+        # So use the dataset url, but replace what is after the feed stable id by latest.zip
+        position = latest_url.find(feed.stable_id)
+        if position != -1:
+            # Construct the new URL
+            latest_url = latest_url[: position + len(feed.stable_id) + 1] + "latest.zip"
+
     data = {
         "id": feed.stable_id,
         "data_type": feed.data_type,
@@ -214,7 +226,7 @@ def get_feed_csv_data(feed: Gtfsfeed):
         "urls.authentication_type": feed.authentication_type,
         "urls.authentication_info": feed.authentication_info_url,
         "urls.api_key_parameter_name": feed.api_key_parameter_name,
-        "urls.latest": latest_dataset.hosted_url if latest_dataset else None,
+        "urls.latest": latest_url,
         "urls.license": feed.license_url,
         "location.bounding_box.minimum_latitude": minimum_latitude,
         "location.bounding_box.maximum_latitude": maximum_latitude,

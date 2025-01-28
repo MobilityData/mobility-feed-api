@@ -58,7 +58,6 @@ locals {
 
   function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
   function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
-
 }
 
 locals {
@@ -70,7 +69,6 @@ locals {
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
-    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_export_csv_config.secret_environment_variables : x.key]
   )
 

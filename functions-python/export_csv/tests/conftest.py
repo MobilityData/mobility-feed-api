@@ -37,14 +37,12 @@ from test_shared.test_utils.database_utils import clean_testing_db, get_testing_
 def populate_database():
     """
     Populates the database with fake data with the following distribution:
-    - 10 GTFS feeds
-        - 3 active
-        - 7 inactive
+    - 5 GTFS feeds
+        - 2 active
+        - 1 inactive
         - 2 deprecated
     - 5 GTFS Realtime feeds
-    - 9 GTFS datasets
-        - 3 active in active feeds
-        - 6 active in inactive feeds
+    - 4 3TFS rt datasets, with 1 of them inactive
     """
     clean_testing_db()
     session = get_testing_session()
@@ -75,6 +73,11 @@ def populate_database():
     target_feed.authentication_type = "0"
     target_feed.status = "active"
 
+    feed = feeds[1]
+    feed.id = fake.uuid4()
+    feed.authentication_type = "0"
+    feed.status = "active"
+
     source_feed = feeds[2]
     source_feed.id = "6e7c5f17-537a-439a-bf99-9c37f1f01030"
     source_feed.authentication_type = "0"
@@ -87,11 +90,6 @@ def populate_database():
             target=target_feed,
         )
     ]
-
-    feed = feeds[1]
-    feed.id = fake.uuid4()
-    feed.authentication_type = "0"
-    feed.status = "active"
 
     for feed in feeds:
         session.add(feed)
@@ -141,12 +139,15 @@ def populate_database():
         feed_index = 0 if i in [1, 2] else 1
         wkt_polygon = "POLYGON((-18 -9, -18 9, 18 9, 18 -9, -18 -9))"
         wkt_element = WKTElement(wkt_polygon, srid=4326)
+        feed_stable_id = active_gtfs_feeds[feed_index].stable_id
         gtfs_dataset = Gtfsdataset(
             id=fake.uuid4(),
-            feed_id=active_gtfs_feeds[feed_index].id,
+            feed_id=feed_stable_id,
             latest=True if i != 2 else False,
             bounding_box=wkt_element,
-            hosted_url=f"https://dataset-{i}_some_fake_hosted_url",
+            # Use a url containing the stable id. The program should replace all the is after the feed stable id
+            # by latest.zip
+            hosted_url=f"https://url_prefix/{feed_stable_id}/dataset-{i}_some_fake_hosted_url",
             note=f"dataset-{i} Some fake note",
             hash=fake.sha256(),
             downloaded_at=datetime.utcnow(),
@@ -227,6 +228,7 @@ def pytest_sessionfinish(session, exitstatus):
     Called after whole test run finished, right before
     returning the exit status to the system.
     """
+    # Cleaned at the beginning instead of the end so we can examine the DB after the test.
     # clean_testing_db()
 
 
