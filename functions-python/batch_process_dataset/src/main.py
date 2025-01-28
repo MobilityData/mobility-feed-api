@@ -308,8 +308,7 @@ def process_dataset(cloud_event: CloudEvent):
     Logger.init_logger()
     logging.info("Function Started")
     stable_id = "UNKNOWN"
-    execution_id = "UNKNOWN"
-    bucket_name = os.getenv("DATASETS_BUCKET_NANE")
+    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
 
     try:
         #  Extract data from message

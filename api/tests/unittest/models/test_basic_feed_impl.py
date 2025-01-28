@@ -2,7 +2,7 @@ import copy
 import unittest
 from datetime import datetime, date
 
-from database_gen.sqlacodegen_models import (
+from shared.database_gen.sqlacodegen_models import (
     Feed,
     Externalid,
     Location,

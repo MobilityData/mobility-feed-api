@@ -6,7 +6,7 @@ from typing import Final
 from sqlalchemy.engine.url import make_url
 
 from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, empty_database
-from database.database import Database
+from shared.database.database import Database
 
 from scripts.populate_db_gtfs import GTFSDatabasePopulateHelper
 from scripts.populate_db_test_data import DatabasePopulateTestDataHelper

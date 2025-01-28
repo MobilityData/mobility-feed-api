@@ -1,4 +1,4 @@
-from database_gen.sqlacodegen_models import Validationreport
+from shared.database_gen.sqlacodegen_models import Validationreport
 from feeds_gen.models.validation_report import ValidationReport
 from utils.logger import Logger
 

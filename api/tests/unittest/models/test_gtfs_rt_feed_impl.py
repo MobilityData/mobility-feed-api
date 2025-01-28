@@ -1,13 +1,19 @@
 import unittest
 import copy
 
-from database_gen.sqlacodegen_models import Gtfsrealtimefeed, Entitytype, Externalid, Location, Redirectingid, Feed
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsrealtimefeed,
+    Entitytype,
+    Externalid,
+    Location,
+    Redirectingid,
+    Feed,
+)
 from feeds_gen.models.source_info import SourceInfo
 from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds.impl.models.external_id_impl import ExternalIdImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds.impl.models.redirect_impl import RedirectImpl
-
 
 targetFeed = Feed(
     id="id1",

@@ -2,8 +2,8 @@ import pycountry
 from typing import TYPE_CHECKING
 from sqlalchemy.engine.result import Row
 
-from database_gen.sqlacodegen_models import Location as LocationOrm, t_location_with_translations_en
-from database_gen.sqlacodegen_models import Feed as FeedOrm
+from shared.database_gen.sqlacodegen_models import Location as LocationOrm, t_location_with_translations_en
+from shared.database_gen.sqlacodegen_models import Feed as FeedOrm
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
