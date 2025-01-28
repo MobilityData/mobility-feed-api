@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 import argparse
+import logging
 import os
 import re
 
@@ -27,6 +28,7 @@ from functools import reduce
 from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
+from helpers.logger import Logger
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 from collections import OrderedDict
 from shared.common.db_utils import get_all_gtfs_rt_feeds_query, get_all_gtfs_feeds_query
@@ -82,6 +84,8 @@ def export_csv():
     :param request: HTTP request object
     :return: HTTP response object
     """
+    Logger.init_logger()
+    logging.info("Function Started")
     data_collector = collect_data()
     data_collector.write_csv_to_file(csv_file_path)
     return f"Exported {len(data_collector.rows)} feeds to CSV file {csv_file_path}."
@@ -93,7 +97,7 @@ def collect_data() -> DataCollector:
     :return: A filled DataCollector
     """
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-    print(f"Using database {db.database_url}")
+    logging.info(f"Using database {db.database_url}")
     try:
         with db.start_db_session() as session:
             gtfs_feeds_query = get_all_gtfs_feeds_query(
@@ -103,7 +107,7 @@ def collect_data() -> DataCollector:
 
             gtfs_feeds = gtfs_feeds_query.all()
 
-            print(f"Retrieved {len(gtfs_feeds)} GTFS feeds.")
+            logging.info(f"Retrieved {len(gtfs_feeds)} GTFS feeds.")
 
             gtfs_rt_feeds_query = get_all_gtfs_rt_feeds_query(
                 include_wip=False,
@@ -112,29 +116,27 @@ def collect_data() -> DataCollector:
 
             gtfs_rt_feeds = gtfs_rt_feeds_query.all()
 
-            print(f"Retrieved {len(gtfs_rt_feeds)} GTFS realtime feeds.")
+            logging.info(f"Retrieved {len(gtfs_rt_feeds)} GTFS realtime feeds.")
 
             data_collector = DataCollector()
 
             for feed in gtfs_feeds:
-                # print(f"Processing feed {feed.stable_id}")
                 data = get_feed_csv_data(feed)
 
                 for key, value in data.items():
                     data_collector.add_data(key, value)
                 data_collector.finalize_row()
-            print(f"Processed {len(gtfs_feeds)} GTFS feeds.")
+            logging.info(f"Processed {len(gtfs_feeds)} GTFS feeds.")
 
             for feed in gtfs_rt_feeds:
-                # print(f"Processing rt feed {feed.stable_id}")
                 data = get_gtfs_rt_feed_csv_data(feed)
                 for key, value in data.items():
                     data_collector.add_data(key, value)
                 data_collector.finalize_row()
-            print(f"Processed {len(gtfs_rt_feeds)} GTFS realtime feeds.")
+            logging.info(f"Processed {len(gtfs_rt_feeds)} GTFS realtime feeds.")
 
     except Exception as error:
-        print(f"Error retrieving feeds: {error}")
+        logging.error(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
     data_collector.write_csv_to_file(csv_file_path)
     return data_collector
@@ -336,7 +338,7 @@ def upload_file_to_storage(source_file_path, target_path):
     Uploads a file to the GCP bucket
     """
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
-    print(f"Uploading file to bucket {bucket_name} at path {target_path}")
+    logging.info(f"Uploading file to bucket {bucket_name} at path {target_path}")
     bucket = storage.Client().get_bucket(bucket_name)
     blob = bucket.blob(target_path)
     with open(source_file_path, "rb") as file:

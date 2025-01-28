@@ -13,8 +13,8 @@ dataset_not_found: Final[str] = "Dataset '{}' not found"
 
 class InternalHTTPException(Exception):
     """
-    This class is used instead of the HTTPException bevause we don't want to depend on fastapi and have to deploy it.
-    At one point this exception needs to be caught and converted to an HTTPException,
+    This class is used instead of the HTTPException because we don't want to depend on fastapi and have to deploy it.
+    At one point this exception needs to be caught and converted to a fastapi HTTPException,
     """
 
     def __init__(self, status_code: int, detail: str) -> None:

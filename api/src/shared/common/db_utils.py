@@ -79,7 +79,7 @@ def get_all_gtfs_feeds_query(
     include_wip: bool = False,
     db_session: Session = None,
 ) -> Query[any]:
-    """Get the DB query to use to retrieve all the GTFS feeds, filtering out the WIP is needed"""
+    """Get the DB query to use to retrieve all the GTFS feeds, filtering out the WIP if needed"""
 
     feed_query = db_session.query(Gtfsfeed)
 
@@ -165,7 +165,7 @@ def get_all_gtfs_rt_feeds_query(
     include_wip: bool = False,
     db_session: Session = None,
 ) -> Query:
-    """Get the DB query to use to retrieve all the GTFS rt feeds, filtering out the WIP is needed"""
+    """Get the DB query to use to retrieve all the GTFS rt feeds, filtering out the WIP if needed"""
     feed_query = db_session.query(Gtfsrealtimefeed)
 
     if not include_wip:
