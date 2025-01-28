@@ -109,7 +109,7 @@ resource "google_storage_bucket" "gbfs_snapshots_bucket" {
 }
 
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
-  bucket = google_storage_bucket.datasets_bucket.name
+  bucket = data.google_storage_bucket.datasets_bucket.name
   role   = "roles/storage.admin"
   member = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
@@ -868,7 +868,7 @@ resource "google_cloudfunctions2_function" "export_csv" {
   }
   service_config {
     environment_variables = {
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      DATASETS_BUCKET_NAME = data.google_storage_bucket.datasets_bucket.name
       PROJECT_ID  = var.project_id
       ENVIRONMENT = var.environment
     }
