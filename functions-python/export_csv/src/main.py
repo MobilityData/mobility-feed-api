@@ -37,7 +37,6 @@ from shared.helpers.database import Database
 
 load_dotenv()
 csv_default_file_path = "./output.csv"
-csv_file_path = csv_default_file_path
 
 
 class DataCollector:
@@ -71,12 +70,13 @@ class DataCollector:
 
 @functions_framework.http
 def export_and_upload_csv(request=None):
-    response = export_csv()
+    csv_file_path = csv_default_file_path
+    response = export_csv(csv_file_path)
     upload_file_to_storage(csv_file_path, "sources_v2.csv")
     return response
 
 
-def export_csv():
+def export_csv(csv_file_path: str):
     """
     HTTP Function entry point Reads the DB and outputs a csv file with feeds data.
     This function requires the following environment variables to be set:
@@ -138,7 +138,6 @@ def collect_data() -> DataCollector:
     except Exception as error:
         logging.error(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
-    data_collector.write_csv_to_file(csv_file_path)
     return data_collector
 
 
@@ -348,13 +347,17 @@ def upload_file_to_storage(source_file_path, target_path):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Export DB feed contents to csv.")
+    parser = argparse.ArgumentParser(
+        description="Export DB feed contents to csv.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
-        "--outpath", help="Path to the output csv file. Default is ./output.csv"
+        "--outpath",
+        default=csv_default_file_path,
+        help="Path to the output csv file.",
     )
     os.environ[
         "FEEDS_DATABASE_URL"
     ] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
     args = parser.parse_args()
-    csv_file_path = args.outpath if args.outpath else csv_default_file_path
-    export_csv()
+    export_csv(args.outpath)
