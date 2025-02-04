@@ -159,8 +159,10 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     comment = comments.pop(0)
                 else:
                     comment = ""
-
-                target_stable_id = f"mdb-{int(float(mdb_source_id.strip()))}"
+                try:
+                    target_stable_id = f"mdb-{int(float(mdb_source_id.strip()))}"
+                except ValueError:
+                    target_stable_id = mdb_source_id.strip()
                 target_feed = self.query_feed_by_stable_id(session, target_stable_id, None)
                 if not target_feed:
                     self.logger.warning(f"Could not find redirect target feed {target_stable_id} for feed {stable_id}")
