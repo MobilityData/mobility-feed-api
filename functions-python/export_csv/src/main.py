@@ -24,7 +24,6 @@ from dotenv import load_dotenv
 import functions_framework
 
 from packaging.version import Version
-from functools import reduce
 from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
@@ -172,12 +171,9 @@ def get_feed_csv_data(feed: Gtfsfeed):
 
     if latest_dataset and latest_dataset.validation_reports:
         # Keep the report from the more recent validator version
-        latest_report = reduce(
-            lambda a, b: a
-            if Version(extract_numeric_version(a.validator_version))
-            > Version(extract_numeric_version(b.validator_version))
-            else b,
+        latest_report = max(
             latest_dataset.validation_reports,
+            key=lambda r: Version(extract_numeric_version(r.validator_version)),
         )
 
         if latest_report:
