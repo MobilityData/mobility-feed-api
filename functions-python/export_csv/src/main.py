@@ -113,24 +113,35 @@ def fetch_feeds() -> Iterator[Dict]:
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     logging.info(f"Using database {db.database_url}")
     try:
-        with db.start_db_session(echo=True) as session:
-            feed_count = 0
-            # We should _not_ use `.all()` on the query to avoid loading all
-            # the feeds upfront.
-            for feed in get_all_gtfs_feeds_query(session):
+        with db.start_db_session() as session:
+            gtfs_feeds_query = get_all_gtfs_feeds_query(
+                include_wip=False,
+                db_session=session,
+            )
+
+            gtfs_feeds = gtfs_feeds_query.all()
+
+            logging.info(f"Retrieved {len(gtfs_feeds)} GTFS feeds.")
+
+            gtfs_rt_feeds_query = get_all_gtfs_rt_feeds_query(
+                include_wip=False,
+                db_session=session,
+            )
+
+            gtfs_rt_feeds = gtfs_rt_feeds_query.all()
+
+            logging.info(f"Retrieved {len(gtfs_rt_feeds)} GTFS realtime feeds.")
+
+            for feed in gtfs_feeds:
                 yield get_feed_csv_data(feed)
-                feed_count += 1
 
-            logging.info(f"Processed {feed_count} GTFS feeds.")
+            logging.info(f"Processed {len(gtfs_feeds)} GTFS feeds.")
 
-            rt_feed_count = 0
-            # We should _not_ use `.all()` on the query to avoid loading all
-            # the feeds upfront.
-            for feed in get_all_gtfs_rt_feeds_query(session):
+            for feed in gtfs_rt_feeds:
                 yield get_gtfs_rt_feed_csv_data(feed)
-                rt_feed_count += 1
 
-            logging.info(f"Processed {rt_feed_count} GTFS realtime feeds.")
+            logging.info(f"Processed {len(gtfs_rt_feeds)} GTFS realtime feeds.")
+
     except Exception as error:
         logging.error(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
