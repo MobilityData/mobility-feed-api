@@ -77,7 +77,7 @@ def get_gtfs_feeds_query(
 def get_all_gtfs_feeds(
     db_session: Session,
     include_wip: bool = False,
-    batch_size: int = 100,
+    batch_size: int = 250,
 ) -> Iterator[Gtfsfeed]:
     """
     Fetch all GTFS feeds.
@@ -174,7 +174,7 @@ def get_gtfs_rt_feeds_query(
 def get_all_gtfs_rt_feeds(
     db_session: Session,
     include_wip: bool = False,
-    batch_size: int = 100,
+    batch_size: int = 250,
 ) -> Iterator[Gtfsrealtimefeed]:
     """
     Fetch all GTFS realtime feeds.
