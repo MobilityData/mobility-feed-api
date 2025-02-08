@@ -1,4 +1,7 @@
+from typing import Iterator
+
 from geoalchemy2 import WKTElement
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy.orm.query import Query
@@ -14,15 +17,11 @@ from shared.database_gen.sqlacodegen_models import (
     Entitytype,
     Redirectingid,
 )
-
 from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
-
 from .entity_type_enum import EntityType
-
-from sqlalchemy import or_
-
 from .error_handling import raise_internal_http_validation_error, invalid_bounding_coordinates, invalid_bounding_method
+from .iter_utils import batched
 
 
 def get_gtfs_feeds_query(
@@ -75,27 +74,38 @@ def get_gtfs_feeds_query(
     return feed_query
 
 
-def get_all_gtfs_feeds_query(
+def get_all_gtfs_feeds(
+    db_session: Session,
     include_wip: bool = False,
-    db_session: Session = None,
-) -> Query[any]:
-    """Get the DB query to use to retrieve all the GTFS feeds, filtering out the WIP if needed"""
+    batch_size: int = 100,
+) -> Iterator[Gtfsfeed]:
+    """
+    Fetch all GTFS feeds.
 
-    feed_query = db_session.query(Gtfsfeed)
+    @param db_session: The database session.
+    @param include_wip: Whether to include or exclude WIP feeds.
+    @param batch_size: The number of feeds to fetch from the database at a time.
+        A lower value means less memory but more queries.
 
+    @return: The GTFS feeds in an iterator.
+    """
+    feed_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id)
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
+        feed_query = feed_query.filter(Gtfsfeed.operational_status.is_distinct_from("wip"))
+
+    for batch in batched(feed_query, batch_size):
+        stable_ids = (f.stable_id for f in batch)
+        yield from (
+            db_session.query(Gtfsfeed)
+            .filter(Gtfsfeed.stable_id.in_(stable_ids))
+            .options(
+                joinedload(Gtfsfeed.gtfsdatasets)
+                .joinedload(Gtfsdataset.validation_reports)
+                .joinedload(Validationreport.features),
+                *get_joinedload_options(),
+            )
+            .order_by(Gtfsfeed.stable_id)
         )
-
-    feed_query = feed_query.options(
-        joinedload(Gtfsfeed.gtfsdatasets)
-        .joinedload(Gtfsdataset.validation_reports)
-        .joinedload(Validationreport.features),
-        *get_joinedload_options(),
-    ).order_by(Gtfsfeed.stable_id)
-
-    return feed_query
 
 
 def get_gtfs_rt_feeds_query(
@@ -161,28 +171,37 @@ def get_gtfs_rt_feeds_query(
     return feed_query
 
 
-def get_all_gtfs_rt_feeds_query(
+def get_all_gtfs_rt_feeds(
+    db_session: Session,
     include_wip: bool = False,
-    db_session: Session = None,
-) -> Query:
-    """Get the DB query to use to retrieve all the GTFS rt feeds, filtering out the WIP if needed"""
-    feed_query = db_session.query(Gtfsrealtimefeed)
+    batch_size: int = 100,
+) -> Iterator[Gtfsrealtimefeed]:
+    """
+    Fetch all GTFS realtime feeds.
 
+    @param db_session: The database session.
+    @param include_wip: Whether to include or exclude WIP feeds.
+    @param batch_size: The number of feeds to fetch from the database at a time.
+        A lower value means less memory but more queries.
+
+    @return: The GTFS realtime feeds in an iterator.
+    """
+    feed_query = db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id)
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(
-                Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                Gtfsrealtimefeed.operational_status != "wip",
+        feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status.is_distinct_from("wip"))
+
+    for batch in batched(feed_query, batch_size):
+        stable_ids = (f.stable_id for f in batch)
+        yield from (
+            db_session.query(Gtfsrealtimefeed)
+            .filter(Gtfsrealtimefeed.stable_id.in_(stable_ids))
+            .options(
+                joinedload(Gtfsrealtimefeed.entitytypes),
+                joinedload(Gtfsrealtimefeed.gtfs_feeds),
+                *get_joinedload_options(),
             )
+            .order_by(Gtfsfeed.stable_id)
         )
-
-    feed_query = feed_query.options(
-        joinedload(Gtfsrealtimefeed.entitytypes),
-        joinedload(Gtfsrealtimefeed.gtfs_feeds),
-        *get_joinedload_options(),
-    ).order_by(Gtfsfeed.stable_id)
-
-    return feed_query
 
 
 def apply_bounding_filtering(

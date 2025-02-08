@@ -18,7 +18,7 @@ from contextlib import contextmanager
 import logging
 import os
 import threading
-from typing import Optional
+from typing import Optional, ContextManager
 
 from sqlalchemy import create_engine, text, event, Engine
 from sqlalchemy.orm import sessionmaker, Session, mapper, class_mapper
@@ -159,7 +159,7 @@ class Database:
         return self._Sessions[echo]
 
     @contextmanager
-    def start_db_session(self, echo: bool = True):
+    def start_db_session(self, echo: bool = True) -> ContextManager[Session]:
         """
         Context manager to start a database session with optional echo.
 
