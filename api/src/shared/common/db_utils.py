@@ -1,6 +1,6 @@
 from geoalchemy2 import WKTElement
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session
+from sqlalchemy.orm import joinedload, selectinload, with_loader_criteria, Session
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
@@ -76,26 +76,34 @@ def get_gtfs_feeds_query(
 
 
 def get_all_gtfs_feeds_query(
+    db_session: Session,
     include_wip: bool = False,
-    db_session: Session = None,
+    yield_per: int = 100,
 ) -> Query[any]:
     """Get the DB query to use to retrieve all the GTFS feeds, filtering out the WIP if needed"""
-
     feed_query = db_session.query(Gtfsfeed)
-
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
-        )
+        feed_query = feed_query.filter(Gtfsfeed.operational_status.is_distinct_from("wip"))
 
-    feed_query = feed_query.options(
-        joinedload(Gtfsfeed.gtfsdatasets)
+    dataset_joins = (
+        selectinload(Gtfsfeed.gtfsdatasets)
         .joinedload(Gtfsdataset.validation_reports)
-        .joinedload(Validationreport.features),
-        *get_joinedload_options(),
-    ).order_by(Gtfsfeed.stable_id)
+        .joinedload(Validationreport.features)
+    )
 
-    return feed_query
+    return (
+        feed_query.options(
+            dataset_joins,
+            with_loader_criteria(Gtfsdataset, Gtfsdataset.latest == True),  # noqa E712
+            *get_selectinload_options(),
+        )
+        # `yield_per` batches results and is _not_ compatible with eager loading.
+        # It allow us to iterate over the feeds with less memory overhead, however
+        # it involves performing more database queries to get relations.
+        .yield_per(yield_per)
+        # .enable_eagerloads(False)  # should not be needed
+        .order_by(Gtfsfeed.stable_id)
+    )
 
 
 def get_gtfs_rt_feeds_query(
@@ -162,27 +170,29 @@ def get_gtfs_rt_feeds_query(
 
 
 def get_all_gtfs_rt_feeds_query(
+    db_session: Session,
     include_wip: bool = False,
-    db_session: Session = None,
+    yield_per: int = 100,
 ) -> Query:
     """Get the DB query to use to retrieve all the GTFS rt feeds, filtering out the WIP if needed"""
     feed_query = db_session.query(Gtfsrealtimefeed)
 
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(
-                Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                Gtfsrealtimefeed.operational_status != "wip",
-            )
+        feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status.is_distinct_from("wip"))
+
+    return (
+        feed_query.options(
+            selectinload(Gtfsrealtimefeed.entitytypes),
+            selectinload(Gtfsrealtimefeed.gtfs_feeds),
+            *get_selectinload_options(),
         )
-
-    feed_query = feed_query.options(
-        joinedload(Gtfsrealtimefeed.entitytypes),
-        joinedload(Gtfsrealtimefeed.gtfs_feeds),
-        *get_joinedload_options(),
-    ).order_by(Gtfsfeed.stable_id)
-
-    return feed_query
+        # `yield_per` batches results and is _not_ compatible with eager loading.
+        # It allow us to iterate over the feeds with less memory overhead, however
+        # it involves performing more database queries to get relations.
+        .yield_per(yield_per)
+        # .enable_eagerloads(False)  # should not be needed
+        .order_by(Gtfsfeed.stable_id)
+    )
 
 
 def apply_bounding_filtering(
@@ -249,4 +259,14 @@ def get_joinedload_options() -> [_AbstractLoad]:
         joinedload(Feed.externalids),
         joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         joinedload(Feed.officialstatushistories),
+    ]
+
+
+def get_selectinload_options() -> [_AbstractLoad]:
+    """Returns common selectinload options for feeds queries."""
+    return [
+        selectinload(Feed.locations),
+        selectinload(Feed.externalids),
+        selectinload(Feed.redirectingids).joinedload(Redirectingid.target),
+        selectinload(Feed.officialstatushistories),
     ]
