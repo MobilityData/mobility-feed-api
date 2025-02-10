@@ -89,7 +89,7 @@ def get_all_gtfs_feeds(
 
     @return: The GTFS feeds in an iterator.
     """
-    feed_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id)
+    feed_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
     if not include_wip:
         feed_query = feed_query.filter(Gtfsfeed.operational_status.is_distinct_from("wip"))
 
@@ -186,7 +186,7 @@ def get_all_gtfs_rt_feeds(
 
     @return: The GTFS realtime feeds in an iterator.
     """
-    feed_query = db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id)
+    feed_query = db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id).yield_per(batch_size)
     if not include_wip:
         feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status.is_distinct_from("wip"))
 
