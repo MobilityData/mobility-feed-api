@@ -82,7 +82,209 @@ paths:
             The request was not authenticated or has invalid authentication credentials.
         500:
           description: >
-            An internal server error occurred.            
+            An internal server error occurred.
+
+  /v1/operations/gtfs_feeds:
+    get:
+      description: Get a list of GTFS feeds with optional filtering and pagination.
+      operationId: getGtfsFeeds
+      tags:
+        - "operations"
+      parameters:
+        - name: operation_status
+          in: query
+          description: Filter feeds by operational status.
+          required: false
+          schema:
+            type: string
+            enum: [wip, published]
+        - name: provider
+          in: query
+          description: List only feeds with the specified provider.
+          required: false
+          schema:
+            type: string
+        - name: producer_url
+          in: query
+          description: List only feeds with the specified producer URL.
+          required: false
+          schema:
+            type: string
+        - name: country_code
+          in: query
+          description: Filter feeds by their exact country code.
+          required: false
+          schema:
+            type: string
+        - name: subdivision_name
+          in: query
+          description: List only feeds with the specified subdivision name.
+          required: false
+          schema:
+            type: string
+        - name: municipality
+          in: query
+          description: List only feeds with the specified municipality.
+          required: false
+          schema:
+            type: string
+        - name: is_official
+          in: query
+          description: If true, only return official feeds.
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination.
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of items to return.
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: dataset_latitudes
+          in: query
+          description: Specify the minimum and maximum latitudes for bounding box filtering.
+          required: false
+          schema:
+            type: string
+        - name: dataset_longitudes
+          in: query
+          description: Specify the minimum and maximum longitudes for bounding box filtering.
+          required: false
+          schema:
+            type: string
+        - name: bounding_filter_method
+          in: query
+          description: Filtering method for bounding box filtering.
+          required: false
+          schema:
+            type: string
+            enum: [completely_enclosed, partially_enclosed, disjoint]
+            default: completely_enclosed
+      responses:
+        200:
+          description: List of GTFS feeds retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  feeds:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GtfsFeed"
+        401:
+          description: Unauthorized.
+        500:
+          description: Internal Server Error.
+
+  /v1/operations/gtfs_rt_feeds:
+    get:
+      description: Get a list of GTFS-RT feeds with optional filtering and pagination.
+      operationId: getGtfsRtFeeds
+      tags:
+        - "operations"
+      parameters:
+        - name: operation_status
+          in: query
+          description: Filter feeds by operational status.
+          required: false
+          schema:
+            type: string
+            enum: [wip, published]
+        - name: provider
+          in: query
+          description: List only feeds with the specified provider.
+          required: false
+          schema:
+            type: string
+        - name: producer_url
+          in: query
+          description: List only feeds with the specified producer URL.
+          required: false
+          schema:
+            type: string
+        - name: entity_types
+          in: query
+          description: Filter feeds by their entity type. Expects a comma separated list.
+          required: false
+          schema:
+            type: string
+        - name: country_code
+          in: query
+          description: Filter feeds by their exact country code.
+          required: false
+          schema:
+            type: string
+        - name: subdivision_name
+          in: query
+          description: List only feeds with the specified subdivision name.
+          required: false
+          schema:
+            type: string
+        - name: municipality
+          in: query
+          description: List only feeds with the specified municipality.
+          required: false
+          schema:
+            type: string
+        - name: is_official
+          in: query
+          description: If true, only return official feeds.
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination.
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of items to return.
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        200:
+          description: List of GTFS-RT feeds retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  feeds:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/GtfsRtFeed"
+        401:
+          description: Unauthorized.
+        500:
+          description: Internal Server Error.
 
 components:
   schemas:
@@ -142,7 +344,7 @@ components:
           type: array
           items:
             type: string
-            example: "mdb-20"            
+            example: "mdb-20"
       # This is a temporary fix as the operational status is not visible yet.
         operational_status_action:
           type: string
@@ -303,6 +505,99 @@ components:
         - 2
       example: 2
 
+    GtfsFeed:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the feed.
+        provider:
+          type: string
+          description: Name of the transit provider.
+        feed_name:
+          type: string
+          description: Name of the feed.
+        producer_url:
+          type: string
+          description: URL where the feed is produced.
+        operation_status:
+          type: string
+          enum: [wip, published]
+          description: Current operational status of the feed.
+        is_official:
+          type: boolean
+          description: Whether this is an official feed.
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Location"
+        bounding_box:
+          $ref: "#/components/schemas/BoundingBox"
+
+    GtfsRtFeed:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the feed.
+        provider:
+          type: string
+          description: Name of the transit provider.
+        feed_name:
+          type: string
+          description: Name of the feed.
+        producer_url:
+          type: string
+          description: URL where the feed is produced.
+        operation_status:
+          type: string
+          enum: [wip, published]
+          description: Current operational status of the feed.
+        is_official:
+          type: boolean
+          description: Whether this is an official feed.
+        entity_types:
+          type: array
+          items:
+            type: string
+          description: Types of GTFS-RT entities in the feed.
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Location"
+
+    Location:
+      type: object
+      properties:
+        country_code:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        country:
+          type: string
+          description: English name of the country.
+        subdivision_name:
+          type: string
+          description: Name of the subdivision (state/province/region).
+        municipality:
+          type: string
+          description: Name of the municipality.
+
+    BoundingBox:
+      type: object
+      properties:
+        minimum_latitude:
+          type: number
+          description: Minimum latitude of the bounding box.
+        maximum_latitude:
+          type: number
+          description: Maximum latitude of the bounding box.
+        minimum_longitude:
+          type: number
+          description: Minimum longitude of the bounding box.
+        maximum_longitude:
+          type: number
+          description: Maximum longitude of the bounding box.
+
   parameters:
     feed_id_path_param:
       name: id
@@ -316,7 +611,7 @@ components:
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
-      name: X-API-KEY
+      name: x-api-key
       in: header
 
 security:

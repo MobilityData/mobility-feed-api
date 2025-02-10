@@ -16,14 +16,14 @@
 
 import logging
 import os
-from typing import Annotated
+from typing import Annotated, Optional
 
 from deepdiff import DeepDiff
-from fastapi import HTTPException
+from fastapi import HTTPException, Query
 from pydantic import Field
 from starlette.responses import Response
 
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch, Feed, Location, Entitytype
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
@@ -37,6 +37,9 @@ from shared.helpers.database import Database, refresh_materialized_view
 from shared.helpers.query_helper import query_feed_by_stable_id
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
+from .models.list_feeds_request import ListGtfsFeedsRequest, ListGtfsRtFeedsRequest
+from sqlalchemy import or_, and_
+from shared.helpers.query_helper import get_operations_gtfs_feeds_query, get_operations_gtfs_rt_feeds_query
 
 logging.basicConfig(level=logging.INFO)
 
@@ -185,3 +188,145 @@ class OperationsApiImpl(BaseOperationsApi):
                 detail=f"Feed ID not found: {update_request_feed.id}",
             )
         return feed
+
+    @validate_request(ListGtfsFeedsRequest, "request")
+    async def get_gtfs_feeds(
+        self,
+        request: Annotated[
+            ListGtfsFeedsRequest,
+            Field(description="Request parameters for listing GTFS feeds"),
+        ],
+    ) -> dict:
+        """Get a list of GTFS feeds with optional filtering and pagination."""
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+        try:
+            with db.start_db_session() as db_session:
+                query = get_operations_gtfs_feeds_query(
+                    db_session=db_session,
+                    operation_status=request.operation_status,
+                    provider=request.provider,
+                    producer_url=str(request.producer_url) if request.producer_url else None,
+                    country_code=request.country_code,
+                    subdivision_name=request.subdivision_name,
+                    municipality=request.municipality,
+                    is_official=request.is_official,
+                    dataset_latitudes=request.dataset_latitudes,
+                    dataset_longitudes=request.dataset_longitudes,
+                    bounding_filter_method=request.bounding_filter_method.value if request.bounding_filter_method else None,
+                    limit=request.limit,
+                    offset=request.offset,
+                )
+
+                total = query.count()
+
+                feeds = query.all()
+
+                feed_list = []
+                for feed in feeds:
+                    feed_dict = {
+                        "id": feed.id,
+                        "status": feed.status,
+                        "data_type": feed.data_type,
+                        "provider": feed.provider,
+                        "feed_name": feed.feed_name,
+                        "note": feed.note,
+                        "feed_contact_email": feed.feed_contact_email,
+                        "operational_status": feed.operational_status,
+                        "created_at": str(feed.created_at) if feed.created_at else None,
+                        "updated_at": str(feed.updated_at) if feed.updated_at else None,
+                        "is_official": feed.official,
+                        "locations": [
+                            {
+                                "country_code": loc.country_code,
+                                "country": loc.country,
+                                "subdivision_name": loc.subdivision_name,
+                                "municipality": loc.municipality
+                            }
+                            for loc in feed.locations
+                        ] if feed.locations else []
+                    }
+                    feed_list.append(feed_dict)
+
+                return {
+                    "total": total,
+                    "offset": request.offset,
+                    "limit": request.limit,
+                    "feeds": feed_list
+                }
+
+        except ValueError as e:
+            logging.error(f"Validation error: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logging.error(f"Failed to get GTFS feeds. Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
+    @validate_request(ListGtfsRtFeedsRequest, "request")
+    async def get_gtfs_rt_feeds(
+        self,
+        request: Annotated[
+            ListGtfsRtFeedsRequest,
+            Field(description="Request parameters for listing GTFS-RT feeds"),
+        ],
+    ) -> dict:
+        """Get a list of GTFS-RT feeds with optional filtering and pagination."""
+        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
+        try:
+            with db.start_db_session() as db_session:
+                query = get_operations_gtfs_rt_feeds_query(
+                    db_session=db_session,
+                    operation_status=request.operation_status,
+                    provider=request.provider,
+                    producer_url=str(request.producer_url) if request.producer_url else None,
+                    entity_types=request.entity_types,
+                    country_code=request.country_code,
+                    subdivision_name=request.subdivision_name,
+                    municipality=request.municipality,
+                    is_official=request.is_official,
+                    limit=request.limit,
+                    offset=request.offset,
+                )
+
+                total = query.count()
+
+                feeds = query.all()
+
+                feed_list = []
+                for feed in feeds:
+                    feed_dict = {
+                        "id": feed.id,
+                        "status": feed.status,
+                        "data_type": feed.data_type,
+                        "provider": feed.provider,
+                        "feed_name": feed.feed_name,
+                        "note": feed.note,
+                        "feed_contact_email": feed.feed_contact_email,
+                        "operational_status": feed.operational_status,
+                        "created_at": str(feed.created_at) if feed.created_at else None,
+                        "updated_at": str(feed.updated_at) if feed.updated_at else None,
+                        "is_official": feed.official,
+                        "locations": [
+                            {
+                                "country_code": loc.country_code,
+                                "country": loc.country,
+                                "subdivision_name": loc.subdivision_name,
+                                "municipality": loc.municipality
+                            }
+                            for loc in feed.locations
+                        ] if feed.locations else []
+                    }
+                    feed_list.append(feed_dict)
+
+                return {
+                    "total": total,
+                    "offset": request.offset,
+                    "limit": request.limit,
+                    "feeds": feed_list
+                }
+
+        except ValueError as e:
+            logging.error(f"Validation error: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
+        except Exception as e:
+            logging.error(f"Failed to get GTFS-RT feeds. Error: {e}")
+            raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
