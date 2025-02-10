@@ -107,7 +107,9 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
         style={{ width: '100%', height: '100%' }}
         initialViewState={{ bounds }}
         interactiveLayerIds={['stops']}
-        zoom={10}
+
+        scrollZoom={true}
+        dragPan={true}
         mapStyle={{
           version: 8,
           sources: {
