@@ -24,7 +24,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
     if (map != undefined) {
       // Get the features under the mouse pointer
       const features = map.queryRenderedFeatures(event.point, {
-        layers: ['stops'], // Change this to your actual layer ID
+        layers: ['stops', 'routes'], // Change this to your actual layer ID
       });
 
       if (features.length > 0) {
@@ -33,8 +33,13 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
         //   coordinates: feature.geometry.coordinates,
         //   properties: feature.properties,
         // });
-        setHoverInfo(feature.properties.stop_id);
-        setHoverData(feature.properties.stop_name);
+        if(feature.properties.route_id != undefined){
+          setHoverInfo(feature.properties.route_id);
+          setHoverData(feature.properties.route_long_name);
+        } else {
+          setHoverInfo(feature.properties.stop_id);
+          setHoverData(feature.properties.stop_name);
+        }
       } else {
         setHoverInfo('');
         setHoverData('');
@@ -106,7 +111,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
         onMouseMove={(event) => handleMouseMove(event)}
         style={{ width: '100%', height: '100%' }}
         initialViewState={{ bounds }}
-        interactiveLayerIds={['stops']}
+        interactiveLayerIds={['stops', 'routes']}
 
         scrollZoom={true}
         dragPan={true}
@@ -124,11 +129,16 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
               type: 'vector',
               url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops.pmtiles', // Google Storage Bucket (CORS enabled)
             },
+            routes: {
+              type: 'vector',
+              url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes.pmtiles', // Google Storage Bucket (CORS enabled)
+            },
             boundingBox: {
               type: 'geojson',
               data: geojson, // displays the bounding box
             },
           },
+          // Order matters: the last layer will be on top
           layers: [
             {
               id: 'simple-tiles',
@@ -137,19 +147,35 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
               minzoom: 0,
               maxzoom: 22,
             },
+            
             {
-              id: 'stops',
-              source: 'sample',
-              'source-layer': 'stops', // Name in the
-              type: 'circle',
+              id: 'routes-white',
+              source: 'routes',
+              'source-layer': 'output', // Name in the
+              type: 'line',
               paint: {
                 // style and color of the stops
-                'circle-radius': 5,
-                'circle-color': '#088',
+                'line-color': '#ffffff',
+                'line-width': 4,
               },
               minzoom: 10,
               maxzoom: 22,
             },
+            {
+              id: 'routes',
+              source: 'routes',
+              'source-layer': 'output', // Name in the
+              type: 'line',
+              paint: {
+                // style and color of the stops
+                'line-color': ['concat', "#", ['get', 'route_color']],
+                'line-width': 2,
+              },
+              minzoom: 10,
+              maxzoom: 22,
+            },
+            
+            
             {
               id: 'boundingBox',
               type: 'fill',
@@ -158,6 +184,33 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
                 'fill-color': '#088',
                 'fill-opacity': 0.8,
               },
+            },
+            {
+              id: 'stops',
+              source: 'sample',
+              'source-layer': 'stops', // Name in the
+              type: 'circle',
+              paint: {
+                // style and color of the stops
+                'circle-radius': 3,
+                'circle-color': '#000000',
+              },
+              minzoom: 10,
+              maxzoom: 22,
+            },
+            {
+              id: 'routes-highlight',
+              source: 'routes',
+              'source-layer': 'output', // Name in the
+              type: 'line',
+              paint: {
+                // style and color of the stops
+                'line-color': ['concat', "#", ['get', 'route_color']],
+                'line-width': 6,
+              },
+              minzoom: 10,
+              maxzoom: 22,
+              filter: ['==', ['get', 'route_id'], hoverInfo]
             },
             {
               id: 'stops-highlight',
