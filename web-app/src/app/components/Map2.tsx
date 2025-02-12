@@ -146,7 +146,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
             sources: {
               'raster-tiles': {
                 type: 'raster',
-                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                tiles: ['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'],
                 tileSize: 256,
                 attribution:
                   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
