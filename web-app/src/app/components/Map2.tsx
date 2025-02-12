@@ -7,6 +7,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { type LatLngExpression } from 'leaflet';
 import type { FeatureCollection } from 'geojson';
+import { MapElement } from './MapElement';
+import { Box } from '@mui/material';
 
 export interface MapProps {
   polygon: LatLngExpression[];
@@ -15,11 +17,13 @@ export interface MapProps {
 export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
   const [hoverInfo, setHoverInfo] = useState<string>('');
   const [hoverData, setHoverData] = useState<string>('');
+  const [mapElement, setMapElement] = useState<MapElement[]>([]);
   const mapRef = useRef<MapRef>(null);
 
   const handleMouseMove = (event: maplibregl.MapLayerMouseEvent): void => {
     // Ensure that the mapRef is not null before trying to access the map
     const map = mapRef.current?.getMap();
+    const mapElements: MapElement[] = [];
 
     if (map != undefined) {
       // Get the features under the mouse pointer
@@ -28,12 +32,34 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
       });
 
       if (features.length > 0) {
+        features.forEach((feature) => {
+          if (feature.layer.id === 'stops') {
+            const mapElement: MapElement = {
+              isStop: true,
+              name: feature.properties.stop_name,
+            };
+            mapElements.push(mapElement);
+          } else {
+            const mapElement: MapElement = {
+              isStop: false,
+              name: feature.properties.route_long_name,
+              routeType: feature.properties.route_type,
+              routeColor: feature.properties.route_color,
+              routeId: feature.properties.route_id,
+            };
+            mapElements.push(mapElement);
+          }
+        });
+
+        setMapElement(mapElements);
+
         const feature = features[0]; // assuming you are dealing with one feature at a time
         // setHoverInfo({
         //   coordinates: feature.geometry.coordinates,
         //   properties: feature.properties,
         // });
-        if(feature.properties.route_id != undefined){
+        if (feature.properties.route_id != undefined) {
+          //console.log("ROUTE DATA: ", feature.properties); // route_type 1 = metro, 3 = bus
           setHoverInfo(feature.properties.route_id);
           setHoverData(feature.properties.route_long_name);
         } else {
@@ -43,6 +69,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
       } else {
         setHoverInfo('');
         setHoverData('');
+        setMapElement([]);
       }
     }
   };
@@ -56,8 +83,6 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
       maplibregl.removeProtocol('pmtiles');
     };
   }, []);
-
-
 
   const getBoundsFromCoordinates = (
     coordinates: [number, number][],
@@ -105,129 +130,160 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
 
   return (
     <MapProvider>
-      <Map
-        onClick={handleMouseMove}
-        ref={mapRef}
-        onMouseMove={(event) => handleMouseMove(event)}
-        style={{ width: '100%', height: '100%' }}
-        initialViewState={{ bounds }}
-        interactiveLayerIds={['stops', 'routes']}
+      <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
+        <MapElement mapElements={mapElement}></MapElement>
+        <Map
+          onClick={handleMouseMove}
+          ref={mapRef}
+          onMouseMove={(event) => handleMouseMove(event)}
+          style={{ width: '100%', height: '100%' }}
+          initialViewState={{ bounds }}
+          interactiveLayerIds={['stops', 'routes']}
+          scrollZoom={true}
+          dragPan={true}
+          mapStyle={{
+            version: 8,
+            sources: {
+              'raster-tiles': {
+                type: 'raster',
+                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                attribution:
+                  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+              },
+              sample: {
+                type: 'vector',
+                url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops.pmtiles', // Google Storage Bucket (CORS enabled)
+              },
+              routes: {
+                type: 'vector',
+                url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes.pmtiles', // Google Storage Bucket (CORS enabled)
+              },
+              // boundingBox: {
+              //   type: 'geojson',
+              //   data: geojson, // displays the bounding box
+              // },
+            },
+            // Order matters: the last layer will be on top
+            layers: [
+              {
+                id: 'simple-tiles',
+                type: 'raster',
+                source: 'raster-tiles',
+                minzoom: 0,
+                maxzoom: 22,
+              },
 
-        scrollZoom={true}
-        dragPan={true}
-        mapStyle={{
-          version: 8,
-          sources: {
-            'raster-tiles': {
-              type: 'raster',
-              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-              tileSize: 256,
-              attribution:
-                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            },
-            sample: {
-              type: 'vector',
-              url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops.pmtiles', // Google Storage Bucket (CORS enabled)
-            },
-            routes: {
-              type: 'vector',
-              url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes.pmtiles', // Google Storage Bucket (CORS enabled)
-            },
-            boundingBox: {
-              type: 'geojson',
-              data: geojson, // displays the bounding box
-            },
-          },
-          // Order matters: the last layer will be on top
-          layers: [
-            {
-              id: 'simple-tiles',
-              type: 'raster',
-              source: 'raster-tiles',
-              minzoom: 0,
-              maxzoom: 22,
-            },
-            
-            {
-              id: 'routes-white',
-              source: 'routes',
-              'source-layer': 'output', // Name in the
-              type: 'line',
-              paint: {
-                // style and color of the stops
-                'line-color': '#ffffff',
-                'line-width': 4,
+              {
+                id: 'routes-white',
+                source: 'routes',
+                'source-layer': 'output', // Name in the
+                type: 'line',
+                paint: {
+                  // style and color of the stops
+                  'line-color': '#ffffff',
+                  'line-width': [
+                    'match',
+                    ['get', 'route_type'], // Property from the vector tile
+                    '3',
+                    3, // 3 = bus
+                    '1',
+                    8, // 1 = metro
+                    3, // Default width
+                  ],
+                },
               },
-              minzoom: 10,
-              maxzoom: 22,
-            },
-            {
-              id: 'routes',
-              source: 'routes',
-              'source-layer': 'output', // Name in the
-              type: 'line',
-              paint: {
-                // style and color of the stops
-                'line-color': ['concat', "#", ['get', 'route_color']],
-                'line-width': 2,
+              {
+                id: 'routes',
+                source: 'routes',
+                'source-layer': 'output', // Name in the
+                type: 'line',
+                paint: {
+                  // style and color of the stops
+                  'line-color': ['concat', '#', ['get', 'route_color']],
+                  'line-width': [
+                    'match',
+                    ['get', 'route_type'], // Property from the vector tile
+                    '3',
+                    1, // 3 = bus
+                    '1',
+                    4, // 1 = metro
+                    3, // Default width
+                  ],
+                },
+                layout: {
+                  'line-sort-key': [
+                    'match',
+                    ['get', 'route_type'],
+                    '1',
+                    3, // metro on top
+                    '3',
+                    2, // bus second
+                    0, // Default priority
+                  ],
+                },
               },
-              minzoom: 10,
-              maxzoom: 22,
-            },
-            
-            
-            {
-              id: 'boundingBox',
-              type: 'fill',
-              source: 'boundingBox',
-              paint: {
-                'fill-color': '#088',
-                'fill-opacity': 0.8,
+
+              // {
+              //   id: 'boundingBox',
+              //   type: 'fill',
+              //   source: 'boundingBox',
+              //   paint: {
+              //     'fill-color': '#088',
+              //     'fill-opacity': 0.8,
+              //   },
+              // },
+              {
+                id: 'stops',
+                source: 'sample',
+                'source-layer': 'stops', // Name in the
+                type: 'circle',
+                paint: {
+                  // style and color of the stops
+                  'circle-radius': 3,
+                  'circle-color': '#000000',
+                },
+                minzoom: 12,
+                maxzoom: 22,
               },
-            },
-            {
-              id: 'stops',
-              source: 'sample',
-              'source-layer': 'stops', // Name in the
-              type: 'circle',
-              paint: {
-                // style and color of the stops
-                'circle-radius': 3,
-                'circle-color': '#000000',
+              {
+                id: 'routes-highlight',
+                source: 'routes',
+                'source-layer': 'output', // Name in the
+                type: 'line',
+                paint: {
+                  // style and color of the stops
+                  'line-color': ['concat', '#', ['get', 'route_color']],
+                  'line-width': [
+                    'match',
+                    ['get', 'route_type'], // Property from the vector tile
+                    '3',
+                    4, // 3 = bus
+                    '1',
+                    6, // 1 = metro
+                    3, // Default width
+                  ],
+                },
+                minzoom: 10,
+                maxzoom: 22,
+                filter: ['==', ['get', 'route_id'], hoverInfo],
               },
-              minzoom: 10,
-              maxzoom: 22,
-            },
-            {
-              id: 'routes-highlight',
-              source: 'routes',
-              'source-layer': 'output', // Name in the
-              type: 'line',
-              paint: {
-                // style and color of the stops
-                'line-color': ['concat', "#", ['get', 'route_color']],
-                'line-width': 6,
+              {
+                id: 'stops-highlight',
+                source: 'sample',
+                'source-layer': 'stops',
+                type: 'circle',
+                paint: {
+                  'circle-radius': 8, // Make it larger
+                  'circle-color': '#ff0000', // Red highlight
+                  'circle-opacity': 0.8,
+                },
+                filter: ['==', ['get', 'stop_id'], hoverInfo], // Apply only to hovered feature
               },
-              minzoom: 10,
-              maxzoom: 22,
-              filter: ['==', ['get', 'route_id'], hoverInfo]
-            },
-            {
-              id: 'stops-highlight',
-              source: 'sample',
-              'source-layer': 'stops',
-              type: 'circle',
-              paint: {
-                'circle-radius': 8, // Make it larger
-                'circle-color': '#ff0000', // Red highlight
-                'circle-opacity': 0.8,
-              },
-              filter: ['==', ['get', 'stop_id'], hoverInfo], // Apply only to hovered feature
-            },
-          ],
-        }}
-      ></Map>
-      <h1>Stop Name: {hoverData}</h1>
+            ],
+          }}
+        ></Map>
+      </Box>
     </MapProvider>
   );
 };

@@ -98,9 +98,6 @@ export const RouteAvailabilities = (
                 key={route.routeId}
                 onClick={() => handleClick(route.routeId, !route.opened)}
             >
-              <ListItemIcon>
-                <InboxIcon />
-              </ListItemIcon>
               <ListItemText primary={route.routeName} />
               {route.opened ? <ExpandLess /> : <ExpandMore />}
             </ListItemButton>
