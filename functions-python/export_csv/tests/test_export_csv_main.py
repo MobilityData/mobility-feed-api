@@ -39,27 +39,14 @@ def test_export_csv():
     os.environ[
         "FEEDS_DATABASE_URL"
     ] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
-    data_collector = main.collect_data()
-    print(f"Collected data for {len(data_collector.rows)} feeds.")
 
-    df_extracted = data_collector.get_dataframe()
+    csv_file_path = "./output.csv"
+    main.export_csv(csv_file_path)
+    df_actual = pd.read_csv(csv_file_path)
+    print(f"Collected data for {len(df_actual)} feeds.")
 
-    csv_buffer = io.StringIO(expected_csv)
-    df_from_expected_csv = pd.read_csv(csv_buffer)
-    df_from_expected_csv.fillna("", inplace=True)
-
-    df_extracted.fillna("", inplace=True)
-
-    df_extracted["urls.authentication_type"] = df_extracted[
-        "urls.authentication_type"
-    ].astype(str)
-    df_from_expected_csv["urls.authentication_type"] = df_from_expected_csv[
-        "urls.authentication_type"
-    ].astype(str)
-    df_from_expected_csv["location.bounding_box.extracted_on"] = pd.to_datetime(
-        df_from_expected_csv["location.bounding_box.extracted_on"], utc=True
-    )
+    df_expected = pd.read_csv(io.StringIO(expected_csv))
 
     # try:
-    pdt.assert_frame_equal(df_extracted, df_from_expected_csv)
+    pdt.assert_frame_equal(df_actual, df_expected)
     print("DataFrames are equal.")
