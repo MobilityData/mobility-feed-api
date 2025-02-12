@@ -547,7 +547,7 @@ export default function Feed(): React.ReactElement {
       <CustomTabPanel value={value} index={1}>
         <Box>
               {boundingBox !== undefined && (
-                <Box sx={{...mapBoxPositionStyle, width: '100%', height: '500px'}}>
+                <Box sx={{...mapBoxPositionStyle, width: '100%', height: '750px'}}>
                   <Map polygon={boundingBox} />
                 </Box>
               )}
