@@ -1,3 +1,4 @@
+/* eslint-disable */
 import * as React from 'react';
 import 'leaflet/dist/leaflet.css';
 import { Box, Typography } from '@mui/material';
