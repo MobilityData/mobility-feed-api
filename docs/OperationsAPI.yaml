@@ -20,6 +20,65 @@ tags:
     description: "Mobility Database Operations"
 
 paths:
+  /v1/operations/feeds:
+    get:
+      description: Get a list of feeds with optional filtering and pagination.
+      operationId: getFeeds
+      tags:
+        - "operations"
+      parameters:
+        - name: operation_status
+          in: query
+          description: Filter feeds by operational status.
+          required: false
+          schema:
+            type: string
+            enum: [wip, published]
+        - name: data_type
+          in: query
+          description: Filter feeds by data type.
+          required: false
+          schema:
+            type: string
+            enum: [gtfs, gtfs_rt]
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination.
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of items to return.
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        200:
+          description: List of feeds retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  feeds:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Feed"
+        401:
+          description: Unauthorized.
+        500:
+          description: Internal Server Error.
+
   /v1/operations/feeds/gtfs:
     put:
       description: Update the specified GTFS feed in the Mobility Database.
@@ -84,210 +143,77 @@ paths:
           description: >
             An internal server error occurred.
 
-  /v1/operations/gtfs_feeds:
-    get:
-      description: Get a list of GTFS feeds with optional filtering and pagination.
-      operationId: getGtfsFeeds
-      tags:
-        - "operations"
-      parameters:
-        - name: operation_status
-          in: query
-          description: Filter feeds by operational status.
-          required: false
-          schema:
-            type: string
-            enum: [wip, published]
-        - name: provider
-          in: query
-          description: List only feeds with the specified provider.
-          required: false
-          schema:
-            type: string
-        - name: producer_url
-          in: query
-          description: List only feeds with the specified producer URL.
-          required: false
-          schema:
-            type: string
-        - name: country_code
-          in: query
-          description: Filter feeds by their exact country code.
-          required: false
-          schema:
-            type: string
-        - name: subdivision_name
-          in: query
-          description: List only feeds with the specified subdivision name.
-          required: false
-          schema:
-            type: string
-        - name: municipality
-          in: query
-          description: List only feeds with the specified municipality.
-          required: false
-          schema:
-            type: string
-        - name: is_official
-          in: query
-          description: If true, only return official feeds.
-          required: false
-          schema:
-            type: boolean
-            default: false
-        - name: offset
-          in: query
-          description: Number of items to skip for pagination.
-          required: false
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          description: Maximum number of items to return.
-          required: false
-          schema:
-            type: integer
-            default: 20
-        - name: dataset_latitudes
-          in: query
-          description: Specify the minimum and maximum latitudes for bounding box filtering.
-          required: false
-          schema:
-            type: string
-        - name: dataset_longitudes
-          in: query
-          description: Specify the minimum and maximum longitudes for bounding box filtering.
-          required: false
-          schema:
-            type: string
-        - name: bounding_filter_method
-          in: query
-          description: Filtering method for bounding box filtering.
-          required: false
-          schema:
-            type: string
-            enum: [completely_enclosed, partially_enclosed, disjoint]
-            default: completely_enclosed
-      responses:
-        200:
-          description: List of GTFS feeds retrieved successfully.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total:
-                    type: integer
-                  offset:
-                    type: integer
-                  limit:
-                    type: integer
-                  feeds:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/GtfsFeed"
-        401:
-          description: Unauthorized.
-        500:
-          description: Internal Server Error.
-
-  /v1/operations/gtfs_rt_feeds:
-    get:
-      description: Get a list of GTFS-RT feeds with optional filtering and pagination.
-      operationId: getGtfsRtFeeds
-      tags:
-        - "operations"
-      parameters:
-        - name: operation_status
-          in: query
-          description: Filter feeds by operational status.
-          required: false
-          schema:
-            type: string
-            enum: [wip, published]
-        - name: provider
-          in: query
-          description: List only feeds with the specified provider.
-          required: false
-          schema:
-            type: string
-        - name: producer_url
-          in: query
-          description: List only feeds with the specified producer URL.
-          required: false
-          schema:
-            type: string
-        - name: entity_types
-          in: query
-          description: Filter feeds by their entity type. Expects a comma separated list.
-          required: false
-          schema:
-            type: string
-        - name: country_code
-          in: query
-          description: Filter feeds by their exact country code.
-          required: false
-          schema:
-            type: string
-        - name: subdivision_name
-          in: query
-          description: List only feeds with the specified subdivision name.
-          required: false
-          schema:
-            type: string
-        - name: municipality
-          in: query
-          description: List only feeds with the specified municipality.
-          required: false
-          schema:
-            type: string
-        - name: is_official
-          in: query
-          description: If true, only return official feeds.
-          required: false
-          schema:
-            type: boolean
-            default: false
-        - name: offset
-          in: query
-          description: Number of items to skip for pagination.
-          required: false
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          description: Maximum number of items to return.
-          required: false
-          schema:
-            type: integer
-            default: 20
-      responses:
-        200:
-          description: List of GTFS-RT feeds retrieved successfully.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total:
-                    type: integer
-                  offset:
-                    type: integer
-                  limit:
-                    type: integer
-                  feeds:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/GtfsRtFeed"
-        401:
-          description: Unauthorized.
-        500:
-          description: Internal Server Error.
-
 components:
   schemas:
+    Feed:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the feed.
+        stable_id:
+          type: string
+          description: Stable identifier for the feed.
+        status:
+          $ref: "#/components/schemas/FeedStatus"
+        data_type:
+          $ref: "#/components/schemas/DataType"
+        provider:
+          type: string
+          description: Name of the transit provider.
+        feed_name:
+          type: string
+          description: Name of the feed.
+        note:
+          type: string
+          description: Additional notes about the feed.
+        feed_contact_email:
+          type: string
+          description: Contact email for the feed.
+        producer_url:
+          type: string
+          description: URL where the feed is produced.
+        authentication_type:
+          $ref: "#/components/schemas/Authentication_type"
+        authentication_info_url:
+          type: string
+          description: URL for authentication information.
+        api_key_parameter_name:
+          type: string
+          description: Name of the API key parameter.
+        license_url:
+          type: string
+          description: URL of the feed license.
+        operational_status:
+          type: string
+          enum: [wip, published]
+          description: Current operational status of the feed.
+        created_at:
+          type: string
+          format: date-time
+          description: When the feed was created.
+        official:
+          type: boolean
+          description: Whether this is an official feed.
+        official_updated_at:
+          type: string
+          format: date-time
+          description: When the official status was last updated.
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Location"
+        entity_types:
+          type: array
+          items:
+            type: string
+          description: Types of GTFS-RT entities (only for GTFS-RT feeds).
+        feed_references:
+          type: array
+          items:
+            type: string
+          description: References to related GTFS feeds (only for GTFS-RT feeds).
+
     Redirect:
       type: object
       properties:
@@ -345,7 +271,6 @@ components:
           items:
             type: string
             example: "mdb-20"
-      # This is a temporary fix as the operational status is not visible yet.
         operational_status_action:
           type: string
           enum:
@@ -391,7 +316,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Redirect"
-      # This is a temporary fix as the operational status is not visible yet.
         operational_status_action:
           type: string
           enum:
@@ -480,7 +404,7 @@ components:
 
     DataType:
       description: >
-        Describes data type of a fee. Should be one of
+        Describes data type of a feed. Should be one of
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
@@ -505,67 +429,6 @@ components:
         - 2
       example: 2
 
-    GtfsFeed:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the feed.
-        provider:
-          type: string
-          description: Name of the transit provider.
-        feed_name:
-          type: string
-          description: Name of the feed.
-        producer_url:
-          type: string
-          description: URL where the feed is produced.
-        operation_status:
-          type: string
-          enum: [wip, published]
-          description: Current operational status of the feed.
-        is_official:
-          type: boolean
-          description: Whether this is an official feed.
-        locations:
-          type: array
-          items:
-            $ref: "#/components/schemas/Location"
-        bounding_box:
-          $ref: "#/components/schemas/BoundingBox"
-
-    GtfsRtFeed:
-      type: object
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the feed.
-        provider:
-          type: string
-          description: Name of the transit provider.
-        feed_name:
-          type: string
-          description: Name of the feed.
-        producer_url:
-          type: string
-          description: URL where the feed is produced.
-        operation_status:
-          type: string
-          enum: [wip, published]
-          description: Current operational status of the feed.
-        is_official:
-          type: boolean
-          description: Whether this is an official feed.
-        entity_types:
-          type: array
-          items:
-            type: string
-          description: Types of GTFS-RT entities in the feed.
-        locations:
-          type: array
-          items:
-            $ref: "#/components/schemas/Location"
-
     Location:
       type: object
       properties:
@@ -581,32 +444,6 @@ components:
         municipality:
           type: string
           description: Name of the municipality.
-
-    BoundingBox:
-      type: object
-      properties:
-        minimum_latitude:
-          type: number
-          description: Minimum latitude of the bounding box.
-        maximum_latitude:
-          type: number
-          description: Maximum latitude of the bounding box.
-        minimum_longitude:
-          type: number
-          description: Minimum longitude of the bounding box.
-        maximum_longitude:
-          type: number
-          description: Maximum longitude of the bounding box.
-
-  parameters:
-    feed_id_path_param:
-      name: id
-      in: path
-      description: The feed ID of the requested feed.
-      required: True
-      schema:
-        type: string
-        example: mdb-1210
 
   securitySchemes:
     ApiKeyAuth:
