@@ -37,7 +37,7 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from feeds_operations_gen.models.get_feeds200_response import (
+from feeds_operations_gen.models.get_feeds_response import (
     GetFeeds200Response,
     FeedResponse,
 )
