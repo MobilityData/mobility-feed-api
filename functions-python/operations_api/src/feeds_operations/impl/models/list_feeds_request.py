@@ -14,81 +14,47 @@
 #  limitations under the License.
 #
 
-from typing import Optional
 from enum import Enum
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
+from typing import Optional
 
 
-class BoundingFilterMethod(str, Enum):
-    """Enum for bounding box filtering methods."""
-    COMPLETELY_ENCLOSED = "completely_enclosed"
-    PARTIALLY_ENCLOSED = "partially_enclosed"
-    DISJOINT = "disjoint"
+class DataType(str, Enum):
+    """Enumeration for feed data types."""
+
+    GTFS = "gtfs"
+    GTFS_RT = "gtfs_rt"
+
+
+class OperationalStatus(str, Enum):
+    """Enumeration for feed operational status."""
+
+    WIP = "wip"
+    PUBLISHED = "published"
 
 
 class ListFeedsRequest(BaseModel):
-    """Base request model for listing feeds."""
-    operation_status: Optional[str] = Field(
-        None,
-        description="Filter feeds by operational status",
-        enum=["wip", "published"]
+    """Request model for listing feeds with filtering and pagination."""
+
+    operation_status: Optional[OperationalStatus] = Field(
+        None, description="Filter feeds by operational status (wip or published)"
     )
-    provider: Optional[str] = Field(
-        None,
-        description="List only feeds with the specified provider. Can be a partial match. Case insensitive."
+
+    data_type: Optional[DataType] = Field(
+        None, description="Filter feeds by data type (gtfs or gtfs_rt)"
     )
-    producer_url: Optional[HttpUrl] = Field(
-        None,
-        description="List only feeds with the specified producer URL. Can be a partial match. Case insensitive."
-    )
-    country_code: Optional[str] = Field(
-        None,
-        description="Filter feeds by their exact country code."
-    )
-    subdivision_name: Optional[str] = Field(
-        None,
-        description="List only feeds with the specified subdivision name. Can be a partial match. Case insensitive."
-    )
-    municipality: Optional[str] = Field(
-        None,
-        description="List only feeds with the specified municipality. Can be a partial match. Case insensitive."
-    )
-    is_official: Optional[bool] = Field(
-        False,
-        description="If true, only return official feeds."
-    )
+
     offset: int = Field(
-        default=0,
-        ge=0,
-        description="Number of items to skip for pagination"
+        default=0, ge=0, description="Number of items to skip for pagination"
     )
+
     limit: int = Field(
         default=20,
         ge=1,
         le=100,
-        description="Maximum number of items to return"
+        description="Maximum number of items to return (1-100)",
     )
 
-
-class ListGtfsFeedsRequest(ListFeedsRequest):
-    """Request model for listing GTFS feeds."""
-    dataset_latitudes: Optional[str] = Field(
-        None,
-        description="Specify the minimum and maximum latitudes of the bounding box to use for filtering."
-    )
-    dataset_longitudes: Optional[str] = Field(
-        None,
-        description="Specify the minimum and maximum longitudes of the bounding box to use for filtering."
-    )
-    bounding_filter_method: Optional[BoundingFilterMethod] = Field(
-        BoundingFilterMethod.COMPLETELY_ENCLOSED,
-        description="Specify the filtering method to use with the dataset_latitudes and dataset_longitudes parameters."
-    )
-
-
-class ListGtfsRtFeedsRequest(ListFeedsRequest):
-    """Request model for listing GTFS-RT feeds."""
-    entity_types: Optional[str] = Field(
-        None,
-        description="Filter feeds by their entity type. Expects a comma separated list of all types to fetch."
-    )
+    class Config:
+        use_enum_values = True
+        from_attributes = True
