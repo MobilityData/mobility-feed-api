@@ -70,6 +70,10 @@ headers = [
 
 
 class BoundingBox:
+    """
+    Class used to keep the GTFS feed bounding box in a lookup table so it can be used in associated real-time feeds.
+    """
+
     def __init__(
         self,
         minimum_latitude=None,
@@ -179,11 +183,19 @@ def extract_numeric_version(version):
 
 
 def get_gtfs_feed_csv_data(feed: Gtfsfeed):
+    """
+    This function takes a Gtfsfeed object and returns a dictionary with the data to be written to the CSV file.
+    :param feed: Gtfsfeed object containing feed data.
+    :return: Dictionary with feed data formatted for CSV output.
+    """
     joined_features = ""
     validated_at = None
     bounding_box = None
 
+    # First extract the common feed data
     data = get_feed_csv_data(feed)
+
+    # Then supplement with the GTFS specific data
     latest_dataset = next(
         (
             dataset
@@ -222,6 +234,11 @@ def get_gtfs_feed_csv_data(feed: Gtfsfeed):
                     extracted_on=validated_at,
                 )
 
+    # Keep the bounding box for that GTFS feed so it can be used in associated real-time feeds, if any
+    if bounding_box:
+        bounding_box.fill_data(data)
+        bounding_box_lookup[feed.id] = bounding_box
+
     latest_url = latest_dataset.hosted_url if latest_dataset else None
     if latest_url:
         # The url for the latest dataset contains the dataset id which includes the date.
@@ -234,20 +251,16 @@ def get_gtfs_feed_csv_data(feed: Gtfsfeed):
             # Construct the new URL
             latest_url = latest_url[: position + len(feed.stable_id) + 1] + "latest.zip"
     data["urls.latest"] = latest_url
-
-    if bounding_box:
-        bounding_box.fill_data(data)
     data["features"] = joined_features
     data["location.bounding_box.extracted_on"] = validated_at
 
-    if bounding_box:
-        bounding_box_lookup[feed.id] = bounding_box
     return data
 
 
 def get_feed_csv_data(feed: Feed):
     """
-    This function takes a GtfsFeed and returns a dictionary with the data to be written to the CSV file.
+    This function takes a generic feed and returns a dictionary with the data to be written to the CSV file.
+    Any specific data (for GTFS or GTFS_RT has to be added after this call.
     """
 
     redirect_ids = ""
@@ -277,6 +290,8 @@ def get_feed_csv_data(feed: Feed):
                 "" if redirect_comments.strip("|") == "" else redirect_comments
             )
 
+    # Some of the data is set to None or "" here but will be set to the proper value
+    # later depending on the type (GTFS or GTFS_RT)
     data = {
         "id": feed.stable_id,
         "data_type": feed.data_type,
@@ -341,9 +356,13 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
             if feed_reference and feed_reference.stable_id
         ]
         static_references = "|".join(valid_feed_references)
+        # If there is more then one GTFS feeds associated with this RT feed (why?)
+        # We will arbitrarily use the first one in the list for the bounding box.
         first_feed_reference = feed.gtfs_feeds[0] if feed.gtfs_feeds else None
     data["static_reference"] = static_references
 
+    # For the RT feed, we use the bounding box of the associated GTFS feed, if any.
+    # These bounding boxes were collected when processing the GTFS feeds.
     bounding_box = (
         bounding_box_lookup.get(first_feed_reference.id)
         if first_feed_reference
