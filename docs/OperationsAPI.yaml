@@ -73,7 +73,7 @@ paths:
                   feeds:
                     type: array
                     items:
-                      $ref: "#/components/schemas/Feed"
+                      $ref: "#/components/schemas/BaseFeed"
         401:
           description: Unauthorized.
         500:
@@ -145,8 +145,13 @@ paths:
 
 components:
   schemas:
-    Feed:
+    BaseFeed:
       type: object
+      discriminator:
+        propertyName: data_type
+        mapping:
+          gtfs: '#/components/schemas/GtfsFeedResponse'
+          gtfs_rt: '#/components/schemas/GtfsRtFeedResponse'
       properties:
         id:
           type: string
@@ -203,16 +208,47 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Location"
-        entity_types:
+
+    GtfsFeedResponse:
+      allOf:
+        - $ref: "#/components/schemas/BaseFeed"
+        - type: object
+          description: GTFS feed response model.
+
+    GtfsRtFeedResponse:
+      allOf:
+        - $ref: "#/components/schemas/BaseFeed"
+        - type: object
+          description: GTFS-RT feed response model.
+          properties:
+            entity_types:
+              type: array
+              items:
+                type: string
+              description: Types of GTFS-RT entities.
+            feed_references:
+              type: array
+              items:
+                type: string
+              description: References to related GTFS feeds.
+
+    GetFeeds200Response:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of feeds matching the criteria.
+        offset:
+          type: integer
+          description: Current offset for pagination.
+        limit:
+          type: integer
+          description: Maximum number of items per page.
+        feeds:
           type: array
           items:
-            type: string
-          description: Types of GTFS-RT entities (only for GTFS-RT feeds).
-        feed_references:
-          type: array
-          items:
-            type: string
-          description: References to related GTFS feeds (only for GTFS-RT feeds).
+            $ref: "#/components/schemas/BaseFeed"
+          description: List of feeds.
 
     Redirect:
       type: object
