@@ -17,6 +17,8 @@
 
 import pytest
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
+from feeds_operations.impl.models.gtfs_feed_response import GtfsFeedResponse
+from feeds_operations.impl.models.gtfs_rt_feed_response import GtfsRtFeedResponse
 
 
 @pytest.mark.asyncio
@@ -39,6 +41,12 @@ async def test_get_feeds_no_filters():
     assert feed_types.count("gtfs") == 2
     assert feed_types.count("gtfs_rt") == 1
 
+    for feed in response.feeds:
+        if feed.data_type == "gtfs":
+            assert isinstance(feed, GtfsFeedResponse)
+        else:
+            assert isinstance(feed, GtfsRtFeedResponse)
+
 
 @pytest.mark.asyncio
 async def test_get_feeds_gtfs_rt_filter():
@@ -55,6 +63,7 @@ async def test_get_feeds_gtfs_rt_filter():
     assert len(response.feeds) == 1
 
     rt_feed = response.feeds[0]
+    assert isinstance(rt_feed, GtfsRtFeedResponse)
     assert rt_feed.data_type == "gtfs_rt"
     assert rt_feed.stable_id == "mdb-41"
     assert rt_feed.entity_types == ["vp"]
@@ -70,12 +79,12 @@ async def test_get_feeds_gtfs_filter():
 
     response = await api.get_feeds(data_type="gtfs")
 
-    # Assert
     assert response is not None
     assert response.total == 2
     assert len(response.feeds) == 2
 
     for feed in response.feeds:
+        assert isinstance(feed, GtfsFeedResponse)
         assert feed.data_type == "gtfs"
 
 
@@ -181,6 +190,7 @@ async def test_get_feeds_gtfs_rt_entity_types():
     assert response is not None
 
     for feed in response.feeds:
+        assert isinstance(feed, GtfsRtFeedResponse)
         assert feed.data_type == "gtfs_rt"
         assert feed.entity_types is not None
         assert isinstance(feed.entity_types, list)

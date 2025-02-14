@@ -98,6 +98,9 @@ def get_feeds_query(
                 joinedload(Feed.locations),
                 joinedload(Feed.externalids),
                 joinedload(Feed.redirectingids),
+                joinedload(Gtfsrealtimefeed.entitytypes),
+                joinedload(Gtfsrealtimefeed.gtfs_feeds),
+                joinedload(Gtfsfeed.gtfsdatasets),
             )
 
         if conditions:
