@@ -109,8 +109,7 @@ execute_tests() {
 
   # Generate coverage report
   current_dir_name=$(basename "$(pwd)")
-  mkdir $ABS_SCRIPTPATH/coverage_reports
-  mkdir $ABS_SCRIPTPATH/coverage_reports/$current_dir_name
+  mkdir -p $ABS_SCRIPTPATH/coverage_reports/$current_dir_name
   venv/bin/coverage report > $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/report.txt
   printf "\n${YELLOW}COVERAGE REPORT FOR $1:${NC}\n"
   cat $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/report.txt

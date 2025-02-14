@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Tuple, Optional, List
 
 import requests
@@ -7,8 +8,7 @@ NOMINATIM_ENDPOINT = (
     "https://nominatim.openstreetmap.org/reverse?format=json&zoom=13&addressdetails=1"
 )
 DEFAULT_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/126.0.0.0 Mobile Safari/537.36"
+    "User-Agent": os.getenv("USER_AGENT", "mobility-database"),
 }
 
 

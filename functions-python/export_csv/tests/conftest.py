@@ -51,7 +51,7 @@ def populate_database():
     feeds = []
     # We create 3 feeds. The first one is active. The third one is inactive and redirected to the first one.
     # The second one is active but not redirected.
-    # First fill the generic paramaters
+    # First fill the generic parameters
     for i in range(3):
         feed = Gtfsfeed(
             data_type="gtfs",
