@@ -11,9 +11,6 @@ src/feeds_operations_gen/models/entity_type.py
 src/feeds_operations_gen/models/external_id.py
 src/feeds_operations_gen/models/extra_models.py
 src/feeds_operations_gen/models/feed_status.py
-src/feeds_operations_gen/models/get_feeds_response.py
-src/feeds_operations_gen/models/get_gtfs_feeds200_response.py
-src/feeds_operations_gen/models/get_gtfs_rt_feeds200_response.py
 src/feeds_operations_gen/models/gtfs_feed.py
 src/feeds_operations_gen/models/gtfs_rt_feed.py
 src/feeds_operations_gen/models/location.py

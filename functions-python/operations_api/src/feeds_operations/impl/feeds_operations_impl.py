@@ -25,7 +25,6 @@ from starlette.responses import Response
 
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
-    Gtfsrealtimefeed,
     t_feedsearch,
 )
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
@@ -37,7 +36,7 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from feeds_operations_gen.models.get_feeds_response import (
+from feeds_operations.impl.models.get_feeds_response import (
     GetFeeds200Response,
     FeedResponse,
 )
@@ -45,12 +44,73 @@ from shared.helpers.database import Database, refresh_materialized_view
 from shared.helpers.query_helper import query_feed_by_stable_id, get_feeds_query
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
+from feeds_operations.impl.models.gtfs_feed_response import GtfsFeedResponse
+from feeds_operations.impl.models.gtfs_rt_feed_response import GtfsRtFeedResponse
 
 logging.basicConfig(level=logging.INFO)
 
 
 class OperationsApiImpl(BaseOperationsApi):
     """Implementation of the operations API."""
+
+    def process_feed(self, feed) -> FeedResponse:
+        """Process a feed into the appropriate response type."""
+        common_fields = {
+            "id": feed.id,
+            "stable_id": feed.stable_id,
+            "status": feed.status,
+            "data_type": feed.data_type,
+            "provider": feed.provider,
+            "feed_name": feed.feed_name,
+            "note": feed.note,
+            "feed_contact_email": feed.feed_contact_email,
+            "producer_url": feed.producer_url,
+            "authentication_type": feed.authentication_type,
+            "authentication_info_url": feed.authentication_info_url,
+            "api_key_parameter_name": feed.api_key_parameter_name,
+            "license_url": feed.license_url,
+            "operational_status": feed.operational_status,
+            "created_at": str(feed.created_at) if feed.created_at else None,
+            "official": feed.official,
+            "locations": [
+                {
+                    "country_code": loc.country_code,
+                    "country": loc.country,
+                    "subdivision_name": loc.subdivision_name,
+                    "municipality": loc.municipality,
+                }
+                for loc in feed.locations
+            ]
+            if feed.locations
+            else None,
+        }
+
+        if feed.data_type == "gtfs":
+            return GtfsFeedResponse(**common_fields)
+        elif feed.data_type == "gtfs_rt":
+            if hasattr(feed, "entitytypes"):
+                entity_types = (
+                    [et.name for et in feed.entitytypes] if feed.entitytypes else None
+                )
+                feed_references = (
+                    [ref.stable_id for ref in feed.gtfs_feeds]
+                    if feed.gtfs_feeds
+                    else None
+                )
+            else:
+                logging.warning(
+                    f"Feed {feed.id} is marked as gtfs_rt but is not a Gtfsrealtimefeed instance"
+                )
+                entity_types = None
+                feed_references = None
+
+            return GtfsRtFeedResponse(
+                **common_fields,
+                entity_types=entity_types,
+                feed_references=feed_references,
+            )
+        else:
+            raise ValueError(f"Unknown feed type: {feed.data_type}")
 
     async def get_feeds(
         self,
@@ -89,87 +149,9 @@ class OperationsApiImpl(BaseOperationsApi):
                 total = query.count()
                 feeds = query.all()
                 logging.info("Retrieved %d feeds from database", len(feeds))
-                feed_list = []
 
-                for feed in feeds:
-                    logging.info(
-                        "Processing feed: id=%s, type=%s, class=%s",
-                        feed.id,
-                        feed.data_type,
-                        feed.__class__.__name__,
-                    )
-
-                    entity_types = None
-                    feed_references = None
-
-                    if feed.data_type == "gtfs_rt":
-                        logging.info("Processing GTFS-RT feed: %s", feed.id)
-                        logging.info("Feed object type: %s", type(feed))
-                        is_rt_feed = isinstance(feed, Gtfsrealtimefeed)
-                        logging.info("Is GTFS-RT feed instance: %s", is_rt_feed)
-
-                        if hasattr(feed, "entitytypes"):
-                            logging.info("Entity types attribute exists")
-                            if feed.entitytypes:
-                                entity_types = [et.name for et in feed.entitytypes]
-                                logging.info("Found entity types: %s", entity_types)
-                            else:
-                                logging.info("Entity types is empty")
-                        else:
-                            logging.info("No entitytypes attribute found")
-
-                        if hasattr(feed, "gtfs_feeds"):
-                            logging.info("GTFS feeds attribute exists")
-                            if feed.gtfs_feeds:
-                                feed_references = [
-                                    ref.stable_id for ref in feed.gtfs_feeds
-                                ]
-                                logging.info(
-                                    "Found feed references: %s", feed_references
-                                )
-                            else:
-                                logging.info("GTFS feeds is empty")
-                        else:
-                            logging.info("No gtfs_feeds attribute found")
-
-                    feed_response = FeedResponse(
-                        id=feed.id,
-                        stable_id=feed.stable_id,
-                        status=feed.status,
-                        data_type=feed.data_type,
-                        provider=feed.provider,
-                        feed_name=feed.feed_name,
-                        note=feed.note,
-                        feed_contact_email=feed.feed_contact_email,
-                        producer_url=feed.producer_url,
-                        authentication_type=feed.authentication_type,
-                        authentication_info_url=feed.authentication_info_url,
-                        api_key_parameter_name=feed.api_key_parameter_name,
-                        license_url=feed.license_url,
-                        operational_status=feed.operational_status,
-                        created_at=str(feed.created_at) if feed.created_at else None,
-                        official=feed.official,
-                        locations=[
-                            {
-                                "country_code": loc.country_code,
-                                "country": loc.country,
-                                "subdivision_name": loc.subdivision_name,
-                                "municipality": loc.municipality,
-                            }
-                            for loc in feed.locations
-                        ]
-                        if feed.locations
-                        else None,
-                        entity_types=entity_types,
-                        feed_references=feed_references,
-                    )
-                    feed_list.append(feed_response)
-                    logging.info(
-                        "Added feed response for %s with entity_types=%s, feed_references=%s",
-                        feed.id,
-                        entity_types,
-                        feed_references,
-                    )
+                feed_list = [self.process_feed(feed) for feed in feeds]
+                logging.info("Processed %d feeds", len(feed_list))
 
                 response = GetFeeds200Response(
                     total=total, offset=offset, limit=limit, feeds=feed_list
