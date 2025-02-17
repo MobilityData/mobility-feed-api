@@ -11,6 +11,7 @@ import {
   styled,
   IconButton,
   Tooltip,
+  useTheme,
 } from '@mui/material';
 import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
@@ -21,7 +22,6 @@ import {
 import { type components } from '../../services/feeds/types';
 import { useTranslation } from 'react-i18next';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { theme } from '../../Theme';
 import { getDataFeatureUrl } from '../../utils/consts';
 import PublicIcon from '@mui/icons-material/Public';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
@@ -112,6 +112,7 @@ export default function FeedSummary({
   width,
 }: FeedSummaryProps): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const theme = useTheme();
   const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const [showAllProviders, setShowAllProviders] = React.useState(false);
   const providersToDisplay = showAllProviders
@@ -119,7 +120,7 @@ export default function FeedSummary({
     : sortedProviders.slice(0, 4);
 
   const hasAuthenticationInfo =
-    feed?.source_info?.authentication_info_url !== undefined &&
+    feed?.source_info?.authentication_info_url != undefined &&
     feed?.source_info.authentication_info_url.trim() !== '';
   return (
     <ContentBox
@@ -230,14 +231,15 @@ export default function FeedSummary({
             data-testid='producer-url'
           >
             {feed?.source_info?.producer_url != undefined && (
-              <a
+              <Button
+                variant='text'
+                className='inline line-start'
                 href={feed?.source_info?.producer_url}
                 target='_blank'
                 rel='noopener noreferrer'
-                style={{ textDecoration: 'none' }}
               >
                 {feed?.source_info?.producer_url}
-              </a>
+              </Button>
             )}
             <ContentCopy
               titleAccess={t('copyDownloadUrl')}
@@ -294,18 +296,20 @@ export default function FeedSummary({
         </Box>
       )}
 
-      {hasAuthenticationInfo && (
-        <Button disableElevation variant='contained' sx={{ marginRight: 2 }}>
-          <a
+      {hasAuthenticationInfo &&
+        feed?.source_info?.authentication_info_url != undefined && (
+          <Button
+            disableElevation
+            variant='outlined'
             href={feed?.source_info?.authentication_info_url}
             target='_blank'
-            className='btn-link'
             rel='noreferrer'
+            sx={{ marginRight: 2 }}
+            endIcon={<OpenInNewIcon />}
           >
             {t('registerToDownloadFeed')}
-          </a>
-        </Button>
-      )}
+          </Button>
+        )}
 
       {feed?.data_type === 'gtfs' &&
         feed?.feed_contact_email != undefined &&

@@ -11,6 +11,7 @@ import {
   Tooltip,
   Typography,
   styled,
+  useTheme,
 } from '@mui/material';
 import {
   type GTFSFeedType,
@@ -23,10 +24,10 @@ import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useTranslation } from 'react-i18next';
 import GtfsRtEntities from './GtfsRtEntities';
-import { theme } from '../../Theme';
 import { Link } from 'react-router-dom';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
+import { ThemeModeEnum } from '../../Theme';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -79,6 +80,7 @@ export const getDataTypeElement = (
 export default function SearchTable({
   feedsData,
 }: SearchTableProps): React.ReactElement {
+  const theme = useTheme();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [providersPopoverData, setProvidersPopoverData] = React.useState<
     string[] | undefined
@@ -103,7 +105,10 @@ export default function SearchTable({
             fontStyle: 'italic',
             fontSize: '14px',
             fontWeight: 'bold',
-            color: theme.palette.primary.dark,
+            color:
+              theme.palette.mode === ThemeModeEnum.light
+                ? theme.palette.primary.dark
+                : theme.palette.primary.light,
             padding: 2,
           }}
           onMouseEnter={(event) => {
@@ -176,7 +181,7 @@ export default function SearchTable({
             borderTopLeftRadius: '6px',
           },
           '.feed-row:first-of-type .feed-column': {
-            borderTop: '1px solid black',
+            borderTop: `1px solid ${theme.palette.divider}`,
           },
           '.feed-row:last-child .feed-column:last-child': {
             borderBottomRightRadius: '6px',
@@ -185,13 +190,13 @@ export default function SearchTable({
             borderBottomLeftRadius: '6px',
           },
           '.feed-row:last-child .feed-column': {
-            borderBottom: '1px solid black',
+            borderBottom: `1px solid ${theme.palette.divider}`,
           },
           '.feed-row .feed-column:first-of-type': {
-            borderLeft: '1px solid black',
+            borderLeft: `1px solid ${theme.palette.divider}`,
           },
           '.feed-row .feed-column:last-child': {
-            borderRight: '1px solid black',
+            borderRight: `1px solid ${theme.palette.divider}`,
             minWidth: '210px',
           },
         }}
@@ -204,10 +209,10 @@ export default function SearchTable({
             key={feed.id}
             sx={{
               textDecoration: 'none',
-              backgroundColor: 'white',
+              backgroundColor: theme.palette.background.default,
               '.feed-column': {
                 fontSize: '16px',
-                borderBottom: '1px solid black',
+                borderBottom: `1px solid ${theme.palette.divider}`,
               },
               '&:hover, &:focus': {
                 backgroundColor: theme.palette.background.paper,

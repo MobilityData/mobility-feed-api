@@ -8,6 +8,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  useTheme,
 } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -19,7 +20,7 @@ import {
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
 import { selectIsAuthenticated } from '../store/profile-selectors';
-import { theme, fontFamily } from '../Theme';
+import { fontFamily } from '../Theme';
 import { mobileNavElementStyle } from './Header.style';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
@@ -38,6 +39,7 @@ export default function DrawerContent({
 }: DrawerContentProps): JSX.Element {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const navigateTo = useNavigate();
+  const theme = useTheme();
 
   return (
     <Box>

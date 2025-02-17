@@ -10,9 +10,9 @@ import {
   Button,
   Grid,
   Skeleton,
+  useTheme,
 } from '@mui/material';
 import { ChevronLeft } from '@mui/icons-material';
-import '../../styles/FAQ.css';
 import { ContentBox } from '../../components/ContentBox';
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
@@ -48,7 +48,6 @@ import {
 } from '../../services/feeds/utils';
 import { Trans, useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
-import { theme } from '../../Theme';
 import { Helmet } from 'react-helmet-async';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -126,6 +125,7 @@ export function getFeedTitleElement(
   feed: GTFSFeedType | GTFSRTFeedType,
   translationFunction: TFunction<'feeds', undefined>,
 ): JSX.Element {
+  const theme = useTheme();
   const mainProvider = sortedProviders[0];
   let extraProviders: string | undefined;
   let realtimeFeedName: string | undefined;
@@ -176,6 +176,7 @@ const wrapComponent = (
   child: React.ReactElement,
 ): React.ReactElement => {
   const { t } = useTranslation('feeds');
+  const theme = useTheme();
   return (
     <Container
       component='main'
@@ -195,7 +196,7 @@ const wrapComponent = (
             background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
             p: 3,
-            color: 'black',
+            color: theme.palette.text.primary,
             fontSize: '18px',
             fontWeight: 700,
           }}
@@ -210,6 +211,7 @@ const wrapComponent = (
 
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const theme = useTheme();
   const dispatch = useAppDispatch();
   const { feedId } = useParams();
   const user = useSelector(selectUserProfile);
@@ -388,12 +390,19 @@ export default function Feed(): React.ReactElement {
               },
             }}
           >
-            <a href='/feeds'>{t('common:feeds')}</a> /{' '}
-            <a href={`/feeds?${feed?.data_type}=true`}>
+            <Button variant='text' href='/feeds' className='inline'>
+              {t('common:feeds')}
+            </Button>
+            /
+            <Button
+              variant='text'
+              href={`/feeds?${feed?.data_type}=true`}
+              className='inline'
+            >
               {feed?.data_type === 'gtfs'
                 ? t('common:gtfsSchedule')
                 : t('common:gtfsRealtime')}
-            </a>{' '}
+            </Button>
             / {feed?.id}
           </Typography>
         </Grid>
@@ -473,7 +482,10 @@ export default function Feed(): React.ReactElement {
           <WarningContentBox>
             <Trans i18nKey='unableToDownloadFeed'>
               Unable to download this feed. If there is a more recent URL for
-              this feed, <a href='/contribute'>please submit it here</a>
+              this feed,{' '}
+              <Button variant='text' className='inline' href='/contribute'>
+                please submit it here
+              </Button>
             </Trans>
           </WarningContentBox>
         )}
@@ -481,11 +493,14 @@ export default function Feed(): React.ReactElement {
         <Grid item xs={12}>
           <WarningContentBox>
             <Trans i18nKey='feedHasBeenReplaced'>
-              This feed has been replaced with a different producer URL.{' '}
-              <a href={`/feeds/${feed?.redirects?.[0]?.target_id}`}>
+              This feed has been replaced with a different producer URL.
+              <Button
+                variant='text'
+                className='inline'
+                href={`/feeds/${feed?.redirects?.[0]?.target_id}`}
+              >
                 Go to the new feed here
-              </a>
-              .
+              </Button>
             </Trans>
           </WarningContentBox>
         </Grid>

@@ -6,10 +6,10 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  useTheme,
 } from '@mui/material';
 import * as React from 'react';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
-import { theme } from '../Theme';
 
 interface NestedCheckboxListProps {
   checkboxData: CheckboxStructure[];
@@ -35,6 +35,7 @@ export default function NestedCheckboxList({
   const [checkboxStructure, setCheckboxStructure] =
     React.useState<CheckboxStructure[]>(checkboxData);
   const [hasChange, setHasChange] = React.useState<boolean>(false);
+  const theme = useTheme();
 
   React.useEffect(() => {
     if (hasChange) {

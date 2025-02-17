@@ -10,6 +10,7 @@ import {
   TableContainer,
   TableRow,
   Typography,
+  useTheme,
 } from '@mui/material';
 import {
   DownloadOutlined,
@@ -20,7 +21,6 @@ import {
 import { type paths } from '../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { WEB_VALIDATOR_LINK } from '../../constants/Navigation';
-import { theme } from '../../Theme';
 
 export interface PreviousDatasetsProps {
   datasets:
@@ -31,6 +31,7 @@ export interface PreviousDatasetsProps {
 export default function PreviousDatasets({
   datasets,
 }: PreviousDatasetsProps): React.ReactElement {
+  const theme = useTheme();
   return (
     <>
       <Typography
