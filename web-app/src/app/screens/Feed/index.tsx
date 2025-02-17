@@ -10,7 +10,6 @@ import {
   Button,
   Grid,
   Skeleton,
-  useTheme,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
