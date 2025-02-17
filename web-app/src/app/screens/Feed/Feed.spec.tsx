@@ -95,6 +95,11 @@ jest.mock('firebase/compat/app', () => ({
   })),
 }));
 
+jest.mock('@mui/material/styles', () => ({
+  ...jest.requireActual('@mui/material/styles'),
+  useTheme: () => ({ palette: { primary: { main: '#000000' } } }),
+}));
+
 describe('Feed page', () => {
   afterEach(cleanup);
 
