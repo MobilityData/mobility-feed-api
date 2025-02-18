@@ -9,17 +9,19 @@ import type ContextProviderProps from '../interface/ContextProviderProps';
 
 const ThemeContext = createContext({ toggleTheme: () => {} });
 
-function getInitialThemeMode(): ThemeModeEnum {
+function getInitialThemeMode(prefersDarkMode: boolean): ThemeModeEnum {
   if (localStorage.getItem('theme') != undefined) {
     return localStorage.getItem('theme') as ThemeModeEnum;
   } else {
-    const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
     return prefersDarkMode ? ThemeModeEnum.dark : ThemeModeEnum.light;
   }
 }
 
 export const ThemeProvider: React.FC<ContextProviderProps> = ({ children }) => {
-  const [mode, setMode] = useState<ThemeModeEnum>(getInitialThemeMode());
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  const [mode, setMode] = useState<ThemeModeEnum>(
+    getInitialThemeMode(prefersDarkMode),
+  );
 
   const toggleTheme = (): void => {
     const newMode =
