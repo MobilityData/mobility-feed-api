@@ -122,7 +122,7 @@ def fetch_feeds() -> Iterator[Dict]:
             logging.info(f"Processed {feed_count} GTFS feeds.")
 
             rt_feed_count = 0
-            for feed in get_all_gtfs_rt_feeds(session, include_wip=True):
+            for feed in get_all_gtfs_rt_feeds(session, include_wip=False):
                 yield get_gtfs_rt_feed_csv_data(feed)
                 rt_feed_count += 1
 
