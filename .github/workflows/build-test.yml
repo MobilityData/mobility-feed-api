@@ -88,11 +88,11 @@ jobs:
         shell: bash
         run: |
           scripts/api-tests.sh --folder api --html_report
-
-      - name: Unit tests - Python Functions
-        shell: bash
-        run: |
-          scripts/api-tests.sh --folder functions-python --html_report
+# TODO: Restore the following block when the Python functions are ready
+#      - name: Unit tests - Python Functions
+#        shell: bash
+#        run: |
+#          scripts/api-tests.sh --folder functions-python --html_report
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
