@@ -27,7 +27,6 @@ import GtfsRtEntities from './GtfsRtEntities';
 import { Link } from 'react-router-dom';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
-import { ThemeModeEnum } from '../../Theme';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
