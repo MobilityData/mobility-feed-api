@@ -19,6 +19,7 @@ import logging
 import os
 import threading
 from typing import Optional
+from functools import wraps
 
 from sqlalchemy import create_engine, text, event, Engine
 from sqlalchemy.orm import sessionmaker, Session, mapper, class_mapper
@@ -85,7 +86,7 @@ def mapper_configure_listener(mapper, class_):
 event.listen(mapper, "mapper_configured", mapper_configure_listener)
 
 
-def with_db_session(func):
+def with_db_session(_func=None, *, echo=True):
     """
     Decorator to handle the session management for the decorated function.
 
@@ -103,16 +104,26 @@ def with_db_session(func):
         - If 'db_session' is already provided, it simply calls the decorated function with the existing session.
     """
 
-    def wrapper(*args, **kwargs):
-        db_session = kwargs.get("db_session")
-        if db_session is None:
-            db = Database()
-            with db.start_db_session() as session:
-                kwargs["db_session"] = session
-                return func(*args, **kwargs)
-        return func(*args, **kwargs)
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            db_session = kwargs.get("db_session")
 
-    return wrapper
+            if db_session is None:
+                db = Database()
+                with db.start_db_session(echo=echo) as session:
+                    kwargs["db_session"] = session
+                    return func(*args, **kwargs)
+            else:
+                return func(*args, **kwargs)
+
+        return wrapper
+
+    # Allow decorator to be used with or without parentheses
+    if _func is None:
+        return decorator
+    else:
+        return decorator(_func)
 
 
 class Database:

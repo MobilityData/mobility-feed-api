@@ -1,102 +1,46 @@
+import io
 import json
 import logging
 import os
-import uuid
-from collections import defaultdict
-from typing import List, Dict, Tuple
-
+import traceback
+from datetime import datetime
+from typing import Dict, Tuple, Optional, List
+from sqlalchemy.sql import text
 import flask
+import pandas as pd
+import requests
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
 from google.cloud import storage
-from shapely.validation import make_valid
+from shapely.geometry import mapping
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 
-from common import ERROR_STATUS_CODE
-from database_gen.sqlacodegen_models import Geopolygon
-from helpers.database import Database
-from helpers.logger import Logger
+from location_group_utils import ERROR_STATUS_CODE, GeopolygonAggregate, generate_color
+from shared.database_gen.sqlacodegen_models import (
+    Geopolygon,
+    Feed,
+    Stop,
+    Osmlocationgroup,
+    Feedosmlocation,
+    Location,
+    t_feedsearch,
+)
+from shared.helpers.database import with_db_session
+from shared.helpers.logger import Logger, StableIdFilter
+from shared.helpers.utils import cors_configuration
+
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 
 
-def build_response(
-    proper_match_geopolygons: Dict[str, Dict], total_points: int, unmatched_points: int
-) -> Dict:
-    """Build a structured response from the matched geopolygons."""
-
-    # Helper function to merge and build hierarchical groups
-    def merge_hierarchy(root: Dict, geopolygons: List[Geopolygon], count: int) -> None:
-        if not geopolygons:
-            return
-
-        # Process the current geopolygon
-        current = geopolygons[0]
-        osm_id = current.osm_id
-
-        # Check if the current node already exists in the root
-        if osm_id not in root:
-            root[osm_id] = {
-                "osm_id": current.osm_id,
-                "iso_3166_1": current.iso_3166_1_code,
-                "iso_3166_2": current.iso_3166_2_code,
-                "name": current.name,
-                "admin_level": current.admin_level,
-                "points_match": 0,
-                "sub_levels": defaultdict(dict),
-            }
-
-        # Increment points_match for the current node
-        root[osm_id]["points_match"] += count
-
-        # Recursively process the sub-levels
-        merge_hierarchy(root[osm_id]["sub_levels"], geopolygons[1:], count)
-
-    # Build the hierarchical response
-    grouped_matches = defaultdict(dict)
-
-    for match_data in proper_match_geopolygons.values():
-        geopolygons = match_data["geopolys"]
-        count = match_data["count"]
-
-        # Merge into the top-level hierarchy
-        merge_hierarchy(grouped_matches, geopolygons, count)
-
-    # Recursive function to convert defaultdict to a regular dict and clean sub-levels
-    def clean_hierarchy(root: Dict) -> List[Dict]:
-        return [
-            {
-                "osm_id": node["osm_id"],
-                "iso_3166_1": node["iso_3166_1"],
-                "iso_3166_2": node["iso_3166_2"],
-                "name": node["name"],
-                "admin_level": node["admin_level"],
-                "points_match": node["points_match"],
-                "sub_levels": clean_hierarchy(node["sub_levels"])
-                if node["sub_levels"]
-                else [],
-            }
-            for node in root.values()
-        ]
-
-    # Construct the final response
-    response = {
-        "summary": {
-            "total_points": total_points,
-            "matched_points": total_points - unmatched_points,
-            "unmatched_points": unmatched_points,
-        },
-        "grouped_matches": clean_hierarchy(grouped_matches),
-    }
-
-    return response
-
-
 def parse_request_parameters(
     request: flask.Request,
-) -> Tuple[List[WKTElement], WKTElement, str]:
+) -> Tuple[pd.DataFrame, str]:
     """
-    Parse the request parameters and return a list of WKT points and a bounding box.
+    Parse the request parameters and return a DataFrame with the stops data.
     """
     logging.info("Parsing request parameters.")
     request_json = request.get_json(silent=True)
@@ -104,45 +48,298 @@ def parse_request_parameters(
 
     if (
         not request_json
-        or "points" not in request_json
-        or "execution_id" not in request_json
+        or "stops_url" not in request_json
+        or "stable_id" not in request_json
     ):
         raise ValueError(
-            "Invalid request: missing 'points' or 'execution_id' parameter."
+            "Invalid request: missing 'stops_url' or 'stable_id' parameter."
         )
 
-    execution_id = str(request_json["execution_id"])
-    points = request_json["points"]
-    if not points:
-        raise ValueError("Invalid request: 'points' parameter is empty.")
-    if not isinstance(points, list):
-        raise ValueError("Invalid request: 'points' parameter must be a list.")
-    if not all(isinstance(lat_lon, list) and len(lat_lon) == 2 for lat_lon in points):
+    stable_id = request_json["stable_id"]
+
+    # Read the stops from the URL
+    try:
+        s = requests.get(request_json["stops_url"]).content
+        stops_df = pd.read_csv(io.StringIO(s.decode("utf-8")))
+    except Exception as e:
         raise ValueError(
-            "Invalid request: 'points' must be a list of lists with two elements each "
-            "representing latitude and longitude."
+            f"Error reading stops from URL {request_json['stops_url']}: {e}"
         )
 
-    # Create WKT elements for each point
-    wkt_points = [
-        WKTElement(f"POINT({point[0]} {point[1]})", srid=4326) for point in points
-    ]
+    return stops_df, stable_id
 
-    # Generate bounding box
-    lons, lats = [point[0] for point in points], [point[1] for point in points]
-    bounding_box_coords = [
-        (min(lons), min(lats)),
-        (max(lons), min(lats)),
-        (max(lons), max(lats)),
-        (min(lons), max(lats)),
-        (min(lons), min(lats)),
-    ]
-    bounding_box = WKTElement(
-        f"POLYGON(({', '.join([f'{lon} {lat}' for lon, lat in bounding_box_coords])}))",
-        srid=4326,
+
+@with_db_session(echo=False)
+def get_cached_geopolygons(
+    stable_id: str, stops_df: pd.DataFrame, db_session
+) -> Tuple[str, Dict[str, GeopolygonAggregate], pd.DataFrame]:
+    """
+    Get the geopolygons from the database cache.
+
+    Returns:
+        location_groups: Set of LocationGroup objects with stop counts.
+        unmatched_stop_df: DataFrame of unmatched stops for further processing.
+    """
+    logging.info(f"Getting cached geopolygons for stable ID {stable_id}.")
+
+    if stops_df.empty:
+        logging.warning("The provided stops DataFrame is empty.")
+        raise ValueError("The provided stops DataFrame is empty.")
+
+    stops_df["geometry"] = stops_df.apply(
+        lambda x: WKTElement(f"POINT ({x['stop_lon']} {x['stop_lat']})", srid=4326),
+        axis=1,
+    )
+    stops_df["geometry_str"] = stops_df["geometry"].apply(str)
+
+    feed = (
+        db_session.query(Feed)
+        .options(joinedload(Feed.stops))
+        .filter(Feed.stable_id == stable_id)
+        .one_or_none()
+    )
+    if not feed:
+        logging.warning(f"No feed found for stable ID {stable_id}.")
+        raise ValueError(f"No feed found for stable ID {stable_id}.")
+
+    feed_id = feed.id
+
+    cached_geometries = {to_shape(stop.geometry).wkt for stop in feed.stops}
+    matched_stops_df = stops_df[stops_df["geometry_str"].isin(cached_geometries)]
+    unmatched_stop_df = stops_df[~stops_df["geometry_str"].isin(cached_geometries)]
+
+    logging.info(
+        f"Matched stops: {len(matched_stops_df)} | Unmatched stops: {len(unmatched_stop_df)}"
     )
 
-    return wkt_points, bounding_box, execution_id
+    df_geometry_set = set(matched_stops_df["geometry_str"].tolist())
+    geometries_to_delete = cached_geometries - df_geometry_set
+
+    if geometries_to_delete:
+        logging.info(f"Deleting {len(geometries_to_delete)} outdated cached stops.")
+        db_session.query(Stop).filter(
+            Stop.feed_id == feed_id,
+            func.ST_AsText(Stop.geometry).in_(list(geometries_to_delete)),
+        ).delete(synchronize_session=False)
+        db_session.commit()
+
+    matched_geometries = matched_stops_df["geometry"].tolist()
+    if not matched_geometries:
+        logging.info("No matched geometries found.")
+        return feed_id, dict(), unmatched_stop_df
+    location_group_counts = (
+        db_session.query(
+            Osmlocationgroup, func.count(Stop.geometry).label("stop_count")
+        )
+        .join(Stop, Osmlocationgroup.stops)
+        .filter(Stop.feed_id == feed_id, Stop.geometry.in_(matched_geometries))
+        .group_by(Osmlocationgroup.group_id)
+        .options(joinedload(Osmlocationgroup.osms))
+        .all()
+    )
+
+    location_groups = {
+        group.group_id: GeopolygonAggregate(group, stop_count)
+        for group, stop_count in location_group_counts
+    }
+
+    logging.info(f"Total location groups retrieved: {len(location_groups)}")
+    return feed_id, location_groups, unmatched_stop_df
+
+
+def extract_location_group(
+    feed_id: str, stop_point: WKTElement, db_session: Session
+) -> Optional[GeopolygonAggregate]:
+    """
+    Extract the location group for a given stop point.
+    """
+    geopolygons = (
+        db_session.query(Geopolygon)
+        .filter(Geopolygon.geometry.ST_Contains(stop_point))
+        .all()
+    )
+
+    if len(geopolygons) <= 1:
+        logging.warning(
+            f"Invalid number of geopolygons for point: {stop_point} -> {geopolygons}"
+        )
+        return None
+    admin_levels = {g.admin_level for g in geopolygons}
+    if len(admin_levels) != len(geopolygons):
+        logging.warning(
+            f"Duplicate admin levels for point: {stop_point} -> {geopolygons}"
+        )
+        return None
+
+    valid_iso_3166_1 = any(g.iso_3166_1_code for g in geopolygons)
+    valid_iso_3166_2 = any(g.iso_3166_2_code for g in geopolygons)
+    if not valid_iso_3166_1 or not valid_iso_3166_2:
+        logging.warning(f"Invalid ISO codes for point: {stop_point} -> {geopolygons}")
+        return
+
+    # Sort the polygons by admin level so that lower levels come first
+    geopolygons.sort(key=lambda x: x.admin_level)
+
+    group_id = ".".join([str(g.osm_id) for g in geopolygons])
+    group = (
+        db_session.query(Osmlocationgroup)
+        .filter(Osmlocationgroup.group_id == group_id)
+        .one_or_none()
+    )
+    if not group:
+        group = Osmlocationgroup(
+            group_id=group_id,
+            group_name=", ".join([g.name for g in geopolygons]),
+            osms=geopolygons,
+        )
+    stop = Stop(feed_id=feed_id, geometry=stop_point)
+    stop.group = group
+    db_session.add(stop)
+    logging.info(
+        f"Point {stop_point} matched to {', '.join([g.name for g in geopolygons])}"
+    )
+    return GeopolygonAggregate(group, 1)
+
+
+def get_or_create_feed_osm_location(
+    feed_id: str, location_group: GeopolygonAggregate, db_session: Session
+):
+    """Get or create the feed osm location group."""
+    feed_osm_location = (
+        db_session.query(Feedosmlocation)
+        .filter(
+            Feedosmlocation.feed_id == feed_id,
+            Feedosmlocation.group_id == location_group.group_id,
+        )
+        .one_or_none()
+    )
+    if not feed_osm_location:
+        feed_osm_location = Feedosmlocation(
+            feed_id=feed_id,
+            group_id=location_group.group_id,
+        )
+    feed_osm_location.stops_count = location_group.stop_count
+    return feed_osm_location
+
+
+def create_geojson_aggregate(
+    location_groups: List[GeopolygonAggregate], total_stops: int, stable_id: str
+):
+    """Create a GeoJSON object for the location group."""
+    geo_polygon_count = dict()
+    for group in location_groups:
+        if len(group.group_id.split(".")) < 3:
+            continue
+        highest_admin_level_osm_id = group.group_id.split(".")[-1]
+        geo_polygon_count[highest_admin_level_osm_id] = {
+            "group": group,
+        }
+
+    max_match = max(
+        [geo_polygon_count[osm_id]["group"].stop_count for osm_id in geo_polygon_count]
+    )
+    json_data = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": mapping(
+                    geo_polygon_count[osm_id]["group"].highest_admin_geometry()
+                ),
+                "properties": {
+                    "osm_id": osm_id,
+                    "country_code": geo_polygon_count[osm_id]["group"].iso_3166_1_code,
+                    "subdivision_code": geo_polygon_count[osm_id][
+                        "group"
+                    ].iso_3166_2_code,
+                    "display_name": geo_polygon_count[osm_id][
+                        "group"
+                    ].get_display_name(),
+                    "stops_in_area": geo_polygon_count[osm_id]["group"].stop_count,
+                    "stops_in_area_coverage": f"{geo_polygon_count[osm_id]['group'].stop_count / total_stops * 100:.2f}%",
+                    "color": generate_color(
+                        geo_polygon_count[osm_id]["group"].stop_count, max_match
+                    ),
+                },
+            }
+            for osm_id in geo_polygon_count
+        ],
+    }
+    storage_client = storage.Client()
+    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
+    cors_configuration(bucket_name)
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(f"{stable_id}/geolocation.geojson")
+    blob.upload_from_string(json.dumps(json_data))
+    blob.make_public()
+    logging.info(f"GeoJSON data saved to {blob.name}")
+
+
+def get_or_create_location(
+    location_group: GeopolygonAggregate, db_session: Session
+) -> Optional[Location]:
+    try:
+        logging.info(f"Location ID : {location_group.location_id()}")
+        location = (
+            db_session.query(Location)
+            .filter(Location.id == location_group.location_id())
+            .one_or_none()
+        )
+        if not location:
+            location = Location(
+                id=location_group.location_id(),
+                country_code=location_group.iso_3166_1_code,
+                country=location_group.country(),
+                subdivision_name=location_group.subdivision_name(),
+                municipality=location_group.municipality(),
+            )
+        return location
+    except Exception as e:
+        logging.error(f"Error creating location: {e}")
+        return None
+
+
+@with_db_session(echo=False)
+def extract_location_groups(
+    feed_id: str,
+    stops_df: pd.DataFrame,
+    location_groups: Dict[str, GeopolygonAggregate],
+    db_session: Session,
+) -> None:
+    i = 0
+    total_stop_count = len(stops_df)
+    for _, stop in stops_df.iterrows():
+        i += 1
+        logging.info(f"Processing stop {i}/{total_stop_count}")
+        location_group = extract_location_group(feed_id, stop["geometry"], db_session)
+        if not location_group:
+            continue
+        if location_group.group_id in location_groups:
+            location_groups[location_group.group_id].merge(location_group)
+        else:
+            location_groups[location_group.group_id] = location_group
+        if (
+            i % 100 == 0
+        ):  # Commit every 100 stops to avoid reprocessing all stops in case of failure
+            db_session.commit()
+
+    feed = db_session.query(Feed).filter(Feed.id == feed_id).one_or_none()
+    feed.feedosmlocations = [
+        get_or_create_feed_osm_location(
+            feed_id, location_groups[location_group.group_id], db_session
+        )
+        for location_group in location_groups.values()
+    ]
+    feed_locations = []
+    for location_group in location_groups.values():
+        location = get_or_create_location(location_group, db_session)
+        if location:
+            feed_locations.append(location)
+    if feed_locations:
+        feed.locations = feed_locations
+    db_session.execute(
+        text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}")
+    )
 
 
 def reverse_geolocation_process(
@@ -152,100 +349,76 @@ def reverse_geolocation_process(
     Main function to handle reverse geolocation population.
     """
     Logger.init_logger()
-    bucket_name = os.getenv("BUCKET_NAME")
+
+    # Start overall timing
+    overall_start = datetime.now()
 
     # Parse request parameters
     try:
-        wkt_points, bounding_box, execution_id = parse_request_parameters(request)
+        parse_start = datetime.now()
+        stops_df, stable_id = parse_request_parameters(request)
+        stops_df = stops_df[
+            stops_df["stop_lat"].notnull() & stops_df["stop_lon"].notnull()
+        ]
+        stops_df = stops_df.drop_duplicates(subset=["stop_lat", "stop_lon"])
+        if stops_df.empty:
+            logging.warning("All stops have null lat/lon values.")
+            return "All stops have null lat/lon values", ERROR_STATUS_CODE
+
+        total_stops = len(stops_df)
+        parse_duration = (datetime.now() - parse_start).total_seconds()
+        logging.info(f"Parsed request parameters in {parse_duration:.2f} seconds")
     except ValueError as e:
         logging.error(f"Error parsing request parameters: {e}")
         return str(e), ERROR_STATUS_CODE
 
-    # Start the database session
-    try:
-        session = Database().start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
-    except Exception as e:
-        logging.error(f"Error connecting to the database: {e}")
-        return str(e), 500
-
-    # Fetch geopolygons within the bounding box
-    try:
-        geopolygons = (
-            session.query(Geopolygon)
-            .filter(Geopolygon.geometry.ST_Intersects(bounding_box))
-            .all()
-        )
-        geopolygons_ids = [geopolygon.osm_id for geopolygon in geopolygons]
-    except Exception as e:
-        logging.error(f"Error fetching geopolygons: {e}")
-        return str(e), ERROR_STATUS_CODE
+    stable_id_filter = StableIdFilter(stable_id)
+    logging.getLogger().addFilter(stable_id_filter)
 
     try:
-        logging.info(f"Found {len(geopolygons)} geopolygons within the bounding box.")
-        logging.info(f"The osm_ids of the geopolygons are: {geopolygons_ids}")
-
-        # Map geopolygons into shapes
-        wkb_geopolygons = {
-            geopolygon.osm_id: {
-                "polygon": to_shape(geopolygon.geometry),
-                "object": geopolygon,
-            }
-            for geopolygon in geopolygons
-        }
-
-        # Ensure geometries are valid
-        for geopolygon in wkb_geopolygons.values():
-            if not geopolygon["polygon"].is_valid:
-                geopolygon["polygon"] = make_valid(geopolygon["polygon"])
-
-        points = [to_shape(point) for point in wkt_points]
-        points_match = {}
-
-        # Match points to geopolygons
-        for point in points:
-            for osm_id, geopolygon in wkb_geopolygons.items():
-                if geopolygon["polygon"].contains(point):
-                    point_id = str(point)
-                    if point_id not in points_match:
-                        points_match[point_id] = []
-                    points_match[point_id].append(geopolygon["object"])
-
-        # Clean up duplicate admin levels
-        proper_match_geopolygons = {}
-        for point, geopolygons in points_match.items():
-            if len(geopolygons) > 1:
-                admin_levels = {g.admin_level for g in geopolygons}
-                if len(admin_levels) == len(geopolygons):
-                    valid_iso_3166_1 = any(g.iso_3166_1_code for g in geopolygons)
-                    valid_iso_3166_2 = any(g.iso_3166_2_code for g in geopolygons)
-                    if not valid_iso_3166_1 or not valid_iso_3166_2:
-                        logging.info(f"Invalid ISO codes for point: {point}")
-                        continue
-                    geopolygons.sort(key=lambda x: x.admin_level)
-                    geopolygon_as_string = ", ".join([str(g.osm_id) for g in geopolygons])
-                    if geopolygon_as_string not in proper_match_geopolygons:
-                        proper_match_geopolygons[geopolygon_as_string] = {
-                            "geopolys": geopolygons,
-                            "count": 0,
-                        }
-                    proper_match_geopolygons[geopolygon_as_string]["count"] += 1
-
-        unmatched_points = len(wkt_points) - sum(
-            item["count"] for item in proper_match_geopolygons.values()
+        # ⏱️ Get Cached Geopolygons
+        geo_start = datetime.now()
+        feed_id, location_groups, stops_df = get_cached_geopolygons(stable_id, stops_df)
+        # Remove duplicate lat/lon points
+        geo_duration = (datetime.now() - geo_start).total_seconds()
+        logging.info(f"Number of location groups extracted: {len(location_groups)}")
+        logging.info(
+            f"Time taken to get cached geopolygons: {geo_duration:.2f} seconds"
         )
-        logging.info(f"Unmatched points: {unmatched_points}")
-        response = build_response(
-            proper_match_geopolygons, len(wkt_points), unmatched_points
-        )
-        logging.info(f"Response: {response}")
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        blob = bucket.blob(f"{execution_id}/{uuid.uuid4()}.json")
-        blob.upload_from_string(json.dumps(response, indent=2))
-        blob.make_public()
 
-        # Save the response to GCP bucket
-        return response, 200
+        # ⏱️ Extract Location Groups
+        extract_start = datetime.now()
+        extract_location_groups(feed_id, stops_df, location_groups)
+        extract_duration = (datetime.now() - extract_start).total_seconds()
+        logging.info(
+            f"Time taken to extract location groups: {extract_duration:.2f} seconds"
+        )
+
+        # ⏱️ Create GeoJSON Aggregate
+        geojson_start = datetime.now()
+        create_geojson_aggregate(
+            list(location_groups.values()), total_stops=total_stops, stable_id=stable_id
+        )
+        geojson_duration = (datetime.now() - geojson_start).total_seconds()
+        logging.info(
+            f"Time taken to create GeoJSON aggregate: {geojson_duration:.2f} seconds"
+        )
+
+        # ✅ Overall Time
+        overall_duration = (datetime.now() - overall_start).total_seconds()
+        logging.info(
+            f"Total time taken for the process: {overall_duration:.2f} seconds"
+        )
+        logging.info(
+            f"COMPLETED. Processed {total_stops} stops for stable ID {stable_id}. Retrieved "
+            f"{len(location_groups)} locations."
+        )
+        return "Done or wtv", 200
+
     except Exception as e:
         logging.error(f"Error processing geopolygons: {e}")
+        logging.error(traceback.format_exc())  # Log full traceback
         return str(e), ERROR_STATUS_CODE
+
+    finally:
+        logging.getLogger().removeFilter(stable_id_filter)

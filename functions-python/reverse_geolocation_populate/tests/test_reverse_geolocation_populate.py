@@ -208,10 +208,10 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         return_value=[2, 3],
     )
     def test_get_admin_levels(self, _):
-        from reverse_geolocation_populate.src.main import get_admin_levels
+        from reverse_geolocation_populate.src.main import get_locality_admin_levels
 
         country_code = "CA"
-        result = get_admin_levels(country_code, 1)
+        result = get_locality_admin_levels(country_code, 1)
         self.assertIsNotNone(result)
         self.assertEqual(result, [1, 2, 3, 4, 5])
 

@@ -1,9 +1,9 @@
 {
-  "name": "reverse-geolocation-populate",
-  "description": "Populate the database with reverse geolocation data",
-  "entry_point": "reverse_geolocation_populate",
-  "timeout": 3600,
-  "memory": "8Gi",
+  "name": "reverse-geolocation",
+  "description": "Reverse geolocation function",
+  "entry_point": "reverse_geolocation",
+  "timeout": 540,
+  "available_memory": "4Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
   "include_api_folders": ["database_gen"],
@@ -15,8 +15,7 @@
   ],
   "ingress_settings": "ALLOW_ALL",
   "max_instance_request_concurrency": 1,
-  "max_instance_count": 10,
+  "max_instance_count": 5,
   "min_instance_count": 0,
-  "available_cpu": 2,
-  "available_memory": "4Gi"
+  "available_cpu": 1
 }

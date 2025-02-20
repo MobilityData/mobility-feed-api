@@ -7,7 +7,7 @@ main:
           - failureList: ""
     - process_batch:
         parallel:
-          concurrency_limit: ${sys.get_env("batch_size")}
+          concurrency_limit: ${int(sys.get_env("batch_size"))}
           shared: [successList, failureList]
           for:
             value: countryCode

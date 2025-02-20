@@ -17,6 +17,7 @@
 import hashlib
 import logging
 import os
+from typing import List
 
 import requests
 import urllib3
@@ -38,6 +39,37 @@ def create_bucket(bucket_name):
         logging.info(f"Bucket {bucket} created.")
     else:
         logging.info(f"Bucket {bucket_name} already exists.")
+
+
+def cors_configuration(bucket_name, origin=["*"], method=["GET"], max_age_seconds=3600):
+    """Set a bucket's CORS policies configuration."""
+    storage_client = storage.Client()
+    bucket = storage_client.get_bucket(bucket_name)
+    bucket.cors = [
+        {
+            "origin": origin,
+            "responseHeader": [
+                "Content-Type",
+                "Access-Control-Allow-Origin",
+                "x-goog-resumable",
+            ],
+            "method": method,
+            "maxAgeSeconds": max_age_seconds,
+        }
+    ]
+    bucket.patch()
+    logging.info(
+        f"CORS policy for {bucket_name} set to allow requests from any origin."
+    )
+
+
+def list_blobs(bucket_name: str, prefix: str = "", suffix="") -> List[storage.Blob]:
+    """
+    List all files in a GCP bucket with the given prefix and suffix.
+    """
+    storage_client = storage.Client()
+    blobs = list(storage_client.list_blobs(bucket_name, prefix=prefix))
+    return [blob for blob in blobs if blob.name.endswith(suffix)]
 
 
 def download_url_content(url, with_retry=False):

@@ -1,17 +1,27 @@
+import json
 import logging
 import os
-import pycountry
 
-from google.cloud import bigquery
-from geoalchemy2 import WKTElement
-from helpers.database import Database
-from helpers.logger import Logger
-from database_gen.sqlacodegen_models import Geopolygon
 import functions_framework
+import pycountry
+from geoalchemy2 import WKTElement
+from google.cloud import bigquery
+
+from shared.database_gen.sqlacodegen_models import Geopolygon
+from shared.helpers.database import with_db_session
+from shared.helpers.logger import Logger
+from enum import Enum
+
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 client = None  # Global BigQuery client
+
+
+class LocationType(Enum):
+    COUNTRY = "country"
+    SUBDIVISION = "subdivision"
+    LOCALITY = "locality"  # City/Municipality/Town
 
 
 def parse_request_parameters(request):
@@ -83,8 +93,14 @@ def fetch_country_admin_levels(country_code):
     return [row.admin_level for row in results if row.admin_level is not None]
 
 
-def generate_query(admin_level, country_code, is_lower=False, country_name=None):
-    """Generate the query for a specific admin level."""
+def generate_query(admin_level, country_code, location_type, country_name=None):
+    """
+    Generate the query for a specific admin level and location type.
+
+    - For "country", we enforce ISO3166-1.
+    - For "subdivision", we require an ISO3166-2 tag.
+    - For "locality", no extra ISO condition is applied.
+    """
     logging.info(
         f"Generating query for admin level: {admin_level}, country code: {country_code}"
     )
@@ -100,12 +116,15 @@ def generate_query(admin_level, country_code, is_lower=False, country_name=None)
         query_parameters.append(
             bigquery.ScalarQueryParameter("country_name", "STRING", country_name)
         )
-
-    iso_3166_1_condition = (
-        f"AND ('ISO3166-1', '{country_code}') IN (SELECT STRUCT(key, value) FROM UNNEST(all_tags))"
-        if not is_lower
-        else ""
-    )
+    extra_condition = ""
+    if location_type == LocationType.COUNTRY:
+        extra_condition = "AND ('ISO3166-1', @country_code) IN (SELECT STRUCT(key, value) FROM UNNEST(all_tags))"
+    elif location_type == LocationType.SUBDIVISION:
+        extra_condition = (
+            f"AND EXISTS (SELECT 1 FROM UNNEST(all_tags) AS tag WHERE tag.key = 'ISO3166-2' "
+            f"AND tag.value LIKE '{country_code}-%')"
+        )
+    # For "locality", we assume no extra ISO tag condition is needed.
 
     query = f"""
         WITH bounding_area AS (
@@ -122,18 +141,17 @@ def generate_query(admin_level, country_code, is_lower=False, country_name=None)
         WHERE
           ('boundary', 'administrative') IN (SELECT STRUCT(key, value) FROM UNNEST(planet_features.all_tags))
           AND ('admin_level', @admin_level) IN (SELECT STRUCT(key, value) FROM UNNEST(planet_features.all_tags))
-          AND ST_DWithin(bounding_area.geometry, planet_features.geometry, 0)
-          {iso_3166_1_condition};
+          {extra_condition}
+          AND ST_DWithin(bounding_area.geometry, planet_features.geometry, 0);
     """
-
     job_config = bigquery.QueryJobConfig(query_parameters=query_parameters)
     return query, job_config
 
 
-def fetch_data(admin_level, country_code, is_lower=False, country_name=None):
+def fetch_data(admin_level, country_code, location_type, country_name=None):
     """Fetch data for a specific admin level."""
     query, job_config = generate_query(
-        admin_level, country_code, is_lower, country_name
+        admin_level, country_code, location_type, country_name
     )
     query_job = client.query(query, job_config=job_config)
     results = query_job.result()
@@ -159,7 +177,8 @@ def fetch_data(admin_level, country_code, is_lower=False, country_name=None):
     return data
 
 
-def save_to_database(data, session):
+@with_db_session
+def save_to_database(data, db_session):
     """Save data to the database."""
     for row in data:
         if not row["name"] or not row["geometry"]:
@@ -167,21 +186,23 @@ def save_to_database(data, session):
             continue
 
         geopolygon = (
-            session.query(Geopolygon).filter(Geopolygon.osm_id == row["osm_id"]).first()
+            db_session.query(Geopolygon)
+            .filter(Geopolygon.osm_id == row["osm_id"])
+            .first()
         )
         if geopolygon:
             logging.info(f"Geopolygon with osm_id {row['osm_id']} already exists.")
         else:
             logging.info(f"Adding geopolygon with osm_id {row['osm_id']}.")
             geopolygon = Geopolygon(osm_id=row["osm_id"])
-            session.add(geopolygon)
+            db_session.add(geopolygon)
 
         geopolygon.admin_level = row["admin_lvl"]
         geopolygon.iso_3166_1_code = row["iso3166_1"]
         geopolygon.iso_3166_2_code = row["iso3166_2"]
         geopolygon.name = row["name:en"] if row["name:en"] else row["name"]
         geopolygon.geometry = WKTElement(row["geometry"], srid=4326)
-    session.commit()
+    db_session.commit()
 
 
 @functions_framework.http
@@ -193,22 +214,8 @@ def reverse_geolocation_populate(request):
     logging.info("Reverse geolocation database population triggered.")
 
     try:
-        session = Database().start_db_session(os.getenv("FEEDS_DATABASE_URL"), echo=False)
-    except Exception as e:
-        logging.error(f"Error connecting to the database: {e}")
-        return str(e), 500
-
-    try:
-        country_code, admin_levels = parse_request_parameters(request)
+        country_code, locality_admin_levels = parse_request_parameters(request)
         logging.info(f"Country code parsed: {country_code}")
-
-        if (
-            not admin_levels
-            and session.query(Geopolygon)
-            .filter(Geopolygon.iso_3166_1_code == country_code)
-            .first()
-        ):
-            return f"Database already initialized for {country_code}.", 200
     except ValueError as e:
         logging.error(e)
         return str(e), 400
@@ -217,25 +224,42 @@ def reverse_geolocation_populate(request):
         country_admin_levels = fetch_country_admin_levels(country_code)
         if not country_admin_levels:
             raise ValueError(f"No admin levels found for country {country_code}")
+        subdivision_admin_levels = fetch_subdivision_admin_levels(country_code)
+        if not subdivision_admin_levels:
+            raise ValueError(
+                f"No subdivision admin levels found for country {country_code}"
+            )
+
         country_admin_level = country_admin_levels[0]
+
         logging.info(f"Country admin level: {country_admin_level}")
-        if not admin_levels:
-            admin_levels = get_admin_levels(country_code, country_admin_level)
-        logging.info(f"Filtered admin levels: {admin_levels}")
+        logging.info(f"Subdivision admin levels: {subdivision_admin_levels}")
+
+        if not locality_admin_levels:
+            locality_admin_levels = get_locality_admin_levels(
+                country_code, country_admin_level, subdivision_admin_levels
+            )
+        logging.info(f"Filtered admin levels: {locality_admin_levels}")
 
         data = []
-        country_name = None
-        for level in admin_levels:
-            data.extend(
-                fetch_data(
-                    level, country_code, level > country_admin_level, country_name
-                )
-            )
-            if level == country_admin_level and data:
-                country_name = data[0]["name:en"] or data[0]["name"]
-                logging.info(f"Extracted country name: {country_name}")
 
-        save_to_database(data, session)
+        # Fetch country level data
+        data.extend(fetch_data(country_admin_level, country_code, LocationType.COUNTRY))
+        country_name = data[0]["name:en"] or data[0]["name"]
+        logging.info(f"Extracted country name: {country_name}")
+
+        # Fetch subdivision level data
+        for level in subdivision_admin_levels:
+            data.extend(
+                fetch_data(level, country_code, LocationType.SUBDIVISION, country_name)
+            )
+
+        # Fetch locality level data
+        for level in locality_admin_levels:
+            data.extend(
+                fetch_data(level, country_code, LocationType.LOCALITY, country_name)
+            )
+        save_to_database(data)
         return f"Database initialized for {country_code}.", 200
 
     except Exception as e:
@@ -243,19 +267,22 @@ def reverse_geolocation_populate(request):
         return str(e), 400
 
 
-def get_admin_levels(country_code, country_admin_level):
-    """Get the pertinent admin levels for the given country code."""
-    subdivision_levels = fetch_subdivision_admin_levels(country_code)
-    logging.info(f"Subdivision levels: {subdivision_levels}")
-    admin_levels = sorted(
-        {
-            country_admin_level,
-            *subdivision_levels,
-            max(subdivision_levels + [country_admin_level])
-            + 1,  # Adding a level higher than the highest subdivision level
-            max(subdivision_levels + [country_admin_level])
-            + 2,  # Adding another level higher than the highest subdivision level
-        }
-    )
-    admin_levels = [level for level in admin_levels if level <= 8][:5]
-    return admin_levels
+def get_locality_admin_levels(country_code, country_admin_level, subdivision_levels):
+    """Get the pertinent admin levels for the localities (city/municipality) given country code."""
+    # Get parent dir of current file
+    parent_dir = os.path.dirname(os.path.abspath(__file__))
+    locality_levels_file = os.path.join(parent_dir, "locality_admin_levels.json")
+    with open(locality_levels_file) as file:
+        locality_levels_per_country = json.load(file)
+        if country_code in locality_levels_per_country:
+            locality_levels = locality_levels_per_country[country_code]
+            logging.info(f"Locality levels: {locality_levels}")
+        else:
+            locality_levels = [
+                max(subdivision_levels + [country_admin_level])
+                + 1,  # Adding a level higher than the highest subdivision level
+                max(subdivision_levels + [country_admin_level])
+                + 2,  # Adding another level higher than the highest subdivision level
+            ]
+    locality_levels = [level for level in locality_levels if level <= 8][:5]
+    return locality_levels
