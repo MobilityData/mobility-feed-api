@@ -1,16 +1,15 @@
-from typing import Final
-
 from fastapi import HTTPException
 
-invalid_date_message: Final[
-    str
-] = "Invalid date format for '{}'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
-invalid_bounding_coordinates: Final[str] = "Invalid bounding coordinates {} {}"
-invalid_bounding_method: Final[str] = "Invalid bounding_filter_method {}"
-feed_not_found: Final[str] = "Feed '{}' not found"
-gtfs_feed_not_found: Final[str] = "GTFS feed '{}' not found"
-gtfs_rt_feed_not_found: Final[str] = "GTFS realtime Feed '{}' not found"
-dataset_not_found: Final[str] = "Dataset '{}' not found"
+from shared.common.error_handling import InternalHTTPException
+
+
+def convert_exception(input_exception: InternalHTTPException) -> HTTPException:
+    """Convert an InternalHTTPException to an HTTPException.
+    HTTPException is dependent on fastapi, and we don't necessarily want to deploy it with python functions.
+    That's why InternalHTTPException (a class that we deploy) is thrown instead of HTTPException.
+    Since InternalHTTPException is internal, it needs to be converted before being sent up.
+    """
+    return HTTPException(status_code=input_exception.status_code, detail=input_exception.detail)
 
 
 def raise_http_error(status_code: int, error: str):

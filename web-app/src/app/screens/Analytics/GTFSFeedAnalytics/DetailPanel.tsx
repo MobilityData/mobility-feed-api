@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Grid } from '@mui/material';
+import { Box, Typography, Grid, Button } from '@mui/material';
 import { format } from 'date-fns';
 import { useTheme } from '@mui/material/styles';
 import {
@@ -184,8 +184,14 @@ const DetailPanel: React.FC<RenderDetailPanelProps> = ({ row }) => {
                 alignItems='center'
               >
                 <InfoOutlined fontSize='small' style={{ marginRight: 2 }} />{' '}
-                Visit the{' '}
-                <a href={`/feeds/${row.original.feed_id}`}>feed&apos;s page</a>{' '}
+                Visit the
+                <Button
+                  variant='text'
+                  className='inline'
+                  href={`/feeds/${row.original.feed_id}`}
+                >
+                  feed&apos;s page
+                </Button>
                 page for more information.
               </Typography>
             </div>

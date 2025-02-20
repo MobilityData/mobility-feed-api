@@ -52,10 +52,10 @@ display_usage() {
   printf "\nScript Usage:\n"
   echo "Usage: $0 [options]"
   echo "Options:"
-  echo "  -test_file <TEST_FILE>   Test file name to be executed."
-  echo "  -folder <FOLDER>         Folder name to be executed."
-  echo "  -html_report             Generate HTML coverage report."
-  echo "  -help                    Display help content."
+  echo "  --test_file <TEST_FILE>   Test file name to be executed."
+  echo "  --folder <FOLDER>         Folder name to be executed."
+  echo "  --html_report             Generate HTML coverage report."
+  echo "  --help                    Display help content."
   exit 1
 }
 
@@ -109,8 +109,7 @@ execute_tests() {
 
   # Generate coverage report
   current_dir_name=$(basename "$(pwd)")
-  mkdir $ABS_SCRIPTPATH/coverage_reports
-  mkdir $ABS_SCRIPTPATH/coverage_reports/$current_dir_name
+  mkdir -p $ABS_SCRIPTPATH/coverage_reports/$current_dir_name
   venv/bin/coverage report > $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/report.txt
   printf "\n${YELLOW}COVERAGE REPORT FOR $1:${NC}\n"
   cat $ABS_SCRIPTPATH/coverage_reports/$current_dir_name/report.txt

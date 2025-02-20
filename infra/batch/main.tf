@@ -249,7 +249,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
-      DATASETS_BUCKET_NANE = google_storage_bucket.datasets_bucket.name
+      DATASETS_BUCKET_NAME = google_storage_bucket.datasets_bucket.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION    = "True"

@@ -14,9 +14,9 @@ import {
   TableContainer,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
-import '../../styles/FAQ.css';
 import { selectUserProfile } from '../../store/profile-selectors';
 import { useAppDispatch } from '../../hooks';
 import { loadingFeeds } from '../../store/feeds-reducer';
@@ -27,7 +27,6 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
 import { Trans, useTranslation } from 'react-i18next';
-import { theme } from '../../Theme';
 import { groupFeaturesByComponent } from '../../utils/consts';
 import NestedCheckboxList, {
   type CheckboxStructure,
@@ -47,6 +46,7 @@ import { MainPageHeader } from '../../styles/PageHeader.style';
 import { ColoredContainer } from '../../styles/PageLayout.style';
 
 export default function Feed(): React.ReactElement {
+  const theme = useTheme();
   const { t } = useTranslation('feeds');
   const { config } = useRemoteConfig();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -533,9 +533,15 @@ export default function Feed(): React.ReactElement {
                   <Typography>
                     <Trans i18nKey='errorAndContact'>
                       Please check your internet connection and try again. If
-                      the problem persists{' '}
-                      <a href='mailto:api@mobilitydata.org'>contact us</a> for
-                      for further assistance.
+                      the problem persists
+                      <Button
+                        variant='text'
+                        className='inline'
+                        href={'mailto:api@mobilitydata.org'}
+                      >
+                        contact us
+                      </Button>
+                      for for further assistance.
                     </Trans>
                   </Typography>
                 </Grid>
@@ -586,8 +592,12 @@ export default function Feed(): React.ReactElement {
                           sx={{
                             mt: 2,
                             button: {
-                              backgroundColor: 'white',
+                              backgroundColor: theme.palette.background.default,
                               color: theme.palette.primary.main,
+                              '&.Mui-selected': {
+                                backgroundColor: theme.palette.primary.main,
+                                color: theme.palette.background.default,
+                              },
                             },
                           }}
                           color='primary'

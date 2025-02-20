@@ -7,13 +7,13 @@ import {
   TableContainer,
   TableRow,
   Typography,
+  useTheme,
 } from '@mui/material';
 import {
   type GTFSFeedType,
   type AllFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
-import { theme } from '../../Theme';
 
 export interface AssociatedFeedsProps {
   feeds: AllFeedType[] | undefined;
@@ -23,6 +23,7 @@ export interface AssociatedFeedsProps {
 const renderAssociatedGTFSFeedRow = (
   assocFeed: GTFSFeedType,
 ): JSX.Element | undefined => {
+  const theme = useTheme();
   if (assocFeed === undefined) {
     return undefined;
   }
@@ -65,6 +66,7 @@ const renderAssociatedGTFSFeedRow = (
 const renderAssociatedGTFSRTFeedRow = (
   assocGTFSRTFeed: GTFSRTFeedType,
 ): JSX.Element | undefined => {
+  const theme = useTheme();
   if (assocGTFSRTFeed === undefined) {
     return undefined;
   }
@@ -109,6 +111,7 @@ export default function AssociatedGTFSRTFeeds({
   feeds,
   gtfsRtFeeds,
 }: AssociatedFeedsProps): React.ReactElement {
+  const theme = useTheme();
   const gtfsFeeds =
     feeds?.filter((assocFeed) => assocFeed?.data_type === 'gtfs') ?? [];
   return (

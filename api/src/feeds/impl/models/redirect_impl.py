@@ -1,4 +1,4 @@
-from database_gen.sqlacodegen_models import Redirectingid
+from shared.database_gen.sqlacodegen_models import Redirectingid
 from feeds_gen.models.redirect import Redirect
 
 

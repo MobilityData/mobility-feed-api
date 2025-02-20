@@ -65,8 +65,14 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_1(self):
-        mock_binary_data = b"binary data for auth type 1"
+    def test_download_and_get_hash_auth_type_header(self):
+        """
+        Test the download_and_get_hash function for authentication type 2 (headers).
+        This test verifies that the download_and_get_hash function correctly handles authentication type 2,
+        where the credentials are passed in the headers. It mocks the necessary components and checks that
+        the request is made with the appropriate headers.
+        """
+        mock_binary_data = b"binary data for auth type 2"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "test_file.txt"
         url = "https://test.com"
@@ -81,7 +87,7 @@ class TestHelpers(unittest.TestCase):
             "urllib3.PoolManager.request", return_value=mock_response
         ) as mock_request:
             result_hash = download_and_get_hash(
-                url, file_path, "sha256", 8192, 1, api_key_parameter_name, credentials
+                url, file_path, "sha256", 8192, 2, api_key_parameter_name, credentials
             )
 
             self.assertEqual(
@@ -104,8 +110,16 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_2(self):
-        mock_binary_data = b"binary data for auth type 2"
+    def test_download_and_get_hash_auth_type_api_key(self):
+        """
+        Test the download_and_get_hash function for authentication type 1 (API key).
+
+        This test verifies that the download_and_get_hash function correctly handles authentication type 1,
+        where the credentials are passed as a query parameter in the URL. It mocks the necessary components
+        and checks that the request is made with the appropriate URL containing the API key.
+
+        """
+        mock_binary_data = b"binary data for auth type 1"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "test_file.txt"
         base_url = "https://test.com"
@@ -126,7 +140,7 @@ class TestHelpers(unittest.TestCase):
                 file_path,
                 "sha256",
                 8192,
-                2,
+                1,
                 api_key_parameter_name,
                 credentials,
             )

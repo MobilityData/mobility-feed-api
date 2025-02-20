@@ -105,7 +105,7 @@ fi
 export PYTHONPATH="$FX_PATH"
 
 # Install a virgin python virtual environment and provision it with the required packages so it's the same as
-# the one deployed that will be deployed in the cloud
+# the one that will be deployed in the cloud
 pushd "$FUNCTIONS_PATH/$function_name" >/dev/null
 printf "\nINFO: installing python virtual environment"
 rm -rf venv

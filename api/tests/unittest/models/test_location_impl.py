@@ -1,7 +1,7 @@
 import unittest
 
 from feeds.impl.models.location_impl import LocationImpl
-from database_gen.sqlacodegen_models import Location as LocationOrm
+from shared.database_gen.sqlacodegen_models import Location as LocationOrm
 
 
 class TestLocationImpl(unittest.TestCase):

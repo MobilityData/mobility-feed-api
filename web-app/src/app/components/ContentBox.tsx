@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Box, Typography, type SxProps } from '@mui/material';
+import { Box, Typography, useTheme, type SxProps } from '@mui/material';
 
 export interface ContentBoxProps {
   title: string;
@@ -14,11 +14,13 @@ export interface ContentBoxProps {
 export const ContentBox = (
   props: React.PropsWithChildren<ContentBoxProps>,
 ): JSX.Element => {
+  const theme = useTheme();
   return (
     <Box
       width={props.width}
       sx={{
-        background: '#FFFFFF',
+        background: theme.palette.background.default,
+        color: theme.palette.text.primary,
         borderRadius: '6px',
         border: `2px solid ${props.outlineColor}`,
         p: props.padding ?? 5,

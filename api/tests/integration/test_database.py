@@ -4,8 +4,9 @@ from typing import Final
 import pytest
 from sqlalchemy.orm import Query
 
-from database.database import Database, generate_unique_id
-from database_gen.sqlacodegen_models import Feature, Gtfsdataset
+from shared.common.db_utils import apply_bounding_filtering
+from shared.database.database import Database, generate_unique_id
+from shared.database_gen.sqlacodegen_models import Feature, Gtfsdataset
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
 from faker import Faker
@@ -39,7 +40,7 @@ def test_bounding_box_dateset_exists(test_database):
 
 def assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database):
     with test_database.start_db_session() as session:
-        query = DatasetsApiImpl.apply_bounding_filtering(BASE_QUERY, latitudes, longitudes, method)
+        query = apply_bounding_filtering(BASE_QUERY, latitudes, longitudes, method)
         result = test_database.select(session, query=query)
         assert (len(result) > 0) is expected_found
 

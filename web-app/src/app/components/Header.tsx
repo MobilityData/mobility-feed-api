@@ -11,6 +11,7 @@ import {
   Menu,
   MenuItem,
   Select,
+  useTheme,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -29,7 +30,6 @@ import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
 import { BikeScooterOutlined, OpenInNew } from '@mui/icons-material';
-import '../styles/Header.css';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import i18n from '../../i18n';
 import { NestedMenuItem } from 'mui-nested-menu';
@@ -38,8 +38,10 @@ import { fontFamily } from '../Theme';
 import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
 import { animatedButtonStyling } from './Header.style';
 import DrawerContent from './HeaderMobileDrawer';
+import ThemeToggle from './ThemeToggle';
 
 export default function DrawerAppBar(): React.ReactElement {
+  const theme = useTheme();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openDialog, setOpenDialog] = React.useState(false);
@@ -121,9 +123,10 @@ export default function DrawerAppBar(): React.ReactElement {
         color='inherit'
         elevation={0}
         sx={{
-          background: 'white',
+          background: theme.palette.background.paper,
           fontFamily: fontFamily.secondary,
-          borderBottom: '1px solid rgba(0,0,0,0.2)',
+          borderBottom: '1px solid',
+          borderColor: theme.palette.divider,
         }}
       >
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -164,10 +167,11 @@ export default function DrawerAppBar(): React.ReactElement {
               </picture>
               <Typography
                 variant='h5'
-                component='div'
-                className='website-title'
+                component='h1'
+                color={'primary'}
                 sx={{
                   ml: 1,
+                  fontWeight: 700,
                   display: { xs: 'none', md: 'block' },
                 }}
               >
@@ -287,13 +291,19 @@ export default function DrawerAppBar(): React.ReactElement {
                     }}
                   >
                     <ListItemIcon>
-                      <AccountCircleIcon fontSize='small' />
+                      <AccountCircleIcon
+                        fontSize='small'
+                        sx={{ color: theme.palette.text.primary }}
+                      />
                     </ListItemIcon>
                     Account Details
                   </MenuItem>
                   <MenuItem onClick={handleLogoutClick}>
                     <ListItemIcon>
-                      <LogoutIcon fontSize='small' />
+                      <LogoutIcon
+                        fontSize='small'
+                        sx={{ color: theme.palette.text.primary }}
+                      />
                     </ListItemIcon>
                     Sign Out
                   </MenuItem>
@@ -307,6 +317,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 Login
               </Button>
             )}
+            <ThemeToggle></ThemeToggle>
             {/* Testing language tool */}
             {config.enableLanguageToggle && currentLanguage !== undefined && (
               <Select

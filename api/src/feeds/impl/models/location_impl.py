@@ -1,5 +1,5 @@
 from feeds_gen.models.location import Location
-from database_gen.sqlacodegen_models import Location as LocationOrm
+from shared.database_gen.sqlacodegen_models import Location as LocationOrm
 
 
 class LocationImpl(Location):

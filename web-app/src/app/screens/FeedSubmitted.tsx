@@ -1,7 +1,14 @@
-import { Typography, Box, Container, CssBaseline } from '@mui/material';
-import { theme } from '../Theme';
+import {
+  Typography,
+  Box,
+  Container,
+  CssBaseline,
+  useTheme,
+  Button,
+} from '@mui/material';
 
 export default function FeedSubmitted(): React.ReactElement {
+  const theme = useTheme();
   return (
     <Container component='main' sx={{ my: 0, mx: 'auto' }} maxWidth='lg'>
       <CssBaseline />
@@ -31,12 +38,24 @@ export default function FeedSubmitted(): React.ReactElement {
             Your feed will be available on the website within the next 2 weeks.
           </Typography>
           <Typography variant='body1' sx={{ mb: 2, fontSize: '20px' }}>
-            You&rsquo;ll also be included in our {/* TODO: implement ancor */}
-            <a href='/contribute-faq#contributors-list'>Contributors List.</a>
+            You&rsquo;ll also be included in our
+            <Button
+              variant='text'
+              className='inline'
+              href='/contribute-faq#contributors-list'
+            >
+              Contributors List.
+            </Button>
           </Typography>
           <Typography variant='body1' sx={{ mb: 2, fontSize: '20px' }}>
-            If you have any questions or feedback,{' '}
-            <a href='mailto:api@mobilitydata.org'>please contact us.</a>
+            If you have any questions or feedback,
+            <Button
+              variant='text'
+              className='inline'
+              href='mailto:api@mobilitydata.org'
+            >
+              please contact us.
+            </Button>
           </Typography>
         </Box>
       </Box>

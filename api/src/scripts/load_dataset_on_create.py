@@ -9,7 +9,7 @@ from google.auth import default
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.futures import Future
 
-from database_gen.sqlacodegen_models import Feed
+from shared.database_gen.sqlacodegen_models import Feed
 from utils.logger import Logger
 
 # Lazy create so we won't try to connect to google cloud when the file is imported.
