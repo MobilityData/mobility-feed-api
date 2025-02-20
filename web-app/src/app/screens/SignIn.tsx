@@ -29,10 +29,12 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import {
   Alert,
+  Divider,
   IconButton,
   InputAdornment,
   Snackbar,
   Tooltip,
+  useTheme,
 } from '@mui/material';
 import {
   selectEmailLoginError,
@@ -51,6 +53,7 @@ import { useEffect } from 'react';
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
+  const theme = useTheme();
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const emailLoginError = useSelector(selectEmailLoginError);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
@@ -274,12 +277,20 @@ export default function SignIn(): React.ReactElement {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            mb: 1,
+            mb: 2,
           }}
         >
-          <p className='hr-text'>
-            <span>OR</span>
-          </p>
+          <Typography
+            component='h5'
+            sx={{
+              zIndex: 1,
+              backgroundColor: theme.palette.background.default,
+              px: 2,
+            }}
+          >
+            OR
+          </Typography>
+          <Divider sx={{ width: '100%', mb: 2, mt: '-12px' }} />
         </Box>
 
         <Button

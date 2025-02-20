@@ -2,10 +2,10 @@ import * as React from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
-import { Typography } from '@mui/material';
-import { theme } from '../Theme';
+import { Typography, useTheme } from '@mui/material';
 
 export default function Contribute(): React.ReactElement {
+  const theme = useTheme();
   return (
     <Container component='main' sx={{ width: '100vw', m: 0 }}>
       <CssBaseline />

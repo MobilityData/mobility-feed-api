@@ -18,14 +18,14 @@ export const feedDetailContentContainerStyle = (props: {
   };
 };
 
-export const ctaContainerStyle = {
+export const ctaContainerStyle: SxProps<Theme> = (theme) => ({
   my: 3,
   width: '100%',
   display: 'flex',
   gap: 1,
-  borderTop: '1px solid rgba(0,0,0,0.2)',
+  borderTop: `1px solid ${theme.palette.divider}`,
   pt: 3,
-};
+});
 
 export const mapBoxPositionStyle = {
   width: 'calc(100% + 32px)',
