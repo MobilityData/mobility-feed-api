@@ -105,10 +105,7 @@ export default function SearchTable({
             fontStyle: 'italic',
             fontSize: '14px',
             fontWeight: 'bold',
-            color:
-              theme.palette.mode === ThemeModeEnum.light
-                ? theme.palette.primary.dark
-                : theme.palette.primary.light,
+            color: theme.palette.primary.main,
             padding: 2,
           }}
           onMouseEnter={(event) => {
@@ -273,6 +270,7 @@ export default function SearchTable({
           sx={{
             backgroundColor: theme.palette.background.paper,
             boxShadow: '0px 1px 4px 2px rgba(0,0,0,0.2)',
+            zIndex: 1000,
           }}
         >
           <Box
