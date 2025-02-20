@@ -45,7 +45,10 @@ def create_http_task(client: tasks_v2.CloudTasksClient, body: bytes, url: str):
 
 
 class GeopolygonAggregate:
-    """A class to represent an aggregate of geopolygon object to represent a location (e.g. Canada, Ontario, Toronto)."""
+    """
+    A class to represent an aggregate of geopolygon object to represent a location
+    (e.g. Canada, Ontario, Toronto).
+    """
 
     def __init__(self, location_group: Osmlocationgroup, stop_count: int):
         self.group_id = location_group.group_id

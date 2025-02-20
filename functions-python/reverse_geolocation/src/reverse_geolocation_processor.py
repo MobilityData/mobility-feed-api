@@ -256,7 +256,8 @@ def create_geojson_aggregate(
                         "group"
                     ].get_display_name(),
                     "stops_in_area": geo_polygon_count[osm_id]["group"].stop_count,
-                    "stops_in_area_coverage": f"{geo_polygon_count[osm_id]['group'].stop_count / total_stops * 100:.2f}%",
+                    "stops_in_area_coverage": f"{geo_polygon_count[osm_id]['group'].stop_count / total_stops * 100:.2f}"
+                    f"%",
                     "color": generate_color(
                         geo_polygon_count[osm_id]["group"].stop_count, max_match
                     ),
