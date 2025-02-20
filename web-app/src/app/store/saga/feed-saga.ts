@@ -31,8 +31,8 @@ import {
 import { getUserAccessToken } from '../../services';
 
 function* getFeedSaga({
-  payload: { feedId },
-}: PayloadAction<{ feedId: string }>): Generator<
+  payload: { feedId, feedDataType },
+}: PayloadAction<{ feedId: string; feedDataType?: string }>): Generator<
   StrictEffect,
   void,
   AllFeedType
@@ -40,11 +40,16 @@ function* getFeedSaga({
   try {
     if (feedId !== undefined) {
       const accessToken = (yield call(getUserAccessToken)) as string;
-      const basicFeed = yield call(getFeed, feedId, accessToken);
-      const feed =
-        basicFeed?.data_type === 'gtfs'
-          ? yield call(getGtfsFeed, feedId, accessToken)
-          : yield call(getGtfsRtFeed, feedId, accessToken);
+      let isGtfs = false;
+      if (feedDataType == undefined) {
+        const basicFeed = yield call(getFeed, feedId, accessToken);
+        isGtfs = basicFeed?.data_type === 'gtfs';
+      } else {
+        isGtfs = feedDataType === 'gtfs';
+      }
+      const feed = isGtfs
+        ? yield call(getGtfsFeed, feedId, accessToken)
+        : yield call(getGtfsRtFeed, feedId, accessToken);
       yield put(loadingFeedSuccess({ data: feed }));
     }
   } catch (error) {
@@ -65,11 +70,7 @@ function* getRelatedFeedsSaga({
               feedId: string,
               accessToken: string,
             ): Generator<StrictEffect, AllFeedType, AllFeedType> {
-              const basicFeed = yield call(getFeed, feedId, accessToken);
-              const feed =
-                basicFeed?.data_type === 'gtfs'
-                  ? yield call(getGtfsFeed, feedId, accessToken)
-                  : yield call(getGtfsRtFeed, feedId, accessToken);
+              const feed = yield call(getGtfsFeed, feedId, accessToken);
               return feed;
             },
             feedId,
@@ -83,13 +84,19 @@ function* getRelatedFeedsSaga({
           call(getGtfsFeedAssociatedGtfsRtFeeds, feedId, accessToken),
         ),
       )) as GTFSRTFeedType[];
-
       const flattenedGtfsRtFeedsData = gtfsRtFeedsData.flat();
+      const uniqueGtfsRtFeedsData: GTFSRTFeedType[] = [];
+      const uniqueFeedRtIds = new Set();
+      flattenedGtfsRtFeedsData.forEach((feed) => {
+        if (uniqueFeedRtIds.has(feed?.id)) return;
+        uniqueGtfsRtFeedsData.push(feed);
+        uniqueFeedRtIds.add(feed?.id);
+      });
       yield put(
         loadingRelatedFeedsSuccess({
           data: {
             gtfs: feedsData,
-            gtfsRt: flattenedGtfsRtFeedsData,
+            gtfsRt: uniqueGtfsRtFeedsData,
           },
         }),
       );

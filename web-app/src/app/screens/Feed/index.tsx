@@ -36,18 +36,12 @@ import {
   selectDatasetsLoadingStatus,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
-import { Map } from '../../components/Map';
 import PreviousDatasets from './PreviousDatasets';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
 import AssociatedFeeds from './AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
-import {
-  type GTFSFeedType,
-  type GTFSRTFeedType,
-} from '../../services/feeds/utils';
 import { Trans, useTranslation } from 'react-i18next';
-import { type TFunction } from 'i18next';
 import { Helmet } from 'react-helmet-async';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -56,123 +50,19 @@ import {
   feedDetailContentContainerStyle,
   mapBoxPositionStyle,
 } from './Feed.styles';
-
-export function formatProvidersSorted(provider: string): string[] {
-  const providers = provider.split(',').filter((n) => n);
-  const providersTrimmed = providers.map((p) => p.trim());
-  const providersSorted = providersTrimmed.sort();
-  return providersSorted;
-}
-
-export function getFeedFormattedName(
-  sortedProviders: string[],
-  dataType: 'gtfs' | 'gtfs_rt',
-  feedName?: string,
-): string {
-  let formattedName = '';
-  if (sortedProviders[0] !== undefined && sortedProviders[0] !== '') {
-    formattedName += sortedProviders[0];
-  }
-  if (feedName !== undefined && feedName !== '') {
-    if (formattedName !== '') {
-      formattedName += ', ';
-    }
-    formattedName += `${feedName}`;
-  }
-  return formattedName;
-}
-
-export function generateDescriptionMetaTag(
-  t: TFunction<'feeds'>,
-  sortedProviders: string[],
-  dataType: 'gtfs' | 'gtfs_rt',
-  feedName?: string,
-): string {
-  const formattedName = getFeedFormattedName(
-    sortedProviders,
-    dataType,
-    feedName,
-  );
-  if (
-    sortedProviders.length === 0 &&
-    (feedName === undefined || feedName === '')
-  ) {
-    return '';
-  }
-  const dataTypeVerbose =
-    dataType === 'gtfs' ? t('common:gtfsSchedule') : t('common:gtfsRealtime');
-  return t('detailPageDescription', { formattedName, dataTypeVerbose });
-}
-
-export function generatePageTitle(
-  sortedProviders: string[],
-  dataType: 'gtfs' | 'gtfs_rt',
-  feedName?: string,
-): string {
-  let newDocTitle = getFeedFormattedName(sortedProviders, dataType, feedName);
-  const dataTypeVerbose = dataType === 'gtfs' ? 'schedule' : 'realtime';
-
-  if (newDocTitle !== '') {
-    newDocTitle += ` gtfs ${dataTypeVerbose} feed - `;
-  }
-
-  newDocTitle += 'Mobility Database';
-  return newDocTitle;
-}
-
-export function getFeedTitleElement(
-  sortedProviders: string[],
-  feed: GTFSFeedType | GTFSRTFeedType,
-  translationFunction: TFunction<'feeds', undefined>,
-): JSX.Element {
-  const theme = useTheme();
-  const mainProvider = sortedProviders[0];
-  let extraProviders: string | undefined;
-  let realtimeFeedName: string | undefined;
-  if (sortedProviders.length > 1) {
-    extraProviders =
-      '+' +
-      (sortedProviders.length - 1) +
-      ' ' +
-      translationFunction('common:others');
-  }
-  if (
-    feed?.data_type === 'gtfs_rt' &&
-    feed?.feed_name != undefined &&
-    feed?.feed_name !== ''
-  ) {
-    realtimeFeedName = ` - ${feed?.feed_name}`;
-  }
-  return (
-    <Typography
-      component='h1'
-      sx={{
-        color: theme.palette.primary.main,
-        fontWeight: 'bold',
-        fontSize: { xs: 24, sm: 36 },
-        lineHeight: 'normal',
-      }}
-      data-testid='feed-provider'
-    >
-      {mainProvider + (realtimeFeedName ?? '')}
-      {extraProviders != undefined && (
-        <Typography
-          component={'span'}
-          sx={{
-            fontSize: { xs: 16, sm: 24 },
-            ml: 1,
-          }}
-        >
-          {extraProviders}
-        </Typography>
-      )}
-    </Typography>
-  );
-}
+import {
+  formatProvidersSorted,
+  generatePageTitle,
+  generateDescriptionMetaTag,
+} from './Feed.functions';
+import FeedTitle from './FeedTitle';
+import { Map } from '../../components/Map';
 
 const wrapComponent = (
   feedLoadingStatus: string,
   descriptionMeta: string | undefined,
+  feedDataType: string | undefined,
+  feedId: string | undefined,
   child: React.ReactElement,
 ): React.ReactElement => {
   const { t } = useTranslation('feeds');
@@ -183,11 +73,20 @@ const wrapComponent = (
       sx={{ width: '100%', m: 'auto', px: 0 }}
       maxWidth='xl'
     >
-      {descriptionMeta !== undefined && (
-        <Helmet>
+      <Helmet>
+        {descriptionMeta != undefined && (
           <meta name='description' content={descriptionMeta} />
-        </Helmet>
-      )}
+        )}
+        {feedDataType != undefined && (
+          <link
+            rel='canonical'
+            href={
+              window.location.origin + 'feeds/' + feedDataType + '/' + feedId
+            }
+          />
+        )}
+      </Helmet>
+
       <CssBaseline />
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         <Box
@@ -213,11 +112,11 @@ export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
   const dispatch = useAppDispatch();
-  const { feedId } = useParams();
+  const { feedId, feedDataType } = useParams();
   const user = useSelector(selectUserProfile);
   const feedLoadingStatus = useSelector(selectFeedLoadingStatus);
   const datasetLoadingStatus = useSelector(selectDatasetsLoadingStatus);
-  const feedType = useSelector(selectFeedData)?.data_type;
+  const feedType = feedDataType ?? useSelector(selectFeedData)?.data_type;
   const relatedFeeds = useSelector(selectRelatedFeedsData);
   const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
   const datasets = useSelector(selectDatasetsData);
@@ -235,7 +134,10 @@ export default function Feed(): React.ReactElement {
   useEffect(() => {
     if (user != undefined && feedId != undefined && needsToLoadFeed) {
       dispatch(clearDataset());
-      dispatch(loadingFeed({ feedId }));
+      dispatch(loadingFeed({ feedId, feedDataType }));
+      if (feedDataType === 'gtfs') {
+        dispatch(loadingDataset({ feedId }));
+      }
     }
   }, [isAuthenticatedOrAnonymous, needsToLoadFeed]);
 
@@ -262,7 +164,8 @@ export default function Feed(): React.ReactElement {
     if (
       feedId != undefined &&
       feed?.data_type === 'gtfs' &&
-      feedLoadingStatus === 'loaded'
+      feedLoadingStatus === 'loaded' &&
+      datasets == undefined
     ) {
       dispatch(loadingDataset({ feedId }));
     }
@@ -280,6 +183,8 @@ export default function Feed(): React.ReactElement {
     return wrapComponent(
       feedLoadingStatus,
       undefined,
+      feedType,
+      feedId,
       <Box>
         <Skeleton
           animation='wave'
@@ -362,6 +267,8 @@ export default function Feed(): React.ReactElement {
       feed.data_type,
       feed?.feed_name,
     ),
+    feedType,
+    feedId,
     <Box>
       <Grid container item xs={12} spacing={3} alignItems={'center'}>
         <Grid
@@ -407,7 +314,9 @@ export default function Feed(): React.ReactElement {
           </Typography>
         </Grid>
       </Grid>
-      <Box sx={{ mt: 2 }}>{getFeedTitleElement(sortedProviders, feed, t)}</Box>
+      <Box sx={{ mt: 2 }}>
+        <FeedTitle sortedProviders={sortedProviders} feed={feed} />
+      </Box>
       {feed != undefined &&
         feed.feed_name !== '' &&
         feed?.data_type === 'gtfs' && (
@@ -512,7 +421,7 @@ export default function Feed(): React.ReactElement {
             variant='contained'
             href={downloadLatestUrl}
             target='_blank'
-            rel='noreferrer'
+            rel='noreferrer nofollow'
             id='download-latest-button'
             endIcon={<DownloadIcon></DownloadIcon>}
           >
@@ -525,7 +434,7 @@ export default function Feed(): React.ReactElement {
             disableElevation
             href={`${latestDataset?.validation_report?.url_html}`}
             target='_blank'
-            rel='noreferrer'
+            rel='noreferrer nofollow'
             endIcon={<OpenInNewIcon></OpenInNewIcon>}
           >
             {t('openFullQualityReport')}
