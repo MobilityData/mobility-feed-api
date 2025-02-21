@@ -23,29 +23,26 @@ from fastapi import HTTPException
 from pydantic import Field
 from starlette.responses import Response
 
-from shared.database_gen.sqlacodegen_models import (
-    Gtfsfeed,
-    t_feedsearch,
-)
+from feeds_operations.impl.models.get_feeds_response import GetFeeds200Response
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
 from feeds_operations_gen.apis.operations_api_base import BaseOperationsApi
 from feeds_operations_gen.models.data_type import DataType
+from feeds_operations_gen.models.gtfs_feed_response import GtfsFeedResponse
+from feeds_operations_gen.models.gtfs_rt_feed_response import GtfsRtFeedResponse
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from feeds_operations.impl.models.get_feeds_response import (
-    GetFeeds200Response,
-    FeedResponse,
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    t_feedsearch,
 )
 from shared.helpers.database import Database, refresh_materialized_view
 from shared.helpers.query_helper import query_feed_by_stable_id, get_feeds_query
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
-from feeds_operations.impl.models.gtfs_feed_response import GtfsFeedResponse
-from feeds_operations.impl.models.gtfs_rt_feed_response import GtfsRtFeedResponse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -53,71 +50,90 @@ logging.basicConfig(level=logging.INFO)
 class OperationsApiImpl(BaseOperationsApi):
     """Implementation of the operations API."""
 
-    def process_feed(self, feed) -> FeedResponse:
-        """Process a feed into the appropriate response type."""
-        common_fields = {
-            "id": feed.id,
-            "stable_id": feed.stable_id,
-            "status": feed.status,
-            "data_type": feed.data_type,
-            "provider": feed.provider,
-            "feed_name": feed.feed_name,
-            "note": feed.note,
-            "feed_contact_email": feed.feed_contact_email,
-            "producer_url": feed.producer_url,
-            "authentication_type": feed.authentication_type,
-            "authentication_info_url": feed.authentication_info_url,
-            "api_key_parameter_name": feed.api_key_parameter_name,
-            "license_url": feed.license_url,
-            "operational_status": feed.operational_status,
-            "created_at": str(feed.created_at) if feed.created_at else None,
-            "official": feed.official,
-            "locations": [
-                {
-                    "country_code": loc.country_code,
-                    "country": loc.country,
-                    "subdivision_name": loc.subdivision_name,
-                    "municipality": loc.municipality,
-                }
-                for loc in feed.locations
-            ]
-            if feed.locations
-            else None,
-        }
+    def process_feed(self, feed) -> GtfsFeedResponse | GtfsRtFeedResponse:
+        """Process a feed into the appropriate response type.
 
-        if feed.data_type == "gtfs":
-            return GtfsFeedResponse(**common_fields)
-        elif feed.data_type == "gtfs_rt":
-            if hasattr(feed, "entitytypes"):
-                entity_types = (
-                    [et.name for et in feed.entitytypes] if feed.entitytypes else None
-                )
-                feed_references = (
-                    [ref.stable_id for ref in feed.gtfs_feeds]
-                    if feed.gtfs_feeds
-                    else None
+        Args:
+            feed: The database feed object to process
+
+        Returns:
+            GtfsFeedResponse or GtfsRtFeedResponse depending on the feed type
+        """
+        if not feed:
+            logging.error("Received None feed object")
+            raise ValueError("Feed object cannot be None")
+
+        try:
+            common_fields = {
+                "id": feed.id,
+                "stable_id": feed.stable_id,
+                "status": feed.status,
+                "data_type": feed.data_type,
+                "provider": feed.provider,
+                "feed_name": feed.feed_name or "",
+                "note": feed.note or "",
+                "feed_contact_email": feed.feed_contact_email or "",
+                "producer_url": feed.producer_url or "",
+                "authentication_type": feed.authentication_type or 0,
+                "authentication_info_url": feed.authentication_info_url or "",
+                "api_key_parameter_name": feed.api_key_parameter_name or "",
+                "license_url": feed.license_url or "",
+                "operational_status": feed.operational_status,
+                "created_at": str(feed.created_at) if feed.created_at else None,
+                "official": feed.official if hasattr(feed, "official") else None,
+                "locations": [
+                    {
+                        "country_code": loc.country_code,
+                        "country": loc.country,
+                        "subdivision_name": loc.subdivision_name,
+                        "municipality": loc.municipality,
+                    }
+                    for loc in feed.locations
+                ]
+                if feed.locations
+                else [],
+            }
+
+            if feed.data_type == "gtfs":
+                logging.info(f"Processing GTFS feed {feed.stable_id}")
+                return GtfsFeedResponse(**common_fields)
+            elif feed.data_type == "gtfs_rt":
+                logging.info(f"Processing GTFS-RT feed {feed.stable_id}")
+                entity_types = []
+                feed_references = []
+
+                if hasattr(feed, "entitytypes") and feed.entitytypes:
+                    entity_types = [et.name.lower() for et in feed.entitytypes]
+                    logging.info(
+                        f"Found {len(entity_types)} entity types for feed {feed.stable_id}"
+                    )
+
+                if hasattr(feed, "gtfs_feeds") and feed.gtfs_feeds:
+                    feed_references = [ref.stable_id for ref in feed.gtfs_feeds]
+                    logging.info(
+                        f"Found {len(feed_references)} feed references for feed {feed.stable_id}"
+                    )
+
+                return GtfsRtFeedResponse(
+                    **common_fields,
+                    entity_types=entity_types,
+                    feed_references=feed_references,
                 )
             else:
-                logging.warning(
-                    f"Feed {feed.id} is marked as gtfs_rt but is not a Gtfsrealtimefeed instance"
-                )
-                entity_types = None
-                feed_references = None
+                raise ValueError(f"Unknown feed type: {feed.data_type}")
 
-            return GtfsRtFeedResponse(
-                **common_fields,
-                entity_types=entity_types,
-                feed_references=feed_references,
+        except Exception as e:
+            logging.error(
+                f"Error processing feed {feed.stable_id if feed else 'unknown'}: {str(e)}"
             )
-        else:
-            raise ValueError(f"Unknown feed type: {feed.data_type}")
+            raise
 
     async def get_feeds(
         self,
         operation_status: Optional[str] = None,
         data_type: Optional[str] = None,
         offset: int = 0,
-        limit: int = 20,
+        limit: int = 50,
     ) -> GetFeeds200Response:
         """Get a list of feeds with optional filtering and pagination.
 
@@ -125,7 +141,7 @@ class OperationsApiImpl(BaseOperationsApi):
             operation_status: Optional filter for operational status (wip or published)
             data_type: Optional filter for feed type (gtfs or gtfs_rt)
             offset: Number of items to skip for pagination
-            limit: Maximum number of items to return
+            limit: Maximum number of items to return (default: 50)
 
         Returns:
             GetFeeds200Response: Contains total count, offset, limit, and list of feeds
