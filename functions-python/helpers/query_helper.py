@@ -1,16 +1,15 @@
 import logging
 from typing import Type
 
-from sqlalchemy import and_
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.orm.query import Query
-
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
     Gtfsfeed,
     Gbfsfeed,
 )
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.query import Query
 
 feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": Gbfsfeed}
 
@@ -59,8 +58,15 @@ def get_feeds_query(
             operation_status,
         )
 
-        model = get_model(data_type)
-        logging.info("Using model: %s", model.__name__)
+        # To explicitly use concrete models:
+        if data_type == "gtfs":
+            model = Gtfsfeed
+        elif data_type == "gtfs_rt":
+            model = Gtfsrealtimefeed  # Force concrete model
+        else:
+            model = Feed
+
+        logging.info(f"Using concrete model: {model.__name__}")
 
         conditions = []
 
