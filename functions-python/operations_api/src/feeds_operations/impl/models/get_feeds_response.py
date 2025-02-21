@@ -20,109 +20,14 @@ import json
 import pprint
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, StrictStr, StrictInt, StrictBool
+from pydantic import BaseModel, Field, StrictInt
 
 try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
 
-
-class FeedResponse(BaseModel):
-    """Feed response model for both GTFS and GTFS-RT feeds"""
-
-    id: Optional[StrictStr] = Field(
-        default=None, description="Unique identifier for the feed."
-    )
-    stable_id: Optional[StrictStr] = Field(
-        default=None, description="Stable identifier for the feed."
-    )
-    status: Optional[StrictStr] = Field(default=None, description="Feed status.")
-    data_type: Optional[StrictStr] = Field(
-        default=None, description="Type of feed (gtfs or gtfs_rt)."
-    )
-    provider: Optional[StrictStr] = Field(
-        default=None, description="Name of the transit provider."
-    )
-    feed_name: Optional[StrictStr] = Field(
-        default=None, description="Name of the feed."
-    )
-    note: Optional[StrictStr] = Field(
-        default=None, description="Additional notes about the feed."
-    )
-    feed_contact_email: Optional[StrictStr] = Field(
-        default=None, description="Contact email for the feed."
-    )
-    producer_url: Optional[StrictStr] = Field(
-        default=None, description="URL where the feed is produced."
-    )
-    authentication_type: Optional[StrictStr] = Field(
-        default=None, description="Type of authentication required."
-    )
-    authentication_info_url: Optional[StrictStr] = Field(
-        default=None, description="URL for authentication information."
-    )
-    api_key_parameter_name: Optional[StrictStr] = Field(
-        default=None, description="Name of the API key parameter."
-    )
-    license_url: Optional[StrictStr] = Field(
-        default=None, description="URL of the feed license."
-    )
-    operational_status: Optional[StrictStr] = Field(
-        default=None, description="Current operational status."
-    )
-    created_at: Optional[StrictStr] = Field(
-        default=None, description="When the feed was created."
-    )
-    official: Optional[StrictBool] = Field(
-        default=None, description="Whether this is an official feed."
-    )
-    locations: Optional[List[Dict[str, str]]] = Field(
-        default=None, description="List of locations for this feed."
-    )
-    entity_types: Optional[List[StrictStr]] = Field(
-        default=None, description="Types of GTFS-RT entities (only for GTFS-RT feeds)."
-    )
-    feed_references: Optional[List[StrictStr]] = Field(
-        default=None,
-        description="References to related GTFS feeds (only for GTFS-RT feeds).",
-    )
-
-    model_config = {
-        "populate_by_name": True,
-        "validate_assignment": True,
-        "protected_namespaces": (),
-        "from_attributes": True,
-    }
-
-    def to_str(self) -> str:
-        """Returns the string representation of the model using alias"""
-        return pprint.pformat(self.model_dump(by_alias=True))
-
-    def to_json(self) -> str:
-        """Returns the JSON representation of the model using alias"""
-        return json.dumps(self.to_dict())
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Return the dictionary representation of the model using alias"""
-        _dict = self.model_dump(
-            by_alias=True,
-            exclude={},
-            exclude_none=True,
-        )
-        return _dict
-
-    @classmethod
-    def from_dict(cls, obj: Dict) -> Self:
-        """Create an instance of FeedResponse from a dict"""
-        if obj is None:
-            return None
-
-        if not isinstance(obj, dict):
-            return cls.model_validate(obj)
-
-        _obj = cls.model_validate(obj)
-        return _obj
+from feeds_operations_gen.models.base_feed import BaseFeed
 
 
 class GetFeeds200Response(BaseModel):
@@ -137,8 +42,8 @@ class GetFeeds200Response(BaseModel):
     limit: Optional[StrictInt] = Field(
         default=None, description="Maximum number of items per page."
     )
-    feeds: Optional[List[FeedResponse]] = Field(
-        default=None, description="List of feeds."
+    feeds: Optional[List[BaseFeed]] = Field(
+        default=None, description="List of feeds using polymorphic serialization"
     )
 
     model_config = {
@@ -180,7 +85,7 @@ class GetFeeds200Response(BaseModel):
                 "total": obj.get("total"),
                 "offset": obj.get("offset"),
                 "limit": obj.get("limit"),
-                "feeds": [FeedResponse.from_dict(feed) for feed in obj.get("feeds", [])]
+                "feeds": [BaseFeed.from_dict(feed) for feed in obj.get("feeds", [])]
                 if obj.get("feeds")
                 else None,
             }

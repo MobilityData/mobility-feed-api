@@ -16,9 +16,10 @@
 #
 
 import pytest
+
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
-from feeds_operations.impl.models.gtfs_feed_response import GtfsFeedResponse
-from feeds_operations.impl.models.gtfs_rt_feed_response import GtfsRtFeedResponse
+from feeds_operations_gen.models.gtfs_feed_response import GtfsFeedResponse
+from feeds_operations_gen.models.gtfs_rt_feed_response import GtfsRtFeedResponse
 
 
 @pytest.mark.asyncio
@@ -34,7 +35,7 @@ async def test_get_feeds_no_filters():
     assert response is not None
     assert response.total == 3
     assert response.offset == 0
-    assert response.limit == 20
+    assert response.limit == 50
     assert len(response.feeds) == 3
 
     feed_types = [feed.data_type for feed in response.feeds]
@@ -112,7 +113,7 @@ async def test_get_feeds_pagination():
 
     response = await api.get_feeds(offset=3)
     assert response.total == 0
-    assert response.limit == 20
+    assert response.limit == 50
     assert response.offset == 3
     assert len(response.feeds) == 0
 
@@ -157,6 +158,9 @@ async def test_get_feeds_combined_filters():
     """Test get_feeds with multiple filters applied."""
     api = OperationsApiImpl()
 
+    base_response = await api.get_feeds()
+    assert base_response is not None
+
     response = await api.get_feeds(data_type="gtfs", operation_status="wip")
     assert response is not None
     wip_gtfs_feeds = response.feeds
@@ -165,6 +169,9 @@ async def test_get_feeds_combined_filters():
     response = await api.get_feeds(data_type="gtfs", limit=1, offset=1)
     assert response is not None
     assert len(response.feeds) == 1
+    assert response.offset == 1
+    assert response.limit == 1
+    assert response.feeds[0].data_type == "gtfs"
 
 
 @pytest.mark.asyncio
