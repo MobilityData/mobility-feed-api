@@ -1,29 +1,45 @@
 import * as React from 'react';
 import Container from '@mui/material/Container';
-import '../styles/FAQ.css';
-import { Typography } from '@mui/material';
+import { Button, Typography } from '@mui/material';
 import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
 import { MainPageHeader } from '../styles/PageHeader.style';
 import { ColoredContainer } from '../styles/PageLayout.style';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 export default function FAQ(): React.ReactElement {
   return (
     <Container component='main'>
       <MainPageHeader>Frequently Asked Questions (FAQ) </MainPageHeader>
       <ColoredContainer maxWidth={false} sx={{ mt: 3 }}>
-        <Typography className='question'>
+        <Typography
+          variant='h5'
+          color='primary'
+          sx={{ fontWeight: 700, mb: 1 }}
+        >
           Why use the Mobility Database?
         </Typography>
         <Typography className='answer'>
           The Mobility Database is a catalog that makes it easy to find over
           2,000 GTFS and GTFS Realtime feeds, including more accurate and newer
-          feeds not found on TransitFeeds. The Mobility Database integrates with{' '}
-          <a href={WEB_VALIDATOR_LINK} target='_blank' rel='noreferrer'>
+          feeds not found on TransitFeeds. The Mobility Database integrates with
+          <Button
+            variant='text'
+            className='inline'
+            href={WEB_VALIDATOR_LINK}
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
             the Canonical GTFS Schedule Validator
-          </a>{' '}
+          </Button>
           to provide data quality insights.
         </Typography>
-        <Typography className='question'>
+        <Typography
+          variant='h5'
+          color='primary'
+          sx={{ fontWeight: 700, mt: 5, mb: 1 }}
+        >
           How do I use the Mobility Database?
         </Typography>
         <Typography className='answer'>
@@ -36,17 +52,35 @@ export default function FAQ(): React.ReactElement {
           2. The API, where you can pull feed information to display in your own
           application or for research analysis
           <br />
-          3. The{' '}
-          <a href='https://bit.ly/catalogs-csv'>
+          3. The
+          <Button
+            variant='text'
+            className='inline'
+            href={'https://bit.ly/catalogs-csv'}
+            endIcon={<FileDownloadIcon />}
+          >
             spreadsheet export available here
-          </a>
-          . You can find{' '}
-          <a href='https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#schemas'>
+          </Button>
+          . You can find
+          <Button
+            variant='text'
+            className='inline'
+            href={
+              'https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#schemas'
+            }
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
             the GTFS Schedule and Realtime schemas for the spreadsheet here
-          </a>
+          </Button>
           .
         </Typography>
-        <Typography className='question'>
+        <Typography
+          variant='h5'
+          color='primary'
+          sx={{ fontWeight: 700, mt: 5, mb: 1 }}
+        >
           Why are you making this change?
         </Typography>
         <Typography className='answer'>
@@ -69,7 +103,13 @@ export default function FAQ(): React.ReactElement {
           easily leverage and contribute to while we explore longer term
           solutions for the architecture that require more community investment.
         </Typography>
-        <Typography className='question'>What about TransitFeeds?</Typography>
+        <Typography
+          variant='h5'
+          color='primary'
+          sx={{ fontWeight: 700, mt: 5, mb: 1 }}
+        >
+          What about TransitFeeds?
+        </Typography>
         <Typography className='answer'>
           TransitFeeds.com is still available to access historical data before
           February 2024 and see feed visualizations. It will be deprecated once
@@ -80,14 +120,18 @@ export default function FAQ(): React.ReactElement {
           how much engagement and contribution we get from the community in this
           phase.
         </Typography>
-        <Typography className='question'>
+        <Typography
+          variant='h5'
+          color='primary'
+          sx={{ fontWeight: 700, mt: 5, mb: 1 }}
+        >
           What about the TransitFeeds API?
         </Typography>
         <Typography className='answer'>
-          You can use{' '}
-          <a href='/sign-in' target='_blank' rel='noreferrer'>
+          You can use
+          <Button variant='text' className='inline' href={'/sign-in'}>
             the Mobility Database API
-          </a>{' '}
+          </Button>
           instead to access up-to-date GTFS and GTFS Realtime data. The API is
           providing historical data from the time of launch (February 2024). If
           you need to access historical data from previous years from the
@@ -95,25 +139,38 @@ export default function FAQ(): React.ReactElement {
           unaffected until the to-be-determined deprecation date, when the
           TransitFeeds API will no longer be available.
         </Typography>
-        <Typography className='question'>What’s coming next?</Typography>
+        <Typography
+          variant='h5'
+          color='primary'
+          sx={{ fontWeight: 700, mt: 5, mb: 1 }}
+        >
+          What’s coming next?
+        </Typography>
         <Typography className='answer'>
           The MobilityData team is working to add historical data and route and
           stop visualizations to the Mobility Database.
           <br /> <br />
-          <a
-            href='https://mobilitydata.org/roadmaps/'
-            target='_blank'
+          <Button
+            variant='text'
+            className='inline line-start'
+            href={'https://mobilitydata.org/roadmaps/'}
             rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
           >
             You can add ideas and vote on our current roadmap
-          </a>
+          </Button>
           . We anticipate an influx of new feedback as we transition away from
           TransitFeeds and intend to adapt our plan to the emerging needs of the
           community. How quickly we scale the Mobility Database architecture
           depends on how much engagement and contribution we get from the
           community in this phase.
         </Typography>
-        <Typography className='question'>
+        <Typography
+          variant='h5'
+          color='primary'
+          sx={{ fontWeight: 700, mt: 5, mb: 1 }}
+        >
           How often do you check for feed updates?
         </Typography>
         <Typography className='answer'>

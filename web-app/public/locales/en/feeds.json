@@ -91,7 +91,7 @@
   "officialFeed": "Official Feed",
   "officialFeedTooltip": "The transit provider has confirmed this feed should be shared with riders. This has been confirmed either by the transit provider providing the feed on their website or from personalized confirmation with the Mobility Database team.",
   "officialFeedTooltipShort": "Verified feed: Confirmed by the transit provider or the Mobility Database team for rider use.",
-  "seeDetailPageProviders": "See detail page to view {providersCount} others",
+  "seeDetailPageProviders": "See detail page to view {{providersCount}} others",
   "openFullQualityReport": "Open Full Quality Report",
   "qualityReportUpdated": "Quality report updated",
   "officialFeedUpdated": "Official verification updated",

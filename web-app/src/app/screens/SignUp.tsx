@@ -48,6 +48,7 @@ import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import { useEffect } from 'react';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function SignUp(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
@@ -153,10 +154,17 @@ export default function SignUp(): React.ReactElement {
 
   const termsAndConditionsElement = (
     <span>
-      I have read and I agree to the{' '}
-      <a href={'/terms-and-conditions'} target={'_blank'} rel={'noreferrer'}>
+      I have read and I agree to the
+      <Button
+        variant='text'
+        className='inline'
+        href={'/terms-and-conditions'}
+        rel='noreferrer'
+        target='_blank'
+        endIcon={<OpenInNewIcon />}
+      >
         terms and conditions
-      </a>
+      </Button>
       .
     </span>
   );

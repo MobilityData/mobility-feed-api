@@ -1,5 +1,4 @@
-import { Box, Chip, Tooltip } from '@mui/material';
-import { theme } from '../Theme';
+import { Box, Chip, Tooltip, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { type TFunction } from 'i18next';
 
@@ -52,6 +51,7 @@ export const FeedStatusIndicator = (
   props: React.PropsWithChildren<FeedStatusProps>,
 ): JSX.Element => {
   const { t } = useTranslation('feeds');
+  const theme = useTheme();
   const statusData = getFeedStatusData(props.status, t);
   return (
     <>

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Box, Container, Typography } from '@mui/material';
+import { Box, Container, Typography, useTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
-import { theme } from '../Theme';
 export default function TermsAndConditions(): React.ReactElement {
+  const theme = useTheme();
   return (
     <Container component='main' sx={{ width: '100%', m: 'auto' }}>
       <CssBaseline />
