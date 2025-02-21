@@ -1,6 +1,8 @@
 from typing import Optional, List
+
 from pydantic import Field
-from feeds_operations_gen.models.gtfs_feed import GtfsFeed
+
+from feeds_operations_gen.models.gtfs_feed_response import GtfsFeedResponse as GtfsFeed
 from .basic_feed_impl import BaseFeedImpl
 
 

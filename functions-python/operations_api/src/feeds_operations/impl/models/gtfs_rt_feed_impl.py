@@ -1,18 +1,21 @@
-from typing import List, Optional
+from typing import List
 
-from feeds_operations_gen.models.gtfs_rt_feed import GtfsRtFeed
 from pydantic import Field
+
+from feeds_operations_gen.models.gtfs_rt_feed_response import (
+    GtfsRtFeedResponse as GtfsRtFeed,
+)
 from .basic_feed_impl import BaseFeedImpl
 
 
 class GtfsRtFeedImpl(BaseFeedImpl, GtfsRtFeed):
     """Implementation of the GTFS-RT feed model."""
 
-    entity_types: Optional[List[str]] = Field(
-        default=None, description="Types of GTFS-RT entities"
+    entity_types: List[str] = Field(
+        default_factory=list, description="Types of GTFS-RT entities"
     )
-    feed_references: Optional[List[str]] = Field(
-        default=None, description="References to related GTFS feeds"
+    feed_references: List[str] = Field(
+        default_factory=list, description="References to related GTFS feeds"
     )
 
     class Config:

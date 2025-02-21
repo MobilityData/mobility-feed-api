@@ -78,9 +78,9 @@ def test_gtfs_feed_response_locations():
 def test_gtfs_rt_feed_response_optional_fields():
     """Test GtfsRtFeedResponse with minimal required fields."""
     feed = GtfsRtFeedImpl()
-    assert feed.id is None
-    assert feed.entity_types is None
-    assert feed.feed_references is None
+    assert feed.id is None  # ID should be None for new feed
+    assert feed.entity_types == []  # Should be empty list instead of None
+    assert feed.feed_references == []  # Should be empty list instead of None
 
 
 def test_gtfs_rt_feed_response_entity_types():
