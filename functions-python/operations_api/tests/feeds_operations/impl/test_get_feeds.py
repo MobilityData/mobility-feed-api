@@ -160,10 +160,25 @@ async def test_get_feeds_combined_filters():
 
     base_response = await api.get_feeds()
     assert base_response is not None
+    print(f"\nTotal feeds in database: {len(base_response.feeds)}")
+
+    gtfs_response = await api.get_feeds(data_type="gtfs")
+    assert gtfs_response is not None
+    print(f"Total GTFS feeds: {len(gtfs_response.feeds)}")
+    for feed in gtfs_response.feeds:
+        print(f"GTFS Feed: {feed.stable_id}, status: {feed.operational_status}")
+
+    wip_response = await api.get_feeds(operation_status="wip")
+    assert wip_response is not None
+    print(f"Total WIP feeds: {len(wip_response.feeds)}")
+    for feed in wip_response.feeds:
+        print(f"WIP Feed: {feed.stable_id}, type: {feed.data_type}")
 
     response = await api.get_feeds(data_type="gtfs", operation_status="wip")
     assert response is not None
     wip_gtfs_feeds = response.feeds
+    print(f"Total WIP GTFS feeds: {len(wip_gtfs_feeds)}")
+
     assert len(wip_gtfs_feeds) == 0
 
     response = await api.get_feeds(data_type="gtfs", limit=1, offset=1)
