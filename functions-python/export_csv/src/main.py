@@ -252,7 +252,6 @@ def get_gtfs_feed_csv_data(feed: Gtfsfeed):
             latest_url = latest_url[: position + len(feed.stable_id) + 1] + "latest.zip"
     data["urls.latest"] = latest_url
     data["features"] = joined_features
-    data["location.bounding_box.extracted_on"] = validated_at
 
     return data
 
@@ -263,32 +262,32 @@ def get_feed_csv_data(feed: Feed):
     Any specific data (for GTFS or GTFS_RT has to be added after this call.
     """
 
-    redirect_ids = ""
-    redirect_comments = ""
+    redirect_ids = []
+    redirect_comments = []
     # Add concatenated redirect IDs
     if feed.redirectingids:
         for redirect in feed.redirectingids:
             if redirect and redirect.target and redirect.target.stable_id:
                 stripped_id = redirect.target.stable_id.strip()
                 if stripped_id:
-                    redirect_ids = (
-                        redirect_ids + "|" + stripped_id
-                        if redirect_ids
-                        else stripped_id
-                    )
-                    redirect_comments = (
-                        redirect_comments + "|" + redirect.redirect_comment
-                        if redirect_comments
-                        else redirect.redirect_comment
-                    )
-        if redirect_ids == "":
-            redirect_comments = ""
-        else:
-            # If there is no comment but we do have redirects, use an empty string instead of a
-            # potentially a bunch of vertical bars.
-            redirect_comments = (
-                "" if redirect_comments.strip("|") == "" else redirect_comments
-            )
+                    redirect_ids.append(stripped_id)
+                    redirect_comment = redirect.redirect_comment or ""
+                    redirect_comments.append(redirect_comment)
+
+    redirect_ids_str = "|".join(redirect_ids)
+    redirect_comments_str = "|".join(redirect_comments)
+
+    # If for some reason there is no redirect_ids, discard the redirect_comments if any
+    if redirect_ids_str == "":
+        redirect_comments_str = ""
+    else:
+        # If there is no comment but we do have redirects, use an empty string instead of a
+        # potentially a bunch of vertical bars.
+        redirect_comments_str = (
+            ""
+            if (redirect_comments_str or "").strip("|") == ""
+            else redirect_comments_str
+        )
 
     # Some of the data is set to None or "" here but will be set to the proper value
     # later depending on the type (GTFS or GTFS_RT)
@@ -324,8 +323,8 @@ def get_feed_csv_data(feed: Feed):
         "location.bounding_box.extracted_on": None,
         "status": feed.status,
         "features": None,
-        "redirect.id": redirect_ids,
-        "redirect.comment": redirect_comments,
+        "redirect.id": redirect_ids_str,
+        "redirect.comment": redirect_comments_str,
     }
     return data
 
@@ -356,7 +355,7 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
             if feed_reference and feed_reference.stable_id
         ]
         static_references = "|".join(valid_feed_references)
-        # If there is more then one GTFS feeds associated with this RT feed (why?)
+        # If there is more than one GTFS feeds associated with this RT feed (why?)
         # We will arbitrarily use the first one in the list for the bounding box.
         first_feed_reference = feed.gtfs_feeds[0] if feed.gtfs_feeds else None
     data["static_reference"] = static_references

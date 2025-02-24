@@ -210,14 +210,20 @@ def populate_database():
                 gtfs_feeds=[feed_reference] if i == 0 else [],
             )
         )
-    # rt_feeds[1] is inactive and redirected to rt_feeds[0]
+    # rt_feeds[1] is inactive and redirected to rt_feeds[0] and rt_feee[2]
     rt_feeds[1].redirectingids = [
         Redirectingid(
             source_id=rt_feeds[1].id,
             target_id=rt_feeds[0].id,
-            redirect_comment="Some redirect comment",
+            redirect_comment="comment 1",
             target=rt_feeds[0],
-        )
+        ),
+        Redirectingid(
+            source_id=rt_feeds[1].id,
+            target_id=rt_feeds[2].id,
+            redirect_comment="comment 2",
+            target=rt_feeds[2],
+        ),
     ]
 
     session.add_all(rt_feeds)
