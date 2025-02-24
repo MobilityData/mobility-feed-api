@@ -17,7 +17,7 @@ export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
       : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   return (
     <>
-      {/* <MapContainer
+      <MapContainer
       bounds={props.polygon as LatLngBoundsExpression}
       zoom={8}
       style={{ minHeight: '400px', height: '100%' }}
@@ -27,10 +27,9 @@ export const Map = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; CartoDB'
         url={mapTiles}
       />
-      <PMTilesVectorLayer />
       <Polygon positions={props.polygon}></Polygon>
-    </MapContainer> */}
-      <Map2 polygon={props.polygon}></Map2>
+    </MapContainer>
+      {/* <Map2 polygon={props.polygon}></Map2> */}
     </>
   );
 };
