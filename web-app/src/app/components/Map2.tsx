@@ -15,7 +15,7 @@ export interface MapProps {
 }
 
 export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
-  const [hoverInfo, setHoverInfo] = useState<string>('');
+  const [hoverInfo, setHoverInfo] = useState<string[]>([]);
   const [hoverData, setHoverData] = useState<string>('');
   const [mapElement, setMapElement] = useState<MapElement[]>([]);
   const mapRef = useRef<MapRef>(null);
@@ -28,7 +28,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
     if (map != undefined) {
       // Get the features under the mouse pointer
       const features = map.queryRenderedFeatures(event.point, {
-        layers: ['stops', 'routes'], // Change this to your actual layer ID
+        layers: ['stops', 'routes', 'routes-white'], // Change this to your actual layer ID
       });
 
       if (features.length > 0) {
@@ -53,21 +53,17 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
 
         setMapElement(mapElements);
 
-        const feature = features[0]; // assuming you are dealing with one feature at a time
-        // setHoverInfo({
-        //   coordinates: feature.geometry.coordinates,
-        //   properties: feature.properties,
-        // });
-        if (feature.properties.route_id != undefined) {
-          //console.log("ROUTE DATA: ", feature.properties); // route_type 1 = metro, 3 = bus
-          setHoverInfo(feature.properties.route_id);
-          setHoverData(feature.properties.route_long_name);
-        } else {
-          setHoverInfo(feature.properties.stop_id);
-          setHoverData(feature.properties.stop_name);
-        }
+        const elementIds: string[] = []
+        features.forEach((feature) => {
+          if (feature.properties.route_id != undefined) {
+            elementIds.push(feature.properties.route_id);
+          } else {
+            elementIds.push(feature.properties.stop_id);
+          }
+        })
+        setHoverInfo(elementIds);
       } else {
-        setHoverInfo('');
+        setHoverInfo([]);
         setHoverData('');
         setMapElement([]);
       }
@@ -138,7 +134,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
           onMouseMove={(event) => handleMouseMove(event)}
           style={{ width: '100%', height: '100%' }}
           initialViewState={{ bounds }}
-          interactiveLayerIds={['stops', 'routes']}
+          interactiveLayerIds={['stops', 'routes', 'routes-white']}
           scrollZoom={true}
           dragPan={true}
           mapStyle={{
@@ -186,9 +182,9 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
                     'match',
                     ['get', 'route_type'], // Property from the vector tile
                     '3',
-                    3, // 3 = bus
+                    4, // 3 = bus
                     '1',
-                    8, // 1 = metro
+                    15, // 1 = metro
                     3, // Default width
                   ],
                 },
@@ -258,7 +254,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
                     'match',
                     ['get', 'route_type'], // Property from the vector tile
                     '3',
-                    4, // 3 = bus
+                    5, // 3 = bus
                     '1',
                     6, // 1 = metro
                     3, // Default width
@@ -266,7 +262,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
                 },
                 minzoom: 10,
                 maxzoom: 22,
-                filter: ['==', ['get', 'route_id'], hoverInfo],
+                filter: ['in', ['get', 'route_id'], ['literal', hoverInfo]],
               },
               {
                 id: 'stops-highlight',
@@ -274,11 +270,11 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
                 'source-layer': 'stops',
                 type: 'circle',
                 paint: {
-                  'circle-radius': 8, // Make it larger
+                  'circle-radius': 10,
                   'circle-color': '#ff0000', // Red highlight
                   'circle-opacity': 0.8,
                 },
-                filter: ['==', ['get', 'stop_id'], hoverInfo], // Apply only to hovered feature
+                filter: ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
               },
             ],
           }}

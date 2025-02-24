@@ -60,6 +60,7 @@ import {
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import { RouteAvailabilities } from '../../components/RouteAvailabilities';
+import { Map2 } from '../../components/Map2';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -639,7 +640,7 @@ export default function Feed(): React.ReactElement {
         <Box>
               {boundingBox !== undefined && (
                 <Box sx={{...mapBoxPositionStyle, width: '100%', height: '750px'}}>
-                  <Map polygon={boundingBox} />
+                  <Map2 polygon={boundingBox} />
                 </Box>
               )}
         </Box>
