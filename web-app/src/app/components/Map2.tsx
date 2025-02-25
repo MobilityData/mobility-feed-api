@@ -8,13 +8,14 @@ import { Protocol } from 'pmtiles';
 import { type LatLngExpression } from 'leaflet';
 import type { FeatureCollection } from 'geojson';
 import { MapElement } from './MapElement';
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 
 export interface MapProps {
   polygon: LatLngExpression[];
 }
 
 export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
+  const theme = useTheme();
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
   const [hoverData, setHoverData] = useState<string>('');
   const [mapElement, setMapElement] = useState<MapElement[]>([]);
@@ -53,14 +54,14 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
 
         setMapElement(mapElements);
 
-        const elementIds: string[] = []
+        const elementIds: string[] = [];
         features.forEach((feature) => {
           if (feature.properties.route_id != undefined) {
             elementIds.push(feature.properties.route_id);
           } else {
             elementIds.push(feature.properties.stop_id);
           }
-        })
+        });
         setHoverInfo(elementIds);
       } else {
         setHoverInfo([]);
@@ -126,7 +127,16 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
 
   return (
     <MapProvider>
-      <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
+      <Box
+        sx={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          border: '2px solid',
+          borderColor: theme.palette.primary.main,
+          borderRadius: '5px',
+        }}
+      >
         <MapElement mapElements={mapElement}></MapElement>
         <Map
           onClick={handleMouseMove}
@@ -142,7 +152,9 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
             sources: {
               'raster-tiles': {
                 type: 'raster',
-                tiles: ['https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'],
+                tiles: [
+                  'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                ],
                 tileSize: 256,
                 attribution:
                   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
