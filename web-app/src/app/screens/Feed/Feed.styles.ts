@@ -19,7 +19,8 @@ export const feedDetailContentContainerStyle = (props: {
 };
 
 export const ctaContainerStyle: SxProps<Theme> = (theme) => ({
-  my: 3,
+  mb: 3,
+  mt: 1,
   width: '100%',
   display: 'flex',
   gap: 1,

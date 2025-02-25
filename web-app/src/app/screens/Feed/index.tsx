@@ -129,7 +129,7 @@ function CustomTabPanel(props: TabPanelProps) {
       aria-labelledby={`simple-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ py: 1, mt: 1 }}>{children}</Box>}
     </div>
   );
 }
@@ -429,10 +429,10 @@ export default function Feed(): React.ReactElement {
             </Trans>
           </WarningContentBox>
         )}
-      <Tabs value={value} onChange={handleChange} aria-label="basic tabs example">
-        <Tab label="Overview"  />
-        <Tab label="Detailed Map"  />
-        <Tab label="Route Availabilities" />
+      <Tabs value={value} onChange={handleChange} aria-label="basic tabs example" sx={{mt: 2}}>
+        <Tab label="Overview" href='#'/>
+        <Tab label="Detailed Map" href='#map'/>
+        <Tab label="Route Availabilities" href='#routes'/>
       </Tabs>
    
       {hasFeedRedirect && (
