@@ -1073,6 +1073,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation" {
       GCP_REGION = var.gcp_region
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
     }
     available_memory = "16Gi"
     timeout_seconds = local.function_reverse_geolocation_config.timeout
@@ -1124,6 +1125,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_pubsub" {
       PYTHONNODEBUGRANGES = 0
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
+      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
     }
@@ -1165,7 +1167,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
       PYTHONNODEBUGRANGES = 0
       PUBSUB_TOPIC_NAME = google_pubsub_topic.reverse_geolocation.name
       PROJECT_ID = var.project_id
-      COUNTRIES = "Canada,France,Japan"
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
     }
     available_memory = local.function_reverse_geolocation_config.available_memory
     timeout_seconds = local.function_reverse_geolocation_config.timeout

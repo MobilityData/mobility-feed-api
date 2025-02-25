@@ -4,6 +4,7 @@
   "transitProvider": "Transit Provider",
   "transitProviderName": "Transit Provider Name",
   "location": "Location",
+  "locations": "Locations",
   "feedDescription": "Description",
   "searchFor": "Search For",
   "resultsFor": "{{startResult}}-{{endResult}} of {{totalResults}} results",

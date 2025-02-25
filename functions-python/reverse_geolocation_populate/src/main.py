@@ -178,7 +178,7 @@ def fetch_data(admin_level, country_code, location_type, country_name=None):
 
 
 @with_db_session
-def save_to_database(data, db_session):
+def save_to_database(data, db_session=None):
     """Save data to the database."""
     for row in data:
         if not row["name"] or not row["geometry"]:

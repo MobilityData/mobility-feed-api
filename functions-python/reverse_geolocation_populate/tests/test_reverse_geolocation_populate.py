@@ -3,14 +3,15 @@ from unittest.mock import patch, MagicMock
 
 from faker import Faker
 
-from helpers.tests.test_database import default_db_url
+from test_shared.test_utils.database_utils import default_db_url
+from main import LocationType
 
 faker = Faker()
 
 
 class TestReverseGeolocationPopulate(unittest.TestCase):
     def test_parse_request(self):
-        from reverse_geolocation_populate.src.main import parse_request_parameters
+        from main import parse_request_parameters
 
         # Valid request
         request = MagicMock()
@@ -61,7 +62,7 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         self.assertIsNone(result[1])
 
     def test_fetch_subdivision_admin_levels(self):
-        from reverse_geolocation_populate.src.main import fetch_subdivision_admin_levels
+        from main import fetch_subdivision_admin_levels
 
         country_code = "CA"
         client_mock = MagicMock()
@@ -70,13 +71,13 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
             MagicMock(admin_level=3),
             MagicMock(admin_level=None),
         ]
-        with patch("reverse_geolocation_populate.src.main.client", client_mock):
+        with patch("main.client", client_mock):
             result = fetch_subdivision_admin_levels(country_code)
             self.assertIsNotNone(result)
             self.assertEqual(result, [2, 3])
 
     def test_fetch_country_admin_levels(self):
-        from reverse_geolocation_populate.src.main import fetch_country_admin_levels
+        from main import fetch_country_admin_levels
 
         country_code = "CA"
         client_mock = MagicMock()
@@ -85,17 +86,17 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
             MagicMock(admin_level=3),
             MagicMock(admin_level=None),
         ]
-        with patch("reverse_geolocation_populate.src.main.client", client_mock):
+        with patch("main.client", client_mock):
             result = fetch_country_admin_levels(country_code)
             self.assertIsNotNone(result)
             self.assertEqual(result, [2, 3])
 
     def test_generate_query(self):
-        from reverse_geolocation_populate.src.main import generate_query
+        from main import generate_query
 
         country_code = "CA"
         admin_levels = [2, 3]
-        result = generate_query(admin_levels, country_code)
+        result = generate_query(admin_levels, country_code, LocationType.COUNTRY)
         self.assertIsNotNone(result)
         query_result = result[0]
         self.assertNotIn(
@@ -103,7 +104,9 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
             query_result,
         )
 
-        result = generate_query(admin_levels, country_code, country_name="Canada")
+        result = generate_query(
+            admin_levels, country_code, LocationType.LOCALITY, country_name="Canada"
+        )
         self.assertIsNotNone(result)
         query_result = result[0]
         self.assertIn(
@@ -111,16 +114,16 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
             query_result,
         )
 
-        result = generate_query(admin_levels, country_code, is_lower=False)
+        result = generate_query(admin_levels, country_code, LocationType.COUNTRY)
         self.assertIsNotNone(result)
         self.assertIn(
-            "AND ('ISO3166-1', 'CA') IN (SELECT STRUCT(key, value) FROM UNNEST(all_tags))",
+            "AND ('ISO3166-1', @country_code) IN (SELECT STRUCT(key, value) FROM UNNEST(all_tags))",
             result[0],
         )
 
-    @patch("reverse_geolocation_populate.src.main.generate_query")
+    @patch("main.generate_query")
     def test_fetch_data(self, mock_generate_query):
-        from reverse_geolocation_populate.src.main import fetch_data
+        from main import fetch_data
 
         def gen_mock_row(osm_id, name):
             row_mock = MagicMock(
@@ -145,13 +148,20 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
                 ]
             ),
         )
-        with patch("reverse_geolocation_populate.src.main.client", client_mock):
-            result = fetch_data(3, "CA")
+        with patch("main.client", client_mock):
+            result = fetch_data(3, "CA", LocationType.SUBDIVISION)
             self.assertIsNotNone(result)
             self.assertEqual(len(result), 3)
 
+    @patch.dict(
+        "os.environ",
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+            "GOOGLE_APPLICATION_CREDENTIALS": faker.file_path(),
+        },
+    )
     def test_save_to_database(self):
-        from reverse_geolocation_populate.src.main import save_to_database
+        from main import save_to_database
 
         data = [
             {
@@ -191,36 +201,37 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
                 "iso3166_2": None,
             },
         ]
-        mock_session = MagicMock()
-        mock_session.query.return_value.filter.return_value.first.return_value = None
-        save_to_database(data, mock_session)
-        self.assertEqual(mock_session.add.call_count, 3)
+        db_session = MagicMock()
+        db_session.query.return_value.filter.return_value.first.return_value = None
+        save_to_database(data, db_session=db_session)
+        self.assertEqual(db_session.add.call_count, 3)
 
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.first.return_value = (
             MagicMock()
         )
-        save_to_database(data, mock_session)
+        save_to_database(data, db_session=mock_session)
         self.assertEqual(mock_session.add.call_count, 0)
 
     @patch(
-        "reverse_geolocation_populate.src.main.fetch_subdivision_admin_levels",
+        "main.fetch_subdivision_admin_levels",
         return_value=[2, 3],
     )
     def test_get_admin_levels(self, _):
-        from reverse_geolocation_populate.src.main import get_locality_admin_levels
+        from main import get_locality_admin_levels
 
         country_code = "CA"
-        result = get_locality_admin_levels(country_code, 1)
+        result = get_locality_admin_levels(country_code, 1, 3)
         self.assertIsNotNone(result)
-        self.assertEqual(result, [1, 2, 3, 4, 5])
+        self.assertEqual(result, [6, 8])
 
-    @patch("reverse_geolocation_populate.src.main.Logger")
-    @patch("reverse_geolocation_populate.src.main.bigquery")
-    @patch("reverse_geolocation_populate.src.main.parse_request_parameters")
-    @patch("reverse_geolocation_populate.src.main.fetch_country_admin_levels")
-    @patch("reverse_geolocation_populate.src.main.fetch_data")
-    @patch("reverse_geolocation_populate.src.main.save_to_database")
+    @patch("main.Logger")
+    @patch("main.bigquery")
+    @patch("main.parse_request_parameters")
+    @patch("main.fetch_country_admin_levels")
+    @patch("main.fetch_data")
+    @patch("main.save_to_database")
+    @patch("main.fetch_subdivision_admin_levels")
     @patch.dict(
         "os.environ",
         {
@@ -230,6 +241,7 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
     )
     def test_reverse_geolocation_populate(
         self,
+        mock_fetch_subdivision_admin_lvl,
         __,
         mock_fetch_data,
         mock_fetch_country_admin_lvl,
@@ -239,7 +251,8 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
     ):
         mock_parse_req.return_value = ("CA", [2])
         mock_bigquery.Client.return_value = MagicMock()
-        from reverse_geolocation_populate.src.main import reverse_geolocation_populate
+        mock_fetch_subdivision_admin_lvl.return_value = [3]
+        from main import reverse_geolocation_populate
 
         _, response_code = reverse_geolocation_populate(MagicMock())
         self.assertEqual(400, response_code)

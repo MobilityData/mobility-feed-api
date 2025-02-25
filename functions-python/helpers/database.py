@@ -107,19 +107,19 @@ def with_db_session(_func=None, *, echo=True):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            db_session = kwargs.get("db_session")
+            print("Wrapper")
+            print(args)
+            print(kwargs)
+            if "db_session" in kwargs:
+                return func(*args, **kwargs)
 
-            if db_session is None:
-                db = Database()
-                with db.start_db_session(echo=echo) as session:
-                    kwargs["db_session"] = session
-                    return func(*args, **kwargs)
-            else:
+            db = Database()
+            with db.start_db_session(echo=echo) as session:
+                kwargs["db_session"] = session
                 return func(*args, **kwargs)
 
         return wrapper
 
-    # Allow decorator to be used with or without parentheses
     if _func is None:
         return decorator
     else:

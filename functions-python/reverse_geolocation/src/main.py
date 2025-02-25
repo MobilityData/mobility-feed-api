@@ -14,13 +14,13 @@ def reverse_geolocation_processor(request: flask.Request):
 
 
 @functions_framework.http
-def reverse_geolocation_batch(_: flask.Request):
+def reverse_geolocation_batch(request: flask.Request):
     """
     Cloud Function that batch triggers the reverse geolocation process.
     """
     from reverse_geolocation_batch import reverse_geolocation_batch
 
-    return reverse_geolocation_batch()
+    return reverse_geolocation_batch(request)
 
 
 @functions_framework.cloud_event

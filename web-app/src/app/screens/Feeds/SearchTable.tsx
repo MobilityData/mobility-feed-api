@@ -27,6 +27,7 @@ import GtfsRtEntities from './GtfsRtEntities';
 import { Link } from 'react-router-dom';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
+import { getEmojiFlag, type TCountryCode } from 'countries-list';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -160,7 +161,7 @@ export default function SearchTable({
           <HeaderTableCell component={'h6'}>
             {t('transitProvider')}
           </HeaderTableCell>
-          <HeaderTableCell component={'h6'}>{t('location')}</HeaderTableCell>
+          <HeaderTableCell component={'h6'}>{t('locations')}</HeaderTableCell>
           <HeaderTableCell component={'h6'}>
             {t('feedDescription')}
           </HeaderTableCell>
@@ -244,7 +245,58 @@ export default function SearchTable({
               </Box>
             </TableCell>
             <TableCell className='feed-column' component={Box}>
-              {getLocationName(feed.locations)}
+              {feed.locations != null && feed.locations.length > 1 ? (
+                <>
+                  {Array.from(
+                    new Map(
+                      feed.locations.map((loc) => [loc.country_code, loc]),
+                    ).values(),
+                  ).map((uniqueLoc) => {
+                    const subdivisions = new Set<string>();
+                    const municipalities = new Set<string>();
+
+                    feed.locations
+                      ?.filter(
+                        (loc) => loc.country_code === uniqueLoc.country_code,
+                      )
+                      .forEach((loc) => {
+                        if (loc.subdivision_name != null)
+                          subdivisions.add(loc.subdivision_name);
+                        if (loc.municipality != null)
+                          municipalities.add(loc.municipality);
+                      });
+
+                    const tooltipText = `${subdivisions.size} subdivisions and ${municipalities.size} municipalities within ${uniqueLoc.country}.`;
+
+                    return (
+                      <Tooltip
+                        key={uniqueLoc.country_code}
+                        title={tooltipText}
+                        arrow
+                      >
+                        <Chip
+                          label={`${getEmojiFlag(
+                            uniqueLoc.country_code as TCountryCode,
+                          )} ${uniqueLoc.country}`}
+                          size='medium'
+                          sx={{ mr: 1, mt: 1 }}
+                        />
+                      </Tooltip>
+                    );
+                  })}
+                </>
+              ) : (
+                <Chip
+                  key={
+                    feed.locations != null
+                      ? feed.locations[0].country_code
+                      : 'cc-key'
+                  }
+                  label={getLocationName(feed.locations)}
+                  size='medium'
+                  sx={{ mr: 1 }}
+                />
+              )}
             </TableCell>
             <TableCell className='feed-column' component={Box}>
               {feed.feed_name}

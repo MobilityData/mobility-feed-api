@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from typing import Tuple
 
 import gtfs_kit
 from cloudevents.http import CloudEvent
@@ -12,7 +13,7 @@ from shared.helpers.logger import Logger
 from shared.helpers.parser import jsonify_pubsub
 
 
-def init(request: CloudEvent):
+def init(request: CloudEvent) -> None:
     """
     Initializer function.
     """
@@ -21,11 +22,10 @@ def init(request: CloudEvent):
     logging.info("Request: %s", request)
 
 
-def parse_resource_data(data: dict) -> tuple:
+def parse_resource_data(data: dict) -> Tuple[str, str, str]:
     """
     Parse the cloud event data to extract resource information.
-    @:param data (dict): The data part of the CloudEvent.
-    @:return tuple: A tuple containing stable_id, dataset_id, and the resource URL.
+    @:returns tuple: A tuple containing stable_id, dataset_id, and the resource URL.
     """
     resource_name = data["protoPayload"]["resourceName"]
     stable_id = resource_name.split("/")[-3]
@@ -76,12 +76,11 @@ def reverse_geolocation_storage_trigger(request: CloudEvent) -> None:
 def reverse_geolocation(stable_id: str, dataset_id: str, url: str) -> None:
     """
     Reverse geolocation function to create tasks for the reverse geolocation process.
-    @:param stable_id (str): The stable ID of the feed.
-    @:param dataset_id (str): The stable ID of the latest dataset.
-    @:param url (str): The hosted URL of the dataset.
     """
     try:
-        logging.info(f"Stable ID: {stable_id} - Dataset ID: {dataset_id} - URL: {url}")
+        logging.info(
+            f"Stable ID: {stable_id} - Dataset Stable ID: {dataset_id} - URL: {url}"
+        )
 
         # TODO: This logic should be moved to a separate function
         feed = gtfs_kit.read_feed(url, "km")
@@ -93,27 +92,24 @@ def reverse_geolocation(stable_id: str, dataset_id: str, url: str) -> None:
         blob.make_public()
         logging.info(f"Uploaded stops.txt to {blob.public_url}")
 
-        client = tasks_v2.CloudTasksClient()
-        create_http_processor_task(client, stable_id, blob.public_url)
+        create_http_processor_task(stable_id, dataset_id, blob.public_url)
+        logging.info(f"Reverse geolocation task created for feed {stable_id}.")
     except Exception as e:
         logging.error(f"Error creating task: {e}")
-        return
-    logging.info(f"Reverse geolocation task created for feed {stable_id}.")
-    return
 
 
 def create_http_processor_task(
-    client: tasks_v2.CloudTasksClient,
     stable_id: str,
+    dataset_id: str,
     stops_url: str,
 ) -> None:
     """
     Create a task to process a group of points.
-    :param client: GCP CloudTasksClient object
-    :param stops_url: URL of the stops.txt file
-    :param stable_id: feed stable ID
     """
-    body = json.dumps({"stable_id": stable_id, "stops_url": stops_url}).encode()
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {"stable_id": stable_id, "stops_url": stops_url, "dataset_id": dataset_id}
+    ).encode()
     create_http_task(
         client,
         body,

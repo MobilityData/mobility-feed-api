@@ -15,7 +15,6 @@ import {
 } from '@mui/material';
 import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
-  getLocationName,
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
@@ -33,6 +32,7 @@ import LockIcon from '@mui/icons-material/Lock';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { FeedStatusIndicator } from '../../components/FeedStatus';
+import Locations from '../../components/Locations';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -133,11 +133,11 @@ export default function FeedSummary({
         <StyledTitleContainer>
           <PublicIcon></PublicIcon>
           <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
-            {t('location')}
+            {t('locations')}
           </Typography>
         </StyledTitleContainer>
         <Typography variant='body1' data-testid='location'>
-          {getLocationName(feed?.locations)}
+          {feed?.locations != null && <Locations locations={feed?.locations} />}
         </Typography>
       </Box>
       <Box sx={boxElementStyleTransitProvider}>

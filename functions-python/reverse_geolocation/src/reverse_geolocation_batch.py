@@ -1,32 +1,42 @@
 import logging
 import os
+from typing import List, Dict, Tuple
 
-from sqlalchemy.orm import joinedload, contains_eager
+import flask
+import pycountry
+from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm.session import Session
 
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset, Location
 from shared.helpers.database import with_db_session
+from shared.helpers.logger import Logger
 from shared.helpers.pub_sub import publish_messages
+from shared.helpers.utils import cors_configuration
 
 logging.basicConfig(level=logging.INFO)
 
 
 @with_db_session(echo=False)
-def get_feeds_data(db_session):
-    countries = os.getenv("COUNTRIES", "Canada")
-    countries = [country.strip() for country in countries.split(",")]
-    logging.info(f"Getting feeds for countries: {countries}")
-
-    results = (
+def get_feeds_data(country_codes: List[str], db_session: Session) -> List[Dict]:
+    """Get the feeds data for the given country codes. In case no country codes are provided, fetch feeds for all
+    countries."""
+    query = (
         db_session.query(Gtfsfeed)
-        .join(Gtfsfeed.locations)
         .join(Gtfsfeed.gtfsdatasets)
-        .options(joinedload(Gtfsfeed.locations), contains_eager(Gtfsfeed.gtfsdatasets))
-        .filter(Location.country.in_(countries))
+        .join(Gtfsfeed.locations)
+        .options(contains_eager(Gtfsfeed.gtfsdatasets))
         .filter(Gtfsfeed.status != "deprecated")
         .filter(Gtfsdataset.latest)
-        .populate_existing()
-        .all()
     )
+    if country_codes:
+        logging.info(f"Getting feeds for country codes: {country_codes}")
+        query = query.filter(
+            Gtfsfeed.locations.any(Location.country_code.in_(country_codes))
+        )
+    else:
+        logging.warning("No country codes provided. Fetching feeds for all countries.")
+
+    results = query.populate_existing().all()
     logging.info(f"Found {len(results)} feeds.")
 
     data = [
@@ -40,18 +50,34 @@ def get_feeds_data(db_session):
     return data
 
 
-def reverse_geolocation_batch():
-    feeds_data = get_feeds_data()
-    logging.info(f"Valid feeds with latest dataset: {len(feeds_data)}")
-    pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
-    project_id = os.getenv("PROJECT_ID", None)
-    if pubsub_topic_name is None:
-        logging.error("PUBSUB_TOPIC_NAME environment variable not set.")
-        return "PUBSUB_TOPIC_NAME environment variable not set.", 500
-    if project_id is None:
-        logging.error("PROJECT_ID environment variable not set.")
-        return "PROJECT_ID environment variable not set.", 500
+def parse_request_parameters(request: flask.Request) -> List[str]:
+    """Parse the request parameters to get the country codes."""
+    country_codes = request.args.get("country_codes", "").split(",")
+    country_codes = [code.strip().upper() for code in country_codes if code]
 
-    publish_messages(feeds_data, project_id, pubsub_topic_name)
-    logging.info(f"Publishing to topic: {pubsub_topic_name}")
-    return f"Batch function triggered for {len(feeds_data)} feeds.", 200
+    # Validate country codes
+    for country_code in country_codes:
+        if not pycountry.countries.get(alpha_2=country_code):
+            raise ValueError(f"Invalid country code: {country_code}")
+    return country_codes
+
+
+def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
+    """Batch function to trigger reverse geolocation for feeds."""
+    try:
+        Logger.init_logger()
+        country_codes = parse_request_parameters(request)
+        feeds_data = get_feeds_data(country_codes)
+        logging.info(f"Valid feeds with latest dataset: {len(feeds_data)}")
+
+        pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
+        project_id = os.getenv("PROJECT_ID")
+
+        logging.info(f"Publishing to topic: {pubsub_topic_name}")
+        publish_messages(feeds_data, project_id, pubsub_topic_name)
+
+        cors_configuration(os.getenv("DATASETS_BUCKET_NAME"))
+        return f"Batch function triggered for {len(feeds_data)} feeds.", 200
+    except Exception as e:
+        logging.error(f"Execution error: {e}")
+        return "Error while fetching feeds.", 500

@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import pycountry
@@ -16,7 +16,9 @@ gcp_region = os.getenv("GCP_REGION")
 ERROR_STATUS_CODE = 299  # Custom error code for the function to avoid retries
 
 
-def generate_color(points_match, max_match, colormap_name="OrRd"):
+def generate_color(
+    points_match: int, max_match: int, colormap_name: str = "OrRd"
+) -> str:
     """
     Generate a color based on the points_match value using a matplotlib colormap.
     """
@@ -27,7 +29,8 @@ def generate_color(points_match, max_match, colormap_name="OrRd"):
     return f"rgba({int(rgba[0] * 255)}, {int(rgba[1] * 255)}, {int(rgba[2] * 255)}, {rgba[3]})"
 
 
-def create_http_task(client: tasks_v2.CloudTasksClient, body: bytes, url: str):
+def create_http_task(client: tasks_v2.CloudTasksClient, body: bytes, url: str) -> None:
+    """Creates a GCP Cloud Task."""
     task = tasks_v2.Task(
         http_request=tasks_v2.HttpRequest(
             url=url,
@@ -50,7 +53,7 @@ class GeopolygonAggregate:
     (e.g. Canada, Ontario, Toronto).
     """
 
-    def __init__(self, location_group: Osmlocationgroup, stop_count: int):
+    def __init__(self, location_group: Osmlocationgroup, stops_count: int):
         self.group_id = location_group.group_id
         self.group_name = location_group.group_name
         self.geopolygons = [
@@ -68,18 +71,19 @@ class GeopolygonAggregate:
                 if geopolygon.iso_3166_2_code
             ]
         )
-        self.stop_count = stop_count
+        self.stop_count = stops_count
 
-    def country(self):
+    def country(self) -> str:
         """Returns the country name of the LocationGroup."""
         return pycountry.countries.get(alpha_2=self.iso_3166_1_code).name
 
-    def location_id(self):
+    def location_id(self) -> str:
+        """Returns the location ID of the LocationGroup."""
         return "-".join(
             [self.iso_3166_1_code, self.subdivision_name(), self.municipality()]
         )
 
-    def subdivision_name(self):
+    def subdivision_name(self) -> Optional[str]:
         """Returns the name of the lowest admin level geopolygon that has an ISO 3166-2 code defined but no ISO 3166-1
         code."""
         iso_3166_2_polygons = [
@@ -93,11 +97,11 @@ class GeopolygonAggregate:
             ).name
         return None
 
-    def municipality(self):
+    def municipality(self) -> str:
         """Returns the name of the highest admin level geopolygon."""
         return max(self.geopolygons, key=lambda geopolygon: geopolygon.admin_level).name
 
-    def highest_admin_geometry(self):
+    def highest_admin_geometry(self) -> str:
         """Get the highest admin level geometry."""
         return max(
             self.geopolygons, key=lambda geopolygon: geopolygon.admin_level
@@ -107,7 +111,7 @@ class GeopolygonAggregate:
         """Merge the stop count of another LocationGroup."""
         self.stop_count += other.stop_count
 
-    def get_display_name(self) -> str:
+    def display_name(self) -> str:
         """Return the display name of the LocationGroup."""
         display_name = self.group_name
         if self.iso_3166_1_code:
@@ -118,33 +122,28 @@ class GeopolygonAggregate:
                 pass
         return display_name
 
-    def __eq__(self, other):
-        if not isinstance(other, GeopolygonAggregate):
-            return False
-        return self.group_id == other.group_id
-
-    def __hash__(self):
-        return hash(self.group_id)
-
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.group_id} - {self.group_name}"
 
 
 class GeopolygonObject:
     """A class to represent a Geopolygon object."""
 
-    def __init__(self, geopolygonOrm: Geopolygon):
-        self.name = geopolygonOrm.name
-        self.osm_id = geopolygonOrm.osm_id
-        self.admin_level = geopolygonOrm.admin_level
-        self.iso_3166_1_code = geopolygonOrm.iso_3166_1_code
-        self.iso_3166_2_code = geopolygonOrm.iso_3166_2_code
-        self.geometry = to_shape(geopolygonOrm.geometry)
+    def __init__(self, geopolygon_orm: Geopolygon):
+        self.name = geopolygon_orm.name
+        self.osm_id = geopolygon_orm.osm_id
+        self.admin_level = geopolygon_orm.admin_level
+        self.iso_3166_1_code = geopolygon_orm.iso_3166_1_code
+        self.iso_3166_2_code = geopolygon_orm.iso_3166_2_code
+        self.geometry = to_shape(geopolygon_orm.geometry)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.name} [{self.osm_id} - Admin Level: {self.admin_level}]"
 
 
 def detach_from_session(geopolygons: List[Geopolygon]) -> List[GeopolygonObject]:
-    """Detach the geopolygons from the session and return as GeopolygonObject."""
+    """
+    Detach the geopolygons from the session and return as GeopolygonObject. This helps to avoid the
+    'DetachedInstanceError' when accessing the properties of the geopolygons while the session is closed.
+    """
     return [GeopolygonObject(geopolygon) for geopolygon in geopolygons]

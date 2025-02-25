@@ -14,8 +14,6 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
 
-import '../../styles/FAQ.css';
-import { ContentBox } from '../../components/ContentBox';
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
 import {

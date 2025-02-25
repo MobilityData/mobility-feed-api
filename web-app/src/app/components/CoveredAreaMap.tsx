@@ -1,5 +1,3 @@
-// CoveredAreaMap.tsx
-
 import React, { useState } from 'react';
 import { Box, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
@@ -7,17 +5,19 @@ import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { ContentBox } from './ContentBox';
 import { WarningContentBox } from './WarningContentBox';
 import { mapBoxPositionStyle } from '../screens/Feed/Feed.styles';
-import { MapGeoJSON } from './MapGeoJSON';
+import { type GeoJSONData, MapGeoJSON } from './MapGeoJSON';
 import { Map } from './Map';
 import { useTranslation } from 'react-i18next';
-import { theme } from '../Theme';
 import type { LatLngExpression } from 'leaflet';
+import { useTheme } from '@mui/material/styles';
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[]; // Replace 'any' with your actual type
   latestDataset?: { hosted_url?: string };
 }
 
-export const fetchGeoJson = async (latestDatasetUrl: string): Promise<any> => {
+export const fetchGeoJson = async (
+  latestDatasetUrl: string,
+): Promise<GeoJSONData> => {
   const geoJsonUrl = latestDatasetUrl
     .split('/')
     .slice(0, -2)
@@ -35,8 +35,11 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   latestDataset,
 }) => {
   const { t } = useTranslation('feeds');
+  const theme = useTheme();
   const [geoJsonError, setGeoJsonError] = React.useState(false);
-  const [geoJsonData, setGeoJsonData] = React.useState(null);
+  const [geoJsonData, setGeoJsonData] = React.useState<GeoJSONData | null>(
+    null,
+  );
   React.useEffect(() => {
     if (latestDataset?.hosted_url !== undefined) {
       fetchGeoJson(latestDataset.hosted_url).then(
