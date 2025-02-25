@@ -184,8 +184,8 @@ def populate_database():
         session.add(tu_entitytype)
 
     # GTFS Realtime feeds
-    for i in range(3):
-        gtfs_rt_feed = Gtfsrealtimefeed(
+    gtfs_rt_feeds = [
+        Gtfsrealtimefeed(
             id=fake.uuid4(),
             data_type="gtfs_rt",
             feed_name=f"gtfs-rt-{i} Some fake name",
@@ -201,7 +201,10 @@ def populate_database():
             provider=f"gtfs-rt-{i} Some fake company",
             entitytypes=[vp_entitytype, tu_entitytype] if (i == 0) else [vp_entitytype],
         )
-        session.add(gtfs_rt_feed)
+        for i in range(3)
+    ]
+    gtfs_rt_feeds[0].gtfs_feeds.append(active_gtfs_feeds[0])
+    session.add_all(gtfs_rt_feeds)
 
     session.commit()
 
