@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
-import { ContentBox } from '../../components/ContentBox';
+
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
 import {
@@ -36,7 +36,6 @@ import {
   selectDatasetsLoadingStatus,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
-import { Map } from '../../components/Map';
 import PreviousDatasets from './PreviousDatasets';
 import FeedSummary from './FeedSummary';
 import DataQualitySummary from './DataQualitySummary';
@@ -54,8 +53,8 @@ import DownloadIcon from '@mui/icons-material/Download';
 import {
   ctaContainerStyle,
   feedDetailContentContainerStyle,
-  mapBoxPositionStyle,
 } from './Feed.styles';
+import CoveredAreaMap from '../../components/CoveredAreaMap';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -408,21 +407,19 @@ export default function Feed(): React.ReactElement {
         </Grid>
       </Grid>
       <Box sx={{ mt: 2 }}>{getFeedTitleElement(sortedProviders, feed, t)}</Box>
-      {feed != undefined &&
-        feed.feed_name !== '' &&
-        feed?.data_type === 'gtfs' && (
-          <Grid item xs={12}>
-            <Typography
-              sx={{
-                fontWeight: 'bold',
-                fontSize: { xs: 18, sm: 24 },
-              }}
-              data-testid='feed-name'
-            >
-              {feed?.feed_name}
-            </Typography>
-          </Grid>
-        )}
+      {feed?.feed_name !== '' && feed?.data_type === 'gtfs' && (
+        <Grid item xs={12}>
+          <Typography
+            sx={{
+              fontWeight: 'bold',
+              fontSize: { xs: 18, sm: 24 },
+            }}
+            data-testid='feed-name'
+          >
+            {feed?.feed_name}
+          </Typography>
+        </Grid>
+      )}
 
       {feed?.data_type === 'gtfs' && (
         <DataQualitySummary
@@ -554,28 +551,10 @@ export default function Feed(): React.ReactElement {
           })}
         >
           {feed?.data_type === 'gtfs' && (
-            <ContentBox
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-              title={t('boundingBoxTitle')}
-              width={{ xs: '100%', md: '100%' }}
-              outlineColor={theme.palette.primary.dark}
-              padding={2}
-            >
-              {boundingBox === undefined && (
-                <WarningContentBox>
-                  {t('unableToGenerateBoundingBox')}
-                </WarningContentBox>
-              )}
-              {boundingBox !== undefined && (
-                <Box sx={mapBoxPositionStyle}>
-                  <Map polygon={boundingBox} />
-                </Box>
-              )}
-            </ContentBox>
+            <CoveredAreaMap
+              boundingBox={boundingBox}
+              latestDataset={latestDataset}
+            />
           )}
           <FeedSummary
             feed={feed}
