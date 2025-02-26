@@ -207,7 +207,14 @@ def save_to_database(data, db_session=None):
 
 @functions_framework.http
 def reverse_geolocation_populate(request):
-    """Cloud Function entry point to populate the reverse geolocation database."""
+    """
+    Cloud Function entry point to populate the reverse geolocation database.
+    This function accepts a POST request with a JSON body like:
+    {
+        "country_code": "CA", # Required, ISO 3166-1 alpha-2 country code
+        "admin_levels": "2,4,6", # Optional, comma-separated list of admin levels, otherwise levels are computed
+    }
+    """
     Logger.init_logger()
     global client
     client = bigquery.Client()
@@ -280,9 +287,9 @@ def get_locality_admin_levels(country_code, country_admin_level, subdivision_lev
         else:
             locality_levels = [
                 max(subdivision_levels + [country_admin_level])
-                + 1,  # Adding a level higher than the highest subdivision level
+                + 1,  # Adding a level 1 level higher than the highest subdivision level
                 max(subdivision_levels + [country_admin_level])
-                + 2,  # Adding another level higher than the highest subdivision level
+                + 2,  # Adding a level 2 levels higher than the highest subdivision level
             ]
     locality_levels = [level for level in locality_levels if level <= 8][:5]
     return locality_levels

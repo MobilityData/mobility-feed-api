@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 import json
+import logging
 import uuid
 from typing import Dict, List
 
@@ -56,4 +57,4 @@ def publish_messages(data: List[Dict], project_id, topic_name) -> None:
     for element in data:
         message_data = json.dumps(element).encode("utf-8")
         future = publish(publisher, topic_path, message_data)
-        print(f"Published message to Pub/Sub with ID: {future.result()}")
+        logging.info(f"Published message to Pub/Sub with ID: {future.result()}")

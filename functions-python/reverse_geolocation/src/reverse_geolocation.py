@@ -82,7 +82,7 @@ def reverse_geolocation(stable_id: str, dataset_id: str, url: str) -> None:
             f"Stable ID: {stable_id} - Dataset Stable ID: {dataset_id} - URL: {url}"
         )
 
-        # TODO: This logic should be moved to a separate function
+        # TODO: This logic should be moved to a separate service
         feed = gtfs_kit.read_feed(url, "km")
         feed.stops.to_csv("stops.txt", index=False)
         storage_client = storage.Client()

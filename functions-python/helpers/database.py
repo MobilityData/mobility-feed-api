@@ -107,9 +107,6 @@ def with_db_session(_func=None, *, echo=True):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            print("Wrapper")
-            print(args)
-            print(kwargs)
             if "db_session" in kwargs:
                 return func(*args, **kwargs)
 

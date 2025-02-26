@@ -407,7 +407,6 @@ def reverse_geolocation_process(
         if stops_df.empty:
             logging.warning("All stops have null lat/lon values.")
             return "All stops have null lat/lon values", ERROR_STATUS_CODE
-        bounding_box = update_dataset_bounding_box(dataset_id, stops_df)
         total_stops = len(stops_df)
     except ValueError as e:
         logging.error(f"Error parsing request parameters: {e}")
@@ -417,6 +416,9 @@ def reverse_geolocation_process(
     logging.getLogger().addFilter(stable_id_filter)
 
     try:
+        # Update the bounding box of the dataset
+        bounding_box = update_dataset_bounding_box(dataset_id, stops_df)
+
         # Get Cached Geopolygons
         feed_id, location_groups, stops_df = get_cached_geopolygons(stable_id, stops_df)
         logging.info(f"Number of location groups extracted: {len(location_groups)}")
@@ -441,7 +443,10 @@ def reverse_geolocation_process(
             f"COMPLETED. Processed {total_stops} stops for stable ID {stable_id}. Retrieved "
             f"{len(location_groups)} locations."
         )
-        return "Done or wtv", 200
+        return (
+            f"Processed {total_stops} stops for stable ID {stable_id}. Retrieved {len(location_groups)} locations.",
+            200,
+        )
 
     except Exception as e:
         logging.error(f"Error processing geopolygons: {e}")
