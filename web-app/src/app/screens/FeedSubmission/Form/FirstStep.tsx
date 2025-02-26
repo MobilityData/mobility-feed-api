@@ -117,13 +117,13 @@ export default function FormFirstStep({
                     <RadioGroup {...field}>
                       <FormControlLabel
                         value='yes'
-                        control={<Radio color='default' />}
+                        control={<Radio />}
                         label={t('common:form.yes')}
                         data-cy='isOfficialProducerYes'
                       />
                       <FormControlLabel
                         value='no'
-                        control={<Radio sx={{}} />}
+                        control={<Radio />}
                         label={t('common:form.no')}
                         data-cy='isOfficialProducerNo'
                       />

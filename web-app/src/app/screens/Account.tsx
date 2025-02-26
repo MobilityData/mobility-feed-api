@@ -256,8 +256,9 @@ export default function APIAccount(): React.ReactElement {
   return (
     <Container
       component={'main'}
-      maxWidth={false}
+      maxWidth='xl'
       sx={{
+        mx: 'auto',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -316,7 +317,7 @@ export default function APIAccount(): React.ReactElement {
       >
         <Paper
           sx={{
-            bgcolor: '#f9f5f5',
+            bgcolor: theme.palette.background.paper,
             width: {
               xs: '100%',
               md: '390px',
@@ -412,7 +413,15 @@ export default function APIAccount(): React.ReactElement {
             <Typography sx={{ mb: 2 }}>
               {t('refreshToken.description')}
             </Typography>
-            <Box className='token-display-element'>
+            <Box
+              className='token-display-element'
+              sx={{
+                backgroundColor: theme.palette.background.paper,
+                p: 2,
+                borderRadius: '6px',
+                border: `1px solid ${theme.palette.primary.main}`,
+              }}
+            >
               <Typography
                 width={500}
                 variant='body1'
@@ -577,7 +586,15 @@ export default function APIAccount(): React.ReactElement {
 
             {!showGenerateAccessTokenButton && (
               <Box sx={{ width: 'fit-content', p: 1, mb: 5 }}>
-                <Box className='token-display-element'>
+                <Box
+                  className='token-display-element'
+                  sx={{
+                    backgroundColor: theme.palette.background.paper,
+                    p: 2,
+                    borderRadius: '6px',
+                    border: `1px solid ${theme.palette.primary.main}`,
+                  }}
+                >
                   <Typography
                     width={500}
                     variant='body1'

@@ -1,8 +1,7 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
-import { Button, Card, styled, Typography } from '@mui/material';
-import { theme } from '../Theme';
+import { Button, Card, styled, Typography, useTheme } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useTranslation } from 'react-i18next';
@@ -32,22 +31,22 @@ const ContactUsItem = styled(Card)(({ theme }) => ({
   },
 }));
 
-const SlackSvg = (
-  <svg
-    xmlns='http://www.w3.org/2000/svg'
-    width='4rem'
-    height='4rem'
-    viewBox='0 0 24 24'
-  >
-    <path
-      fill={theme.palette.primary.main}
-      d='M6 15a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2h2zm1 0a2 2 0 0 1 2-2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2a2 2 0 0 1-2-2zm2-8a2 2 0 0 1-2-2a2 2 0 0 1 2-2a2 2 0 0 1 2 2v2zm0 1a2 2 0 0 1 2 2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2a2 2 0 0 1 2-2zm8 2a2 2 0 0 1 2-2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2zm-1 0a2 2 0 0 1-2 2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2a2 2 0 0 1 2 2zm-2 8a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2v-2zm0-1a2 2 0 0 1-2-2a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2a2 2 0 0 1-2 2z'
-    />
-  </svg>
-);
-
 export default function ContactUs(): React.ReactElement {
   const { t } = useTranslation('contactUs');
+  const theme = useTheme();
+  const SlackSvg = (
+    <svg
+      xmlns='http://www.w3.org/2000/svg'
+      width='4rem'
+      height='4rem'
+      viewBox='0 0 24 24'
+    >
+      <path
+        fill={theme.palette.primary.main}
+        d='M6 15a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2h2zm1 0a2 2 0 0 1 2-2a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2a2 2 0 0 1-2-2zm2-8a2 2 0 0 1-2-2a2 2 0 0 1 2-2a2 2 0 0 1 2 2v2zm0 1a2 2 0 0 1 2 2a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2a2 2 0 0 1 2-2zm8 2a2 2 0 0 1 2-2a2 2 0 0 1 2 2a2 2 0 0 1-2 2h-2zm-1 0a2 2 0 0 1-2 2a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2a2 2 0 0 1 2 2zm-2 8a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2v-2zm0-1a2 2 0 0 1-2-2a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2a2 2 0 0 1-2 2z'
+      />
+    </svg>
+  );
   return (
     <Container component='main' maxWidth={'lg'}>
       <MainPageHeader>{t('title')}</MainPageHeader>
@@ -66,8 +65,14 @@ export default function ContactUs(): React.ReactElement {
             </Typography>
           </Box>
           <Typography variant='body1'>
-            {t('email.description')}{' '}
-            <a href='mailto:api@mobilitydata.org'>api@mobilitydata.org</a>
+            {t('email.description')}
+            <Button
+              variant='text'
+              className='inline'
+              href={'mailto:api@mobilitydata.org'}
+            >
+              api@mobilitydata.org
+            </Button>
           </Typography>
         </ContactUsItem>
 

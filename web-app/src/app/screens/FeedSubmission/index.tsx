@@ -38,10 +38,8 @@ function Component(): React.ReactElement {
           <>
             <MainPageHeader>{t('form.addOrUpdateFeed')}</MainPageHeader>
             <Typography sx={{ my: 2 }}>{t('form.signUp')}</Typography>
-            <Button variant='contained'>
-              <a href='/sign-up?add_feed=true' className='btn-link'>
-                {t('form.signUpAction')}
-              </a>
+            <Button variant='contained' href='/sign-up?add_feed=true'>
+              {t('form.signUpAction')}
             </Button>
           </>
         )}
@@ -62,14 +60,17 @@ function Component(): React.ReactElement {
 
             <ColoredContainer>
               <Typography>
-                Do you have any questions about how to submit a feed?{' '}
-                <a
-                  href='/contribute-faq'
-                  style={{ fontWeight: 'bold' }}
-                  target='blank'
+                Do you have any questions about how to submit a feed?
+                <Button
+                  variant='text'
+                  className='inline'
+                  sx={{ fontWeight: 700 }}
+                  href={'/contribute-faq'}
+                  rel='noreferrer'
+                  target='_blank'
                 >
                   Read our FAQ
-                </a>
+                </Button>
               </Typography>
             </ColoredContainer>
             <Container maxWidth='md'>

@@ -3,7 +3,13 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import { Button, Divider, InputAdornment, TextField } from '@mui/material';
+import {
+  Button,
+  Divider,
+  InputAdornment,
+  TextField,
+  useTheme,
+} from '@mui/material';
 import {
   Search,
   CheckCircleOutlineOutlined,
@@ -11,11 +17,9 @@ import {
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LegacyHome from './LegacyHome';
-import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import '../styles/TextShimmer.css';
-import { theme } from '../Theme';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -50,6 +54,7 @@ const ActionBox = ({
 function Component(): React.ReactElement {
   const [searchInputValue, setSearchInputValue] = useState('');
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const handleSearch = (): void => {
     navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
@@ -97,7 +102,6 @@ function Component(): React.ReactElement {
           variant='h5'
           sx={{
             textAlign: 'center',
-            color: 'black',
             fontWeight: 700,
             mt: 4,
           }}
@@ -129,6 +133,9 @@ function Component(): React.ReactElement {
             sx={{
               width: '80%',
               mt: 6,
+              fieldset: {
+                borderColor: theme.palette.primary.main,
+              },
             }}
             value={searchInputValue}
             onChange={(e) => {
@@ -226,7 +233,6 @@ function Component(): React.ReactElement {
               xs: 2,
               sm: 4,
             },
-            color: 'black',
             fontSize: '18px',
             fontWeight: 700,
             mr: 0,
@@ -240,10 +246,17 @@ function Component(): React.ReactElement {
           TransitFeeds website.
           <br />
           <br />
-          It offers data quality reports from{' '}
-          <a href={WEB_VALIDATOR_LINK} rel='noreferrer' target='_blank'>
+          It offers data quality reports from
+          <Button
+            variant='text'
+            className='inline'
+            href={WEB_VALIDATOR_LINK}
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
             the Canonical GTFS Schedule Validator
-          </a>
+          </Button>
           aiming to improve data transparency and quality. The platform aspires
           to become a sustainable, central hub for global mobility data.
         </Box>
@@ -253,9 +266,5 @@ function Component(): React.ReactElement {
 }
 
 export default function Home(): React.ReactElement {
-  const { config } = useRemoteConfig();
-  if (config.enableFeedsPage) {
-    return <Component />;
-  }
-  return <LegacyHome />;
+  return <Component />;
 }

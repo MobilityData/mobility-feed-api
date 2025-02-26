@@ -21,8 +21,8 @@
     linear,
     left top,
     right top,
-    from(rgba(56, 89, 250, 0.6)),
-    to(rgba(56, 89, 250, 0.6)),
+    from(rgba(56, 89, 250, 0.8)),
+    to(rgba(56, 89, 250, 0.8)),
     color-stop(0.5, rgba(56, 89, 250, 1))
   );
   -webkit-background-size: 125px 100%;
@@ -42,7 +42,7 @@
   animation-iteration-count: infinite;
   background-repeat: no-repeat;
   background-position: 0 0;
-  background-color: rgba(56, 89, 250, 0.5);
+  background-color: rgba(56, 89, 250, 0.6);
 }
 
 @-moz-keyframes shimmer {
