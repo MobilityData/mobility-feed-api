@@ -44,8 +44,11 @@ on:
         default: "7"
     outputs:
       hosting_url:
-        description: "The URL of the deployed web app"
+        description: The URL of the deployed web app, when applicable
         value: ${{ jobs.build-deploy.outputs.hosting_url }}
+      hosting_expiration_date:
+        description: The expiration date of the preview when applicable
+        value: ${{ jobs.build-deploy.outputs.hosting_expiration_date }}
 env:
   NODE_VERSION: "18"
 
@@ -150,7 +153,8 @@ jobs:
     outputs:
       # Output will be baseb4 encoded due to a false positive secret detection
       # More info https://github.com/orgs/community/discussions/37942
-      hosting_url: ${{ steps.deploy-preview.outputs.hosting_url }}  
+      hosting_url: ${{ steps.deploy-preview.outputs.hosting_url }}
+      hosting_expiration_date: ${{ steps.deploy-preview.outputs.hosting_expiration_date }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -244,28 +248,34 @@ jobs:
           ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI,REACT_APP_FEED_API_BASE_URL
 
       - name: Run Install for Functions
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
         working-directory: functions
         run: yarn install
 
       - name: Select Firebase Project for Functions
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}      
         working-directory: functions
         run: npx firebase use ${{  inputs.FIREBASE_PROJECT }}
 
       - name: Run Lint for Functions
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
         working-directory: functions
         run: yarn lint
 
       - name: Run Tests for Functions
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
         working-directory: functions
         run: yarn test
 
       - name: Set Firebase Password Policy
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}      
         working-directory: functions/packages/firebase-password-policy
         run: |
           yarn build
           node lib/index.js
 
       - name: Set Firebase Feed Form Environment
+        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}      
         working-directory: functions/packages/feed-form
         run: |
           echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
@@ -303,6 +313,8 @@ jobs:
         run: |
           npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }} --expires ${{ inputs.PREVIEW_EXPIRES_DAYS }}d
           HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
+          HOSTING_EXPIRATION_DATE=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{printf "%s %s\n",$9,$10;}')
           HOSTING_URL_64=$(echo $HOSTING_URL | base64)
           echo "hosting_url=$HOSTING_URL_64" >> "$GITHUB_OUTPUT"
+          echo "hosting_expiration_date=$HOSTING_EXPIRATION_DATE" >> "$GITHUB_OUTPUT"
 

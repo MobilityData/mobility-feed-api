@@ -37,13 +37,6 @@ jobs:
           CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
           SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"
 
-      - name: Compute Expiration Date
-        id: compute-date
-        run: |
-          PREVIEW_EXPIRES_DAYS="30"
-          EXPIRATION_DATE=$(python -c "from datetime import datetime, timedelta; print((datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'))")
-          echo "EXPIRATION_DATE=$EXPIRATION_DATE" >> "$GITHUB_ENV"
-
       - name: Send Slack Notification
         uses: slackapi/slack-github-action@v2.0.0
         with:
@@ -55,8 +48,9 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: ":rocket: *Prototype Web App Deployed!* \n - *Host URL:* test-url \n - *Expires on:* ${{ env.EXPIRATION_DATE }}"          
+                  text: ":rocket: *Prototype Web App Deployed!* \n - *Host URL:* test-url \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
         env:
           SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
-          EXPIRATION_DATE: ${{ env.EXPIRATION_DATE }}
+          HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
+          HOSTING_EXPIRATION_DATE: ${{ needs.deploy-web-app.outputs.hosting_expiration_date }}
 
