@@ -11,7 +11,6 @@ from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset, Locati
 from shared.helpers.database import with_db_session
 from shared.helpers.logger import Logger
 from shared.helpers.pub_sub import publish_messages
-from shared.helpers.utils import cors_configuration
 
 logging.basicConfig(level=logging.INFO)
 
@@ -76,7 +75,6 @@ def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
         logging.info(f"Publishing to topic: {pubsub_topic_name}")
         publish_messages(feeds_data, project_id, pubsub_topic_name)
 
-        cors_configuration(os.getenv("DATASETS_BUCKET_NAME"))
         return f"Batch function triggered for {len(feeds_data)} feeds.", 200
     except Exception as e:
         logging.error(f"Execution error: {e}")

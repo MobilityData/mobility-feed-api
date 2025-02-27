@@ -97,7 +97,6 @@ class TestReverseGeolocationBatch(unittest.TestCase):
             parse_request_parameters(request)
 
     @patch("reverse_geolocation_batch.publish_messages")
-    @patch("reverse_geolocation_batch.cors_configuration")
     @patch("reverse_geolocation_batch.get_feeds_data")
     @patch("reverse_geolocation_batch.parse_request_parameters")
     @patch.dict(
@@ -106,7 +105,7 @@ class TestReverseGeolocationBatch(unittest.TestCase):
             "DEBUG": "True",
         },
     )
-    def test_reverse_geolocation_batch(self, mock_parse_request, mock_get_feeds, _, __):
+    def test_reverse_geolocation_batch(self, mock_parse_request, mock_get_feeds, _):
         from reverse_geolocation_batch import reverse_geolocation_batch
 
         request = MagicMock()

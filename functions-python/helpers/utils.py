@@ -40,28 +40,6 @@ def create_bucket(bucket_name):
         logging.info(f"Bucket {bucket_name} already exists.")
 
 
-def cors_configuration(bucket_name, origin=["*"], method=["GET"], max_age_seconds=3600):
-    """Set a bucket's CORS policies configuration."""
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    bucket.cors = [
-        {
-            "origin": origin,
-            "responseHeader": [
-                "Content-Type",
-                "Access-Control-Allow-Origin",
-                "x-goog-resumable",
-            ],
-            "method": method,
-            "maxAgeSeconds": max_age_seconds,
-        }
-    ]
-    bucket.patch()
-    logging.info(
-        f"CORS policy for {bucket_name} set to allow requests from any origin."
-    )
-
-
 def download_url_content(url, with_retry=False):
     """
     Downloads the content of a URL
