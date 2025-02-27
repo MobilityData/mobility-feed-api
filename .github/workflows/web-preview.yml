@@ -52,7 +52,7 @@ jobs:
         id: compute-date
         run: |
           PREVIEW_EXPIRES_DAYS="30"
-          EXPIRATION_DATE=$(date -d "+${PREVIEW_EXPIRES_DAYS} days" +"%Y-%m-%d")
+          EXPIRATION_DATE=$(python -c "from datetime import datetime, timedelta; print((datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d'))")
           echo "EXPIRATION_DATE=$EXPIRATION_DATE" >> "$GITHUB_ENV"
 
       - name: Send Slack Notification
@@ -61,9 +61,12 @@ jobs:
           webhook: ${{ env.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            :rocket: *Prototype Web App Deployed!*
-            - *Host URL:* test-url
-            - *Expires on:* ${{ env.EXPIRATION_DATE }}
+            text: ":rocket: *Prototype Web App Deployed!\n*"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "- *Host URL:* test-url \n - *Expires on:* ${{ env.EXPIRATION_DATE }}"          
         env:
           SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
           EXPIRATION_DATE: ${{ env.EXPIRATION_DATE }}
