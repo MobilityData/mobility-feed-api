@@ -141,7 +141,6 @@ def fetch_feeds() -> Iterator[Dict]:
     :return: Data to write to the output CSV file.
     """
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-    logging.info(f"Using database {db.database_url}")
     try:
         with db.start_db_session() as session:
             feed_count = 0
