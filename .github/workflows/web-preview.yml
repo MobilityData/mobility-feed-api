@@ -1,0 +1,23 @@
+name: Web App - PR Preview
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: 
+        - main # TODO this
+  push:
+    branches:
+      - feat/prototype-web
+jobs:
+
+  deploy-web-app:
+    uses: ./.github/workflows/web-app-deployer.yml
+    with:
+      FIREBASE_PROJECT: prod
+      PREVIEW_DEPLOYMENT: true
+      FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
+      OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
+      PREVIEW_HOST_NAME: "prototype"
+      ENABLE_QUALITY_CHECKS: false
+      # PREVIEW_EXPIRES_DAYS: 30
+    secrets: inherit
+
