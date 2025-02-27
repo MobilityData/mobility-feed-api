@@ -314,7 +314,7 @@ jobs:
           npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }} --expires ${{ inputs.PREVIEW_EXPIRES_DAYS }}d
           HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
           HOSTING_EXPIRATION_DATE=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{printf "%s %s\n",$9,$10;}')
-          HOSTING_URL_64=$(echo $HOSTING_URL | base64)
+          HOSTING_URL_64=$(echo $HOSTING_URL | base64 | base64)
           echo "hosting_url=$HOSTING_URL_64" >> "$GITHUB_OUTPUT"
           echo "hosting_expiration_date=$HOSTING_EXPIRATION_DATE" >> "$GITHUB_OUTPUT"
 
