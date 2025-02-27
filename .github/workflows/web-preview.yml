@@ -7,17 +7,64 @@ on:
   push:
     branches:
       - feat/prototype-web
+
 jobs:
 
-  deploy-web-app:
-    uses: ./.github/workflows/web-app-deployer.yml
-    with:
-      FIREBASE_PROJECT: prod
-      PREVIEW_DEPLOYMENT: true
-      FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
-      OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
-      PREVIEW_HOST_NAME: "prototype"
-      ENABLE_QUALITY_CHECKS: false
-      # PREVIEW_EXPIRES_DAYS: 30
-    secrets: inherit
+  # deploy-web-app:
+  #   uses: ./.github/workflows/web-app-deployer.yml
+  #   with:
+  #     FIREBASE_PROJECT: prod
+  #     PREVIEW_DEPLOYMENT: true
+  #     FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
+  #     OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
+  #     PREVIEW_HOST_NAME: "prototype"
+  #     ENABLE_QUALITY_CHECKS: false
+  #     PREVIEW_EXPIRES_DAYS: 30
+  #   secrets: inherit
+  # notify-slack-on-failure:
+  #   needs: deploy-web-app
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #     - name: Notify Slack
+  #       uses: ./.github/actions/notify-slack
+  #       with:
+  #         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+  #         PRIORITY: "high"
+
+  notify-slack:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    # needs: deploy-web-app
+    steps:
+      - name: Load secrets from 1Password
+        id: onepw_secrets
+        uses: 1password/load-secrets-action@v2.0.0
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
+          SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"    
+
+      - name: Compute Expiration Date
+        id: compute-date
+        run: |
+          PREVIEW_EXPIRES_DAYS="30"
+          EXPIRATION_DATE=$(date -d "+${PREVIEW_EXPIRES_DAYS} days" +"%Y-%m-%d")
+          echo "EXPIRATION_DATE=$EXPIRATION_DATE" >> "$GITHUB_ENV"
+
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: INCOMING_WEBHOOK
+          payload: |
+            :rocket: *Prototype Web App Deployed!*
+            - *Host URL:* test-url
+            - *Expires on:* ${{ env.EXPIRATION_DATE }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+          EXPIRATION_DATE: ${{ env.EXPIRATION_DATE }}
 
