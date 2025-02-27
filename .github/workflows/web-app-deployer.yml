@@ -154,6 +154,7 @@ jobs:
       # Output will be baseb4 encoded due to a false positive secret detection
       # More info https://github.com/orgs/community/discussions/37942
       hosting_url: ${{ steps.deploy-preview.outputs.hosting_url }}
+      hosting_url_base64: ${{ steps.deploy-preview.outputs.hosting_url_base64 }}
       hosting_expiration_date: ${{ steps.deploy-preview.outputs.hosting_expiration_date }}
     steps:
       - name: Checkout code
@@ -315,6 +316,8 @@ jobs:
           HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
           HOSTING_EXPIRATION_DATE=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{printf "%s %s\n",$9,$10;}')
           HOSTING_URL_64=$(echo $HOSTING_URL | base64 -w 0)
+          echo "hosting_url: $HOSTING_URL_64"
           echo "hosting_url=$HOSTING_URL_64" >> "$GITHUB_OUTPUT"
+          echo "hosting_url_base64=$HOSTING_URL_64" >> "$GITHUB_OUTPUT"
           echo "hosting_expiration_date=$HOSTING_EXPIRATION_DATE" >> "$GITHUB_OUTPUT"
 

@@ -25,35 +25,35 @@ jobs:
       PREVIEW_EXPIRES_DAYS: 30
     secrets: inherit
 
-  notify-slack:
-    name: Notify Slack
-    runs-on: ubuntu-latest
-    needs: deploy-web-app
-    steps:
-      - name: Load secrets from 1Password
-        id: onepw_secrets
-        uses: 1password/load-secrets-action@v2.0.0
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
-          SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"
+  # notify-slack:
+  #   name: Notify Slack
+  #   runs-on: ubuntu-latest
+  #   needs: deploy-web-app
+  #   steps:
+  #     - name: Load secrets from 1Password
+  #       id: onepw_secrets
+  #       uses: 1password/load-secrets-action@v2.0.0
+  #       with:
+  #         export-env: true
+  #       env:
+  #         OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+  #         CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
+  #         SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"
 
-      - name: Send Slack Notification
-        uses: slackapi/slack-github-action@v2.0.0
-        with:
-          webhook: ${{ env.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "Prototype Web App Deployed!\n"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_64 }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
-        env:
-          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
-          HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
-          HOSTING_EXPIRATION_DATE: ${{ needs.deploy-web-app.outputs.hosting_expiration_date }}
+  #     - name: Send Slack Notification
+  #       uses: slackapi/slack-github-action@v2.0.0
+  #       with:
+  #         webhook: ${{ env.SLACK_WEBHOOK_URL }}
+  #         webhook-type: incoming-webhook
+  #         payload: |
+  #           text: "Prototype Web App Deployed!\n"
+  #           blocks:
+  #             - type: "section"
+  #               text:
+  #                 type: "mrkdwn"
+  #                 text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_64 }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
+  #       env:
+  #         SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+  #         HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
+  #         HOSTING_EXPIRATION_DATE: ${{ needs.deploy-web-app.outputs.hosting_expiration_date }}
 
