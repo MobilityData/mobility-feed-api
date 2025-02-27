@@ -47,7 +47,7 @@ on:
         description: The URL of the deployed web app, when applicable
         value: ${{ jobs.build-deploy.outputs.hosting_url }}
       hosting_expiration_date:
-        description: The expiration date of the preview when applicable
+        description: The expiration date of the preview, when applicable
         value: ${{ jobs.build-deploy.outputs.hosting_expiration_date }}
 env:
   NODE_VERSION: "18"

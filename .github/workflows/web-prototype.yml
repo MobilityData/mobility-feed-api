@@ -1,9 +1,12 @@
-name: Web App - PR Preview
+# This workflow deploys a preview environment to PROD.
+# The pattern of the URL is:
+#   - https://[firebase_project_id]--protoype-[random_suffix].web.app
+# The firebase preview environments creates undeterministics URLs using a random suffix.
+# The URL will be active for 30 days(maximum). After 30 days, Firebase will generare a new URL.
+
+name: Web App - Prototype
 on:
   workflow_dispatch:
-  pull_request:
-    branches: 
-        - main # TODO this
   push:
     branches:
       - feat/prototype-web
@@ -48,7 +51,7 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: ":rocket: *Prototype Web App Deployed!* \n - *Host URL:* test-url \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
+                  text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_64 }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
         env:
           SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
           HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
