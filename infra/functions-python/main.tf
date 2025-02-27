@@ -901,7 +901,7 @@ resource "google_cloud_scheduler_job" "export_csv_scheduler" {
   schedule = var.export_csv_schedule
   region = var.gcp_region
   # paused = var.environment == "prod" ? false : true
-  depends_on = [google_cloudfunctions2_function.export_and_upload_csv, google_cloudfunctions2_function_iam_member.export_csv_invoker]
+  depends_on = [google_cloudfunctions2_function.export_csv, google_cloudfunctions2_function_iam_member.export_csv_invoker]
   http_target {
     http_method = "POST"
     uri = google_cloudfunctions2_function.export_csv.url
