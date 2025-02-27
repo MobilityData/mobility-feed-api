@@ -166,7 +166,6 @@ export default function PreviousDatasets({
                     {(dataset.validation_report === null ||
                       dataset.validation_report === undefined) && (
                       <Button
-                        LinkComponent={'a'}
                         variant='contained'
                         sx={{ mx: 2 }}
                         disableElevation
@@ -181,27 +180,25 @@ export default function PreviousDatasets({
                     {dataset.validation_report != null && (
                       <>
                         <Button
-                          LinkComponent={'a'}
                           variant='contained'
                           sx={{ mx: 2 }}
                           disableElevation
                           endIcon={<LaunchOutlined />}
                           href={`${dataset?.validation_report?.url_html}`}
                           target='_blank'
-                          rel='noreferrer'
+                          rel='noreferrer nofollow'
                           data-testid='validation-report-html'
                         >
                           View Report
                         </Button>
                         <Button
-                          LinkComponent={'a'}
                           variant='contained'
                           sx={{ mx: 2, my: { xs: 1, xl: 0 } }}
                           endIcon={<LaunchOutlined />}
                           disableElevation
                           href={`${dataset?.validation_report?.url_json}`}
                           target='_blank'
-                          rel='noreferrer'
+                          rel='noreferrer nofollow'
                           data-testid='validation-report-json'
                         >
                           JSON Version

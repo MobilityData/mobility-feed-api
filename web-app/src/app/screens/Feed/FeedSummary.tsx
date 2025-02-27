@@ -204,10 +204,7 @@ export default function FeedSummary({
                 </Tooltip>
               </Typography>
             </StyledTitleContainer>
-            <Typography
-              variant='body1'
-              sx={{ display: 'flex', alignItems: 'center', gap: 3 }}
-            >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               {formatServiceDateRange(
                 latestDataset?.service_date_range_start,
                 latestDataset?.service_date_range_end,
@@ -215,7 +212,7 @@ export default function FeedSummary({
               <FeedStatusIndicator
                 status={feed?.status ?? ''}
               ></FeedStatusIndicator>
-            </Typography>
+            </Box>
           </Box>
         )}
       <Box sx={boxElementStyleProducerURL}>

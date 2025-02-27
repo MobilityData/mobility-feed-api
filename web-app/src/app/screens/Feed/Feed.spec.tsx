@@ -1,15 +1,15 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import {
-  formatProvidersSorted,
-  generateDescriptionMetaTag,
-  generatePageTitle,
-  getFeedTitleElement,
-} from '.';
-import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import { type TFunction } from 'i18next';
+import {
+  formatProvidersSorted,
+  generatePageTitle,
+  generateDescriptionMetaTag,
+} from './Feed.functions';
+import FeedTitle from './FeedTitle';
 
 const mockFeed: GTFSFeedType = {
   id: 'mdb-x',
@@ -117,25 +117,27 @@ describe('Feed page', () => {
   });
 
   it('should format the page title correctly when there are more than one and gtfs', () => {
-    const mockT = jest.fn((key) => key) as unknown as TFunction<
-      'feeds',
-      undefined
-    >;
     const formattedProviders = formatProvidersSorted(mockFeed?.provider ?? '');
-    render(getFeedTitleElement(formattedProviders, mockFeed, mockT));
+    render(
+      <FeedTitle
+        sortedProviders={formattedProviders}
+        feed={mockFeed}
+      ></FeedTitle>,
+    );
     expect(screen.getByText('AVL')).toBeTruthy();
     expect(screen.getByText('+6 common:others')).toBeTruthy();
   });
 
   it('should format the page title correctly when there are more than one and gtfs_rt', () => {
-    const mockT = jest.fn((key) => key) as unknown as TFunction<
-      'feeds',
-      undefined
-    >;
     const formattedProviders = formatProvidersSorted(
       mockFeedRT?.provider ?? '',
     );
-    render(getFeedTitleElement(formattedProviders, mockFeedRT, mockT));
+    render(
+      <FeedTitle
+        sortedProviders={formattedProviders}
+        feed={mockFeedRT}
+      ></FeedTitle>,
+    );
     expect(
       screen.getByText('AT Metro - Auckland Transport Developer'),
     ).toBeTruthy();
@@ -143,14 +145,15 @@ describe('Feed page', () => {
   });
 
   it('should format the page title correctly when there is only one provider', () => {
-    const mockT = jest.fn((key) => key) as unknown as TFunction<
-      'feeds',
-      undefined
-    >;
     const formattedProviders = formatProvidersSorted(
       mockFeedOneProvider?.provider ?? '',
     );
-    render(getFeedTitleElement(formattedProviders, mockFeedOneProvider, mockT));
+    render(
+      <FeedTitle
+        sortedProviders={formattedProviders}
+        feed={mockFeedOneProvider}
+      ></FeedTitle>,
+    );
     expect(screen.getByText('AVL')).toBeTruthy();
     expect(screen.queryByText('+')).toBeNull();
   });
@@ -162,7 +165,7 @@ describe('Feed page', () => {
       'Darwin public bus network',
     );
     expect(titleAllInfo).toEqual(
-      'Department of Transport, Darwin public bus network gtfs schedule feed - Mobility Database',
+      'Department of Transport, Darwin public bus network GTFS Schedule Feed - Mobility Database',
     );
 
     const titleNoProviders = generatePageTitle(
@@ -171,7 +174,7 @@ describe('Feed page', () => {
       'Darwin public bus network',
     );
     expect(titleNoProviders).toEqual(
-      'Darwin public bus network gtfs schedule feed - Mobility Database',
+      'Darwin public bus network GTFS Schedule Feed - Mobility Database',
     );
 
     const titleNoName = generatePageTitle(
@@ -180,7 +183,7 @@ describe('Feed page', () => {
       '',
     );
     expect(titleNoName).toEqual(
-      'Department of Transport gtfs schedule feed - Mobility Database',
+      'Department of Transport GTFS Schedule Feed - Mobility Database',
     );
 
     const titleAllInfoRT = generatePageTitle(
@@ -189,7 +192,7 @@ describe('Feed page', () => {
       'Darwin public bus network',
     );
     expect(titleAllInfoRT).toEqual(
-      'Department of Transport, Darwin public bus network gtfs realtime feed - Mobility Database',
+      'Department of Transport, Darwin public bus network GTFS Realtime Feed - Mobility Database',
     );
 
     const titleAllEmpty = generatePageTitle([], 'gtfs', '');

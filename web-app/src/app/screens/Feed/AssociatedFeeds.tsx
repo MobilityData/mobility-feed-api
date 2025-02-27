@@ -14,6 +14,7 @@ import {
   type AllFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
+import { Link } from 'react-router-dom';
 
 export interface AssociatedFeedsProps {
   feeds: AllFeedType[] | undefined;
@@ -33,8 +34,8 @@ const renderAssociatedGTFSFeedRow = (
   return (
     <TableRow
       key={assocFeed?.id}
-      component={'a'}
-      href={`/feeds/${assocFeed?.id}`}
+      component={Link}
+      to={`/feeds/gtfs/${assocFeed?.id}`}
       sx={{
         textDecoration: 'none',
         '&:hover, &:focus': {
@@ -42,7 +43,7 @@ const renderAssociatedGTFSFeedRow = (
         },
       }}
     >
-      <TableCell sx={{ paddingLeft: 0 }}>
+      <TableCell component={Box} sx={{ paddingLeft: 0 }}>
         {!hasFeedName && noLatestDataset
           ? 'GTFS Schedule feed'
           : hasFeedName
@@ -50,6 +51,7 @@ const renderAssociatedGTFSFeedRow = (
             : ''}
       </TableCell>
       <TableCell
+        component={Box}
         sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
       >
         {assocFeed.latest_dataset?.downloaded_at !== undefined && (
@@ -74,9 +76,9 @@ const renderAssociatedGTFSRTFeedRow = (
     assocGTFSRTFeed.feed_name !== undefined && assocGTFSRTFeed.feed_name !== '';
   return (
     <TableRow
-      href={`/feeds/${assocGTFSRTFeed?.id}`}
       key={assocGTFSRTFeed?.id}
-      component={'a'}
+      component={Link}
+      to={`/feeds/gtfs_rt/${assocGTFSRTFeed?.id}`}
       sx={{
         textDecoration: 'none',
         '&:hover, &:focus': {
@@ -84,11 +86,12 @@ const renderAssociatedGTFSRTFeedRow = (
         },
       }}
     >
-      <TableCell sx={{ paddingLeft: 0 }}>
+      <TableCell sx={{ paddingLeft: 0 }} component={Box}>
         {hasFeedName ? assocGTFSRTFeed.feed_name : assocGTFSRTFeed.provider}
       </TableCell>
       {assocGTFSRTFeed.entity_types !== undefined && (
         <TableCell
+          component={Box}
           sx={{ paddingRight: 0, paddingLeft: hasFeedName ? 'initial' : 0 }}
         >
           {assocGTFSRTFeed.entity_types
@@ -128,8 +131,11 @@ export default function AssociatedGTFSRTFeeds({
           <Typography sx={{ mt: 1 }}>No associated feeds found.</Typography>
         )}
         {feeds !== undefined && gtfsFeeds.length > 0 && (
-          <TableContainer>
-            <TableBody sx={{ display: 'inline-table', width: '100%' }}>
+          <TableContainer component={Box}>
+            <TableBody
+              component={Box}
+              sx={{ display: 'inline-table', width: '100%' }}
+            >
               {gtfsFeeds?.map((assocFeed) =>
                 renderAssociatedGTFSFeedRow(assocFeed as GTFSFeedType),
               )}
@@ -148,8 +154,11 @@ export default function AssociatedGTFSRTFeeds({
           <Typography sx={{ mt: 1 }}>No associated feeds found.</Typography>
         )}
         {gtfsRtFeeds !== undefined && gtfsRtFeeds.length > 0 && (
-          <TableContainer>
-            <TableBody sx={{ display: 'inline-table', width: '100%' }}>
+          <TableContainer component={Box}>
+            <TableBody
+              component={Box}
+              sx={{ display: 'inline-table', width: '100%' }}
+            >
               {gtfsRtFeeds?.map((assocGTFSRTFeed) =>
                 renderAssociatedGTFSRTFeedRow(assocGTFSRTFeed),
               )}

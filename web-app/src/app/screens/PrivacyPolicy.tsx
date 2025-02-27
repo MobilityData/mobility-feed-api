@@ -1,11 +1,9 @@
 import React from 'react';
 import { Box, Container, Typography, useTheme } from '@mui/material';
-import CssBaseline from '@mui/material/CssBaseline';
-export default function TermsAndConditions(): React.ReactElement {
+export default function PrivacyPolicy(): React.ReactElement {
   const theme = useTheme();
   return (
     <Container component='main' sx={{ width: '100%', m: 'auto' }}>
-      <CssBaseline />
       <Box
         sx={{
           p: 10,

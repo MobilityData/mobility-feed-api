@@ -201,7 +201,7 @@ export default function SearchTable({
           <TableRow
             className='feed-row'
             component={Link}
-            to={`/feeds/${feed.id}`}
+            to={`/feeds/${feed.data_type}/${feed.id}`}
             key={feed.id}
             sx={{
               textDecoration: 'none',
