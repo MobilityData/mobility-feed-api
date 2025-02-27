@@ -48,6 +48,7 @@ def populate_database():
     session = get_testing_session()
     fake = Faker()
 
+    feed_reference = None
     feeds = []
     # We create 3 feeds. The first one is active. The third one is inactive and redirected to the first one.
     # The second one is active but not redirected.
@@ -65,6 +66,8 @@ def populate_database():
             feed_contact_email=f"gtfs-{i}_some_fake_email@fake.com",
             provider=f"gtfs-{i} Some fake company",
         )
+        if i == 0:
+            feed_reference = feed
         feeds.append(feed)
 
     # Then fill the specific parameters for each feed
@@ -184,27 +187,46 @@ def populate_database():
         session.add(tu_entitytype)
 
     # GTFS Realtime feeds
-    gtfs_rt_feeds = [
-        Gtfsrealtimefeed(
-            id=fake.uuid4(),
-            data_type="gtfs_rt",
-            feed_name=f"gtfs-rt-{i} Some fake name",
-            note=f"gtfs-rt-{i} Some fake note",
-            producer_url=f"https://gtfs-rt-{i}_some_fake_producer_url",
-            authentication_type=str(i),
-            authentication_info_url=f"https://gtfs-rt-{i}_some_fake_authentication_info_url",
-            api_key_parameter_name=f"gtfs-rt-{i}_fake_api_key_parameter_name",
-            license_url=f"https://gtfs-rt-{i}_some_fake_license_url",
-            stable_id=f"gtfs-rt-{i}",
-            status="inactive" if i == 1 else "active",
-            feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
-            provider=f"gtfs-rt-{i} Some fake company",
-            entitytypes=[vp_entitytype, tu_entitytype] if (i == 0) else [vp_entitytype],
+    rt_feeds = []
+    for i in range(3):
+        rt_feeds.append(
+            Gtfsrealtimefeed(
+                id=fake.uuid4(),
+                data_type="gtfs_rt",
+                feed_name=f"gtfs-rt-{i} Some fake name",
+                note=f"gtfs-rt-{i} Some fake note",
+                producer_url=f"https://gtfs-rt-{i}_some_fake_producer_url",
+                authentication_type=str(i),
+                authentication_info_url=f"https://gtfs-rt-{i}_some_fake_authentication_info_url",
+                api_key_parameter_name=f"gtfs-rt-{i}_fake_api_key_parameter_name",
+                license_url=f"https://gtfs-rt-{i}_some_fake_license_url",
+                stable_id=f"gtfs-rt-{i}",
+                status="inactive" if i == 1 else "active",
+                feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
+                provider=f"gtfs-rt-{i} Some fake company",
+                entitytypes=[vp_entitytype, tu_entitytype]
+                if i == 0
+                else [vp_entitytype],
+                gtfs_feeds=[feed_reference] if i == 0 else [],
+            )
         )
-        for i in range(3)
+    # rt_feeds[1] is inactive and redirected to rt_feeds[0] and rt_feee[2]
+    rt_feeds[1].redirectingids = [
+        Redirectingid(
+            source_id=rt_feeds[1].id,
+            target_id=rt_feeds[0].id,
+            redirect_comment="comment 1",
+            target=rt_feeds[0],
+        ),
+        Redirectingid(
+            source_id=rt_feeds[1].id,
+            target_id=rt_feeds[2].id,
+            redirect_comment="comment 2",
+            target=rt_feeds[2],
+        ),
     ]
-    gtfs_rt_feeds[0].gtfs_feeds.append(active_gtfs_feeds[0])
-    session.add_all(gtfs_rt_feeds)
+
+    session.add_all(rt_feeds)
 
     session.commit()
 
