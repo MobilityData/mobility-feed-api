@@ -912,7 +912,7 @@ resource "google_cloud_scheduler_job" "export_csv_scheduler" {
     }
   }
   # Export CSV can take several minutes to run (5?) so we need to give it a longer deadline
-  attempt_deadline = "10m"
+  attempt_deadline = "600s"
 }
 
 
