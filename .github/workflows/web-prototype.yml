@@ -53,6 +53,8 @@ jobs:
           echo "hosting_url: $HOSTING_URL"
           echo "hosting_url_decoded: $HOSTING_URL_DECODED"
         env:
+          # Output is baseb4 encoded due to a false positive secret detection
+          # More info https://github.com/orgs/community/discussions/37942        
           HOSTING_URL: ${{ needs.deploy-web-app.outputs.hosting_url }}
 
       - name: Send Slack Notification
