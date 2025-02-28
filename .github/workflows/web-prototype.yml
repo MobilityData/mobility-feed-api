@@ -12,9 +12,6 @@ on:
         description: 'Preview host name'
         default: 'prototype'
         required: false
-  push:
-    branches:
-      - feat/prototype-web
 
 jobs:
 
