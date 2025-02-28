@@ -313,7 +313,6 @@ jobs:
         run: |
           HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
           HOSTING_URL=$(echo "$HOSTING_URL" | sed 's/mobility-feeds-prod/__firebase_project__/g' | base64 -w 0)
-          echo "hosting_url: $HOSTING_URL"
           HOSTING_EXPIRATION_DATE=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{printf "%s %s\n",$9,$10;}')
           echo "hosting_url=$HOSTING_URL" >> "$GITHUB_OUTPUT"
           echo "hosting_expiration_date=$HOSTING_EXPIRATION_DATE" >> "$GITHUB_OUTPUT"

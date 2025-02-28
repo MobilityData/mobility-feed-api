@@ -49,20 +49,20 @@ jobs:
         env:
           HOSTING_URL: ${{ needs.deploy-web-app.outputs.hosting_url }}
 
-  #     - name: Send Slack Notification
-  #       uses: slackapi/slack-github-action@v2.0.0
-  #       with:
-  #         webhook: ${{ env.SLACK_WEBHOOK_URL }}
-  #         webhook-type: incoming-webhook
-  #         payload: |
-  #           text: "Prototype Web App Deployed!\n"
-  #           blocks:
-  #             - type: "section"
-  #               text:
-  #                 type: "mrkdwn"
-  #                 text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_64 }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
-  #       env:
-  #         SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
-  #         HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
-  #         HOSTING_EXPIRATION_DATE: ${{ needs.deploy-web-app.outputs.hosting_expiration_date }}
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "Prototype Web App Deployed!\n"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_64 }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
+        env:
+          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+          HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
+          HOSTING_EXPIRATION_DATE: ${{ needs.deploy-web-app.outputs.hosting_expiration_date }}
 
