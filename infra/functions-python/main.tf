@@ -911,7 +911,8 @@ resource "google_cloud_scheduler_job" "export_csv_scheduler" {
       "Content-Type" = "application/json"
     }
   }
-  attempt_deadline = "320s"
+  # Export CSV can take several minutes to run (5?) so we need to give it a longer deadline
+  attempt_deadline = "10m"
 }
 
 
