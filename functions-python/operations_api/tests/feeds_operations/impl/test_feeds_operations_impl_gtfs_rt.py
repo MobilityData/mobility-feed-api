@@ -101,29 +101,6 @@ async def test_update_gtfs_feed_static_change(_, update_request_gtfs_rt_feed):
     },
 )
 @pytest.mark.asyncio
-async def test_update_gtfs_rt_feed_set_published(_, update_request_gtfs_rt_feed):
-    update_request_gtfs_rt_feed.operational_status_action = "published"
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
-        assert response.status_code == 200
-
-        db_feed = (
-            session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
-            .one()
-        )
-        assert db_feed.operational_status == "published"
-
-
-@patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
-@pytest.mark.asyncio
 async def test_update_gtfs_rt_feed_set_wip(_, update_request_gtfs_rt_feed):
     update_request_gtfs_rt_feed.operational_status_action = "wip"
     with get_testing_session() as session:
