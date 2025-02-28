@@ -42,8 +42,9 @@ jobs:
 
       - name: Process Hosting URL
         run: |
-          HOSTING_URL=$(echo "$HOSTING_URL" | base64 -d | sed 's/__project__/mobility-feeds-prod/g')
-          echo "hosting_url_safe=$HOSTING_URL_64" >> "$GITHUB_OUTPUT"
+          HOSTING_URL_DECODED=$(echo "$HOSTING_URL" | base64 -d | sed 's/__firebase_project__/mobility-feeds-prod/g')
+          echo "hosting_url_decoded=$HOSTING_URL_DECODED" >> "$GITHUB_OUTPUT"
+          echo "url: $HOSTING_URL_DECODED"
         env:
           HOSTING_URL: ${{ needs.deploy-web-app.outputs.hosting_url }}
 
