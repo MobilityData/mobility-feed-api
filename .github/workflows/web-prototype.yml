@@ -7,6 +7,11 @@
 name: Web App - Prototype
 on:
   workflow_dispatch:
+    inputs:
+      PREVIEW_HOST_NAME:
+        description: 'Preview host name'
+        default: 'prototype'
+        required: false
   push:
     branches:
       - feat/prototype-web
@@ -20,7 +25,7 @@ jobs:
       PREVIEW_DEPLOYMENT: true
       FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
       OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
-      PREVIEW_HOST_NAME: "prototype"
+      PREVIEW_HOST_NAME: ${{ inputs.PREVIEW_HOST_NAME || 'prototype' }}
       ENABLE_QUALITY_CHECKS: false
       PREVIEW_EXPIRES_DAYS: 30
     secrets: inherit
