@@ -41,6 +41,7 @@ jobs:
           SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"
 
       - name: Process Hosting URL
+        id: process_hosting_url
         run: |
           HOSTING_URL_DECODED=$(echo "$HOSTING_URL" | base64 -d | sed 's/__firebase_project__/mobility-feeds-prod/g')
           echo "hosting_url_decoded=$HOSTING_URL_DECODED" >> "$GITHUB_OUTPUT"
@@ -60,9 +61,9 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_64 }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
+                  text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_ENCODED }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
         env:
           SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
-          HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
+          HOSTING_URL_ENCODED: ${{ steps.process_hosting_url.outputs.hosting_url_decoded }}
           HOSTING_EXPIRATION_DATE: ${{ needs.deploy-web-app.outputs.hosting_expiration_date }}
 
