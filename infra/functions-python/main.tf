@@ -893,7 +893,6 @@ resource "google_cloudfunctions2_function" "export_csv" {
   }
 }
 
-
 resource "google_cloud_scheduler_job" "export_csv_scheduler" {
   name = "export-csv-scheduler-${var.environment}"
   description = "Schedule the export_csv function"

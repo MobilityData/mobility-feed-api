@@ -3,7 +3,7 @@
   "description": "Export the DB feed data as a csv file",
   "entry_point": "export_and_upload_csv",
   "timeout": 20,
-  "memory": "1Gi",
+  "memory": "2Gi",
   "trigger_http": true,
   "include_folders": ["helpers", "dataset_service"],
   "include_api_folders": ["utils", "database", "feed_filters", "common", "database_gen"],
