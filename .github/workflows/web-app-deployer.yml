@@ -30,14 +30,29 @@ on:
         description: 1Password Slack webhook URL secret reference for add feed channel
         type: string
         required: false
+      DEPLOY_FIREBASE_FUNCTIONS:
+        description: When true(default), the Firebase functions will be deployed; otherwise, they will not.
+        type: boolean
+        default: true
       OP_ADD_FEED_FORM_GITHUB_TOKEN:
         description: 1Password GitHub token secret reference
         type: string
         required: false
+      ENABLE_QUALITY_CHECKS:
+        description: When true the tests and lint checks are performed(default), false will skip. This is only valid in protopype and demo deployments
+        type: boolean
+        default: true
+      PREVIEW_EXPIRES_DAYS:
+        description: The number of days the preview deployment will be active.
+        type: string
+        default: "7"
     outputs:
       hosting_url:
-        description: "The URL of the deployed web app"
+        description: The URL of the deployed web app, when applicable
         value: ${{ jobs.build-deploy.outputs.hosting_url }}
+      hosting_expiration_date:
+        description: The expiration date of the preview, when applicable
+        value: ${{ jobs.build-deploy.outputs.hosting_expiration_date }}
 env:
   NODE_VERSION: "18"
 
@@ -45,6 +60,7 @@ jobs:
   lint-test:
     name: Test
     runs-on: ubuntu-latest
+    if: ${{ inputs.ENABLE_QUALITY_CHECKS}}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -136,11 +152,13 @@ jobs:
     name: "Build & Deploy"
     permissions: write-all
     needs: [lint-test]
+    if: success() || needs.lint-test.result == 'skipped'
     runs-on: ubuntu-latest
     outputs:
       # Output will be baseb4 encoded due to a false positive secret detection
       # More info https://github.com/orgs/community/discussions/37942
-      hosting_url: ${{ steps.deploy-preview.outputs.hosting_url }}  
+      hosting_url: ${{ steps.deploy-preview.outputs.hosting_url }}
+      hosting_expiration_date: ${{ steps.deploy-preview.outputs.hosting_expiration_date }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -234,28 +252,34 @@ jobs:
           ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI,REACT_APP_FEED_API_BASE_URL
 
       - name: Run Install for Functions
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: yarn install
 
       - name: Select Firebase Project for Functions
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}      
         working-directory: functions
         run: npx firebase use ${{  inputs.FIREBASE_PROJECT }}
 
       - name: Run Lint for Functions
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: yarn lint
 
       - name: Run Tests for Functions
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: yarn test
 
       - name: Set Firebase Password Policy
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}      
         working-directory: functions/packages/firebase-password-policy
         run: |
           yarn build
           node lib/index.js
 
       - name: Set Firebase Feed Form Environment
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}      
         working-directory: functions/packages/feed-form
         run: |
           echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
@@ -263,15 +287,15 @@ jobs:
           echo "GITHUB_TOKEN=${{ env.ADD_FEED_FORM_GITHUB_TOKEN }}" >> .env
 
       - name: Deploy Firebase Functions
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: npx firebase deploy --only functions
 
-      - name: Set robots.txt
+      - name: Set blocking robots.txt
+        if: ${{ inputs.PREVIEW_DEPLOYMENT || inputs.FIREBASE_PROJECT != 'prod' }}
         working-directory: web-app
         run: |
-          if [ "${{ inputs.FIREBASE_PROJECT }}" != "prod" ]; then
-            mv public/robots.staging.txt public/robots.txt
-          fi
+          mv public/robots.staging.txt public/robots.txt
 
       - name: Build
         working-directory: web-app
@@ -293,6 +317,8 @@ jobs:
         run: |
           npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}
           HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
-          HOSTING_URL_64=$(echo $HOSTING_URL | base64)
-          echo "hosting_url=$HOSTING_URL_64" >> "$GITHUB_OUTPUT"
+          HOSTING_URL=$(echo "$HOSTING_URL" | sed 's/mobility-feeds-prod/__firebase_project__/g' | base64 -w 0)
+          HOSTING_EXPIRATION_DATE=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{printf "%s %s\n",$9,$10;}')
+          echo "hosting_url=$HOSTING_URL" >> "$GITHUB_OUTPUT"
+          echo "hosting_expiration_date=$HOSTING_EXPIRATION_DATE" >> "$GITHUB_OUTPUT"
 
