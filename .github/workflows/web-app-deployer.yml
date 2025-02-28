@@ -30,6 +30,10 @@ on:
         description: 1Password Slack webhook URL secret reference for add feed channel
         type: string
         required: false
+      DEPLOY_FIREBASE_FUNCTIONS:
+        description: When true(default), the Firebase functions will be deployed; otherwise, they will not.
+        type: boolean
+        default: true
       OP_ADD_FEED_FORM_GITHUB_TOKEN:
         description: 1Password GitHub token secret reference
         type: string
@@ -248,34 +252,34 @@ jobs:
           ../scripts/replace-variables.sh -in_file src/.env.rename_me -out_file src/.env.${{  inputs.FIREBASE_PROJECT }} -variables REACT_APP_FIREBASE_API_KEY,REACT_APP_FIREBASE_AUTH_DOMAIN,REACT_APP_FIREBASE_PROJECT_ID,REACT_APP_FIREBASE_STORAGE_BUCKET,REACT_APP_FIREBASE_MESSAGING_SENDER_ID,REACT_APP_FIREBASE_APP_ID,REACT_APP_RECAPTCHA_SITE_KEY,REACT_APP_GOOGLE_ANALYTICS_ID,REACT_APP_REMOTE_CONFIG_MINIMUM_FETCH_INTERVAL_MILLI,REACT_APP_FEED_API_BASE_URL
 
       - name: Run Install for Functions
-        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: yarn install
 
       - name: Select Firebase Project for Functions
-        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}      
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}      
         working-directory: functions
         run: npx firebase use ${{  inputs.FIREBASE_PROJECT }}
 
       - name: Run Lint for Functions
-        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: yarn lint
 
       - name: Run Tests for Functions
-        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: yarn test
 
       - name: Set Firebase Password Policy
-        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}      
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}      
         working-directory: functions/packages/firebase-password-policy
         run: |
           yarn build
           node lib/index.js
 
       - name: Set Firebase Feed Form Environment
-        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}      
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}      
         working-directory: functions/packages/feed-form
         run: |
           echo "FEED_SUBMIT_GOOGLE_SHEET_ID=${{  inputs.FEED_SUBMIT_GOOGLE_SHEET_ID }}" > .env
@@ -283,7 +287,7 @@ jobs:
           echo "GITHUB_TOKEN=${{ env.ADD_FEED_FORM_GITHUB_TOKEN }}" >> .env
 
       - name: Deploy Firebase Functions
-        if: ${{ !inputs.PREVIEW_DEPLOYMENT }}
+        if: ${{ inputs.DEPLOY_FIREBASE_FUNCTIONS }}
         working-directory: functions
         run: npx firebase deploy --only functions
 
@@ -311,6 +315,7 @@ jobs:
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
         run: |
+          npx firebase hosting:channel:deploy ${{ inputs.PREVIEW_HOST_NAME }}
           HOSTING_URL=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{print $7}')
           HOSTING_URL=$(echo "$HOSTING_URL" | sed 's/mobility-feeds-prod/__firebase_project__/g' | base64 -w 0)
           HOSTING_EXPIRATION_DATE=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{printf "%s %s\n",$9,$10;}')

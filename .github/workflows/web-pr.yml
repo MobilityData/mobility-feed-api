@@ -13,7 +13,7 @@ jobs:
     uses: ./.github/workflows/web-app-deployer.yml
     with:
       FIREBASE_PROJECT: dev
-      PREVIEW_DEPLOYMENT: true
+      PREVIEW_DEPLOYMENT: true 
       FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
       OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
       PREVIEW_HOST_NAME: "pr-${{ github.event.number }}"
@@ -47,7 +47,7 @@ jobs:
       - name: Comment on PR with Hosting URL (PR Preview)
         if: steps.check-comment.outputs.comment_exists == 'false'
         run: |
-          HOSTING_URL_DECODED=$(echo "$HOSTING_URL" | base64 -d | sed 's/__firebase_project__/mobility-feeds-dev/g')
+          HOSTING_URL_DECODED=$(echo "$HOSTING_URL_64" | base64 -d | sed 's/__firebase_project__/mobility-feeds-dev/g')
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL"
           echo "$COMMENT" > comment.txt
           curl -d "{\"body\":\"$(cat comment.txt)\"}" -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Content-Type: application/json" -X POST "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments"
