@@ -23,7 +23,6 @@ from fastapi import HTTPException
 from pydantic import Field
 from starlette.responses import Response
 
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
@@ -33,6 +32,7 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
 from shared.helpers.database import Database, refresh_materialized_view
 from shared.helpers.query_helper import query_feed_by_stable_id
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
@@ -169,9 +169,12 @@ class OperationsApiImpl(BaseOperationsApi):
     async def _populate_feed_values(feed, impl_class, session, update_request_feed):
         impl_class.to_orm(update_request_feed, feed, session)
         action = update_request_feed.operational_status_action
-        # This is a temporary solution as the operational_status is not visible in the diff
+        # Set the operational_status explicitly to either "wip" or "published"
         if action is not None and not action.lower() == "no_change":
-            feed.operational_status = "wip" if action.lower() == "wip" else None
+            if action.lower() == "wip":
+                feed.operational_status = "wip"
+            elif action.lower() == "published":
+                feed.operational_status = "published"
         session.add(feed)
 
     @staticmethod
