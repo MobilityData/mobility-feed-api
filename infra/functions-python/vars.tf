@@ -84,5 +84,5 @@ variable "operations_oauth2_client_id" {
 variable "export_csv_schedule" {
     type        = string
     description = "Schedule the export_csv function"
-    default = "*/3 * * * *" # every 3 minutes for testing. Change before merging.
+    default = "0 4 * * 2,5" # At 4am every Tuesday and Friday.
 }
