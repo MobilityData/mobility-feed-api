@@ -891,8 +891,30 @@ resource "google_cloudfunctions2_function" "export_csv" {
       }
     }
   }
-
 }
+
+resource "google_cloud_scheduler_job" "export_csv_scheduler" {
+  name = "export-csv-scheduler-${var.environment}"
+  description = "Schedule the export_csv function"
+  time_zone = "Etc/UTC"
+  schedule = var.export_csv_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.export_csv, google_cloudfunctions2_function_iam_member.export_csv_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.export_csv.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+  }
+  # Export CSV can take several minutes to run (5?) so we need to give it a longer deadline
+  attempt_deadline = "600s"
+}
+
 
 # IAM entry for all users to invoke the function
 resource "google_cloudfunctions2_function_iam_member" "tokens_invoker" {
@@ -1050,4 +1072,12 @@ resource "google_project_iam_member" "datastore_owner" {
   project = var.project_id
   role    = "roles/datastore.owner"
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloudfunctions2_function_iam_member" "export_csv_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.export_csv.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
