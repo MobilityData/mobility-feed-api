@@ -12,7 +12,7 @@
       "key": "FEEDS_DATABASE_URL"
     }
   ],
-  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "ingress_settings": "ALL",
   "max_instance_request_concurrency": 8,
   "max_instance_count": 1,
   "min_instance_count": 0,
