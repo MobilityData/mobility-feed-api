@@ -21,9 +21,9 @@ jobs:
   deploy-web-app:
     uses: ./.github/workflows/web-app-deployer.yml
     with:
-      FIREBASE_PROJECT: prod
+      FIREBASE_PROJECT: ${{ inputs.DEPLOYMENT_ENV || 'prod' }}
       PREVIEW_DEPLOYMENT: true
-      DEPLOY_FIREBASE_FUNCTIONS: ${{ inputs.DEPLOYMENT_ENV || 'prod' }}
+      DEPLOY_FIREBASE_FUNCTIONS: false
       FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
       OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
       PREVIEW_HOST_NAME: ${{ inputs.PREVIEW_HOST_NAME || 'prototype' }}
