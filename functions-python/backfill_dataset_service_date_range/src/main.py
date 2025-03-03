@@ -94,8 +94,14 @@ def backfill_datasets(session: "Session"):
                 response.raise_for_status()
                 json_data = response.json()
             else:
-                logging.info("Blob found, downloading from blob")
-                json_data = json.loads(dataset_blob.download_as_string())
+                try:
+                    logging.info("Blob found, downloading from blob")
+                    json_data = json.loads(dataset_blob.download_as_string())
+                except Exception as e:
+                    logging.error(f"Error downloading blob: {e} trying json report url")
+                    response = requests.get(json_report_url)
+                    response.raise_for_status()
+                    json_data = response.json()
 
             extracted_service_start_date = (
                 json_data.get("summary", {})
