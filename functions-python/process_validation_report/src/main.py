@@ -148,8 +148,16 @@ def generate_report_entities(
 
     dataset = get_dataset(dataset_stable_id, session)
     dataset.validation_reports.append(validation_report_entity)
-    dataset.service_date_range_start = json_report["summary"]["feedInfo"]["feedServiceWindowStart"]
-    dataset.service_date_range_end = json_report["summary"]["feedInfo"]["feedServiceWindowEnd"]
+
+    if (
+        "summary" in json_report 
+        and "feedInfo" in json_report["summary"] 
+        and "feedServiceWindowStart" in json_report["summary"]["feedInfo"]
+        and "feedServiceWindowEnd" in json_report["summary"]["feedInfo"]
+    ):
+        dataset.service_date_range_start = json_report["summary"]["feedInfo"]["feedServiceWindowStart"]
+        dataset.service_date_range_end = json_report["summary"]["feedInfo"]["feedServiceWindowEnd"]
+
     for feature_name in json_report["summary"]["gtfsFeatures"]:
         feature = get_feature(feature_name, session)
         feature.validations.append(validation_report_entity)
