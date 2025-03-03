@@ -9,10 +9,13 @@ on:
   workflow_dispatch:
     inputs:
       PREVIEW_HOST_NAME:
-        description: 'Preview host name'
+        description: Preview host name
         default: 'prototype'
         required: false
-
+      DEPLOYMENT_ENV:
+        description: Environment in which the branch will be deployed. Valid values dev, qa and prod(default).
+        default: 'prod'
+        required: false
 jobs:
 
   deploy-web-app:
@@ -20,7 +23,7 @@ jobs:
     with:
       FIREBASE_PROJECT: prod
       PREVIEW_DEPLOYMENT: true
-      DEPLOY_FIREBASE_FUNCTIONS: false
+      DEPLOY_FIREBASE_FUNCTIONS: ${{ inputs.DEPLOYMENT_ENV || 'prod' }}
       FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
       OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
       PREVIEW_HOST_NAME: ${{ inputs.PREVIEW_HOST_NAME || 'prototype' }}
