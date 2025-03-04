@@ -169,7 +169,7 @@ class OperationsApiImpl(BaseOperationsApi):
     async def _populate_feed_values(feed, impl_class, session, update_request_feed):
         impl_class.to_orm(update_request_feed, feed, session)
         action = update_request_feed.operational_status_action
-        # Set the operational_status explicitly to either "wip" or "published"
+        # This is a temporary solution as the operational_status is not visible in the diff
         if action is not None and not action.lower() == "no_change":
             if action.lower() == "wip":
                 feed.operational_status = "wip"

@@ -59,7 +59,7 @@ def get_gtfs_feeds_query(
     feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
     if not include_wip:
         feed_query = feed_query.filter(
-            or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
+            or_(Gtfsfeed.operational_status == "published", Gtfsfeed.operational_status != "wip")
         )
 
     feed_query = feed_query.options(
@@ -91,7 +91,9 @@ def get_all_gtfs_feeds(
     """
     feed_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
     if not include_wip:
-        feed_query = feed_query.filter(Gtfsfeed.operational_status.is_distinct_from("wip"))
+        feed_query = feed_query.filter(
+            or_(Gtfsfeed.operational_status == "published", Gtfsfeed.operational_status != "wip")
+        )
 
     for batch in batched(feed_query, batch_size):
         stable_ids = (f.stable_id for f in batch)
@@ -154,10 +156,7 @@ def get_gtfs_rt_feeds_query(
 
     if not include_wip:
         feed_query = feed_query.filter(
-            or_(
-                Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                Gtfsrealtimefeed.operational_status != "wip",
-            )
+            or_(Gtfsrealtimefeed.operational_status == "published", Gtfsrealtimefeed.operational_status != "wip")
         )
 
     feed_query = feed_query.options(
@@ -188,7 +187,9 @@ def get_all_gtfs_rt_feeds(
     """
     feed_query = db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id).yield_per(batch_size)
     if not include_wip:
-        feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status.is_distinct_from("wip"))
+        feed_query = feed_query.filter(
+            or_(Gtfsrealtimefeed.operational_status == "published", Gtfsrealtimefeed.operational_status != "wip")
+        )
 
     for batch in batched(feed_query, batch_size):
         stable_ids = (f.stable_id for f in batch)
