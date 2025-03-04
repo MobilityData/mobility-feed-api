@@ -77,7 +77,6 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Feed.operational_status == "published",
-                    Feed.operational_status != "wip",
                     not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -112,7 +111,6 @@ class FeedsApiImpl(BaseFeedsApi):
         feed_query = feed_query.filter(
             or_(
                 Feed.operational_status == "published",
-                Feed.operational_status != "wip",
                 not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
             )
         )
@@ -149,7 +147,6 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Gtfsfeed.operational_status == "published",
-                    Gtfsfeed.operational_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -196,7 +193,6 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Feed.operational_status == "published",
-                    Feed.operational_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -278,7 +274,6 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Gtfsrealtimefeed.operational_status == "published",
-                    Gtfsrealtimefeed.operational_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -366,7 +361,6 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(
                 or_(
                     Gtfsrealtimefeed.operational_status == "published",
-                    Gtfsrealtimefeed.operational_status != "wip",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )

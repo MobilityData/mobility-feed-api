@@ -41,7 +41,6 @@ class SearchApiImpl(BaseSearchApi):
         query = query.filter(
             or_(
                 t_feedsearch.c.operational_status == "published",
-                t_feedsearch.c.operational_status != "wip",
                 not is_user_email_restricted(),
             )
         )

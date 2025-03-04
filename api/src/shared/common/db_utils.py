@@ -58,9 +58,7 @@ def get_gtfs_feeds_query(
 
     feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsfeed.operational_status == "published", Gtfsfeed.operational_status != "wip")
-        )
+        feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
 
     feed_query = feed_query.options(
         joinedload(Gtfsfeed.gtfsdatasets)
@@ -91,9 +89,7 @@ def get_all_gtfs_feeds(
     """
     feed_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsfeed.operational_status == "published", Gtfsfeed.operational_status != "wip")
-        )
+        feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
 
     for batch in batched(feed_query, batch_size):
         stable_ids = (f.stable_id for f in batch)
@@ -155,9 +151,7 @@ def get_gtfs_rt_feeds_query(
     feed_query = db_session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.id.in_(subquery))
 
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsrealtimefeed.operational_status == "published", Gtfsrealtimefeed.operational_status != "wip")
-        )
+        feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
     feed_query = feed_query.options(
         joinedload(Gtfsrealtimefeed.entitytypes),
@@ -187,9 +181,7 @@ def get_all_gtfs_rt_feeds(
     """
     feed_query = db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id).yield_per(batch_size)
     if not include_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsrealtimefeed.operational_status == "published", Gtfsrealtimefeed.operational_status != "wip")
-        )
+        feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
     for batch in batched(feed_query, batch_size):
         stable_ids = (f.stable_id for f in batch)
