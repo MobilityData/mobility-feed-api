@@ -28,7 +28,7 @@ from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
 from shared.helpers.logger import Logger
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Feed
 from shared.common.db_utils import get_all_gtfs_rt_feeds, get_all_gtfs_feeds
 
 from shared.helpers.database import Database
@@ -67,6 +67,36 @@ headers = [
     "redirect.id",
     "redirect.comment",
 ]
+
+
+class BoundingBox:
+    """
+    Class used to keep the GTFS feed bounding box in a lookup table so it can be used in associated real-time feeds.
+    """
+
+    def __init__(
+        self,
+        minimum_latitude=None,
+        maximum_latitude=None,
+        minimum_longitude=None,
+        maximum_longitude=None,
+        extracted_on=None,
+    ):
+        self.minimum_latitude = minimum_latitude
+        self.maximum_latitude = maximum_latitude
+        self.minimum_longitude = minimum_longitude
+        self.maximum_longitude = maximum_longitude
+        self.extracted_on = extracted_on
+
+    def fill_data(self, data):
+        data["location.bounding_box.minimum_latitude"] = self.minimum_latitude
+        data["location.bounding_box.maximum_latitude"] = self.maximum_latitude
+        data["location.bounding_box.minimum_longitude"] = self.minimum_longitude
+        data["location.bounding_box.maximum_longitude"] = self.maximum_longitude
+        data["location.bounding_box.extracted_on"] = self.extracted_on
+
+
+bounding_box_lookup = {}
 
 
 @functions_framework.http
@@ -111,12 +141,11 @@ def fetch_feeds() -> Iterator[Dict]:
     :return: Data to write to the output CSV file.
     """
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-    logging.info(f"Using database {db.database_url}")
     try:
         with db.start_db_session() as session:
             feed_count = 0
             for feed in get_all_gtfs_feeds(session, include_wip=False):
-                yield get_feed_csv_data(feed)
+                yield get_gtfs_feed_csv_data(feed)
                 feed_count += 1
 
             logging.info(f"Processed {feed_count} GTFS feeds.")
@@ -138,10 +167,20 @@ def extract_numeric_version(version):
     return match.group(1) if match else version
 
 
-def get_feed_csv_data(feed: Gtfsfeed):
+def get_gtfs_feed_csv_data(feed: Gtfsfeed):
     """
-    This function takes a GtfsFeed and returns a dictionary with the data to be written to the CSV file.
+    This function takes a Gtfsfeed object and returns a dictionary with the data to be written to the CSV file.
+    :param feed: Gtfsfeed object containing feed data.
+    :return: Dictionary with feed data formatted for CSV output.
     """
+    joined_features = ""
+    validated_at = None
+    bounding_box = None
+
+    # First extract the common feed data
+    data = get_feed_csv_data(feed)
+
+    # Then supplement with the GTFS specific data
     latest_dataset = next(
         (
             dataset
@@ -150,11 +189,6 @@ def get_feed_csv_data(feed: Gtfsfeed):
         ),
         None,
     )
-
-    joined_features = ""
-    validated_at = None
-    minimum_latitude = maximum_latitude = minimum_longitude = maximum_longitude = None
-
     if latest_dataset and latest_dataset.validation_reports:
         # Keep the report from the more recent validator version
         latest_report = max(
@@ -177,10 +211,18 @@ def get_feed_csv_data(feed: Gtfsfeed):
         if latest_dataset.bounding_box:
             shape = to_shape(latest_dataset.bounding_box)
             if shape and shape.bounds:
-                minimum_latitude = shape.bounds[1]
-                maximum_latitude = shape.bounds[3]
-                minimum_longitude = shape.bounds[0]
-                maximum_longitude = shape.bounds[2]
+                bounding_box = BoundingBox(
+                    minimum_latitude=shape.bounds[1],
+                    maximum_latitude=shape.bounds[3],
+                    minimum_longitude=shape.bounds[0],
+                    maximum_longitude=shape.bounds[2],
+                    extracted_on=validated_at,
+                )
+
+    # Keep the bounding box for that GTFS feed so it can be used in associated real-time feeds, if any
+    if bounding_box:
+        bounding_box.fill_data(data)
+        bounding_box_lookup[feed.id] = bounding_box
 
     latest_url = latest_dataset.hosted_url if latest_dataset else None
     if latest_url:
@@ -193,7 +235,47 @@ def get_feed_csv_data(feed: Gtfsfeed):
         if position != -1:
             # Construct the new URL
             latest_url = latest_url[: position + len(feed.stable_id) + 1] + "latest.zip"
+    data["urls.latest"] = latest_url
+    data["features"] = joined_features
 
+    return data
+
+
+def get_feed_csv_data(feed: Feed):
+    """
+    This function takes a generic feed and returns a dictionary with the data to be written to the CSV file.
+    Any specific data (for GTFS or GTFS_RT has to be added after this call.
+    """
+
+    redirect_ids = []
+    redirect_comments = []
+    # Add concatenated redirect IDs
+    if feed.redirectingids:
+        for redirect in feed.redirectingids:
+            if redirect and redirect.target and redirect.target.stable_id:
+                stripped_id = redirect.target.stable_id.strip()
+                if stripped_id:
+                    redirect_ids.append(stripped_id)
+                    redirect_comment = redirect.redirect_comment or ""
+                    redirect_comments.append(redirect_comment)
+
+    redirect_ids_str = "|".join(redirect_ids)
+    redirect_comments_str = "|".join(redirect_comments)
+
+    # If for some reason there is no redirect_ids, discard the redirect_comments if any
+    if redirect_ids_str == "":
+        redirect_comments_str = ""
+    else:
+        # If there is no comment but we do have redirects, use an empty string instead of a
+        # potentially a bunch of vertical bars.
+        redirect_comments_str = (
+            ""
+            if (redirect_comments_str or "").strip("|") == ""
+            else redirect_comments_str
+        )
+
+    # Some of the data is set to None or "" here but will be set to the proper value
+    # later depending on the type (GTFS or GTFS_RT)
     data = {
         "id": feed.stable_id,
         "data_type": feed.data_type,
@@ -216,48 +298,19 @@ def get_feed_csv_data(feed: Gtfsfeed):
         "urls.authentication_type": feed.authentication_type,
         "urls.authentication_info": feed.authentication_info_url,
         "urls.api_key_parameter_name": feed.api_key_parameter_name,
-        "urls.latest": latest_url,
+        "urls.latest": None,
         "urls.license": feed.license_url,
-        "location.bounding_box.minimum_latitude": minimum_latitude,
-        "location.bounding_box.maximum_latitude": maximum_latitude,
-        "location.bounding_box.minimum_longitude": minimum_longitude,
-        "location.bounding_box.maximum_longitude": maximum_longitude,
+        "location.bounding_box.minimum_latitude": None,
+        "location.bounding_box.maximum_latitude": None,
+        "location.bounding_box.minimum_longitude": None,
+        "location.bounding_box.maximum_longitude": None,
         # We use the report validated_at date as the extracted_on date
-        "location.bounding_box.extracted_on": validated_at,
+        "location.bounding_box.extracted_on": None,
         "status": feed.status,
-        "features": joined_features,
+        "features": None,
+        "redirect.id": redirect_ids_str,
+        "redirect.comment": redirect_comments_str,
     }
-
-    redirect_ids = ""
-    redirect_comments = ""
-    # Add concatenated redirect IDs
-    if feed.redirectingids:
-        for redirect in feed.redirectingids:
-            if redirect and redirect.target and redirect.target.stable_id:
-                stripped_id = redirect.target.stable_id.strip()
-                if stripped_id:
-                    redirect_ids = (
-                        redirect_ids + "|" + stripped_id
-                        if redirect_ids
-                        else stripped_id
-                    )
-                    redirect_comments = (
-                        redirect_comments + "|" + redirect.redirect_comment
-                        if redirect_comments
-                        else redirect.redirect_comment
-                    )
-        if redirect_ids == "":
-            redirect_comments = ""
-        else:
-            # If there is no comment but we do have redirects, use an empty string instead of a
-            # potentially a bunch of vertical bars.
-            redirect_comments = (
-                "" if redirect_comments.strip("|") == "" else redirect_comments
-            )
-
-    data["redirect.id"] = redirect_ids
-    data["redirect.comment"] = redirect_comments
-
     return data
 
 
@@ -265,6 +318,8 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
     """
     This function takes a GtfsRTFeed and returns a dictionary with the data to be written to the CSV file.
     """
+    data = get_feed_csv_data(feed)
+
     entity_types = ""
     if feed.entitytypes:
         valid_entity_types = [
@@ -274,8 +329,10 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
         ]
         valid_entity_types = sorted(valid_entity_types)
         entity_types = "|".join(valid_entity_types)
+    data["entity_type"] = entity_types
 
     static_references = ""
+    first_feed_reference = None
     if feed.gtfs_feeds:
         valid_feed_references = [
             feed_reference.stable_id.strip()
@@ -283,40 +340,20 @@ def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
             if feed_reference and feed_reference.stable_id
         ]
         static_references = "|".join(valid_feed_references)
+        # If there is more than one GTFS feeds associated with this RT feed (why?)
+        # We will arbitrarily use the first one in the list for the bounding box.
+        first_feed_reference = feed.gtfs_feeds[0] if feed.gtfs_feeds else None
+    data["static_reference"] = static_references
 
-    data = {
-        "id": feed.stable_id,
-        "data_type": feed.data_type,
-        "entity_type": entity_types,
-        "location.country_code": ""
-        if not feed.locations or not feed.locations[0]
-        else feed.locations[0].country_code,
-        "location.subdivision_name": ""
-        if not feed.locations or not feed.locations[0]
-        else feed.locations[0].subdivision_name,
-        "location.municipality": ""
-        if not feed.locations or not feed.locations[0]
-        else feed.locations[0].municipality,
-        "provider": feed.provider,
-        "name": feed.feed_name,
-        "note": feed.note,
-        "feed_contact_email": feed.feed_contact_email,
-        "static_reference": static_references,
-        "urls.direct_download": feed.producer_url,
-        "urls.authentication_type": feed.authentication_type,
-        "urls.authentication_info": feed.authentication_info_url,
-        "urls.api_key_parameter_name": feed.api_key_parameter_name,
-        "urls.latest": None,
-        "urls.license": feed.license_url,
-        "location.bounding_box.minimum_latitude": None,
-        "location.bounding_box.maximum_latitude": None,
-        "location.bounding_box.minimum_longitude": None,
-        "location.bounding_box.maximum_longitude": None,
-        "location.bounding_box.extracted_on": None,
-        "features": None,
-        "redirect.id": None,
-        "redirect.comment": None,
-    }
+    # For the RT feed, we use the bounding box of the associated GTFS feed, if any.
+    # These bounding boxes were collected when processing the GTFS feeds.
+    bounding_box = (
+        bounding_box_lookup.get(first_feed_reference.id)
+        if first_feed_reference
+        else None
+    )
+    if bounding_box:
+        bounding_box.fill_data(data)
 
     return data
 

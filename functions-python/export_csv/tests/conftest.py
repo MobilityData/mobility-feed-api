@@ -48,6 +48,7 @@ def populate_database():
     session = get_testing_session()
     fake = Faker()
 
+    feed_reference = None
     feeds = []
     # We create 3 feeds. The first one is active. The third one is inactive and redirected to the first one.
     # The second one is active but not redirected.
@@ -67,6 +68,8 @@ def populate_database():
             operational_status='published',
             official=True,
         )
+        if i == 0:
+            feed_reference = feed
         feeds.append(feed)
 
     # Then fill the specific parameters for each feed
@@ -204,13 +207,29 @@ def populate_database():
             status="inactive" if i == 1 else "active",
             feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
             provider=f"gtfs-rt-{i} Some fake company",
-            entitytypes=[vp_entitytype, tu_entitytype] if (i == 0) else [vp_entitytype],
+            entitytypes=[vp_entitytype, tu_entitytype] if i == 0 else [vp_entitytype],
             operational_status='published',
             official=True,
             gtfs_feeds=[active_gtfs_feeds[0]] if i == 0 else [],
         )
         gtfs_rt_feeds.append(feed)
-    gtfs_rt_feeds[0].gtfs_feeds.append(active_gtfs_feeds[0])
+
+    # Add redirecting IDs (from main branch logic)
+    gtfs_rt_feeds[1].redirectingids = [
+        Redirectingid(
+            source_id=gtfs_rt_feeds[1].id,
+            target_id=gtfs_rt_feeds[0].id,
+            redirect_comment="comment 1",
+            target=gtfs_rt_feeds[0],
+        ),
+        Redirectingid(
+            source_id=gtfs_rt_feeds[1].id,
+            target_id=gtfs_rt_feeds[2].id,
+            redirect_comment="comment 2",
+            target=gtfs_rt_feeds[2],
+        ),
+    ]
+
     session.add_all(gtfs_rt_feeds)
 
     session.commit()

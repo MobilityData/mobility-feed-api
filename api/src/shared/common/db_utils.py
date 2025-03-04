@@ -145,7 +145,7 @@ def get_gtfs_rt_feeds_query(
     )
     subquery = gtfs_rt_feed_filter.filter(
         select(Gtfsrealtimefeed.id)
-        .join(Location, Gtfsrealtimefeed.locations)
+        .join(Location, Gtfsrealtimefeed.locations, isouter=True)
         .join(Entitytype, Gtfsrealtimefeed.entitytypes)
     ).subquery()
     feed_query = db_session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.id.in_(subquery))
