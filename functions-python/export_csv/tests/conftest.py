@@ -14,22 +14,22 @@
 #  limitations under the License.
 #
 
-from faker import Faker
 from datetime import datetime
 
+from faker import Faker
 from geoalchemy2 import WKTElement
 
-from shared.database_gen.sqlacodegen_models import (
-    Validationreport,
-    Feature,
-    Redirectingid,
-)
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gtfsdataset,
     Location,
     Entitytype,
+)
+from shared.database_gen.sqlacodegen_models import (
+    Validationreport,
+    Feature,
+    Redirectingid,
 )
 from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
 
@@ -48,7 +48,6 @@ def populate_database():
     session = get_testing_session()
     fake = Faker()
 
-    feed_reference = None
     feeds = []
     # We create 3 feeds. The first one is active. The third one is inactive and redirected to the first one.
     # The second one is active but not redirected.
@@ -65,11 +64,9 @@ def populate_database():
             stable_id=f"gtfs-{i}",
             feed_contact_email=f"gtfs-{i}_some_fake_email@fake.com",
             provider=f"gtfs-{i} Some fake company",
-            operational_status='published',
+            operational_status="published",
             official=True,
         )
-        if i == 0:
-            feed_reference = feed
         feeds.append(feed)
 
     # Then fill the specific parameters for each feed
@@ -114,7 +111,7 @@ def populate_database():
             status="deprecated",
             feed_contact_email=f"gtfs-deprecated-{i}_some_fake_email@fake.com",
             provider=f"gtfs-deprecated-{i} Some fake company",
-            operational_status='published',
+            operational_status="published",
             official=True,
         )
         session.add(feed)
@@ -208,7 +205,7 @@ def populate_database():
             feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
             provider=f"gtfs-rt-{i} Some fake company",
             entitytypes=[vp_entitytype, tu_entitytype] if i == 0 else [vp_entitytype],
-            operational_status='published',
+            operational_status="published",
             official=True,
             gtfs_feeds=[active_gtfs_feeds[0]] if i == 0 else [],
         )
