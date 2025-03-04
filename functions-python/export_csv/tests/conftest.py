@@ -64,6 +64,8 @@ def populate_database():
             stable_id=f"gtfs-{i}",
             feed_contact_email=f"gtfs-{i}_some_fake_email@fake.com",
             provider=f"gtfs-{i} Some fake company",
+            operational_status='published',
+            official=True,
         )
         feeds.append(feed)
 
@@ -109,6 +111,8 @@ def populate_database():
             status="deprecated",
             feed_contact_email=f"gtfs-deprecated-{i}_some_fake_email@fake.com",
             provider=f"gtfs-deprecated-{i} Some fake company",
+            operational_status='published',
+            official=True,
         )
         session.add(feed)
 
@@ -200,6 +204,8 @@ def populate_database():
             feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
             provider=f"gtfs-rt-{i} Some fake company",
             entitytypes=[vp_entitytype, tu_entitytype] if (i == 0) else [vp_entitytype],
+            operational_status='published',
+            official=True,
         )
         for i in range(3)
     ]
