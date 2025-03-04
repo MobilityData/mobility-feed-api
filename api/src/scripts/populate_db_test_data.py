@@ -158,6 +158,7 @@ class DatabasePopulateTestDataHelper:
                 license_url=None,
                 feed_contact_email=feed_data["feed_contact_email"],
                 producer_url=feed_data["source_info"]["producer_url"],
+                operational_status="published",
             )
             locations = []
             for location_data in feed_data["locations"]:

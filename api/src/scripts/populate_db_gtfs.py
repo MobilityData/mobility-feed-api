@@ -198,6 +198,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     stable_id=stable_id,
                     # Current timestamp with UTC timezone
                     created_at=datetime.now(pytz.utc),
+                    operational_status="published",
                 )
                 self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 session.add(feed)
