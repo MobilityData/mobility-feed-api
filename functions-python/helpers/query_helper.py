@@ -1,15 +1,16 @@
 import logging
 from typing import Type
 
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.query import Query
+
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
     Gtfsfeed,
     Gbfsfeed,
 )
-from sqlalchemy import and_
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.orm.query import Query
 
 feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": Gbfsfeed}
 
@@ -29,6 +30,46 @@ def query_feed_by_stable_id(
     """
     model = get_model(data_type)
     return session.query(model).filter(model.stable_id == stable_id).first()
+
+
+def get_eager_loading_options(model: Type[Feed], data_type: str | None = None):
+    """
+    Get the appropriate eager loading options based on the model type.
+
+    Args:
+        model: The SQLAlchemy model class
+        data_type: Optional data type for when using the base Feed model
+
+    Returns:
+        List of joinedload options for the query
+    """
+    if model == Gtfsrealtimefeed or (model == Feed and data_type == "gtfs_rt"):
+        logging.info("Adding GTFS-RT specific eager loading")
+        return [
+            joinedload(Gtfsrealtimefeed.locations),
+            joinedload(Gtfsrealtimefeed.entitytypes),
+            joinedload(Gtfsrealtimefeed.gtfs_feeds),
+            joinedload(Gtfsrealtimefeed.externalids),
+            joinedload(Gtfsrealtimefeed.redirectingids),
+        ]
+    elif model == Gtfsfeed or (model == Feed and data_type == "gtfs"):
+        logging.info("Adding GTFS specific eager loading")
+        return [
+            joinedload(Gtfsfeed.locations),
+            joinedload(Gtfsfeed.externalids),
+            joinedload(Gtfsfeed.redirectingids),
+            joinedload(Gtfsfeed.gtfsdatasets),
+        ]
+    else:
+        logging.info("Adding base Feed eager loading")
+        return [
+            joinedload(Feed.locations),
+            joinedload(Feed.externalids),
+            joinedload(Feed.redirectingids),
+            joinedload(Gtfsrealtimefeed.entitytypes),
+            joinedload(Gtfsrealtimefeed.gtfs_feeds),
+            joinedload(Gtfsfeed.gtfsdatasets),
+        ]
 
 
 def get_feeds_query(
@@ -58,7 +99,6 @@ def get_feeds_query(
             operation_status,
         )
 
-        # To explicitly use concrete models:
         if data_type == "gtfs":
             model = Gtfsfeed
         elif data_type == "gtfs_rt":
@@ -81,33 +121,8 @@ def get_feeds_query(
         query = db_session.query(model)
         logging.info("Created base query with model %s", model.__name__)
 
-        if model == Gtfsrealtimefeed or (model == Feed and data_type == "gtfs_rt"):
-            logging.info("Adding GTFS-RT specific eager loading")
-            query = query.options(
-                joinedload(Gtfsrealtimefeed.locations),
-                joinedload(Gtfsrealtimefeed.entitytypes),
-                joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                joinedload(Gtfsrealtimefeed.externalids),
-                joinedload(Gtfsrealtimefeed.redirectingids),
-            )
-        elif model == Gtfsfeed or (model == Feed and data_type == "gtfs"):
-            logging.info("Adding GTFS specific eager loading")
-            query = query.options(
-                joinedload(Gtfsfeed.locations),
-                joinedload(Gtfsfeed.externalids),
-                joinedload(Gtfsfeed.redirectingids),
-                joinedload(Gtfsfeed.gtfsdatasets),
-            )
-        else:
-            logging.info("Adding base Feed eager loading")
-            query = query.options(
-                joinedload(Feed.locations),
-                joinedload(Feed.externalids),
-                joinedload(Feed.redirectingids),
-                joinedload(Gtfsrealtimefeed.entitytypes),
-                joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                joinedload(Gtfsfeed.gtfsdatasets),
-            )
+        eager_loading_options = get_eager_loading_options(model, data_type)
+        query = query.options(*eager_loading_options)
 
         if conditions:
             query = query.filter(and_(*conditions))

@@ -1,8 +1,9 @@
 import logging
 
+from pydantic import model_validator
+
 from feeds_operations_gen.models.base_feed import BaseFeed
 from feeds_operations_gen.models.data_type import DataType
-from pydantic import model_validator
 from shared.database_gen.sqlacodegen_models import Feed
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ class BaseFeedImpl(BaseFeed):
         from_attributes = True
 
     @model_validator(mode="before")
-    def validate_feed_type(cls, values):
+    def validate_feed_type(cls, values: dict | object) -> dict | object:
         """Validate data type matches the model class."""
         if not isinstance(values, dict):
             return values

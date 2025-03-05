@@ -40,7 +40,7 @@ from shared.database_gen.sqlacodegen_models import (
     t_feedsearch,
 )
 from shared.helpers.database import Database, refresh_materialized_view
-from shared.helpers.query_helper import query_feed_by_stable_id, get_feeds_query
+from shared.helpers.query_helper import query_feed_by_stable_id, get_feeds_query, get_eager_loading_options
 from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
 from .request_validator import validate_request
 
@@ -103,7 +103,7 @@ class OperationsApiImpl(BaseOperationsApi):
                 feed_references = []
 
                 if hasattr(feed, "entitytypes") and feed.entitytypes:
-                    entity_types = [et.name.lower() for et in feed.entitytypes]
+                    entity_types = [et.name for et in feed.entitytypes]
                     logging.info(
                         f"Found {len(entity_types)} entity types for feed {feed.stable_id}"
                     )
@@ -306,9 +306,37 @@ class OperationsApiImpl(BaseOperationsApi):
 
     @staticmethod
     async def fetch_feed(data_type, session, update_request_feed):
-        feed: Gtfsfeed = query_feed_by_stable_id(
-            session, update_request_feed.id, data_type.value
-        )
+        """Fetch a feed by its stable ID with efficient eager loading.
+        
+        Args:
+            data_type: The feed data type (gtfs or gtfs_rt)
+            session: SQLAlchemy session
+            update_request_feed: The update request containing the feed ID
+            
+        Returns:
+            The feed object with relationships loaded
+            
+        Raises:
+            HTTPException: If feed not found
+        """
+        # Get the appropriate model
+        from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed, Gtfsrealtimefeed
+        
+        if data_type == DataType.GTFS:
+            model = Gtfsfeed
+        elif data_type == DataType.GTFS_RT:
+            model = Gtfsrealtimefeed
+        else:
+            model = Feed
+            
+        # Build query with eager loading
+        query = session.query(model).filter(model.stable_id == update_request_feed.id)
+        eager_loading_options = get_eager_loading_options(model, data_type.value)
+        query = query.options(*eager_loading_options)
+        
+        # Execute query
+        feed = query.first()
+        
         if feed is None:
             raise HTTPException(
                 status_code=400,
