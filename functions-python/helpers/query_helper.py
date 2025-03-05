@@ -58,7 +58,6 @@ def get_eager_loading_options(model: Type[Feed], data_type: str | None = None):
             joinedload(Gtfsfeed.locations),
             joinedload(Gtfsfeed.externalids),
             joinedload(Gtfsfeed.redirectingids),
-            joinedload(Gtfsfeed.gtfsdatasets),
         ]
     else:
         logging.info("Adding base Feed eager loading")
@@ -68,7 +67,6 @@ def get_eager_loading_options(model: Type[Feed], data_type: str | None = None):
             joinedload(Feed.redirectingids),
             joinedload(Gtfsrealtimefeed.entitytypes),
             joinedload(Gtfsrealtimefeed.gtfs_feeds),
-            joinedload(Gtfsfeed.gtfsdatasets),
         ]
 
 
