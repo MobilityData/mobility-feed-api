@@ -1,17 +1,17 @@
 import json
+import logging
+import os
 from typing import Optional
 
 import requests
-import os
-import logging
 from google.cloud import storage
-from utils.locations import get_feed_location
+
 from shared.helpers.bq_schema.schema import (
     json_schema_map,
     load_json_schema,
     filter_json_by_schema,
 )
-
+from utils.locations import get_feed_location
 
 # Environment variables
 project_id = os.getenv("PROJECT_ID")
@@ -38,10 +38,10 @@ class ValidationReportConverter:
         self.dataset_id = dataset_id
         self.report_id = report_id
         self.nd_json_path_prefix = "ndjson"
-        self.locations = get_feed_location(data_type, stable_id)
+        self.locations = get_feed_location(stable_id)
         self.json_schema_path = os.path.join(
             os.path.dirname(__file__),
-            "helpers/bq_schema",
+            "shared/helpers/bq_schema",
             json_schema_map.get(data_type, "gtfs"),
         )
         self.json_schema = load_json_schema(self.json_schema_path)

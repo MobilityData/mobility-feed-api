@@ -1,15 +1,16 @@
+import os
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
 from processors.gtfs_analytics_processor import (
     GTFSAnalyticsProcessor,
 )
+from test_shared.test_utils.database_utils import default_db_url
 
 
 class TestGTFSAnalyticsProcessor(unittest.TestCase):
-    @patch("processors.base_analytics_processor.Database")
     @patch("processors.base_analytics_processor.storage.Client")
-    def setUp(self, mock_storage_client, _):
+    def setUp(self, mock_storage_client):
         self.mock_storage_client = mock_storage_client
         self.mock_bucket = MagicMock()
         self.mock_storage_client().bucket.return_value = self.mock_bucket
@@ -26,6 +27,7 @@ class TestGTFSAnalyticsProcessor(unittest.TestCase):
         "processors.gtfs_analytics_processor.GTFSAnalyticsProcessor"
         ".update_analytics_files"
     )
+    @patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
     def test_run(
         self,
         mock_update_analytics_files,
@@ -59,8 +61,8 @@ class TestGTFSAnalyticsProcessor(unittest.TestCase):
 
         # Assert that process_feed_data was called twice (once for each feed-dataset pair)
         self.assertEqual(mock_process_feed_data.call_count, 2)
-        mock_process_feed_data.assert_any_call(mock_feed1, mock_dataset1, {})
-        mock_process_feed_data.assert_any_call(mock_feed2, mock_dataset2, {})
+        mock_process_feed_data.assert_any_call(mock_feed1, mock_dataset1)
+        mock_process_feed_data.assert_any_call(mock_feed2, mock_dataset2)
 
         # Assert that save was called once
         mock_save.assert_called_once()
@@ -98,7 +100,7 @@ class TestGTFSAnalyticsProcessor(unittest.TestCase):
         mock_dataset.validation_reports[0].features = [MagicMock(name="feature1")]
 
         # Run process_feed_data
-        self.processor.process_feed_data(mock_feed, mock_dataset, {})
+        self.processor.process_feed_data(mock_feed, mock_dataset)
 
         # Assert the data was appended correctly
         self.assertEqual(len(self.processor.data), 1)

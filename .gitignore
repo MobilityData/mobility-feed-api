@@ -74,3 +74,6 @@ __pycache__
 .coverage
 coverage_reports
 tf.plan
+
+# CSV generation output files
+functions-python/**/*.csv

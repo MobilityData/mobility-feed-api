@@ -1,5 +1,6 @@
 import logging
 
+import flask
 import functions_framework
 from cloudevents.http import CloudEvent
 
@@ -50,19 +51,31 @@ def convert_reports_to_ndjson(cloud_event: CloudEvent):
 
 
 @functions_framework.http
-def batch_convert_reports_to_ndjson(_):
+def batch_convert_reports_to_ndjson(request: flask.Request):
     """Batch convert all reports in the bucket to NDJSON format."""
     Logger.init_logger()
     logging.info("Function triggered")
-    # 1. Get all reports in the bucket
+
+    # 1. Get the validator version from the request
+    try:
+        request_json = request.get_json(silent=True)
+        validator_version = request_json.get("validator_version", "")
+        report_suffix = f"{validator_version}.json"
+    except Exception as e:
+        logging.error(f"Failed to get validator version: {e}")
+        report_suffix = ".json"
+
+    # 2. Get all reports in the bucket
     storage_client = storage.Client(project_id)
     blobs = list(storage_client.list_blobs(bucket_name))
     report_blobs = [
-        blob for blob in blobs if "report_" in blob.name and blob.name.endswith(".json")
+        blob
+        for blob in blobs
+        if "report_" in blob.name and blob.name.endswith(report_suffix)
     ]
     logging.info(f"Found {len(report_blobs)} reports to process.")
 
-    # 2. For each report create cloud event and call convert_reports_to_ndjson
+    # 3. For each report create cloud event and call convert_reports_to_ndjson
     for blob in report_blobs:
         cloud_event = CloudEvent(
             data={
