@@ -6,14 +6,14 @@ import json
 import pandas as pd
 from google.cloud import storage
 from sqlalchemy.orm import Query
-
+from sqlalchemy.orm.session import Session
 from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
     Gbfssnapshot,
     Gtfsfeed,
     Gtfsdataset,
 )
-from shared.helpers.database import Database
+from shared.helpers.database import with_db_session
 
 
 class NoFeedDataException(Exception):
@@ -23,7 +23,6 @@ class NoFeedDataException(Exception):
 class BaseAnalyticsProcessor:
     def __init__(self, run_date):
         self.run_date = run_date
-        self.session = Database().start_db_session(echo=False)
         self.processed_feeds = set()
         self.data = []
         self.feed_metrics_data = []
@@ -33,14 +32,11 @@ class BaseAnalyticsProcessor:
             os.getenv("ANALYTICS_BUCKET")
         )
 
-    def get_latest_data(self) -> Query:
+    def get_latest_data(self, db_session: Session) -> Query:
         raise NotImplementedError("Subclasses should implement this method.")
 
     def process_feed_data(
-        self,
-        feed: Gtfsfeed | Gbfsfeed,
-        dataset_or_snapshot: Gtfsdataset | Gbfssnapshot,
-        translations: Dict,
+        self, feed: Gtfsfeed | Gbfsfeed, dataset_or_snapshot: Gtfsdataset | Gbfssnapshot
     ) -> None:
         raise NotImplementedError("Subclasses should implement this method.")
 
@@ -135,65 +131,25 @@ class BaseAnalyticsProcessor:
         self.save()
         logging.info(f"Analytics saved to bucket as {file_name}")
 
-    def run(self) -> None:
-        for (
-            feed,
-            dataset_or_snapshot,
-            translation_fields,
-        ) in self._get_data_with_translations():
-            self.process_feed_data(feed, dataset_or_snapshot, translation_fields)
+    @with_db_session
+    def run(self, db_session: Session) -> None:
+        for feed, dataset_or_snapshot in self._get_data(db_session):
+            self.process_feed_data(feed, dataset_or_snapshot)
 
-        self.session.close()
         self.save_summary()
         self.save_analytics()
         self.update_analytics_files()
         logging.info(f"Finished running analytics for date: {self.run_date}")
 
-    def _get_data_with_translations(self):
-        query = self.get_latest_data()
+    def _get_data(self, db_session: Session):
+        query = self.get_latest_data(db_session)
         all_results = query.all()
         if len(all_results) == 0:
             raise NoFeedDataException("No feed data found")
         logging.info(f"Loaded {len(all_results)} feeds to process")
-        try:
-            location_translations = [
-                self._extract_translation_fields(result[2:]) for result in all_results
-            ]
-            logging.info("Location translations loaded")
-            location_translations_dict = {
-                translation["location_id"]: translation
-                for translation in location_translations
-                if translation["location_id"] is not None
-            }
-        except Exception as e:
-            logging.warning(
-                f"Error loading location translations: {e}\n Continuing without translations"
-            )
-            location_translations_dict = {}
         unique_feeds = {result[0].stable_id: result for result in all_results}
         logging.info(f"Nb of unique feeds loaded: {len(unique_feeds)}")
-        return [
-            (result[0], result[1], location_translations_dict)
-            for result in unique_feeds.values()
-        ]
-
-    @staticmethod
-    def _extract_translation_fields(translation_data):
-        keys = [
-            "location_id",
-            "country_code",
-            "country",
-            "subdivision_name",
-            "municipality",
-            "country_translation",
-            "subdivision_name_translation",
-            "municipality_translation",
-        ]
-        try:
-            return dict(zip(keys, translation_data))
-        except Exception as e:
-            logging.error(f"Error extracting translation fields: {e}")
-            return dict(zip(keys, [None] * len(keys)))
+        return [(result[0], result[1]) for result in unique_feeds.values()]
 
     def update_analytics_files(self) -> None:
         try:

@@ -217,7 +217,7 @@ resource "google_cloudfunctions2_function" "gtfs_validation_report_conversion" {
     }
     event_filters {
       attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/mdb-*/mdb-*/report_*.json"
+      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/*/*/report_*.json"
       operator = "match-path-pattern"
     }
   }
@@ -325,7 +325,7 @@ resource "google_cloudfunctions2_function" "gbfs_validation_report_conversion" {
     }
     event_filters {
       attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-gbfs-snapshots-${var.environment}/objects/mdb-*/mdb-*/report_*.json"
+      value     = "projects/_/buckets/mobilitydata-gbfs-snapshots-${var.environment}/objects/*/*/report_summary.json"
       operator = "match-path-pattern"
     }
   }
