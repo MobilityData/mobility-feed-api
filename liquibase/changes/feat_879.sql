@@ -1,0 +1,1 @@
+ALTER TYPE Status ADD VALUE 'future';

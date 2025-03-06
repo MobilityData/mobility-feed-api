@@ -56,6 +56,9 @@ locals {
   function_backfill_dataset_service_date_range_config = jsondecode(file("${path.module}/../../functions-python/backfill_dataset_service_date_range/function_config.json"))
   function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/backfill_dataset_service_date_range.zip"
 
+  function_update_feed_status_config = jsondecode(file("${path.module}/../../functions-python/update_feed_status/function_config.json"))
+  function_update_feed_status_zip = "${path.module}/../../functions-python/update_feed_status/.dist/update_feed_status.zip"
+
   function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
   function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
 }
@@ -69,6 +72,7 @@ locals {
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
+    [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
     [for x in local.function_export_csv_config.secret_environment_variables : x.key]
   )
 
@@ -180,12 +184,18 @@ resource "google_storage_bucket_object" "backfill_dataset_service_date_range_zip
   source = local.function_backfill_dataset_service_date_range_zip
 }
 
-
 # 10. Export CSV
 resource "google_storage_bucket_object" "export_csv_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "export-csv-${substr(filebase64sha256(local.function_export_csv_zip), 0, 10)}.zip"
   source = local.function_export_csv_zip
+}
+
+# 11. Update Feed Status
+resource "google_storage_bucket_object" "update_feed_status_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "backfill-dataset-service-date-range-${substr(filebase64sha256(local.function_update_feed_status_zip), 0, 10)}.zip"
+  source = local.function_update_feed_status_zip
 }
 
 # Secrets access
@@ -892,6 +902,53 @@ resource "google_cloudfunctions2_function" "export_csv" {
     }
   }
 }
+
+# 11. functions/update_feed_status cloud function
+# Updates the Feed statuses based on latest dataset service date range
+
+resource "google_cloudfunctions2_function" "update_feed_status" {
+  name        = local.function_update_feed_status_config.name
+  description = local.function_update_feed_status_config.description
+  location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project = var.project_id
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_update_feed_status_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.update_feed_status_zip.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_update_feed_status_config.memory
+    available_cpu    = local.function_update_feed_status_config.available_cpu
+    timeout_seconds  = local.update_feed_status_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+    environment_variables = {
+      # prevents multiline logs from being truncated on GCP console
+      PYTHONNODEBUGRANGES = 0
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_update_feed_status_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+    service_account_email            = google_service_account.functions_service_account.email
+    max_instance_request_concurrency = local.function_update_feed_status_config.max_instance_request_concurrency
+    max_instance_count               = local.function_update_feed_status_config.max_instance_count
+    min_instance_count               = local.function_update_feed_status_config.min_instance_count
+  }
+}
+
 
 resource "google_cloud_scheduler_job" "export_csv_scheduler" {
   name = "export-csv-scheduler-${var.environment}"
