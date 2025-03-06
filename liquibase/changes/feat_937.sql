@@ -1,8 +1,3 @@
 ALTER TABLE gtfsdataset 
-ALTER COLUMN service_date_range_start 
-SET DATA TYPE TIMESTAMP WITH TIME ZONE 
-USING service_date_range_start::TIMESTAMP WITH TIME ZONE,
-
-ALTER COLUMN service_date_range_end 
-SET DATA TYPE TIMESTAMP WITH TIME ZONE 
-USING service_date_range_end::TIMESTAMP WITH TIME ZONE;
+ADD COLUMN service_date_range_timezone TIMESTAMP WITH TIME ZONE 
+DEFAULT date_trunc('day', now()) AT TIME ZONE 'UTC';
