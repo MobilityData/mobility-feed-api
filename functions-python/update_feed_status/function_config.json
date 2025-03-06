@@ -3,7 +3,7 @@
   "description": "Update the feed status with the corresponding latest dataset service date range",
   "entry_point": "update_feed_status",
   "timeout": 3600,
-  "memory": "2Gi",
+  "memory": "1Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
   "include_api_folders": ["database_gen"],
