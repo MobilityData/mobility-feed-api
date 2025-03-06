@@ -1,8 +1,3 @@
-# from unittest.mock import patch, Mock, MagicMock
-# from main import backfill_datasets, backfill_dataset_service_date_range, is_version_gte
-# from shared.database_gen.sqlacodegen_models import Gtfsdataset
-# from test_shared.test_utils.database_utils import default_db_url
-
 from unittest.mock import patch, MagicMock
 from test_shared.test_utils.database_utils import default_db_url
 from main import update_feed_status, update_feed_statuses_query
