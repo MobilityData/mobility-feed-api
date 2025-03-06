@@ -2,7 +2,6 @@ from unittest.mock import patch, MagicMock
 from test_shared.test_utils.database_utils import default_db_url
 from main import update_feed_status, update_feed_statuses_query
 from datetime import date, timedelta
-import pytest
 
 import os
 
