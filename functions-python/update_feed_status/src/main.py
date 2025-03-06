@@ -27,7 +27,7 @@ def update_feed_statuses_query(session: "Session"):
         .filter(
             Gtfsdataset.latest.is_(True),
             Gtfsdataset.service_date_range_start.isnot(None),
-            Gtfsdataset.service_date_range_end.isnot(None)
+            Gtfsdataset.service_date_range_end.isnot(None),
         )
         .subquery()
     )
@@ -53,7 +53,7 @@ def update_feed_statuses_query(session: "Session"):
         .filter(
             Feed.status != text("'deprecated'::status"),
             Feed.status != text("'development'::status"),
-            Feed.id == latest_dataset_subq.c.feed_id
+            Feed.id == latest_dataset_subq.c.feed_id,
         )
         .update({Feed.status: new_status}, synchronize_session=False)
     )
