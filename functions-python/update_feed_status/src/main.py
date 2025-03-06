@@ -48,15 +48,19 @@ def update_feed_statuses_query(session: "Session"):
         ),
     )
 
-    updated_count = (
-        session.query(Feed)
-        .filter(
-            Feed.status != text("'deprecated'::status"),
-            Feed.status != text("'development'::status"),
-            Feed.id == latest_dataset_subq.c.feed_id,
+    try:
+        updated_count = (
+            session.query(Feed)
+            .filter(
+                Feed.status != text("'deprecated'::status"),
+                Feed.status != text("'development'::status"),
+                Feed.id == latest_dataset_subq.c.feed_id,
+            )
+            .update({Feed.status: new_status}, synchronize_session=False)
         )
-        .update({Feed.status: new_status}, synchronize_session=False)
-    )
+    except Exception as e:
+        logging.error(f"Error updating feed statuses: {e}")
+        raise Exception(f"Error updating feed statuses: {e}")
 
     try:
         session.commit()
