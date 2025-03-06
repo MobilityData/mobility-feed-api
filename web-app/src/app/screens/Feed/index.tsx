@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
-import { ContentBox } from '../../components/ContentBox';
+
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
 import {
@@ -57,11 +57,11 @@ import {
   generateDescriptionMetaTag,
 } from './Feed.functions';
 import FeedTitle from './FeedTitle';
-import { Map } from '../../components/Map';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import { RouteAvailabilities } from '../../components/RouteAvailabilities';
 import { Map2 } from '../../components/Map2';
+import CoveredAreaMap from '../../components/CoveredAreaMap';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -501,28 +501,10 @@ export default function Feed(): React.ReactElement {
           })}
         >
           {feed?.data_type === 'gtfs' && (
-            <ContentBox
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-              title={t('boundingBoxTitle')}
-              width={{ xs: '100%', md: '100%' }}
-              outlineColor={theme.palette.primary.dark}
-              padding={2}
-            >
-              {boundingBox === undefined && (
-                <WarningContentBox>
-                  {t('unableToGenerateBoundingBox')}
-                </WarningContentBox>
-              )}
-              {boundingBox !== undefined && (
-                <Box sx={mapBoxPositionStyle}>
-                  <Map polygon={boundingBox} />
-                </Box>
-              )}
-            </ContentBox>
+            <CoveredAreaMap
+              boundingBox={boundingBox}
+              latestDataset={latestDataset}
+            />
           )}
           <FeedSummary
             feed={feed}

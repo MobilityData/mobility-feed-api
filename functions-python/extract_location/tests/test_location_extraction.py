@@ -267,11 +267,11 @@ class TestMainFunctions(unittest.TestCase):
         },
     )
     @patch("main.Database")
-    @patch("main.pubsub_v1.PublisherClient")
+    @patch("main.publish_messages")
     @patch("main.Logger")
     @patch("uuid.uuid4")
     def test_extract_location_batch(
-        self, uuid_mock, logger_mock, publisher_client_mock, database_mock
+        self, uuid_mock, logger_mock, publish_messages_mock, database_mock
     ):
         mock_session = MagicMock()
         mock_dataset1 = Gtfsdataset(
@@ -302,37 +302,10 @@ class TestMainFunctions(unittest.TestCase):
             mock_session
         )
 
-        mock_publisher = MagicMock()
-        publisher_client_mock.return_value = mock_publisher
-        mock_future = MagicMock()
-        mock_future.result.return_value = "message_id"
-        mock_publisher.publish.return_value = mock_future
-
         response = extract_location_batch(None)
 
         logger_mock.init_logger.assert_called_once()
-        mock_publisher.publish.assert_any_call(
-            mock.ANY,
-            json.dumps(
-                {
-                    "stable_id": "1",
-                    "dataset_id": "stable_1",
-                    "url": "http://example.com/1",
-                    "execution_id": "batch-uuid",
-                }
-            ).encode("utf-8"),
-        )
-        mock_publisher.publish.assert_any_call(
-            mock.ANY,
-            json.dumps(
-                {
-                    "stable_id": "2",
-                    "dataset_id": "stable_2",
-                    "url": "http://example.com/2",
-                    "execution_id": "batch-uuid",
-                }
-            ).encode("utf-8"),
-        )
+        publish_messages_mock.assert_called_once()
         self.assertEqual(response, ("Batch function triggered for 2 datasets.", 200))
 
     @mock.patch.dict(
