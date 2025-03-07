@@ -13,7 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import json
+import logging
 import uuid
+from typing import Dict, List
 
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1 import PublisherClient
@@ -43,3 +46,15 @@ def get_execution_id(request, prefix: str) -> str:
     trace_id = request.headers.get("X-Cloud-Trace-Context")
     execution_id = f"{prefix}-{trace_id}" if trace_id else f"{prefix}-{uuid.uuid4()}"
     return execution_id
+
+
+def publish_messages(data: List[Dict], project_id, topic_name) -> None:
+    """
+    Publishes the given data to the Pub/Sub topic.
+    """
+    publisher = get_pubsub_client()
+    topic_path = publisher.topic_path(project_id, topic_name)
+    for element in data:
+        message_data = json.dumps(element).encode("utf-8")
+        future = publish(publisher, topic_path, message_data)
+        logging.info(f"Published message to Pub/Sub with ID: {future.result()}")

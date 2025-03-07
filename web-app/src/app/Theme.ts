@@ -136,6 +136,31 @@ export const getTheme = (mode: ThemeModeEnum): Theme => {
           },
         },
       },
+      MuiTabs: {
+        styleOverrides: {
+          root: {
+            backgroundColor: chosenPalette.background.paper,
+            color: chosenPalette.text.primary,
+            width: 'fit-content',
+            border: '2px solid',
+            borderColor: chosenPalette.primary.main,
+            borderRadius: '5px',
+            textTransform: 'none',
+          },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: {
+            textTransform: 'none',
+            color: chosenPalette.text.primary,
+            '&.Mui-selected': {
+              backgroundColor: chosenPalette.primary.main,
+              color: chosenPalette.primary.contrastText,
+            },
+          },
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {

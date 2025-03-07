@@ -1,3 +1,4 @@
+/* eslint-disable */
 import * as React from 'react';
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
@@ -13,7 +14,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
-import { ContentBox } from '../../components/ContentBox';
+
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
 import {
@@ -56,7 +57,11 @@ import {
   generateDescriptionMetaTag,
 } from './Feed.functions';
 import FeedTitle from './FeedTitle';
-import { Map } from '../../components/Map';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import { RouteAvailabilities } from '../../components/RouteAvailabilities';
+import { Map2 } from '../../components/Map2';
+import CoveredAreaMap from '../../components/CoveredAreaMap';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -107,6 +112,27 @@ const wrapComponent = (
     </Container>
   );
 };
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function CustomTabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 1, mt: 1 }}>{children}</Box>}
+    </div>
+  );
+}
 
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -130,6 +156,11 @@ export default function Feed(): React.ReactElement {
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
   const sortedProviders = formatProvidersSorted(feed?.provider ?? '');
+  const [value, setValue] = React.useState(0);
+
+  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
+    setValue(newValue);
+  };
 
   useEffect(() => {
     if (user != undefined && feedId != undefined && needsToLoadFeed) {
@@ -398,6 +429,12 @@ export default function Feed(): React.ReactElement {
             </Trans>
           </WarningContentBox>
         )}
+      <Tabs value={value} onChange={handleChange} aria-label="basic tabs example" sx={{mt: 2}}>
+        <Tab label="Overview" href='#'/>
+        <Tab label="Detailed Map" href='#map'/>
+        <Tab label="Route Availabilities" href='#routes'/>
+      </Tabs>
+   
       {hasFeedRedirect && (
         <Grid item xs={12}>
           <WarningContentBox>
@@ -414,6 +451,7 @@ export default function Feed(): React.ReactElement {
           </WarningContentBox>
         </Grid>
       )}
+      <CustomTabPanel value={value} index={0}>
       <Box sx={ctaContainerStyle}>
         {feedType === 'gtfs' && downloadLatestUrl != undefined && (
           <Button
@@ -463,28 +501,10 @@ export default function Feed(): React.ReactElement {
           })}
         >
           {feed?.data_type === 'gtfs' && (
-            <ContentBox
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-              title={t('boundingBoxTitle')}
-              width={{ xs: '100%', md: '100%' }}
-              outlineColor={theme.palette.primary.dark}
-              padding={2}
-            >
-              {boundingBox === undefined && (
-                <WarningContentBox>
-                  {t('unableToGenerateBoundingBox')}
-                </WarningContentBox>
-              )}
-              {boundingBox !== undefined && (
-                <Box sx={mapBoxPositionStyle}>
-                  <Map polygon={boundingBox} />
-                </Box>
-              )}
-            </ContentBox>
+            <CoveredAreaMap
+              boundingBox={boundingBox}
+              latestDataset={latestDataset}
+            />
           )}
           <FeedSummary
             feed={feed}
@@ -506,6 +526,19 @@ export default function Feed(): React.ReactElement {
           <PreviousDatasets datasets={datasets} />
         </Grid>
       )}
-    </Box>,
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={1}>
+        <Box>
+              {boundingBox !== undefined && (
+                <Box sx={{...mapBoxPositionStyle, width: '100%', height: '750px'}}>
+                  <Map2 polygon={boundingBox} />
+                </Box>
+              )}
+        </Box>
+      </CustomTabPanel>
+      <CustomTabPanel value={value} index={2}>
+        <RouteAvailabilities></RouteAvailabilities>
+      </CustomTabPanel>
+    </Box>
   );
 }
