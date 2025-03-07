@@ -925,7 +925,7 @@ resource "google_cloudfunctions2_function" "update_feed_status" {
   service_config {
     available_memory = local.function_update_feed_status_config.memory
     available_cpu    = local.function_update_feed_status_config.available_cpu
-    timeout_seconds  = local.update_feed_status_config.timeout
+    timeout_seconds  = local.function_update_feed_status_config.timeout
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
