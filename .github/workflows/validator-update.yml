@@ -38,6 +38,7 @@ jobs:
             --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT} \
             --location=${{ vars.MOBILITY_FEEDS_REGION }} \
             --header=Content-Type:application/json
+            --body-content='{}'
   notify-slack-on-failure:
     needs: [ validator-update ]
     if: failure() && (github.event_name != 'workflow_dispatch')
