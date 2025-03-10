@@ -1,0 +1,1137 @@
+[0m[1mdata.google_service_account_access_token.default: Reading...[0m[0m
+[0m[1mdata.google_service_account_access_token.default: Read complete after 0s [id=projects/-/serviceAccounts/ci-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.global.data.google_project.project: Reading...[0m[0m
+[0m[1mmodule.workflows.google_service_account.workflows_service_account: Refreshing state... [id=projects/mobility-feeds-dev/serviceAccounts/workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic.dataset_updates: Refreshing state... [id=projects/mobility-feeds-dev/topics/dataset-updates][0m
+[0m[1mmodule.feed-api.data.google_vpc_access_connector.vpc_connector: Reading...[0m[0m
+[0m[1mmodule.functions-python.google_service_account.functions_service_account: Refreshing state... [id=projects/mobility-feeds-dev/serviceAccounts/functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_cloud_tasks_queue.cloud_tasks_2x_rate_queue: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/queues/cloud-tasks-2x-rate-queue-dev][0m
+[0m[1mmodule.functions-python.google_storage_bucket.functions_bucket: Refreshing state... [id=mobility-feeds-functions-python-dev][0m
+[0m[1mdata.google_project.project: Reading...[0m[0m
+[0m[1mmodule.feed-api.google_service_account.containers_service_account: Refreshing state... [id=projects/mobility-feeds-dev/serviceAccounts/containers-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_storage_bucket.gbfs_snapshots_bucket: Refreshing state... [id=mobilitydata-gbfs-snapshots-dev][0m
+[0m[1mmodule.functions-python.data.google_vpc_access_connector.vpc_connector: Reading...[0m[0m
+[0m[1mmodule.functions-python.google_cloud_tasks_queue.update_validation_report_task_queue: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/queues/update-validation-report-task-queue][0m
+[0m[1mmodule.functions-python.google_pubsub_topic.validate_gbfs_feed: Refreshing state... [id=projects/mobility-feeds-dev/topics/validate-gbfs-feed][0m
+[0m[1mmodule.feed-api.data.google_iam_policy.noauth: Reading...[0m[0m
+[0m[1mmodule.feed-api.data.google_iam_policy.noauth: Read complete after 0s [id=3450855414][0m
+[0m[1mmodule.functions-python.data.google_pubsub_topic.datasets_batch_topic: Reading...[0m[0m
+[0m[1mmodule.functions-python.google_cloud_tasks_queue.cloud_tasks_dead_letter_queue: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/queues/cloud-tasks-dead-letter-queue-dev][0m
+[0m[1mmodule.global.google_vpc_access_connector.vpc_connector: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/connectors/vpc-connector-dev][0m
+[0m[1mmodule.functions-python.data.google_pubsub_topic.datasets_batch_topic: Read complete after 0s [id=projects/mobility-feeds-dev/topics/datasets-batch-topic-dev][0m
+[0m[1mmodule.feed-api.data.google_project.project: Reading...[0m[0m
+[0m[1mmodule.functions-python.google_pubsub_topic.transitland_feeds_dispatch: Refreshing state... [id=projects/mobility-feeds-dev/topics/transitland-feeds-dispatch][0m
+[0m[1mgoogle_project_service.services["cloudresourcemanager.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/cloudresourcemanager.googleapis.com][0m
+[0m[1mgoogle_project_service.services["cloudtasks.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/cloudtasks.googleapis.com][0m
+[0m[1mgoogle_project_service.services["sqladmin.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/sqladmin.googleapis.com][0m
+[0m[1mmodule.global.data.google_project.project: Read complete after 1s [id=projects/mobility-feeds-dev][0m
+[0m[1mdata.google_project.project: Read complete after 1s [id=projects/mobility-feeds-dev][0m
+[0m[1mgoogle_project_service.services["monitoring.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/monitoring.googleapis.com][0m
+[0m[1mgoogle_project_service.services["servicecontrol.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/servicecontrol.googleapis.com][0m
+[0m[1mgoogle_project_service.services["servicemanagement.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/servicemanagement.googleapis.com][0m
+[0m[1mmodule.feed-api.data.google_project.project: Read complete after 1s [id=projects/mobility-feeds-dev][0m
+[0m[1mgoogle_project_service.services["compute.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/compute.googleapis.com][0m
+[0m[1mgoogle_project_service.services["run.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/run.googleapis.com][0m
+[0m[1mmodule.feed-api.data.google_vpc_access_connector.vpc_connector: Read complete after 1s [id=projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa][0m
+[0m[1mgoogle_project_service.services["iam.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/iam.googleapis.com][0m
+[0m[1mmodule.functions-python.data.google_vpc_access_connector.vpc_connector: Read complete after 1s [id=projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa][0m
+[0m[1mgoogle_project_service.services["iamcredentials.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/iamcredentials.googleapis.com][0m
+[0m[1mgoogle_project_service.services["secretmanager.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/secretmanager.googleapis.com][0m
+[0m[1mgoogle_project_service.services["vpcaccess.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/vpcaccess.googleapis.com][0m
+[0m[1mgoogle_project_service.services["identitytoolkit.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/identitytoolkit.googleapis.com][0m
+[0m[1mgoogle_project_service.services["logging.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/logging.googleapis.com][0m
+[0m[1mgoogle_project_service.services["artifactregistry.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/artifactregistry.googleapis.com][0m
+[0m[1mgoogle_project_service.services["iap.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/iap.googleapis.com][0m
+[0m[1mgoogle_project_service.services["apigateway.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/apigateway.googleapis.com][0m
+[0m[1mgoogle_project_service.services["cloudbuild.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/cloudbuild.googleapis.com][0m
+[0m[1mmodule.functions-python.google_project_iam_audit_config.all-services: Refreshing state... [id=mobility-feeds-dev/audit_config/allServices][0m
+[0m[1mgoogle_project_service.services["workflows.googleapis.com"]: Refreshing state... [id=mobility-feeds-dev/workflows.googleapis.com][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.update_validation_report_zip: Refreshing state... [id=mobility-feeds-functions-python-dev-update-validation-report-XVsJXeg9fD.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.function_extract_location_zip_object: Refreshing state... [id=mobility-feeds-functions-python-dev-bucket-extract-bb-JuuI2t/C/o.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.feed_sync_process_transitland_zip: Refreshing state... [id=mobility-feeds-functions-python-dev-feed-sync-process-transitland-rd6EPKMWfY.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.gbfs_validation_report_zip: Refreshing state... [id=mobility-feeds-functions-python-dev-gbfs-validator-gX/Uil5bj8.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.function_token_zip: Refreshing state... [id=mobility-feeds-functions-python-dev-tokens-NL6tt/pPHk.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.process_validation_report_zip: Refreshing state... [id=mobility-feeds-functions-python-dev-process-validation-report-/Q/jF9KTGd.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.feed_sync_dispatcher_transitland_zip: Refreshing state... [id=mobility-feeds-functions-python-dev-feed-sync-dispatcher-transitland-sH45djawH7.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_object.operations_api_zip: Refreshing state... [id=mobility-feeds-functions-python-dev-operations-api-LLvwETftvc.zip][0m
+[0m[1mmodule.functions-python.google_storage_bucket_iam_binding.bucket_object_viewer: Refreshing state... [id=b/mobilitydata-datasets-dev/roles/storage.objectViewer][0m
+[0m[1mmodule.functions-python.google_project_iam_member.datastore_owner: Refreshing state... [id=mobility-feeds-dev/roles/datastore.owner/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_project_iam_member.invoking: Refreshing state... [id=mobility-feeds-dev/roles/run.invoker/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_storage_bucket_iam_binding.gbfs_bucket_object_creator: Refreshing state... [id=b/mobilitydata-gbfs-snapshots-dev/roles/storage.objectCreator][0m
+[0m[1mmodule.functions-python.google_project_iam_member.workflows_invoker: Refreshing state... [id=mobility-feeds-dev/roles/workflows.invoker/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_secret_manager_secret_iam_member.secret_iam_member["FEEDS_GCP_IDP_API_KEY"]: Refreshing state... [id=projects/mobility-feeds-dev/secrets/DEV_FEEDS_GCP_IDP_API_KEY/roles/secretmanager.secretAccessor/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_secret_manager_secret_iam_member.secret_iam_member["FEEDS_DATABASE_URL"]: Refreshing state... [id=projects/mobility-feeds-dev/secrets/DEV_FEEDS_DATABASE_URL/roles/secretmanager.secretAccessor/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.workflows.google_storage_bucket_iam_member.object_user: Refreshing state... [id=b/mobilitydata-datasets-dev/roles/storage.objectUser/serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.workflows.google_project_iam_member.cloud_run_invoker: Refreshing state... [id=mobility-feeds-dev/roles/run.invoker/serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.workflows.google_workflows_workflow.gtfs_validator_execution: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/workflows/gtfs_validator_execution][0m
+[0m[1mmodule.workflows.google_project_iam_member.cloudtasks_enqueuer: Refreshing state... [id=mobility-feeds-dev/roles/cloudtasks.enqueuer/serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.workflows.google_project_iam_member.log_writer: Refreshing state... [id=mobility-feeds-dev/roles/logging.logWriter/serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.workflows.google_project_iam_member.event_receiver: Refreshing state... [id=mobility-feeds-dev/roles/eventarc.eventReceiver/serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.feed-api.google_secret_manager_secret_iam_member.policy["FEEDS_DATABASE_URL"]: Refreshing state... [id=projects/mobility-feeds-dev/secrets/DEV_FEEDS_DATABASE_URL/roles/secretmanager.secretAccessor/serviceAccount:containers-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.workflows.google_storage_bucket_iam_member.object_getter: Refreshing state... [id=b/gtfs-validator-results/roles/storage.objectViewer/serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic_iam_member.functions_subscriber["feed_sync_dispatcher_transitland"]: Refreshing state... [id=projects/mobility-feeds-dev/topics/transitland-feeds-dispatch/roles/pubsub.subscriber/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic_iam_member.functions_subscriber["dataset_updates"]: Refreshing state... [id=projects/mobility-feeds-dev/topics/dataset-updates/roles/pubsub.subscriber/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.workflows.google_project_iam_member.workflows_invoker: Refreshing state... [id=mobility-feeds-dev/roles/workflows.invoker/serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic_iam_member.functions_subscriber["validate_gbfs_feed"]: Refreshing state... [id=projects/mobility-feeds-dev/topics/validate-gbfs-feed/roles/pubsub.subscriber/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic_iam_member.functions_publisher["feed_sync_dispatcher_transitland"]: Refreshing state... [id=projects/mobility-feeds-dev/topics/transitland-feeds-dispatch/roles/pubsub.publisher/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic_iam_member.functions_publisher["validate_gbfs_feed"]: Refreshing state... [id=projects/mobility-feeds-dev/topics/validate-gbfs-feed/roles/pubsub.publisher/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic_iam_member.functions_publisher["dataset_updates"]: Refreshing state... [id=projects/mobility-feeds-dev/topics/dataset-updates/roles/pubsub.publisher/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_pubsub_topic_iam_member.functions_publisher["dataset_batch"]: Refreshing state... [id=projects/mobility-feeds-dev/topics/datasets-batch-topic-dev/roles/pubsub.publisher/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.tokens: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/tokens-api][0m
+[0m[1mmodule.feed-api.google_cloud_run_v2_service.mobility-feed-api: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/services/mobility-feed-api-dev][0m
+[0m[1mmodule.functions-python.google_project_iam_member.event-receiving: Refreshing state... [id=mobility-feeds-dev/roles/eventarc.eventReceiver/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.update_validation_report: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/update-validation-report][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.process_validation_report: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/process-validation-report][0m
+[0m[1mmodule.workflows.google_eventarc_trigger.gtfs_validator_trigger: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/triggers/gtfsvalidatortrigger][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.operations_api: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/operations-api][0m
+[0m[1mmodule.feed-api.google_cloud_run_service_iam_policy.noauth: Refreshing state... [id=v1/projects/mobility-feeds-dev/locations/northamerica-northeast1/services/mobility-feed-api-dev][0m
+[0m[1mmodule.functions-python.google_cloud_run_service_iam_member.tokens_cloud_run_invoker: Refreshing state... [id=v1/projects/mobility-feeds-dev/locations/northamerica-northeast1/services/tokens-api/roles/run.invoker/allUsers][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function_iam_member.tokens_invoker: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/tokens-api/roles/cloudfunctions.invoker/allUsers][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function_iam_member.operations_api_invoker: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/operations-api/roles/cloudfunctions.invoker/allUsers][0m
+[0m[1mmodule.functions-python.google_cloud_run_service_iam_member.operastions_cloud_run_invoker: Refreshing state... [id=v1/projects/mobility-feeds-dev/locations/northamerica-northeast1/services/operations-api/roles/run.invoker/allUsers][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.extract_location_batch: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/extract-location-batch][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.extract_location_pubsub: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/extract-location-pubsub][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.feed_sync_dispatcher_transitland: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/feed-sync-dispatcher-transitland-batch][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.feed_sync_process_transitland: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/feed-sync-process-transitland-pubsub][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.extract_location: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/extract-location][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.gbfs_validator_batch: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/gbfs-validator-batch][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function.gbfs_validator_pubsub: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/gbfs-validator-pubsub][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function_iam_member.transitland_feeds_dispatcher_invoker: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/feed-sync-dispatcher-transitland-batch/roles/cloudfunctions.invoker/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function_iam_member.extract_location_invoker: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/extract-location/roles/cloudfunctions.invoker/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_cloud_run_service_iam_member.extract_location_cloud_run_invoker: Refreshing state... [id=v1/projects/mobility-feeds-dev/locations/northamerica-northeast1/services/extract-location/roles/run.invoker/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_cloudfunctions2_function_iam_member.gbfs_validator_batch_invoker: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/gbfs-validator-batch/roles/cloudfunctions.invoker/serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.functions-python.google_cloud_scheduler_job.transit_land_scraping_scheduler: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/jobs/transitland-scraping-scheduler-dev][0m
+[0m[1mmodule.functions-python.google_cloud_scheduler_job.gbfs_validator_batch_scheduler: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/jobs/gbfs-validator-batch-scheduler-dev][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_health_check.http_health_check: Refreshing state... [id=projects/mobility-feeds-dev/global/healthChecks/health-check][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_global_address.feed_http_lb_ipv4: Refreshing state... [id=projects/mobility-feeds-dev/global/addresses/feed-http-lb-ipv4-dev][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_global_address.feed_http_lb_ipv6: Refreshing state... [id=projects/mobility-feeds-dev/global/addresses/feed-http-lb-ipv6-dev][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_region_network_endpoint_group.feed_cloudrun_neg: Refreshing state... [id=projects/mobility-feeds-dev/regions/northamerica-northeast1/networkEndpointGroups/feed-cloudrun-neg-dev][0m
+[0m[1mmodule.metrics.google_service_account.metrics_service_account: Refreshing state... [id=projects/mobility-feeds-dev/serviceAccounts/metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_bigquery_routine.compare_validation_reports_function: Refreshing state... [id=projects/mobility-feeds-dev/datasets/data_analytics/routines/compare_validation_reports][0m
+[0m[1mmodule.metrics.google_storage_bucket.functions_bucket: Refreshing state... [id=mobility-feeds-metrics-source-dev][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_region_network_endpoint_group.feed_function_token_neg: Refreshing state... [id=projects/mobility-feeds-dev/regions/northamerica-northeast1/networkEndpointGroups/feed-functions-token-neg-dev][0m
+[0m[1mmodule.metrics.google_storage_bucket.gbfs_analytics_bucket: Refreshing state... [id=mobilitydata-gbfs-analytics-dev][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_security_policy.policy_rate_limiting: Refreshing state... [id=projects/mobility-feeds-dev/global/securityPolicies/feed-rate-limiting-dev][0m
+[0m[1mmodule.metrics.google_storage_bucket.gtfs_analytics_bucket: Refreshing state... [id=mobilitydata-gtfs-analytics-dev][0m
+[0m[1mmodule.metrics.google_storage_bucket_object.big_query_ingest_function: Refreshing state... [id=mobility-feeds-metrics-source-dev-gtfs-big-query-ingest-VpN5KXslQL.zip][0m
+[0m[1mmodule.metrics.google_storage_bucket_object.function_preprocessed_analytics: Refreshing state... [id=mobility-feeds-metrics-source-dev-preprocessed-analytics-0N92gzRslX.zip][0m
+[0m[1mmodule.metrics.google_storage_bucket_object.function_validation_report_conversion: Refreshing state... [id=mobility-feeds-metrics-source-dev-validation-report-conversion-y/rMuVcXOc.zip][0m
+[0m[1mmodule.metrics.google_project_iam_member.big_query_data_editor_permissions: Refreshing state... [id=mobility-feeds-dev/roles/bigquery.dataEditor/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_storage_bucket_iam_member.snapshots_bucket_functions_service_account: Refreshing state... [id=b/mobilitydata-gbfs-snapshots-dev/roles/storage.admin/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_project_iam_member.invoking: Refreshing state... [id=mobility-feeds-dev/roles/run.invoker/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_secret_manager_secret_iam_member.secret_iam_member["FEEDS_DATABASE_URL"]: Refreshing state... [id=projects/mobility-feeds-dev/secrets/DEV_FEEDS_DATABASE_URL/roles/secretmanager.secretAccessor/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_project_iam_member.big_query_job_user_permissions: Refreshing state... [id=mobility-feeds-dev/roles/bigquery.jobUser/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_storage_bucket_iam_member.datasets_bucket_functions_service_account: Refreshing state... [id=b/mobilitydata-datasets-dev/roles/storage.admin/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_project_iam_member.storage_object_creator_permissions: Refreshing state... [id=mobility-feeds-dev/roles/storage.objectAdmin/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_backend_service.feed_api_function_token_lb_backend: Refreshing state... [id=projects/mobility-feeds-dev/global/backendServices/cloudrun-function-token-lb-backend-dev][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_backend_service.feed_api_lb_backend: Refreshing state... [id=projects/mobility-feeds-dev/global/backendServices/cloudrun-lb-backend-dev][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gbfs_preprocessed_analytics: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/preprocess-analytics-gbfs][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gtfs_preprocessed_analytics: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/preprocess-analytics-gtfs][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gtfs_big_query_ingest: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/ingest-data-to-big-query-gtfs][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gbfs_big_query_ingest: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/ingest-data-to-big-query-gbfs][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_url_map.feed_api_url_map: Refreshing state... [id=projects/mobility-feeds-dev/global/urlMaps/feed-run-url-map-dev][0m
+[0m[1mmodule.metrics.google_project_iam_member.event-receiving: Refreshing state... [id=mobility-feeds-dev/roles/eventarc.eventReceiver/serviceAccount:metrics-service-account@mobility-feeds-dev.iam.gserviceaccount.com][0m
+[0m[1mmodule.metrics.google_cloud_scheduler_job.gbfs_preprocessed_analytics_scheduler: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/jobs/gbfs-preprocessed-analytics-scheduler][0m
+[0m[1mmodule.metrics.google_cloud_scheduler_job.gtfs_preprocessed_analytics_scheduler: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/jobs/gtfs-preprocessed-analytics-scheduler][0m
+[0m[1mmodule.metrics.google_cloud_scheduler_job.gtfs_ingestion_scheduler: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/jobs/gtfs-ingestion-scheduler][0m
+[0m[1mmodule.metrics.google_cloud_scheduler_job.gbfs_ingestion_scheduler: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/jobs/gbfs-ingestion-scheduler][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_target_https_proxy.feed_https_proxy: Refreshing state... [id=projects/mobility-feeds-dev/global/targetHttpsProxies/feed-proxy][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_global_forwarding_rule.feed_http_lb_rule: Refreshing state... [id=projects/mobility-feeds-dev/global/forwardingRules/feed-http-lb-rule-dev][0m
+[0m[1mmodule.feed-api-load-balancer.google_compute_global_forwarding_rule.feed_http_lb_rule_ipv4: Refreshing state... [id=projects/mobility-feeds-dev/global/forwardingRules/feed-http-lb-rule-v4-dev][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gbfs_validation_report_conversion_batch: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/batch-convert-reports-to-ndjson-gbfs][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gtfs_validation_report_conversion_batch: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/batch-convert-reports-to-ndjson-gtfs][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gbfs_validation_report_conversion: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/convert-reports-to-ndjson-gbfs][0m
+[0m[1mmodule.metrics.google_cloudfunctions2_function.gtfs_validation_report_conversion: Refreshing state... [id=projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/convert-reports-to-ndjson-gtfs][0m
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  [32m+[0m create[0m
+  [33m~[0m update in-place[0m
+[31m-[0m/[32m+[0m destroy and then create replacement[0m
+ [36m<=[0m read (data resources)[0m
+
+Terraform will perform the following actions:
+
+[1m  # module.feed-api.google_cloud_run_v2_service.mobility-feed-api[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloud_run_v2_service" "mobility-feed-api" {
+        id                      = "projects/mobility-feeds-dev/locations/northamerica-northeast1/services/mobility-feed-api-dev"
+        name                    = "mobility-feed-api-dev"
+        [90m# (25 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m template {
+            [90m# (6 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m containers {
+              [33m~[0m[0m image      = "northamerica-northeast1-docker.pkg.dev/mobility-feeds-dev/feeds-dev/feed-api:v1.5.0_SNAPSHOT.0de4b0279497987d5fea7d40d03c58369a73090d" [33m->[0m[0m "northamerica-northeast1-docker.pkg.dev/mobility-feeds-dev/feeds-dev/feed-api:57330426762befaf6b8194900d83f440a5b968bd"
+                [90m# (3 unchanged attributes hidden)[0m[0m
+
+                [90m# (5 unchanged blocks hidden)[0m[0m
+            }
+
+            [90m# (2 unchanged blocks hidden)[0m[0m
+        }
+
+        [90m# (1 unchanged block hidden)[0m[0m
+    }
+
+[1m  # module.feed-api-load-balancer.data.google_compute_ssl_certificate.existing_ssl_cert[0m will be read during apply
+  # (depends on a resource or a module with changes pending)
+[0m [36m<=[0m[0m data "google_compute_ssl_certificate" "existing_ssl_cert" {
+      [32m+[0m[0m certificate        = (known after apply)
+      [32m+[0m[0m certificate_id     = (known after apply)
+      [32m+[0m[0m creation_timestamp = (known after apply)
+      [32m+[0m[0m description        = (known after apply)
+      [32m+[0m[0m expire_time        = (known after apply)
+      [32m+[0m[0m id                 = (known after apply)
+      [32m+[0m[0m name               = "api-dev-mobilitydatabase"
+      [32m+[0m[0m name_prefix        = (known after apply)
+      [32m+[0m[0m private_key        = (known after apply)
+      [32m+[0m[0m self_link          = (known after apply)
+    }
+
+[1m  # module.feed-api-load-balancer.data.google_project.project[0m will be read during apply
+  # (depends on a resource or a module with changes pending)
+[0m [36m<=[0m[0m data "google_project" "project" {
+      [32m+[0m[0m auto_create_network = (known after apply)
+      [32m+[0m[0m billing_account     = (known after apply)
+      [32m+[0m[0m effective_labels    = (known after apply)
+      [32m+[0m[0m folder_id           = (known after apply)
+      [32m+[0m[0m id                  = (known after apply)
+      [32m+[0m[0m labels              = (known after apply)
+      [32m+[0m[0m name                = (known after apply)
+      [32m+[0m[0m number              = (known after apply)
+      [32m+[0m[0m org_id              = (known after apply)
+      [32m+[0m[0m skip_delete         = (known after apply)
+      [32m+[0m[0m terraform_labels    = (known after apply)
+    }
+
+[1m  # module.feed-api-load-balancer.google_compute_target_https_proxy.feed_https_proxy[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_compute_target_https_proxy" "feed_https_proxy" {
+        id                               = "projects/mobility-feeds-dev/global/targetHttpsProxies/feed-proxy"
+        name                             = "feed-proxy"
+      [33m~[0m[0m ssl_certificates                 = [
+          [31m-[0m[0m "https://www.googleapis.com/compute/v1/projects/mobility-feeds-dev/global/sslCertificates/api-dev-mobilitydatabase",
+        ] -> (known after apply)
+        [90m# (9 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_cloud_tasks_queue.cloud_tasks_2x_rate_queue[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloud_tasks_queue" "cloud_tasks_2x_rate_queue" {
+        id       = "projects/mobility-feeds-dev/locations/northamerica-northeast1/queues/cloud-tasks-2x-rate-queue-dev"
+        name     = "cloud-tasks-2x-rate-queue-dev"
+        [90m# (2 unchanged attributes hidden)[0m[0m
+
+      [31m-[0m[0m stackdriver_logging_config {
+          [31m-[0m[0m sampling_ratio = 1 [90m-> null[0m[0m
+        }
+
+        [90m# (2 unchanged blocks hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_cloud_tasks_queue.cloud_tasks_dead_letter_queue[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloud_tasks_queue" "cloud_tasks_dead_letter_queue" {
+        id       = "projects/mobility-feeds-dev/locations/northamerica-northeast1/queues/cloud-tasks-dead-letter-queue-dev"
+        name     = "cloud-tasks-dead-letter-queue-dev"
+        [90m# (2 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m retry_config {
+          [33m~[0m[0m max_attempts  = 100 [33m->[0m[0m 0
+            [90m# (3 unchanged attributes hidden)[0m[0m
+        }
+
+        [90m# (1 unchanged block hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.extract_location[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "extract_location" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/extract-location"
+        name             = "extract-location"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "bucket-extract-bb-JuuI2t/C/o.zip" [33m->[0m[0m "bucket-extract-bb-chMFyJr2Ko.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m event_trigger {
+          [31m-[0m[0m retry_policy          = "RETRY_POLICY_DO_NOT_RETRY" [90m-> null[0m[0m
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+            [90m# (3 unchanged blocks hidden)[0m[0m
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID" = "true" [90m-> null[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.extract_location_batch[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "extract_location_batch" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/extract-location-batch"
+        name             = "extract-location-batch"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "bucket-extract-bb-JuuI2t/C/o.zip" [33m->[0m[0m "bucket-extract-bb-chMFyJr2Ko.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (3 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.extract_location_pubsub[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "extract_location_pubsub" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/extract-location-pubsub"
+        name             = "extract-location-pubsub"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "bucket-extract-bb-JuuI2t/C/o.zip" [33m->[0m[0m "bucket-extract-bb-chMFyJr2Ko.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID" = "true" [90m-> null[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+
+        [90m# (1 unchanged block hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.feed_sync_dispatcher_transitland[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/feed-sync-dispatcher-transitland-batch"
+        name             = "feed-sync-dispatcher-transitland-batch"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "feed-sync-dispatcher-transitland-sH45djawH7.zip" [33m->[0m[0m "feed-sync-dispatcher-transitland-cgbwyv5Sh9.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"         = "true" [90m-> null[0m[0m
+                [90m# (6 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.feed_sync_process_transitland[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "feed_sync_process_transitland" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/feed-sync-process-transitland-pubsub"
+        name             = "feed-sync-process-transitland-pubsub"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "feed-sync-process-transitland-rd6EPKMWfY.zip" [33m->[0m[0m "feed-sync-process-transitland-CBVzb+BigO.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"         = "true" [90m-> null[0m[0m
+                [90m# (5 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+
+        [90m# (1 unchanged block hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.gbfs_validator_batch[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gbfs_validator_batch" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/gbfs-validator-batch"
+        name             = "gbfs-validator-batch"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "gbfs-validator-gX/Uil5bj8.zip" [33m->[0m[0m "gbfs-validator-Y0h3VkcK0h.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (3 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.gbfs_validator_pubsub[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/gbfs-validator-pubsub"
+        name             = "gbfs-validator-pubsub"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "gbfs-validator-gX/Uil5bj8.zip" [33m->[0m[0m "gbfs-validator-Y0h3VkcK0h.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID" = "true" [90m-> null[0m[0m
+                [90m# (2 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+
+        [90m# (1 unchanged block hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.operations_api[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "operations_api" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/operations-api"
+        name             = "operations-api"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "operations-api-LLvwETftvc.zip" [33m->[0m[0m "operations-api-uW2qb2FHMB.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (3 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.process_validation_report[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "process_validation_report" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/process-validation-report"
+        name             = "process-validation-report"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "process-validation-report-/Q/jF9KTGd.zip" [33m->[0m[0m "process-validation-report-LxmoO3DEHN.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (2 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.tokens[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "tokens" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/tokens-api"
+        name             = "tokens-api"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "tokens-NL6tt/pPHk.zip" [33m->[0m[0m "tokens-fz3l/DBCJd.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID" = "true" [90m-> null[0m[0m
+            }
+            [90m# (11 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_cloudfunctions2_function.update_validation_report[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "update_validation_report" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/update-validation-report"
+        name             = "update-validation-report"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "update-validation-report-XVsJXeg9fD.zip" [33m->[0m[0m "update-validation-report-VpoFn6kmJV.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (5 unchanged elements hidden)[0m[0m
+            }
+            [90m# (13 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.functions-python.google_pubsub_topic_iam_member.functions_publisher["dataset_batch"][0m will be created
+[0m  [32m+[0m[0m resource "google_pubsub_topic_iam_member" "functions_publisher" {
+      [32m+[0m[0m etag    = (known after apply)
+      [32m+[0m[0m id      = (known after apply)
+      [32m+[0m[0m member  = "serviceAccount:functions-service-account@mobility-feeds-dev.iam.gserviceaccount.com"
+      [32m+[0m[0m project = "mobility-feeds-dev"
+      [32m+[0m[0m role    = "roles/pubsub.publisher"
+      [32m+[0m[0m topic   = "datasets-batch-topic-dev"
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.feed_sync_dispatcher_transitland_zip[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "feed_sync_dispatcher_transitland_zip" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "1URWfg==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "X0IPlMuxJDMZ4CLV+m/tcA==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-feed-sync-dispatcher-transitland-sH45djawH7.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "X0IPlMuxJDMZ4CLV+m/tcA==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/feed-sync-dispatcher-transitland-sH45djawH7.zip?generation=1736799987917979&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "feed-sync-dispatcher-transitland-sH45djawH7.zip" [33m->[0m[0m "feed-sync-dispatcher-transitland-cgbwyv5Sh9.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "feed-sync-dispatcher-transitland-sH45djawH7.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/feed-sync-dispatcher-transitland-sH45djawH7.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.feed_sync_process_transitland_zip[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "feed_sync_process_transitland_zip" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "uBjwvA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "QXKs5Jxl2I9ghTU0vpHlxQ==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-feed-sync-process-transitland-rd6EPKMWfY.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "QXKs5Jxl2I9ghTU0vpHlxQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/feed-sync-process-transitland-rd6EPKMWfY.zip?generation=1736799987915419&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "feed-sync-process-transitland-rd6EPKMWfY.zip" [33m->[0m[0m "feed-sync-process-transitland-CBVzb+BigO.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "feed-sync-process-transitland-rd6EPKMWfY.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/feed-sync-process-transitland-rd6EPKMWfY.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.function_extract_location_zip_object[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "function_extract_location_zip_object" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "WAFAtA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "lKsk+c65L+ipIcN6VPB5wQ==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-bucket-extract-bb-JuuI2t/C/o.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "lKsk+c65L+ipIcN6VPB5wQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/bucket-extract-bb-JuuI2t%2FC%2Fo.zip?generation=1736799987909428&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "bucket-extract-bb-JuuI2t/C/o.zip" [33m->[0m[0m "bucket-extract-bb-chMFyJr2Ko.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "bucket-extract-bb-JuuI2t/C/o.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/bucket-extract-bb-JuuI2t%2FC%2Fo.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.function_token_zip[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "function_token_zip" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "mqDrcA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "RHuZ1sTKt5EI4Ru/1v9AQQ==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-tokens-NL6tt/pPHk.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "RHuZ1sTKt5EI4Ru/1v9AQQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/tokens-NL6tt%2FpPHk.zip?generation=1736799987914470&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "tokens-NL6tt/pPHk.zip" [33m->[0m[0m "tokens-fz3l/DBCJd.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "tokens-NL6tt/pPHk.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/tokens-NL6tt%2FpPHk.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.gbfs_validation_report_zip[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "gbfs_validation_report_zip" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "ptj3rw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "lfy3DguQroO97vAMyydY+A==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-gbfs-validator-gX/Uil5bj8.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "lfy3DguQroO97vAMyydY+A==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/gbfs-validator-gX%2FUil5bj8.zip?generation=1736799987917001&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "gbfs-validator-gX/Uil5bj8.zip" [33m->[0m[0m "gbfs-validator-Y0h3VkcK0h.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "gbfs-validator-gX/Uil5bj8.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/gbfs-validator-gX%2FUil5bj8.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.operations_api_zip[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "operations_api_zip" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "0QTapw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "EOorfDN0dgm4IowjWz1/kQ==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-operations-api-LLvwETftvc.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "EOorfDN0dgm4IowjWz1/kQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/operations-api-LLvwETftvc.zip?generation=1736799988109300&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "operations-api-LLvwETftvc.zip" [33m->[0m[0m "operations-api-uW2qb2FHMB.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "operations-api-LLvwETftvc.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/operations-api-LLvwETftvc.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.process_validation_report_zip[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "process_validation_report_zip" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "JpoGdQ==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "FG4MewycoSGqF2cs0PQAfQ==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-process-validation-report-/Q/jF9KTGd.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "FG4MewycoSGqF2cs0PQAfQ==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/process-validation-report-%2FQ%2FjF9KTGd.zip?generation=1736799988102892&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "process-validation-report-/Q/jF9KTGd.zip" [33m->[0m[0m "process-validation-report-LxmoO3DEHN.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "process-validation-report-/Q/jF9KTGd.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/process-validation-report-%2FQ%2FjF9KTGd.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.functions-python.google_storage_bucket_object.update_validation_report_zip[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "update_validation_report_zip" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "sCCugw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "gws82CrgUVDiwSzct8RDgA==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-functions-python-dev-update-validation-report-XVsJXeg9fD.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "gws82CrgUVDiwSzct8RDgA==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-functions-python-dev/o/update-validation-report-XVsJXeg9fD.zip?generation=1736799987904889&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "update-validation-report-XVsJXeg9fD.zip" [33m->[0m[0m "update-validation-report-VpoFn6kmJV.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "update-validation-report-XVsJXeg9fD.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-functions-python-dev/o/update-validation-report-XVsJXeg9fD.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.metrics.data.google_storage_bucket.gbfs_snapshots_bucket[0m will be read during apply
+  # (depends on a resource or a module with changes pending)
+[0m [36m<=[0m[0m data "google_storage_bucket" "gbfs_snapshots_bucket" {
+      [32m+[0m[0m autoclass                   = (known after apply)
+      [32m+[0m[0m cors                        = (known after apply)
+      [32m+[0m[0m custom_placement_config     = (known after apply)
+      [32m+[0m[0m default_event_based_hold    = (known after apply)
+      [32m+[0m[0m effective_labels            = (known after apply)
+      [32m+[0m[0m enable_object_retention     = (known after apply)
+      [32m+[0m[0m encryption                  = (known after apply)
+      [32m+[0m[0m force_destroy               = (known after apply)
+      [32m+[0m[0m id                          = (known after apply)
+      [32m+[0m[0m labels                      = (known after apply)
+      [32m+[0m[0m lifecycle_rule              = (known after apply)
+      [32m+[0m[0m location                    = (known after apply)
+      [32m+[0m[0m logging                     = (known after apply)
+      [32m+[0m[0m name                        = "mobilitydata-gbfs-snapshots-dev"
+      [32m+[0m[0m project_number              = (known after apply)
+      [32m+[0m[0m public_access_prevention    = (known after apply)
+      [32m+[0m[0m requester_pays              = (known after apply)
+      [32m+[0m[0m retention_policy            = (known after apply)
+      [32m+[0m[0m rpo                         = (known after apply)
+      [32m+[0m[0m self_link                   = (known after apply)
+      [32m+[0m[0m soft_delete_policy          = (known after apply)
+      [32m+[0m[0m storage_class               = (known after apply)
+      [32m+[0m[0m terraform_labels            = (known after apply)
+      [32m+[0m[0m uniform_bucket_level_access = (known after apply)
+      [32m+[0m[0m url                         = (known after apply)
+      [32m+[0m[0m versioning                  = (known after apply)
+      [32m+[0m[0m website                     = (known after apply)
+    }
+
+[1m  # module.metrics.data.google_storage_bucket.gtfs_datasets_bucket[0m will be read during apply
+  # (depends on a resource or a module with changes pending)
+[0m [36m<=[0m[0m data "google_storage_bucket" "gtfs_datasets_bucket" {
+      [32m+[0m[0m autoclass                   = (known after apply)
+      [32m+[0m[0m cors                        = (known after apply)
+      [32m+[0m[0m custom_placement_config     = (known after apply)
+      [32m+[0m[0m default_event_based_hold    = (known after apply)
+      [32m+[0m[0m effective_labels            = (known after apply)
+      [32m+[0m[0m enable_object_retention     = (known after apply)
+      [32m+[0m[0m encryption                  = (known after apply)
+      [32m+[0m[0m force_destroy               = (known after apply)
+      [32m+[0m[0m id                          = (known after apply)
+      [32m+[0m[0m labels                      = (known after apply)
+      [32m+[0m[0m lifecycle_rule              = (known after apply)
+      [32m+[0m[0m location                    = (known after apply)
+      [32m+[0m[0m logging                     = (known after apply)
+      [32m+[0m[0m name                        = "mobilitydata-datasets-dev"
+      [32m+[0m[0m project_number              = (known after apply)
+      [32m+[0m[0m public_access_prevention    = (known after apply)
+      [32m+[0m[0m requester_pays              = (known after apply)
+      [32m+[0m[0m retention_policy            = (known after apply)
+      [32m+[0m[0m rpo                         = (known after apply)
+      [32m+[0m[0m self_link                   = (known after apply)
+      [32m+[0m[0m soft_delete_policy          = (known after apply)
+      [32m+[0m[0m storage_class               = (known after apply)
+      [32m+[0m[0m terraform_labels            = (known after apply)
+      [32m+[0m[0m uniform_bucket_level_access = (known after apply)
+      [32m+[0m[0m url                         = (known after apply)
+      [32m+[0m[0m versioning                  = (known after apply)
+      [32m+[0m[0m website                     = (known after apply)
+    }
+
+[1m  # module.metrics.data.google_vpc_access_connector.vpc_connector[0m will be read during apply
+  # (depends on a resource or a module with changes pending)
+[0m [36m<=[0m[0m data "google_vpc_access_connector" "vpc_connector" {
+      [32m+[0m[0m connected_projects = (known after apply)
+      [32m+[0m[0m id                 = (known after apply)
+      [32m+[0m[0m ip_cidr_range      = (known after apply)
+      [32m+[0m[0m machine_type       = (known after apply)
+      [32m+[0m[0m max_instances      = (known after apply)
+      [32m+[0m[0m max_throughput     = (known after apply)
+      [32m+[0m[0m min_instances      = (known after apply)
+      [32m+[0m[0m min_throughput     = (known after apply)
+      [32m+[0m[0m name               = "vpc-connector-qa"
+      [32m+[0m[0m network            = (known after apply)
+      [32m+[0m[0m project            = "mobility-feeds-qa"
+      [32m+[0m[0m region             = "northamerica-northeast1"
+      [32m+[0m[0m self_link          = (known after apply)
+      [32m+[0m[0m state              = (known after apply)
+      [32m+[0m[0m subnet             = (known after apply)
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gbfs_big_query_ingest[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gbfs_big_query_ingest" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/ingest-data-to-big-query-gbfs"
+        name             = "ingest-data-to-big-query-gbfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "gtfs-big-query-ingest-VpN5KXslQL.zip" [33m->[0m[0m "gtfs-big-query-ingest-FLoTdzGoYI.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (6 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gbfs_preprocessed_analytics[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gbfs_preprocessed_analytics" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/preprocess-analytics-gbfs"
+        name             = "preprocess-analytics-gbfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "preprocessed-analytics-0N92gzRslX.zip" [33m->[0m[0m "preprocessed-analytics-V5HWE1hcf7.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (2 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gbfs_validation_report_conversion[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gbfs_validation_report_conversion" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/convert-reports-to-ndjson-gbfs"
+        name             = "convert-reports-to-ndjson-gbfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "validation-report-conversion-y/rMuVcXOc.zip" [33m->[0m[0m "validation-report-conversion-6YjGqj6ATP.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m event_trigger {
+          [31m-[0m[0m retry_policy          = "RETRY_POLICY_DO_NOT_RETRY" [90m-> null[0m[0m
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+            [90m# (3 unchanged blocks hidden)[0m[0m
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (4 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gbfs_validation_report_conversion_batch[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gbfs_validation_report_conversion_batch" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/batch-convert-reports-to-ndjson-gbfs"
+        name             = "batch-convert-reports-to-ndjson-gbfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "validation-report-conversion-y/rMuVcXOc.zip" [33m->[0m[0m "validation-report-conversion-6YjGqj6ATP.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (4 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gtfs_big_query_ingest[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gtfs_big_query_ingest" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/ingest-data-to-big-query-gtfs"
+        name             = "ingest-data-to-big-query-gtfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "gtfs-big-query-ingest-VpN5KXslQL.zip" [33m->[0m[0m "gtfs-big-query-ingest-FLoTdzGoYI.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (6 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gtfs_preprocessed_analytics[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gtfs_preprocessed_analytics" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/preprocess-analytics-gtfs"
+        name             = "preprocess-analytics-gtfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "preprocessed-analytics-0N92gzRslX.zip" [33m->[0m[0m "preprocessed-analytics-V5HWE1hcf7.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (2 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gtfs_validation_report_conversion[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gtfs_validation_report_conversion" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/convert-reports-to-ndjson-gtfs"
+        name             = "convert-reports-to-ndjson-gtfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "validation-report-conversion-y/rMuVcXOc.zip" [33m->[0m[0m "validation-report-conversion-6YjGqj6ATP.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m event_trigger {
+          [31m-[0m[0m retry_policy          = "RETRY_POLICY_DO_NOT_RETRY" [90m-> null[0m[0m
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+            [90m# (3 unchanged blocks hidden)[0m[0m
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (4 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_cloudfunctions2_function.gtfs_validation_report_conversion_batch[0m will be updated in-place
+[0m  [33m~[0m[0m resource "google_cloudfunctions2_function" "gtfs_validation_report_conversion_batch" {
+        id               = "projects/mobility-feeds-dev/locations/northamerica-northeast1/functions/batch-convert-reports-to-ndjson-gtfs"
+        name             = "batch-convert-reports-to-ndjson-gtfs"
+        [90m# (10 unchanged attributes hidden)[0m[0m
+
+      [33m~[0m[0m build_config {
+            [90m# (5 unchanged attributes hidden)[0m[0m
+
+          [33m~[0m[0m source {
+              [33m~[0m[0m storage_source {
+                  [33m~[0m[0m object     = "validation-report-conversion-y/rMuVcXOc.zip" [33m->[0m[0m "validation-report-conversion-6YjGqj6ATP.zip"
+                    [90m# (2 unchanged attributes hidden)[0m[0m
+                }
+            }
+        }
+
+      [33m~[0m[0m service_config {
+          [33m~[0m[0m environment_variables            = {
+              [31m-[0m[0m "LOG_EXECUTION_ID"    = "true" [90m-> null[0m[0m
+                [90m# (4 unchanged elements hidden)[0m[0m
+            }
+          [33m~[0m[0m vpc_connector                    = "projects/mobility-feeds-qa/locations/northamerica-northeast1/connectors/vpc-connector-qa" -> (known after apply)
+            [90m# (12 unchanged attributes hidden)[0m[0m
+
+            [90m# (1 unchanged block hidden)[0m[0m
+        }
+    }
+
+[1m  # module.metrics.google_storage_bucket_object.big_query_ingest_function[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "big_query_ingest_function" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "a3hnlA==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "tpZdK3XjVrtodP5TYrunFg==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-metrics-source-dev-gtfs-big-query-ingest-VpN5KXslQL.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "tpZdK3XjVrtodP5TYrunFg==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-metrics-source-dev/o/gtfs-big-query-ingest-VpN5KXslQL.zip?generation=1736800112137034&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "gtfs-big-query-ingest-VpN5KXslQL.zip" [33m->[0m[0m "gtfs-big-query-ingest-FLoTdzGoYI.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "gtfs-big-query-ingest-VpN5KXslQL.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-metrics-source-dev/o/gtfs-big-query-ingest-VpN5KXslQL.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.metrics.google_storage_bucket_object.function_preprocessed_analytics[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "function_preprocessed_analytics" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "lnkehg==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "qhh3UdoIZN4oEJAXuloobA==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-metrics-source-dev-preprocessed-analytics-0N92gzRslX.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "qhh3UdoIZN4oEJAXuloobA==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-metrics-source-dev/o/preprocessed-analytics-0N92gzRslX.zip?generation=1736800112136810&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "preprocessed-analytics-0N92gzRslX.zip" [33m->[0m[0m "preprocessed-analytics-V5HWE1hcf7.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "preprocessed-analytics-0N92gzRslX.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-metrics-source-dev/o/preprocessed-analytics-0N92gzRslX.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.metrics.google_storage_bucket_object.function_validation_report_conversion[0m must be [1m[31mreplaced[0m
+[0m[31m-[0m/[32m+[0m[0m resource "google_storage_bucket_object" "function_validation_report_conversion" {
+      [32m+[0m[0m content          = (sensitive value)
+      [33m~[0m[0m content_type     = "application/zip" -> (known after apply)
+      [33m~[0m[0m crc32c           = "lc25mw==" -> (known after apply)
+      [33m~[0m[0m detect_md5hash   = "zJWKMEfb395Ue1HSnZuuYw==" [33m->[0m[0m "different hash" [31m# forces replacement[0m[0m
+      [31m-[0m[0m event_based_hold = false [90m-> null[0m[0m
+      [33m~[0m[0m id               = "mobility-feeds-metrics-source-dev-validation-report-conversion-y/rMuVcXOc.zip" -> (known after apply)
+      [32m+[0m[0m kms_key_name     = (known after apply)
+      [33m~[0m[0m md5hash          = "zJWKMEfb395Ue1HSnZuuYw==" -> (known after apply)
+      [33m~[0m[0m media_link       = "https://storage.googleapis.com/download/storage/v1/b/mobility-feeds-metrics-source-dev/o/validation-report-conversion-y%2FrMuVcXOc.zip?generation=1736800112137241&alt=media" -> (known after apply)
+      [31m-[0m[0m metadata         = {} [90m-> null[0m[0m
+      [33m~[0m[0m name             = "validation-report-conversion-y/rMuVcXOc.zip" [33m->[0m[0m "validation-report-conversion-6YjGqj6ATP.zip" [31m# forces replacement[0m[0m
+      [33m~[0m[0m output_name      = "validation-report-conversion-y/rMuVcXOc.zip" -> (known after apply)
+      [33m~[0m[0m self_link        = "https://www.googleapis.com/storage/v1/b/mobility-feeds-metrics-source-dev/o/validation-report-conversion-y%2FrMuVcXOc.zip" -> (known after apply)
+      [33m~[0m[0m storage_class    = "STANDARD" -> (known after apply)
+      [31m-[0m[0m temporary_hold   = false [90m-> null[0m[0m
+        [90m# (2 unchanged attributes hidden)[0m[0m
+    }
+
+[1m  # module.workflows.google_project_iam_member.service_account_workflow_act_as_binding[0m will be created
+[0m  [32m+[0m[0m resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
+      [32m+[0m[0m etag    = (known after apply)
+      [32m+[0m[0m id      = (known after apply)
+      [32m+[0m[0m member  = "serviceAccount:workflows-service-account@mobility-feeds-dev.iam.gserviceaccount.com"
+      [32m+[0m[0m project = "mobility-feeds-dev"
+      [32m+[0m[0m role    = "roles/iam.serviceAccountUser"
+    }
+
+[1mPlan:[0m 13 to add, 23 to change, 11 to destroy.
+[0m[90m
+─────────────────────────────────────────────────────────────────────────────[0m
+
+Note: You didn't use the -out option to save this plan, so Terraform can't
+guarantee to take exactly these actions if you run "terraform apply" now.
