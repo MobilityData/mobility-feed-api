@@ -1,2 +1,5 @@
+DROP MATERIALIZED VIEW IF EXISTS FeedSearch;
 ALTER TABLE gtfsdataset 
-ADD COLUMN service_date_range_timezone TIMESTAMP WITH TIME ZONE 
+ADD COLUMN agency_timezone VARCHAR(255),
+ALTER COLUMN service_date_range_start SET DATA TYPE TIMESTAMP WITH TIME ZONE USING service_date_range_start::TIMESTAMP WITH TIME ZONE,
+ALTER COLUMN service_date_range_end SET DATA TYPE TIMESTAMP WITH TIME ZONE USING service_date_range_end::TIMESTAMP WITH TIME ZONE;
