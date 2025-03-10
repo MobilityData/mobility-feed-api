@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import SignIn from '../screens/SignIn';
 import SignUp from '../screens/SignUp';
 import Account from '../screens/Account';
@@ -91,7 +91,16 @@ export const AppRouter: React.FC = () => {
       <Route path='about' element={<About />} />
       <Route path='contact-us' element={<ContactUs />} />
       <Route path='feeds' element={<Feeds />} />
+      <Route
+        path='feeds/gtfs'
+        element={<Navigate to='/feeds?gtfs=true' replace />}
+      />
+      <Route
+        path='feeds/gtfs_rt'
+        element={<Navigate to='/feeds?gtfs_rt=true' replace />}
+      />
       <Route path='feeds/:feedId' element={<Feed />} />
+      <Route path='feeds/:feedDataType/:feedId' element={<Feed />} />
       <Route path='contribute' element={<FeedSubmission />} />
       <Route path='contribute/submitted' element={<FeedSubmitted />} />
       <Route path='contribute-faq' element={<FeedSubmissionFAQ />} />

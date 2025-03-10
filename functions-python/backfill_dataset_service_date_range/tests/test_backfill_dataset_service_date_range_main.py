@@ -83,6 +83,58 @@ def test_backfill_datasets(mock_get, mock_storage_client):
     mock_session.commit.assert_called_once()
 
 
+@patch("logging.error", autospec=True)
+@patch("google.cloud.storage.Client", autospec=True)
+@patch("requests.get")
+def test_backfill_datasets_error_commit(mock_get, mock_storage_client, mock_logger):
+    # Mock the storage client and bucket
+    mock_bucket = MagicMock()
+    mock_client_instance = mock_storage_client.return_value
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_blob.exists.return_value = False
+    mock_bucket.blob.return_value = mock_blob
+
+    mock_session = MagicMock()
+    mock_dataset = Mock(spec=Gtfsdataset)
+    mock_dataset.id = 1
+    mock_dataset.stable_id = "mdb-392-202406181921"
+    mock_dataset.service_date_range_end = None
+    mock_dataset.service_date_range_start = None
+    mock_dataset.validation_reports = [
+        MagicMock(
+            validator_version="6.0.0",
+            validated_at="2022-01-01T00:00:00Z",
+            json_report="http://example-2.com/report.json",
+        )
+    ]
+
+    mock_query = MagicMock()
+    mock_query.options.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.all.return_value = [mock_dataset]
+    mock_session.query.return_value = mock_query
+    mock_session.commit.side_effect = Exception("Commit failed")
+
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "summary": {
+            "feedInfo": {
+                "feedServiceWindowStart": "2023-01-01",
+                "feedServiceWindowEnd": "2023-12-31",
+            }
+        }
+    }
+    mock_get.return_value = mock_response
+
+    try:
+        backfill_datasets(mock_session)
+    except Exception:
+        mock_session.rollback.assert_called_once()
+        mock_session.close.assert_called_once()
+
+
 @patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
 def test_backfill_datasets_no_validation_reports(mock_get, mock_storage_client):

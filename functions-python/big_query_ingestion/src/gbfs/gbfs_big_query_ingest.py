@@ -10,5 +10,5 @@ class BigQueryDataTransferGBFS(BigQueryDataTransfer):
         super().__init__()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.schema_path = os.path.join(
-            current_dir, "../helpers/bq_schema/gbfs_schema.json"
+            current_dir, "../shared/helpers/bq_schema/gbfs_schema.json"
         )

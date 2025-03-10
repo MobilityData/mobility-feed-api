@@ -11,7 +11,7 @@ import { app } from '../firebase';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import AppContainer from './AppContainer';
-import { HelmetProvider } from 'react-helmet-async';
+import { Helmet, HelmetProvider } from 'react-helmet-async';
 
 function App(): React.ReactElement {
   const dispatch = useDispatch();
@@ -31,6 +31,14 @@ function App(): React.ReactElement {
 
   return (
     <HelmetProvider>
+      <Helmet>
+        <meta
+          name='description'
+          content={
+            "Access GTFS and GTFS Realtime transit data with over 3,000 feeds from 70+ countries on the web's leading transit data platform."
+          }
+        />
+      </Helmet>
       <RemoteConfigProvider>
         <I18nextProvider i18n={i18n}>
           <Suspense>

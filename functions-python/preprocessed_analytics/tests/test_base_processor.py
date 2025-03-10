@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch, MagicMock
 from datetime import datetime
@@ -6,12 +7,12 @@ import pandas as pd
 from processors.base_analytics_processor import (
     BaseAnalyticsProcessor,
 )
+from test_shared.test_utils.database_utils import default_db_url
 
 
 class TestBaseAnalyticsProcessor(unittest.TestCase):
-    @patch("processors.base_analytics_processor.Database")
     @patch("processors.base_analytics_processor.storage.Client")
-    def setUp(self, mock_storage_client, _):
+    def setUp(self, mock_storage_client):
         self.mock_storage_client = mock_storage_client
         self.mock_bucket = MagicMock()
         self.mock_storage_client().bucket.return_value = self.mock_bucket
@@ -81,6 +82,7 @@ class TestBaseAnalyticsProcessor(unittest.TestCase):
         "processors.base_analytics_processor.BaseAnalyticsProcessor.update_analytics_files"
     )
     @patch("processors.base_analytics_processor.BaseAnalyticsProcessor.save_summary")
+    @patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
     def test_run(
         self,
         mock_save_summary,
