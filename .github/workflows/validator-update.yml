@@ -37,8 +37,7 @@ jobs:
             --schedule-time=$(date -u -d "+24 hours" +%Y-%m-%dT%H:%M:%SZ) \
             --oidc-service-account-email=${DEPLOYER_SERVICE_ACCOUNT} \
             --location=${{ vars.MOBILITY_FEEDS_REGION }} \
-            --headers=Content-Type=application/json \
-            --message-body='{}'
+            --header=Content-Type=application/json
   notify-slack-on-failure:
     needs: [ validator-update ]
     if: failure() && (github.event_name != 'workflow_dispatch')
