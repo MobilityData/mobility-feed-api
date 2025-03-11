@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
-import { Box, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tooltip,
+  Skeleton,
+} from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { ContentBox } from './ContentBox';
@@ -10,8 +16,9 @@ import { Map } from './Map';
 import { useTranslation } from 'react-i18next';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
+
 interface CoveredAreaMapProps {
-  boundingBox?: LatLngExpression[]; // Replace 'any' with your actual type
+  boundingBox?: LatLngExpression[];
   latestDataset?: { hosted_url?: string };
 }
 
@@ -36,35 +43,43 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
 }) => {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
-  const [geoJsonError, setGeoJsonError] = React.useState(false);
-  const [geoJsonData, setGeoJsonData] = React.useState<GeoJSONData | null>(
-    null,
-  );
-  React.useEffect(() => {
-    if (latestDataset?.hosted_url != undefined) {
-      fetchGeoJson(latestDataset.hosted_url).then(
-        (data) => {
-          setGeoJsonData(data);
-        },
-        (_) => {
-          setGeoJsonError(true);
-        },
-      );
-    }
-  }, [latestDataset]);
 
+  const [geoJsonData, setGeoJsonData] = useState<GeoJSONData | null>(null);
+  const [geoJsonError, setGeoJsonError] = useState(false);
+  const [geoJsonLoading, setGeoJsonLoading] = useState(false);
   const [view, setView] = useState<
     'boundingBoxView' | 'detailedCoveredAreaView'
   >('detailedCoveredAreaView');
+
+  useEffect(() => {
+    if (latestDataset?.hosted_url !== undefined) {
+      setGeoJsonLoading(true);
+      fetchGeoJson(latestDataset.hosted_url)
+        .then((data) => {
+          setGeoJsonData(data);
+          setGeoJsonError(false);
+          setView('detailedCoveredAreaView');
+        })
+        .catch(() => {
+          setGeoJsonError(true);
+          setView('boundingBoxView');
+        })
+        .finally(() => {
+          setGeoJsonLoading(false);
+        });
+    } else {
+      // No dataset, fallback to bounding box
+      setGeoJsonData(null);
+      setGeoJsonError(true);
+      setView('boundingBoxView');
+    }
+  }, [latestDataset]);
 
   const handleViewChange = (
     _: React.MouseEvent<HTMLElement>,
     newView: 'boundingBoxView' | 'detailedCoveredAreaView' | null,
   ): void => {
-    // Only update state if a non-null value is returned
-    if (newView !== null) {
-      setView(newView);
-    }
+    if (newView !== null) setView(newView);
   };
 
   return (
@@ -89,7 +104,9 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
           <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
             <ToggleButton
               value='detailedCoveredAreaView'
-              disabled={geoJsonError || boundingBox === undefined}
+              disabled={
+                geoJsonLoading || geoJsonError || boundingBox === undefined
+              }
               aria-label='Detailed Covered Area View'
             >
               <TravelExploreIcon />
@@ -114,7 +131,14 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
 
       {boundingBox !== undefined && (
         <Box sx={mapBoxPositionStyle}>
-          {view === 'boundingBoxView' ? (
+          {geoJsonLoading ? (
+            <Skeleton
+              variant='rectangular'
+              width='100%'
+              height='100%'
+              animation='wave'
+            />
+          ) : view === 'boundingBoxView' ? (
             <Map polygon={boundingBox} />
           ) : (
             <MapGeoJSON geoJSONData={geoJsonData} polygon={boundingBox} />
