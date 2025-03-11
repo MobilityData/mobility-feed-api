@@ -18,6 +18,7 @@ import {
   type GTFSRTFeedType,
   type AllFeedsType,
   getLocationName,
+  getCountryLocationSummaries,
 } from '../../services/feeds/utils';
 import BusAlertIcon from '@mui/icons-material/BusAlert';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
@@ -27,6 +28,7 @@ import GtfsRtEntities from './GtfsRtEntities';
 import { Link } from 'react-router-dom';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
+import { getEmojiFlag, type TCountryCode } from 'countries-list';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -160,7 +162,7 @@ export default function SearchTable({
           <HeaderTableCell component={'h6'}>
             {t('transitProvider')}
           </HeaderTableCell>
-          <HeaderTableCell component={'h6'}>{t('location')}</HeaderTableCell>
+          <HeaderTableCell component={'h6'}>{t('locations')}</HeaderTableCell>
           <HeaderTableCell component={'h6'}>
             {t('feedDescription')}
           </HeaderTableCell>
@@ -244,7 +246,42 @@ export default function SearchTable({
               </Box>
             </TableCell>
             <TableCell className='feed-column' component={Box}>
-              {getLocationName(feed.locations)}
+              {feed.locations != null && feed.locations.length > 1 ? (
+                <>
+                  {getCountryLocationSummaries(feed.locations).map(
+                    (summary) => {
+                      const tooltipText = `${summary.subdivisions.size} subdivisions and ${summary.municipalities.size} municipalities within ${summary.country}.`;
+
+                      return (
+                        <Tooltip
+                          key={summary.country_code}
+                          title={tooltipText}
+                          arrow
+                        >
+                          <Chip
+                            label={`${getEmojiFlag(
+                              summary.country_code as TCountryCode,
+                            )} ${summary.country}`}
+                            size='medium'
+                            sx={{ mr: 1, mt: 1 }}
+                          />
+                        </Tooltip>
+                      );
+                    },
+                  )}
+                </>
+              ) : (
+                <Chip
+                  key={
+                    feed.locations != null
+                      ? feed.locations[0].country_code
+                      : 'cc-key'
+                  }
+                  label={getLocationName(feed.locations)}
+                  size='medium'
+                  sx={{ mr: 1 }}
+                />
+              )}
             </TableCell>
             <TableCell className='feed-column' component={Box}>
               {feed.feed_name}

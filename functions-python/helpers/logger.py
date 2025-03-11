@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import os
 
 import google.cloud.logging
 from google.cloud.logging_v2 import Client
@@ -47,6 +48,8 @@ class Logger:
         """
         Initializes the logger
         """
+        if os.getenv("DEBUG", "False") == "True":
+            return None
         client = google.cloud.logging.Client()
         client.get_default_handler()
         client.setup_logging()
