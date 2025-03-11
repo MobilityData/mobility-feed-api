@@ -185,7 +185,7 @@ def backfill_datasets(session: "Session"):
             if extracted_timezone is not None:
                 dataset.agency_timezone = extracted_timezone
 
-            formatted_dates = utc_service_start_date + " - " + utc_service_end_date
+            formatted_dates = f"{utc_service_start_date:%Y-%m-%d %H:%M} - {utc_service_end_date:%Y-%m-%d %H:%M}"
             logging.info(
                 f"Updated gtfsdataset ID {gtfsdataset_id} with value: {formatted_dates}"
             )
