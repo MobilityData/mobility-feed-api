@@ -1413,6 +1413,19 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   project  = var.project_id
   location = var.gcp_region
   name     = "update-validation-report-task-queue"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~1 hour
+    max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
 }
 
 # Task queue to invoke gbfs_validator_batch function for the scheduler
