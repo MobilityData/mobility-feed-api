@@ -155,8 +155,12 @@ def backfill_datasets(session: "Session"):
             # It will not save the timezone in the database if it is None.
             formatting_timezone = extracted_timezone
             if formatting_timezone is None:
+                logging.info("No timezone found in the validation report.")
                 formatting_timezone = timezone.utc
 
+            logging.info(
+                f"Using the timezone: {formatting_timezone} for the service date range."
+            )
             local_service_start_date = formatted_service_start_date.replace(
                 hour=0, minute=0, tzinfo=formatting_timezone
             )
