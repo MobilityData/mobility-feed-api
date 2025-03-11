@@ -75,8 +75,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
             .filter(
                 or_(
-                    Feed.operational_status == None,  # noqa: E711
-                    Feed.operational_status != "wip",
+                    Feed.operational_status == "published",
                     not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -110,8 +109,7 @@ class FeedsApiImpl(BaseFeedsApi):
         feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
         feed_query = feed_query.filter(
             or_(
-                Feed.operational_status == None,  # noqa: E711
-                Feed.operational_status != "wip",
+                Feed.operational_status == "published",
                 not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
             )
         )
@@ -147,8 +145,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(db_session.query(Gtfsfeed))
             .filter(
                 or_(
-                    Gtfsfeed.operational_status == None,  # noqa: E711
-                    Gtfsfeed.operational_status != "wip",
+                    Gtfsfeed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -191,8 +188,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(Database().get_query_model(db_session, Gtfsfeed))
             .filter(
                 or_(
-                    Feed.operational_status == None,  # noqa: E711
-                    Feed.operational_status != "wip",
+                    Feed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -273,8 +269,7 @@ class FeedsApiImpl(BaseFeedsApi):
             db_session.query(Gtfsrealtimefeed, t_location_with_translations_en)
             .filter(
                 or_(
-                    Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                    Gtfsrealtimefeed.operational_status != "wip",
+                    Gtfsrealtimefeed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -361,8 +356,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(Gtfsrealtimefeed.id.in_(subquery))
             .filter(
                 or_(
-                    Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                    Gtfsrealtimefeed.operational_status != "wip",
+                    Gtfsrealtimefeed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
