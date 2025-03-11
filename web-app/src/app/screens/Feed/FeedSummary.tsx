@@ -136,9 +136,9 @@ export default function FeedSummary({
             {t('locations')}
           </Typography>
         </StyledTitleContainer>
-        <Typography variant='body1' data-testid='location'>
+        <Box data-testid='location'>
           {feed?.locations != null && <Locations locations={feed?.locations} />}
-        </Typography>
+        </Box>
       </Box>
       <Box sx={boxElementStyleTransitProvider}>
         <StyledTitleContainer>

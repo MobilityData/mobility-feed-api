@@ -37,3 +37,15 @@ CREATE TABLE IF NOT EXISTS Stop (
     group_id VARCHAR(255) NOT NULL REFERENCES OsmLocationGroup(group_id),
     PRIMARY KEY (feed_id, geometry)
 );
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_class WHERE relname = 'feedosmlocation') THEN
+        ALTER TABLE FeedOsmLocation RENAME TO FeedOsmLocationGroup;
+    END IF;
+
+    IF EXISTS (SELECT FROM pg_class WHERE relname = 'stop') THEN
+        ALTER TABLE Stop RENAME TO FeedLocationGroupPoint;
+    END IF;
+END
+$$;

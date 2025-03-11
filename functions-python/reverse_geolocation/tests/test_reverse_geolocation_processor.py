@@ -14,7 +14,11 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     t_feedsearch,
 )
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Stop, Osmlocationgroup
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    Feedlocationgrouppoint,
+    Osmlocationgroup,
+)
 from test_shared.test_utils.database_utils import (
     default_db_url,
     get_testing_session,
@@ -147,9 +151,15 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                 )
             ],
         )
-        stop_1 = Stop(geometry=WKTElement("POINT (1.0 1.0)", srid=4326), group=group)
-        stop_2 = Stop(geometry=WKTElement("POINT (3.0 3.0)", srid=4326), group=group)
-        feed = Gtfsfeed(id=feed_id, stable_id=stable_id, stops=[stop_1, stop_2])
+        stop_1 = Feedlocationgrouppoint(
+            geometry=WKTElement("POINT (1.0 1.0)", srid=4326), group=group
+        )
+        stop_2 = Feedlocationgrouppoint(
+            geometry=WKTElement("POINT (3.0 3.0)", srid=4326), group=group
+        )
+        feed = Gtfsfeed(
+            id=feed_id, stable_id=stable_id, feedlocationgrouppoints=[stop_1, stop_2]
+        )
         session = get_testing_session()
         session.add(feed)
         session.commit()
@@ -293,7 +303,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         {"FEEDS_DATABASE_URL": default_db_url},
     )
     def test_create_feed_osm_location(self):
-        from reverse_geolocation_processor import get_or_create_feed_osm_location
+        from reverse_geolocation_processor import get_or_create_feed_osm_location_group
 
         clean_testing_db()
         feed_id = faker.uuid4(cast_to=str)
@@ -319,7 +329,9 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             ),
             stops_count=stops_count,
         )
-        feed_osm_location = get_or_create_feed_osm_location(feed_id, aggregate, session)
+        feed_osm_location = get_or_create_feed_osm_location_group(
+            feed_id, aggregate, session
+        )
         self.assertIsNotNone(feed_osm_location)
         self.assertEqual(feed_osm_location.stops_count, stops_count)
 

@@ -18,6 +18,7 @@ import {
   type GTFSRTFeedType,
   type AllFeedsType,
   getLocationName,
+  getCountryLocationSummaries,
 } from '../../services/feeds/utils';
 import BusAlertIcon from '@mui/icons-material/BusAlert';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
@@ -247,43 +248,27 @@ export default function SearchTable({
             <TableCell className='feed-column' component={Box}>
               {feed.locations != null && feed.locations.length > 1 ? (
                 <>
-                  {Array.from(
-                    new Map(
-                      feed.locations.map((loc) => [loc.country_code, loc]),
-                    ).values(),
-                  ).map((uniqueLoc) => {
-                    const subdivisions = new Set<string>();
-                    const municipalities = new Set<string>();
+                  {getCountryLocationSummaries(feed.locations).map(
+                    (summary) => {
+                      const tooltipText = `${summary.subdivisions.size} subdivisions and ${summary.municipalities.size} municipalities within ${summary.country}.`;
 
-                    feed.locations
-                      ?.filter(
-                        (loc) => loc.country_code === uniqueLoc.country_code,
-                      )
-                      .forEach((loc) => {
-                        if (loc.subdivision_name != null)
-                          subdivisions.add(loc.subdivision_name);
-                        if (loc.municipality != null)
-                          municipalities.add(loc.municipality);
-                      });
-
-                    const tooltipText = `${subdivisions.size} subdivisions and ${municipalities.size} municipalities within ${uniqueLoc.country}.`;
-
-                    return (
-                      <Tooltip
-                        key={uniqueLoc.country_code}
-                        title={tooltipText}
-                        arrow
-                      >
-                        <Chip
-                          label={`${getEmojiFlag(
-                            uniqueLoc.country_code as TCountryCode,
-                          )} ${uniqueLoc.country}`}
-                          size='medium'
-                          sx={{ mr: 1, mt: 1 }}
-                        />
-                      </Tooltip>
-                    );
-                  })}
+                      return (
+                        <Tooltip
+                          key={summary.country_code}
+                          title={tooltipText}
+                          arrow
+                        >
+                          <Chip
+                            label={`${getEmojiFlag(
+                              summary.country_code as TCountryCode,
+                            )} ${summary.country}`}
+                            size='medium'
+                            sx={{ mr: 1, mt: 1 }}
+                          />
+                        </Tooltip>
+                      );
+                    },
+                  )}
                 </>
               ) : (
                 <Chip

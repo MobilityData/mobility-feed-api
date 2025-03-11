@@ -41,7 +41,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     null,
   );
   React.useEffect(() => {
-    if (latestDataset?.hosted_url !== undefined) {
+    if (latestDataset?.hosted_url != undefined) {
       fetchGeoJson(latestDataset.hosted_url).then(
         (data) => {
           setGeoJsonData(data);
@@ -55,7 +55,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
 
   const [view, setView] = useState<
     'boundingBoxView' | 'detailedCoveredAreaView'
-  >('boundingBoxView');
+  >('detailedCoveredAreaView');
 
   const handleViewChange = (
     _: React.MouseEvent<HTMLElement>,
@@ -75,7 +75,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         flexDirection: 'column',
       }}
       title={t('coveredAreaTitle') + ' - ' + t(view)}
-      width={{ xs: '100%', md: '100%' }}
+      width={{ xs: '100%' }}
       outlineColor={theme.palette.primary.dark}
       padding={2}
       action={
@@ -86,14 +86,6 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
           aria-label='map view selection'
           onChange={handleViewChange}
         >
-          <Tooltip title={t('boundingBoxViewTooltip')}>
-            <ToggleButton
-              value='boundingBoxView'
-              aria-label='Bounding Box View'
-            >
-              <MapIcon />
-            </ToggleButton>
-          </Tooltip>
           <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
             <ToggleButton
               value='detailedCoveredAreaView'
@@ -101,6 +93,14 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
               aria-label='Detailed Covered Area View'
             >
               <TravelExploreIcon />
+            </ToggleButton>
+          </Tooltip>
+          <Tooltip title={t('boundingBoxViewTooltip')}>
+            <ToggleButton
+              value='boundingBoxView'
+              aria-label='Bounding Box View'
+            >
+              <MapIcon />
             </ToggleButton>
           </Tooltip>
         </ToggleButtonGroup>

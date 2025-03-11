@@ -22,9 +22,9 @@ from location_group_utils import ERROR_STATUS_CODE, GeopolygonAggregate, generat
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Feed,
-    Stop,
+    Feedlocationgrouppoint,
     Osmlocationgroup,
-    Feedosmlocation,
+    Feedosmlocationgroup,
     Location,
     t_feedsearch,
     Gtfsdataset,
@@ -98,7 +98,7 @@ def get_cached_geopolygons(
 
     feed = (
         db_session.query(Feed)
-        .options(joinedload(Feed.stops))
+        .options(joinedload(Feed.feedlocationgrouppoints))
         .filter(Feed.stable_id == stable_id)
         .one_or_none()
     )
@@ -108,7 +108,9 @@ def get_cached_geopolygons(
 
     feed_id = feed.id
 
-    cached_geometries = {to_shape(stop.geometry).wkt for stop in feed.stops}
+    cached_geometries = {
+        to_shape(stop.geometry).wkt for stop in feed.feedlocationgrouppoints
+    }
     matched_stops_df = stops_df[stops_df["geometry_str"].isin(cached_geometries)]
     unmatched_stop_df = stops_df[~stops_df["geometry_str"].isin(cached_geometries)]
 
@@ -121,9 +123,11 @@ def get_cached_geopolygons(
 
     if geometries_to_delete:
         logging.info(f"Deleting {len(geometries_to_delete)} outdated cached stops.")
-        db_session.query(Stop).filter(
-            Stop.feed_id == feed_id,
-            func.ST_AsText(Stop.geometry).in_(list(geometries_to_delete)),
+        db_session.query(Feedlocationgrouppoint).filter(
+            Feedlocationgrouppoint.feed_id == feed_id,
+            func.ST_AsText(Feedlocationgrouppoint.geometry).in_(
+                list(geometries_to_delete)
+            ),
         ).delete(synchronize_session=False)
         db_session.commit()
 
@@ -133,10 +137,14 @@ def get_cached_geopolygons(
         return feed_id, dict(), unmatched_stop_df
     location_group_counts = (
         db_session.query(
-            Osmlocationgroup, func.count(Stop.geometry).label("stop_count")
+            Osmlocationgroup,
+            func.count(Feedlocationgrouppoint.geometry).label("stop_count"),
         )
-        .join(Stop, Osmlocationgroup.stops)
-        .filter(Stop.feed_id == feed_id, Stop.geometry.in_(matched_geometries))
+        .join(Feedlocationgrouppoint, Osmlocationgroup.feedlocationgrouppoints)
+        .filter(
+            Feedlocationgrouppoint.feed_id == feed_id,
+            Feedlocationgrouppoint.geometry.in_(matched_geometries),
+        )
         .group_by(Osmlocationgroup.group_id)
         .options(joinedload(Osmlocationgroup.osms))
         .all()
@@ -196,7 +204,7 @@ def extract_location_aggregate(
             group_name=", ".join([g.name for g in geopolygons]),
             osms=geopolygons,
         )
-    stop = Stop(feed_id=feed_id, geometry=stop_point)
+    stop = Feedlocationgrouppoint(feed_id=feed_id, geometry=stop_point)
     stop.group = group
     db_session.add(stop)
     logging.info(
@@ -205,20 +213,20 @@ def extract_location_aggregate(
     return GeopolygonAggregate(group, 1)
 
 
-def get_or_create_feed_osm_location(
+def get_or_create_feed_osm_location_group(
     feed_id: str, location_aggregate: GeopolygonAggregate, db_session: Session
-) -> Feedosmlocation:
+) -> Feedosmlocationgroup:
     """Get or create the feed osm location group."""
     feed_osm_location = (
-        db_session.query(Feedosmlocation)
+        db_session.query(Feedosmlocationgroup)
         .filter(
-            Feedosmlocation.feed_id == feed_id,
-            Feedosmlocation.group_id == location_aggregate.group_id,
+            Feedosmlocationgroup.feed_id == feed_id,
+            Feedosmlocationgroup.group_id == location_aggregate.group_id,
         )
         .one_or_none()
     )
     if not feed_osm_location:
-        feed_osm_location = Feedosmlocation(
+        feed_osm_location = Feedosmlocationgroup(
             feed_id=feed_id,
             group_id=location_aggregate.group_id,
         )
@@ -337,8 +345,8 @@ def extract_location_aggregates(
             db_session.commit()
 
     feed = db_session.query(Feed).filter(Feed.id == feed_id).one_or_none()
-    feed.feedosmlocations = [
-        get_or_create_feed_osm_location(
+    feed.feedosmlocationgroups = [
+        get_or_create_feed_osm_location_group(
             feed_id, location_aggregates[location_group.group_id], db_session
         )
         for location_group in location_aggregates.values()
