@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, func
 from zoneinfo import ZoneInfo
-from datetime import timezone
 from shared.helpers.database import refresh_materialized_view
 
 from shared.database_gen.sqlacodegen_models import (
@@ -156,7 +155,7 @@ def backfill_datasets(session: "Session"):
             formatting_timezone = extracted_timezone
             if formatting_timezone is None:
                 logging.info("No timezone found in the validation report.")
-                formatting_timezone = timezone.utc
+                formatting_timezone = "UTC"
 
             logging.info(
                 f"Using the timezone: {formatting_timezone} for the service date range."
