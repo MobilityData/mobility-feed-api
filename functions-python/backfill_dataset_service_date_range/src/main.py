@@ -162,14 +162,14 @@ def backfill_datasets(session: "Session"):
                 f"Using the timezone: {formatting_timezone} for the service date range."
             )
             local_service_start_date = formatted_service_start_date.replace(
-                hour=0, minute=0, tzinfo=formatting_timezone
+                hour=0, minute=0, tzinfo=ZoneInfo(formatting_timezone)
             )
             utc_service_start_date = local_service_start_date.astimezone(
                 ZoneInfo("UTC")
             )
 
             local_service_end_date = formatted_service_end_date.replace(
-                hour=23, minute=59, tzinfo=formatting_timezone
+                hour=23, minute=59, tzinfo=ZoneInfo(formatting_timezone)
             )
             utc_service_end_date = local_service_end_date.astimezone(ZoneInfo("UTC"))
 
