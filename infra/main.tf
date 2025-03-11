@@ -108,6 +108,7 @@ module "functions-python" {
   
   transitland_api_key = var.transitland_api_key
   operations_oauth2_client_id = var.operations_oauth2_client_id
+  validator_endpoint = var.validator_endpoint
 }
 
 module "workflows" {

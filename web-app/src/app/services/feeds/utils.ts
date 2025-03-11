@@ -87,3 +87,34 @@ export function isValidFeedLink(feedLink: string): boolean {
   const urlPattern = /^(https?:\/\/)([^\s$.?#].[^\s]*)$/;
   return urlPattern.test(lowercaseFeedLink ?? '');
 }
+
+export function getCountryLocationSummaries(locations: EntityLocations): Array<{
+  country_code: string | undefined;
+  country: string | undefined;
+  subdivisions: Set<string>;
+  municipalities: Set<string>;
+}> {
+  const uniqueCountries = Array.from(
+    new Map(locations.map((loc) => [loc.country_code, loc])).values(),
+  );
+
+  return uniqueCountries.map((uniqueLoc) => {
+    const subdivisions = new Set<string>();
+    const municipalities = new Set<string>();
+
+    locations
+      .filter((loc) => loc.country_code === uniqueLoc.country_code)
+      .forEach((loc) => {
+        if (loc.subdivision_name != null)
+          subdivisions.add(loc.subdivision_name);
+        if (loc.municipality != null) municipalities.add(loc.municipality);
+      });
+
+    return {
+      country_code: uniqueLoc.country_code,
+      country: uniqueLoc.country,
+      subdivisions,
+      municipalities,
+    };
+  });
+}

@@ -20,6 +20,8 @@ This HTTP-triggered Cloud Function processes all the validation reports in the b
 2. **Processing**: For each report, simulates a Cloud Event and calls `convert_reports_to_ndjson` to handle the conversion, following the same steps as above.
 3. **Loading**: The converted NDJSON files are stored back in the same bucket.
 
+This function also takes an optional query parameter `validator_version` that filters the reports based on the validator version.
+
 ## Project Structure
 - **`main.py`**: Defines the HTTP-triggered Cloud Functions that initiate the GTFS and GBFS data conversion processes.
 - **`validation_report_converter.py`**: Contains the logic for retrieving, processing, and converting validation reports to NDJSON format.
