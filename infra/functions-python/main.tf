@@ -117,12 +117,6 @@ resource "google_storage_bucket" "gbfs_snapshots_bucket" {
   name     = "${var.gbfs_bucket_name}-${var.environment}"
 }
 
-# TODO: Validate if this is still needed
-resource "google_storage_bucket" "reverse_geolocation_results_bucket" {
-  location = var.gcp_region
-  name     = "reverse-geolocation-results-${var.environment}"
-}
-
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
   bucket = data.google_storage_bucket.datasets_bucket.name
   role   = "roles/storage.admin"
@@ -1336,9 +1330,8 @@ resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
 resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
   for_each = {
     gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
-    reverse_geolocation_results_bucket = google_storage_bucket.reverse_geolocation_results_bucket.name
   }
-  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.reverse_geolocation_results_bucket]
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
   bucket = each.value
   role   = "roles/storage.objectCreator"
   members = [
@@ -1351,7 +1344,7 @@ resource "google_storage_bucket_iam_binding" "storage_admin" {
   for_each = {
     datasets_bucket = "${var.datasets_bucket_name}-${var.environment}"
   }
-  depends_on = [google_storage_bucket.gbfs_snapshots_bucket, google_storage_bucket.reverse_geolocation_results_bucket]
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
   bucket = each.value
   role   = "roles/storage.admin"
   members = [
@@ -1496,5 +1489,12 @@ resource "google_cloudfunctions2_function_iam_member" "export_csv_invoker" {
 resource "google_project_iam_member" "bigquery_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# This permission is added to allow the function to act as the service account and generate tokens.
+resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
