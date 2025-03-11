@@ -27,7 +27,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
 )
 from shared.helpers.logger import Logger
-from src.shared.helpers.transform import get_nested_value
+from shared.helpers.transform import get_nested_value
 
 logging.basicConfig(level=logging.INFO)
 
