@@ -122,8 +122,8 @@ def backfill_datasets(session: "Session"):
             if isinstance(summary.get("agencies"), list) and summary["agencies"]:
                 extracted_timezone = summary["agencies"][0].get("timezone", None)
 
-            formatted_service_start_date
-            formatted_service_end_date
+            formatted_service_start_date = None
+            formatted_service_end_date = None
             try:
                 formatted_service_start_date = datetime.strptime(
                     extracted_service_start_date, "%Y-%m-%d"
