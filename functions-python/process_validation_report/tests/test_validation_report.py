@@ -208,9 +208,8 @@ class TestValidationReportProcessor(unittest.TestCase):
         self.assertEqual(status, 400)
         create_validation_report_entities_mock.assert_not_called()
 
-
     def test_populate_service_date_valid_dates(self):
-        """Test populate_service_date function."""
+        """Test populate_service_date function with valid date values."""
         dataset = Gtfsdataset(
             id=faker.word(), feed_id=faker.word(), stable_id=faker.word(), latest=True
         )
@@ -227,7 +226,6 @@ class TestValidationReportProcessor(unittest.TestCase):
 
         self.assertEqual(dataset.service_date_range_start, "2024-01-01")
         self.assertEqual(dataset.service_date_range_end, "2024-12-31")
-
 
     def test_populate_service_date_valid_empty_dates(self):
         """Test populate_service_date function."""
@@ -251,6 +249,30 @@ class TestValidationReportProcessor(unittest.TestCase):
                 "feedInfo": {
                     "feedServiceWindowStart": "2024-12-31",
                     "feedServiceWindowEnd": "",
+                }
+            }
+        }
+        populate_service_date(dataset, json_report)
+        self.assertEqual(dataset.service_date_range_start, None)
+        self.assertEqual(dataset.service_date_range_end, None)
+
+        json_report = {
+            "summary": {
+                "feedInfo": {
+                    "feedServiceWindowStart": "2024-12-31",
+                    "feedServiceWindowEnd": None,
+                }
+            }
+        }
+        populate_service_date(dataset, json_report)
+        self.assertEqual(dataset.service_date_range_start, None)
+        self.assertEqual(dataset.service_date_range_end, None)
+
+        json_report = {
+            "summary": {
+                "feedInfo": {
+                    "feedServiceWindowStart": None,
+                    "feedServiceWindowEnd": "2024-12-31",
                 }
             }
         }

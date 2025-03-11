@@ -39,7 +39,7 @@ def get_nested_value(
         default_value: The value to return if the field is not found.
 
     Returns:
-        Optional[str, int, float, bool, dict]: The value if found and valid, otherwise None. The str values are trimmed.
+        Optional[any]: The value if found and valid, otherwise None. The str values are trimmed.
     """
     if not keys:
         return default_value

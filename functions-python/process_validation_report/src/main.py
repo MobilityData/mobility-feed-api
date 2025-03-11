@@ -170,6 +170,11 @@ def generate_report_entities(
 
 
 def populate_service_date(dataset, json_report):
+    """
+    Populates the service date range of the dataset based on the JSON report.
+    The service date range is extracted from the feedServiceWindowStart and feedServiceWindowEnd fields,
+     if both are present and not empty.
+    """
     feed_service_window_start = get_nested_value(
         json_report, ["summary", "feedInfo", "feedServiceWindowStart"]
     )
