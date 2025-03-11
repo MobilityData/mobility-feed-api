@@ -156,6 +156,13 @@ or
 ```
 scripts/api-tests.sh --folder functions-python
 ```
+
+To run the tests and generate the html coverage report:
+```
+scripts/api-tests.sh --folder functions-python --html_report
+```
+_The coverage reports are located in `{project}/scripts/coverage_reports` as individual folder per function._
+
 This will 
 - run the `function-python-setup.sh` script for the function (ie create the `shared` and `test_shared` folders with symlinks) 
 - Create a python virtual environment in the function folder, e.g.: `functions-python/batch_datasets/venv`

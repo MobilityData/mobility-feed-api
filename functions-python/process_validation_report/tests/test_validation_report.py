@@ -19,6 +19,7 @@ from main import (
     get_dataset,
     create_validation_report_entities,
     process_validation_report,
+    populate_service_date,
 )
 
 faker = Faker()
@@ -206,3 +207,53 @@ class TestValidationReportProcessor(unittest.TestCase):
         __, status = process_validation_report(request)
         self.assertEqual(status, 400)
         create_validation_report_entities_mock.assert_not_called()
+
+
+    def test_populate_service_date_valid_dates(self):
+        """Test populate_service_date function."""
+        dataset = Gtfsdataset(
+            id=faker.word(), feed_id=faker.word(), stable_id=faker.word(), latest=True
+        )
+        json_report = {
+            "summary": {
+                "feedInfo": {
+                    "feedServiceWindowStart": "2024-01-01",
+                    "feedServiceWindowEnd": "2024-12-31",
+                }
+            }
+        }
+
+        populate_service_date(dataset, json_report)
+
+        self.assertEqual(dataset.service_date_range_start, "2024-01-01")
+        self.assertEqual(dataset.service_date_range_end, "2024-12-31")
+
+
+    def test_populate_service_date_valid_empty_dates(self):
+        """Test populate_service_date function."""
+        dataset = Gtfsdataset(
+            id=faker.word(), feed_id=faker.word(), stable_id=faker.word(), latest=True
+        )
+        json_report = {
+            "summary": {
+                "feedInfo": {
+                    "feedServiceWindowStart": "",
+                    "feedServiceWindowEnd": "2024-12-31",
+                }
+            }
+        }
+        populate_service_date(dataset, json_report)
+        self.assertEqual(dataset.service_date_range_start, None)
+        self.assertEqual(dataset.service_date_range_end, None)
+
+        json_report = {
+            "summary": {
+                "feedInfo": {
+                    "feedServiceWindowStart": "2024-12-31",
+                    "feedServiceWindowEnd": "",
+                }
+            }
+        }
+        populate_service_date(dataset, json_report)
+        self.assertEqual(dataset.service_date_range_start, None)
+        self.assertEqual(dataset.service_date_range_end, None)
