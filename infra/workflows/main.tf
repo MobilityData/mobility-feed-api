@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+locals {
+  function_reverse_geolocation_populate_config = jsondecode(file("${path.module}/../../functions-python/reverse_geolocation_populate/function_config.json"))
+}
+
 # Service account to execute the workflow
 resource "google_service_account" "workflows_service_account" {
   account_id   = "workflows-service-account"
@@ -127,6 +131,21 @@ resource "google_eventarc_trigger" "gtfs_validator_trigger" {
 
   service_account = google_service_account.workflows_service_account.email
 
+}
+
+
+# Workflow to populate the db with all countries for reverse geocoding
+resource "google_workflows_workflow" "reverse_geocoding_population" {
+  name                    = "reverse_geolocation_populate"
+  region                  = var.gcp_region
+  project                 = var.project_id
+  description             = "Populate the database with all countries for reverse geocoding"
+  service_account         = google_service_account.workflows_service_account.id
+  user_env_vars = {
+    reverse_geolocation_populate_url  = "https://${var.gcp_region}-${var.project_id}.cloudfunctions.net/${local.function_reverse_geolocation_populate_config.name}"
+    batch_size                        = 5
+  }
+  source_contents         = file("${path.module}../../../workflows/reverse_geolocation_populate.yml")
 }
 
 

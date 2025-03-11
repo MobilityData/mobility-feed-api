@@ -7,10 +7,6 @@ from datetime import datetime
 
 import functions_framework
 from cloudevents.http import CloudEvent
-from google.cloud import pubsub_v1
-from sqlalchemy import or_
-from sqlalchemy.orm import joinedload
-
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from shared.dataset_service.main import (
     DatasetTraceService,
@@ -22,10 +18,14 @@ from shared.dataset_service.main import (
 from shared.helpers.database import Database
 from shared.helpers.logger import Logger
 from shared.helpers.parser import jsonify_pubsub
+from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
+
 from bounding_box.bounding_box_extractor import (
     create_polygon_wkt_element,
     update_dataset_bounding_box,
 )
+from shared.helpers.pub_sub import publish_messages
 from reverse_geolocation.location_extractor import update_location, reverse_coords
 from stops_utils import get_gtfs_feed_bounds_and_points
 
@@ -232,11 +232,5 @@ def extract_location_batch(_):
         pass
 
     # Trigger update location for each dataset by publishing to Pub/Sub
-    publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(os.getenv("PROJECT_ID"), pubsub_topic_name)
-    for data in datasets_data:
-        message_data = json.dumps(data).encode("utf-8")
-        future = publisher.publish(topic_path, message_data)
-        logging.info(f"Published message to Pub/Sub with ID: {future.result()}")
-
+    publish_messages(datasets_data, os.getenv("PROJECT_ID"), pubsub_topic_name)
     return f"Batch function triggered for {len(datasets_data)} datasets.", 200
