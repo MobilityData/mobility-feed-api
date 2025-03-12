@@ -113,10 +113,10 @@ export const MapGeoJSON = (
               bottom: 20,
               right: 16,
               background: theme.palette.background.paper,
-              padding: 2,
+              padding: 1,
               borderRadius: 2,
               boxShadow: 3,
-              maxWidth: 200,
+              maxWidth: 145,
               zIndex: 1000,
             }}
           >
@@ -164,7 +164,7 @@ export const MapGeoJSON = (
                 display: 'flex',
                 justifyContent: 'space-between',
                 fontSize: '0.75rem',
-                gap: 9,
+                gap: 6,
                 color: theme.palette.text.secondary,
               }}
             >
