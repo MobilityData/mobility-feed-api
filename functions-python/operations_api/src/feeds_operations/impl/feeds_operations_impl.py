@@ -20,12 +20,14 @@ from typing import Annotated, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
-from pydantic import Field
-from starlette.responses import Response
-
 from feeds_operations.impl.models.get_feeds_response import GetFeeds200Response
+from feeds_operations.impl.models.gtfs_feed_impl import GtfsFeedImpl
+from feeds_operations.impl.models.gtfs_rt_feed_impl import GtfsRtFeedImpl
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
+)
+from feeds_operations.impl.models.update_request_gtfs_rt_feed_impl import (
+    UpdateRequestGtfsRtFeedImpl,
 )
 from feeds_operations_gen.apis.operations_api_base import BaseOperationsApi
 from feeds_operations_gen.models.data_type import DataType
@@ -35,10 +37,9 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from pydantic import Field
 from shared.database_gen.sqlacodegen_models import (
-    Feed,
     Gtfsfeed,
-    Gtfsrealtimefeed,
     t_feedsearch,
 )
 from shared.helpers.database import Database, refresh_materialized_view
@@ -46,8 +47,9 @@ from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
     get_eager_loading_options,
+    get_model,
 )
-from .models.update_request_gtfs_rt_feed_impl import UpdateRequestGtfsRtFeedImpl
+from starlette.responses import Response
 from .request_validator import validate_request
 
 logging.basicConfig(level=logging.INFO)
@@ -56,83 +58,38 @@ logging.basicConfig(level=logging.INFO)
 class OperationsApiImpl(BaseOperationsApi):
     """Implementation of the operations API."""
 
-    def process_feed(self, feed) -> GtfsFeedResponse | GtfsRtFeedResponse:
-        """Process a feed into the appropriate response type.
-
-        Args:
-            feed: The database feed object to process
-
-        Returns:
-            GtfsFeedResponse or GtfsRtFeedResponse depending on the feed type
-        """
+    def process_feed(self, feed) -> GtfsFeedResponse | GtfsRtFeedResponse | None:
+        """Process a feed into the appropriate response type using fromOrm methods."""
         if not feed:
             logging.error("Received None feed object")
-            raise ValueError("Feed object cannot be None")
+            return None
+
+        if not hasattr(feed, "data_type") or not feed.data_type:
+            logging.error(
+                f"Feed {feed.stable_id if hasattr(feed, 'stable_id') else 'unknown'} missing data_type"
+            )
+            return None
 
         try:
-            common_fields = {
-                "id": feed.id,
-                "stable_id": feed.stable_id,
-                "status": feed.status,
-                "data_type": feed.data_type,
-                "provider": feed.provider,
-                "feed_name": feed.feed_name,
-                "note": feed.note,
-                "feed_contact_email": feed.feed_contact_email,
-                "producer_url": feed.producer_url,
-                "authentication_type": feed.authentication_type or 0,
-                "authentication_info_url": feed.authentication_info_url,
-                "api_key_parameter_name": feed.api_key_parameter_name,
-                "license_url": feed.license_url,
-                "operational_status": feed.operational_status,
-                "created_at": str(feed.created_at) if feed.created_at else None,
-                "official": feed.official if hasattr(feed, "official") else None,
-                "locations": [
-                    {
-                        "country_code": loc.country_code,
-                        "country": loc.country,
-                        "subdivision_name": loc.subdivision_name,
-                        "municipality": loc.municipality,
-                    }
-                    for loc in feed.locations
-                ]
-                if feed.locations
-                else [],
-            }
+            logging.info(f"Processing feed {feed.stable_id} with type {feed.data_type}")
 
             if feed.data_type == "gtfs":
-                logging.info(f"Processing GTFS feed {feed.stable_id}")
-                return GtfsFeedResponse(**common_fields)
+                result = GtfsFeedImpl.from_orm(feed)
+                logging.info(f"Successfully processed GTFS feed {feed.stable_id}")
+                return result
             elif feed.data_type == "gtfs_rt":
-                logging.info(f"Processing GTFS-RT feed {feed.stable_id}")
-                entity_types = []
-                feed_references = []
-
-                if hasattr(feed, "entitytypes") and feed.entitytypes:
-                    entity_types = [et.name for et in feed.entitytypes]
-                    logging.info(
-                        f"Found {len(entity_types)} entity types for feed {feed.stable_id}"
-                    )
-
-                if hasattr(feed, "gtfs_feeds") and feed.gtfs_feeds:
-                    feed_references = [ref.stable_id for ref in feed.gtfs_feeds]
-                    logging.info(
-                        f"Found {len(feed_references)} feed references for feed {feed.stable_id}"
-                    )
-
-                return GtfsRtFeedResponse(
-                    **common_fields,
-                    entity_types=entity_types,
-                    feed_references=feed_references,
-                )
+                result = GtfsRtFeedImpl.from_orm(feed)
+                logging.info(f"Successfully processed GTFS-RT feed {feed.stable_id}")
+                return result
             else:
-                raise ValueError(f"Unknown feed type: {feed.data_type}")
+                logging.error(f"Unknown feed type: {feed.data_type}")
+                return None
 
         except Exception as e:
             logging.error(
-                f"Error processing feed {feed.stable_id if feed else 'unknown'}: {str(e)}"
+                f"Error processing feed {feed.stable_id if hasattr(feed, 'stable_id') else 'unknown'}: {str(e)}"
             )
-            raise
+            return None
 
     async def get_feeds(
         self,
@@ -141,20 +98,7 @@ class OperationsApiImpl(BaseOperationsApi):
         offset: int = 0,
         limit: int = 50,
     ) -> GetFeeds200Response:
-        """Get a list of feeds with optional filtering and pagination.
-
-        Args:
-            operation_status: Optional filter for operational status (wip or published)
-            data_type: Optional filter for feed type (gtfs or gtfs_rt)
-            offset: Number of items to skip for pagination
-            limit: Maximum number of items to return (default: 50)
-
-        Returns:
-            GetFeeds200Response: Contains total count, offset, limit, and list of feeds
-
-        Raises:
-            HTTPException: For database errors or invalid parameters
-        """
+        """Get a list of feeds with optional filtering and pagination."""
         db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
         try:
             with db.start_db_session() as db_session:
@@ -172,8 +116,30 @@ class OperationsApiImpl(BaseOperationsApi):
                 feeds = query.all()
                 logging.info("Retrieved %d feeds from database", len(feeds))
 
-                feed_list = [self.process_feed(feed) for feed in feeds]
-                logging.info("Processed %d feeds", len(feed_list))
+                feed_list = []
+                for feed in feeds:
+                    try:
+                        if feed is None:
+                            logging.warning("Encountered None feed in results")
+                            continue
+                        processed_feed = self.process_feed(feed)
+                        if processed_feed is not None:
+                            feed_list.append(processed_feed)
+                        else:
+                            logging.warning(
+                                f"process_feed returned None for feed {feed.stable_id if feed else 'unknown'}"
+                            )
+                    except Exception as e:
+                        logging.error(f"Error processing feed: {str(e)}")
+                        continue
+
+                logging.info("Successfully processed %d feeds", len(feed_list))
+
+                if not feed_list and total > 0:
+                    logging.error(
+                        "No feeds were successfully processed despite having results"
+                    )
+                    raise ValueError("Failed to process any feeds from the database")
 
                 response = GetFeeds200Response(
                     total=total, offset=offset, limit=limit, feeds=feed_list
@@ -182,9 +148,9 @@ class OperationsApiImpl(BaseOperationsApi):
                 return response
 
         except Exception as e:
-            logging.error("Failed to get feeds. Error: %s", e)
+            logging.error("Failed to get feeds. Error: %s", str(e))
             raise HTTPException(
-                status_code=500, detail="Internal server error: {}".format(e)
+                status_code=500, detail=f"Internal server error: {str(e)}"
             )
 
     @staticmethod
@@ -325,12 +291,7 @@ class OperationsApiImpl(BaseOperationsApi):
         Raises:
             HTTPException: If feed not found
         """
-        if data_type == DataType.GTFS:
-            model = Gtfsfeed
-        elif data_type == DataType.GTFS_RT:
-            model = Gtfsrealtimefeed
-        else:
-            model = Feed
+        model = get_model(data_type.value)
 
         feed = query_feed_by_stable_id(session, update_request_feed.id, data_type.value)
 
@@ -340,9 +301,18 @@ class OperationsApiImpl(BaseOperationsApi):
                 detail=f"Feed ID not found: {update_request_feed.id}",
             )
 
-        eager_loading_options = get_eager_loading_options(model, data_type.value)
-        session.query(model).options(*eager_loading_options).filter(
-            model.id == feed.id
-        ).first()
+        eager_loading_options = get_eager_loading_options(model)
+        feed = (
+            session.query(model)
+            .options(*eager_loading_options)
+            .filter(model.id == feed.id)
+            .first()
+        )
+
+        if feed is None:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to retrieve feed with eagerly loaded relationships: {update_request_feed.id}",
+            )
 
         return feed

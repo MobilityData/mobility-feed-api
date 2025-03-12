@@ -1,9 +1,10 @@
 import logging
 
-from pydantic import model_validator
-
+from feeds_operations.impl.models.entity_type_impl import EntityTypeImpl
+from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
+from feeds_operations.impl.models.location_impl import LocationImpl
+from feeds_operations.impl.models.redirect_impl import RedirectImpl
 from feeds_operations_gen.models.base_feed import BaseFeed
-from feeds_operations_gen.models.data_type import DataType
 from shared.database_gen.sqlacodegen_models import Feed
 
 logger = logging.getLogger(__name__)
@@ -19,26 +20,6 @@ class BaseFeedImpl(BaseFeed):
 
         from_attributes = True
 
-    @model_validator(mode="before")
-    def validate_feed_type(cls, values: dict | object) -> dict | object:
-        """Validate data type matches the model class."""
-        if not isinstance(values, dict):
-            return values
-
-        data_type = values.get("data_type")
-        if not data_type:
-            return values
-
-        if cls.__name__.startswith("GtfsFeed") and data_type != DataType.GTFS:
-            raise ValueError(
-                f"Invalid data_type '{data_type}' for GtfsFeedResponse. Must be 'gtfs'"
-            )
-        elif cls.__name__.startswith("GtfsRtFeed") and data_type != DataType.GTFS_RT:
-            raise ValueError(
-                f"Invalid data_type '{data_type}' for GtfsRtFeedResponse. Must be 'gtfs_rt'"
-            )
-        return values
-
     @classmethod
     def from_orm(cls, feed: Feed | None) -> BaseFeed | None:
         """Convert a SQLAlchemy row object to a Pydantic model."""
@@ -46,47 +27,59 @@ class BaseFeedImpl(BaseFeed):
             return None
 
         try:
-            logger.debug(
-                "Converting feed %s with fields: %s",
-                feed.stable_id,
-                {
-                    "id": feed.id,
-                    "stable_id": feed.stable_id,
-                    "data_type": feed.data_type,
-                    "status": feed.status,
-                    "provider": feed.provider,
-                    "operational_status": feed.operational_status,
-                },
-            )
-
-            if not feed.stable_id:
-                logger.error("Feed %s missing stable_id", feed.id)
-                return None
-            if not feed.data_type:
-                logger.error("Feed %s missing data_type", feed.stable_id)
-                return None
-            if not feed.status:
-                logger.error("Feed %s missing status", feed.stable_id)
-                return None
-
-            if feed.data_type not in ["gtfs", "gtfs_rt", "gbfs"]:
-                logger.error(
-                    "Feed %s has invalid data_type: %s", feed.stable_id, feed.data_type
+            common_fields = {
+                "id": feed.id,
+                "stable_id": feed.stable_id,
+                "status": feed.status,
+                "data_type": feed.data_type,
+                "provider": feed.provider,
+                "feed_name": feed.feed_name,
+                "note": feed.note,
+                "feed_contact_email": feed.feed_contact_email,
+                "producer_url": feed.producer_url,
+                "authentication_type": feed.authentication_type,
+                "authentication_info_url": feed.authentication_info_url,
+                "api_key_parameter_name": feed.api_key_parameter_name,
+                "license_url": feed.license_url,
+                "operational_status": feed.operational_status,
+                "created_at": feed.created_at,
+                "official": feed.official,
+                "official_updated_at": feed.official_updated_at,
+                "locations": sorted(
+                    [LocationImpl.from_orm(item) for item in feed.locations],
+                    key=lambda x: (x.country_code or "", x.municipality or ""),
                 )
-                return None
-
-            if feed.operational_status and feed.operational_status not in [
-                "wip",
-                "published",
-            ]:
-                logger.error(
-                    "Feed %s has invalid operational_status: %s",
-                    feed.stable_id,
-                    feed.operational_status,
+                if hasattr(feed, "locations") and feed.locations
+                else [],
+                "external_ids": sorted(
+                    [ExternalIdImpl.from_orm(item) for item in feed.externalids],
+                    key=lambda x: x.external_id,
                 )
-                return None
+                if hasattr(feed, "externalids") and feed.externalids
+                else [],
+                "redirects": sorted(
+                    [RedirectImpl.from_orm(item) for item in feed.redirectingids],
+                    key=lambda x: x.target_id,
+                )
+                if hasattr(feed, "redirectingids") and feed.redirectingids
+                else [],
+                "entity_types": sorted(
+                    [
+                        EntityTypeImpl.from_orm(item).value
+                        for item in (feed.entitytypes or [])
+                    ]
+                )
+                if hasattr(feed, "entitytypes")
+                else [],
+                "feed_references": sorted(
+                    [item.stable_id for item in (feed.gtfs_feeds or [])]
+                )
+                if hasattr(feed, "gtfs_feeds")
+                else [],
+            }
 
-            return super().model_validate(feed)
+            return cls.model_construct(**common_fields)
+
         except Exception as e:
             logger.error(
                 "Failed to convert feed %s: %s",

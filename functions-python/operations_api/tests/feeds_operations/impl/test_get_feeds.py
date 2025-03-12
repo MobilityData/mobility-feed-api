@@ -67,7 +67,7 @@ async def test_get_feeds_gtfs_rt_filter():
     assert isinstance(rt_feed, GtfsRtFeedResponse)
     assert rt_feed.data_type == "gtfs_rt"
     assert rt_feed.stable_id == "mdb-41"
-    assert rt_feed.entity_types == ["vp"]
+    assert sorted(rt_feed.entity_types) == ["vp"]
 
 
 @pytest.mark.asyncio

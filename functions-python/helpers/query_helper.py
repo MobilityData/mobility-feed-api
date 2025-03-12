@@ -1,16 +1,15 @@
 import logging
 from typing import Type
 
-from sqlalchemy import and_
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.orm.query import Query
-
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
     Gtfsfeed,
     Gbfsfeed,
 )
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.query import Query
 
 feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": Gbfsfeed}
 
@@ -32,18 +31,17 @@ def query_feed_by_stable_id(
     return session.query(model).filter(model.stable_id == stable_id).first()
 
 
-def get_eager_loading_options(model: Type[Feed], data_type: str | None = None):
+def get_eager_loading_options(model: Type[Feed]):
     """
     Get the appropriate eager loading options based on the model type.
 
     Args:
         model: The SQLAlchemy model class
-        data_type: Optional data type for when using the base Feed model
 
     Returns:
         List of joinedload options for the query
     """
-    if model == Gtfsrealtimefeed or (model == Feed and data_type == "gtfs_rt"):
+    if model == Gtfsrealtimefeed:
         logging.info("Adding GTFS-RT specific eager loading")
         return [
             joinedload(Gtfsrealtimefeed.locations),
@@ -52,7 +50,7 @@ def get_eager_loading_options(model: Type[Feed], data_type: str | None = None):
             joinedload(Gtfsrealtimefeed.externalids),
             joinedload(Gtfsrealtimefeed.redirectingids),
         ]
-    elif model == Gtfsfeed or (model == Feed and data_type == "gtfs"):
+    elif model == Gtfsfeed:
         logging.info("Adding GTFS specific eager loading")
         return [
             joinedload(Gtfsfeed.locations),
@@ -119,7 +117,7 @@ def get_feeds_query(
         query = db_session.query(model)
         logging.info("Created base query with model %s", model.__name__)
 
-        eager_loading_options = get_eager_loading_options(model, data_type)
+        eager_loading_options = get_eager_loading_options(model)
         query = query.options(*eager_loading_options)
 
         if conditions:

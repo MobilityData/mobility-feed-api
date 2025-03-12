@@ -208,6 +208,16 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Location"
+        external_ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExternalId'
+          description: List of external identifiers associated with this feed
+        redirects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Redirect'
+          description: List of redirects associated with this feed
 
     GtfsFeedResponse:
       allOf:
@@ -219,18 +229,28 @@ components:
       allOf:
         - $ref: "#/components/schemas/BaseFeed"
         - type: object
-          description: GTFS-RT feed response model.
           properties:
             entity_types:
               type: array
               items:
                 type: string
-              description: Types of GTFS-RT entities.
+                enum:
+                  - vp
+                  - tu
+                  - sa
+                example: vp
+                description: >
+                  The type of realtime entry:
+                    * vp - vehicle positions
+                    * tu - trip updates
+                    * sa - service alerts
             feed_references:
+              description:
+                A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
               type: array
               items:
                 type: string
-              description: References to related GTFS feeds.
+                example: "mdb-20"
 
     GetFeeds200Response:
       type: object
