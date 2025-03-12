@@ -106,9 +106,6 @@ def get_feeds_query(
 
         conditions = []
 
-        if data_type and model == Feed:
-            conditions.append(model.data_type == data_type)
-            logging.info("Added data_type filter: %s", data_type)
 
         if operation_status:
             conditions.append(model.operational_status == operation_status)
