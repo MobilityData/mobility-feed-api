@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from utils.locations import get_feed_location, Location
+from locations import get_feed_location, Location
 
 
 class TestFeedsLocations(unittest.TestCase):
