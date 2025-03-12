@@ -13,6 +13,7 @@ from shared.database_gen.sqlacodegen_models import (
     Location,
     Gtfsdataset,
     t_feedsearch,
+    Gtfsrealtimefeed,
 )
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
@@ -215,7 +216,9 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     def test_extract_location_duplicate_admin_level(self):
         from reverse_geolocation_processor import extract_location_aggregate
 
+        print("test extract location duplicate admin level")
         clean_testing_db()
+        print("Done cleaning the db")
         geopolygon_country_lvl = Geopolygon(
             osm_id=faker.random_int(),
             name=faker.country(),
@@ -592,6 +595,10 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         # Create sample feed
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
+        gtfs_rt_feed = Gtfsrealtimefeed(
+            id=faker.uuid4(cast_to=str), stable_id=faker.uuid4(cast_to=str)
+        )
+        feed.gtfs_rt_feeds = [gtfs_rt_feed]
         session.add(feed)
         session.commit()
 
@@ -645,7 +652,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
 
         # Assertions
-
         # Ensure only matched stops are aggregated
         self.assertEqual(len(location_aggregates), 1)
         first_aggregate = list(location_aggregates.values())[0]
@@ -656,3 +662,4 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         mock_refresh_materialized_view.assert_called_once_with(
             session, t_feedsearch.name
         )
+        session.close_all()
