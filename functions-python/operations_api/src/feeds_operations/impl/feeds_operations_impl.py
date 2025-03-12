@@ -50,7 +50,6 @@ from shared.helpers.query_helper import (
     get_eager_loading_options,
     get_model,
 )
-from starlette.responses import Response
 from .request_validator import validate_request
 
 logging.basicConfig(level=logging.INFO)
