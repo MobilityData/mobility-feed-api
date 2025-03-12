@@ -1,6 +1,7 @@
 import copy
 import unittest
-from datetime import datetime, date
+from datetime import datetime
+from zoneinfo import ZoneInfo 
 
 from geoalchemy2 import WKTElement
 
@@ -87,8 +88,9 @@ gtfs_feed_orm = Gtfsfeed(
             note="note",
             downloaded_at=datetime(year=2022, month=12, day=31, hour=13, minute=45, second=56),
             hash="hash",
-            service_date_range_start=date(2024, 1, 1),
-            service_date_range_end=date(2025, 1, 1),
+            service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            agency_timezone="Canada/Atlantic",
             bounding_box=WKTElement(POLYGON, srid=4326),
             latest=True,
             validation_reports=[
