@@ -1,7 +1,7 @@
 import copy
 import unittest
 from datetime import datetime
-from zoneinfo import ZoneInfo 
+from zoneinfo import ZoneInfo
 
 from shared.database_gen.sqlacodegen_models import (
     Feed,
