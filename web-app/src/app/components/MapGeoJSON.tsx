@@ -37,27 +37,6 @@ export const MapGeoJSON = (
   const theme = useTheme();
   const { t } = useTranslation('feeds');
   const { geoJSONData } = props;
-  const [minValue, maxValue] = React.useMemo(() => {
-    if (geoJSONData?.features == null || geoJSONData.features.length === 0) {
-      return [0, 0];
-    }
-
-    const coverageValues = geoJSONData.features
-      .map((feature) => {
-        const rawValue = feature.properties?.stops_in_area_coverage as
-          | string
-          | undefined;
-        if (rawValue == null) return undefined;
-        const numericValue = parseFloat(rawValue.replace('%', ''));
-        return isNaN(numericValue) ? undefined : numericValue;
-      })
-      .filter((value): value is number => typeof value === 'number');
-
-    const min = Math.min(...coverageValues);
-    const max = Math.max(...coverageValues);
-
-    return [min, max];
-  }, [geoJSONData]);
   const bounds = React.useMemo(() => {
     return props.polygon.length > 0
       ? (props.polygon as LatLngBoundsExpression)
