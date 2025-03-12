@@ -44,10 +44,9 @@ SELECT
     EntityTypeFeedJoin.entities,
     -- locations
     FeedLocationJoin.locations,
-    -- translations
-    FeedCountryTranslationJoin.translations AS country_translations,
-    FeedSubdivisionNameTranslationJoin.translations AS subdivision_name_translations,
-    FeedMunicipalityTranslationJoin.translations AS municipality_translations,
+    -- osm locations grouped
+    OsmLocationJoin.osm_locations,
+
     -- full-text searchable document
     setweight(to_tsvector('english', coalesce(unaccent(Feed.feed_name), '')), 'C') ||
     setweight(to_tsvector('english', coalesce(unaccent(Feed.provider), '')), 'C') ||
@@ -61,27 +60,8 @@ SELECT
         )
         FROM json_array_elements(FeedLocationJoin.locations) AS location
     )), '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(unaccent((
-        SELECT string_agg(
-            coalesce(translation->>'value', ''),
-            ' '
-        )
-        FROM json_array_elements(FeedCountryTranslationJoin.translations) AS translation
-    )), '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(unaccent((
-        SELECT string_agg(
-            coalesce(translation->>'value', ''),
-            ' '
-        )
-        FROM json_array_elements(FeedSubdivisionNameTranslationJoin.translations) AS translation
-    )), '')), 'A') ||
-    setweight(to_tsvector('english', coalesce(unaccent((
-        SELECT string_agg(
-            coalesce(translation->>'value', ''),
-            ' '
-        )
-        FROM json_array_elements(FeedMunicipalityTranslationJoin.translations) AS translation
-    )), '')), 'A') AS document
+    setweight(to_tsvector('english', coalesce(unaccent(OsmLocationNamesJoin.osm_location_names), '')), 'A')
+        AS document
 FROM Feed
 LEFT JOIN (
     SELECT *
@@ -126,48 +106,50 @@ LEFT JOIN (
 ) AS Latest_official_status ON Latest_official_status.feed_id = Feed.id
 LEFT JOIN (
     SELECT
-        LocationFeed.feed_id,
-        json_agg(json_build_object('value', Translation.value, 'key', Translation.key)) AS translations
-    FROM Location
-    LEFT JOIN Translation ON Location.country = Translation.key
-    LEFT JOIN LocationFeed ON LocationFeed.location_id = Location.id
-    WHERE Translation.language_code = 'en'
-    AND Translation.type = 'country'
-    AND Location.country IS NOT NULL
-    GROUP BY LocationFeed.feed_id
-) AS FeedCountryTranslationJoin ON FeedCountryTranslationJoin.feed_id = Feed.id
-LEFT JOIN (
-    SELECT
-        LocationFeed.feed_id,
-        json_agg(json_build_object('value', Translation.value, 'key', Translation.key)) AS translations
-    FROM Location
-    LEFT JOIN Translation ON Location.subdivision_name = Translation.key
-    LEFT JOIN LocationFeed ON LocationFeed.location_id = Location.id
-    WHERE Translation.language_code = 'en'
-    AND Translation.type = 'subdivision_name'
-    AND Location.subdivision_name IS NOT NULL
-    GROUP BY LocationFeed.feed_id
-) AS FeedSubdivisionNameTranslationJoin ON FeedSubdivisionNameTranslationJoin.feed_id = Feed.id
-LEFT JOIN (
-    SELECT
-        LocationFeed.feed_id,
-        json_agg(json_build_object('value', Translation.value, 'key', Translation.key)) AS translations
-    FROM Location
-    LEFT JOIN Translation ON Location.municipality = Translation.key
-    LEFT JOIN LocationFeed ON LocationFeed.location_id = Location.id
-    WHERE Translation.language_code = 'en'
-    AND Translation.type = 'municipality'
-    AND Location.municipality IS NOT NULL
-    GROUP BY LocationFeed.feed_id
-) AS FeedMunicipalityTranslationJoin ON FeedMunicipalityTranslationJoin.feed_id = Feed.id
-LEFT JOIN (
-    SELECT
         feed_id,
         array_agg(entity_name) AS entities
     FROM EntityTypeFeed
     GROUP BY feed_id
 ) AS EntityTypeFeedJoin ON EntityTypeFeedJoin.feed_id = Feed.id AND Feed.data_type = 'gtfs_rt'
-;
+LEFT JOIN (
+    WITH locations_per_group AS (
+        SELECT
+            fog.feed_id,
+            olg.group_name,
+            jsonb_agg(
+                DISTINCT jsonb_build_object(
+                    'admin_level', gp.admin_level,
+                    'name', gp.name
+                )
+            ) AS locations
+        FROM FeedOsmLocationGroup fog
+        JOIN OsmLocationGroup olg ON olg.group_id = fog.group_id
+        JOIN OsmLocationGroupGeopolygon olgg ON olgg.group_id = olg.group_id
+        JOIN Geopolygon gp ON gp.osm_id = olgg.osm_id
+        GROUP BY fog.feed_id, olg.group_name
+    )
+    SELECT
+        feed_id,
+        jsonb_agg(
+            jsonb_build_object(
+                'group_name', group_name,
+                'locations', locations
+            )
+        )::json AS osm_locations
+    FROM locations_per_group
+    GROUP BY feed_id
+) AS OsmLocationJoin ON OsmLocationJoin.feed_id = Feed.id
+LEFT JOIN (
+    SELECT
+        fog.feed_id,
+        string_agg(DISTINCT gp.name, ' ') AS osm_location_names
+    FROM FeedOsmLocationGroup fog
+    JOIN OsmLocationGroup olg ON olg.group_id = fog.group_id
+    JOIN OsmLocationGroupGeopolygon olgg ON olgg.group_id = olg.group_id
+    JOIN Geopolygon gp ON gp.osm_id = olgg.osm_id
+    WHERE gp.name IS NOT NULL
+    GROUP BY fog.feed_id
+) AS OsmLocationNamesJoin ON OsmLocationNamesJoin.feed_id = Feed.id;
 
 
 -- This index allows concurrent refresh on the materialized view avoiding table locks
@@ -178,3 +160,6 @@ CREATE INDEX feedsearch_document_idx ON FeedSearch USING GIN(document);
 CREATE INDEX feedsearch_feed_stable_id ON FeedSearch(feed_stable_id);
 CREATE INDEX feedsearch_data_type ON FeedSearch(data_type);
 CREATE INDEX feedsearch_status ON FeedSearch(status);
+
+DROP VIEW IF EXISTS location_with_translations_en;
+DROP TABLE IF EXISTS translation;
