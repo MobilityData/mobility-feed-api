@@ -102,11 +102,11 @@
   "officialFeedUpdated": "Official verification updated",
   "serviceDateRange": "Service Date Range",
   "serviceDateRangeTooltip": "Dates are relative to local timezone",
-  "heatmapIntensity": "Heatmap Intensity",
+  "heatmapIntensity": "Stop Density",
   "heatmapExplanationTitle": "What does this mean?",
   "heatmapExplanationContent": "This color scale shows the percentage of stops from <code>stops.txt</code> that are located within each geographic area. Darker colors indicate areas where a higher percentage of stops are covered.",
-  "heatmapLower": "Lower {{value}}%",
-  "heatmapHigher": "Higher {{value}}%",
+  "heatmapLower": "Least {{value}}%",
+  "heatmapHigher": "Most {{value}}%",
   "feedStatus": {
     "active": {
       "label": "Active",
