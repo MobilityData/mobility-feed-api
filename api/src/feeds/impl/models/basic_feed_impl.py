@@ -17,7 +17,7 @@ class BaseFeedImpl(BasicFeed):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, feed: Feed | None, _=None) -> BasicFeed | None:
+    def from_orm(cls, feed: Feed | None) -> BasicFeed | None:
         if not feed:
             return None
         return cls(

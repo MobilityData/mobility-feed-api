@@ -15,7 +15,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Location,
     Validationreport,
-    t_location_with_translations_en,
     Entitytype,
 )
 from shared.feed_filters.feed_filter import FeedFilter
@@ -42,10 +41,6 @@ from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from middleware.request_context import is_user_email_restricted
 from utils.date_utils import valid_iso_date
-from utils.location_translation import (
-    create_location_translation_object,
-    get_feeds_location_translations,
-)
 from utils.logger import Logger
 
 T = TypeVar("T", bound="BasicFeed")
@@ -253,7 +248,7 @@ class FeedsApiImpl(BaseFeedsApi):
             # that needs to be converted to HTTPException before being thrown.
             raise convert_exception(e)
 
-        return self._get_response(feed_query, GtfsFeedImpl, db_session)
+        return self._get_response(feed_query, GtfsFeedImpl)
 
     @with_db_session
     def get_gtfs_rt_feed(self, id: str, db_session: Session) -> GtfsRTFeed:
@@ -266,7 +261,7 @@ class FeedsApiImpl(BaseFeedsApi):
             location=None,
         )
         results = gtfs_rt_feed_filter.filter(
-            db_session.query(Gtfsrealtimefeed, t_location_with_translations_en)
+            db_session.query(Gtfsrealtimefeed)
             .filter(
                 or_(
                     Gtfsrealtimefeed.operational_status == "published",
@@ -274,7 +269,6 @@ class FeedsApiImpl(BaseFeedsApi):
                 )
             )
             .outerjoin(Location, Gtfsrealtimefeed.locations)
-            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
             .options(
                 joinedload(Gtfsrealtimefeed.entitytypes),
                 joinedload(Gtfsrealtimefeed.gtfs_feeds),
@@ -282,9 +276,8 @@ class FeedsApiImpl(BaseFeedsApi):
             )
         ).all()
 
-        if len(results) > 0 and results[0].Gtfsrealtimefeed:
-            translations = {result[1]: create_location_translation_object(result) for result in results}
-            return GtfsRTFeedImpl.from_orm(results[0].Gtfsrealtimefeed, translations)
+        if len(results) > 0 and results[0]:
+            return GtfsRTFeedImpl.from_orm(results[0])
         else:
             raise_http_error(404, gtfs_rt_feed_not_found.format(id))
 
@@ -321,7 +314,7 @@ class FeedsApiImpl(BaseFeedsApi):
         except InternalHTTPException as e:
             raise convert_exception(e)
 
-        return self._get_response(feed_query, GtfsRTFeedImpl, db_session)
+        return self._get_response(feed_query, GtfsRTFeedImpl)
 
         entity_types_list = entity_types.split(",") if entity_types else None
 
@@ -370,14 +363,13 @@ class FeedsApiImpl(BaseFeedsApi):
         if is_official:
             feed_query = feed_query.filter(Feed.official)
         feed_query = feed_query.limit(limit).offset(offset)
-        return self._get_response(feed_query, GtfsRTFeedImpl, db_session)
+        return self._get_response(feed_query, GtfsRTFeedImpl)
 
     @staticmethod
-    def _get_response(feed_query: Query, impl_cls: type[T], db_session: "Session") -> List[T]:
+    def _get_response(feed_query: Query, impl_cls: type[T]) -> List[T]:
         """Get the response for the feed query."""
         results = feed_query.all()
-        location_translations = get_feeds_location_translations(results, db_session)
-        response = [impl_cls.from_orm(feed, location_translations) for feed in results]
+        response = [impl_cls.from_orm(feed) for feed in results]
         return list({feed.id: feed for feed in response}.values())
 
     @with_db_session

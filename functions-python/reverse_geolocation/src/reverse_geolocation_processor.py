@@ -18,7 +18,12 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 
-from location_group_utils import ERROR_STATUS_CODE, GeopolygonAggregate, generate_color
+from location_group_utils import (
+    ERROR_STATUS_CODE,
+    GeopolygonAggregate,
+    generate_color,
+    geopolygons_as_string,
+)
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Feed,
@@ -28,6 +33,7 @@ from shared.database_gen.sqlacodegen_models import (
     Location,
     t_feedsearch,
     Gtfsdataset,
+    Gtfsfeed,
 )
 from shared.helpers.database import with_db_session, refresh_materialized_view
 from shared.helpers.logger import Logger, StableIdFilter
@@ -179,14 +185,16 @@ def extract_location_aggregate(
     admin_levels = {g.admin_level for g in geopolygons}
     if len(admin_levels) != len(geopolygons):
         logging.warning(
-            f"Duplicate admin levels for point: {stop_point} -> {geopolygons}"
+            f"Duplicate admin levels for point: {stop_point} -> {geopolygons_as_string(geopolygons)}"
         )
         return None
 
     valid_iso_3166_1 = any(g.iso_3166_1_code for g in geopolygons)
     valid_iso_3166_2 = any(g.iso_3166_2_code for g in geopolygons)
     if not valid_iso_3166_1 or not valid_iso_3166_2:
-        logging.warning(f"Invalid ISO codes for point: {stop_point} -> {geopolygons}")
+        logging.warning(
+            f"Invalid ISO codes for point: {stop_point} -> {geopolygons_as_string(geopolygons)}"
+        )
         return
 
     # Sort the polygons by admin level so that lower levels come first
@@ -344,20 +352,33 @@ def extract_location_aggregates(
         ):  # Commit every 100 stops to avoid reprocessing all stops in case of failure
             db_session.commit()
 
-    feed = db_session.query(Feed).filter(Feed.id == feed_id).one_or_none()
-    feed.feedosmlocationgroups = [
+    gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed_id).one_or_none()
+    osm_location_groups = [
         get_or_create_feed_osm_location_group(
             feed_id, location_aggregates[location_group.group_id], db_session
         )
         for location_group in location_aggregates.values()
     ]
+    gtfs_feed.feedosmlocationgroups = osm_location_groups
+    for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
+        logging.info(f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}")
+        gtfs_rt_feed.feedosmlocationgroups.clear()
+        gtfs_rt_feed.feedosmlocationgroups = osm_location_groups
+
     feed_locations = []
     for location_aggregate in location_aggregates.values():
         location = get_or_create_location(location_aggregate, db_session)
         if location:
             feed_locations.append(location)
     if feed_locations:
-        feed.locations = feed_locations
+        gtfs_feed.locations = feed_locations
+        for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
+            logging.info(
+                f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}"
+            )
+            gtfs_rt_feed.locations.clear()
+            gtfs_rt_feed.locations = feed_locations
+
     refresh_materialized_view(db_session, t_feedsearch.name)
 
 

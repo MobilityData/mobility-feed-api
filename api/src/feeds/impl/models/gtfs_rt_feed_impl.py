@@ -1,10 +1,7 @@
-from typing import Dict
-
 from shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed as GtfsRTFeedOrm
 from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
-from utils.location_translation import LocationTranslation, translate_feed_locations
 
 
 class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
@@ -17,11 +14,7 @@ class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
         from_attributes = True
 
     @classmethod
-    def from_orm(
-        cls, feed: GtfsRTFeedOrm | None, location_translations: Dict[str, LocationTranslation] = None
-    ) -> GtfsRTFeed | None:
-        if location_translations is not None:
-            translate_feed_locations(feed, location_translations)
+    def from_orm(cls, feed: GtfsRTFeedOrm | None) -> GtfsRTFeed | None:
         gtfs_rt_feed: GtfsRTFeed = super().from_orm(feed)
         if not gtfs_rt_feed:
             return None
