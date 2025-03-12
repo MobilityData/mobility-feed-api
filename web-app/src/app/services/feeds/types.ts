@@ -290,6 +290,11 @@ export interface components {
        * @example 2023-07-10T05:59:59+00Z
        */
       service_date_range_end?: string;
+      /**
+       * @description The timezone of the agency.
+       * @example America/Los_Angeles
+       */
+      agency_timezone?: string;
       validation_report?: {
         /** @example 10 */
         total_error?: number;
@@ -427,6 +432,11 @@ export interface components {
        * @example 2023-07-10T05:59:59+00Z
        */
       service_date_range_end?: string;
+      /**
+       * @description The timezone of the agency.
+       * @example America/Los_Angeles
+       */
+      agency_timezone?: string;
     };
     /** @description Bounding box of the dataset when it was first added to the catalog. */
     BoundingBox: {

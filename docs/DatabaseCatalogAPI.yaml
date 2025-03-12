@@ -593,6 +593,10 @@ components:
           type: string
           example: 2023-07-10T05:59:59+00Z
           format: date-time
+        agency_timezone:
+          description: The timezone of the agency.
+          type: string
+          example: America/Los_Angeles
         validation_report:
           type: object
           properties:
@@ -793,6 +797,10 @@ components:
               type: string
               example: 2023-07-10T05:59:59+00Z
               format: date-time
+            agency_timezone:
+              description: The timezone of the agency.
+              type: string
+              example: America/Los_Angeles
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
