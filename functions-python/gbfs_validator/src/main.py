@@ -18,7 +18,7 @@ from shared.dataset_service.main import (
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from shared.helpers.database import Database, with_db_session
+from shared.helpers.database import with_db_session
 from shared.helpers.logger import Logger, StableIdFilter
 from shared.helpers.parser import jsonify_pubsub
 from gbfs_utils import (
@@ -33,12 +33,13 @@ logging.basicConfig(level=logging.INFO)
 BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
 
 
-@with_db_session
+@with_db_session(echo=False)
 def fetch_all_gbfs_feeds(db_session: "Session") -> List[Gbfsfeed]:
     try:
         gbfs_feeds = (
             db_session.query(Gbfsfeed).options(joinedload(Gbfsfeed.gbfsversions)).all()
         )
+        db_session.expunge_all()
         return gbfs_feeds
     except Exception as e:
         logging.error(f"Error fetching all GBFS feeds: {e}")
@@ -103,9 +104,7 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         try:
             snapshot = validator.create_snapshot(feed_id)
             validation_results = validator.validate_gbfs_feed(bucket)
-            db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-            with db.start_db_session() as session:
-                save_snapshot_and_report(session, snapshot, validation_results)
+            save_snapshot_and_report(snapshot, validation_results)
         except Exception as e:
             error_message = f"Error validating GBFS feed: {e}"
             logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
