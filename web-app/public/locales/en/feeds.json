@@ -105,8 +105,8 @@
   "heatmapIntensity": "Stop Density",
   "heatmapExplanationTitle": "What does this mean?",
   "heatmapExplanationContent": "This color scale shows the percentage of stops from <code>stops.txt</code> that are located within each geographic area. Darker colors indicate areas where a higher percentage of stops are covered.",
-  "heatmapLower": "Least {{value}}%",
-  "heatmapHigher": "Most {{value}}%",
+  "heatmapLower": "Less Stops",
+  "heatmapHigher": "More Stops",
   "feedStatus": {
     "active": {
       "label": "Active",

@@ -116,7 +116,7 @@ export const MapGeoJSON = (
               padding: 1,
               borderRadius: 2,
               boxShadow: 3,
-              maxWidth: 145,
+              maxWidth: 175,
               zIndex: 1000,
             }}
           >
@@ -164,12 +164,12 @@ export const MapGeoJSON = (
                 display: 'flex',
                 justifyContent: 'space-between',
                 fontSize: '0.75rem',
-                gap: 6,
+                gap: 2,
                 color: theme.palette.text.secondary,
               }}
             >
-              <span>{t('heatmapLower', { value: minValue })}</span>
-              <span>{t('heatmapHigher', { value: maxValue })}</span>
+              <span>{t('heatmapLower')}</span>
+              <span>{t('heatmapHigher')}</span>
             </Box>
           </Box>
         )}
