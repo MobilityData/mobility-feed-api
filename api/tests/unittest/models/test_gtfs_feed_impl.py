@@ -1,7 +1,7 @@
 import copy
 import unittest
 from datetime import datetime
-from zoneinfo import ZoneInfo 
+from zoneinfo import ZoneInfo
 
 from geoalchemy2 import WKTElement
 
