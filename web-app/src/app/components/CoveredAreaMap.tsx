@@ -52,7 +52,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   >('detailedCoveredAreaView');
 
   useEffect(() => {
-    if (latestDataset?.hosted_url !== undefined) {
+    if (latestDataset?.hosted_url !== undefined && boundingBox != undefined) {
       setGeoJsonLoading(true);
       fetchGeoJson(latestDataset.hosted_url)
         .then((data) => {
