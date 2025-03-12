@@ -1,4 +1,6 @@
--- Adding osm location groups to feed search view
+-- Updating the FeedSearch materialized view to include location extraction details
+-- 1. Added osm_locations as a column which is a json list of OsmlLocationGroup names and their locations
+-- 2. Added the names of the locations to the document for full-text search
 DROP MATERIALIZED VIEW IF EXISTS FeedSearch;
 CREATE MATERIALIZED VIEW FeedSearch AS
 SELECT
