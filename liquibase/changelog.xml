@@ -5,7 +5,7 @@
         xmlns:pro="http://www.liquibase.org/xml/ns/pro"
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.1.xsd
-      http://www.liquibase.org/xml/ns/pro 
+      http://www.liquibase.org/xml/ns/pro
       http://www.liquibase.org/xml/ns/pro/liquibase-pro-4.1.xsd">
     <include file="changes/feat_13.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_26.sql" relativeToChangelogFile="true"/>
@@ -36,4 +36,8 @@
     <include file="changes/feat_871.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_880.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_880_2.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_879.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_823.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_927.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_927_2.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

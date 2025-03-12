@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Union, TypeVar
+from typing import List, Union, TypeVar, Optional
 
 from sqlalchemy import or_
 from sqlalchemy import select
@@ -44,7 +44,6 @@ from middleware.request_context import is_user_email_restricted
 from utils.date_utils import valid_iso_date
 from utils.location_translation import (
     create_location_translation_object,
-    LocationTranslation,
     get_feeds_location_translations,
 )
 from utils.logger import Logger
@@ -76,8 +75,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
             .filter(
                 or_(
-                    Feed.operational_status == None,  # noqa: E711
-                    Feed.operational_status != "wip",
+                    Feed.operational_status == "published",
                     not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -111,8 +109,7 @@ class FeedsApiImpl(BaseFeedsApi):
         feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
         feed_query = feed_query.filter(
             or_(
-                Feed.operational_status == None,  # noqa: E711
-                Feed.operational_status != "wip",
+                Feed.operational_status == "published",
                 not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
             )
         )
@@ -130,14 +127,14 @@ class FeedsApiImpl(BaseFeedsApi):
     @with_db_session
     def get_gtfs_feed(self, id: str, db_session: Session) -> GtfsFeed:
         """Get the specified gtfs feed from the Mobility Database."""
-        feed, translations = self._get_gtfs_feed(id, db_session)
+        feed = self._get_gtfs_feed(id, db_session)
         if feed:
-            return GtfsFeedImpl.from_orm(feed, translations)
+            return GtfsFeedImpl.from_orm(feed)
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
     @staticmethod
-    def _get_gtfs_feed(stable_id: str, db_session: Session) -> tuple[Gtfsfeed | None, dict[str, LocationTranslation]]:
+    def _get_gtfs_feed(stable_id: str, db_session: Session) -> Optional[Gtfsfeed]:
         results = (
             FeedFilter(
                 stable_id=stable_id,
@@ -145,16 +142,13 @@ class FeedsApiImpl(BaseFeedsApi):
                 provider__ilike=None,
                 producer_url__ilike=None,
             )
-            .filter(db_session.query(Gtfsfeed, t_location_with_translations_en))
+            .filter(db_session.query(Gtfsfeed))
             .filter(
                 or_(
-                    Gtfsfeed.operational_status == None,  # noqa: E711
-                    Gtfsfeed.operational_status != "wip",
+                    Gtfsfeed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
-            .outerjoin(Location, Feed.locations)
-            .outerjoin(t_location_with_translations_en, Location.id == t_location_with_translations_en.c.location_id)
             .options(
                 joinedload(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
@@ -162,10 +156,9 @@ class FeedsApiImpl(BaseFeedsApi):
                 *get_joinedload_options(),
             )
         ).all()
-        if len(results) > 0 and results[0].Gtfsfeed:
-            translations = {result[1]: create_location_translation_object(result) for result in results}
-            return results[0].Gtfsfeed, translations
-        return None, {}
+        if len(results) == 0:
+            return None
+        return results[0]
 
     @with_db_session
     def get_gtfs_feed_datasets(
@@ -195,8 +188,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(Database().get_query_model(db_session, Gtfsfeed))
             .filter(
                 or_(
-                    Feed.operational_status == None,  # noqa: E711
-                    Feed.operational_status != "wip",
+                    Feed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -277,8 +269,7 @@ class FeedsApiImpl(BaseFeedsApi):
             db_session.query(Gtfsrealtimefeed, t_location_with_translations_en)
             .filter(
                 or_(
-                    Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                    Gtfsrealtimefeed.operational_status != "wip",
+                    Gtfsrealtimefeed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -365,8 +356,7 @@ class FeedsApiImpl(BaseFeedsApi):
             .filter(Gtfsrealtimefeed.id.in_(subquery))
             .filter(
                 or_(
-                    Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                    Gtfsrealtimefeed.operational_status != "wip",
+                    Gtfsrealtimefeed.operational_status == "published",
                     not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
                 )
             )
@@ -393,8 +383,8 @@ class FeedsApiImpl(BaseFeedsApi):
     @with_db_session
     def get_gtfs_feed_gtfs_rt_feeds(self, id: str, db_session: Session) -> List[GtfsRTFeed]:
         """Get a list of GTFS Realtime related to a GTFS feed."""
-        feed, translations = self._get_gtfs_feed(id, db_session)
+        feed = self._get_gtfs_feed(id, db_session)
         if feed:
-            return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed, translations) for gtfs_rt_feed in feed.gtfs_rt_feeds]
+            return [GtfsRTFeedImpl.from_orm(gtfs_rt_feed) for gtfs_rt_feed in feed.gtfs_rt_feeds]
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))

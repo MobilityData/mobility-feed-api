@@ -34,8 +34,8 @@ locals {
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
 
-  function_process_validation_report_config = jsondecode(file("${path.module}/../../functions-python/validation_report_processor/function_config.json"))
-  function_process_validation_report_zip = "${path.module}/../../functions-python/validation_report_processor/.dist/validation_report_processor.zip"
+  function_process_validation_report_config = jsondecode(file("${path.module}/../../functions-python/process_validation_report/function_config.json"))
+  function_process_validation_report_zip = "${path.module}/../../functions-python/process_validation_report/.dist/process_validation_report.zip"
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
 
   function_update_validation_report_config = jsondecode(file("${path.module}/../../functions-python/update_validation_report/function_config.json"))
@@ -43,6 +43,9 @@ locals {
 
   function_gbfs_validation_report_config = jsondecode(file("${path.module}/../../functions-python/gbfs_validator/function_config.json"))
   function_gbfs_validation_report_zip = "${path.module}/../../functions-python/gbfs_validator/.dist/gbfs_validator.zip"
+
+  function_reverse_geolocation_populate_config = jsondecode(file("${path.module}/../../functions-python/reverse_geolocation_populate/function_config.json"))
+  function_reverse_geolocation_populate_zip = "${path.module}/../../functions-python/reverse_geolocation_populate/.dist/reverse_geolocation_populate.zip"
 
   function_feed_sync_dispatcher_transitland_config = jsondecode(file("${path.module}/../../functions-python/feed_sync_dispatcher_transitland/function_config.json"))
   function_feed_sync_dispatcher_transitland_zip = "${path.module}/../../functions-python/feed_sync_dispatcher_transitland/.dist/feed_sync_dispatcher_transitland.zip"
@@ -56,6 +59,12 @@ locals {
   function_backfill_dataset_service_date_range_config = jsondecode(file("${path.module}/../../functions-python/backfill_dataset_service_date_range/function_config.json"))
   function_backfill_dataset_service_date_range_zip = "${path.module}/../../functions-python/backfill_dataset_service_date_range/.dist/backfill_dataset_service_date_range.zip"
 
+  function_reverse_geolocation_config = jsondecode(file("${path.module}/../../functions-python/reverse_geolocation/function_config.json"))
+  function_reverse_geolocation_zip = "${path.module}/../../functions-python/reverse_geolocation/.dist/reverse_geolocation.zip"
+
+  function_update_feed_status_config = jsondecode(file("${path.module}/../../functions-python/update_feed_status/function_config.json"))
+  function_update_feed_status_zip = "${path.module}/../../functions-python/update_feed_status/.dist/update_feed_status.zip"
+
   function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
   function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
 }
@@ -67,8 +76,10 @@ locals {
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
     [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
+    [for x in local.function_gbfs_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
+    [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
     [for x in local.function_export_csv_config.secret_environment_variables : x.key]
   )
 
@@ -180,12 +191,32 @@ resource "google_storage_bucket_object" "backfill_dataset_service_date_range_zip
   source = local.function_backfill_dataset_service_date_range_zip
 }
 
-
 # 10. Export CSV
 resource "google_storage_bucket_object" "export_csv_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "export-csv-${substr(filebase64sha256(local.function_export_csv_zip), 0, 10)}.zip"
   source = local.function_export_csv_zip
+}
+
+# 11. Update Feed Status
+resource "google_storage_bucket_object" "update_feed_status_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "backfill-dataset-service-date-range-${substr(filebase64sha256(local.function_update_feed_status_zip), 0, 10)}.zip"
+  source = local.function_update_feed_status_zip
+}
+
+# 12. Reverse geolocation populate
+resource "google_storage_bucket_object" "reverse_geolocation_populate_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "reverse-geolocation-populate-${substr(filebase64sha256(local.function_reverse_geolocation_populate_zip), 0, 10)}.zip"
+  source = local.function_reverse_geolocation_populate_zip
+}
+
+# 13. Reverse geolocation
+resource "google_storage_bucket_object" "reverse_geolocation_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "reverse-geolocation-${substr(filebase64sha256(local.function_reverse_geolocation_zip), 0, 10)}.zip"
+  source = local.function_reverse_geolocation_zip
 }
 
 # Secrets access
@@ -656,6 +687,7 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
 resource "google_pubsub_topic" "transitland_feeds_dispatch" {
   name = "transitland-feeds-dispatch"
 }
+# 6.2 Create batch function that publishes to the Pub/Sub topic
 resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
   name        = "${local.function_feed_sync_dispatcher_transitland_config.name}-batch"
   description = local.function_feed_sync_dispatcher_transitland_config.description
@@ -802,7 +834,6 @@ resource "google_cloudfunctions2_function" "feed_sync_process_transitland" {
 
 # 9. functions/backfill_dataset_service_date_range cloud function
 # Fills all the NULL values for service date range in the gtfs datasets table
-
 resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range" {
   name        = local.function_backfill_dataset_service_date_range_config.name
   description = local.function_backfill_dataset_service_date_range_config.description
@@ -891,7 +922,347 @@ resource "google_cloudfunctions2_function" "export_csv" {
       }
     }
   }
+}
 
+# 11. functions/update_feed_status cloud function
+# Updates the Feed statuses based on latest dataset service date range
+
+resource "google_cloudfunctions2_function" "update_feed_status" {
+  name        = local.function_update_feed_status_config.name
+  description = local.function_update_feed_status_config.description
+  location    = var.gcp_region
+  depends_on = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project = var.project_id
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_update_feed_status_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.update_feed_status_zip.name
+      }
+    }
+  }
+  service_config {
+    available_memory = local.function_update_feed_status_config.memory
+    available_cpu    = local.function_update_feed_status_config.available_cpu
+    timeout_seconds  = local.function_update_feed_status_config.timeout
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+    environment_variables = {
+      # prevents multiline logs from being truncated on GCP console
+      PYTHONNODEBUGRANGES = 0
+    }
+    dynamic "secret_environment_variables" {
+      for_each = local.function_update_feed_status_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+    service_account_email            = google_service_account.functions_service_account.email
+    max_instance_request_concurrency = local.function_update_feed_status_config.max_instance_request_concurrency
+    max_instance_count               = local.function_update_feed_status_config.max_instance_count
+    min_instance_count               = local.function_update_feed_status_config.min_instance_count
+  }
+}
+
+
+resource "google_cloud_scheduler_job" "export_csv_scheduler" {
+  name = "export-csv-scheduler-${var.environment}"
+  description = "Schedule the export_csv function"
+  time_zone = "Etc/UTC"
+  schedule = var.export_csv_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.export_csv, google_cloudfunctions2_function_iam_member.export_csv_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.export_csv.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+  }
+  # Export CSV can take several minutes to run (5?) so we need to give it a longer deadline
+  attempt_deadline = "600s"
+}
+
+
+# IAM entry for all users to invoke the function
+# 12. functions/reverse_geolocation_populate cloud function
+resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
+  name        = local.function_reverse_geolocation_populate_config.name
+  description = local.function_reverse_geolocation_populate_config.description
+  location    = var.gcp_region
+  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_reverse_geolocation_populate_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.reverse_geolocation_populate_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      DB_REUSE_SESSION = "True"
+    }
+    available_memory = local.function_reverse_geolocation_populate_config.available_memory
+    timeout_seconds = local.function_reverse_geolocation_populate_config.timeout
+    available_cpu = local.function_reverse_geolocation_populate_config.available_cpu
+    max_instance_request_concurrency = local.function_reverse_geolocation_populate_config.max_instance_request_concurrency
+    max_instance_count = local.function_reverse_geolocation_populate_config.max_instance_count
+    min_instance_count = local.function_reverse_geolocation_populate_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_reverse_geolocation_populate_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_reverse_geolocation_populate_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 13.1 functions/reverse_geolocation - processor cloud function
+resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
+  name        = "${local.function_reverse_geolocation_config.name}-processor"
+  description = local.function_reverse_geolocation_config.description
+  location    = var.gcp_region
+  depends_on = [
+    google_project_iam_member.event-receiving,
+    google_secret_manager_secret_iam_member.secret_iam_member,
+  ]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_reverse_geolocation_config.entry_point}_processor"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.reverse_geolocation_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+    }
+    available_memory = local.function_reverse_geolocation_config.available_memory
+    timeout_seconds = 3600
+    available_cpu = local.function_reverse_geolocation_config.available_cpu
+    max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
+    max_instance_count = 10
+    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_reverse_geolocation_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 13.2 reverse_geolocation task queue
+resource "google_cloud_tasks_queue" "reverse_geolocation_task_queue_processor" {
+  location = var.gcp_region
+  name     = "reverse-geolocation-processor-task-queue"
+  rate_limits {
+    max_concurrent_dispatches = 10
+    max_dispatches_per_second = 1
+  }
+  retry_config {
+      max_attempts  = 10
+      min_backoff   = "20s"
+      max_backoff   = "60s"
+  }
+}
+
+# 13.3 functions/reverse_geolocation - main cloud function entry point
+resource "google_cloudfunctions2_function" "reverse_geolocation" {
+  name        = local.function_reverse_geolocation_config.name
+  description = local.function_reverse_geolocation_config.description
+  location    = var.gcp_region
+  depends_on = [
+    google_project_iam_member.event-receiving,
+    google_secret_manager_secret_iam_member.secret_iam_member,
+    google_cloud_tasks_queue.reverse_geolocation_task_queue_processor
+  ]
+  # Trigger when a new dataset is uploaded
+  event_trigger {
+    event_type = "google.cloud.audit.log.v1.written"
+    service_account_email = google_service_account.functions_service_account.email
+    event_filters {
+      attribute = "serviceName"
+      value = "storage.googleapis.com"
+    }
+    event_filters {
+      attribute = "methodName"
+      value = "storage.objects.create"
+    }
+    event_filters {
+      attribute = "resourceName"
+      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/*/*/*.zip"
+      operator = "match-path-pattern"
+    }
+  }
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_reverse_geolocation_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.reverse_geolocation_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
+    }
+    available_memory = "16Gi"
+    timeout_seconds = local.function_reverse_geolocation_config.timeout
+    available_cpu = 4
+    max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
+    max_instance_count = local.function_reverse_geolocation_config.max_instance_count
+    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+  }
+}
+
+# 13.4 functions/reverse_geolocation - reverse geolocation - pubsub triggered
+resource "google_pubsub_topic" "reverse_geolocation" {
+  name = "reverse-geolocation"
+}
+resource "google_cloudfunctions2_function" "reverse_geolocation_pubsub" {
+  name        = "${local.function_reverse_geolocation_config.name}-pubsub"
+  description = local.function_reverse_geolocation_config.description
+  location    = var.gcp_region
+  depends_on = [
+    google_project_iam_member.event-receiving,
+    google_secret_manager_secret_iam_member.secret_iam_member,
+    google_cloud_tasks_queue.reverse_geolocation_task_queue_processor,
+    google_pubsub_topic.reverse_geolocation
+  ]
+  event_trigger {
+    trigger_region        = var.gcp_region
+    service_account_email = google_service_account.functions_service_account.email
+    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
+    pubsub_topic          = google_pubsub_topic.reverse_geolocation.id
+    retry_policy          = "RETRY_POLICY_RETRY"
+  }
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_reverse_geolocation_config.entry_point}_pubsub"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.reverse_geolocation_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+    }
+    available_memory = "16Gi"
+    timeout_seconds = local.function_reverse_geolocation_config.timeout
+    available_cpu = 4
+    max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
+    max_instance_count = local.function_reverse_geolocation_config.max_instance_count
+    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+  }
+}
+
+# 13.5 functions/reverse_geolocation - batch cloud function
+resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
+  name        = "${local.function_reverse_geolocation_config.name}-batch"
+  description = local.function_reverse_geolocation_config.description
+  location    = var.gcp_region
+  depends_on = [
+    google_project_iam_member.event-receiving,
+    google_secret_manager_secret_iam_member.secret_iam_member
+  ]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_reverse_geolocation_config.entry_point}_batch"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.reverse_geolocation_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PYTHONNODEBUGRANGES = 0
+      PUBSUB_TOPIC_NAME = google_pubsub_topic.reverse_geolocation.name
+      PROJECT_ID = var.project_id
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+    }
+    available_memory = local.function_reverse_geolocation_config.available_memory
+    timeout_seconds = local.function_reverse_geolocation_config.timeout
+    available_cpu = local.function_reverse_geolocation_config.available_cpu
+    max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
+    max_instance_count = local.function_reverse_geolocation_config.max_instance_count
+    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
+    service_account_email = google_service_account.functions_service_account.email
+    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
+    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+    dynamic "secret_environment_variables" {
+      for_each = local.function_reverse_geolocation_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
 }
 
 # IAM entry for all users to invoke the function
@@ -942,10 +1313,40 @@ resource "google_project_iam_member" "event-receiving" {
   depends_on = [google_project_iam_member.invoking]
 }
 
-# Grant write access to the gbfs bucket for the service account
-resource "google_storage_bucket_iam_binding" "gbfs_bucket_object_creator" {
-  bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+# Grant read access to the datasets bucket for the service account
+resource "google_storage_bucket_iam_binding" "bucket_object_viewer" {
+  for_each = {
+    datasets_bucket = "${var.datasets_bucket_name}-${var.environment}"
+  }
+  bucket = each.value
+  depends_on = []
+  role   = "roles/storage.objectViewer"
+  members = [
+    "serviceAccount:${google_service_account.functions_service_account.email}"
+  ]
+}
+
+# Grant write access to the bucket for the service account - objects
+resource "google_storage_bucket_iam_binding" "bucket_object_creator" {
+  for_each = {
+    gbfs_snapshots_bucket = google_storage_bucket.gbfs_snapshots_bucket.name
+  }
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
+  bucket = each.value
   role   = "roles/storage.objectCreator"
+  members = [
+    "serviceAccount:${google_service_account.functions_service_account.email}"
+  ]
+}
+
+# Grant access to the bucket for the service account - bucket
+resource "google_storage_bucket_iam_binding" "storage_admin" {
+  for_each = {
+    datasets_bucket = "${var.datasets_bucket_name}-${var.environment}"
+  }
+  depends_on = [google_storage_bucket.gbfs_snapshots_bucket]
+  bucket = each.value
+  role   = "roles/storage.admin"
   members = [
     "serviceAccount:${google_service_account.functions_service_account.email}"
   ]
@@ -972,6 +1373,14 @@ resource "google_project_iam_audit_config" "all-services" {
   }
 }
 
+# Grant the service account the ability to enqueue tasks
+resource "google_project_iam_member" "queue_enqueuer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.enqueuer"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+
 output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
@@ -997,6 +1406,19 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   project  = var.project_id
   location = var.gcp_region
   name     = "update-validation-report-task-queue"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~1 hour
+    max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
 }
 
 # Task queue to invoke gbfs_validator_batch function for the scheduler
@@ -1023,6 +1445,7 @@ resource "google_pubsub_topic_iam_member" "functions_publisher" {
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
     feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
     dataset_batch = data.google_pubsub_topic.datasets_batch_topic.name
+    reverse_geolocation = google_pubsub_topic.reverse_geolocation.name
   }
 
   project = var.project_id
@@ -1037,6 +1460,7 @@ resource "google_pubsub_topic_iam_member" "functions_subscriber" {
     dataset_updates = google_pubsub_topic.dataset_updates.name
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
     feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
+    reverse_geolocation = google_pubsub_topic.reverse_geolocation.name
   }
 
   project = var.project_id
@@ -1049,5 +1473,28 @@ resource "google_pubsub_topic_iam_member" "functions_subscriber" {
 resource "google_project_iam_member" "datastore_owner" {
   project = var.project_id
   role    = "roles/datastore.owner"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+#TODO: Check this
+resource "google_cloudfunctions2_function_iam_member" "export_csv_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.export_csv.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# Grant permissions to the service account to create bigquery jobs
+resource "google_project_iam_member" "bigquery_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# This permission is added to allow the function to act as the service account and generate tokens.
+resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }

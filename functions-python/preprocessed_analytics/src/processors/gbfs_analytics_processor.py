@@ -1,6 +1,7 @@
 from typing import List
 
 import sqlalchemy
+from sqlalchemy.orm.session import Session
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import func, and_
 
@@ -18,9 +19,9 @@ class GBFSAnalyticsProcessor(BaseAnalyticsProcessor):
         super().__init__(run_date)
         self.versions_metrics_data = []
 
-    def get_latest_data(self) -> sqlalchemy.orm.Query:
+    def get_latest_data(self, db_session: Session) -> sqlalchemy.orm.Query:
         subquery = (
-            self.session.query(
+            db_session.query(
                 Gbfssnapshot.feed_id,
                 func.max(Gbfssnapshot.downloaded_at).label("max_downloaded_at"),
             )
@@ -30,7 +31,7 @@ class GBFSAnalyticsProcessor(BaseAnalyticsProcessor):
         )
 
         query = (
-            self.session.query(Gbfsfeed, Gbfssnapshot)
+            db_session.query(Gbfsfeed, Gbfssnapshot)
             .join(Gbfssnapshot, Gbfsfeed.id == Gbfssnapshot.feed_id)
             .join(
                 subquery,
@@ -50,7 +51,7 @@ class GBFSAnalyticsProcessor(BaseAnalyticsProcessor):
         )
         return query
 
-    def process_feed_data(self, feed: Gbfsfeed, snapshot: Gbfssnapshot, _) -> None:
+    def process_feed_data(self, feed: Gbfsfeed, snapshot: Gbfssnapshot) -> None:
         if feed.stable_id in self.processed_feeds:
             return
         self.processed_feeds.add(feed.stable_id)

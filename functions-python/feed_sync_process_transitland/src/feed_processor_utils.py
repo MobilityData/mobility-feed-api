@@ -61,7 +61,7 @@ def create_new_feed(session: Session, stable_id: str, payload: FeedPayload) -> F
         api_key_parameter_name=payload.auth_param_name,
         status="active",
         provider=payload.operator_name,
-        operational_status="wip",
+        operational_status="wip",  # Default to of wip
         created_at=datetime.now(),
     )
 

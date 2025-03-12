@@ -1,8 +1,10 @@
-from typing import List, Dict
+from typing import List
 
 import sqlalchemy
 from sqlalchemy.orm import joinedload
+from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import func, and_
+
 from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Gtfsfeed,
@@ -10,10 +12,7 @@ from shared.database_gen.sqlacodegen_models import (
     Notice,
     Feature,
     Feed,
-    t_location_with_translations_en,
-    Location,
 )
-from shared.helpers.locations import translate_feed_locations
 from .base_analytics_processor import BaseAnalyticsProcessor
 
 
@@ -22,9 +21,9 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         super().__init__(run_date)
         self.features_metrics_data = []
 
-    def get_latest_data(self) -> sqlalchemy.orm.Query:
+    def get_latest_data(self, db_session: Session) -> sqlalchemy.orm.Query:
         subquery = (
-            self.session.query(
+            db_session.query(
                 Gtfsdataset.feed_id,
                 func.max(Gtfsdataset.downloaded_at).label("max_downloaded_at"),
             )
@@ -34,7 +33,7 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         )
 
         query = (
-            self.session.query(Gtfsfeed, Gtfsdataset, t_location_with_translations_en)
+            db_session.query(Gtfsfeed, Gtfsdataset)
             .join(Gtfsdataset, Gtfsfeed.id == Gtfsdataset.feed_id)
             .join(
                 subquery,
@@ -42,11 +41,6 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
                     Gtfsdataset.feed_id == subquery.c.feed_id,
                     Gtfsdataset.downloaded_at == subquery.c.max_downloaded_at,
                 ),
-            )
-            .outerjoin(Location, Feed.locations)
-            .outerjoin(
-                t_location_with_translations_en,
-                Location.id == t_location_with_translations_en.c.location_id,
             )
             .where(Gtfsfeed.status != "deprecated")
             .options(
@@ -72,9 +66,7 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         }
         self._save_json(summary_file_name, summary_data)
 
-    def process_feed_data(
-        self, feed: Feed, dataset: Gtfsdataset, translations: Dict
-    ) -> None:
+    def process_feed_data(self, feed: Feed, dataset: Gtfsdataset) -> None:
         if feed.stable_id in self.processed_feeds:
             return
         self.processed_feeds.add(feed.stable_id)
@@ -82,8 +74,6 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
         validation_reports = dataset.validation_reports
         if not validation_reports:
             return
-
-        translate_feed_locations(feed, translations)
 
         latest_validation_report = max(validation_reports, key=lambda x: x.validated_at)
         notices = latest_validation_report.notices

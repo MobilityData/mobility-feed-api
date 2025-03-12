@@ -80,6 +80,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                             data_type="gbfs",
                             stable_id=stable_id,
                             created_at=datetime.now(pytz.utc),
+                            operational_status="published",
                         )
                         gbfs_feed.externalids = [self.get_external_id(feed_id, row["System ID"])]
                         session.add(gbfs_feed)

@@ -20,9 +20,13 @@ from typing import Annotated, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
+
 from feeds_operations.impl.models.get_feeds_response import GetFeeds200Response
 from feeds_operations.impl.models.gtfs_feed_impl import GtfsFeedImpl
 from feeds_operations.impl.models.gtfs_rt_feed_impl import GtfsRtFeedImpl
+from pydantic import Field
+from starlette.responses import Response
+
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
@@ -37,11 +41,8 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from pydantic import Field
-from shared.database_gen.sqlacodegen_models import (
-    Gtfsfeed,
-    t_feedsearch,
-)
+
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
 from shared.helpers.database import Database, refresh_materialized_view
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
@@ -273,7 +274,10 @@ class OperationsApiImpl(BaseOperationsApi):
         action = update_request_feed.operational_status_action
         # This is a temporary solution as the operational_status is not visible in the diff
         if action is not None and not action.lower() == "no_change":
-            feed.operational_status = "wip" if action.lower() == "wip" else None
+            if action.lower() == "wip":
+                feed.operational_status = "wip"
+            elif action.lower() == "published":
+                feed.operational_status = "published"
         session.add(feed)
 
     @staticmethod

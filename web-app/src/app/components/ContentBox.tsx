@@ -8,6 +8,7 @@ export interface ContentBoxProps {
   padding?: Partial<SxProps>;
   margin?: string | number;
   sx?: SxProps;
+  action?: React.ReactNode;
 }
 
 export const ContentBox = (
@@ -31,8 +32,18 @@ export const ContentBox = (
       }}
     >
       {props.title.trim() !== '' && (
-        <Typography variant='h5' sx={{ flexShrink: 0, mb: 1 }}>
+        <Typography
+          variant='h5'
+          sx={{
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 1,
+          }}
+        >
           {props.title}
+          {props.action != null && props.action}
         </Typography>
       )}
       {props.children}
