@@ -279,15 +279,15 @@ export interface components {
        */
       hash?: string;
       /**
-       * Format: date
+       * Format: date-time
        * @description The start date of the service date range for the dataset.
-       * @example "2023-07-10T00:00:00.000Z"
+       * @example "2023-07-10T06:00:00.000Z"
        */
       service_date_range_start?: string;
       /**
-       * Format: date
+       * Format: date-time
        * @description The start date of the service date range for the dataset.
-       * @example "2023-07-10T00:00:00.000Z"
+       * @example 2023-07-10T05:59:59+00Z
        */
       service_date_range_end?: string;
       validation_report?: {
@@ -416,15 +416,15 @@ export interface components {
       bounding_box?: components['schemas']['BoundingBox'];
       validation_report?: components['schemas']['ValidationReport'];
       /**
-       * Format: date
+       * Format: date-time
        * @description The start date of the service date range for the dataset.
-       * @example "2023-07-10T00:00:00.000Z"
+       * @example "2023-07-10T06:00:00.000Z"
        */
       service_date_range_start?: string;
       /**
-       * Format: date
+       * Format: date-time
        * @description The start date of the service date range for the dataset.
-       * @example "2023-07-10T00:00:00.000Z"
+       * @example 2023-07-10T05:59:59+00Z
        */
       service_date_range_end?: string;
     };
