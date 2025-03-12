@@ -1,5 +1,6 @@
 import unittest
-from datetime import datetime, date
+from datetime import datetime
+from zoneinfo import ZoneInfo 
 
 from geoalchemy2 import WKTElement
 
@@ -23,8 +24,9 @@ class TestLatestDatasetImpl(unittest.TestCase):
                 downloaded_at=now,
                 hash="hash",
                 bounding_box=WKTElement(POLYGON, srid=4326),
-                service_date_range_start=date(2024, 1, 1),
-                service_date_range_end=date(2025, 1, 1),
+                service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+                service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+                agency_timezone="Canada/Atlantic",
                 validation_reports=[
                     Validationreport(validator_version="1.0.0"),
                     Validationreport(
@@ -52,8 +54,9 @@ class TestLatestDatasetImpl(unittest.TestCase):
                 minimum_longitude=3.0,
                 maximum_longitude=4.0,
             ),
-            service_date_range_start=date(2024, 1, 1),
-            service_date_range_end=date(2025, 1, 1),
+            service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            agency_timezone="Canada/Atlantic",
             validation_report={
                 "validator_version": "1.2.0",
                 "total_error": 3,
