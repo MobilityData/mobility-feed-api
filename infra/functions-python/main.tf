@@ -28,8 +28,6 @@ locals {
   function_tokens_config = jsondecode(file("${path.module}../../../functions-python/tokens/function_config.json"))
   function_tokens_zip    = "${path.module}/../../functions-python/tokens/.dist/tokens.zip"
 
-  function_extract_location_config = jsondecode(file("${path.module}../../../functions-python/extract_location/function_config.json"))
-  function_extract_location_zip    = "${path.module}/../../functions-python/extract_location/.dist/extract_location.zip"
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
@@ -74,7 +72,6 @@ locals {
   # Combine all keys into a list
   all_secret_keys_list = concat(
     [for x in local.function_tokens_config.secret_environment_variables : x.key],
-    [for x in local.function_extract_location_config.secret_environment_variables : x.key],
     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_gbfs_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
@@ -136,12 +133,7 @@ resource "google_storage_bucket_object" "function_token_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   source = local.function_tokens_zip
 }
-# 2. Extract location
-resource "google_storage_bucket_object" "function_extract_location_zip_object" {
-  name   = "bucket-extract-bb-${substr(filebase64sha256(local.function_extract_location_zip),0,10)}.zip"
-  bucket = google_storage_bucket.functions_bucket.name
-  source = local.function_extract_location_zip
-}
+
 # 3. Process validation report
 resource "google_storage_bucket_object" "process_validation_report_zip" {
   bucket = google_storage_bucket.functions_bucket.name
@@ -264,156 +256,6 @@ resource "google_cloudfunctions2_function" "tokens" {
     }
     service_account_email = google_service_account.functions_service_account.email
     ingress_settings = local.function_tokens_config.ingress_settings
-  }
-}
-
-# 2.1 functions/extract_location cloud function
-resource "google_cloudfunctions2_function" "extract_location" {
-  name        = local.function_extract_location_config.name
-  description = local.function_extract_location_config.description
-  location    = var.gcp_region
-  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
-  event_trigger {
-    event_type = "google.cloud.audit.log.v1.written"
-    service_account_email = google_service_account.functions_service_account.email
-    event_filters {
-      attribute = "serviceName"
-      value = "storage.googleapis.com"
-    }
-    event_filters {
-      attribute = "methodName"
-      value = "storage.objects.create"
-    }
-    event_filters {
-      attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/*/*/*.zip"
-      operator = "match-path-pattern"
-    }
-  }
-  build_config {
-    runtime     = var.python_runtime
-    entry_point = local.function_extract_location_config.entry_point
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_extract_location_zip_object.name
-      }
-    }
-  }
-  service_config {
-    available_memory = local.function_extract_location_config.memory
-    timeout_seconds = local.function_extract_location_config.timeout
-    available_cpu = local.function_extract_location_config.available_cpu
-    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
-    max_instance_count = local.function_extract_location_config.max_instance_count
-    min_instance_count = local.function_extract_location_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_extract_location_config.ingress_settings
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
-    dynamic "secret_environment_variables" {
-      for_each = local.function_extract_location_config.secret_environment_variables
-      content {
-        key        = secret_environment_variables.value["key"]
-        project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
-        version    = "latest"
-      }
-    }
-  }
-}
-
-# 2.2 functions/extract_location cloud function pub/sub triggered
-resource "google_pubsub_topic" "dataset_updates" {
-  name = "dataset-updates"
-}
-resource "google_cloudfunctions2_function" "extract_location_pubsub" {
-  name        = "${local.function_extract_location_config.name}-pubsub"
-  description = local.function_extract_location_config.description
-  location    = var.gcp_region
-  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
-  event_trigger {
-    trigger_region        = var.gcp_region
-    service_account_email = google_service_account.functions_service_account.email
-    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
-    pubsub_topic          = google_pubsub_topic.dataset_updates.id
-    retry_policy          = "RETRY_POLICY_RETRY"
-  }
-  build_config {
-    runtime     = var.python_runtime
-    entry_point = "${local.function_extract_location_config.entry_point}_pubsub"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_extract_location_zip_object.name
-      }
-    }
-  }
-  service_config {
-    available_memory = local.function_extract_location_config.memory
-    timeout_seconds = local.function_extract_location_config.timeout
-    available_cpu = local.function_extract_location_config.available_cpu
-    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
-    max_instance_count = local.function_extract_location_config.max_instance_count
-    min_instance_count = local.function_extract_location_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = "ALLOW_ALL"
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
-    dynamic "secret_environment_variables" {
-      for_each = local.function_extract_location_config.secret_environment_variables
-      content {
-        key        = secret_environment_variables.value["key"]
-        project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
-        version    = "latest"
-      }
-    }
-  }
-}
-
-# 2.3 functions/extract_location cloud function batch
-resource "google_cloudfunctions2_function" "extract_location_batch" {
-  name        = "${local.function_extract_location_config.name}-batch"
-  description = local.function_extract_location_config.description
-  location    = var.gcp_region
-  depends_on = [google_project_iam_member.event-receiving, google_secret_manager_secret_iam_member.secret_iam_member]
-
-  build_config {
-    runtime     = var.python_runtime
-    entry_point = "${local.function_extract_location_config.entry_point}_batch"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.function_extract_location_zip_object.name
-      }
-    }
-  }
-  service_config {
-    environment_variables = {
-      PROJECT_ID = var.project_id
-      PUBSUB_TOPIC_NAME = google_pubsub_topic.dataset_updates.name
-      PYTHONNODEBUGRANGES = 0
-    }
-    available_memory = "1Gi"
-    timeout_seconds = local.function_extract_location_config.timeout
-    available_cpu = local.function_extract_location_config.available_cpu
-    max_instance_request_concurrency = local.function_extract_location_config.max_instance_request_concurrency
-    max_instance_count = local.function_extract_location_config.max_instance_count
-    min_instance_count = local.function_extract_location_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = "ALLOW_ALL"
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
-    dynamic "secret_environment_variables" {
-      for_each = local.function_extract_location_config.secret_environment_variables
-      content {
-        key        = secret_environment_variables.value["key"]
-        project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
-        version    = "latest"
-      }
-    }
   }
 }
 
@@ -724,7 +566,7 @@ resource "google_cloudfunctions2_function" "feed_sync_dispatcher_transitland" {
     vpc_connector = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
-      for_each = local.function_extract_location_config.secret_environment_variables
+      for_each = local.function_feed_sync_dispatcher_transitland_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
@@ -1385,21 +1227,6 @@ output "function_tokens_name" {
   value = google_cloudfunctions2_function.tokens.name
 }
 
-resource "google_cloudfunctions2_function_iam_member" "extract_location_invoker" {
-  project        = var.project_id
-  location       = var.gcp_region
-  cloud_function = google_cloudfunctions2_function.extract_location.name
-  role           = "roles/cloudfunctions.invoker"
-  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
-}
-
-resource "google_cloud_run_service_iam_member" "extract_location_cloud_run_invoker" {
-  project        = var.project_id
-  location       = var.gcp_region
-  service        = google_cloudfunctions2_function.extract_location.name
-  role           = "roles/run.invoker"
-  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
-}
 
 # Task queue to invoke update_validation_report function
 resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
@@ -1441,7 +1268,6 @@ resource "google_cloudfunctions2_function_iam_member" "transitland_feeds_dispatc
 # Grant permissions to the service account to publish to the pubsub topic
 resource "google_pubsub_topic_iam_member" "functions_publisher" {
   for_each = {
-    dataset_updates = google_pubsub_topic.dataset_updates.name
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
     feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
     dataset_batch = data.google_pubsub_topic.datasets_batch_topic.name
@@ -1457,7 +1283,6 @@ resource "google_pubsub_topic_iam_member" "functions_publisher" {
 # Grant permissions to the service account to subscribe to the pubsub topic
 resource "google_pubsub_topic_iam_member" "functions_subscriber" {
   for_each = {
-    dataset_updates = google_pubsub_topic.dataset_updates.name
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
     feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
     reverse_geolocation = google_pubsub_topic.reverse_geolocation.name

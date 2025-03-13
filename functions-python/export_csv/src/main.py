@@ -47,6 +47,7 @@ headers = [
     "location.subdivision_name",
     "location.municipality",
     "provider",
+    "is_official",
     "name",
     "note",
     "feed_contact_email",
@@ -290,6 +291,7 @@ def get_feed_csv_data(feed: Feed):
         if not feed.locations or not feed.locations[0]
         else feed.locations[0].municipality,
         "provider": feed.provider,
+        "is_official": feed.official,
         "name": feed.feed_name,
         "note": feed.note,
         "feed_contact_email": feed.feed_contact_email,

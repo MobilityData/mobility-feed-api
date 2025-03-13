@@ -60,29 +60,20 @@ def clean_testing_db():
     """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
     engine = get_testing_engine()
     with contextlib.closing(engine.connect()) as con:
-        trans = con.begin()
         try:
             tables_to_delete = [
                 table.name
                 for table in reversed(Base.metadata.sorted_tables)
                 if table.name not in excluded_tables
             ]
-            # Disable triggers for each table
-            for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} DISABLE TRIGGER ALL;"))
 
             # Delete all rows from each table
             for table_name in tables_to_delete:
                 delete_query = f"DELETE FROM {table_name};"
                 con.execute(text(delete_query))
-
-            # Re-enable triggers for each table
-            for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} ENABLE TRIGGER ALL;"))
-
-            trans.commit()
+            con.commit()
         except Exception as error:
-            trans.rollback()
+            print(f"Error while cleaning the test db: {error}")
             logging.error(f"Error while deleting from test db: {error}")
 
 
