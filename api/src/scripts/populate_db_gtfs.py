@@ -188,12 +188,12 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             # Create or update the GTFS feed
             data_type = self.get_data_type(row)
             stable_id = self.get_stable_id(row)
-            new_is_official = self.get_safe_value(row, "is_official", "false").lower() == "true"
+            is_official_from_csv = self.get_safe_value(row, "is_official", "false").lower() == "true"
             feed = self.query_feed_by_stable_id(session, stable_id, data_type)
             if feed:
                 self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
-                if feed.official != new_is_official:
-                    feed.official = new_is_official
+                if feed.official != is_official_from_csv:
+                    feed.official = is_official_from_csv
                     feed.official_updated_at = datetime.now(pytz.utc)
             else:
                 feed = self.get_model(data_type)(
@@ -215,7 +215,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         source="mdb",
                     )
                 ]
-                feed.official = new_is_official
+                feed.official = is_official_from_csv
                 feed.official_updated_at = datetime.now(pytz.utc)
 
             # Populate common fields from Feed
