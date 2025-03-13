@@ -133,7 +133,7 @@ def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
     [
         ("gtfs", 10),
         ("not_valid_gtfs", 0),
-        ("gtfs_rt", 2),
+        ("gtfs_rt", 3),
     ],
 )
 def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expected_results_total: int):
@@ -176,8 +176,8 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
     [
         ("active", 9),
         ("not_valid_status", 0),
-        ("inactive", 1),
-        ("active,inactive", 10),
+        ("inactive", 2),
+        ("active,inactive", 11),
     ],
 )
 def test_search_feeds_filter_status(client: TestClient, status: str, expected_results_total: int):

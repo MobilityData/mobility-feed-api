@@ -657,23 +657,23 @@ def test_filter_by_subdivision_and_municipality(client):
 @pytest.mark.parametrize(
     "values",
     [
-        {"response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562", "mdb-1563"]},
         {"entity_types": "vp", "response_code": 200, "expected_feed_ids": ["mdb-1561"]},
         {"entity_types": "sa,vp", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
-        {"entity_types": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"entity_types": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562", "mdb-1563"]},
         {"entity_types": "not_valid", "response_code": 422},
         {"country_code": "CA", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
         {"country_code": "CA", "entity_types": "sa,vp", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
-        {"country_code": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"country_code": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562", "mdb-1563"]},
         {"provider": "no-found-provider", "response_code": 200, "expected_feed_ids": []},
         {"provider": "transit", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
-        {"provider": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"provider": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562", "mdb-1563"]},
         {"producer_url": "foo.org", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
-        {"producer_url": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"producer_url": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562", "mdb-1563"]},
         {"subdivision_name": "bc", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
-        {"subdivision_name": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"subdivision_name": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562", "mdb-1563"]},
         {"municipality": "vanco", "response_code": 200, "expected_feed_ids": ["mdb-1562"]},
-        {"municipality": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562"]},
+        {"municipality": "", "response_code": 200, "expected_feed_ids": ["mdb-1561", "mdb-1562", "mdb-1563"]},
     ],
     ids=[
         "all_none",
@@ -723,3 +723,56 @@ def test_gtfs_rt_filters(client, values):
     assert len(feeds) == len(values["expected_feed_ids"])
     if len(values["expected_feed_ids"]) != 0:
         assert any(feed["id"] in values["expected_feed_ids"] for feed in feeds)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"stable_id": "mdb-1562", "target_id": "mdb-40"},
+        {"stable_id": "mdb-1563", "target_id": "mdb-50"},
+    ],
+    ids=[
+        "integer_static_reference",
+        "string_static_reference",
+    ],
+)
+def test_gtfs_rt_reference(client, values):
+    """Test /v1/gtfs_rt_feeds to make sure it returns the proper feed_reference for integer and string references."""
+
+    stable_id = values["stable_id"] if "stable_id" in values else None
+    response = client.request(
+        "GET",
+        f"/v1/gtfs_rt_feeds/{stable_id}",
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+    feed = response.json()
+    assert feed["feed_references"][0] == values["target_id"]
+
+
+def test_gtfs_redirect(client):
+    """Test that a returned feed contains the proper redirects for integer or string redirects."""
+
+    response = client.request(
+        "GET",
+        "/v1/feeds/mdb-50",
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+    feed = response.json()
+    assert feed["redirects"][0]["comment"] == "Some"
+    assert feed["redirects"][1]["comment"] == "Comment"
+    # spreadsheet contains '40|mdb-702'
+    assert feed["redirects"][0]["target_id"] == "mdb-40"
+    assert feed["redirects"][1]["target_id"] == "mdb-702"
+
+    response = client.request(
+        "GET",
+        "/v1/feeds/mdb-1562",
+        headers=authHeaders,
+    )
+    assert response.status_code == 200
+    feed = response.json()
+    assert feed["redirects"][0]["comment"] == ""
+    # spreadsheet contains '10'
+    assert feed["redirects"][0]["target_id"] == "mdb-10"
