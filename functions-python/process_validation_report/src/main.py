@@ -152,6 +152,19 @@ def generate_report_entities(
 
     populate_service_date(dataset, json_report)
 
+    summary = json_report.get("summary", {})
+    if isinstance(summary.get("agencies"), list) and summary["agencies"]:
+        extracted_timezone = summary["agencies"][0].get("timezone", None)
+        if extracted_timezone is not None:
+            logging.info(
+                f"Timezone found in JSON report for dataset {dataset_stable_id}: {extracted_timezone}."
+            )
+            dataset.agency_timezone = extracted_timezone
+        else:
+            logging.info(
+                f"Timezone not found in JSON report for dataset {dataset_stable_id}."
+            )
+
     for feature_name in get_nested_value(json_report, ["summary", "gtfsFeatures"], []):
         feature = get_feature(feature_name, session)
         feature.validations.append(validation_report_entity)

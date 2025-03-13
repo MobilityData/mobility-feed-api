@@ -9,8 +9,14 @@ from shared.helpers.database import Database
 from typing import TYPE_CHECKING
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, func
+from zoneinfo import ZoneInfo
+from shared.helpers.database import refresh_materialized_view
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    Validationreport,
+    t_feedsearch,
+)
 
 import requests
 import json
@@ -103,19 +109,24 @@ def backfill_datasets(session: "Session"):
                     response.raise_for_status()
                     json_data = response.json()
 
-            extracted_service_start_date = (
-                json_data.get("summary", {})
-                .get("feedInfo", {})
-                .get("feedServiceWindowStart", None)
+            summary = json_data.get("summary", {})
+            extracted_service_start_date = summary.get("feedInfo", {}).get(
+                "feedServiceWindowStart", None
             )
-            extracted_service_end_date = (
-                json_data.get("summary", {})
-                .get("feedInfo", {})
-                .get("feedServiceWindowEnd", None)
+            extracted_service_end_date = summary.get("feedInfo", {}).get(
+                "feedServiceWindowEnd", None
             )
 
+            extracted_timezone = None
+            if isinstance(summary.get("agencies"), list) and summary["agencies"]:
+                extracted_timezone = summary["agencies"][0].get("timezone", None)
+
+            formatted_service_start_date = None
+            formatted_service_end_date = None
             try:
-                datetime.strptime(extracted_service_start_date, "%Y-%m-%d")
+                formatted_service_start_date = datetime.strptime(
+                    extracted_service_start_date, "%Y-%m-%d"
+                )
             except ValueError:
                 logging.error(
                     f"""
@@ -126,7 +137,9 @@ def backfill_datasets(session: "Session"):
                 continue
 
             try:
-                datetime.strptime(extracted_service_end_date, "%Y-%m-%d")
+                formatted_service_end_date = datetime.strptime(
+                    extracted_service_end_date, "%Y-%m-%d"
+                )
             except ValueError:
                 logging.error(
                     f"""
@@ -136,12 +149,35 @@ def backfill_datasets(session: "Session"):
                 )
                 continue
 
-            dataset.service_date_range_start = extracted_service_start_date
-            dataset.service_date_range_end = extracted_service_end_date
+            # If timezone is None (not found in the validation report), it will use UTC as base.
+            # It will not save the timezone in the database if it is None.
+            formatting_timezone = extracted_timezone
+            if formatting_timezone is None:
+                logging.info("No timezone found in the validation report.")
+                formatting_timezone = "UTC"
 
-            formatted_dates = (
-                extracted_service_start_date + " - " + extracted_service_end_date
+            logging.info(
+                f"Using the timezone: {formatting_timezone} for the service date range."
             )
+            local_service_start_date = formatted_service_start_date.replace(
+                hour=0, minute=0, tzinfo=ZoneInfo(formatting_timezone)
+            )
+            utc_service_start_date = local_service_start_date.astimezone(
+                ZoneInfo("UTC")
+            )
+
+            local_service_end_date = formatted_service_end_date.replace(
+                hour=23, minute=59, tzinfo=ZoneInfo(formatting_timezone)
+            )
+            utc_service_end_date = local_service_end_date.astimezone(ZoneInfo("UTC"))
+
+            dataset.service_date_range_start = utc_service_start_date
+            dataset.service_date_range_end = utc_service_end_date
+
+            if extracted_timezone is not None:
+                dataset.agency_timezone = extracted_timezone
+
+            formatted_dates = f"{utc_service_start_date:%Y-%m-%d %H:%M} - {utc_service_end_date:%Y-%m-%d %H:%M}"
             logging.info(
                 f"Updated gtfsdataset ID {gtfsdataset_id} with value: {formatted_dates}"
             )
@@ -150,6 +186,7 @@ def backfill_datasets(session: "Session"):
             if changes_count >= elements_per_commit:
                 try:
                     changes_count = 0
+                    refresh_materialized_view(session, t_feedsearch.name)
                     session.commit()
                     logging.info(f"{changes_count} elements committed.")
                 except Exception as e:
