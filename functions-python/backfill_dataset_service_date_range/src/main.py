@@ -136,8 +136,14 @@ def backfill_datasets(session: "Session"):
                 )
                 continue
 
-            dataset.service_date_range_start = extracted_service_start_date
-            dataset.service_date_range_end = extracted_service_end_date
+            # this check is due to an issue in the validation report
+            # where the start date could be later than the end date
+            if extracted_service_start_date > extracted_service_end_date:
+                dataset.service_date_range_start = extracted_service_end_date
+                dataset.service_date_range_end = extracted_service_start_date
+            else:
+                dataset.service_date_range_start = extracted_service_start_date
+                dataset.service_date_range_end = extracted_service_end_date
 
             formatted_dates = (
                 extracted_service_start_date + " - " + extracted_service_end_date

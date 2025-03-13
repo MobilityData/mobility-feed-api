@@ -3,7 +3,7 @@ from typing import Iterator
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session
+from sqlalchemy.orm import joinedload, Session, contains_eager
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
@@ -56,12 +56,17 @@ def get_gtfs_feeds_query(
         subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
     ).subquery()
 
-    feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
+    feed_query = (
+        db_session.query(Gtfsfeed)
+        .outerjoin(Gtfsfeed.gtfsdatasets)
+        .filter(Gtfsfeed.id.in_(subquery))
+        .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
+    )
     if not include_wip:
         feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
 
     feed_query = feed_query.options(
-        joinedload(Gtfsfeed.gtfsdatasets)
+        contains_eager(Gtfsfeed.gtfsdatasets)
         .joinedload(Gtfsdataset.validation_reports)
         .joinedload(Validationreport.notices),
         *get_joinedload_options(),

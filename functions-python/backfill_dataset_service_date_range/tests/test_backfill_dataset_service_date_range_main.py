@@ -83,6 +83,71 @@ def test_backfill_datasets(mock_get, mock_storage_client):
     mock_session.commit.assert_called_once()
 
 
+@patch("google.cloud.storage.Client", autospec=True)
+@patch("requests.get")
+def test_backfill_datasets_service_date_range_swap(mock_get, mock_storage_client):
+    # Mock the storage client and bucket
+    mock_bucket = MagicMock()
+    mock_client_instance = mock_storage_client.return_value
+    mock_client_instance.bucket.return_value = mock_bucket
+    mock_blob = MagicMock()
+    mock_blob.exists.return_value = False
+    mock_bucket.blob.return_value = mock_blob
+
+    mock_session = MagicMock()
+    mock_dataset = Mock(spec=Gtfsdataset)
+    mock_dataset.id = 1
+    mock_dataset.stable_id = "mdb-392-202406181921"
+    mock_dataset.service_date_range_end = None
+    mock_dataset.service_date_range_start = None
+    mock_dataset.validation_reports = [
+        MagicMock(
+            validator_version="6.0.0",
+            validated_at="2022-01-01T00:00:00Z",
+            json_report="http://example-2.com/report.json",
+        ),
+        MagicMock(
+            validator_version="5.0.0",
+            validated_at="2023-01-01T00:00:00Z",
+            json_report="http://example-3.com/report.json",
+        ),
+        MagicMock(
+            validator_version="6.0.0",
+            validated_at="2024-01-01T00:00:00Z",
+            json_report="http://example-1.com/report.json",
+        ),
+    ]
+
+    mock_query = MagicMock()
+    mock_query.options.return_value = mock_query
+    mock_query.filter.return_value = mock_query
+    mock_query.all.return_value = [mock_dataset]
+    mock_session.query.return_value = mock_query
+
+    # Mock the requests.get response
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "summary": {
+            "feedInfo": {
+                "feedServiceWindowStart": "2023-12-31",
+                "feedServiceWindowEnd": "2023-01-01",
+            }
+        }
+    }
+    mock_get.return_value = mock_response
+
+    changes_count = backfill_datasets(mock_session)
+
+    assert changes_count == 1
+    assert mock_dataset.service_date_range_start == "2023-01-01"
+    assert mock_dataset.service_date_range_end == "2023-12-31"
+    mock_get.assert_called_once_with(
+        "http://example-1.com/report.json"
+    )  # latest validation report
+    mock_session.commit.assert_called_once()
+
+
 @patch("logging.error", autospec=True)
 @patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
