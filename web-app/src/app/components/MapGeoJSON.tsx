@@ -6,11 +6,13 @@ import {
   type LatLngExpression,
   type LeafletMouseEvent,
 } from 'leaflet';
+import { Trans, useTranslation } from 'react-i18next';
 import { PopupTable } from './PopupTable';
 import { createRoot } from 'react-dom/client';
 import { useTheme } from '@mui/material/styles';
 import { ThemeModeEnum } from '../Theme';
-import { Box } from '@mui/material';
+import { Box, Typography, Tooltip } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export interface GeoJSONData {
   type: 'FeatureCollection' | 'Feature' | 'GeometryCollection';
@@ -33,6 +35,16 @@ export const MapGeoJSON = (
   props: React.PropsWithChildren<MapProps>,
 ): JSX.Element => {
   const theme = useTheme();
+  const { t } = useTranslation('feeds');
+  const { geoJSONData } = props;
+  const bounds = React.useMemo(() => {
+    return props.polygon.length > 0
+      ? (props.polygon as LatLngBoundsExpression)
+      : ([
+          [0, 0],
+          [0, 0],
+        ] as LatLngBoundsExpression);
+  }, [props.polygon]);
 
   const handleFeatureClick = (
     e: LeafletMouseEvent,
@@ -64,11 +76,9 @@ export const MapGeoJSON = (
       }}
     >
       <MapContainer
-        bounds={props.polygon as LatLngBoundsExpression}
+        bounds={bounds}
         zoom={8}
-        style={{
-          height: '100%',
-        }}
+        style={{ minHeight: '400px', height: '100%' }}
         data-testid='geojson-map'
       >
         <TileLayer
@@ -76,8 +86,76 @@ export const MapGeoJSON = (
           url={mapTiles}
         />
         {props.geoJSONData !== null && (
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: 20,
+              right: 16,
+              background: theme.palette.background.paper,
+              padding: 1,
+              borderRadius: 2,
+              boxShadow: 3,
+              maxWidth: 175,
+              zIndex: 1000,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography style={{ fontSize: '0.85rem', fontWeight: 800 }}>
+                {t('heatmapIntensity')}
+              </Typography>
+              <Tooltip
+                title={
+                  <React.Fragment>
+                    <Typography sx={{ fontWeight: 800 }}>
+                      <strong>{t('heatmapExplanationTitle')}</strong>
+                    </Typography>
+                    <div>
+                      {' '}
+                      <Trans
+                        i18nKey={t('heatmapExplanationContent')}
+                        components={{ code: <code /> }}
+                      />
+                    </div>
+                  </React.Fragment>
+                }
+              >
+                <InfoOutlinedIcon
+                  sx={{
+                    fontSize: '16px',
+                    color: theme.palette.text.secondary,
+                    cursor: 'pointer',
+                  }}
+                />
+              </Tooltip>
+            </Box>
+            <Box
+              sx={{
+                width: '100%',
+                height: '16px',
+                background: `linear-gradient(to right, #fb8c58, #7f0000)`,
+                marginTop: 2,
+                marginBottom: 1,
+                borderRadius: 1,
+              }}
+            />
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '0.75rem',
+                gap: 2,
+                color: theme.palette.text.secondary,
+              }}
+            >
+              <span>{t('heatmapLower')}</span>
+              <span>{t('heatmapHigher')}</span>
+            </Box>
+          </Box>
+        )}
+
+        {geoJSONData !== null && (
           <GeoJSON
-            data={props.geoJSONData}
+            data={geoJSONData}
             onEachFeature={(feature, layer) => {
               const container = document.createElement('div');
               container.style.background = theme.palette.background.default;

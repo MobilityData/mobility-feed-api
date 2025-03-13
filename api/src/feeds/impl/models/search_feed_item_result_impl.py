@@ -38,7 +38,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 license_url=feed_search_row.license_url,
             ),
             redirects=feed_search_row.redirect_ids,
-            locations=feed_search_row.locations,
+            locations=cls.resolve_locations(feed_search_row.locations),
             latest_dataset=LatestDataset(
                 id=feed_search_row.latest_dataset_id,
                 hosted_url=feed_search_row.latest_dataset_hosted_url,
@@ -74,55 +74,39 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 license_url=feed_search_row.license_url,
             ),
             redirects=feed_search_row.redirect_ids,
-            locations=feed_search_row.locations,
+            locations=cls.resolve_locations(feed_search_row.locations),
             entity_types=feed_search_row.entities,
             feed_references=feed_search_row.feed_reference_ids,
         )
 
     @classmethod
-    def _translate_locations(cls, feed_search_row):
-        """Translate location information in the feed search row.
-        This method modifies the locations in the feed search row in place."""
-        if feed_search_row.locations is None:
-            return
-        country_translations = cls._create_translation_dict(feed_search_row.country_translations)
-        subdivision_translations = cls._create_translation_dict(feed_search_row.subdivision_name_translations)
-        municipality_translations = cls._create_translation_dict(feed_search_row.municipality_translations)
-
-        for location in feed_search_row.locations:
-            location["country"] = country_translations.get(location["country"], location["country"])
-            if location["country"] is None or len(location["country"]) == 0:
-                location["country"] = SearchFeedItemResultImpl.resolve_country_by_code(location)
-            location["subdivision_name"] = subdivision_translations.get(
-                location["subdivision_name"], location["subdivision_name"]
-            )
-            location["municipality"] = municipality_translations.get(location["municipality"], location["municipality"])
+    def resolve_locations(cls, locations):
+        """Resolve locations by country code."""
+        return [
+            {
+                **location,
+                "country": location.get("country")
+                if location.get("country")
+                else cls.resolve_country_by_code(location),
+            }
+            for location in locations
+        ]
 
     @classmethod
     def resolve_country_by_code(cls, location):
         """Resolve country name by country code.
         If the country code is not found, return the original country name."""
-        country = pycountry.countries.get(alpha_2=location["country_code"])
-        return country.name if country else location["country"]
-
-    @staticmethod
-    def _create_translation_dict(translations):
-        """Helper method to create a translation dictionary."""
-        if translations:
-            return {
-                elem.get("key"): elem.get("value") for elem in translations if elem.get("key") and elem.get("value")
-            }
-        return {}
+        try:
+            country = pycountry.countries.get(alpha_2=location.get("country_code"))
+            return country.name if country else location.get("country")
+        except AttributeError:
+            return location.get("country")
 
     @classmethod
     def from_orm(cls, feed_search_row):
         """Create a model instance from a SQLAlchemy row object."""
         if feed_search_row is None:
             return None
-
-        # Translate location data
-        cls._translate_locations(feed_search_row)
-
         match feed_search_row.data_type:
             case "gtfs":
                 return cls.from_orm_gtfs(feed_search_row)

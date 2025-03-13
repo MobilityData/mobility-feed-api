@@ -33,7 +33,6 @@ class TestMainFunctions(unittest.TestCase):
             "VALIDATOR_URL": "https://mock-validator-url.com",
         },
     )
-    @patch("main.Database")
     @patch("main.DatasetTraceService")
     @patch("main.fetch_gbfs_files")
     @patch("main.GBFSValidator.create_gbfs_json_with_bucket_paths")
@@ -52,12 +51,8 @@ class TestMainFunctions(unittest.TestCase):
         mock_create_gbfs_json,
         mock_fetch_gbfs_files,
         mock_dataset_trace_service,
-        mock_database,
     ):
         # Prepare mocks
-        mock_session = MagicMock()
-        mock_database.return_value.start_db_session.return_value = mock_session
-
         mock_trace_service = MagicMock()
         mock_dataset_trace_service.return_value = mock_trace_service
 

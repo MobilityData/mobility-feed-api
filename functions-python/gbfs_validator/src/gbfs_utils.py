@@ -12,7 +12,9 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsvalidationreport,
     Gbfsnotice,
 )
+from sqlalchemy.orm import Session
 from shared.dataset_service.main import Status
+from shared.helpers.database import with_db_session
 
 
 class GBFSValidator:
@@ -107,8 +109,9 @@ class GBFSValidator:
         }
 
 
+@with_db_session(echo=False)
 def save_snapshot_and_report(
-    session, snapshot: Gbfssnapshot, validation_result: Dict[str, Any]
+    snapshot: Gbfssnapshot, validation_result: Dict[str, Any], db_session: Session
 ):
     """Save the snapshot and validation report to the database."""
     validation_report = Gbfsvalidationreport(
@@ -132,8 +135,8 @@ def save_snapshot_and_report(
         for error in file_summary["groupedErrors"]
     ]
     snapshot.gbfsvalidationreports = [validation_report]
-    session.add(snapshot)
-    session.commit()
+    db_session.add(snapshot)
+    db_session.commit()
 
 
 def fetch_gbfs_files(url: str) -> Dict[str, Any]:
