@@ -82,6 +82,7 @@ def test_backfill_datasets(mock_get, mock_storage_client):
     )  # latest validation report
     mock_session.commit.assert_called_once()
 
+
 @patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
 def test_backfill_datasets_service_date_range_swap(mock_get, mock_storage_client):
