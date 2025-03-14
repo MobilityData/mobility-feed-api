@@ -127,11 +127,12 @@ export interface components {
        *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
        *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
        *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
+       *   * `future` Feed is not yet active but will be in the future.
        *
        * @example deprecated
        * @enum {string}
        */
-      status?: 'active' | 'deprecated' | 'inactive' | 'development';
+      status?: 'active' | 'deprecated' | 'inactive' | 'development' | 'future';
       /**
        * Format: date-time
        * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
@@ -204,11 +205,12 @@ export interface components {
        *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
        *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
        *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
+       *   * `future` Feed is not yet active but will be in the future.
        *
        * @example deprecated
        * @enum {string}
        */
-      status: 'active' | 'deprecated' | 'inactive' | 'development';
+      status: 'active' | 'deprecated' | 'inactive' | 'development' | 'future';
       /**
        * Format: date-time
        * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
@@ -497,9 +499,11 @@ export interface components {
   responses: never;
   parameters: {
     /** @description Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
-    status?: 'active' | 'deprecated' | 'inactive' | 'development';
+    status?: 'active' | 'deprecated' | 'inactive' | 'development' | 'future';
     /** @description Filter feeds by their status. [Status definitions defined here](https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#gtfs-schedule-schema) */
-    statuses?: Array<'active' | 'deprecated' | 'inactive' | 'development'>;
+    statuses?: Array<
+      'active' | 'deprecated' | 'inactive' | 'development' | 'future'
+    >;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
