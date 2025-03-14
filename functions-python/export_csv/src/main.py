@@ -114,7 +114,7 @@ def export_and_upload_csv(request=None):
 
     csv_file_path = csv_default_file_path
     export_csv(csv_file_path)
-    upload_file_to_storage(csv_file_path, "sources_v2.csv")
+    upload_file_to_storage(csv_file_path, "feeds_v2.csv")
 
     logging.info("Export successful")
     return "Export successful"
