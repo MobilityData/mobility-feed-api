@@ -25,6 +25,7 @@ class PartialFeed(NamedTuple):
     """
     Subset of the Feed entity with only the fields queried in `fetch_feeds`.
     """
+
     id: int
     status: str
 
