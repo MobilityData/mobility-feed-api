@@ -20,6 +20,65 @@ tags:
     description: "Mobility Database Operations"
 
 paths:
+  /v1/operations/feeds:
+    get:
+      description: Get a list of feeds with optional filtering and pagination.
+      operationId: getFeeds
+      tags:
+        - "operations"
+      parameters:
+        - name: operation_status
+          in: query
+          description: Filter feeds by operational status.
+          required: false
+          schema:
+            type: string
+            enum: [wip, published]
+        - name: data_type
+          in: query
+          description: Filter feeds by data type.
+          required: false
+          schema:
+            type: string
+            enum: [gtfs, gtfs_rt]
+        - name: offset
+          in: query
+          description: Number of items to skip for pagination.
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of items to return.
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        200:
+          description: List of feeds retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  offset:
+                    type: integer
+                  limit:
+                    type: integer
+                  feeds:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BaseFeed"
+        401:
+          description: Unauthorized.
+        500:
+          description: Internal Server Error.
+
   /v1/operations/feeds/gtfs:
     put:
       description: Update the specified GTFS feed in the Mobility Database.
@@ -82,10 +141,121 @@ paths:
             The request was not authenticated or has invalid authentication credentials.
         500:
           description: >
-            An internal server error occurred.            
+            An internal server error occurred.
 
 components:
   schemas:
+    BaseFeed:
+      type: object
+      discriminator:
+        propertyName: data_type
+        mapping:
+          gtfs: '#/components/schemas/GtfsFeedResponse'
+          gtfs_rt: '#/components/schemas/GtfsRtFeedResponse'
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the feed.
+        stable_id:
+          type: string
+          description: Stable identifier for the feed.
+        status:
+          $ref: "#/components/schemas/FeedStatus"
+        data_type:
+          $ref: "#/components/schemas/DataType"
+        provider:
+          type: string
+          description: Name of the transit provider.
+        feed_name:
+          type: string
+          description: Name of the feed.
+        note:
+          type: string
+          description: Additional notes about the feed.
+        feed_contact_email:
+          type: string
+          description: Contact email for the feed.
+        source_info:
+          $ref: "#/components/schemas/SourceInfo"
+        operational_status:
+          type: string
+          enum: [wip, published]
+          description: Current operational status of the feed.
+        created_at:
+          type: string
+          format: date-time
+          description: When the feed was created.
+        official:
+          type: boolean
+          description: Whether this is an official feed.
+        official_updated_at:
+          type: string
+          format: date-time
+          description: When the official status was last updated.
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Location"
+        external_ids:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExternalId"
+        redirects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Redirect"
+
+    GtfsFeedResponse:
+      allOf:
+        - $ref: "#/components/schemas/BaseFeed"
+        - type: object
+          description: GTFS feed response model.
+
+    GtfsRtFeedResponse:
+      allOf:
+        - $ref: "#/components/schemas/BaseFeed"
+        - type: object
+          properties:
+            entity_types:
+              type: array
+              items:
+                type: string
+                enum:
+                  - vp
+                  - tu
+                  - sa
+                example: vp
+                description: >
+                  The type of realtime entry:
+                    * vp - vehicle positions
+                    * tu - trip updates
+                    * sa - service alerts
+            feed_references:
+              description:
+                A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+              type: array
+              items:
+                type: string
+                example: "mdb-20"
+
+    GetFeeds200Response:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of feeds matching the criteria.
+        offset:
+          type: integer
+          description: Current offset for pagination.
+        limit:
+          type: integer
+          description: Maximum number of items per page.
+        feeds:
+          type: array
+          items:
+            $ref: "#/components/schemas/BaseFeed"
+          description: List of feeds.
+
     Redirect:
       type: object
       properties:
@@ -142,8 +312,7 @@ components:
           type: array
           items:
             type: string
-            example: "mdb-20"            
-      # This is a temporary fix as the operational status is not visible yet.
+            example: "mdb-20"
         operational_status_action:
           type: string
           enum:
@@ -189,7 +358,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Redirect"
-      # This is a temporary fix as the operational status is not visible yet.
         operational_status_action:
           type: string
           enum:
@@ -278,7 +446,7 @@ components:
 
     DataType:
       description: >
-        Describes data type of a fee. Should be one of
+        Describes data type of a feed. Should be one of
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
@@ -303,20 +471,26 @@ components:
         - 2
       example: 2
 
-  parameters:
-    feed_id_path_param:
-      name: id
-      in: path
-      description: The feed ID of the requested feed.
-      required: True
-      schema:
-        type: string
-        example: mdb-1210
+    Location:
+      type: object
+      properties:
+        country_code:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        country:
+          type: string
+          description: English name of the country.
+        subdivision_name:
+          type: string
+          description: Name of the subdivision (state/province/region).
+        municipality:
+          type: string
+          description: Name of the municipality.
 
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
-      name: X-API-KEY
+      name: x-api-key
       in: header
 
 security:
