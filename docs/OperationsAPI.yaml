@@ -175,20 +175,8 @@ components:
         feed_contact_email:
           type: string
           description: Contact email for the feed.
-        producer_url:
-          type: string
-          description: URL where the feed is produced.
-        authentication_type:
-          $ref: "#/components/schemas/Authentication_type"
-        authentication_info_url:
-          type: string
-          description: URL for authentication information.
-        api_key_parameter_name:
-          type: string
-          description: Name of the API key parameter.
-        license_url:
-          type: string
-          description: URL of the feed license.
+        source_info:
+          $ref: "#/components/schemas/SourceInfo"
         operational_status:
           type: string
           enum: [wip, published]
@@ -211,13 +199,11 @@ components:
         external_ids:
           type: array
           items:
-            $ref: '#/components/schemas/ExternalId'
-          description: List of external identifiers associated with this feed
+            $ref: "#/components/schemas/ExternalId"
         redirects:
           type: array
           items:
-            $ref: '#/components/schemas/Redirect'
-          description: List of redirects associated with this feed
+            $ref: "#/components/schemas/Redirect"
 
     GtfsFeedResponse:
       allOf:

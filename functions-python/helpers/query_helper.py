@@ -106,7 +106,6 @@ def get_feeds_query(
 
         conditions = []
 
-
         if operation_status:
             conditions.append(model.operational_status == operation_status)
             logging.info("Added operational_status filter: %s", operation_status)

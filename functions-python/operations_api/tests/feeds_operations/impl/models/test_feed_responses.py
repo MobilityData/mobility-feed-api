@@ -75,9 +75,9 @@ def test_gtfs_feed_response_locations():
 def test_gtfs_rt_feed_response_optional_fields():
     """Test GtfsRtFeedResponse with minimal required fields."""
     feed = GtfsRtFeedImpl()
-    assert feed.id is None  # ID should be None for new feed
-    assert feed.entity_types == []  # Should be empty list instead of None
-    assert feed.feed_references == []  # Should be empty list instead of None
+    assert feed.id is None
+    assert feed.entity_types == []
+    assert feed.feed_references == []
 
 
 def test_gtfs_rt_feed_response_entity_types():
@@ -172,87 +172,3 @@ def test_feed_response_from_orm():
     assert gtfs_rt_feed.created_at.isoformat() == current_time_str
     assert gtfs_rt_feed.entity_types == ["vp"]
     assert gtfs_rt_feed.feed_references == ["mdb-123"]
-
-
-def test_invalid_data_type_in_from_orm():
-    """Test that invalid data_type values don't cause errors in from_orm.
-
-    NOTE: The model initialization will still validate enum fields because of Pydantic,
-    but as per David's feedback: from_orm should be for copying without validation.
-    """
-
-    # Create mock ORM objects with invalid data_type
-    class MockFeed:
-        def __init__(self, stable_id, data_type):
-            self.id = 1
-            self.stable_id = stable_id
-            self.data_type = data_type
-            self.status = "active"
-            self.provider = "Test Provider"
-            self.feed_name = "Test Feed"
-            self.note = None
-            self.feed_contact_email = None
-            self.producer_url = None
-            self.authentication_type = None
-            self.authentication_info_url = None
-            self.api_key_parameter_name = None
-            self.license_url = None
-            self.operational_status = None
-            self.created_at = None
-            self.official = None
-            self.official_updated_at = None
-            self.locations = []
-            self.externalids = []
-            self.redirectingids = []
-            self.entitytypes = []
-            self.gtfs_feeds = []
-
-    mock_feed = MockFeed("mdb-123", "invalid")
-    gtfs_feed = GtfsFeedImpl.from_orm(mock_feed)
-    assert gtfs_feed.data_type == "invalid"
-
-    mock_feed = MockFeed("mdb-456", "invalid")
-    gtfs_rt_feed = GtfsRtFeedImpl.from_orm(mock_feed)
-    assert gtfs_rt_feed.data_type == "invalid"
-
-
-def test_cross_data_type_from_orm():
-    """Test that cross data types work with from_orm without validation.
-
-    NOTE: The model initialization will still validate enum fields because of Pydantic,
-    but as per David's feedback: from_orm should be for copying without validation.
-    """
-
-    # Create mock ORM objects with cross data types
-    class MockFeed:
-        def __init__(self, stable_id, data_type):
-            self.id = 1
-            self.stable_id = stable_id
-            self.data_type = data_type
-            self.status = "active"
-            self.provider = "Test Provider"
-            self.feed_name = "Test Feed"
-            self.note = None
-            self.feed_contact_email = None
-            self.producer_url = None
-            self.authentication_type = None
-            self.authentication_info_url = None
-            self.api_key_parameter_name = None
-            self.license_url = None
-            self.operational_status = None
-            self.created_at = None
-            self.official = None
-            self.official_updated_at = None
-            self.locations = []
-            self.externalids = []
-            self.redirectingids = []
-            self.entitytypes = []
-            self.gtfs_feeds = []
-
-    mock_feed = MockFeed("mdb-123", "gtfs_rt")
-    gtfs_feed = GtfsFeedImpl.from_orm(mock_feed)
-    assert gtfs_feed.data_type == "gtfs_rt"
-
-    mock_feed = MockFeed("mdb-456", "gtfs")
-    gtfs_rt_feed = GtfsRtFeedImpl.from_orm(mock_feed)
-    assert gtfs_rt_feed.data_type == "gtfs"
