@@ -64,8 +64,8 @@ def update_feed_statuses_query(session: "Session"):
         raise Exception(f"Error updating feed statuses: {e}")
 
     try:
-        refresh_materialized_view(session, t_feedsearch.name)
         session.commit()
+        refresh_materialized_view(session, t_feedsearch.name)
         logging.info("Feed Database changes committed.")
         session.close()
         return updated_count

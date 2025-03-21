@@ -19,6 +19,10 @@ import logging
 from datetime import datetime
 import requests
 from shared.helpers.database import Database
+from shared.helpers.timezone import (
+    extract_timezone_from_json_validation_report,
+    get_service_date_range_with_timezone_utc,
+)
 import functions_framework
 from shared.database_gen.sqlacodegen_models import (
     Validationreport,
@@ -152,18 +156,9 @@ def generate_report_entities(
 
     populate_service_date(dataset, json_report)
 
-    summary = json_report.get("summary", {})
-    if isinstance(summary.get("agencies"), list) and summary["agencies"]:
-        extracted_timezone = summary["agencies"][0].get("timezone", None)
-        if extracted_timezone is not None:
-            logging.info(
-                f"Timezone found in JSON report for dataset {dataset_stable_id}: {extracted_timezone}."
-            )
-            dataset.agency_timezone = extracted_timezone
-        else:
-            logging.info(
-                f"Timezone not found in JSON report for dataset {dataset_stable_id}."
-            )
+    extracted_timezone = extract_timezone_from_json_validation_report(json_report)
+    if extracted_timezone is not None:
+        dataset.agency_timezone = extracted_timezone
 
     for feature_name in get_nested_value(json_report, ["summary", "gtfsFeatures"], []):
         feature = get_feature(feature_name, session)
@@ -188,20 +183,11 @@ def populate_service_date(dataset, json_report):
     The service date range is extracted from the feedServiceWindowStart and feedServiceWindowEnd fields,
      if both are present and not empty.
     """
-    feed_service_window_start = get_nested_value(
-        json_report, ["summary", "feedInfo", "feedServiceWindowStart"]
-    )
-    feed_service_window_end = get_nested_value(
-        json_report, ["summary", "feedInfo", "feedServiceWindowEnd"]
-    )
-    if feed_service_window_start and feed_service_window_end:
-        # this check is due to an issue in the validation report where the start date could be later than the end date
-        if feed_service_window_start > feed_service_window_end:
-            dataset.service_date_range_start = feed_service_window_end
-            dataset.service_date_range_end = feed_service_window_start
-        else:
-            dataset.service_date_range_start = feed_service_window_start
-            dataset.service_date_range_end = feed_service_window_end
+
+    if (result := get_service_date_range_with_timezone_utc(json_report)) is not None:
+        utc_service_start_date, utc_service_end_date = result
+        dataset.service_date_range_start = utc_service_start_date
+        dataset.service_date_range_end = utc_service_end_date
 
 
 def create_validation_report_entities(feed_stable_id, dataset_stable_id, version):
