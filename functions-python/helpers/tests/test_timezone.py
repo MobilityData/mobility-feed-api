@@ -3,7 +3,6 @@ from timezone import (
     extract_timezone_from_json_validation_report,
     get_service_date_range_with_timezone_utc,
 )
-
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -58,7 +57,6 @@ class TestExtractTimezoneFromJsonValidationReport(unittest.TestCase):
 
 
 class TestGetServiceDateRangeWithTimezoneUTC(unittest.TestCase):
-
     def test_valid_dates_with_timezone(self):
         json_report = {
             "summary": {
