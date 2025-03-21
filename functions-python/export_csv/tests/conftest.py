@@ -41,10 +41,9 @@ def populate_database():
         - 2 active
         - 1 inactive
         - 2 deprecated
-    - 5 GTFS Realtime feeds
-    - 4 3TFS rt datasets, with 1 of them inactive
+    - 3 GTFS datasets
+    - 4 GTFS Realtime feeds, with 1 of them inactive
     """
-    clean_testing_db()
     session = get_testing_session()
     fake = Faker()
 
@@ -138,7 +137,7 @@ def populate_database():
         .all()
     )
 
-    # the first 2 datasets are for the first feed
+    # the first 2 datasets are for the first active feed, one dataset is for the second active feed
     for i in range(1, 4):
         feed_index = 0 if i in [1, 2] else 1
         wkt_polygon = "POLYGON((-18 -9, -18 9, 18 9, 18 -9, -18 -9))"
@@ -175,8 +174,6 @@ def populate_database():
         active_gtfs_feeds[feed_index].gtfsdatasets.append(gtfs_dataset)
     active_gtfs_feeds[0].locations = locations
     active_gtfs_feeds[1].locations = locations
-
-    # active_gtfs_feeds[0].gtfsdatasets.append() = gtfs_datasets
 
     vp_entitytype = session.query(Entitytype).filter_by(name="vp").first()
     if not vp_entitytype:
