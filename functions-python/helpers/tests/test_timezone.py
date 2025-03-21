@@ -58,65 +58,99 @@ class TestExtractTimezoneFromJsonValidationReport(unittest.TestCase):
 
 class TestGetServiceDateRangeWithTimezoneUTC(unittest.TestCase):
     def test_valid_dates_with_timezone(self):
-        json_report = {
-            "summary": {
-                "feedInfo": {
-                    "feedServiceWindowStart": "2025-03-04",
-                    "feedServiceWindowEnd": "2025-03-10",
-                },
-                "agencies": [{"timezone": "Asia/Tokyo"}],
-            }
-        }
-        result = get_service_date_range_with_timezone_utc(json_report)
+        feed_service_window_start = "2025-03-04"
+        feed_service_window_end = "2025-03-10"
+        timezone = "Asia/Tokyo"
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
         expected_start = datetime(
             2025, 3, 3, 15, 0, tzinfo=ZoneInfo("UTC")
         )  # Asia/Tokyo is UTC-9
-        expected_end = datetime(
-            2025, 3, 10, 14, 59, tzinfo=ZoneInfo("UTC")
-        )  # Asia/Tokyo is UTC-9
+        expected_end = datetime(2025, 3, 10, 14, 59, tzinfo=ZoneInfo("UTC"))
         self.assertEqual(result, [expected_start, expected_end])
 
     def test_valid_dates_with_utc(self):
-        json_report = {
-            "summary": {
-                "feedInfo": {
-                    "feedServiceWindowStart": "2025-03-01",
-                    "feedServiceWindowEnd": "2025-03-10",
-                }
-            }
-        }
-        result = get_service_date_range_with_timezone_utc(json_report)
+        feed_service_window_start = "2025-03-01"
+        feed_service_window_end = "2025-03-10"
+        timezone = "UTC"
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
         expected_start = datetime(2025, 3, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
         expected_end = datetime(2025, 3, 10, 23, 59, tzinfo=ZoneInfo("UTC"))
         self.assertEqual(result, [expected_start, expected_end])
 
     def test_missing_feed_service_window_start(self):
-        json_report = {"summary": {"feedInfo": {"feedServiceWindowEnd": "2025-03-10"}}}
-        result = get_service_date_range_with_timezone_utc(json_report)
+        feed_service_window_start = None
+        feed_service_window_end = "2025-03-10"
+        timezone = "UTC"
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
         self.assertIsNone(result)
 
     def test_missing_feed_service_window_end(self):
-        json_report = {
-            "summary": {"feedInfo": {"feedServiceWindowStart": "2025-03-01"}}
-        }
-        result = get_service_date_range_with_timezone_utc(json_report)
+        feed_service_window_start = "2025-03-01"
+        feed_service_window_end = None
+        timezone = "UTC"
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
         self.assertIsNone(result)
 
-    def test_invalid_date_format(self):
-        json_report = {
-            "summary": {
-                "feedInfo": {
-                    "feedServiceWindowStart": "03-01-2025",  # Wrong format (MM-DD-YYYY)
-                    "feedServiceWindowEnd": "2025-03-10",
-                }
-            }
-        }
-        result = get_service_date_range_with_timezone_utc(json_report)
+    def test_invalid_date_format_start(self):
+        feed_service_window_start = "03-01-2025"  # Invalid format (MM-DD-YYYY)
+        feed_service_window_end = "2025-03-10"
+        timezone = "UTC"
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
         self.assertIsNone(result)
 
-    def test_missing_summary_feedinfo(self):
-        json_report = {"summary": {}}
-        result = get_service_date_range_with_timezone_utc(json_report)
+    def test_invalid_date_format_end(self):
+        feed_service_window_start = "2025-03-01"
+        feed_service_window_end = "03-10-2025"  # Invalid format (MM-DD-YYYY)
+        timezone = "UTC"
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
+        self.assertIsNone(result)
+
+    def test_default_timezone_utc(self):
+        feed_service_window_start = "2025-03-01"
+        feed_service_window_end = "2025-03-10"
+        timezone = None  # None should default to UTC
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
+        expected_start = datetime(2025, 3, 1, 0, 0, tzinfo=ZoneInfo("UTC"))
+        expected_end = datetime(2025, 3, 10, 23, 59, tzinfo=ZoneInfo("UTC"))
+        self.assertEqual(result, [expected_start, expected_end])
+
+    def test_invalid_service_date_range(self):
+        feed_service_window_start = None
+        feed_service_window_end = None
+        timezone = "UTC"
+
+        result = get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+
         self.assertIsNone(result)
 
 

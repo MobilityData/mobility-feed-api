@@ -148,8 +148,16 @@ def test_backfill_datasets_service_date_range_swap(mock_get, mock_storage_client
     changes_count = backfill_datasets(mock_session)
 
     assert changes_count == 1
-    assert mock_dataset.service_date_range_start == "2023-01-01"
-    assert mock_dataset.service_date_range_end == "2023-12-31"
+
+    expected_range_start = datetime.strptime("2023-01-01", "%Y-%m-%d").replace(
+        hour=0, minute=0, tzinfo=timezone.utc
+    )
+    expected_range_end = datetime.strptime("2023-12-31", "%Y-%m-%d").replace(
+        hour=23, minute=59, tzinfo=timezone.utc
+    )
+
+    assert mock_dataset.service_date_range_start == expected_range_start
+    assert mock_dataset.service_date_range_end == expected_range_end
     mock_get.assert_called_once_with(
         "http://example-1.com/report.json"
     )  # latest validation report

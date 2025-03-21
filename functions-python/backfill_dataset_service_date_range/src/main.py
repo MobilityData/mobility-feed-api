@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, func
 from shared.helpers.database import refresh_materialized_view
+from shared.helpers.transform import get_nested_value
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
     get_service_date_range_with_timezone_utc,
@@ -111,16 +112,26 @@ def backfill_datasets(session: "Session"):
                     response.raise_for_status()
                     json_data = response.json()
 
+            formatting_timezone = extract_timezone_from_json_validation_report(
+                json_data
+            )
+            feed_service_window_start = get_nested_value(
+                json_data, ["summary", "feedInfo", "feedServiceWindowStart"]
+            )
+            feed_service_window_end = get_nested_value(
+                json_data, ["summary", "feedInfo", "feedServiceWindowEnd"]
+            )
+
             if (
-                result := get_service_date_range_with_timezone_utc(json_data)
+                result := get_service_date_range_with_timezone_utc(
+                    feed_service_window_start,
+                    feed_service_window_end,
+                    formatting_timezone,
+                )
             ) is not None:
                 utc_service_start_date, utc_service_end_date = result
                 dataset.service_date_range_start = utc_service_start_date
                 dataset.service_date_range_end = utc_service_end_date
-
-            formatting_timezone = extract_timezone_from_json_validation_report(
-                json_data
-            )
 
             if formatting_timezone is not None:
                 dataset.agency_timezone = formatting_timezone

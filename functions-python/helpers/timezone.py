@@ -1,6 +1,5 @@
 from zoneinfo import available_timezones
 from datetime import datetime
-from transform import get_nested_value
 from zoneinfo import ZoneInfo
 from typing import List, Optional
 import logging
@@ -39,25 +38,15 @@ def extract_timezone_from_json_validation_report(json_data: dict) -> Optional[st
     return extracted_timezone
 
 
-# This function is used to extract the service date range from the JSON report
-# Return the service date range in UTC timezone as a list: [start_date, end_date]
-def get_service_date_range_with_timezone_utc(json_report) -> Optional[List[datetime]]:
+def get_service_date_range_with_timezone_utc(
+    feed_service_window_start, feed_service_window_end, timezone
+) -> Optional[List[datetime]]:
     """
-    Populates the service date range of the dataset based on the JSON report.
-    The service date range is extracted from the feedServiceWindowStart and feedServiceWindowEnd fields,
-     if both are present and not empty.
+    Takes the service date range in %Y-%m-%d format and converts it to UTC timezone.
     """
-
-    timezone = extract_timezone_from_json_validation_report(json_report)
     if timezone is None:
         timezone = "UTC"
 
-    feed_service_window_start = get_nested_value(
-        json_report, ["summary", "feedInfo", "feedServiceWindowStart"]
-    )
-    feed_service_window_end = get_nested_value(
-        json_report, ["summary", "feedInfo", "feedServiceWindowEnd"]
-    )
     if feed_service_window_start and feed_service_window_end:
         # service date range is found
         formatted_service_start_date = None
@@ -88,6 +77,14 @@ def get_service_date_range_with_timezone_utc(json_report) -> Optional[List[datet
             )
             return None
 
+        # this check is due to an issue in the validation report
+        # where the start date could be later than the end date
+        if formatted_service_start_date > formatted_service_end_date:
+            formatted_service_start_date, formatted_service_end_date = (
+                formatted_service_end_date,
+                formatted_service_start_date,
+            )
+
         local_service_start_date = formatted_service_start_date.replace(
             hour=0, minute=0, tzinfo=ZoneInfo(timezone)
         )
@@ -98,13 +95,8 @@ def get_service_date_range_with_timezone_utc(json_report) -> Optional[List[datet
         )
         utc_service_end_date = local_service_end_date.astimezone(ZoneInfo("UTC"))
 
-        # this check is due to an issue in the validation report
-        # where the start date could be later than the end date
-        if utc_service_start_date > utc_service_end_date:
-            return [utc_service_end_date, utc_service_start_date]
-        else:
-            return [utc_service_start_date, utc_service_end_date]
+        return [utc_service_start_date, utc_service_end_date]
 
     else:
-        logging.error("service date range not found in json_report")
+        logging.error("service date range not found")
         return None

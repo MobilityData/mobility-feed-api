@@ -154,11 +154,11 @@ def generate_report_entities(
     dataset = get_dataset(dataset_stable_id, session)
     dataset.validation_reports.append(validation_report_entity)
 
-    populate_service_date(dataset, json_report)
-
     extracted_timezone = extract_timezone_from_json_validation_report(json_report)
     if extracted_timezone is not None:
         dataset.agency_timezone = extracted_timezone
+
+    populate_service_date(dataset, json_report, extracted_timezone)
 
     for feature_name in get_nested_value(json_report, ["summary", "gtfsFeatures"], []):
         feature = get_feature(feature_name, session)
@@ -177,14 +177,23 @@ def generate_report_entities(
     return entities
 
 
-def populate_service_date(dataset, json_report):
+def populate_service_date(dataset, json_report, timezone=None):
     """
     Populates the service date range of the dataset based on the JSON report.
     The service date range is extracted from the feedServiceWindowStart and feedServiceWindowEnd fields,
      if both are present and not empty.
     """
-
-    if (result := get_service_date_range_with_timezone_utc(json_report)) is not None:
+    feed_service_window_start = get_nested_value(
+        json_report, ["summary", "feedInfo", "feedServiceWindowStart"]
+    )
+    feed_service_window_end = get_nested_value(
+        json_report, ["summary", "feedInfo", "feedServiceWindowEnd"]
+    )
+    if (
+        result := get_service_date_range_with_timezone_utc(
+            feed_service_window_start, feed_service_window_end, timezone
+        )
+    ) is not None:
         utc_service_start_date, utc_service_end_date = result
         dataset.service_date_range_start = utc_service_start_date
         dataset.service_date_range_end = utc_service_end_date
