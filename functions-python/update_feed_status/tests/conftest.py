@@ -29,7 +29,9 @@ future_date = datetime.now() + timedelta(days=15)
 past_date = datetime.now() - timedelta(days=15)
 
 
-def make_dataset(feed_id: str, latest: bool, start: datetime, end: datetime) -> Gtfsdataset:
+def make_dataset(
+    feed_id: str, latest: bool, start: datetime, end: datetime
+) -> Gtfsdataset:
     return Gtfsdataset(
         id=str(uuid4()),
         feed_id=feed_id,
