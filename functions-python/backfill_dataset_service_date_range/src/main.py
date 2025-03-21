@@ -9,12 +9,21 @@ from shared.helpers.database import Database
 from typing import TYPE_CHECKING
 from sqlalchemy.orm import joinedload
 from sqlalchemy import or_, func
+from shared.helpers.database import refresh_materialized_view
+from shared.helpers.transform import get_nested_value
+from shared.helpers.timezone import (
+    extract_timezone_from_json_validation_report,
+    get_service_date_range_with_timezone_utc,
+)
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Validationreport
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsdataset,
+    Validationreport,
+    t_feedsearch,
+)
 
 import requests
 import json
-from datetime import datetime
 
 from google.cloud import storage
 
@@ -103,51 +112,31 @@ def backfill_datasets(session: "Session"):
                     response.raise_for_status()
                     json_data = response.json()
 
-            extracted_service_start_date = (
-                json_data.get("summary", {})
-                .get("feedInfo", {})
-                .get("feedServiceWindowStart", None)
+            formatting_timezone = extract_timezone_from_json_validation_report(
+                json_data
             )
-            extracted_service_end_date = (
-                json_data.get("summary", {})
-                .get("feedInfo", {})
-                .get("feedServiceWindowEnd", None)
+            feed_service_window_start = get_nested_value(
+                json_data, ["summary", "feedInfo", "feedServiceWindowStart"]
+            )
+            feed_service_window_end = get_nested_value(
+                json_data, ["summary", "feedInfo", "feedServiceWindowEnd"]
             )
 
-            try:
-                datetime.strptime(extracted_service_start_date, "%Y-%m-%d")
-            except ValueError:
-                logging.error(
-                    f"""
-                    Key 'summary.feedInfo.feedStartDate' not found or bad value in
-                    JSON for gtfsdataset ID {gtfsdataset_id}. value: {extracted_service_start_date}
-                    """
+            if (
+                result := get_service_date_range_with_timezone_utc(
+                    feed_service_window_start,
+                    feed_service_window_end,
+                    formatting_timezone,
                 )
-                continue
+            ) is not None:
+                utc_service_start_date, utc_service_end_date = result
+                dataset.service_date_range_start = utc_service_start_date
+                dataset.service_date_range_end = utc_service_end_date
 
-            try:
-                datetime.strptime(extracted_service_end_date, "%Y-%m-%d")
-            except ValueError:
-                logging.error(
-                    f"""
-                    Key 'summary.feedInfo.feedEndDate' not found or bad value in
-                    JSON for gtfsdataset ID {gtfsdataset_id}. value: {extracted_service_end_date}
-                    """
-                )
-                continue
+            if formatting_timezone is not None:
+                dataset.agency_timezone = formatting_timezone
 
-            # this check is due to an issue in the validation report
-            # where the start date could be later than the end date
-            if extracted_service_start_date > extracted_service_end_date:
-                dataset.service_date_range_start = extracted_service_end_date
-                dataset.service_date_range_end = extracted_service_start_date
-            else:
-                dataset.service_date_range_start = extracted_service_start_date
-                dataset.service_date_range_end = extracted_service_end_date
-
-            formatted_dates = (
-                extracted_service_start_date + " - " + extracted_service_end_date
-            )
+            formatted_dates = f"{utc_service_start_date:%Y-%m-%d %H:%M} - {utc_service_end_date:%Y-%m-%d %H:%M}"
             logging.info(
                 f"Updated gtfsdataset ID {gtfsdataset_id} with value: {formatted_dates}"
             )
@@ -157,6 +146,7 @@ def backfill_datasets(session: "Session"):
                 try:
                     changes_count = 0
                     session.commit()
+                    refresh_materialized_view(session, t_feedsearch.name)
                     logging.info(f"{changes_count} elements committed.")
                 except Exception as e:
                     logging.error("Error committing changes:", e)

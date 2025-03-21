@@ -53,6 +53,7 @@ class LatestDatasetImpl(LatestDataset):
             downloaded_at=dataset.downloaded_at,
             service_date_range_start=dataset.service_date_range_start,
             service_date_range_end=dataset.service_date_range_end,
+            agency_timezone=dataset.agency_timezone,
             hash=dataset.hash,
             validation_report=validation_report,
         )
