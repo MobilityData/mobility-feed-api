@@ -78,7 +78,7 @@ def populate_database():
     for _id in [
         "10",
     ]:
-        session.add(make_dataset(_id, False, past_date, past_date))
+        session.add(make_dataset(_id, False, past_date, future_date))
         session.add(make_dataset(_id, True, future_date, future_date))
 
     session.commit()
