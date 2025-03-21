@@ -15,12 +15,6 @@ if TYPE_CHECKING:
 logging.basicConfig(level=logging.INFO)
 
 
-FEED_FILTERS = [
-    Feed.status != text("'deprecated'::status"),
-    Feed.status != text("'development'::status"),
-]
-
-
 class PartialFeed(NamedTuple):
     """
     Subset of the Feed entity with only the fields queried in `fetch_feeds`.
@@ -36,7 +30,10 @@ def fetch_feeds(session: "Session") -> Iterator[PartialFeed]:
         # When adding or removing fields here, `PartialFeed` should be updated to
         # match, for type safety.
         .query(Feed.id, Feed.status)
-        .filter(**FEED_FILTERS)
+        .filter(
+            Feed.status != text("'deprecated'::status"),
+            Feed.status != text("'development'::status"),
+        )
         .yield_per(500)
     )
     for feed in query:
@@ -101,7 +98,8 @@ def update_feed_statuses_query(session: "Session"):
             session.query(Feed)
             .filter(
                 Feed.id == latest_dataset_subq.c.feed_id,
-                **FEED_FILTERS,
+                Feed.status != text("'deprecated'::status"),
+                Feed.status != text("'development'::status"),
             )
             .update({Feed.status: new_status}, synchronize_session=False)
         )
