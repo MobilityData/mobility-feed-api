@@ -280,13 +280,13 @@ export interface components {
       hash?: string;
       /**
        * Format: date-time
-       * @description The start date of the service date range for the dataset.
+       * @description The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
        * @example "2023-07-10T06:00:00.000Z"
        */
       service_date_range_start?: string;
       /**
        * Format: date-time
-       * @description The start date of the service date range for the dataset.
+       * @description The start date of the service date range for the dataset in UTC. Timing ends at 23:59:59 of the day.
        * @example 2023-07-10T05:59:59+00Z
        */
       service_date_range_end?: string;
@@ -422,13 +422,13 @@ export interface components {
       validation_report?: components['schemas']['ValidationReport'];
       /**
        * Format: date-time
-       * @description The start date of the service date range for the dataset.
+       * @description The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
        * @example "2023-07-10T06:00:00.000Z"
        */
       service_date_range_start?: string;
       /**
        * Format: date-time
-       * @description The start date of the service date range for the dataset.
+       * @description The start date of the service date range for the dataset in UTC. Timing ends at 23:59:59 of the day.
        * @example 2023-07-10T05:59:59+00Z
        */
       service_date_range_end?: string;
