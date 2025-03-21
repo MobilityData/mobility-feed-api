@@ -50,10 +50,10 @@ def get_testing_engine() -> Engine:
     return db._get_engine(echo=False)
 
 
-def get_testing_session() -> Session:
+def get_testing_session(echo: bool = False) -> Session:
     """Returns a SQLAlchemy session for the test db."""
     db = Database(database_url=default_db_url)
-    return db._get_session(echo=False)()
+    return db._get_session(echo=echo)()
 
 
 def clean_testing_db():
