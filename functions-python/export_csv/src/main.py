@@ -251,15 +251,16 @@ def get_feed_csv_data(feed: Feed):
     redirect_ids = []
     redirect_comments = []
     # Add concatenated redirect IDs
-    if feed.redirectingids:
-        for redirect in feed.redirectingids:
+    sorted_redirects = sorted(feed.redirectingids, key=lambda x: x.target.stable_id)
+    if sorted_redirects:
+        for redirect in sorted_redirects:
             if redirect and redirect.target and redirect.target.stable_id:
                 stripped_id = redirect.target.stable_id.strip()
                 if stripped_id:
                     redirect_ids.append(stripped_id)
                     redirect_comment = redirect.redirect_comment or ""
                     redirect_comments.append(redirect_comment)
-
+    redirect_ids = sorted(redirect_ids)
     redirect_ids_str = "|".join(redirect_ids)
     redirect_comments_str = "|".join(redirect_comments)
 
