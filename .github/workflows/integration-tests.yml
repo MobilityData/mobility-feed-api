@@ -31,8 +31,8 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Extract commit hash and version from git
-      run: ./scripts/extract-hash-and-version.sh -e ${{ inputs.ENVIRONMENT }}
+    # - name: Extract commit hash and version from git
+    #   run: ./scripts/extract-hash-and-version.sh -e ${{ inputs.ENVIRONMENT }}
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
