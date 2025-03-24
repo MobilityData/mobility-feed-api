@@ -1,4 +1,4 @@
 requests
 pandas
-gtfs_kit
+gtfs_kit==10.1.1
 rich
