@@ -1,6 +1,9 @@
 name: Run Integration Tests
 
 on:
+  push:
+    branches:
+      - fix/integration_test_pip
   workflow_call:
     inputs:
       API_URL:
