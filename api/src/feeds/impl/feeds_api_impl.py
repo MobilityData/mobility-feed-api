@@ -14,7 +14,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Location,
-    Validationreport,
     Entitytype,
 )
 from shared.feed_filters.feed_filter import FeedFilter
@@ -129,27 +128,11 @@ class FeedsApiImpl(BaseFeedsApi):
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
     @staticmethod
-    def _get_gtfs_feed(stable_id: str, db_session: Session) -> Optional[Gtfsfeed]:
-        results = (
-            FeedFilter(
-                stable_id=stable_id,
-                status=None,
-                provider__ilike=None,
-                producer_url__ilike=None,
-            )
-            .filter(db_session.query(Gtfsfeed))
-            .filter(
-                or_(
-                    Gtfsfeed.operational_status == "published",
-                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
-                )
-            )
-            .options(
-                joinedload(Gtfsfeed.gtfsdatasets)
-                .joinedload(Gtfsdataset.validation_reports)
-                .joinedload(Validationreport.notices),
-                *get_joinedload_options(),
-            )
+    def _get_gtfs_feed(
+        stable_id: str, db_session: Session, include_options_for_joinedload: bool = True
+    ) -> Optional[Gtfsfeed]:
+        results = get_gtfs_feeds_query(
+            db_session=db_session, stable_id=stable_id, include_options_for_joinedload=include_options_for_joinedload
         ).all()
         if len(results) == 0:
             return None
@@ -173,22 +156,7 @@ class FeedsApiImpl(BaseFeedsApi):
             raise_http_validation_error(invalid_date_message.format("downloaded_after"))
 
         # First make sure the feed exists. If not it's an error 404
-        feed = (
-            FeedFilter(
-                stable_id=gtfs_feed_id,
-                status=None,
-                provider__ilike=None,
-                producer_url__ilike=None,
-            )
-            .filter(Database().get_query_model(db_session, Gtfsfeed))
-            .filter(
-                or_(
-                    Feed.operational_status == "published",
-                    not is_user_email_restricted(),  # Allow all feeds to be returned if the user is not restricted
-                )
-            )
-            .first()
-        )
+        feed = self._get_gtfs_feed(gtfs_feed_id, db_session, include_options_for_joinedload=False)
 
         if not feed:
             raise_http_error(404, f"Feed with id {gtfs_feed_id} not found")
