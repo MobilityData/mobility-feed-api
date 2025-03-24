@@ -175,7 +175,9 @@ class TestGbfsUtils(unittest.TestCase):
             },
         }
 
-        save_snapshot_and_report(mock_session, mock_snapshot, validation_result)
+        save_snapshot_and_report(
+            mock_snapshot, validation_result, db_session=mock_session
+        )
 
         mock_session.add.assert_called_once_with(mock_snapshot)
         mock_session.commit.assert_called_once()

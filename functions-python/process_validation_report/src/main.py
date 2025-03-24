@@ -182,8 +182,13 @@ def populate_service_date(dataset, json_report):
         json_report, ["summary", "feedInfo", "feedServiceWindowEnd"]
     )
     if feed_service_window_start and feed_service_window_end:
-        dataset.service_date_range_start = feed_service_window_start
-        dataset.service_date_range_end = feed_service_window_end
+        # this check is due to an issue in the validation report where the start date could be later than the end date
+        if feed_service_window_start > feed_service_window_end:
+            dataset.service_date_range_start = feed_service_window_end
+            dataset.service_date_range_end = feed_service_window_start
+        else:
+            dataset.service_date_range_start = feed_service_window_start
+            dataset.service_date_range_end = feed_service_window_end
 
 
 def create_validation_report_entities(feed_stable_id, dataset_stable_id, version):

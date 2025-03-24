@@ -147,3 +147,10 @@ def detach_from_session(geopolygons: List[Geopolygon]) -> List[GeopolygonObject]
     'DetachedInstanceError' when accessing the properties of the geopolygons while the session is closed.
     """
     return [GeopolygonObject(geopolygon) for geopolygon in geopolygons]
+
+
+def geopolygons_as_string(geopolygons: List[Geopolygon]) -> str:
+    """Convert the geopolygons to a string."""
+    return ", ".join(
+        [str(geopolygon) for geopolygon in detach_from_session(geopolygons)]
+    )

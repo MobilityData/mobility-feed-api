@@ -3,7 +3,7 @@ from typing import Iterator
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session
+from sqlalchemy.orm import joinedload, Session, contains_eager
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
 
@@ -25,23 +25,25 @@ from .iter_utils import batched
 
 
 def get_gtfs_feeds_query(
-    limit: int | None,
-    offset: int | None,
-    provider: str | None,
-    producer_url: str | None,
-    country_code: str | None,
-    subdivision_name: str | None,
-    municipality: str | None,
-    dataset_latitudes: str | None,
-    dataset_longitudes: str | None,
-    bounding_filter_method: str | None,
+    db_session: Session,
+    stable_id: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    provider: str | None = None,
+    producer_url: str | None = None,
+    country_code: str | None = None,
+    subdivision_name: str | None = None,
+    municipality: str | None = None,
+    dataset_latitudes: str | None = None,
+    dataset_longitudes: str | None = None,
+    bounding_filter_method: str | None = None,
     is_official: bool = False,
     include_wip: bool = False,
-    db_session: Session = None,
+    include_options_for_joinedload: bool = True,
 ) -> Query[any]:
     """Get the DB query to use to retrieve the GTFS feeds.."""
     gtfs_feed_filter = GtfsFeedFilter(
-        stable_id=None,
+        stable_id=stable_id,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
         location=LocationFilter(
@@ -56,16 +58,22 @@ def get_gtfs_feeds_query(
         subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
     ).subquery()
 
-    feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
+    feed_query = (
+        db_session.query(Gtfsfeed)
+        .outerjoin(Gtfsfeed.gtfsdatasets)
+        .filter(Gtfsfeed.id.in_(subquery))
+        .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
+    )
     if not include_wip:
         feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
 
-    feed_query = feed_query.options(
-        joinedload(Gtfsfeed.gtfsdatasets)
-        .joinedload(Gtfsdataset.validation_reports)
-        .joinedload(Validationreport.notices),
-        *get_joinedload_options(),
-    ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
+    if include_options_for_joinedload:
+        feed_query = feed_query.options(
+            contains_eager(Gtfsfeed.gtfsdatasets)
+            .joinedload(Gtfsdataset.validation_reports)
+            .joinedload(Validationreport.notices),
+            *get_joinedload_options(),
+        ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
     if is_official:
         feed_query = feed_query.filter(Feed.official)
     feed_query = feed_query.limit(limit).offset(offset)
@@ -95,9 +103,11 @@ def get_all_gtfs_feeds(
         stable_ids = (f.stable_id for f in batch)
         yield from (
             db_session.query(Gtfsfeed)
+            .outerjoin(Gtfsfeed.gtfsdatasets)
             .filter(Gtfsfeed.stable_id.in_(stable_ids))
+            .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
             .options(
-                joinedload(Gtfsfeed.gtfsdatasets)
+                contains_eager(Gtfsfeed.gtfsdatasets)
                 .joinedload(Gtfsdataset.validation_reports)
                 .joinedload(Validationreport.features),
                 *get_joinedload_options(),

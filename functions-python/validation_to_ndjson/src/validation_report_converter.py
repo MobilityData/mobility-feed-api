@@ -11,7 +11,7 @@ from shared.helpers.bq_schema.schema import (
     load_json_schema,
     filter_json_by_schema,
 )
-from utils.locations import get_feed_location
+from locations import get_feed_location
 
 # Environment variables
 project_id = os.getenv("PROJECT_ID")

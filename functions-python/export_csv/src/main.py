@@ -47,6 +47,7 @@ headers = [
     "location.subdivision_name",
     "location.municipality",
     "provider",
+    "is_official",
     "name",
     "note",
     "feed_contact_email",
@@ -113,7 +114,7 @@ def export_and_upload_csv(request=None):
 
     csv_file_path = csv_default_file_path
     export_csv(csv_file_path)
-    upload_file_to_storage(csv_file_path, "sources_v2.csv")
+    upload_file_to_storage(csv_file_path, "feeds_v2.csv")
 
     logging.info("Export successful")
     return "Export successful"
@@ -250,15 +251,16 @@ def get_feed_csv_data(feed: Feed):
     redirect_ids = []
     redirect_comments = []
     # Add concatenated redirect IDs
-    if feed.redirectingids:
-        for redirect in feed.redirectingids:
+    sorted_redirects = sorted(feed.redirectingids, key=lambda x: x.target.stable_id)
+    if sorted_redirects:
+        for redirect in sorted_redirects:
             if redirect and redirect.target and redirect.target.stable_id:
                 stripped_id = redirect.target.stable_id.strip()
                 if stripped_id:
                     redirect_ids.append(stripped_id)
                     redirect_comment = redirect.redirect_comment or ""
                     redirect_comments.append(redirect_comment)
-
+    redirect_ids = sorted(redirect_ids)
     redirect_ids_str = "|".join(redirect_ids)
     redirect_comments_str = "|".join(redirect_comments)
 
@@ -290,6 +292,7 @@ def get_feed_csv_data(feed: Feed):
         if not feed.locations or not feed.locations[0]
         else feed.locations[0].municipality,
         "provider": feed.provider,
+        "is_official": feed.official,
         "name": feed.feed_name,
         "note": feed.note,
         "feed_contact_email": feed.feed_contact_email,

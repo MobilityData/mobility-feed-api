@@ -126,7 +126,10 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
             static_reference = self.get_safe_value(row, "static_reference", "")
             if static_reference:
-                gtfs_stable_id = f"mdb-{int(float(static_reference))}"
+                try:
+                    gtfs_stable_id = f"mdb-{int(float(static_reference))}"
+                except ValueError:
+                    gtfs_stable_id = static_reference
                 gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
                 already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
                 if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
@@ -150,8 +153,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             comments = raw_comments.split("|") if raw_comments is not None else []
             if len(redirects_ids) != len(comments) and len(comments) > 0:
                 self.logger.warning(f"Number of redirect ids and redirect comments differ for feed {stable_id}")
-            for mdb_source_id in redirects_ids:
-                if len(mdb_source_id) == 0:
+            for redirect_id in redirects_ids:
+                redirect_id = redirect_id.strip() if redirect_id else ""
+                if len(redirect_id) == 0:
                     # since there is a 1:1 correspondence between redirect ids and comments, skip also the comment
                     comments = comments[1:]
                     continue
@@ -160,9 +164,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 else:
                     comment = ""
                 try:
-                    target_stable_id = f"mdb-{int(float(mdb_source_id.strip()))}"
+                    target_stable_id = f"mdb-{int(float(redirect_id))}"
                 except ValueError:
-                    target_stable_id = mdb_source_id.strip()
+                    target_stable_id = redirect_id
                 target_feed = self.query_feed_by_stable_id(session, target_stable_id, None)
                 if not target_feed:
                     self.logger.warning(f"Could not find redirect target feed {target_stable_id} for feed {stable_id}")
@@ -188,9 +192,13 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             # Create or update the GTFS feed
             data_type = self.get_data_type(row)
             stable_id = self.get_stable_id(row)
+            is_official_from_csv = self.get_safe_value(row, "is_official", "false").lower() == "true"
             feed = self.query_feed_by_stable_id(session, stable_id, data_type)
             if feed:
                 self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
+                if feed.official != is_official_from_csv:
+                    feed.official = is_official_from_csv
+                    feed.official_updated_at = datetime.now(pytz.utc)
             else:
                 feed = self.get_model(data_type)(
                     id=generate_unique_id(),
@@ -211,6 +219,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         source="mdb",
                     )
                 ]
+                feed.official = is_official_from_csv
+                feed.official_updated_at = datetime.now(pytz.utc)
+
             # Populate common fields from Feed
             feed.feed_name = self.get_safe_value(row, "name", "")
             feed.note = self.get_safe_value(row, "note", "")
