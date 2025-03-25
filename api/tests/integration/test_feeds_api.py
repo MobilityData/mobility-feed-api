@@ -292,7 +292,7 @@ def test_feeds_filter_by_official(client: TestClient, values):
         len(response_no_filter_json) == all_feeds_count
     ), f"official not specified should return {all_feeds_count} feeds but got {len(response_no_filter_json)}"
 
-    # 2 - Test with official=false should return 9 feeds
+    # 2 - Test with official=false
     response_official_false = client.request(
         "GET",
         endpoint,
@@ -308,7 +308,7 @@ def test_feeds_filter_by_official(client: TestClient, values):
         response["id"] in official_feeds for response in response_official_false_json
     ), f"official=false expected no feed with stable_id {official_feeds} since it is official"
 
-    # 3 - Test with official=true should return one feed
+    # 3 - Test with official=true
     response = client.request(
         "GET",
         endpoint,
