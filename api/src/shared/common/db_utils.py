@@ -173,7 +173,7 @@ def get_gtfs_rt_feeds_query(
     return feed_query
 
 
-def add_official_filter(query: Query, is_official: bool) -> Query:
+def add_official_filter(query: Query, is_official: bool | None) -> Query:
     """
     Add the is_official filter to the query if necessary
     """
