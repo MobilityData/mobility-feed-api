@@ -836,6 +836,27 @@ resource "google_cloud_scheduler_job" "export_csv_scheduler" {
   attempt_deadline = "600s"
 }
 
+resource "google_cloud_scheduler_job" "update_feed_status_scheduler" {
+  name = "update-feed-status-${var.environment}"
+  description = "Schedule the update_feed_status function daily"
+  time_zone = "Etc/UTC"
+  schedule = var.update_feed_status_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.update_feed_status, google_cloudfunctions2_function_iam_member.update_feed_status_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.update_feed_status.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+  }
+  attempt_deadline = "600s"
+}
+
 
 # IAM entry for all users to invoke the function
 # 12. functions/reverse_geolocation_populate cloud function
@@ -1307,6 +1328,14 @@ resource "google_cloudfunctions2_function_iam_member" "export_csv_invoker" {
   project        = var.project_id
   location       = var.gcp_region
   cloud_function = google_cloudfunctions2_function.export_csv.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloudfunctions2_function_iam_member" "update_feed_status_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.update_feed_status.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
