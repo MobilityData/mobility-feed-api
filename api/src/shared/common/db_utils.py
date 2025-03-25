@@ -71,8 +71,8 @@ def get_gtfs_feeds_query(
         .joinedload(Validationreport.notices),
         *get_joinedload_options(),
     ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-    if is_official:
-        feed_query = feed_query.filter(Feed.official)
+    feed_query = add_official_filter(feed_query, is_official)
+
     feed_query = feed_query.limit(limit).offset(offset)
     return feed_query
 
@@ -163,10 +163,22 @@ def get_gtfs_rt_feeds_query(
         joinedload(Gtfsrealtimefeed.gtfs_feeds),
         *get_joinedload_options(),
     )
-    if is_official:
-        feed_query = feed_query.filter(Feed.official)
+    feed_query = add_official_filter(feed_query, is_official)
+
     feed_query = feed_query.limit(limit).offset(offset)
     return feed_query
+
+
+def add_official_filter(query: Query, is_official: bool) -> Query:
+    """
+    Add the is_official filter to the query if necessary
+    """
+    if is_official is not None:
+        if is_official:
+            query = query.filter(Feed.official.is_(True))
+        else:
+            query = query.filter(or_(Feed.official.is_(False), Feed.official.is_(None)))
+    return query
 
 
 def get_all_gtfs_rt_feeds(

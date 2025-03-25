@@ -6,7 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy.orm.query import Query
 
-from shared.common.db_utils import get_gtfs_feeds_query, get_gtfs_rt_feeds_query, get_joinedload_options
+from shared.common.db_utils import (
+    get_gtfs_feeds_query,
+    get_gtfs_rt_feeds_query,
+    get_joinedload_options,
+    add_official_filter,
+)
 from shared.database.database import Database, with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -99,8 +104,7 @@ class FeedsApiImpl(BaseFeedsApi):
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
         feed_query = feed_filter.filter(Database().get_query_model(db_session, Feed))
-        if is_official:
-            feed_query = feed_query.filter(Feed.official)
+        feed_query = add_official_filter(feed_query, is_official)
         feed_query = feed_query.filter(Feed.data_type != "gbfs")  # Filter out GBFS feeds
         feed_query = feed_query.filter(
             or_(
@@ -360,8 +364,8 @@ class FeedsApiImpl(BaseFeedsApi):
             )
             .order_by(Gtfsrealtimefeed.provider, Gtfsrealtimefeed.stable_id)
         )
-        if is_official:
-            feed_query = feed_query.filter(Feed.official)
+        feed_query = add_official_filter(feed_query, is_official)
+
         feed_query = feed_query.limit(limit).offset(offset)
         return self._get_response(feed_query, GtfsRTFeedImpl)
 

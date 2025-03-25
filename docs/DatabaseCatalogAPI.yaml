@@ -1050,7 +1050,7 @@ components:
       required: False
       schema:
         type: boolean
-        default: false
+        default: null
 
     limit_query_param:
       name: limit
