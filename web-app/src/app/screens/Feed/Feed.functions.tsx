@@ -1,3 +1,4 @@
+import { Box, Typography } from '@mui/material';
 import { type TFunction } from 'i18next';
 
 export function formatProvidersSorted(provider: string): string[] {
@@ -62,3 +63,37 @@ export function generatePageTitle(
   newDocTitle += 'Mobility Database';
   return newDocTitle;
 }
+
+export const formatServiceDateRange = (
+  dateStart: string,
+  dateEnd: string,
+  timeZone?: string,
+): JSX.Element => {
+  const startDate = new Date(dateStart);
+  const endDate = new Date(dateEnd);
+  const usedTimezone = timeZone ?? 'UTC';
+  // Note: If the timezone isn't set, it will default to UTC
+  // If the timezone is set, but has an invalid value, it will default to the user's local timezone
+  const formattedDateStart = new Intl.DateTimeFormat('en-US', {
+    timeZone: usedTimezone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(startDate);
+  const formattedDateEnd = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(endDate);
+  return (
+    <Box>
+      <Typography variant='body1'>
+        {formattedDateStart}{' '}
+        <Typography component={'span'} sx={{ mx: 1, fontSize: '14px' }}>
+          -
+        </Typography>{' '}
+        {formattedDateEnd}
+      </Typography>
+    </Box>
+  );
+};

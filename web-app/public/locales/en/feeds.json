@@ -101,7 +101,7 @@
   "qualityReportUpdated": "Quality report updated",
   "officialFeedUpdated": "Official verification updated",
   "serviceDateRange": "Service Date Range",
-  "serviceDateRangeTooltip": "Dates are relative to local timezone",
+  "serviceDateRangeTooltip": "Dates are relative to the specified timezone. If no timezone is specified, the dates are in UTC.",
   "heatmapIntensity": "Stop Density",
   "heatmapExplanationTitle": "What does this mean?",
   "heatmapExplanationContent": "This color scale shows the percentage of stops from <code>stops.txt</code> that are located within each geographic area. Darker colors indicate areas where a higher percentage of stops are covered.",
@@ -128,5 +128,16 @@
       "toolTip": "Future Feed",
       "toolTipLong": "This feed is not yet active but will be used in the future."
     }
+  },
+  "datasetHistory": "Dataset History",
+  "datasetHistoryDescription": "The Mobility Database fetches and stores new datasets twice a week, on Mondays and Thursdays at midnight EST.",
+  "datasets": "Datasets",
+  "validationReportNotAvailable": "Validation report not available",
+  "runValidationReportYourself": "Run Validator Yourself",
+  "datasetHistoryTooltip": {
+    "serviceDateRange": "Service date range of when this dataset is active",
+    "downloadReport": "Download the dataset for this feed",
+    "viewReport": "View Validation Report",
+    "viewJsonReport": "View Validation Report in JSON format"
   }
 }
