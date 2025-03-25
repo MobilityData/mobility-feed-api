@@ -305,7 +305,7 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker" {
 resource "google_cloud_scheduler_job" "job" {
   name             = "${var.job_name}-${var.environment}"
   description      = "Batch job to process datasets"
-  schedule         = "0 0 * * *" # Runs daily at midnight UTC
+  schedule         = var.job_schedule
   time_zone        = "Etc/UTC"
   attempt_deadline = var.job_attempt_deadline
   paused           = var.environment == "prod" ? false : true
