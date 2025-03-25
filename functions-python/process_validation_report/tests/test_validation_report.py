@@ -2,6 +2,7 @@ import os
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
+from datetime import datetime, timezone
 
 from faker import Faker
 
@@ -224,8 +225,15 @@ class TestValidationReportProcessor(unittest.TestCase):
 
         populate_service_date(dataset, json_report)
 
-        self.assertEqual(dataset.service_date_range_start, "2024-01-01")
-        self.assertEqual(dataset.service_date_range_end, "2024-12-31")
+        expected_range_start = datetime.strptime("2024-01-01", "%Y-%m-%d").replace(
+            hour=0, minute=0, tzinfo=timezone.utc
+        )
+        expected_range_end = datetime.strptime("2024-12-31", "%Y-%m-%d").replace(
+            hour=23, minute=59, tzinfo=timezone.utc
+        )
+
+        self.assertEqual(dataset.service_date_range_start, expected_range_start)
+        self.assertEqual(dataset.service_date_range_end, expected_range_end)
 
     def test_populate_service_date_valid_empty_dates(self):
         """Test populate_service_date function."""
