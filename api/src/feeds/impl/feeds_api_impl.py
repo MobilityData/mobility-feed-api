@@ -198,7 +198,7 @@ class FeedsApiImpl(BaseFeedsApi):
         db_session: Session,
     ) -> List[GtfsFeed]:
         try:
-            include_wip = not is_user_email_restricted()
+            published_only = is_user_email_restricted()
             feed_query = get_gtfs_feeds_query(
                 limit=limit,
                 offset=offset,
@@ -211,7 +211,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 dataset_longitudes=dataset_longitudes,
                 bounding_filter_method=bounding_filter_method,
                 is_official=is_official,
-                include_wip=include_wip,
+                published_only=published_only,
                 db_session=db_session,
             )
         except InternalHTTPException as e:
@@ -269,7 +269,7 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[GtfsRTFeed]:
         """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
         try:
-            include_wip = not is_user_email_restricted()
+            published_only = is_user_email_restricted()
             feed_query = get_gtfs_rt_feeds_query(
                 limit=limit,
                 offset=offset,
@@ -280,7 +280,7 @@ class FeedsApiImpl(BaseFeedsApi):
                 subdivision_name=subdivision_name,
                 municipality=municipality,
                 is_official=is_official,
-                include_wip=include_wip,
+                published_only=published_only,
                 db_session=db_session,
             )
         except InternalHTTPException as e:

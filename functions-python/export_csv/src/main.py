@@ -145,14 +145,14 @@ def fetch_feeds() -> Iterator[Dict]:
     try:
         with db.start_db_session() as session:
             feed_count = 0
-            for feed in get_all_gtfs_feeds(session, include_wip=False):
+            for feed in get_all_gtfs_feeds(session, published_only=True):
                 yield get_gtfs_feed_csv_data(feed)
                 feed_count += 1
 
             logging.info(f"Processed {feed_count} GTFS feeds.")
 
             rt_feed_count = 0
-            for feed in get_all_gtfs_rt_feeds(session, include_wip=False):
+            for feed in get_all_gtfs_rt_feeds(session, published_only=True):
                 yield get_gtfs_rt_feed_csv_data(feed)
                 rt_feed_count += 1
 

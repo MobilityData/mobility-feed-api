@@ -38,7 +38,7 @@ def get_gtfs_feeds_query(
     dataset_longitudes: str | None = None,
     bounding_filter_method: str | None = None,
     is_official: bool = False,
-    include_wip: bool = False,
+    published_only: bool = True,
     include_options_for_joinedload: bool = True,
 ) -> Query[any]:
     """Get the DB query to use to retrieve the GTFS feeds.."""
@@ -64,7 +64,7 @@ def get_gtfs_feeds_query(
         .filter(Gtfsfeed.id.in_(subquery))
         .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
     )
-    if not include_wip:
+    if published_only:
         feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
 
     if include_options_for_joinedload:
@@ -81,21 +81,21 @@ def get_gtfs_feeds_query(
 
 def get_all_gtfs_feeds(
     db_session: Session,
-    include_wip: bool = False,
+    published_only: bool = True,
     batch_size: int = 250,
 ) -> Iterator[Gtfsfeed]:
     """
     Fetch all GTFS feeds.
 
     @param db_session: The database session.
-    @param include_wip: Whether to include or exclude WIP feeds.
+    @param published_only: Include only the published feeds.
     @param batch_size: The number of feeds to fetch from the database at a time.
         A lower value means less memory but more queries.
 
     @return: The GTFS feeds in an iterator.
     """
     feed_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
-    if not include_wip:
+    if published_only:
         feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
 
     for batch in batched(feed_query, batch_size):
@@ -125,7 +125,7 @@ def get_gtfs_rt_feeds_query(
     subdivision_name: str | None,
     municipality: str | None,
     is_official: bool | None,
-    include_wip: bool = False,
+    published_only: bool = True,
     db_session: Session = None,
 ) -> Query:
     """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
@@ -159,7 +159,7 @@ def get_gtfs_rt_feeds_query(
     ).subquery()
     feed_query = db_session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.id.in_(subquery))
 
-    if not include_wip:
+    if published_only:
         feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
     feed_query = feed_query.options(
@@ -187,21 +187,21 @@ def add_official_filter(query: Query, is_official: bool) -> Query:
 
 def get_all_gtfs_rt_feeds(
     db_session: Session,
-    include_wip: bool = False,
+    published_only: bool = True,
     batch_size: int = 250,
 ) -> Iterator[Gtfsrealtimefeed]:
     """
     Fetch all GTFS realtime feeds.
 
     @param db_session: The database session.
-    @param include_wip: Whether to include or exclude WIP feeds.
+    @param published_only: Include only the published feeds.
     @param batch_size: The number of feeds to fetch from the database at a time.
         A lower value means less memory but more queries.
 
     @return: The GTFS realtime feeds in an iterator.
     """
     feed_query = db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id).yield_per(batch_size)
-    if not include_wip:
+    if published_only:
         feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
     for batch in batched(feed_query, batch_size):
