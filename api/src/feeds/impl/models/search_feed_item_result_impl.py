@@ -46,6 +46,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 hash=feed_search_row.latest_dataset_hash,
                 service_date_range_start=feed_search_row.latest_dataset_service_date_range_start,
                 service_date_range_end=feed_search_row.latest_dataset_service_date_range_end,
+                agency_timezone=feed_search_row.latest_dataset_agency_timezone,
             )
             if feed_search_row.latest_dataset_id
             else None,

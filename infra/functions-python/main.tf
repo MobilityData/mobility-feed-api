@@ -701,6 +701,7 @@ resource "google_cloudfunctions2_function" "backfill_dataset_service_date_range"
 
     environment_variables = {
       # prevents multiline logs from being truncated on GCP console
+      ENV = var.environment
       PYTHONNODEBUGRANGES = 0
     }
     dynamic "secret_environment_variables" {

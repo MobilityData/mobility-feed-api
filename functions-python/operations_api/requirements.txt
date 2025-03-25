@@ -30,3 +30,4 @@ geoalchemy2==0.14.7
 psycopg2-binary==2.9.6
 cachetools
 deepdiff
+fastapi_filter
