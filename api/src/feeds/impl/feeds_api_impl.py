@@ -131,13 +131,14 @@ class FeedsApiImpl(BaseFeedsApi):
         else:
             raise_http_error(404, gtfs_feed_not_found.format(id))
 
-    @staticmethod
     def _get_gtfs_feed(
-        stable_id: str, db_session: Session, include_options_for_joinedload: bool = True
+        self, stable_id: str, db_session: Session, include_options_for_joinedload: bool = True
     ) -> Optional[Gtfsfeed]:
-        results = get_gtfs_feeds_query(
+        query = get_gtfs_feeds_query(
             db_session=db_session, stable_id=stable_id, include_options_for_joinedload=include_options_for_joinedload
-        ).all()
+        )
+        self.logger.debug("Query: %s", str(query.statement.compile(compile_kwargs={"literal_binds": True})))
+        results = query.all()
         if len(results) == 0:
             return None
         return results[0]
