@@ -97,7 +97,7 @@ export default function Feed(): React.ReactElement {
             offset: paginationOffset,
             search_query: activeSearch,
             data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
-            is_official: isOfficialFeedSearch,
+            is_official: isOfficialFeedSearch || undefined,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
             status: ['active', 'inactive', 'development'],

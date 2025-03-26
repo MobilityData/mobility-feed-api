@@ -49,12 +49,6 @@ jobs:
       id: getpath
       run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r integration-tests/requirements.txt
-        pip install -r api/requirements.txt
-
     - name: Set up JDK ${{ env.java_version }}
       uses: actions/setup-java@v4
       with:
@@ -109,11 +103,6 @@ jobs:
         chmod 600 ~/.ssh/id_rsa             
         ./scripts/tunnel-create.sh -project_id ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }} -zone ${{ vars.MOBILITY_FEEDS_REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.DB_INSTANCE_NAME }} -port 5454
         sleep 10 # Wait for the tunnel to establish
-
-    - name: Test Database Connection Through Tunnel
-      run: |
-        sudo apt-get update && sudo apt-get install -y postgresql-client
-        PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5454 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d ${{ vars.QA_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
 
     - name: Update .env.local
       run: |

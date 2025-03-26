@@ -16,6 +16,7 @@
         "serviceAlerts": "Service Alerts"
     },
     "loading": "Loading...",
+    "download": "Download",
     "errors": {
         "generic": "We are unable to complete your request at the moment."
     },

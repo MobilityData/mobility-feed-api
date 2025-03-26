@@ -1,12 +1,13 @@
 import logging
 import os
 import functions_framework
-from datetime import date
+from datetime import datetime, timezone
 from shared.helpers.logger import Logger
 from shared.helpers.database import Database
 from typing import TYPE_CHECKING
 from sqlalchemy import text
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, t_feedsearch
+from shared.helpers.database import refresh_materialized_view
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 #  query to update the status of the feeds based on the service date range of the latest dataset
 def update_feed_statuses_query(session: "Session"):
-    today = date.today()
+    today_utc = datetime.now(timezone.utc).date()
 
     latest_dataset_subq = (
         session.query(
@@ -34,16 +35,16 @@ def update_feed_statuses_query(session: "Session"):
 
     status_conditions = [
         (
-            latest_dataset_subq.c.service_date_range_end < today,
+            latest_dataset_subq.c.service_date_range_end < today_utc,
             "inactive",
         ),
         (
-            latest_dataset_subq.c.service_date_range_start > today,
+            latest_dataset_subq.c.service_date_range_start > today_utc,
             "future",
         ),
         (
-            (latest_dataset_subq.c.service_date_range_start <= today)
-            & (latest_dataset_subq.c.service_date_range_end >= today),
+            (latest_dataset_subq.c.service_date_range_start <= today_utc)
+            & (latest_dataset_subq.c.service_date_range_end >= today_utc),
             "active",
         ),
     ]
@@ -72,6 +73,7 @@ def update_feed_statuses_query(session: "Session"):
 
     try:
         session.commit()
+        refresh_materialized_view(session, t_feedsearch.name)
         logging.info("Feed Database changes committed.")
         session.close()
         return diff_counts

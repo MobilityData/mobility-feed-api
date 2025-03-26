@@ -86,3 +86,9 @@ variable "export_csv_schedule" {
     description = "Schedule the export_csv function"
     default = "0 4 * * 2,5" # At 4am every Tuesday and Friday.
 }
+
+variable "update_feed_status_schedule" {
+    type        = string
+    description = "Schedule the update_feed_status function"
+    default     = "0 4 * * *" # At 4am every day.
+}

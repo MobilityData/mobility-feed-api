@@ -390,15 +390,29 @@ def test_search_feeds_filter_accents(client: TestClient, values: dict):
     assert all(result.id in values["expected_ids"] for result in response_body.results)
 
 
-def test_search_filter_by_official_status(client: TestClient):
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"official": True, "expected_count": 2},
+        {"official": False, "expected_count": 11},
+        {"official": None, "expected_count": 13},
+    ],
+    ids=[
+        "Official",
+        "Not official",
+        "Not specified",
+    ],
+)
+def test_search_filter_by_official_status(client: TestClient, values: dict):
     """
     Retrieve feeds with the official status.
     """
-    params = [
-        ("limit", 100),
-        ("offset", 0),
-        ("is_official", "true"),
-    ]
+    params = None
+    if values["official"] is not None:
+        params = [
+            ("is_official", str(values["official"]).lower()),
+        ]
+
     headers = {
         "Authentication": "special-key",
     }
@@ -410,4 +424,7 @@ def test_search_filter_by_official_status(client: TestClient):
     )
     # Parse the response body into a Python object
     response_body = SearchFeeds200Response.parse_obj(response.json())
-    assert response_body.total == 2, "There should be 2 official feeds in extra_test_data.json"
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds for official={values['official']}"

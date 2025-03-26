@@ -584,15 +584,19 @@ components:
           type: string
           example: ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
         service_date_range_start:
-          description: The start date of the service date range for the dataset.
+          description: The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
           type: string
-          example: 2023-07-10
-          format: date
+          example: 2023-07-10T06:00:00Z
+          format: date-time
         service_date_range_end:
-          description: The start date of the service date range for the dataset.
+          description: The start date of the service date range for the dataset in UTC. Timing ends at 23:59:59 of the day.
           type: string
-          example: 2023-07-10
-          format: date
+          example: 2023-07-10T05:59:59+00Z
+          format: date-time
+        agency_timezone:
+          description: The timezone of the agency.
+          type: string
+          example: America/Los_Angeles
         validation_report:
           type: object
           properties:
@@ -784,15 +788,19 @@ components:
             validation_report:
               $ref: "#/components/schemas/ValidationReport"
             service_date_range_start:
-              description: The start date of the service date range for the dataset.
+              description: The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
               type: string
-              example: 2023-07-10
-              format: date
+              example: 2023-07-10T06:00:00Z
+              format: date-time
             service_date_range_end:
-              description: The start date of the service date range for the dataset.
+              description: The start date of the service date range for the dataset in UTC. Timing ends at 23:59:59 of the day.
               type: string
-              example: 2023-07-10
-              format: date
+              example: 2023-07-10T05:59:59+00Z
+              format: date-time
+            agency_timezone:
+              description: The timezone of the agency.
+              type: string
+              example: America/Los_Angeles
 
     BoundingBox:
       description: Bounding box of the dataset when it was first added to the catalog.
@@ -1050,7 +1058,7 @@ components:
       required: False
       schema:
         type: boolean
-        default: false
+        default: null
 
     limit_query_param:
       name: limit

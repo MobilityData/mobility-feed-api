@@ -9,8 +9,9 @@
       "hash": "hash-1",
       "latest": true,
       "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
-      "service_date_range_start": "2024-01-01",
-      "service_date_range_end":"2025-01-01"
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     },
     {
       "id": "dataset-2",
@@ -20,8 +21,9 @@
       "hash": "hash-2",
       "latest": false,
       "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
-      "service_date_range_start": "2024-01-01",
-      "service_date_range_end":"2025-01-01"
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     },
     {
       "id": "dataset-3",
@@ -31,8 +33,9 @@
       "hash": "hash-3",
       "latest": true,
       "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
-      "service_date_range_start": "2024-01-01",
-      "service_date_range_end":"2025-01-01"
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     },
     {
       "id": "dataset-4",
@@ -42,8 +45,9 @@
       "hash": "hash-4",
       "latest": false,
       "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
-      "service_date_range_start": "2024-01-01",
-      "service_date_range_end":"2025-01-01"
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     },
     {
       "id": "dataset-5",
@@ -53,8 +57,9 @@
       "hash": "hash-5",
       "latest": true,
       "bounding_box": "POLYGON((-122.75 36.8, -122.75 37.8, -121.75 37.8, -121.75 36.8, -122.75 36.8))",
-      "service_date_range_start": "2024-01-01",
-      "service_date_range_end":"2025-01-01"
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     }
   ],
   "validation_reports": [

@@ -52,8 +52,11 @@ class SearchApiImpl(BaseSearchApi):
             status_list = [s.strip().lower() for s in status[0].split(",") if s]
             if status_list:
                 query = query.where(t_feedsearch.c.status.in_([s.strip().lower() for s in status_list]))
-        if is_official is not None and is_official:
-            query = query.where(t_feedsearch.c.official == is_official)
+        if is_official is not None:
+            if is_official:
+                query = query.where(t_feedsearch.c.official.is_(True))
+            else:
+                query = query.where(or_(t_feedsearch.c.official.is_(False), t_feedsearch.c.official.is_(None)))
         if search_query and len(search_query.strip()) > 0:
             query = query.filter(
                 t_feedsearch.c.document.op("@@")(SearchApiImpl.get_parsed_search_tsquery(search_query))

@@ -247,15 +247,40 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
 
 
 @pytest.mark.parametrize(
-    "endpoint",
+    "values",
     [
-        "/v1/gtfs_feeds",
-        "/v1/gtfs_rt_feeds",
-        "/v1/feeds",
+        {
+            "endpoint": "/v1/gtfs_feeds",
+            "all_feeds_count": 10,
+            "false_feeds_count": 9,
+            "true_feeds_count": 1,
+            "official_feeds": ["mdb-40"],
+        },
+        {
+            "endpoint": "/v1/gtfs_rt_feeds",
+            "all_feeds_count": 3,
+            "false_feeds_count": 2,
+            "true_feeds_count": 1,
+            "official_feeds": ["mdb-1562"],
+        },
+        {
+            "endpoint": "/v1/feeds",
+            "all_feeds_count": 13,
+            "false_feeds_count": 11,
+            "true_feeds_count": 2,
+            "official_feeds": ["mdb-1562", "mdb-40"],
+        },
     ],
+    ids=["gtfs_feeds", "gtfs_rt_feeds", "feeds"],
 )
-def test_feeds_filter_by_official(client: TestClient, endpoint):
-    # 1 - Test with official=false should return all feeds
+def test_feeds_filter_by_official(client: TestClient, values):
+    endpoint = values["endpoint"]
+    official_feeds = values["official_feeds"]
+    all_feeds_count = values["all_feeds_count"]
+    false_feeds_count = values["false_feeds_count"]
+    true_feeds_count = values["true_feeds_count"]
+
+    # 1 - Test with official not specified should return all feeds
     response_no_filter = client.request(
         "GET",
         endpoint,
@@ -263,6 +288,11 @@ def test_feeds_filter_by_official(client: TestClient, endpoint):
     )
     assert response_no_filter.status_code == 200
     response_no_filter_json = response_no_filter.json()
+    assert (
+        len(response_no_filter_json) == all_feeds_count
+    ), f"official not specified should return {all_feeds_count} feeds but got {len(response_no_filter_json)}"
+
+    # 2 - Test with official=false
     response_official_false = client.request(
         "GET",
         endpoint,
@@ -271,8 +301,14 @@ def test_feeds_filter_by_official(client: TestClient, endpoint):
     )
     assert response_official_false.status_code == 200
     response_official_false_json = response_official_false.json()
-    assert response_no_filter_json == response_official_false_json, "official=false parameter should return all feeds"
-    # 2 - Test with official=true should return at least one feed
+    assert (
+        len(response_official_false_json) == false_feeds_count
+    ), f"official=false should return {false_feeds_count} feeds but got {len(response_official_false_json)}"
+    assert not any(
+        response["id"] in official_feeds for response in response_official_false_json
+    ), f"official=false expected no feed with stable_id {official_feeds} since it is official"
+
+    # 3 - Test with official=true
     response = client.request(
         "GET",
         endpoint,
@@ -281,7 +317,8 @@ def test_feeds_filter_by_official(client: TestClient, endpoint):
     )
     assert response.status_code == 200
     json_response = response.json()
-    assert len(json_response) < len(response_no_filter_json), "Not all feeds are official"
+    assert len(json_response) == true_feeds_count, f"official=true should return {true_feeds_count} feeds"
+    assert json_response[0]["id"] in official_feeds, f"official=true should return {official_feeds}"
 
 
 def test_non_existent_gtfs_rt_feed_get(client: TestClient):
