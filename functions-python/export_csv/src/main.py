@@ -130,6 +130,7 @@ def export_csv(csv_file_path: str):
 
         count = 0
         for feed in fetch_feeds():
+            # We're counting on the writer to leave an empty field in the csv for None values
             writer.writerow(feed)
             count += 1
 
