@@ -1,14 +1,41 @@
 from unittest.mock import patch, MagicMock
 from test_shared.test_utils.database_utils import default_db_url, get_testing_session
 from main import (
-    fetch_feeds,
     update_feed_status,
     update_feed_statuses_query,
-    PartialFeed,
 )
+from shared.database_gen.sqlacodegen_models import Feed
 from datetime import date, timedelta
+from typing import Iterator, NamedTuple
 
 import os
+
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+
+class PartialFeed(NamedTuple):
+    """
+    Subset of the Feed entity with only the fields queried in `fetch_feeds`.
+    """
+
+    id: str
+    status: str
+
+
+def fetch_feeds(session: Session) -> Iterator[PartialFeed]:
+    query = (
+        session
+        # When adding or removing fields here, `PartialFeed` should be updated to
+        # match, for type safety.
+        .query(Feed.id, Feed.status)
+        .filter(
+            Feed.status != text("'deprecated'::status"),
+            Feed.status != text("'development'::status"),
+        )
+    )
+    for feed in query:
+        yield PartialFeed(id=feed.id, status=feed.status)
 
 
 def test_update_feed_status():
