@@ -37,7 +37,7 @@ def get_gtfs_feeds_query(
     dataset_latitudes: str | None = None,
     dataset_longitudes: str | None = None,
     bounding_filter_method: str | None = None,
-    is_official: bool = False,
+    is_official: bool | None = None,
     published_only: bool = True,
     include_options_for_joinedload: bool = True,
 ) -> Query[any]:
@@ -50,7 +50,9 @@ def get_gtfs_feeds_query(
             country_code=country_code,
             subdivision_name__ilike=subdivision_name,
             municipality__ilike=municipality,
-        ),
+        )
+        if country_code or subdivision_name or municipality
+        else None,
     )
 
     subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id).join(Location, Gtfsfeed.locations))
@@ -61,11 +63,13 @@ def get_gtfs_feeds_query(
     feed_query = (
         db_session.query(Gtfsfeed)
         .outerjoin(Gtfsfeed.gtfsdatasets)
-        .filter(Gtfsfeed.id.in_(subquery))
+        .join(subquery, Gtfsfeed.id == subquery.c.id)
         .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
     )
     if published_only:
         feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
+
+    feed_query = add_official_filter(feed_query, is_official)
 
     if include_options_for_joinedload:
         feed_query = feed_query.options(
@@ -74,7 +78,7 @@ def get_gtfs_feeds_query(
             .joinedload(Validationreport.notices),
             *get_joinedload_options(),
         ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-    feed_query = add_official_filter(feed_query, is_official)
+
     feed_query = feed_query.limit(limit).offset(offset)
     return feed_query
 
