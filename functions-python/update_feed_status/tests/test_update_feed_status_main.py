@@ -24,15 +24,11 @@ class PartialFeed(NamedTuple):
 
 
 def fetch_feeds(session: Session) -> Iterator[PartialFeed]:
-    query = (
-        session
-        # When adding or removing fields here, `PartialFeed` should be updated to
-        # match, for type safety.
-        .query(Feed.id, Feed.status)
-        .filter(
-            Feed.status != text("'deprecated'::status"),
-            Feed.status != text("'development'::status"),
-        )
+    # When adding or removing fields here, `PartialFeed` should be updated to
+    # match, for type safety.
+    query = session.query(Feed.id, Feed.status).filter(
+        Feed.status != text("'deprecated'::status"),
+        Feed.status != text("'development'::status"),
     )
     for feed in query:
         yield PartialFeed(id=feed.id, status=feed.status)
