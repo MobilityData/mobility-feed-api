@@ -212,6 +212,7 @@ resource "google_datastore_index" "batch_execution_index_execution_id_timestamp"
     name      = "execution_id"
     direction = "ASCENDING"
   }
+
   properties {
     name      = "timestamp"
     direction = "ASCENDING"
