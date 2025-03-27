@@ -419,7 +419,8 @@ def test_get_gtfs_feed_datasets_with_limit(client: TestClient):
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[0]
+    # the second dataset should be returned as it is the most recent
+    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[1]
 
 
 def test_get_gtfs_feed_datasets_with_offset(client: TestClient):
@@ -434,7 +435,8 @@ def test_get_gtfs_feed_datasets_with_offset(client: TestClient):
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[1]
+    # The first dataset should be returned as it the oldest
+    assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[0]
 
 
 def test_get_gtfs_feed_datasets_with_downloaded_after_after(client: TestClient):
@@ -478,7 +480,7 @@ def test_get_gtfs_feed_datasets_with_downloaded_after_first(client: TestClient):
     Expected result: the full list of datasets
     """
     datasets = get_all_datasets(client)
-    datasets.pop(0)
+    datasets.pop(len(datasets) - 1)
     date = datasets_download_first_date + timedelta(days=1)
     response = client.request(
         "GET",

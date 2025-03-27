@@ -28,13 +28,17 @@ class DatasetsApiImpl(BaseDatasetsApi):
 
     @staticmethod
     def create_dataset_query() -> Query:
-        return Query(
-            [
-                Gtfsdataset,
-                Gtfsdataset.bounding_box.ST_AsGeoJSON(),
-                Feed.stable_id,
-            ]
-        ).join(Feed, Feed.id == Gtfsdataset.feed_id)
+        return (
+            Query(
+                [
+                    Gtfsdataset,
+                    Gtfsdataset.bounding_box.ST_AsGeoJSON(),
+                    Feed.stable_id,
+                ]
+            )
+            .join(Feed, Feed.id == Gtfsdataset.feed_id)
+            .order_by(Gtfsdataset.downloaded_at.desc())
+        )
 
     @staticmethod
     def get_datasets_gtfs(query: Query, session: Session, limit: int = None, offset: int = None) -> List[GtfsDataset]:
