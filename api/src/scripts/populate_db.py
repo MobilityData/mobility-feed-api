@@ -80,7 +80,7 @@ class DatabasePopulateHelper:
         """
         Get a safe value from the row
         """
-        value = row[column_name]
+        value = row.get(column_name)
         if not value or pandas.isna(value) or f"{value}".strip() == "":
             return default_value
         return f"{value}".strip()
@@ -92,7 +92,7 @@ class DatabasePopulateHelper:
         Only allowed values are "true" and "false" (case insensitive)
         Anything else returns the default.
         """
-        value = row[column_name]
+        value = row.get(column_name)
         if value is None or pandas.isna(value) or f"{value}".strip() == "":
             return default_value
         # I am not sure if pandas will convert "TRUE" and "FALSE" to boolean, so go back to using a string
