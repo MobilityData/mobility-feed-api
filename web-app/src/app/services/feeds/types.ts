@@ -44,7 +44,7 @@ export interface paths {
     };
   };
   '/v1/gtfs_feeds/{id}/datasets': {
-    /** @description Get a list of datasets related to a GTFS feed. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
+    /** @description Get a list of datasets associated with a GTFS feed. Once a day, we check whether the latest dataset has changed; if it has, we update it in our system. The list is sorted from newest to oldest. */
     get: operations['getGtfsFeedDatasets'];
     parameters: {
       path: {
@@ -714,7 +714,7 @@ export interface operations {
       };
     };
   };
-  /** @description Get a list of datasets related to a GTFS feed. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
+  /** @description Get a list of datasets associated with a GTFS feed. Once a day, we check whether the latest dataset has changed; if it has, we update it in our system. The list is sorted from newest to oldest. */
   getGtfsFeedDatasets: {
     parameters: {
       query?: {
