@@ -435,7 +435,7 @@ def test_get_gtfs_feed_datasets_with_offset(client: TestClient):
 
     assert response.status_code == 200
     assert len(response.json()) == 1
-    # The first dataset should be returned as it the oldest
+    # The first dataset should be returned as it is the oldest
     assert response.json()[0]["id"] == TEST_DATASET_STABLE_IDS[0]
 
 
