@@ -37,7 +37,7 @@ def get_gtfs_feeds_query(
     dataset_latitudes: str | None = None,
     dataset_longitudes: str | None = None,
     bounding_filter_method: str | None = None,
-    is_official: bool = False,
+    is_official: bool | None = None,
     published_only: bool = True,
     include_options_for_joinedload: bool = True,
 ) -> Query[any]:
@@ -46,26 +46,33 @@ def get_gtfs_feeds_query(
         stable_id=stable_id,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
-        location=LocationFilter(
-            country_code=country_code,
-            subdivision_name__ilike=subdivision_name,
-            municipality__ilike=municipality,
-        ),
+        location=None,
     )
 
-    subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id).join(Location, Gtfsfeed.locations))
+    subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id))
     subquery = apply_bounding_filtering(
         subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
     ).subquery()
-
     feed_query = (
         db_session.query(Gtfsfeed)
         .outerjoin(Gtfsfeed.gtfsdatasets)
         .filter(Gtfsfeed.id.in_(subquery))
-        .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
+        .filter(or_(Gtfsdataset.latest, Gtfsdataset.id == None))  # noqa: E711
     )
+
+    if country_code or subdivision_name or municipality:
+        location_filter = LocationFilter(
+            country_code=country_code,
+            subdivision_name__ilike=subdivision_name,
+            municipality__ilike=municipality,
+        )
+        location_subquery = location_filter.filter(select(Location.id))
+        feed_query = feed_query.filter(Gtfsfeed.locations.any(Location.id.in_(location_subquery)))
+
     if published_only:
         feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
+
+    feed_query = add_official_filter(feed_query, is_official)
 
     if include_options_for_joinedload:
         feed_query = feed_query.options(
@@ -74,7 +81,7 @@ def get_gtfs_feeds_query(
             .joinedload(Validationreport.notices),
             *get_joinedload_options(),
         ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-    feed_query = add_official_filter(feed_query, is_official)
+
     feed_query = feed_query.limit(limit).offset(offset)
     return feed_query
 

@@ -73,6 +73,9 @@ resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
   location = var.gcp_region
   uniform_bucket_level_access = false
+  autoclass {
+    enabled = true
+  }
   soft_delete_policy {
     retention_duration_seconds = local.retention_duration_seconds
   }
@@ -212,6 +215,7 @@ resource "google_datastore_index" "batch_execution_index_execution_id_timestamp"
     name      = "execution_id"
     direction = "ASCENDING"
   }
+
   properties {
     name      = "timestamp"
     direction = "ASCENDING"
