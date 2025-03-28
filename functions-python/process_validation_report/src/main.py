@@ -164,7 +164,26 @@ def generate_report_entities(
         feature = get_feature(feature_name, session)
         feature.validations.append(validation_report_entity)
         entities.append(feature)
+
+    # Initialize counters for notices
+    total_info, total_warning, total_error = 0, 0, 0
+    info_codes, warning_codes, error_codes = set(), set(), set()
+
     for notice in json_report["notices"]:
+        # Update counters based on severity
+        match notice["severity"]:
+            case "INFO":
+                total_info += notice["totalNotices"]
+                info_codes.add(notice["code"])
+            case "WARNING":
+                total_warning += notice["totalNotices"]
+                warning_codes.add(notice["code"])
+            case "ERROR":
+                total_error += notice["totalNotices"]
+                error_codes.add(notice["code"])
+            case _:
+                logging.warning(f"Unknown severity: {notice['severity']}")
+
         notice_entity = Notice(
             dataset_id=dataset.id,
             validation_report_id=report_id,
@@ -174,6 +193,13 @@ def generate_report_entities(
         )
         dataset.notices.append(notice_entity)
         entities.append(notice_entity)
+
+    validation_report_entity.total_info = total_info
+    validation_report_entity.total_warning = total_warning
+    validation_report_entity.total_error = total_error
+    validation_report_entity.distinct_info_codes = len(info_codes)
+    validation_report_entity.distinct_warning_codes = len(warning_codes)
+    validation_report_entity.distinct_error_codes = len(error_codes)
     return entities
 
 
