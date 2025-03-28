@@ -80,7 +80,7 @@ class DatabasePopulateHelper:
         """
         Get a safe value from the row
         """
-        value = row[column_name]
+        value = row.get(column_name)
         if not value or pandas.isna(value) or f"{value}".strip() == "":
             return default_value
         return f"{value}".strip()
