@@ -1,16 +1,15 @@
 from datetime import datetime
 
 import pandas as pd
-import pytz
 import pycountry
+import pytz
 
-from shared.database.database import generate_unique_id, configure_polymorphic_mappers
-from shared.database_gen.sqlacodegen_models import Gbfsfeed, Location, Gbfsversion, Externalid
 from scripts.gbfs_utils.comparison import generate_system_csv_from_db, compare_db_to_csv
-from scripts.gbfs_utils.fetching import fetch_data, get_data_content, get_gbfs_versions
+from scripts.gbfs_utils.fetching import fetch_data, get_data_content
 from scripts.gbfs_utils.license import get_license_url
 from scripts.populate_db import DatabasePopulateHelper, set_up_configs
-from scripts.gbfs_utils.gbfs_versions import OFFICIAL_VERSIONS
+from shared.database.database import generate_unique_id, configure_polymorphic_mappers
+from shared.database_gen.sqlacodegen_models import Gbfsfeed, Location, Externalid
 
 
 class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
@@ -45,7 +44,6 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                 if gbfs_feed:
                     self.logger.info(f"Deprecating feed with stable_id={stable_id}")
                     gbfs_feed.status = "deprecated"
-                    # session.flush()
 
     def populate_db(self):
         """Populate the database with the GBFS feeds"""
@@ -65,12 +63,9 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                     self.logger.info(f"Processing row {index + 1} of {len(added_or_updated_feeds)}")
                     stable_id = self.get_stable_id(row)
                     gbfs_feed = self.query_feed_by_stable_id(session, stable_id, "gbfs")
-                    fetched_data = fetch_data(
-                        row["Auto-Discovery URL"], self.logger, ["system_information", "gbfs_versions"], ["version"]
-                    )
+                    fetched_data = fetch_data(row["Auto-Discovery URL"], self.logger, ["system_information"])
                     # If the feed already exists, update it. Otherwise, create a new feed.
                     if gbfs_feed:
-                        feed_id = gbfs_feed.id
                         self.logger.info(f"Updating feed {stable_id} - {row['Name']}")
                     else:
                         feed_id = generate_unique_id()
@@ -108,26 +103,6 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                     gbfs_feed.locations.clear()
                     gbfs_feed.locations = [location]
 
-                    # Add the GBFS versions
-                    versions = get_gbfs_versions(
-                        fetched_data.get("gbfs_versions"),
-                        row["Auto-Discovery URL"],
-                        fetched_data.get("version"),
-                        self.logger,
-                    )
-                    existing_versions = [version.version for version in gbfs_feed.gbfsversions]
-                    for version in versions:
-                        version_value = version.get("version")
-                        if version_value.upper() in OFFICIAL_VERSIONS and version_value not in existing_versions:
-                            gbfs_feed.gbfsversions.append(
-                                Gbfsversion(
-                                    feed_id=feed_id,
-                                    url=version.get("url"),
-                                    version=version_value,
-                                )
-                            )
-
-                    # self.db.session.flush()
                     self.logger.info(80 * "-")
 
                     # self.db.session.commit()
