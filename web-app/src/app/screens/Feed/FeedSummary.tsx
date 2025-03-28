@@ -31,8 +31,10 @@ import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { FeedStatusIndicator } from '../../components/FeedStatus';
 import Locations from '../../components/Locations';
+import { formatServiceDateRange } from './Feed.functions';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -75,35 +77,6 @@ const ResponsiveListItem = styled('li')(({ theme }) => ({
     width: 'calc(50% - 15px)',
   },
 }));
-
-const formatServiceDateRange = (
-  dateStart: string,
-  dateEnd: string,
-): JSX.Element => {
-  const startDate = new Date(dateStart);
-  const endDate = new Date(dateEnd);
-  const formattedDateStart = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(startDate);
-  const formattedDateEnd = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(endDate);
-  return (
-    <Box>
-      <Typography variant='body1'>
-        {formattedDateStart}{' '}
-        <Typography component={'span'} sx={{ mx: 2, fontSize: '14px' }}>
-          -
-        </Typography>{' '}
-        {formattedDateEnd}
-      </Typography>
-    </Box>
-  );
-};
 
 export default function FeedSummary({
   feed,
@@ -190,6 +163,19 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
+      {latestDataset?.agency_timezone != undefined && (
+        <Box sx={boxElementStyle}>
+          <StyledTitleContainer>
+            <AccessTimeIcon></AccessTimeIcon>
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              Agency Timezone
+            </Typography>
+          </StyledTitleContainer>
+          <Typography variant='body1'>
+            {latestDataset.agency_timezone}
+          </Typography>
+        </Box>
+      )}
       {latestDataset?.service_date_range_start != undefined &&
         latestDataset.service_date_range_end != undefined && (
           <Box sx={boxElementStyle}>
@@ -208,6 +194,7 @@ export default function FeedSummary({
               {formatServiceDateRange(
                 latestDataset?.service_date_range_start,
                 latestDataset?.service_date_range_end,
+                latestDataset.agency_timezone,
               )}
               <FeedStatusIndicator
                 status={feed?.status ?? ''}

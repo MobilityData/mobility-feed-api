@@ -43,12 +43,6 @@ jobs:
       id: getpath
       run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
 
-    - name: Install dependencies
-      working-directory: integration-tests
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
     - name: Health Check
       # When triggered by a repo dispatch the API code is not deployed so there could be discrepancies
       # between the code running the tests and the code running the API. In that case don't do the

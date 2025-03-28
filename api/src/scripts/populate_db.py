@@ -80,9 +80,28 @@ class DatabasePopulateHelper:
         """
         Get a safe value from the row
         """
-        if not row[column_name] or pandas.isna(row[column_name]) or f"{row[column_name]}".strip() == "":
-            return default_value if default_value is not None else None
-        return f"{row[column_name]}".strip()
+        value = row.get(column_name)
+        if not value or pandas.isna(value) or f"{value}".strip() == "":
+            return default_value
+        return f"{value}".strip()
+
+    @staticmethod
+    def get_safe_boolean_value(row, column_name, default_value: bool | None) -> bool | None:
+        """
+        Get a safe boolean value from the row
+        Only allowed values are "true" and "false" (case insensitive)
+        Anything else returns the default.
+        """
+        value = row.get(column_name)
+        if value is None or pandas.isna(value) or f"{value}".strip() == "":
+            return default_value
+        # I am not sure if pandas will convert "TRUE" and "FALSE" to boolean, so go back to using a string
+        value = f"{value}".strip().lower()
+        if value == "true":
+            return True
+        if value == "false":
+            return False
+        return default_value
 
     @staticmethod
     def get_location_id(country_code, subdivision_name, municipality):
