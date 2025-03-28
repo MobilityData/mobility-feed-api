@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from shared.helpers.logger import Logger
 from shared.helpers.database import Database
 from typing import TYPE_CHECKING
-from sqlalchemy import case, text
+from sqlalchemy import text
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, t_feedsearch
 from shared.helpers.database import refresh_materialized_view
 
@@ -33,32 +33,40 @@ def update_feed_statuses_query(session: "Session"):
         .subquery()
     )
 
-    new_status = case(
+    status_conditions = [
         (
             latest_dataset_subq.c.service_date_range_end < today_utc,
-            text("'inactive'::status"),
+            "inactive",
         ),
         (
             latest_dataset_subq.c.service_date_range_start > today_utc,
-            text("'future'::status"),
+            "future",
         ),
         (
             (latest_dataset_subq.c.service_date_range_start <= today_utc)
             & (latest_dataset_subq.c.service_date_range_end >= today_utc),
-            text("'active'::status"),
+            "active",
         ),
-    )
+    ]
 
     try:
-        updated_count = (
-            session.query(Feed)
-            .filter(
-                Feed.status != text("'deprecated'::status"),
-                Feed.status != text("'development'::status"),
-                Feed.id == latest_dataset_subq.c.feed_id,
+        diff_counts: dict[str, int] = {}
+
+        for service_date_conditions, status in status_conditions:
+            diff_counts[status] = (
+                session.query(Feed)
+                .filter(
+                    Feed.id == latest_dataset_subq.c.feed_id,
+                    Feed.status != text("'deprecated'::status"),
+                    Feed.status != text("'development'::status"),
+                    # We filter out feeds that already have the status so that the
+                    # update count reflects the number of feeds that actually
+                    # changed status.
+                    Feed.status != text("'%s'::status" % status),
+                    service_date_conditions,
+                )
+                .update({Feed.status: status}, synchronize_session=False)
             )
-            .update({Feed.status: new_status}, synchronize_session=False)
-        )
     except Exception as e:
         logging.error(f"Error updating feed statuses: {e}")
         raise Exception(f"Error updating feed statuses: {e}")
@@ -68,7 +76,7 @@ def update_feed_statuses_query(session: "Session"):
         refresh_materialized_view(session, t_feedsearch.name)
         logging.info("Feed Database changes committed.")
         session.close()
-        return updated_count
+        return diff_counts
     except Exception as e:
         logging.error("Error committing changes:", e)
         session.rollback()
@@ -81,14 +89,12 @@ def update_feed_status(_):
     """Updates the Feed status based on the latets dataset service date range."""
     Logger.init_logger()
     db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
-    update_count = 0
     try:
         with db.start_db_session() as session:
             logging.info("Database session started.")
-            update_count = update_feed_statuses_query(session)
+            diff_counts = update_feed_statuses_query(session)
+            return diff_counts, 200
 
     except Exception as error:
         logging.error(f"Error updating the feed statuses: {error}")
         return f"Error updating the feed statuses: {error}", 500
-
-    return f"Script executed successfully. {update_count} feeds updated", 200
