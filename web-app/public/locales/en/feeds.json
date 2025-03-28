@@ -130,7 +130,7 @@
     }
   },
   "datasetHistory": "Dataset History",
-  "datasetHistoryDescription": "The Mobility Database fetches and stores new datasets twice a week, on Mondays and Thursdays at midnight EST.",
+  "datasetHistoryDescription": "The Mobility Database fetches and stores new datasets once a day at midnight UTC.",
   "datasets": "Datasets",
   "validationReportNotAvailable": "Validation report not available",
   "runValidationReportYourself": "Run Validator Yourself",

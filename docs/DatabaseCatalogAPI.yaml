@@ -178,7 +178,7 @@ paths:
     parameters:
       - $ref: "#/components/parameters/feed_id_of_datasets_path_param"
     get:
-      description: Get a list of datasets related to a GTFS feed. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly.
+      description: Get a list of datasets associated with a GTFS feed. Once a day, we check whether the latest dataset has changed; if it has, we update it in our system. The list is sorted from newest to oldest.
       tags:
         - "feeds"
       operationId: getGtfsFeedDatasets

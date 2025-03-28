@@ -174,9 +174,9 @@ export default function FAQ(): React.ReactElement {
           How often do you check for feed updates?
         </Typography>
         <Typography className='answer'>
-          The Mobility Database checks for feed updates twice a week using the
-          producer&apos;s URL, on Mondays and Thursdays. We store the new feed
-          version if we detect a change.
+          The Mobility Database checks for feed updates once a day at midnight
+          UTC using the producer&apos;s URL. We store the new feed version if we
+          detect a change.
         </Typography>
       </ColoredContainer>
     </Container>
