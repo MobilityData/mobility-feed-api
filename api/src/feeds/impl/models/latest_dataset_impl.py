@@ -2,6 +2,7 @@ from functools import reduce
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
+from feeds.impl.models.validation_report_impl import ValidationReportImpl
 from feeds_gen.models.latest_dataset import LatestDataset
 from feeds_gen.models.latest_dataset_validation_report import LatestDatasetValidationReport
 from utils.model_utils import compare_java_versions
@@ -29,13 +30,21 @@ class LatestDatasetImpl(LatestDataset):
                 lambda a, b: a if compare_java_versions(a.validator_version, b.validator_version) == 1 else b,
                 dataset.validation_reports,
             )
+            (
+                total_error,
+                total_info,
+                total_warning,
+                unique_error_count,
+                unique_info_count,
+                unique_warning_count,
+            ) = ValidationReportImpl.compute_totals(latest_report)
             validation_report = LatestDatasetValidationReport(
-                total_error=latest_report.total_error,
-                total_warning=latest_report.total_warning,
-                total_info=latest_report.total_info,
-                unique_error_count=latest_report.unique_error_count,
-                unique_warning_count=latest_report.unique_warning_count,
-                unique_info_count=latest_report.unique_info_count,
+                total_error=total_error,
+                total_warning=total_warning,
+                total_info=total_info,
+                unique_error_count=unique_error_count,
+                unique_warning_count=unique_warning_count,
+                unique_info_count=unique_info_count,
             )
         return cls(
             id=dataset.stable_id,
