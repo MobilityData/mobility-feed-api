@@ -28,7 +28,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 from shared.dataset_service.main import BatchExecutionService, BatchExecution
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 from shared.helpers.logger import Logger
 
 logging.basicConfig(level=logging.INFO)
@@ -96,7 +96,7 @@ def get_non_deprecated_feeds(session: Session):
     return results
 
 
-@with_db_session()
+@with_db_session
 @functions_framework.http
 def batch_datasets(request, db_session: Session):
     """

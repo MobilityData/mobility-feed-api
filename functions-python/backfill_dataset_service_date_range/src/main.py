@@ -4,7 +4,7 @@ import functions_framework
 
 from shared.helpers.logger import Logger
 
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import or_, func

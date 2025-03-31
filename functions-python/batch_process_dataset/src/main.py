@@ -31,7 +31,8 @@ from sqlalchemy import func
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.helpers.database import refresh_materialized_view, with_db_session
+from shared.helpers.database import refresh_materialized_view
+from shared.database.database import with_db_session
 import logging
 
 from shared.helpers.logger import Logger
