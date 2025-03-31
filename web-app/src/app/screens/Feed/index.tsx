@@ -34,6 +34,7 @@ import {
   selectBoundingBoxFromLatestDataset,
   selectDatasetsData,
   selectDatasetsLoadingStatus,
+  selectHasLoadedAllDatasets,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
 import PreviousDatasets from './PreviousDatasets';
@@ -120,6 +121,7 @@ export default function Feed(): React.ReactElement {
   const relatedFeeds = useSelector(selectRelatedFeedsData);
   const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
   const datasets = useSelector(selectDatasetsData);
+  const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
   const feed =
@@ -130,13 +132,26 @@ export default function Feed(): React.ReactElement {
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
   const sortedProviders = formatProvidersSorted(feed?.provider ?? '');
+  const DATASET_CALL_LIMIT = 10;
+
+  const loadDatasets = (offset: number): void => {
+    if (feedId != undefined && hasLoadedAllDatasets === false) {
+      dispatch(
+        loadingDataset({
+          feedId,
+          offset,
+          limit: DATASET_CALL_LIMIT,
+        }),
+      );
+    }
+  };
 
   useEffect(() => {
     if (user != undefined && feedId != undefined && needsToLoadFeed) {
       dispatch(clearDataset());
       dispatch(loadingFeed({ feedId, feedDataType }));
       if (feedDataType === 'gtfs') {
-        dispatch(loadingDataset({ feedId }));
+        loadDatasets(0);
       }
     }
   }, [isAuthenticatedOrAnonymous, needsToLoadFeed]);
@@ -167,7 +182,7 @@ export default function Feed(): React.ReactElement {
       feedLoadingStatus === 'loaded' &&
       datasets == undefined
     ) {
-      dispatch(loadingDataset({ feedId }));
+      loadDatasets(0);
     }
     return () => {
       document.title = 'Mobility Database';
@@ -176,7 +191,9 @@ export default function Feed(): React.ReactElement {
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
   const areDatasetsLoading =
-    feed?.data_type === 'gtfs' && datasetLoadingStatus === 'loading';
+    feed?.data_type === 'gtfs' &&
+    datasetLoadingStatus === 'loading' &&
+    datasets == undefined;
   const isCurrenltyLoadingFeed =
     feedLoadingStatus === 'loading' || areDatasetsLoading;
   if (needsToLoadFeed || isCurrenltyLoadingFeed) {
@@ -483,7 +500,15 @@ export default function Feed(): React.ReactElement {
       </Grid>
       {feed?.data_type === 'gtfs' && hasDatasets && (
         <Grid item xs={12}>
-          <PreviousDatasets datasets={datasets} />
+          <PreviousDatasets
+            datasets={datasets}
+            hasloadedAllDatasets={
+              hasLoadedAllDatasets != undefined && hasLoadedAllDatasets
+            }
+            loadMoreDatasets={(offset: number) => {
+              loadDatasets(offset);
+            }}
+          />
         </Grid>
       )}
     </Box>,

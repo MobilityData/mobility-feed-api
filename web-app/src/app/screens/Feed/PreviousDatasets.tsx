@@ -33,13 +33,38 @@ export interface PreviousDatasetsProps {
   datasets:
     | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
     | undefined;
+  hasloadedAllDatasets: boolean;
+  loadMoreDatasets: (offset: number) => void;
 }
 
 export default function PreviousDatasets({
   datasets,
+  hasloadedAllDatasets,
+  loadMoreDatasets,
 }: PreviousDatasetsProps): React.ReactElement {
   const theme = useTheme();
   const { t } = useTranslation('feeds');
+  const bottomRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !hasloadedAllDatasets) {
+          loadMoreDatasets(datasets?.length ?? 0);
+        }
+      },
+      { root: null, threshold: 1.0 },
+    );
+
+    if (bottomRef.current != null) {
+      observer.observe(bottomRef.current);
+    }
+
+    return () => {
+      if (bottomRef.current != null) observer.unobserve(bottomRef.current);
+    };
+  }, [datasets, hasloadedAllDatasets]);
+
   return (
     <>
       <Typography
@@ -47,15 +72,7 @@ export default function PreviousDatasets({
       >
         {t('datasetHistory')}
       </Typography>
-      <Typography>{t('datasetHistoryDescription')}</Typography>
-
-      {datasets !== undefined && datasets.length > 0 && (
-        <Box sx={{ mt: 2, mb: 2, display: 'flex' }}>
-          <Typography sx={{ fontWeight: 'bold' }}>
-            {datasets.length} {t('datasets')}
-          </Typography>
-        </Box>
-      )}
+      <Typography sx={{ mb: 2 }}>{t('datasetHistoryDescription')}</Typography>
 
       <ContentBox
         width={{ xs: '100%' }}
@@ -276,7 +293,20 @@ export default function PreviousDatasets({
             </TableBody>
           </Table>
         </TableContainer>
+        <Box
+          ref={bottomRef}
+          style={{ height: '5px', background: 'transparent' }}
+        />
       </ContentBox>
+      {hasloadedAllDatasets && (
+        <Typography
+          variant='caption'
+          component={Box}
+          sx={{ width: '100%', textAlign: 'center', mt: 1 }}
+        >
+          {t('allDatasetsLoaded')}
+        </Typography>
+      )}
     </>
   );
 }
