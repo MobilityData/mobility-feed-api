@@ -18,7 +18,7 @@ import os
 import logging
 from datetime import datetime
 import requests
-from shared.helpers.database import Database
+from shared.database.database import with_db_session
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
     get_service_date_range_with_timezone_utc,
@@ -199,7 +199,10 @@ def populate_service_date(dataset, json_report, timezone=None):
         dataset.service_date_range_end = utc_service_end_date
 
 
-def create_validation_report_entities(feed_stable_id, dataset_stable_id, version):
+@with_db_session
+def create_validation_report_entities(
+    feed_stable_id, dataset_stable_id, version, db_session
+):
     """
     Creates and stores entities based on a validation report.
     This includes the validation report itself, related feature entities,
@@ -223,32 +226,30 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id, version
     except Exception as error:
         return str(error), 500
 
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session() as session:
-            logging.info("Database session started.")
+        logging.info("Database session started.")
 
-            # Generate the database entities required for the report
-            try:
-                entities = generate_report_entities(
-                    version,
-                    validated_at,
-                    json_report,
-                    dataset_stable_id,
-                    session,
-                    feed_stable_id,
-                )
-            except Exception as error:
-                return str(error), 200  # Report already exists
+        # Generate the database entities required for the report
+        try:
+            entities = generate_report_entities(
+                version,
+                validated_at,
+                json_report,
+                dataset_stable_id,
+                db_session,
+                feed_stable_id,
+            )
+        except Exception as error:
+            return str(error), 200  # Report already exists
 
-            # Commit the entities to the database
-            for entity in entities:
-                session.add(entity)
-            logging.info(f"Committing {len(entities)} entities to the database.")
-            session.commit()
+        # Commit the entities to the database
+        for entity in entities:
+            db_session.add(entity)
+        logging.info(f"Committing {len(entities)} entities to the database.")
+        db_session.commit()
 
-            logging.info("Entities committed successfully.")
-            return f"Created {len(entities)} entities.", 200
+        logging.info("Entities committed successfully.")
+        return f"Created {len(entities)} entities.", 200
     except Exception as error:
         logging.error(f"Error creating validation report entities: {error}")
         return f"Error creating validation report entities: {error}", 500
