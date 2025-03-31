@@ -37,7 +37,7 @@ class GBFSDataProcessor:
 
     def process_gbfs_data(self, autodiscovery_url: str) -> None:
         """Process the GBFS data from the autodiscovery URL."""
-        # Do something
+        # Record the request to the autodiscovery URL
         self.record_autodiscovery_request(autodiscovery_url)
 
         # Extract GBFS versions and endpoints

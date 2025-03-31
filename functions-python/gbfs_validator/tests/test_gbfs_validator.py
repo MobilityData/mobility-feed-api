@@ -36,12 +36,10 @@ class TestMainFunctions(unittest.TestCase):
     @patch("main.DatasetTraceService")
     @patch("main.Logger")
     @patch("main.GBFSDataProcessor.process_gbfs_data")
-    @patch("main.storage.Client")
     def test_gbfs_validator_pubsub(
         self,
         _,
         __,
-        ___,
         mock_dataset_trace_service,
     ):
         # Prepare mocks
