@@ -22,7 +22,7 @@ import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import functions_framework
 from cloudevents.http import CloudEvent
@@ -31,14 +31,12 @@ from sqlalchemy import func
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.helpers.database import Database, refresh_materialized_view, with_db_session
+from shared.helpers.database import refresh_materialized_view, with_db_session
 import logging
 
 from shared.helpers.logger import Logger
 from shared.helpers.utils import download_and_get_hash
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -206,7 +204,7 @@ class DatasetProcessor:
         return temporary_file_path
 
     @with_db_session
-    def create_dataset(self, dataset_file: DatasetFile, db_session: "Session"):
+    def create_dataset(self, dataset_file: DatasetFile, db_session: Session):
         """
         Creates a new dataset in the database
         """
@@ -242,7 +240,6 @@ class DatasetProcessor:
             db_session.add(new_dataset)
 
             refresh_materialized_view(db_session, t_feedsearch.name)
-            db_session.commit()
             logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
@@ -326,54 +323,50 @@ def process_dataset(cloud_event: CloudEvent):
         logging.error(f"Function completed with error:{error_message}")
         return
 
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session():
-            maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 1)
-            public_hosted_datasets_url = os.getenv("PUBLIC_HOSTED_DATASETS_URL")
-            trace_service = None
-            dataset_file: DatasetFile = None
-            error_message = None
-            #  Extract  data from message
-            data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
-            json_payload = json.loads(data)
-            logging.info(
-                f"[{json_payload['feed_stable_id']}] JSON Payload: {json.dumps(json_payload)}"
-            )
-            stable_id = json_payload["feed_stable_id"]
-            execution_id = json_payload["execution_id"]
-            trace_service = DatasetTraceService()
-            trace = trace_service.get_by_execution_and_stable_ids(
-                execution_id, stable_id
-            )
-            logging.info(f"[{stable_id}] Dataset trace: {trace}")
-            executions = len(trace) if trace else 0
-            logging.info(
-                f"[{stable_id}] Dataset executed times={executions}/{maximum_executions} "
-                f"in execution=[{execution_id}] "
-            )
+        maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 1)
+        public_hosted_datasets_url = os.getenv("PUBLIC_HOSTED_DATASETS_URL")
+        trace_service = None
+        dataset_file: DatasetFile = None
+        error_message = None
+        #  Extract  data from message
+        data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
+        json_payload = json.loads(data)
+        logging.info(
+            f"[{json_payload['feed_stable_id']}] JSON Payload: {json.dumps(json_payload)}"
+        )
+        stable_id = json_payload["feed_stable_id"]
+        execution_id = json_payload["execution_id"]
+        trace_service = DatasetTraceService()
+        trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
+        logging.info(f"[{stable_id}] Dataset trace: {trace}")
+        executions = len(trace) if trace else 0
+        logging.info(
+            f"[{stable_id}] Dataset executed times={executions}/{maximum_executions} "
+            f"in execution=[{execution_id}] "
+        )
 
-            if executions > 0:
-                if executions >= maximum_executions:
-                    error_message = (
-                        f"[{stable_id}] Function already executed maximum times "
-                        f"in execution: [{execution_id}]"
-                    )
-                    logging.error(error_message)
-                    return error_message
+        if executions > 0:
+            if executions >= maximum_executions:
+                error_message = (
+                    f"[{stable_id}] Function already executed maximum times "
+                    f"in execution: [{execution_id}]"
+                )
+                logging.error(error_message)
+                return error_message
 
-            processor = DatasetProcessor(
-                json_payload["producer_url"],
-                json_payload["feed_id"],
-                stable_id,
-                execution_id,
-                json_payload["dataset_hash"],
-                bucket_name,
-                int(json_payload["authentication_type"]),
-                json_payload["api_key_parameter_name"],
-                public_hosted_datasets_url,
-            )
-            dataset_file = processor.process()
+        processor = DatasetProcessor(
+            json_payload["producer_url"],
+            json_payload["feed_id"],
+            stable_id,
+            execution_id,
+            json_payload["dataset_hash"],
+            bucket_name,
+            int(json_payload["authentication_type"]),
+            json_payload["api_key_parameter_name"],
+            public_hosted_datasets_url,
+        )
+        dataset_file = processor.process()
     except Exception as e:
         logging.error(e)
         error_message = f"[{stable_id}] Error execution: [{execution_id}] error: [{e}]"

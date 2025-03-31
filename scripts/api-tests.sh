@@ -7,10 +7,10 @@
 #   api-test.sh [options]
 #
 # Options:
-#   -test_file <TEST_FILE> : Execute a specific test file. (optional)
-#   -folder <FOLDER>       : Execute tests in a specific folder. (optional)
-#   -html_report           : Generate an HTML coverage report in addition to the standard report. (optional)
-#   -help                  : Display this help content.
+#   --test_file <TEST_FILE> : Execute a specific test file. (optional)
+#   --folder <FOLDER>       : Execute tests in a specific folder. (optional)
+#   --html_report           : Generate an HTML coverage report in addition to the standard report. (optional)
+#   --help                  : Display this help content.
 #
 # By default, without any options, the script executes all tests within the <project_folder>/tests
 # directory and generates a coverage report. If the -html_report option is used, an additional HTML
