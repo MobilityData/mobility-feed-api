@@ -41,11 +41,13 @@ from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
-from shared.helpers.database import Database, refresh_materialized_view
+from shared.helpers.database import refresh_materialized_view
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
 )
+from sqlalchemy.orm import Session
+from shared.database.database import with_db_session
 from .request_validator import validate_request
 
 logging.basicConfig(level=logging.INFO)
@@ -69,41 +71,41 @@ class OperationsApiImpl(BaseOperationsApi):
 
         raise ValueError(f"Unsupported feed type: {feed.data_type}")
 
+    @with_db_session
     async def get_feeds(
         self,
+        db_session: Session,
         operation_status: Optional[str] = None,
         data_type: Optional[str] = None,
         offset: int = 0,
         limit: int = 50,
     ) -> GetFeeds200Response:
         """Get a list of feeds with optional filtering and pagination."""
-        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
         try:
-            with db.start_db_session() as db_session:
-                query = get_feeds_query(
-                    db_session=db_session,
-                    operation_status=operation_status,
-                    data_type=data_type,
-                    limit=limit,
-                    offset=offset,
-                )
+            query = get_feeds_query(
+                db_session=db_session,
+                operation_status=operation_status,
+                data_type=data_type,
+                limit=limit,
+                offset=offset,
+            )
 
-                logging.info("Executing query with data_type: %s", data_type)
+            logging.info("Executing query with data_type: %s", data_type)
 
-                total = query.count()
-                feeds = query.all()
-                logging.info("Retrieved %d feeds from database", len(feeds))
+            total = query.count()
+            feeds = query.all()
+            logging.info("Retrieved %d feeds from database", len(feeds))
 
-                feed_list = []
-                for feed in feeds:
-                    processed_feed = self.process_feed(feed)
-                    feed_list.append(processed_feed)
+            feed_list = []
+            for feed in feeds:
+                processed_feed = self.process_feed(feed)
+                feed_list.append(processed_feed)
 
-                response = GetFeeds200Response(
-                    total=total, offset=offset, limit=limit, feeds=feed_list
-                )
-                logging.info("Returning response with %d feeds", len(feed_list))
-                return response
+            response = GetFeeds200Response(
+                total=total, offset=offset, limit=limit, feeds=feed_list
+            )
+            logging.info("Returning response with %d feeds", len(feed_list))
+            return response
 
         except Exception as e:
             logging.error("Failed to get feeds. Error: %s", str(e))
@@ -169,54 +171,54 @@ class OperationsApiImpl(BaseOperationsApi):
         """
         return await self._update_feed(update_request_gtfs_rt_feed, DataType.GTFS_RT)
 
+    @with_db_session
     async def _update_feed(
         self,
         update_request_feed: UpdateRequestGtfsFeed | UpdateRequestGtfsRtFeed,
         data_type: DataType,
+        db_session: Session
     ) -> Response:
         """
         Update the specified feed in the Mobility Database
         """
-        db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
         try:
-            with db.start_db_session() as db_session:
-                feed = await OperationsApiImpl.fetch_feed(
-                    data_type, db_session, update_request_feed
-                )
+            feed = await OperationsApiImpl.fetch_feed(
+                data_type, db_session, update_request_feed
+            )
 
+            logging.info(
+                f"Feed ID: {update_request_feed.id} attempting to update with the following request: "
+                f"{update_request_feed}"
+            )
+            impl_class = (
+                UpdateRequestGtfsFeedImpl
+                if data_type == DataType.GTFS
+                else UpdateRequestGtfsRtFeedImpl
+            )
+            diff = self.detect_changes(feed, update_request_feed, impl_class)
+            if len(diff.affected_paths) > 0 or (
+                update_request_feed.operational_status_action is not None
+                and update_request_feed.operational_status_action != "no_change"
+            ):
+                await OperationsApiImpl._populate_feed_values(
+                    feed, impl_class, db_session, update_request_feed
+                )
+                db_session.flush()
+                refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
                 logging.info(
-                    f"Feed ID: {update_request_feed.id} attempting to update with the following request: "
-                    f"{update_request_feed}"
+                    f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
                 )
-                impl_class = (
-                    UpdateRequestGtfsFeedImpl
-                    if data_type == DataType.GTFS
-                    else UpdateRequestGtfsRtFeedImpl
+                db_session.commit()
+                logging.info(
+                    f"Feed ID: {update_request_feed.id} updated successfully with the following changes: "
+                    f"{diff.values()}"
                 )
-                diff = self.detect_changes(feed, update_request_feed, impl_class)
-                if len(diff.affected_paths) > 0 or (
-                    update_request_feed.operational_status_action is not None
-                    and update_request_feed.operational_status_action != "no_change"
-                ):
-                    await OperationsApiImpl._populate_feed_values(
-                        feed, impl_class, db_session, update_request_feed
-                    )
-                    db_session.flush()
-                    refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
-                    logging.info(
-                        f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
-                    )
-                    db_session.commit()
-                    logging.info(
-                        f"Feed ID: {update_request_feed.id} updated successfully with the following changes: "
-                        f"{diff.values()}"
-                    )
-                    return Response(status_code=200)
-                else:
-                    logging.info(
-                        f"No changes detected for feed ID: {update_request_feed.id}"
-                    )
-                    return Response(status_code=204)
+                return Response(status_code=200)
+            else:
+                logging.info(
+                    f"No changes detected for feed ID: {update_request_feed.id}"
+                )
+                return Response(status_code=204)
         except Exception as e:
             logging.error(
                 f"Failed to update feed ID: {update_request_feed.id}. Error: {e}"
