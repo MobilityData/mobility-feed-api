@@ -15,7 +15,6 @@
 #
 
 import logging
-import os
 from typing import Annotated, Optional
 
 from deepdiff import DeepDiff
@@ -176,7 +175,7 @@ class OperationsApiImpl(BaseOperationsApi):
         self,
         update_request_feed: UpdateRequestGtfsFeed | UpdateRequestGtfsRtFeed,
         data_type: DataType,
-        db_session: Session
+        db_session: Session,
     ) -> Response:
         """
         Update the specified feed in the Mobility Database
