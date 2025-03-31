@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   IconButton,
   Table,
   TableBody,
@@ -33,12 +34,14 @@ export interface PreviousDatasetsProps {
   datasets:
     | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
     | undefined;
+  isLoadingDatasets: boolean;
   hasloadedAllDatasets: boolean;
   loadMoreDatasets: (offset: number) => void;
 }
 
 export default function PreviousDatasets({
   datasets,
+  isLoadingDatasets,
   hasloadedAllDatasets,
   loadMoreDatasets,
 }: PreviousDatasetsProps): React.ReactElement {
@@ -49,7 +52,11 @@ export default function PreviousDatasets({
   React.useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !hasloadedAllDatasets) {
+        if (
+          entries[0].isIntersecting &&
+          !hasloadedAllDatasets &&
+          !isLoadingDatasets
+        ) {
           loadMoreDatasets(datasets?.length ?? 0);
         }
       },
@@ -297,6 +304,11 @@ export default function PreviousDatasets({
           ref={bottomRef}
           style={{ height: '5px', background: 'transparent' }}
         />
+        {isLoadingDatasets && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+            <CircularProgress />
+          </Box>
+        )}
       </ContentBox>
       {hasloadedAllDatasets && (
         <Typography

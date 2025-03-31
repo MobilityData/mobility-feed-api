@@ -502,6 +502,7 @@ export default function Feed(): React.ReactElement {
         <Grid item xs={12}>
           <PreviousDatasets
             datasets={datasets}
+            isLoadingDatasets={datasetLoadingStatus === 'loading'}
             hasloadedAllDatasets={
               hasLoadedAllDatasets != undefined && hasLoadedAllDatasets
             }
