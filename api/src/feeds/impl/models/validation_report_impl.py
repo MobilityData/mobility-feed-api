@@ -16,26 +16,26 @@ class ValidationReportImpl(ValidationReport):
 
         from_attributes = True
 
-    @staticmethod
-    def compute_totals(validation_report) -> tuple[int, int, int, int, int, int]:
-        """Compute the total number of errors, info, and warnings from a validation report,
-        and count the number of distinct codes for each."""
-        total_info, total_warning, total_error = 0, 0, 0
-        info_codes, warning_codes, error_codes = set(), set(), set()
-        for notice in validation_report.notices:
-            match notice.severity:
-                case "INFO":
-                    total_info += notice.total_notices
-                    info_codes.add(notice.notice_code)
-                case "WARNING":
-                    total_warning += notice.total_notices
-                    warning_codes.add(notice.notice_code)
-                case "ERROR":
-                    total_error += notice.total_notices
-                    error_codes.add(notice.notice_code)
-                case _:
-                    ValidationReportImpl._get_logger().warning(f"Unknown severity: {notice.severity}")
-        return total_error, total_info, total_warning, len(error_codes), len(info_codes), len(warning_codes)
+    # @staticmethod
+    # def compute_totals(validation_report) -> tuple[int, int, int, int, int, int]:
+    #     """Compute the total number of errors, info, and warnings from a validation report,
+    #     and count the number of distinct codes for each."""
+    #     total_info, total_warning, total_error = 0, 0, 0
+    #     info_codes, warning_codes, error_codes = set(), set(), set()
+    #     for notice in validation_report.notices:
+    #         match notice.severity:
+    #             case "INFO":
+    #                 total_info += notice.total_notices
+    #                 info_codes.add(notice.notice_code)
+    #             case "WARNING":
+    #                 total_warning += notice.total_notices
+    #                 warning_codes.add(notice.notice_code)
+    #             case "ERROR":
+    #                 total_error += notice.total_notices
+    #                 error_codes.add(notice.notice_code)
+    #             case _:
+    #                 ValidationReportImpl._get_logger().warning(f"Unknown severity: {notice.severity}")
+    #     return total_error, total_info, total_warning, len(error_codes), len(info_codes), len(warning_codes)
 
     @classmethod
     def _get_logger(cls):
