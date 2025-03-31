@@ -40,13 +40,12 @@ from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
-from shared.helpers.database import refresh_materialized_view
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
 )
 from sqlalchemy.orm import Session
-from shared.database.database import with_db_session
+from shared.database.database import with_db_session, refresh_materialized_view
 from .request_validator import validate_request
 
 logging.basicConfig(level=logging.INFO)
