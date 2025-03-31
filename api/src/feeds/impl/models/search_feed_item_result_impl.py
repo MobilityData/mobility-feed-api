@@ -83,6 +83,8 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
     @classmethod
     def resolve_locations(cls, locations):
         """Resolve locations by country code."""
+        if not locations or not isinstance(locations, list):
+            return []
         return [
             {
                 **location,
