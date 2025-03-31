@@ -197,9 +197,9 @@ def generate_report_entities(
     validation_report_entity.total_info = total_info
     validation_report_entity.total_warning = total_warning
     validation_report_entity.total_error = total_error
-    validation_report_entity.distinct_info_codes = len(info_codes)
-    validation_report_entity.distinct_warning_codes = len(warning_codes)
-    validation_report_entity.distinct_error_codes = len(error_codes)
+    validation_report_entity.unique_info_count = len(info_codes)
+    validation_report_entity.unique_warning_count = len(warning_codes)
+    validation_report_entity.unique_error_count = len(error_codes)
     return entities
 
 
