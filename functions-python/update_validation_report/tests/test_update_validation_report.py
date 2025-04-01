@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch, Mock
 
 from faker import Faker
 from google.cloud import storage
+import pytest
 
 from test_shared.test_utils.database_utils import default_db_url
 from main import (
