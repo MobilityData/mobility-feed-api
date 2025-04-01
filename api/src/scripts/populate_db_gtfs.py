@@ -131,11 +131,18 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 except ValueError:
                     gtfs_stable_id = static_reference
                 gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
-                already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
-                if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
-                    gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
-                    # Flush to avoid FK violation
-                    session.flush()
+                if gtfs_feed:
+                    # Add a None check for gtfs_rt_feeds
+                    if gtfs_feed.gtfs_rt_feeds is not None:
+                        already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
+                        if gtfs_rt_feed and gtfs_rt_feed.id not in already_referenced_ids:
+                            gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
+                            # Flush to avoid FK violation
+                            session.flush()
+                    else:
+                        self.logger.warning(f"GTFS feed {gtfs_stable_id} has no gtfs_rt_feeds attribute.")
+                else:
+                    self.logger.warning(f"GTFS feed with stable ID {gtfs_stable_id} not found.")
 
     def process_redirects(self, session: "Session"):
         """
