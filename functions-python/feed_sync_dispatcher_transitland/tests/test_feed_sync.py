@@ -136,7 +136,7 @@ def test_process_sync_new_feed(processor):
         return_value={"feeds": feeds_data, "operators": operators_data}
     )
     processor.check_external_id = Mock(return_value=False)
-    payloads = processor.process_sync(mock_db_session, "exec123")
+    payloads = processor.process_sync("exec123", db_session=mock_db_session)
     assert len(payloads) == 1, "Expected 1 payload"
     assert payloads[0].payload.payload_type == "new"
 
@@ -165,7 +165,7 @@ def test_process_sync_updated_feed(processor):
     )
     processor.check_external_id = Mock(return_value=True)
     processor.get_mbd_feed_url = Mock(return_value="http://example-2.com")
-    payloads = processor.process_sync(mock_db_session, "exec123")
+    payloads = processor.process_sync("exec123", db_session=mock_db_session)
     assert len(payloads) == 1, "Expected 1 payload"
     assert payloads[0].payload.payload_type == "update"
 
@@ -194,7 +194,7 @@ def test_process_sync_unchanged_feed(processor):
     )
     processor.check_external_id = Mock(return_value=True)
     processor.get_mbd_feed_url = Mock(return_value="http://example.com")
-    payloads = processor.process_sync(mock_db_session, "exec123")
+    payloads = processor.process_sync("exec123", db_session=mock_db_session)
     assert len(payloads) == 0, "No payloads expected"
 
 

@@ -5,8 +5,8 @@ import threading
 import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import load_only, Query, class_mapper, Session
+from sqlalchemy import create_engine, text, event
+from sqlalchemy.orm import load_only, Query, class_mapper, Session, mapper
 from shared.database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
 from sqlalchemy.orm import sessionmaker
 import logging
@@ -40,6 +40,34 @@ def configure_polymorphic_mappers():
     gbfsfeed_mapper = class_mapper(Gbfsfeed)
     gbfsfeed_mapper.inherits = feed_mapper
     gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
+
+
+def set_cascade(mapper, class_):
+    """
+    Set cascade for relationships in Gtfsfeed.
+    This allows to delete/add the relationships when their respective relation array changes.
+    """
+    if class_.__name__ == "Gtfsfeed":
+        for rel in class_.__mapper__.relationships:
+            if rel.key in [
+                "redirectingids",
+                "redirectingids_",
+                "externalids",
+                "externalids_",
+            ]:
+                rel.cascade = "all, delete-orphan"
+
+
+def mapper_configure_listener(mapper, class_):
+    """
+    Mapper configure listener
+    """
+    set_cascade(mapper, class_)
+    configure_polymorphic_mappers()
+
+
+# Add the mapper_configure_listener to the mapper_configured event
+event.listen(mapper, "mapper_configured", mapper_configure_listener)
 
 
 def refresh_materialized_view(session: "Session", view_name: str) -> bool:
