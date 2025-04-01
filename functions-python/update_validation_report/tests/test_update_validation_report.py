@@ -27,7 +27,6 @@ def _create_storage_blob(name, metadata):
 
 
 class TestUpdateReportProcessor(unittest.TestCase):
-    @pytest.mark.skip(reason="Skip this test for now")
     def test_get_latest_datasets(self):
         """Test get_latest_datasets function."""
         session = MagicMock()
@@ -35,7 +34,6 @@ class TestUpdateReportProcessor(unittest.TestCase):
         get_latest_datasets_without_validation_reports(session, "1.0.1")
         session.query.assert_called_once()
 
-    @pytest.mark.skip(reason="Skip this test for now")
     @patch("google.cloud.storage.Client")
     def test_get_datasets_for_validation(self, mock_client):
         """Test get_datasets_for_validation function"""

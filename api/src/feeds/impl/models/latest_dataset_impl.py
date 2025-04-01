@@ -30,21 +30,13 @@ class LatestDatasetImpl(LatestDataset):
                 lambda a, b: a if compare_java_versions(a.validator_version, b.validator_version) == 1 else b,
                 dataset.validation_reports,
             )
-            (
-                total_error,
-                total_info,
-                total_warning,
-                unique_error_count,
-                unique_info_count,
-                unique_warning_count,
-            ) = ValidationReportImpl.compute_totals(latest_report)
             validation_report = LatestDatasetValidationReport(
-                total_error=total_error,
-                total_warning=total_warning,
-                total_info=total_info,
-                unique_error_count=unique_error_count,
-                unique_warning_count=unique_warning_count,
-                unique_info_count=unique_info_count,
+                total_error=latest_report.total_error,
+                total_warning=latest_report.total_warning,
+                total_info=latest_report.total_info,
+                unique_error_count=latest_report.unique_error_count,
+                unique_warning_count=latest_report.unique_warning_count,
+                unique_info_count=latest_report.unique_info_count,
             )
         return cls(
             id=dataset.stable_id,
