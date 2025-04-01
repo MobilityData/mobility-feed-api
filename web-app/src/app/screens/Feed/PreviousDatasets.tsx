@@ -77,7 +77,7 @@ export default function PreviousDatasets({
   }, [datasets, hasloadedAllDatasets]);
 
   /**
-   * When datasets loads, the default behavious is to bring the user to the bottom
+   * When datasets loads, the default behavior is to bring the user to the bottom
    * This retriggers the loading of datasets infinitely
    * This effect manually controls the scroll position when data loads
    */
