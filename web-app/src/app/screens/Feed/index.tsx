@@ -116,16 +116,16 @@ export default function Feed(): React.ReactElement {
   const user = useSelector(selectUserProfile);
   const feedLoadingStatus = useSelector(selectFeedLoadingStatus);
   const datasetLoadingStatus = useSelector(selectDatasetsLoadingStatus);
-  const feedType = feedDataType ?? useSelector(selectFeedData)?.data_type;
+  const dataTypeSelector = useSelector(selectFeedData)?.data_type;
+  const feedType = feedDataType ?? dataTypeSelector;
   const relatedFeeds = useSelector(selectRelatedFeedsData);
   const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
   const datasets = useSelector(selectDatasetsData);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
-  const feed =
-    feedType === 'gtfs'
-      ? useSelector(selectGTFSFeedData)
-      : useSelector(selectGTFSRTFeedData);
+  const gtfsFeedData = useSelector(selectGTFSFeedData);
+  const gtfsRtFeedData = useSelector(selectGTFSRTFeedData);
+  const feed = feedType === 'gtfs' ? gtfsFeedData : gtfsRtFeedData;
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
