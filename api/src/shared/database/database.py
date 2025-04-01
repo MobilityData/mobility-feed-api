@@ -83,7 +83,7 @@ def refresh_materialized_view(session: "Session", view_name: str) -> bool:
         return False
 
 
-def with_db_session(func):
+def with_db_session(func=None, db_url: str | None = None):
     """
     Decorator to handle the session management for the decorated function.
 
@@ -100,11 +100,13 @@ def with_db_session(func):
         - The session is then passed to the decorated function as the 'db_session' keyword argument.
         - If 'db_session' is already provided, it simply calls the decorated function with the existing session.
     """
+    if func is None:
+        return lambda f: with_db_session(f, db_url=db_url)
 
     def wrapper(*args, **kwargs):
         db_session = kwargs.get("db_session")
         if db_session is None:
-            db = Database()
+            db = Database(feeds_database_url=db_url)
             with db.start_db_session() as session:
                 kwargs["db_session"] = session
                 return func(*args, **kwargs)
@@ -130,7 +132,7 @@ class Database:
                     cls.instance = object.__new__(cls)
         return cls.instance
 
-    def __init__(self, echo_sql=False):
+    def __init__(self, echo_sql=False, feeds_database_url: str | None = None):
         """
         Initializes the database instance
         :param echo_sql: whether to echo the SQL queries or not
@@ -148,7 +150,7 @@ class Database:
             load_dotenv()
             self.logger = logging.getLogger(__name__)
             self.connection_attempts = 0
-            database_url = os.getenv("FEEDS_DATABASE_URL")
+            database_url = feeds_database_url if feeds_database_url else os.getenv("FEEDS_DATABASE_URL")
             if database_url is None:
                 raise Exception("Database URL not provided.")
             self.pool_size = int(os.getenv("DB_POOL_SIZE", 10))

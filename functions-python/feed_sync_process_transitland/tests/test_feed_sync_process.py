@@ -17,9 +17,6 @@ with mock.patch("shared.helpers.logger.Logger.init_logger") as mock_init_logger:
         process_feed_event,
     )
 
-# Environment variables for tests
-TEST_DB_URL = "postgresql://test:test@localhost:54320/test"
-
 
 @pytest.fixture
 def mock_feed():
@@ -105,7 +102,6 @@ def feed_payload():
 @mock.patch.dict(
     "os.environ",
     {
-        "FEEDS_DATABASE_URL": TEST_DB_URL,
         "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
     },
 )

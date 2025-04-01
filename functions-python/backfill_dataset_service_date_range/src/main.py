@@ -4,11 +4,10 @@ import functions_framework
 
 from shared.helpers.logger import Logger
 
-from shared.database.database import with_db_session
+from shared.database.database import with_db_session, refresh_materialized_view
 
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import or_, func
-from shared.helpers.database import refresh_materialized_view
 from shared.helpers.transform import get_nested_value
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,

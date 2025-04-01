@@ -14,15 +14,13 @@
 #  limitations under the License.
 #
 
-import contextlib
 from typing import Final
 
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from shared.database_gen.sqlacodegen_models import Base
-from shared.database.database import Database
+from shared.database.database import Database, with_db_session
 import logging
 
 logging.basicConfig()
@@ -44,37 +42,24 @@ excluded_tables: Final[list[str]] = [
 ]
 
 
-def get_testing_engine() -> Engine:
-    """Returns a SQLAlchemy engine for the test db."""
-    db = Database(database_url=default_db_url)
-    return db._get_engine(echo=False)
-
-
-def get_testing_session(echo: bool = False) -> Session:
-    """Returns a SQLAlchemy session for the test db."""
-    db = Database(database_url=default_db_url)
-    return db._get_session(echo=echo)()
-
-
-def clean_testing_db():
+@with_db_session(db_url=default_db_url)
+def clean_testing_db(db_session: Session):
     """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
-    engine = get_testing_engine()
-    with contextlib.closing(engine.connect()) as con:
-        try:
-            tables_to_delete = [
-                table.name
-                for table in reversed(Base.metadata.sorted_tables)
-                if table.name not in excluded_tables
-            ]
+    try:
+        tables_to_delete = [
+            table.name
+            for table in reversed(Base.metadata.sorted_tables)
+            if table.name not in excluded_tables
+        ]
 
-            # Delete all rows from each table
-            for table_name in tables_to_delete:
-                delete_query = f"DELETE FROM {table_name};"
-                con.execute(text(delete_query))
-            con.commit()
-        except Exception as error:
-            print(f"Error while cleaning the test db: {error}")
-            logging.error(f"Error while deleting from test db: {error}")
+        # Delete all rows from each table
+        for table_name in tables_to_delete:
+            delete_query = f"DELETE FROM {table_name};"
+            db_session.execute(text(delete_query))
+        db_session.commit()
+    except Exception as error:
+        print(f"Error while cleaning the test db: {error}")
+        logging.error(f"Error while deleting from test db: {error}")
 
 
 def reset_database_class():

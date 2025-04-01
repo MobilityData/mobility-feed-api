@@ -1,5 +1,3 @@
-import os
-from unittest import mock
 from unittest.mock import patch
 
 import pytest
@@ -14,8 +12,9 @@ from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed
-from test_shared.test_utils.database_utils import get_testing_session, default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 
 
 @pytest.fixture
@@ -43,97 +42,87 @@ def update_request_gtfs_rt_feed():
     )
 
 
+@pytest.fixture
+def db_session():
+    # Provide a database session fixture
+    db = Database(feeds_database_url=default_db_url)
+    with db.start_db_session() as session:
+        yield session
+
+
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_field_change(_, update_request_gtfs_rt_feed):
+@pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
+async def test_update_gtfs_feed_field_change(
+    _, update_request_gtfs_rt_feed, db_session
+):
     update_request_gtfs_rt_feed.feed_name = "New feed name"
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
-        assert response.status_code == 200
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    assert response.status_code == 200
 
-        db_feed = (
-            session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
-            .one()
-        )
-        assert db_feed.feed_name == "New feed name"
+    db_feed = (
+        db_session.query(Gtfsrealtimefeed)
+        .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
+        .one()
+    )
+    assert db_feed.feed_name == "New feed name"
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_static_change(_, update_request_gtfs_rt_feed):
+@pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
+async def test_update_gtfs_feed_static_change(
+    _, update_request_gtfs_rt_feed, db_session
+):
     update_request_gtfs_rt_feed.feed_references = ["mdb-400"]
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
-        assert response.status_code == 200
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    assert response.status_code == 200
 
-        db_feed = (
-            session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
-            .one()
-        )
-        assert len(db_feed.gtfs_feeds) == 1
-        feed = next(
-            (feed for feed in db_feed.gtfs_feeds if feed.stable_id == "mdb-400"), None
-        )
-        assert feed is not None, "Feed with stable ID 'mdb-400' not found"
+    db_feed = (
+        db_session.query(Gtfsrealtimefeed)
+        .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
+        .one()
+    )
+    assert len(db_feed.gtfs_feeds) == 1
+    feed = next(
+        (feed for feed in db_feed.gtfs_feeds if feed.stable_id == "mdb-400"), None
+    )
+    assert feed is not None, "Feed with stable ID 'mdb-400' not found"
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_rt_feed_set_wip(_, update_request_gtfs_rt_feed):
+@pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
+async def test_update_gtfs_rt_feed_set_wip(_, update_request_gtfs_rt_feed, db_session):
     update_request_gtfs_rt_feed.operational_status_action = "wip"
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
-        assert response.status_code == 200
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    assert response.status_code == 200
 
-        db_feed = (
-            session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
-            .one()
-        )
-        assert db_feed.operational_status == "wip"
+    db_feed = (
+        db_session.query(Gtfsrealtimefeed)
+        .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
+        .one()
+    )
+    assert db_feed.operational_status == "wip"
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_rt_feed_set_published(_, update_request_gtfs_rt_feed):
+@pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
+async def test_update_gtfs_rt_feed_set_published(
+    _, update_request_gtfs_rt_feed, db_session
+):
     update_request_gtfs_rt_feed.operational_status_action = "published"
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
-        assert response.status_code == 200
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    assert response.status_code == 200
 
-        db_feed = (
-            session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
-            .one()
-        )
-        assert db_feed.operational_status == "published"
+    db_feed = (
+        db_session.query(Gtfsrealtimefeed)
+        .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
+        .one()
+    )
+    assert db_feed.operational_status == "published"

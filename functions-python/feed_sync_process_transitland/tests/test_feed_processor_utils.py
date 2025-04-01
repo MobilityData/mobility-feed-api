@@ -9,9 +9,9 @@ from feed_processor_utils import (
     get_tlnd_authentication_type,
     create_new_feed,
 )
-from shared.database.database import configure_polymorphic_mappers
+from shared.database.database import configure_polymorphic_mappers, with_db_session
 from shared.helpers.feed_sync.models import TransitFeedSyncPayload
-from test_shared.test_utils.database_utils import default_db_url, get_testing_session
+from test_shared.test_utils.database_utils import default_db_url
 
 
 @patch("requests.head")
@@ -48,8 +48,8 @@ def test_get_tlnd_authentication_type() -> str:
         assert True
 
 
-@patch.dict("os.environ", {"FEEDS_DATABASE_URL": default_db_url})
-def test_create_new_feed_gtfs_rt():
+@with_db_session(db_url=default_db_url)
+def test_create_new_feed_gtfs_rt(db_session):
     payload = {
         "spec": "gtfs_rt",
         "entity_types": "tu",
@@ -68,9 +68,8 @@ def test_create_new_feed_gtfs_rt():
     }
     feed_payload = TransitFeedSyncPayload(**payload)
     configure_polymorphic_mappers()
-    session = get_testing_session()
-    new_feed = create_new_feed(session, "tld-102_tu", feed_payload)
-    session.delete(new_feed)
+    new_feed = create_new_feed(db_session, "tld-102_tu", feed_payload)
+    db_session.delete(new_feed)
     assert new_feed.stable_id == "tld-102_tu"
     assert new_feed.data_type == "gtfs_rt"
     assert len(new_feed.entitytypes) == 1
