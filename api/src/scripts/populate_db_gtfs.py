@@ -292,22 +292,14 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 self.populate_db(session)
                 session.commit()
 
-                # Check if t_feedsearch is properly initialized
-                if t_feedsearch is None or not hasattr(t_feedsearch, "name"):
-                    self.logger.error("t_feedsearch is not initialized or does not have a 'name' attribute.")
-                    raise ValueError("t_feedsearch is not properly initialized.")
-
-                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-                try:
+                if t_feedsearch is None:
+                    self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
                     session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
                     self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
-                except Exception as e:
-                    self.logger.error(f"Failed to refresh materialized view: {e}")
-                session.commit()
-
-                self.logger.info("\n----- Database populated with sources.csv data. -----")
-                if trigger_downstream_tasks:
-                    self.trigger_downstream_tasks()
+                    session.commit()
+                    self.logger.info("\n----- Database populated with sources.csv data. -----")
+                    if trigger_downstream_tasks:
+                        self.trigger_downstream_tasks()
         except Exception as e:
             self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
             exit(1)
