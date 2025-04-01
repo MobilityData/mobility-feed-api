@@ -291,15 +291,13 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             with self.db.start_db_session() as session:
                 self.populate_db(session)
                 session.commit()
-
-                if t_feedsearch is None:
-                    self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-                    session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
-                    self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
-                    session.commit()
-                    self.logger.info("\n----- Database populated with sources.csv data. -----")
-                    if trigger_downstream_tasks:
-                        self.trigger_downstream_tasks()
+                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
+                session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
+                session.commit()
+                self.logger.info("\n----- Database populated with sources.csv data. -----")
+                if trigger_downstream_tasks:
+                    self.trigger_downstream_tasks()
         except Exception as e:
             self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
             exit(1)

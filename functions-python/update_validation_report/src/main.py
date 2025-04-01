@@ -321,3 +321,5 @@ def compute_validation_report_counters(session: sqlalchemy.orm.Session):
                 f"Unique INFO Codes={len(info_codes)}, Unique WARNING Codes={len(warning_codes)}, "
                 f"Unique ERROR Codes={len(error_codes)}"
             )
+
+    return {"message": "Validation report counters computed successfully."}, 200
