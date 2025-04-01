@@ -75,7 +75,8 @@ class GeopolygonAggregate:
 
     def country(self) -> str:
         """Returns the country name of the LocationGroup."""
-        return pycountry.countries.get(alpha_2=self.iso_3166_1_code).name
+        country = pycountry.countries.get(alpha_2=self.iso_3166_1_code)
+        return country.name if country else None
 
     def location_id(self) -> str:
         """Returns the location ID of the LocationGroup."""

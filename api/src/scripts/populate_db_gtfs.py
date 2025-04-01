@@ -61,9 +61,11 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         return f'mdb-{self.get_safe_value(row, "mdb_source_id", "")}'
 
     def get_country(self, country_code):
+        country = None
         if country_code:
-            return pycountry.countries.get(alpha_2=country_code).name
-        return None
+            country = pycountry.countries.get(alpha_2=country_code)
+            country = country.name if country else None
+        return country
 
     def populate_location(self, session, feed, row, stable_id):
         """

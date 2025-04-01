@@ -2,11 +2,12 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 
+import pytest
 from faker import Faker
 from geoalchemy2 import WKTElement
 
+from location_group_utils import GeopolygonAggregate
 from shared.database_gen.sqlacodegen_models import Geopolygon, Osmlocationgroup
-
 
 faker = Faker()
 
@@ -91,3 +92,23 @@ class TestLocationGroupUtils(unittest.TestCase):
         geopolygon_aggregate_2 = GeopolygonAggregate(location_group, 1)
         geopolygon_aggregate.merge(geopolygon_aggregate_2)
         self.assertEqual(geopolygon_aggregate.stop_count, 2)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [{"value": "CA", "expected": "Canada"}, {"value": "Canada", "expected": None}],
+)
+def test_location_country(values):
+    geopolygon = Geopolygon(
+        osm_id=1,
+        admin_level=2,
+        name=values.get("value"),
+        iso_3166_1_code=values.get("value"),
+        geometry=WKTElement("POINT(-73.5673 45.5017)", srid=4326),
+    )
+    location_group = Osmlocationgroup(
+        group_id="1.1.1", group_name="Canada, Ontario", osms=[geopolygon]
+    )
+    geopolygon_aggregate = GeopolygonAggregate(location_group, 1)
+
+    assert geopolygon_aggregate.country() == values.get("expected")
