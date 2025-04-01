@@ -135,9 +135,13 @@ class Database:
     def __init__(self, echo_sql=False, feeds_database_url: str | None = None):
         """
         Initializes the database instance
-        :param echo_sql: whether to echo the SQL queries or not
-        echo_sql set to False reduces the amount of information and noise going to the logs.
-        In case of errors, the exceptions will still contain relevant information about the failing queries.
+
+        :param echo_sql: whether to echo the SQL queries or not echo_sql.
+            False reduces the amount of information and noise going to the logs.
+            In case of errors, the exceptions will still contain relevant information about the failing queries.
+
+        :param feeds_database_url: The URL of the target database.
+            If it's None the URL will be assigned from the environment variable FEEDS_DATABASE_URL.
         """
 
         # This init function is called each time we call Database(), but in the case of a singleton, we only want to
