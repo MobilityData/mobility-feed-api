@@ -37,7 +37,7 @@ ABS_SCRIPTPATH="$(
 TEST_FILE=""
 FOLDER=""
 HTML_REPORT=false
-COVERAGE_THRESHOLD=50 # Branch coverage threshold should be 85, this is temporary
+COVERAGE_THRESHOLD=85 # Branch coverage threshold should be 85, this is temporary
 
 # color codes for easier reading
 RED='\033[0;31m'
