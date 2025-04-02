@@ -32,9 +32,9 @@ describe('Dataset utils', () => {
     it('should return the merged and sorted datasets when existing datasets are provided', () => {
       const result = mergeAndSortDatasets(newDatasets, existingDatasets);
       expect(result).toEqual([
+        { id: 3, downloaded_at: '2023-01-12T00:00:00Z' },
         { id: 4, downloaded_at: '2023-03-01T00:00:00Z' },
         { id: 2, downloaded_at: '2023-02-01T00:00:00Z' },
-        { id: 3, downloaded_at: '2023-01-12T00:00:00Z' },
         { id: 1, downloaded_at: '2023-01-02T00:00:00Z' },
       ]);
     });
@@ -42,8 +42,8 @@ describe('Dataset utils', () => {
     it('should filter out duplicates and return the merged and sorted datasets', () => {
       const result = mergeAndSortDatasets(newDatasets, duplicateDatasets);
       expect(result).toEqual([
-        { id: 5, downloaded_at: '2023-05-12T00:00:00Z' },
         { id: 2, downloaded_at: '2023-02-01T00:00:00Z' },
+        { id: 5, downloaded_at: '2023-05-12T00:00:00Z' },
         { id: 1, downloaded_at: '2023-01-02T00:00:00Z' },
       ]);
     });

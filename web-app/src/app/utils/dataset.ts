@@ -22,16 +22,15 @@ export function mergeAndSortDatasets(
     const newFilteredData = newDatasets.filter(
       (item) => !existingIds.has(item.id),
     );
-    formattedDatasets = [...existingDatasets, ...newFilteredData].sort(
-      (a, b) => {
-        if (a.downloaded_at !== undefined && b.downloaded_at !== undefined) {
-          const dateB = new Date(b.downloaded_at).getTime();
-          const dateA = new Date(a.downloaded_at).getTime();
-          return dateB - dateA;
-        }
-        return 0;
-      },
-    );
+    const sortedNewFilteredData = newFilteredData.sort((a, b) => {
+      if (a.downloaded_at !== undefined && b.downloaded_at !== undefined) {
+        const dateB = new Date(b.downloaded_at).getTime();
+        const dateA = new Date(a.downloaded_at).getTime();
+        return dateB - dateA;
+      }
+      return 0;
+    });
+    formattedDatasets = [...existingDatasets, ...sortedNewFilteredData];
   }
   return formattedDatasets;
 }
