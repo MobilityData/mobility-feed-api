@@ -90,8 +90,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 if location
                 else Location(
                     id=location_id,
-                    # Country code should be short. 
-                    # If too long it might be an error (like it could be the country name instead of code).
+                    # Country code should be short.
+                    # If too long it might be an error
+                    # (like it could be the country name instead of code).
                     country_code=country_code if country_code and len(country_code) <= 3 else None,
                     subdivision_name=subdivision_name,
                     municipality=municipality,
