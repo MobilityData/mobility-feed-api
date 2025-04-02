@@ -137,7 +137,6 @@ class FeedsApiImpl(BaseFeedsApi):
         query = get_gtfs_feeds_query(
             db_session=db_session, stable_id=stable_id, include_options_for_joinedload=include_options_for_joinedload
         )
-        self.logger.debug("Query: %s", str(query.statement.compile(compile_kwargs={"literal_binds": True})))
         results = query.all()
         if len(results) == 0:
             return None

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Final, Optional
 
@@ -127,6 +128,12 @@ class GCPLogHandler(AsyncStreamHandler):
         self.logger.info(json.dumps(log_record.__dict__))
 
 
+def get_env_logging_level():
+    """
+    Get the logging level from the environment via OS variable LOGGING_LEVEL. Returns INFO if not set.
+    """
+    return os.getenv("LOGGING_LEVEL", "INFO")
+
 class Logger:
     """
     Util class for logging information, errors or warnings
@@ -143,7 +150,7 @@ class Logger:
 
         self.logger = logging.getLogger(name)
         self.logger.addHandler(console_handler)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(get_env_logging_level())
 
     def get_logger(self):
         """

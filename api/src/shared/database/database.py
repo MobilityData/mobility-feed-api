@@ -11,6 +11,8 @@ from shared.database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrea
 from sqlalchemy.orm import sessionmaker
 import logging
 
+from utils.logger import get_env_logging_level
+
 
 def generate_unique_id() -> str:
     """
@@ -99,6 +101,7 @@ def with_db_session(func=None, db_url: str | None = None):
           exception occurs, and closed in either case.
         - The session is then passed to the decorated function as the 'db_session' keyword argument.
         - If 'db_session' is already provided, it simply calls the decorated function with the existing session.
+        - The echoed SQL queries will be logged if the environment variable LOGGING_LEVEL is set to DEBUG.
     """
     if func is None:
         return lambda f: with_db_session(f, db_url=db_url)
@@ -106,7 +109,7 @@ def with_db_session(func=None, db_url: str | None = None):
     def wrapper(*args, **kwargs):
         db_session = kwargs.get("db_session")
         if db_session is None:
-            db = Database(feeds_database_url=db_url)
+            db = Database(echo_sql=get_env_logging_level() == 'DEBUG', feeds_database_url=db_url)
             with db.start_db_session() as session:
                 kwargs["db_session"] = session
                 return func(*args, **kwargs)
