@@ -1,4 +1,5 @@
 import os
+import traceback
 from typing import TYPE_CHECKING
 from datetime import datetime
 
@@ -131,18 +132,14 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 except ValueError:
                     gtfs_stable_id = static_reference
                 gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
-                if gtfs_feed:
-                    # Add a None check for gtfs_rt_feeds
-                    if gtfs_feed.gtfs_rt_feeds is not None:
-                        already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
-                        if gtfs_rt_feed and gtfs_rt_feed.id not in already_referenced_ids:
-                            gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
-                            # Flush to avoid FK violation
-                            session.flush()
-                    else:
-                        self.logger.warning(f"GTFS feed {gtfs_stable_id} has no gtfs_rt_feeds attribute.")
-                else:
-                    self.logger.warning(f"GTFS feed with stable ID {gtfs_stable_id} not found.")
+                if not gtfs_feed:
+                    self.logger.warning(f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}")
+                    continue
+                already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
+                if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
+                    gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
+                    # Flush to avoid FK violation
+                    session.flush()
 
     def process_redirects(self, session: "Session"):
         """
@@ -291,6 +288,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             with self.db.start_db_session() as session:
                 self.populate_db(session)
                 session.commit()
+
                 self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
                 session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
                 self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
@@ -300,6 +298,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     self.trigger_downstream_tasks()
         except Exception as e:
             self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
+            traceback.print_exc()
             exit(1)
 
 
