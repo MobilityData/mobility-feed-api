@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from geoalchemy2 import WKTElement
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport, Notice
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 
