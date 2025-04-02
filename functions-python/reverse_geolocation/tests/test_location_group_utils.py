@@ -99,6 +99,9 @@ class TestLocationGroupUtils(unittest.TestCase):
     [{"value": "CA", "expected": "Canada"}, {"value": "Canada", "expected": None}],
 )
 def test_location_country(values):
+    """
+    Test the country function with cases with valid and invalid ISO 3166_1 code
+    """
     geopolygon = Geopolygon(
         osm_id=1,
         admin_level=2,
