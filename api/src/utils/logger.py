@@ -134,6 +134,7 @@ def get_env_logging_level():
     """
     return os.getenv("LOGGING_LEVEL", "INFO")
 
+
 class Logger:
     """
     Util class for logging information, errors or warnings
