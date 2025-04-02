@@ -75,12 +75,9 @@ def get_gtfs_feeds_query(
     feed_query = add_official_filter(feed_query, is_official)
 
     if include_options_for_joinedload:
-        feed_query = feed_query.options(
-            contains_eager(Gtfsfeed.gtfsdatasets)
-            .joinedload(Gtfsdataset.validation_reports)
-            .joinedload(Validationreport.notices),
-            *get_joinedload_options(),
-        ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
+        feed_query = feed_query.options(contains_eager(Gtfsfeed.gtfsdatasets)).order_by(
+            Gtfsfeed.provider, Gtfsfeed.stable_id
+        )
 
     feed_query = feed_query.limit(limit).offset(offset)
     return feed_query
