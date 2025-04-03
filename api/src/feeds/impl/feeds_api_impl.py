@@ -45,7 +45,7 @@ from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from middleware.request_context import is_user_email_restricted
 from utils.date_utils import valid_iso_date
-from utils.logger import Logger
+from shared.common.logging_utils import Logger
 
 T = TypeVar("T", bound="BasicFeed")
 
