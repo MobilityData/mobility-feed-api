@@ -33,7 +33,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Validationreport,
 )
-from shared.database import Database
+from shared.database.database import Database
 from google.cloud import workflows_v1
 from google.cloud.workflows import executions_v1
 from google.cloud.workflows.executions_v1 import Execution
