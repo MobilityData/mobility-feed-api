@@ -815,3 +815,26 @@ def test_gtfs_redirect(client):
     assert feed["redirects"][0]["comment"] == ""
     # spreadsheet contains '10'
     assert feed["redirects"][0]["target_id"] == "mdb-10"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"endpoint": "/v1/feeds", "hard_limit": 3500},
+        {"endpoint": "/v1/gtfs_feeds", "hard_limit": 2500},
+        {"endpoint": "/v1/gtfs_rt_feeds", "hard_limit": 1000},
+        {"endpoint": "/v1/gtfs_feeds/mdb-1/datasets", "hard_limit": 500},
+        {"endpoint": "/v1/search", "hard_limit": 3500},
+    ],
+)
+def test_hard_limits(client, monkeypatch, values):
+    """Test that an error is returned if we request more than the hard limit for each endpoint"""
+    hard_limit = values["hard_limit"]
+
+    response = client.request(
+        "GET",
+        values["endpoint"],
+        headers=authHeaders,
+        params={"limit": hard_limit + 1},
+    )
+    assert response.status_code != 200
