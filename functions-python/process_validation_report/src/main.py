@@ -18,6 +18,7 @@ import os
 import logging
 from datetime import datetime
 import requests
+import sqlalchemy.orm
 from shared.helpers.database import Database
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
@@ -165,25 +166,10 @@ def generate_report_entities(
         feature.validations.append(validation_report_entity)
         entities.append(feature)
 
-    # Initialize counters for notices
-    total_info, total_warning, total_error = 0, 0, 0
-    info_codes, warning_codes, error_codes = set(), set(), set()
+    # Process notices and compute counters
+    counters = process_validation_report_notices(json_report["notices"])
 
     for notice in json_report["notices"]:
-        # Update counters based on severity
-        match notice["severity"]:
-            case "INFO":
-                total_info += notice["totalNotices"]
-                info_codes.add(notice["code"])
-            case "WARNING":
-                total_warning += notice["totalNotices"]
-                warning_codes.add(notice["code"])
-            case "ERROR":
-                total_error += notice["totalNotices"]
-                error_codes.add(notice["code"])
-            case _:
-                logging.warning(f"Unknown severity: {notice['severity']}")
-
         notice_entity = Notice(
             dataset_id=dataset.id,
             validation_report_id=report_id,
@@ -194,12 +180,13 @@ def generate_report_entities(
         dataset.notices.append(notice_entity)
         entities.append(notice_entity)
 
-    validation_report_entity.total_info = total_info
-    validation_report_entity.total_warning = total_warning
-    validation_report_entity.total_error = total_error
-    validation_report_entity.unique_info_count = len(info_codes)
-    validation_report_entity.unique_warning_count = len(warning_codes)
-    validation_report_entity.unique_error_count = len(error_codes)
+    # Update the validation report entity with computed counters
+    validation_report_entity.total_info = counters["total_info"]
+    validation_report_entity.total_warning = counters["total_warning"]
+    validation_report_entity.total_error = counters["total_error"]
+    validation_report_entity.unique_info_count = counters["unique_info_count"]
+    validation_report_entity.unique_warning_count = counters["unique_warning_count"]
+    validation_report_entity.unique_error_count = counters["unique_error_count"]
     return entities
 
 
@@ -253,7 +240,6 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id, version
     try:
         with db.start_db_session() as session:
             logging.info("Database session started.")
-
             # Generate the database entities required for the report
             try:
                 entities = generate_report_entities(
@@ -344,32 +330,15 @@ def compute_validation_report_counters(session: sqlalchemy.orm.Session):
         validation_reports = session.query(Validationreport).all()
 
         for report in validation_reports:
-            # Initialize counters for the current report
-            total_info, total_warning, total_error = 0, 0, 0
-            info_codes, warning_codes, error_codes = set(), set(), set()
-
-            # Process associated notices
-            for notice in report.notices:
-                match notice.severity:
-                    case "INFO":
-                        total_info += notice.total_notices
-                        info_codes.add(notice.notice_code)
-                    case "WARNING":
-                        total_warning += notice.total_notices
-                        warning_codes.add(notice.notice_code)
-                    case "ERROR":
-                        total_error += notice.total_notices
-                        error_codes.add(notice.notice_code)
-                    case _:
-                        logging.warning(f"Unknown severity: {notice.severity}")
+            counters = process_validation_report_notices(report.notices)
 
             # Update the report with computed counters
-            report.total_info = total_info
-            report.total_warning = total_warning
-            report.total_error = total_error
-            report.unique_info_count = len(info_codes)
-            report.unique_warning_count = len(warning_codes)
-            report.unique_error_count = len(error_codes)
+            report.total_info = counters["total_info"]
+            report.total_warning = counters["total_warning"]
+            report.total_error = counters["total_error"]
+            report.unique_info_count = counters["unique_info_count"]
+            report.unique_warning_count = counters["unique_warning_count"]
+            report.unique_error_count = counters["unique_error_count"]
 
             logging.info(
                 f"Updated ValidationReport {report.id} with counters: "
@@ -379,3 +348,39 @@ def compute_validation_report_counters(session: sqlalchemy.orm.Session):
             )
 
     return {"message": "Validation report counters computed successfully."}, 200
+
+
+def process_validation_report_notices(notices):
+    """
+    Processes the notices of a validation report and computes counters for different severities.
+
+    :param report: A Validationreport object containing associated notices.
+    :return: A dictionary with computed counters for total and unique counts of INFO, WARNING, and ERROR severities.
+    """
+    # Initialize counters for the current report
+    total_info, total_warning, total_error = 0, 0, 0
+    info_codes, warning_codes, error_codes = set(), set(), set()
+
+    # Process associated notices
+    for notice in notices:
+        match notice.severity:
+            case "INFO":
+                total_info += notice.total_notices
+                info_codes.add(notice.notice_code)
+            case "WARNING":
+                total_warning += notice.total_notices
+                warning_codes.add(notice.notice_code)
+            case "ERROR":
+                total_error += notice.total_notices
+                error_codes.add(notice.notice_code)
+            case _:
+                logging.warning(f"Unknown severity: {notice.severity}")
+
+    return {
+        "total_info": total_info,
+        "total_warning": total_warning,
+        "total_error": total_error,
+        "unique_info_count": len(info_codes),
+        "unique_warning_count": len(warning_codes),
+        "unique_error_count": len(error_codes),
+    }
