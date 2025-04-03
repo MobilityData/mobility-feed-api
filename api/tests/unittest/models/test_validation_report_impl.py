@@ -12,6 +12,12 @@ class TestValidationReportImpl(unittest.TestCase):
             validator_version="1.0.0",
             json_report="http://json_report",
             html_report="http://html_report",
+            total_error=33,
+            total_warning=22,
+            total_info=11,
+            unique_error_count=2,
+            unique_warning_count=1,
+            unique_info_count=1,
             notices=[
                 Notice(severity="INFO", total_notices=10),
                 Notice(severity="INFO", total_notices=1),

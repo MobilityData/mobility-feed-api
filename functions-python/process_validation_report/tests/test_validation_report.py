@@ -10,9 +10,10 @@ from shared.database_gen.sqlacodegen_models import (
     Feature,
     Gtfsdataset,
     Gtfsfeed,
+    Notice,
     Validationreport,
 )
-
+from main import compute_validation_report_counters
 from test_shared.test_utils.database_utils import default_db_url, get_testing_session
 from main import (
     read_json_report,
@@ -287,3 +288,49 @@ class TestValidationReportProcessor(unittest.TestCase):
         populate_service_date(dataset, json_report)
         self.assertEqual(dataset.service_date_range_start, None)
         self.assertEqual(dataset.service_date_range_end, None)
+
+    @patch("main.Database")
+    def test_compute_validation_report_counters(self, mock_database):
+        """Test compute_validation_report_counters function."""
+        # Mock database session
+        mock_session = MagicMock()
+        mock_database.return_value.start_db_session.return_value.__enter__.return_value = (
+            mock_session
+        )
+
+        # Mock notices
+        mock_notice_1 = Notice(
+            severity="INFO", total_notices=5, notice_code="info_code_1"
+        )
+        mock_notice_2 = Notice(
+            severity="WARNING", total_notices=3, notice_code="warning_code_1"
+        )
+        mock_notice_3 = Notice(
+            severity="ERROR", total_notices=2, notice_code="error_code_1"
+        )
+        mock_notice_4 = Notice(
+            severity="ERROR", total_notices=1, notice_code="error_code_2"
+        )
+
+        # Mock validation report
+        mock_validation_report = Validationreport(
+            id="report_1",
+            notices=[mock_notice_1, mock_notice_2, mock_notice_3, mock_notice_4],
+        )
+
+        # Mock query to return the validation report
+        mock_session.query.return_value.all.return_value = [mock_validation_report]
+
+        # Call the function
+        compute_validation_report_counters(mock_session)
+
+        # Assertions for computed counters
+        self.assertEqual(mock_validation_report.total_info, 5)
+        self.assertEqual(mock_validation_report.total_warning, 3)
+        self.assertEqual(mock_validation_report.total_error, 3)
+        self.assertEqual(mock_validation_report.unique_info_count, 1)
+        self.assertEqual(mock_validation_report.unique_warning_count, 1)
+        self.assertEqual(mock_validation_report.unique_error_count, 2)
+
+        # Ensure the session's query method was called
+        mock_session.query.assert_called_once()
