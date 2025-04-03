@@ -33,7 +33,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Validationreport,
 )
-from shared.helpers.database import Database
+from shared.database import Database
 from google.cloud import workflows_v1
 from google.cloud.workflows import executions_v1
 from google.cloud.workflows.executions_v1 import Execution
@@ -157,7 +157,7 @@ def get_latest_datasets_without_validation_reports(
 
 
 def get_datasets_for_validation(
-    latest_datasets: List[Row[tuple[Any, Any]]]
+    latest_datasets: List[Row[tuple[Any, Any]]],
 ) -> List[tuple[str, str]]:
     """
     Get the valid dataset blobs that need their validation report to be updated
@@ -271,55 +271,3 @@ def execute_workflows(
             )
             sleep(sleep_time)
     return execution_triggered_datasets
-
-
-@functions_framework.http
-def compute_validation_report_counters(session: sqlalchemy.orm.Session):
-    """
-    Compute the total number of errors, warnings, and info notices,
-    as well as the number of distinct codes for each severity level
-    across all validation reports in the database, and write the results to the database.
-
-    :param session: The database session
-    """
-    db = Database()
-    with db.start_db_session(echo=False) as session:
-        # Query all validation reports
-        validation_reports = session.query(Validationreport).all()
-
-        for report in validation_reports:
-            # Initialize counters for the current report
-            total_info, total_warning, total_error = 0, 0, 0
-            info_codes, warning_codes, error_codes = set(), set(), set()
-
-            # Process associated notices
-            for notice in report.notices:
-                match notice.severity:
-                    case "INFO":
-                        total_info += notice.total_notices
-                        info_codes.add(notice.notice_code)
-                    case "WARNING":
-                        total_warning += notice.total_notices
-                        warning_codes.add(notice.notice_code)
-                    case "ERROR":
-                        total_error += notice.total_notices
-                        error_codes.add(notice.notice_code)
-                    case _:
-                        logging.warning(f"Unknown severity: {notice.severity}")
-
-            # Update the report with computed counters
-            report.total_info = total_info
-            report.total_warning = total_warning
-            report.total_error = total_error
-            report.unique_info_count = len(info_codes)
-            report.unique_warning_count = len(warning_codes)
-            report.unique_error_count = len(error_codes)
-
-            logging.info(
-                f"Updated ValidationReport {report.id} with counters: "
-                f"INFO={total_info}, WARNING={total_warning}, ERROR={total_error}, "
-                f"Unique INFO Codes={len(info_codes)}, Unique WARNING Codes={len(warning_codes)}, "
-                f"Unique ERROR Codes={len(error_codes)}"
-            )
-
-    return {"message": "Validation report counters computed successfully."}, 200
