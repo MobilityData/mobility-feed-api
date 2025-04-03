@@ -555,7 +555,15 @@ export interface components {
     /** @description If true, only return official feeds. */
     is_official_query_param?: boolean;
     /** @description The number of items to be returned. */
-    limit_query_param?: number;
+    limit_query_param_feeds_endpoint?: number;
+    /** @description The number of items to be returned. */
+    limit_query_param_gtfs_feeds_endpoint?: number;
+    /** @description The number of items to be returned. */
+    limit_query_param_gtfs_rt_feeds_endpoint?: number;
+    /** @description The number of items to be returned. */
+    limit_query_param_datasets_endpoint?: number;
+    /** @description The number of items to be returned. */
+    limit_query_param_search_endpoint?: number;
     /** @description Offset of the first item to return. */
     offset?: number;
     /** @description General search query to match against transit provider, location, and feed name. */
@@ -599,7 +607,7 @@ export interface operations {
   getFeeds: {
     parameters: {
       query?: {
-        limit?: components['parameters']['limit_query_param'];
+        limit?: components['parameters']['limit_query_param_feeds_endpoint'];
         offset?: components['parameters']['offset'];
         status?: components['parameters']['status'];
         provider?: components['parameters']['provider'];
@@ -636,7 +644,7 @@ export interface operations {
   getGtfsFeeds: {
     parameters: {
       query?: {
-        limit?: components['parameters']['limit_query_param'];
+        limit?: components['parameters']['limit_query_param_gtfs_feeds_endpoint'];
         offset?: components['parameters']['offset'];
         provider?: components['parameters']['provider'];
         producer_url?: components['parameters']['producer_url'];
@@ -662,7 +670,7 @@ export interface operations {
   getGtfsRtFeeds: {
     parameters: {
       query?: {
-        limit?: components['parameters']['limit_query_param'];
+        limit?: components['parameters']['limit_query_param_gtfs_rt_feeds_endpoint'];
         offset?: components['parameters']['offset'];
         provider?: components['parameters']['provider'];
         producer_url?: components['parameters']['producer_url'];
@@ -719,7 +727,7 @@ export interface operations {
     parameters: {
       query?: {
         latest?: components['parameters']['latest_query_param'];
-        limit?: components['parameters']['limit_query_param'];
+        limit?: components['parameters']['limit_query_param_datasets_endpoint'];
         offset?: components['parameters']['offset'];
         downloaded_after?: components['parameters']['downloaded_after'];
         downloaded_before?: components['parameters']['downloaded_before'];
@@ -803,7 +811,7 @@ export interface operations {
   searchFeeds: {
     parameters: {
       query?: {
-        limit?: components['parameters']['limit_query_param'];
+        limit?: components['parameters']['limit_query_param_search_endpoint'];
         offset?: components['parameters']['offset'];
         status?: components['parameters']['statuses'];
         feed_id?: components['parameters']['feed_id_query_param'];
