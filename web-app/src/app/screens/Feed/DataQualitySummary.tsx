@@ -1,14 +1,13 @@
 import * as React from 'react';
-import { Box, Chip, Tooltip } from '@mui/material';
+import { Box, Chip } from '@mui/material';
 import { CheckCircle, ReportOutlined } from '@mui/icons-material';
 import { type components } from '../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { WarningContentBox } from '../../components/WarningContentBox';
-import VerifiedIcon from '@mui/icons-material/Verified';
 import { useTranslation } from 'react-i18next';
-import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
 import { FeedStatusChip } from '../../components/FeedStatus';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
+import OfficialChip from '../../components/OfficialChip';
 
 export interface DataQualitySummaryProps {
   feedStatus: components['schemas']['BasicFeed']['status'];
@@ -25,23 +24,14 @@ export default function DataQualitySummary({
   const { config } = useRemoteConfig();
   return (
     <Box data-testid='data-quality-summary' sx={{ my: 2 }}>
-      {(latestDataset?.validation_report === undefined ||
-        latestDataset.validation_report === null) && (
+      {latestDataset?.validation_report == undefined && (
         <WarningContentBox>{t('errorLoadingQualityReport')}</WarningContentBox>
       )}
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         {config.enableFeedStatusBadge && (
           <FeedStatusChip status={feedStatus ?? ''}></FeedStatusChip>
         )}
-        {isOfficialFeed && (
-          <Tooltip title={t('officialFeedTooltip')} placement='top'>
-            <Chip
-              sx={verificationBadgeStyle}
-              icon={<VerifiedIcon sx={{ fill: 'white' }}></VerifiedIcon>}
-              label={t('officialFeed')}
-            ></Chip>
-          </Tooltip>
-        )}
+        {isOfficialFeed && <OfficialChip></OfficialChip>}
         {latestDataset?.validation_report !== undefined &&
           latestDataset.validation_report !== null && (
             <>
