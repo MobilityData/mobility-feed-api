@@ -154,125 +154,115 @@ export default function PreviousDatasets({
                         )}
                     </TableCell>
                     <TableCell sx={{ textAlign: { xs: 'left', xl: 'center' } }}>
-                      {(dataset.validation_report === null ||
-                        dataset.validation_report === undefined) && (
+                      {dataset.validation_report == null && (
                         <Typography sx={{ ml: '4px' }}>
                           {t('validationReportNotAvailable')}
                         </Typography>
                       )}
-                      {dataset.validation_report !== null &&
-                        dataset.validation_report !== undefined && (
-                          <>
-                            <Chip
-                              component='a'
-                              clickable
-                              href={`${dataset?.validation_report?.url_html}`}
-                              target='_blank'
-                              rel='noreferrer nofollow'
-                              sx={{ m: '4px' }}
-                              icon={
-                                dataset?.validation_report
-                                  ?.unique_error_count !== undefined &&
-                                dataset?.validation_report?.unique_error_count >
-                                  0 ? (
-                                  <ReportOutlined />
-                                ) : (
-                                  <CheckCircle />
-                                )
-                              }
-                              label={
-                                dataset?.validation_report
-                                  ?.unique_error_count !== undefined &&
-                                dataset?.validation_report?.unique_error_count >
-                                  0
-                                  ? `${dataset?.validation_report
-                                      ?.unique_error_count} ${t(
-                                      'common:feedback.errors',
-                                    )}`
-                                  : t('common:feedback.noErrors')
-                              }
-                              color={
-                                dataset?.validation_report
-                                  ?.unique_error_count !== undefined &&
-                                dataset?.validation_report?.unique_error_count >
-                                  0
-                                  ? 'error'
-                                  : 'success'
-                              }
-                              variant='outlined'
-                            />
-                            <Chip
-                              sx={{ m: '4px' }}
-                              component='a'
-                              clickable
-                              href={`${dataset?.validation_report?.url_html}`}
-                              target='_blank'
-                              rel='noreferrer nofollow'
-                              icon={
-                                dataset?.validation_report
-                                  ?.unique_warning_count !== undefined &&
-                                dataset?.validation_report
-                                  ?.unique_warning_count > 0 ? (
-                                  <ReportOutlined />
-                                ) : (
-                                  <CheckCircle />
-                                )
-                              }
-                              label={
-                                dataset?.validation_report
-                                  ?.unique_warning_count !== undefined &&
-                                dataset?.validation_report
-                                  ?.unique_warning_count > 0
-                                  ? `${dataset?.validation_report
-                                      ?.unique_warning_count} ${t(
-                                      'common:feedback.warnings',
-                                    )}`
-                                  : t('common:feedback.noWarnings')
-                              }
-                              color={
-                                dataset?.validation_report
-                                  ?.unique_warning_count !== undefined &&
-                                dataset?.validation_report
-                                  ?.unique_warning_count > 0
-                                  ? 'warning'
-                                  : 'success'
-                              }
-                              variant='outlined'
-                            />
-                            <Chip
-                              sx={{ m: '4px' }}
-                              component='a'
-                              clickable
-                              href={`${dataset?.validation_report?.url_html}`}
-                              target='_blank'
-                              rel='noreferrer nofollow'
-                              icon={<InfoOutlinedIcon />}
-                              label={`${
-                                dataset?.validation_report?.unique_info_count ??
-                                '0'
-                              } ${t('common:feedback.infoNotices')}`}
-                              color='primary'
-                              variant='outlined'
-                            />
-                          </>
-                        )}
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>
-                      {dataset.validation_report == undefined && (
-                        <Button
-                          variant='contained'
-                          sx={{ mx: 2 }}
-                          disableElevation
-                          endIcon={<LaunchOutlined />}
-                          href={WEB_VALIDATOR_LINK}
-                          target='_blank'
-                          rel='noreferrer'
-                        >
-                          {t('runValidationReportYourself')}
-                        </Button>
-                      )}
                       {dataset.validation_report != null && (
                         <>
+                          <Chip
+                            component='a'
+                            clickable
+                            href={`${dataset?.validation_report?.url_html}`}
+                            target='_blank'
+                            rel='noreferrer nofollow'
+                            sx={{ m: '4px' }}
+                            icon={
+                              dataset?.validation_report?.unique_error_count !=
+                                undefined &&
+                              dataset?.validation_report?.unique_error_count >
+                                0 ? (
+                                <ReportOutlined />
+                              ) : (
+                                <CheckCircle />
+                              )
+                            }
+                            label={
+                              dataset?.validation_report?.unique_error_count !=
+                                undefined &&
+                              dataset?.validation_report?.unique_error_count > 0
+                                ? `${dataset?.validation_report
+                                    ?.unique_error_count} ${t(
+                                    'common:feedback.errors',
+                                  )}`
+                                : t('common:feedback.noErrors')
+                            }
+                            color={
+                              dataset?.validation_report?.unique_error_count !=
+                                undefined &&
+                              dataset?.validation_report?.unique_error_count > 0
+                                ? 'error'
+                                : 'success'
+                            }
+                            variant='outlined'
+                          />
+                          <Chip
+                            sx={{ m: '4px' }}
+                            component='a'
+                            clickable
+                            href={`${dataset?.validation_report?.url_html}`}
+                            target='_blank'
+                            rel='noreferrer nofollow'
+                            icon={
+                              dataset?.validation_report
+                                ?.unique_warning_count != undefined &&
+                              dataset?.validation_report?.unique_warning_count >
+                                0 ? (
+                                <ReportOutlined />
+                              ) : (
+                                <CheckCircle />
+                              )
+                            }
+                            label={
+                              dataset?.validation_report
+                                ?.unique_warning_count != undefined &&
+                              dataset?.validation_report?.unique_warning_count >
+                                0
+                                ? `${dataset?.validation_report
+                                    ?.unique_warning_count} ${t(
+                                    'common:feedback.warnings',
+                                  )}`
+                                : t('common:feedback.noWarnings')
+                            }
+                            color={
+                              dataset?.validation_report
+                                ?.unique_warning_count != undefined &&
+                              dataset?.validation_report?.unique_warning_count >
+                                0
+                                ? 'warning'
+                                : 'success'
+                            }
+                            variant='outlined'
+                          />
+                          <Chip
+                            sx={{ m: '4px' }}
+                            component='a'
+                            clickable
+                            href={`${dataset?.validation_report?.url_html}`}
+                            target='_blank'
+                            rel='noreferrer nofollow'
+                            icon={<InfoOutlinedIcon />}
+                            label={`${
+                              dataset?.validation_report?.unique_info_count ??
+                              '0'
+                            } ${t('common:feedback.infoNotices')}`}
+                            color='primary'
+                            variant='outlined'
+                          />
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 1,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        {dataset.hosted_url != null && (
                           <Tooltip
                             title={t('datasetHistoryTooltip.downloadReport')}
                             placement='top'
@@ -290,44 +280,66 @@ export default function PreviousDatasets({
                               {t('common:download')}
                             </Button>
                           </Tooltip>
-                          |
-                          <Tooltip
-                            title={t('datasetHistoryTooltip.viewReport')}
-                            placement='top'
+                        )}
+                        {dataset.validation_report == undefined && (
+                          <Button
+                            variant='contained'
+                            sx={{ mx: 2 }}
+                            disableElevation
+                            endIcon={<LaunchOutlined />}
+                            href={WEB_VALIDATOR_LINK}
+                            target='_blank'
+                            rel='noreferrer'
                           >
-                            <IconButton
-                              color='primary'
-                              aria-label={t('datasetHistoryTooltip.viewReport')}
-                              size='medium'
-                              href={`${dataset?.validation_report?.url_html}`}
-                              target='_blank'
-                              rel='noreferrer nofollow'
-                              data-testid='validation-report-html'
+                            {t('runValidationReportYourself')}
+                          </Button>
+                        )}
+
+                        {dataset.validation_report != null && (
+                          <>
+                          {dataset.hosted_url != null && (
+                            <>|</>
+                          )}
+                            <Tooltip
+                              title={t('datasetHistoryTooltip.viewReport')}
+                              placement='top'
                             >
-                              <SummarizeIcon />
-                            </IconButton>
-                          </Tooltip>
-                          |
-                          <Tooltip
-                            title={t('datasetHistoryTooltip.viewJsonReport')}
-                            placement='top'
-                          >
-                            <IconButton
-                              color='primary'
-                              aria-label={t(
-                                'datasetHistoryTooltip.viewJsonReport',
-                              )}
-                              size='medium'
-                              href={`${dataset?.validation_report?.url_json}`}
-                              target='_blank'
-                              rel='noreferrer nofollow'
-                              data-testid='validation-report-json'
+                              <IconButton
+                                color='primary'
+                                aria-label={t(
+                                  'datasetHistoryTooltip.viewReport',
+                                )}
+                                size='medium'
+                                href={`${dataset?.validation_report?.url_html}`}
+                                target='_blank'
+                                rel='noreferrer nofollow'
+                                data-testid='validation-report-html'
+                              >
+                                <SummarizeIcon />
+                              </IconButton>
+                            </Tooltip>
+                            |
+                            <Tooltip
+                              title={t('datasetHistoryTooltip.viewJsonReport')}
+                              placement='top'
                             >
-                              <CodeIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
+                              <IconButton
+                                color='primary'
+                                aria-label={t(
+                                  'datasetHistoryTooltip.viewJsonReport',
+                                )}
+                                size='medium'
+                                href={`${dataset?.validation_report?.url_json}`}
+                                target='_blank'
+                                rel='noreferrer nofollow'
+                                data-testid='validation-report-json'
+                              >
+                                <CodeIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
