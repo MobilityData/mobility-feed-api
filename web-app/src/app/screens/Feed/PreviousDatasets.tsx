@@ -297,9 +297,7 @@ export default function PreviousDatasets({
 
                         {dataset.validation_report != null && (
                           <>
-                          {dataset.hosted_url != null && (
-                            <>|</>
-                          )}
+                            {dataset.hosted_url != null && <>|</>}
                             <Tooltip
                               title={t('datasetHistoryTooltip.viewReport')}
                               placement='top'
