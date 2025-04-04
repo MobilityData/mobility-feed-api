@@ -45,7 +45,7 @@ from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
 from middleware.request_context import is_user_email_restricted
 from utils.date_utils import valid_iso_date
-from utils.logger import Logger
+from shared.common.logging_utils import Logger
 
 T = TypeVar("T", bound="BasicFeed")
 
@@ -66,7 +66,7 @@ class FeedsApiImpl(BaseFeedsApi):
     def get_feed(self, id: str, db_session: Session) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
-        self.logger.info(f"User email is restricted: {is_email_restricted}")
+        self.logger.debug(f"User email is restricted: {is_email_restricted}")
 
         feed = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
@@ -98,7 +98,7 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
-        self.logger.info(f"User email is restricted: {is_email_restricted}")
+        self.logger.debug(f"User email is restricted: {is_email_restricted}")
         feed_filter = FeedFilter(
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
@@ -137,7 +137,6 @@ class FeedsApiImpl(BaseFeedsApi):
         query = get_gtfs_feeds_query(
             db_session=db_session, stable_id=stable_id, include_options_for_joinedload=include_options_for_joinedload
         )
-        self.logger.debug("Query: %s", str(query.statement.compile(compile_kwargs={"literal_binds": True})))
         results = query.all()
         if len(results) == 0:
             return None

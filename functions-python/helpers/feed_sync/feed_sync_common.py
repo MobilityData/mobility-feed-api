@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from google.cloud.pubsub_v1.publisher.futures import Future
-from sqlalchemy.orm import Session
 
 
 @dataclass
@@ -36,9 +35,7 @@ class FeedSyncProcessor:
     Abstract class for feed sync processors
     """
 
-    def process_sync(
-        self, session: Session, execution_id: str
-    ) -> list[FeedSyncPayload]:
+    def process_sync(self, execution_id: str) -> list[FeedSyncPayload]:
         """
         Abstract method to process feed sync.
         :param session: database session

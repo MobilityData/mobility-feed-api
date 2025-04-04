@@ -1,13 +1,11 @@
 import logging
-import os
 import functions_framework
 from datetime import datetime, timezone
 from shared.helpers.logger import Logger
-from shared.helpers.database import Database
 from typing import TYPE_CHECKING
 from sqlalchemy import text
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, t_feedsearch
-from shared.helpers.database import refresh_materialized_view
+from shared.database.database import refresh_materialized_view, with_db_session
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -84,16 +82,15 @@ def update_feed_statuses_query(session: "Session"):
         raise Exception(f"Error creating dataset: {e}")
 
 
+@with_db_session
 @functions_framework.http
-def update_feed_status(_):
+def update_feed_status(_, db_session):
     """Updates the Feed status based on the latets dataset service date range."""
     Logger.init_logger()
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session() as session:
-            logging.info("Database session started.")
-            diff_counts = update_feed_statuses_query(session)
-            return diff_counts, 200
+        logging.info("Database session started.")
+        diff_counts = update_feed_statuses_query(db_session)
+        return diff_counts, 200
 
     except Exception as error:
         logging.error(f"Error updating the feed statuses: {error}")

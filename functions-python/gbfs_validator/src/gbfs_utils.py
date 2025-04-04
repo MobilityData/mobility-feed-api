@@ -14,7 +14,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from sqlalchemy.orm import Session
 from shared.dataset_service.main import Status
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 
 
 class GBFSValidator:
@@ -109,7 +109,7 @@ class GBFSValidator:
         }
 
 
-@with_db_session(echo=False)
+@with_db_session
 def save_snapshot_and_report(
     snapshot: Gbfssnapshot, validation_result: Dict[str, Any], db_session: Session
 ):

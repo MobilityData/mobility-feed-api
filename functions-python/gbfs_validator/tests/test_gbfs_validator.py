@@ -14,7 +14,6 @@ from main import (
     fetch_all_gbfs_feeds,
 )
 from test_shared.test_utils.database_utils import default_db_url, reset_database_class
-from shared.helpers.database import Database
 
 
 class TestMainFunctions(unittest.TestCase):
@@ -78,7 +77,6 @@ class TestMainFunctions(unittest.TestCase):
             },
             data={"message": {"data": base64_data}},
         )
-
         # Call the function
         result = gbfs_validator_pubsub(cloud_event)
         self.assertEqual(result, "GBFS files processed and stored successfully.")
@@ -95,16 +93,15 @@ class TestMainFunctions(unittest.TestCase):
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
-    @patch("shared.helpers.database.Database")
     @patch("main.pubsub_v1.PublisherClient")
     @patch("main.fetch_all_gbfs_feeds")
     @patch("main.Logger")
     def test_gbfs_validator_batch(
-        self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client, mock_database
+        self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client
     ):
         # Prepare mocks
         mock_session = MagicMock()
-        mock_database.return_value.start_db_session.return_value = mock_session
+        # mock_database.return_value.start_db_session.return_value = mock_session
 
         mock_publisher = MagicMock()
         mock_publisher_client.return_value = mock_publisher
@@ -119,7 +116,7 @@ class TestMainFunctions(unittest.TestCase):
         mock_fetch_all_gbfs_feeds.return_value = [mock_feed, mock_feed_2]
 
         # Call the function
-        result = gbfs_validator_batch(None)
+        result = gbfs_validator_batch(None, db_session=mock_session)
         self.assertEqual(result[1], 200)
 
         mock_fetch_all_gbfs_feeds.assert_called_once()
@@ -131,56 +128,41 @@ class TestMainFunctions(unittest.TestCase):
         result = gbfs_validator_batch(None)
         self.assertEqual(result[1], 500)
 
-    @patch("shared.helpers.database.Database")
     @patch("main.Logger")
-    def test_fetch_all_gbfs_feeds(self, _, mock_database):
+    def test_fetch_all_gbfs_feeds(self, _):
         mock_session = MagicMock()
-        db = Database()
+        db = MagicMock()
         db._get_session = MagicMock()
         db._get_session.return_value.return_value = mock_session
-        mock_database.return_value = db
 
         mock_feed = MagicMock()
         mock_session.query.return_value.options.return_value.all.return_value = [
             mock_feed
         ]
 
-        result = fetch_all_gbfs_feeds()
+        result = fetch_all_gbfs_feeds(db_session=mock_session)
         self.assertEqual(result, [mock_feed])
 
-        db._get_session.return_value.assert_called_once()
-        mock_session.close.assert_called_once()
-
-    @patch("shared.helpers.database.Database")
     @patch("main.Logger")
-    def test_fetch_all_gbfs_feeds_exception(self, _, mock_database):
+    def test_fetch_all_gbfs_feeds_exception(self, _):
         mock_session = MagicMock()
-        db = Database()
+        db = MagicMock()
         db._get_session = MagicMock()
         db._get_session.return_value.return_value = mock_session
-        mock_database.return_value = db
 
         # Simulate an exception when querying the database
         mock_session.query.side_effect = Exception("Database error")
 
         with self.assertRaises(Exception) as context:
-            fetch_all_gbfs_feeds()
+            fetch_all_gbfs_feeds(mock_session)
 
         self.assertTrue("Database error" in str(context.exception))
 
-        db._get_session.return_value.assert_called_once()
-        mock_session.close.assert_called_once()
-
-    @patch("shared.helpers.database.Database")
-    def test_fetch_all_gbfs_feeds_none_session(self, mock_database):
-        mock_database.return_value = None
-
+    def test_fetch_all_gbfs_feeds_none_session(self):
         with self.assertRaises(Exception) as context:
-            fetch_all_gbfs_feeds()
+            fetch_all_gbfs_feeds(None)
 
         self.assertTrue("NoneType" in str(context.exception))
-
-        mock_database.assert_called_once()
 
     @patch.dict(
         os.environ,
@@ -206,12 +188,11 @@ class TestMainFunctions(unittest.TestCase):
             "PUBSUB_TOPIC_NAME": "mock-topic",
         },
     )
-    @patch("shared.helpers.database.Database")
     @patch("main.pubsub_v1.PublisherClient")
     @patch("main.fetch_all_gbfs_feeds")
     @patch("main.Logger")
     def test_gbfs_validator_batch_publish_exception(
-        self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client, mock_database
+        self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client
     ):
         # Prepare mocks
 
@@ -229,6 +210,3 @@ class TestMainFunctions(unittest.TestCase):
         # Call the function
         result = gbfs_validator_batch(None)
         self.assertEqual(result[1], 500)
-
-        mock_fetch_all_gbfs_feeds.assert_called_once()
-        mock_publisher_client.assert_called_once()

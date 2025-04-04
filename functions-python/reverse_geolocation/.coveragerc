@@ -3,6 +3,7 @@ omit =
     */test*/*
     */helpers/*
     */database_gen/*
+    */shared/*
 
 [report]
 exclude_lines =

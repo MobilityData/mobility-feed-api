@@ -13,12 +13,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Entitytype,
 )
-from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
+from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
 feed_mdb_41 = Gtfsrealtimefeed(
     id="mdb-41",
@@ -73,19 +74,18 @@ feed_mdb_400 = Gtfsfeed(
 )
 
 
-def populate_database():
+@with_db_session(db_url=default_db_url)
+def populate_database(db_session):
     """
     Populates the database with fake data with the following distribution:
     - 1 GTFS feeds
     - 1 GTFS Realtime feeds
     """
-    session = get_testing_session()
-
-    session.add(feed_mdb_41)
+    db_session.add(feed_mdb_41)
     # session.flush()
-    session.add(feed_mdb_40)
-    session.add(feed_mdb_400)
-    session.commit()
+    db_session.add(feed_mdb_40)
+    db_session.add(feed_mdb_400)
+    db_session.commit()
 
 
 def pytest_configure(config):

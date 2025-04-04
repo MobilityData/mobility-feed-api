@@ -35,7 +35,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Gtfsfeed,
 )
-from shared.helpers.database import with_db_session, refresh_materialized_view
+from shared.database.database import with_db_session, refresh_materialized_view
 from shared.helpers.logger import Logger, StableIdFilter
 
 # Initialize logging
@@ -78,7 +78,7 @@ def parse_request_parameters(
     return stops_df, stable_id, dataset_id
 
 
-@with_db_session(echo=False)
+@with_db_session
 def get_cached_geopolygons(
     stable_id: str, stops_df: pd.DataFrame, db_session: Session
 ) -> Tuple[str, Dict[str, GeopolygonAggregate], pd.DataFrame]:
@@ -324,7 +324,7 @@ def get_or_create_location(
         return None
 
 
-@with_db_session(echo=False)
+@with_db_session
 def extract_location_aggregates(
     feed_id: str,
     stops_df: pd.DataFrame,
@@ -382,7 +382,7 @@ def extract_location_aggregates(
     refresh_materialized_view(db_session, t_feedsearch.name)
 
 
-@with_db_session(echo=False)
+@with_db_session
 def update_dataset_bounding_box(
     dataset_id: str, stops_df: pd.DataFrame, db_session: Session
 ) -> shapely.Polygon:

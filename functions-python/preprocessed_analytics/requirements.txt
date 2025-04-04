@@ -21,3 +21,6 @@ google-cloud-storage
 # Additional packages for this function
 pandas
 pycountry
+
+# Configuration
+python-dotenv==1.0.0

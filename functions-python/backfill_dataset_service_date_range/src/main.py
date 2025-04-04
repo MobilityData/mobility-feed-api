@@ -4,12 +4,10 @@ import functions_framework
 
 from shared.helpers.logger import Logger
 
-from shared.helpers.database import Database
+from shared.database.database import with_db_session, refresh_materialized_view
 
-from typing import TYPE_CHECKING
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import or_, func
-from shared.helpers.database import refresh_materialized_view
 from shared.helpers.transform import get_nested_value
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
@@ -29,9 +27,6 @@ from google.cloud import storage
 
 env = os.getenv("ENV", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
-
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
 
 logging.basicConfig(level=logging.INFO)
 
@@ -178,15 +173,14 @@ def backfill_datasets(session: "Session"):
 
 
 @functions_framework.http
-def backfill_dataset_service_date_range(_):
+@with_db_session
+def backfill_dataset_service_date_range(_, db_session: Session):
     """Fills gtfs dataset service date range from the latest validation report."""
     Logger.init_logger()
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     change_count = 0
     try:
-        with db.start_db_session() as session:
-            logging.info("Database session started.")
-            change_count = backfill_datasets(session)
+        logging.info("Database session started.")
+        change_count = backfill_datasets(db_session)
 
     except Exception as error:
         logging.error(f"Error setting the datasets service date range values: {error}")

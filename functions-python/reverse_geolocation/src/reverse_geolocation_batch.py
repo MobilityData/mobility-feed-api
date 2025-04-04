@@ -8,14 +8,14 @@ from sqlalchemy.orm import contains_eager
 from sqlalchemy.orm.session import Session
 
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset, Location
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 from shared.helpers.logger import Logger
 from shared.helpers.pub_sub import publish_messages
 
 logging.basicConfig(level=logging.INFO)
 
 
-@with_db_session(echo=False)
+@with_db_session
 def get_feeds_data(country_codes: List[str], db_session: Session) -> List[Dict]:
     """Get the feeds data for the given country codes. In case no country codes are provided, fetch feeds for all
     countries."""

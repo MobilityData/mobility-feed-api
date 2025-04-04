@@ -17,15 +17,20 @@
 from faker import Faker
 from faker.generator import random
 from datetime import datetime
+
+from sqlalchemy.orm import Session
+
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gtfsdataset,
 )
-from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
+from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
 
-def populate_database():
+@with_db_session(db_url=default_db_url)
+def populate_database(db_session: Session | None = None):
     """
     Populates the database with fake data with the following distribution:
     - 10 GTFS feeds
@@ -37,7 +42,6 @@ def populate_database():
         - 3 active in active feeds
         - 6 active in inactive feeds
     """
-    session = get_testing_session()
     fake = Faker()
     for i in range(10):
         feed = Gtfsfeed(
@@ -55,8 +59,9 @@ def populate_database():
             feed_contact_email=fake.email(),
             provider=fake.company(),
         )
-        session.add(feed)
+        db_session.add(feed)
 
+    db_session.flush()
     for i in range(2):
         feed = Gtfsfeed(
             id=fake.uuid4(),
@@ -73,10 +78,11 @@ def populate_database():
             feed_contact_email=fake.email(),
             provider=fake.company(),
         )
-        session.add(feed)
+        db_session.add(feed)
 
+    db_session.flush()
     # GTFS datasets leaving one active feed without a dataset
-    active_gtfs_feeds = session.query(Gtfsfeed).all()
+    active_gtfs_feeds = db_session.query(Gtfsfeed).all()
     for i in range(1, 9):
         gtfs_dataset = Gtfsdataset(
             id=fake.uuid4(),
@@ -89,8 +95,9 @@ def populate_database():
             downloaded_at=datetime.utcnow(),
             stable_id=fake.uuid4(),
         )
-        session.add(gtfs_dataset)
+        db_session.add(gtfs_dataset)
 
+    db_session.flush()
     # GTFS Realtime feeds
     for _ in range(5):
         gtfs_rt_feed = Gtfsrealtimefeed(
@@ -108,9 +115,9 @@ def populate_database():
             feed_contact_email=fake.email(),
             provider=fake.company(),
         )
-        session.add(gtfs_rt_feed)
+        db_session.add(gtfs_rt_feed)
 
-    session.commit()
+    db_session.commit()
 
 
 def pytest_configure(config):
@@ -121,7 +128,7 @@ def pytest_configure(config):
     """
 
 
-def pytest_sessionstart(session):
+def pytest_sessionstart():
     """
     Called after the Session object has been created and
     before performing collection and entering the run test loop.

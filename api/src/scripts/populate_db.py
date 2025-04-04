@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
-from utils.logger import Logger
+from shared.common.logging_utils import Logger
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session

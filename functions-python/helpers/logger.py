@@ -44,16 +44,22 @@ class Logger:
         self.logger = self.init_logger().logger(name)
 
     @staticmethod
-    def init_logger() -> Client:
+    def init_logger() -> Client | None:
         """
         Initializes the logger
         """
         if os.getenv("DEBUG", "False") == "True":
             return None
-        client = google.cloud.logging.Client()
-        client.get_default_handler()
-        client.setup_logging()
-        return client
+        try:
+            client = google.cloud.logging.Client()
+            client.get_default_handler()
+            client.setup_logging()
+            return client
+        except Exception as error:
+            # This might happen when the GCP authorization credentials are not available.
+            # Example, when running the tests locally
+            logging.error(f"Error initializing the logger: {error}")
+        return None
 
     def get_logger(self) -> Client:
         """

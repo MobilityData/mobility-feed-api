@@ -11,8 +11,9 @@ from main import (
     DatasetFile,
     process_dataset,
 )
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsfeed
-from test_shared.test_utils.database_utils import get_testing_session, default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 from cloudevents.http import CloudEvent
 
 public_url = (
@@ -214,9 +215,9 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch.dict(
         os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}
     )
-    def test_process(self):
-        session = get_testing_session()
-        feeds = session.query(Gtfsfeed).all()
+    @with_db_session(db_url=default_db_url)
+    def test_process(self, db_session):
+        feeds = db_session.query(Gtfsfeed).all()
         feed_id = feeds[0].id
 
         producer_url = "https://testproducer.com/data"
@@ -259,9 +260,9 @@ class TestDatasetProcessor(unittest.TestCase):
         os.environ,
         {"FEEDS_CREDENTIALS": '{"not_what_u_r_looking_4": "test_credentials"}'},
     )
-    def test_fails_authenticated_feed_not_creds(self):
-        session = get_testing_session()
-        feeds = session.query(Gtfsfeed).all()
+    @with_db_session(db_url=default_db_url)
+    def test_fails_authenticated_feed_not_creds(self, db_session):
+        feeds = db_session.query(Gtfsfeed).all()
         feed_id = feeds[0].id
 
         producer_url = "https://testproducer.com/data"
@@ -293,9 +294,9 @@ class TestDatasetProcessor(unittest.TestCase):
         os.environ,
         {"FEEDS_CREDENTIALS": "not a JSON string"},
     )
-    def test_fails_authenticated_feed_creds_invalid(self):
-        session = get_testing_session()
-        feeds = session.query(Gtfsfeed).all()
+    @with_db_session(db_url=default_db_url)
+    def test_fails_authenticated_feed_creds_invalid(self, db_session):
+        feeds = db_session.query(Gtfsfeed).all()
         feed_id = feeds[0].id
 
         producer_url = "https://testproducer.com/data"

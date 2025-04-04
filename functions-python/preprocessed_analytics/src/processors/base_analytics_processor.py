@@ -13,7 +13,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsdataset,
 )
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 
 
 class NoFeedDataException(Exception):

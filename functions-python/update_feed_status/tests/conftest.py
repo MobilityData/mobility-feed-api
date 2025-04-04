@@ -16,13 +16,15 @@
 
 from datetime import datetime, timedelta
 from uuid import uuid4
+
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
 )
 from test_shared.test_utils.database_utils import (
     clean_testing_db,
-    get_testing_session,
+    default_db_url,
 )
 
 future_date = datetime.now() + timedelta(days=15)
@@ -41,9 +43,8 @@ def make_dataset(
     )
 
 
-def populate_database():
-    session = get_testing_session()
-
+@with_db_session(db_url=default_db_url)
+def populate_database(db_session):
     id_range_by_status = {
         "inactive": (0, 6),
         "active": (7, 10),
@@ -53,7 +54,7 @@ def populate_database():
     }
     for status, (a, b) in id_range_by_status.items():
         for _id in map(str, range(a, b + 1)):
-            session.add(Feed(id=str(_id), status=status))
+            db_session.add(Feed(id=str(_id), status=status))
 
     # -> inactive
     for _id in [
@@ -62,7 +63,7 @@ def populate_database():
         "8",
         "22",
     ]:
-        session.add(make_dataset(_id, True, past_date, past_date))
+        db_session.add(make_dataset(_id, True, past_date, past_date))
 
     # -> active
     for _id in [
@@ -72,16 +73,16 @@ def populate_database():
         "16",  # development
         "25",
     ]:
-        session.add(make_dataset(_id, True, past_date, future_date))
+        db_session.add(make_dataset(_id, True, past_date, future_date))
 
     # -> future
     for _id in [
         "10",
     ]:
-        session.add(make_dataset(_id, False, past_date, future_date))
-        session.add(make_dataset(_id, True, future_date, future_date))
+        db_session.add(make_dataset(_id, False, past_date, future_date))
+        db_session.add(make_dataset(_id, True, future_date, future_date))
 
-    session.commit()
+    db_session.commit()
 
 
 def pytest_sessionstart(session):

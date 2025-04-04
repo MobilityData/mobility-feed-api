@@ -24,3 +24,6 @@ cloudevents~=1.10.1
 # Additional packages for this function
 gtfs-kit
 pycountry
+
+# Configuration
+python-dotenv==1.0.0

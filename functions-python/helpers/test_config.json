@@ -1,3 +1,3 @@
 {
-  "include_api_folders": ["database_gen", "database"]
+  "include_api_folders": ["database_gen", "database", "common"]
 }

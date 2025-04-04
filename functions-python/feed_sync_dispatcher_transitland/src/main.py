@@ -26,6 +26,7 @@ import requests
 from google.cloud.pubsub_v1.futures import Future
 from requests.exceptions import RequestException, HTTPError
 from sqlalchemy.orm import Session
+from shared.database.database import with_db_session
 
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.feed_sync.feed_sync_common import FeedSyncProcessor, FeedSyncPayload
@@ -40,7 +41,6 @@ from collections import defaultdict
 # Environment variables
 PUBSUB_TOPIC_NAME = os.getenv("PUBSUB_TOPIC_NAME")
 PROJECT_ID = os.getenv("PROJECT_ID")
-FEEDS_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
 TRANSITLAND_API_KEY = os.getenv("TRANSITLAND_API_KEY")
 TRANSITLAND_OPERATOR_URL = os.getenv("TRANSITLAND_OPERATOR_URL")
 TRANSITLAND_FEED_URL = os.getenv("TRANSITLAND_FEED_URL")
@@ -82,8 +82,9 @@ def process_feed_urls(feed: dict, urls_in_db: List[str]) -> Tuple[List[str], Lis
 
 
 class TransitFeedSyncProcessor(FeedSyncProcessor):
+    @with_db_session
     def process_sync(
-        self, db_session: Session, execution_id: Optional[str] = None
+        self, execution_id: Optional[str], db_session: Session
     ) -> List[FeedSyncPayload]:
         """
         Process data synchronously to fetch, extract, combine, filter and prepare payloads for publishing

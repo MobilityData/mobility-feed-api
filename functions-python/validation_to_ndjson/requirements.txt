@@ -20,3 +20,6 @@ google-cloud-storage
 
 # Additional packages for this function
 pandas
+
+# Configuration
+python-dotenv==1.0.0

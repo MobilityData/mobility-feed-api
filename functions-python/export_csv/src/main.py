@@ -31,7 +31,7 @@ from shared.helpers.logger import Logger
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Feed
 from shared.common.db_utils import get_all_gtfs_rt_feeds, get_all_gtfs_feeds
 
-from shared.helpers.database import Database
+from shared.database.database import with_db_session
 
 load_dotenv()
 csv_default_file_path = "./output.csv"
@@ -137,27 +137,26 @@ def export_csv(csv_file_path: str):
     logging.info(f"Exported {count} feeds to CSV file {csv_file_path}.")
 
 
-def fetch_feeds() -> Iterator[Dict]:
+@with_db_session
+def fetch_feeds(db_session) -> Iterator[Dict]:
     """
     Fetch and return feed data from the DB.
     :return: Data to write to the output CSV file.
     """
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session() as session:
-            feed_count = 0
-            for feed in get_all_gtfs_feeds(session, published_only=True):
-                yield get_gtfs_feed_csv_data(feed)
-                feed_count += 1
+        feed_count = 0
+        for feed in get_all_gtfs_feeds(db_session, published_only=True):
+            yield get_gtfs_feed_csv_data(feed)
+            feed_count += 1
 
-            logging.info(f"Processed {feed_count} GTFS feeds.")
+        logging.info(f"Processed {feed_count} GTFS feeds.")
 
-            rt_feed_count = 0
-            for feed in get_all_gtfs_rt_feeds(session, published_only=True):
-                yield get_gtfs_rt_feed_csv_data(feed)
-                rt_feed_count += 1
+        rt_feed_count = 0
+        for feed in get_all_gtfs_rt_feeds(db_session, published_only=True):
+            yield get_gtfs_rt_feed_csv_data(feed)
+            rt_feed_count += 1
 
-            logging.info(f"Processed {rt_feed_count} GTFS realtime feeds.")
+        logging.info(f"Processed {rt_feed_count} GTFS realtime feeds.")
 
     except Exception as error:
         logging.error(f"Error retrieving feeds: {error}")
