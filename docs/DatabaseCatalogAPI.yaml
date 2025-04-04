@@ -42,7 +42,7 @@ paths:
         - "feeds"
       operationId: getFeeds
       parameters:
-        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/limit_query_param_feeds_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/status"
         - $ref: "#/components/parameters/provider"
@@ -88,7 +88,7 @@ paths:
         - "feeds"
       operationId: getGtfsFeeds
       parameters:
-        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/limit_query_param_gtfs_feeds_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
@@ -117,7 +117,7 @@ paths:
         - "feeds"
       operationId: getGtfsRtFeeds
       parameters:
-        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/limit_query_param_gtfs_rt_feeds_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
@@ -184,7 +184,7 @@ paths:
       operationId: getGtfsFeedDatasets
       parameters:
         - $ref: "#/components/parameters/latest_query_param"
-        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/limit_query_param_datasets_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/downloaded_after"
         - $ref: "#/components/parameters/downloaded_before"
@@ -277,7 +277,7 @@ paths:
       tags:
         - "search"
       parameters:
-        - $ref: "#/components/parameters/limit_query_param"
+        - $ref: "#/components/parameters/limit_query_param_search_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/statuses"
         - $ref: "#/components/parameters/feed_id_query_param"
@@ -1060,7 +1060,7 @@ components:
         type: boolean
         default: null
 
-    limit_query_param:
+    limit_query_param_feeds_endpoint:
       name: limit
       in: query
       description: The number of items to be returned.
@@ -1068,6 +1068,56 @@ components:
       schema:
         type: integer
         minimum: 0
+        maximum: 3500
+        default: 3500
+        example: 10
+
+    limit_query_param_gtfs_feeds_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 2500
+        default: 2500
+        example: 10
+
+    limit_query_param_gtfs_rt_feeds_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 1000
+        default: 1000
+        example: 10
+
+    limit_query_param_datasets_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 500
+        default: 500
+        example: 10
+
+    limit_query_param_search_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 3500
+        default: 3500
         example: 10
         
     offset:

@@ -131,6 +131,7 @@
   },
   "datasetHistory": "Dataset History",
   "datasetHistoryDescription": "The Mobility Database fetches and stores new datasets once a day at midnight UTC.",
+  "allDatasetsLoaded": "All datasets loaded",
   "datasets": "Datasets",
   "validationReportNotAvailable": "Validation report not available",
   "runValidationReportYourself": "Run Validator Yourself",

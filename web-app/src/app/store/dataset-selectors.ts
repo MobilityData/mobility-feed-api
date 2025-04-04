@@ -21,6 +21,12 @@ export const selectLatestDatasetsData = (
   return state.dataset.data !== undefined ? state.dataset.data[0] : undefined;
 };
 
+export const selectHasLoadedAllDatasets = (
+  state: RootState,
+): boolean | undefined => {
+  return state.dataset.loadedAllData;
+};
+
 export const selectBoundingBoxFromLatestDataset = createSelector(
   [selectLatestDatasetsData],
   (latestDataset): LatLngExpression[] | undefined => {

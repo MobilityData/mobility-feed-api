@@ -273,7 +273,7 @@ export default function SearchTable({
               ) : (
                 <Chip
                   key={
-                    feed.locations != null
+                    feed.locations?.[0] != null
                       ? feed.locations[0].country_code
                       : 'cc-key'
                   }

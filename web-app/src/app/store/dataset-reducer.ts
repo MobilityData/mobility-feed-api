@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import { type FeedErrors, FeedErrorSource, type FeedError } from '../types';
 import { type paths } from '../services/feeds/types';
+import { mergeAndSortDatasets } from '../utils/dataset';
 
 interface DatasetState {
   status: 'loading' | 'loaded';
@@ -8,6 +9,7 @@ interface DatasetState {
   data:
     | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
     | undefined;
+  loadedAllData?: boolean;
   errors: FeedErrors;
 }
 
@@ -15,6 +17,7 @@ const initialState: DatasetState = {
   status: 'loading',
   datasetId: undefined,
   data: undefined,
+  loadedAllData: false,
   errors: {
     [FeedErrorSource.DatabaseAPI]: null,
   },
@@ -26,6 +29,7 @@ export const datasetSlice = createSlice({
   reducers: {
     clearDataset: (state) => {
       state.data = initialState.data;
+      state.loadedAllData = initialState.loadedAllData;
       state.errors = initialState.errors;
       state.status = initialState.status;
       state.datasetId = initialState.datasetId;
@@ -42,10 +46,11 @@ export const datasetSlice = createSlice({
       state,
       action: PayloadAction<{
         feedId: string;
+        offset?: number;
+        limit?: number;
       }>,
     ) => {
       state.status = 'loading';
-      state.data = undefined;
       state.errors = {
         ...state.errors,
         DatabaseAPI: initialState.errors.DatabaseAPI,
@@ -55,18 +60,12 @@ export const datasetSlice = createSlice({
       state,
       action: PayloadAction<{
         data: paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json'];
+        loadedAllData?: boolean;
       }>,
     ) => {
       state.status = 'loaded';
-      state.data = action.payload?.data.sort((a, b) => {
-        if (a.downloaded_at !== undefined && b.downloaded_at !== undefined) {
-          const dateB = new Date(b.downloaded_at).getTime();
-          const dateA = new Date(a.downloaded_at).getTime();
-          return dateB - dateA;
-        }
-        return 0;
-      });
-      // state.datasetId = action.payload.data?.id;
+      state.loadedAllData = action.payload?.loadedAllData;
+      state.data = mergeAndSortDatasets(action.payload?.data, state.data);
       state.errors = {
         ...state.errors,
         DatabaseAPI: initialState.errors.DatabaseAPI,

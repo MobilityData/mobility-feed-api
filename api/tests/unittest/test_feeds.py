@@ -87,13 +87,16 @@ def test_feeds_get(client: TestClient, mocker):
     """
     Unit test for get_feeds
     """
+    # Build the chain of calls to mimic what is done in impl.feeds_api_impl.FeedsApiImpl.get_feeds
     mock_filter = mocker.patch.object(FeedFilter, "filter")
+    mock_filter_limit = Mock()
     mock_filter_offset = Mock()
     mock_filter_order_by = Mock()
     mock_options = Mock()
     mock_filter.return_value.filter.return_value.filter.return_value.order_by.return_value = mock_filter_order_by
     mock_filter_order_by.options.return_value = mock_options
-    mock_options.offset.return_value = mock_filter_offset
+    mock_options.limit.return_value = mock_filter_limit
+    mock_filter_limit.offset.return_value = mock_filter_offset
     # Target is set to None as deep copy is failing for unknown reasons
     # At the end of the test, the target is set back to the original value
     mock_feed.redirectingids[0].target = None
