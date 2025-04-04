@@ -66,7 +66,7 @@ class FeedsApiImpl(BaseFeedsApi):
     def get_feed(self, id: str, db_session: Session) -> BasicFeed:
         """Get the specified feed from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
-        self.logger.info(f"User email is restricted: {is_email_restricted}")
+        self.logger.debug(f"User email is restricted: {is_email_restricted}")
 
         feed = (
             FeedFilter(stable_id=id, provider__ilike=None, producer_url__ilike=None, status=None)
@@ -98,7 +98,7 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[BasicFeed]:
         """Get some (or all) feeds from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
-        self.logger.info(f"User email is restricted: {is_email_restricted}")
+        self.logger.debug(f"User email is restricted: {is_email_restricted}")
         feed_filter = FeedFilter(
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )
