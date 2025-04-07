@@ -18,8 +18,7 @@ import os
 import logging
 from datetime import datetime
 import requests
-import sqlalchemy.orm
-from shared.helpers.database import Database
+from shared.database.database import Database
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
     get_service_date_range_with_timezone_utc,
@@ -316,18 +315,15 @@ def process_validation_report(request):
 
 
 @functions_framework.http
-def compute_validation_report_counters(session: sqlalchemy.orm.Session):
+def compute_validation_report_counters():
     """
     Compute the total number of errors, warnings, and info notices,
     as well as the number of distinct codes for each severity level
     across all validation reports in the database, and write the results to the database.
-
-    :param session: The database session
     """
-    db = Database()
     batch_size = 100  # Number of reports to process in each batch
     offset = 0
-
+    db = Database()
     with db.start_db_session(echo=False) as session:
         # Query only reports where counters are zero
         validation_reports = (
@@ -342,7 +338,7 @@ def compute_validation_report_counters(session: sqlalchemy.orm.Session):
             .all()
         )
 
-        while validation_reports:
+        while len(validation_reports) > 0 and len(validation_reports) <= batch_size:
             for report in validation_reports:
                 counters = process_validation_report_notices(report.notices)
 
@@ -367,7 +363,15 @@ def compute_validation_report_counters(session: sqlalchemy.orm.Session):
             # Move to the next batch
             offset += batch_size
             validation_reports = (
-                session.query(Validationreport).limit(batch_size).offset(offset).all()
+                session.query(Validationreport)
+                .filter(
+                    (Validationreport.unique_info_count == 0)
+                    & (Validationreport.unique_warning_count == 0)
+                    & (Validationreport.unique_error_count == 0)
+                )
+                .limit(batch_size)
+                .offset(offset)
+                .all()
             )
 
     return {"message": "Validation report counters computed successfully."}, 200
