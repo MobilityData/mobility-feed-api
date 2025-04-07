@@ -7,7 +7,6 @@
   "memory": "128Mi",
   "trigger_http": true,
   "include_folders": [],
-  "include_api_folders": ["database_gen", "database", "common"],
   "environment_variables": [],
   "secret_environment_variables": [
     {
