@@ -325,26 +325,49 @@ def compute_validation_report_counters(session: sqlalchemy.orm.Session):
     :param session: The database session
     """
     db = Database()
+    batch_size = 100  # Number of reports to process in each batch
+    offset = 0
+
     with db.start_db_session(echo=False) as session:
-        # Query all validation reports
-        validation_reports = session.query(Validationreport).all()
+        # Query only reports where counters are zero
+        validation_reports = (
+            session.query(Validationreport)
+            .filter(
+                (Validationreport.unique_info_count == 0)
+                & (Validationreport.unique_warning_count == 0)
+                & (Validationreport.unique_error_count == 0)
+            )
+            .limit(batch_size)
+            .offset(offset)
+            .all()
+        )
 
-        for report in validation_reports:
-            counters = process_validation_report_notices(report.notices)
+        while validation_reports:
+            for report in validation_reports:
+                counters = process_validation_report_notices(report.notices)
 
-            # Update the report with computed counters
-            report.total_info = counters["total_info"]
-            report.total_warning = counters["total_warning"]
-            report.total_error = counters["total_error"]
-            report.unique_info_count = counters["unique_info_count"]
-            report.unique_warning_count = counters["unique_warning_count"]
-            report.unique_error_count = counters["unique_error_count"]
+                # Update the report with computed counters
+                report.total_info = counters["total_info"]
+                report.total_warning = counters["total_warning"]
+                report.total_error = counters["total_error"]
+                report.unique_info_count = counters["unique_info_count"]
+                report.unique_warning_count = counters["unique_warning_count"]
+                report.unique_error_count = counters["unique_error_count"]
 
-            logging.info(
-                f"Updated ValidationReport {report.id} with counters: "
-                f"INFO={report.total_info}, WARNING={report.total_warning}, ERROR={report.total_error}, "
-                f"Unique INFO Code={report.unique_info_count}, Unique WARNING Code={report.unique_warning_count}, "
-                f"Unique ERROR Code={report.unique_error_count}"
+                logging.info(
+                    f"Updated ValidationReport {report.id} with counters: "
+                    f"INFO={report.total_info}, WARNING={report.total_warning}, ERROR={report.total_error}, "
+                    f"Unique INFO Code={report.unique_info_count}, Unique WARNING Code={report.unique_warning_count}, "
+                    f"Unique ERROR Code={report.unique_error_count}"
+                )
+
+            # Commit the changes for the current batch
+            session.commit()
+
+            # Move to the next batch
+            offset += batch_size
+            validation_reports = (
+                session.query(Validationreport).limit(batch_size).offset(offset).all()
             )
 
     return {"message": "Validation report counters computed successfully."}, 200
