@@ -58,6 +58,7 @@ import {
   generateDescriptionMetaTag,
 } from './Feed.functions';
 import FeedTitle from './FeedTitle';
+import OfficialChip from '../../components/OfficialChip';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -354,6 +355,11 @@ export default function Feed(): React.ReactElement {
           isOfficialFeed={feed.official === true}
           latestDataset={latestDataset}
         />
+      )}
+      {feed?.data_type === 'gtfs_rt' && feed.official === true && (
+        <Box sx={{ my: 1 }}>
+          <OfficialChip></OfficialChip>
+        </Box>
       )}
       <Box>
         {latestDataset?.validation_report?.validated_at != undefined && (
