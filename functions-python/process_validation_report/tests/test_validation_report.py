@@ -316,10 +316,18 @@ class TestValidationReportProcessor(unittest.TestCase):
         mock_validation_report = Validationreport(
             id="report_1",
             notices=[mock_notice_1, mock_notice_2, mock_notice_3, mock_notice_4],
+            total_info=5,
+            total_warning=3,
+            total_error=3,
+            unique_info_count=1,
+            unique_warning_count=1,
+            unique_error_count=2,
         )
 
         # Mock query to return the validation report
-        mock_session.query.return_value.all.return_value = [mock_validation_report]
+        mock_session.query.return_value.filter.return_value.limit.return_value.offset.return_value.all.return_value = [
+            mock_validation_report
+        ]
 
         # Call the function
         compute_validation_report_counters(mock_session)

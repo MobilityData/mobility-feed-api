@@ -18,12 +18,12 @@ import os
 import logging
 from datetime import datetime
 import requests
-from shared.database.database import Database
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
     get_service_date_range_with_timezone_utc,
 )
 import functions_framework
+from shared.helpers.database import Database
 from shared.database_gen.sqlacodegen_models import (
     Validationreport,
     Feature,
@@ -315,7 +315,7 @@ def process_validation_report(request):
 
 
 @functions_framework.http
-def compute_validation_report_counters():
+def compute_validation_report_counters(session):
     """
     Compute the total number of errors, warnings, and info notices,
     as well as the number of distinct codes for each severity level
