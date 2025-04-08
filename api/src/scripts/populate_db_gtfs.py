@@ -1,12 +1,14 @@
 import os
 import traceback
-from typing import TYPE_CHECKING
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pycountry
 import pytz
 from sqlalchemy import text
 
+from scripts.load_dataset_on_create import publish_all
+from scripts.populate_db import DatabasePopulateHelper, set_up_configs
 from shared.database.database import generate_unique_id, configure_polymorphic_mappers
 from shared.database_gen.sqlacodegen_models import (
     Entitytype,
@@ -16,8 +18,6 @@ from shared.database_gen.sqlacodegen_models import (
     Redirectingid,
     t_feedsearch,
 )
-from scripts.populate_db import DatabasePopulateHelper, set_up_configs
-from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
 
 if TYPE_CHECKING:
@@ -61,9 +61,11 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         return f'mdb-{self.get_safe_value(row, "mdb_source_id", "")}'
 
     def get_country(self, country_code):
+        country = None
         if country_code:
-            return pycountry.countries.get(alpha_2=country_code).name
-        return None
+            country = pycountry.countries.get(alpha_2=country_code)
+            country = country.name if country else None
+        return country
 
     def populate_location(self, session, feed, row, stable_id):
         """
@@ -88,7 +90,10 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 if location
                 else Location(
                     id=location_id,
-                    country_code=country_code,
+                    # Country code should be short.
+                    # If too long it might be an error
+                    # (like it could be the country name instead of code).
+                    country_code=country_code if country_code and len(country_code) <= 3 else None,
                     subdivision_name=subdivision_name,
                     municipality=municipality,
                     country=country,

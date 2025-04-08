@@ -34,6 +34,7 @@ import {
   selectBoundingBoxFromLatestDataset,
   selectDatasetsData,
   selectDatasetsLoadingStatus,
+  selectHasLoadedAllDatasets,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
 import PreviousDatasets from './PreviousDatasets';
@@ -57,6 +58,7 @@ import {
   generateDescriptionMetaTag,
 } from './Feed.functions';
 import FeedTitle from './FeedTitle';
+import OfficialChip from '../../components/OfficialChip';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -116,27 +118,41 @@ export default function Feed(): React.ReactElement {
   const user = useSelector(selectUserProfile);
   const feedLoadingStatus = useSelector(selectFeedLoadingStatus);
   const datasetLoadingStatus = useSelector(selectDatasetsLoadingStatus);
-  const feedType = feedDataType ?? useSelector(selectFeedData)?.data_type;
+  const dataTypeSelector = useSelector(selectFeedData)?.data_type;
+  const feedType = feedDataType ?? dataTypeSelector;
   const relatedFeeds = useSelector(selectRelatedFeedsData);
   const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
   const datasets = useSelector(selectDatasetsData);
+  const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
-  const feed =
-    feedType === 'gtfs'
-      ? useSelector(selectGTFSFeedData)
-      : useSelector(selectGTFSRTFeedData);
+  const gtfsFeedData = useSelector(selectGTFSFeedData);
+  const gtfsRtFeedData = useSelector(selectGTFSRTFeedData);
+  const feed = feedType === 'gtfs' ? gtfsFeedData : gtfsRtFeedData;
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
   const sortedProviders = formatProvidersSorted(feed?.provider ?? '');
+  const DATASET_CALL_LIMIT = 10;
+
+  const loadDatasets = (offset: number): void => {
+    if (feedId != undefined && hasLoadedAllDatasets === false) {
+      dispatch(
+        loadingDataset({
+          feedId,
+          offset,
+          limit: DATASET_CALL_LIMIT,
+        }),
+      );
+    }
+  };
 
   useEffect(() => {
     if (user != undefined && feedId != undefined && needsToLoadFeed) {
       dispatch(clearDataset());
       dispatch(loadingFeed({ feedId, feedDataType }));
       if (feedDataType === 'gtfs') {
-        dispatch(loadingDataset({ feedId }));
+        loadDatasets(0);
       }
     }
   }, [isAuthenticatedOrAnonymous, needsToLoadFeed]);
@@ -167,7 +183,7 @@ export default function Feed(): React.ReactElement {
       feedLoadingStatus === 'loaded' &&
       datasets == undefined
     ) {
-      dispatch(loadingDataset({ feedId }));
+      loadDatasets(0);
     }
     return () => {
       document.title = 'Mobility Database';
@@ -176,7 +192,9 @@ export default function Feed(): React.ReactElement {
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
   const areDatasetsLoading =
-    feed?.data_type === 'gtfs' && datasetLoadingStatus === 'loading';
+    feed?.data_type === 'gtfs' &&
+    datasetLoadingStatus === 'loading' &&
+    datasets == undefined;
   const isCurrenltyLoadingFeed =
     feedLoadingStatus === 'loading' || areDatasetsLoading;
   if (needsToLoadFeed || isCurrenltyLoadingFeed) {
@@ -338,6 +356,11 @@ export default function Feed(): React.ReactElement {
           latestDataset={latestDataset}
         />
       )}
+      {feed?.data_type === 'gtfs_rt' && feed.official === true && (
+        <Box sx={{ my: 1 }}>
+          <OfficialChip></OfficialChip>
+        </Box>
+      )}
       <Box>
         {latestDataset?.validation_report?.validated_at != undefined && (
           <Typography
@@ -483,7 +506,16 @@ export default function Feed(): React.ReactElement {
       </Grid>
       {feed?.data_type === 'gtfs' && hasDatasets && (
         <Grid item xs={12}>
-          <PreviousDatasets datasets={datasets} />
+          <PreviousDatasets
+            datasets={datasets}
+            isLoadingDatasets={datasetLoadingStatus === 'loading'}
+            hasloadedAllDatasets={
+              hasLoadedAllDatasets != undefined && hasLoadedAllDatasets
+            }
+            loadMoreDatasets={(offset: number) => {
+              loadDatasets(offset);
+            }}
+          />
         </Grid>
       )}
     </Box>,
