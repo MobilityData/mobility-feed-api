@@ -37,7 +37,7 @@ from shared.common.db_utils import (
 )
 
 from shared.helpers.database import with_db_session
-from src.shared.database_gen.sqlacodegen_models import Geopolygon
+from shared.database_gen.sqlacodegen_models import Geopolygon
 
 load_dotenv()
 csv_default_file_path = "./output.csv"
