@@ -12,7 +12,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Notice,
     Validationreport,
-    dotenv,
 )
 from main import compute_validation_report_counters
 from test_shared.test_utils.database_utils import default_db_url, get_testing_session
