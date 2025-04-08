@@ -21,3 +21,6 @@ shapely
 google-cloud-storage
 functions-framework==3.*
 google-cloud-logging
+
+# Other dependencies
+natsort
