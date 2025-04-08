@@ -329,11 +329,8 @@ def compute_validation_report_counters(session):
             # Query only reports where counters are zero
             remaining_reports_count = (
                 session.session.query(Validationreport)
-                .filter(
-                    (Validationreport.unique_info_count == 0)
-                    & (Validationreport.unique_warning_count == 0)
-                    & (Validationreport.unique_error_count == 0)
-                )
+                .limit(batch_size)
+                .offset(offset)
                 .count()
             )
 
@@ -342,15 +339,7 @@ def compute_validation_report_counters(session):
                 break
 
             validation_reports = (
-                session.query(Validationreport)
-                .filter(
-                    (Validationreport.unique_info_count == 0)
-                    & (Validationreport.unique_warning_count == 0)
-                    & (Validationreport.unique_error_count == 0)
-                )
-                .limit(batch_size)
-                .offset(offset)
-                .all()
+                session.query(Validationreport).limit(batch_size).offset(offset).all()
             )
 
             for report in validation_reports:
