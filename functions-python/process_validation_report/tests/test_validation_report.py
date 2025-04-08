@@ -313,15 +313,15 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
 
         # Mock validation report
-        mock_validation_report = Validationreport(
+        mock_validation_report = MagicMock(
             id="report_1",
             notices=[mock_notice_1, mock_notice_2, mock_notice_3, mock_notice_4],
-            total_info=5,
-            total_warning=3,
-            total_error=3,
-            unique_info_count=1,
-            unique_warning_count=1,
-            unique_error_count=2,
+            total_info=None,
+            total_warning=None,
+            total_error=None,
+            unique_info_count=None,
+            unique_warning_count=None,
+            unique_error_count=None,
         )
 
         # Mock query to return the validation report

@@ -325,20 +325,24 @@ def compute_validation_report_counters(session):
     offset = 0
     db = Database()
     with db.start_db_session(echo=False) as session:
-        # Query only reports where counters are zero
-        validation_reports = (
-            session.query(Validationreport)
-            .filter(
-                (Validationreport.unique_info_count == 0)
-                & (Validationreport.unique_warning_count == 0)
-                & (Validationreport.unique_error_count == 0)
+        while True:
+            # Query only reports where counters are zero
+            validation_reports = (
+                session.query(Validationreport)
+                .filter(
+                    (Validationreport.unique_info_count == 0)
+                    & (Validationreport.unique_warning_count == 0)
+                    & (Validationreport.unique_error_count == 0)
+                )
+                .limit(batch_size)
+                .offset(offset)
+                .all()
             )
-            .limit(batch_size)
-            .offset(offset)
-            .all()
-        )
 
-        while len(validation_reports) > 0 and len(validation_reports) <= batch_size:
+            # Break the loop if no more reports are found
+            if not validation_reports:
+                break
+
             for report in validation_reports:
                 counters = process_validation_report_notices(report.notices)
 
@@ -362,17 +366,6 @@ def compute_validation_report_counters(session):
 
             # Move to the next batch
             offset += batch_size
-            validation_reports = (
-                session.query(Validationreport)
-                .filter(
-                    (Validationreport.unique_info_count == 0)
-                    & (Validationreport.unique_warning_count == 0)
-                    & (Validationreport.unique_error_count == 0)
-                )
-                .limit(batch_size)
-                .offset(offset)
-                .all()
-            )
 
     return {"message": "Validation report counters computed successfully."}, 200
 
