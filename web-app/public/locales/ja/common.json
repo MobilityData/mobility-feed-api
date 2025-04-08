@@ -1,0 +1,27 @@
+{
+   "copyToClipboard": "クリップボードにコピー",
+   "copied": "コピーしました！",
+   "name": "名前",
+   "email": "メール",
+   "organization": "組織",
+   "signOut": "サインアウト",
+   "unknown": "不明",
+   "search": "検索",
+   "feeds": "フィード",
+   "gtfsSchedule": "GTFS Schedule",
+   "gtfsRealtime": "GTFS Realtime",
+   "gtfsRealtimeEntities": {
+      "tripUpdates": "ルート更新情報",
+      "vehiclePositions": "車両位置",
+      "serviceAlerts": "サービスアラート"
+   },
+   "loading": "読み込み中...",
+   "errors": {
+      "generic": "現在、リクエストを完了できません。"
+   },
+   "others": "その他",
+   "apiKey": "APIキー",
+   "httpHeader": "HTTPヘッダー",
+   "back": "戻る",
+   "and": "と"
+}

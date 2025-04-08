@@ -1,0 +1,47 @@
+{
+   "title": "您的API帐户",
+   "userDetails": "用户详细信息",
+   "description": "Mobility Database API使用OAuth2身份验证。要发起成功的API请求，必须在HTTP标头中将访问令牌作为承载令牌包含在内。访问令牌的有效期为一小时。要获取访问令牌，您首先需要一个刷新令牌，该令牌是长期有效的，不会过期。",
+   "support": "如果您需要重新签发刷新令牌或希望删除您的帐户，请发送电子邮件至",
+   "registerApiAnnouncements": "已注册到API公告",
+   "refreshToken": {
+      "title": "刷新令牌",
+      "description": "使用您的刷新令牌连接到您应用中的API。",
+      "placeholder": "您的刷新令牌已隐藏",
+      "yourToken": "您的刷新令牌",
+      "toggleVisibility": "切换刷新令牌可见性",
+      "copy": "复制刷新令牌",
+      "copyToClipboard": "将刷新令牌复制到剪贴板"
+   },
+   "accessToken": {
+      "title": "如何在您的应用中生成访问令牌",
+      "description": {
+         "pt1": "关注",
+         "cta": "我们的OpenAPI文档",
+         "pt2": "使用刷新令牌验证您的账户。"
+      },
+      "generate": "生成访问令牌",
+      "copyToken": "复制访问令牌",
+      "copyTokenToClipboard": "将访问令牌复制到剪贴板",
+      "copy": "复制CLI命令以生成访问令牌。",
+      "yourToken": "您的访问令牌",
+      "refreshing": "正在刷新访问令牌...",
+      "refresh": "刷新访问令牌",
+      "refreshSuccess": "您的访问令牌已刷新成功！",
+      "testing": {
+         "title": "用于测试的访问令牌",
+         "description": {
+            "pt1": "想要快速测试一下吗？复制下面的访问令牌到我们的测试端点",
+            "cta": "OpenAPI文档",
+            "pt2": "。访问令牌有效期为一小时。"
+         },
+         "api": "API测试",
+         "copyCli": "复制CLI命令以测试您对API的访问。"
+      },
+      "toggleVisibility": "切换访问令牌可见性",
+      "expired": "令牌已过期",
+      "willExpireIn": "您的令牌将在{{timeLeftForTokenExpiration}}后过期",
+      "hidden": "您的访问令牌已隐藏",
+      "unavailable": "您的令牌不可用"
+   }
+}
