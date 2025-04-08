@@ -327,6 +327,20 @@ def compute_validation_report_counters(session):
     with db.start_db_session(echo=False) as session:
         while True:
             # Query only reports where counters are zero
+            remaining_reports_count = (
+                session.session.query(Validationreport)
+                .filter(
+                    (Validationreport.unique_info_count == 0)
+                    & (Validationreport.unique_warning_count == 0)
+                    & (Validationreport.unique_error_count == 0)
+                )
+                .count()
+            )
+
+            # Break the loop if no more reports are found
+            if remaining_reports_count == 0:
+                break
+
             validation_reports = (
                 session.query(Validationreport)
                 .filter(
@@ -338,10 +352,6 @@ def compute_validation_report_counters(session):
                 .offset(offset)
                 .all()
             )
-
-            # Break the loop if no more reports are found
-            if not validation_reports:
-                break
 
             for report in validation_reports:
                 counters = process_validation_report_notices(report.notices)
