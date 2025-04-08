@@ -20,16 +20,17 @@ from faker import Faker
 from geoalchemy2 import WKTElement
 
 from shared.database_gen.sqlacodegen_models import (
+    Validationreport,
+    Feature,
+    Redirectingid,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gtfsdataset,
     Location,
     Entitytype,
-)
-from shared.database_gen.sqlacodegen_models import (
-    Validationreport,
-    Feature,
-    Redirectingid,
+    Feedosmlocationgroup,
+    Osmlocationgroup,
+    Geopolygon,
 )
 from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
 
@@ -174,6 +175,64 @@ def populate_database():
         active_gtfs_feeds[feed_index].gtfsdatasets.append(gtfs_dataset)
     active_gtfs_feeds[0].locations = locations
     active_gtfs_feeds[1].locations = locations
+
+    # Add extracted locations to a feed
+    geopolygons = [
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=2,
+            name="Canada",
+            iso_3166_1_code="CA",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=4,
+            name="Quebec",
+            iso_3166_2_code="QC",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=6,
+            name="Montreal",
+            iso_3166_2_code="QC",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=8,
+            name="Laval",
+            iso_3166_2_code="QC",
+        ),
+    ]
+    first_feed = active_gtfs_feeds[0]
+    first_feed.feedosmlocationgroups = [
+        # Location in Montreal, Quebec, Canada with fewer stops
+        Feedosmlocationgroup(
+            feed_id=first_feed.id,
+            stops_count=10,
+            group=Osmlocationgroup(
+                group_id=".".join(
+                    [str(geopolygon.osm_id) for geopolygon in geopolygons[0:3]]
+                ),
+                group_name="Canada, Quebec, Montreal",
+                osms=geopolygons[0:3],
+            ),
+        ),
+        # Location in Laval, Quebec, Canada with the most stops
+        Feedosmlocationgroup(
+            feed_id=first_feed.id,
+            stops_count=100,
+            group=Osmlocationgroup(
+                group_id=".".join(
+                    [
+                        str(geopolygon.osm_id)
+                        for geopolygon in geopolygons[0:2] + [geopolygons[3]]
+                    ]
+                ),
+                group_name="Canada, Quebec, Laval",
+                osms=geopolygons[0:2] + [geopolygons[3]],
+            ),
+        ),
+    ]
 
     vp_entitytype = session.query(Entitytype).filter_by(name="vp").first()
     if not vp_entitytype:

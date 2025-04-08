@@ -44,4 +44,5 @@
     <include file="changes/feat_946.sql" relativeToChangelogFile="true"/>
     <include file="changes/add_idxs.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1046.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_951.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
