@@ -28,12 +28,12 @@ from google.cloud import storage
 from sqlalchemy.engine import Row
 from sqlalchemy.engine.interfaces import Any
 
+from shared.helpers.database import Database
 from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Gtfsfeed,
     Validationreport,
 )
-from shared.helpers.database import Database
 from google.cloud import workflows_v1
 from google.cloud.workflows import executions_v1
 from google.cloud.workflows.executions_v1 import Execution
@@ -157,7 +157,7 @@ def get_latest_datasets_without_validation_reports(
 
 
 def get_datasets_for_validation(
-    latest_datasets: List[Row[tuple[Any, Any]]]
+    latest_datasets: List[Row[tuple[Any, Any]]],
 ) -> List[tuple[str, str]]:
     """
     Get the valid dataset blobs that need their validation report to be updated
