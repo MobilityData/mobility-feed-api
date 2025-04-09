@@ -376,7 +376,7 @@ resource "google_cloudfunctions2_function" "compute_validation_report_counters" 
 
     service_account_email            = google_service_account.functions_service_account.email
     max_instance_request_concurrency = 1
-    max_instance_count               = 10
+    max_instance_count               = 1
     min_instance_count               = 0
   }
 }
