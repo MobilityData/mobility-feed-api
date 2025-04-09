@@ -291,7 +291,9 @@ class TestValidationReportProcessor(unittest.TestCase):
 
     def test_compute_validation_report_counters(self):
         """Test compute_validation_report_counters function."""
-        compute_validation_report_counters()
+        # Mock the request object
+        request = MagicMock()
+        compute_validation_report_counters(request)
         db = Database()
         with db.start_db_session(echo=False) as session:
             validation_report = session.query(Validationreport).one()
