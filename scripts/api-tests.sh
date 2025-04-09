@@ -37,7 +37,7 @@ ABS_SCRIPTPATH="$(
 TEST_FILE=""
 FOLDER=""
 HTML_REPORT=false
-COVERAGE_THRESHOLD=80 # Branch coverage threshold should be 85, this is temporary
+COVERAGE_THRESHOLD=80
 
 # color codes for easier reading
 RED='\033[0;31m'
@@ -100,7 +100,7 @@ execute_tests() {
 
 # Run tests with coverage. Add the path to the main file and the shared packages that were linked.
   PT="src:tests:$PYTHONPATH"
-  PYTHONPATH="$PT" venv/bin/coverage run --branch -m pytest -W 'ignore::DeprecationWarning' tests
+  PYTHONPATH="$PT" venv/bin/coverage run --branch -m pytest -s -W 'ignore::DeprecationWarning' tests
   # Fail if tests fail
   if [ $? -ne 0 ]; then
     printf "\n${RED}Tests failed in $1${NC}\n"

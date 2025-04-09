@@ -14,6 +14,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 
 from test_shared.test_utils.database_utils import default_db_url
+from main import compute_validation_report_counters
 from main import (
     read_json_report,
     get_feature,
@@ -284,3 +285,17 @@ class TestValidationReportProcessor(unittest.TestCase):
         populate_service_date(dataset, json_report)
         self.assertEqual(dataset.service_date_range_start, None)
         self.assertEqual(dataset.service_date_range_end, None)
+
+    @with_db_session(db_url=default_db_url)
+    def test_compute_validation_report_counters(self, db_session):
+        """Test compute_validation_report_counters function."""
+        # Mock the request object
+        request = MagicMock()
+        compute_validation_report_counters(request)
+        validation_report = db_session.query(Validationreport).one()
+        self.assertEqual(validation_report.total_info, 5)
+        self.assertEqual(validation_report.total_warning, 3)
+        self.assertEqual(validation_report.total_error, 3)
+        self.assertEqual(validation_report.unique_info_count, 1)
+        self.assertEqual(validation_report.unique_warning_count, 1)
+        self.assertEqual(validation_report.unique_error_count, 2)

@@ -157,7 +157,7 @@ def get_latest_datasets_without_validation_reports(
 
 
 def get_datasets_for_validation(
-    latest_datasets: List[Row[tuple[Any, Any]]]
+    latest_datasets: List[Row[tuple[Any, Any]]],
 ) -> List[tuple[str, str]]:
     """
     Get the valid dataset blobs that need their validation report to be updated
