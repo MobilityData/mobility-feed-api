@@ -116,7 +116,7 @@ main:
                         result: executionResultResponse
                     - validateStatus:
                         next: logExecutionResult
-                # Retrying 120 times with a delay of 10 seconds each time gives 60 minutes wait time.
+                # Retrying 120 times with a delay of 30 seconds each time gives 60 minutes wait time.
                 retry:
                   predicate: ${retry_predicate}
                   max_retries: 120
