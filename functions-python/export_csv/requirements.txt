@@ -24,3 +24,7 @@ google-cloud-logging
 
 # Configuration
 python-dotenv==1.0.0
+
+# Other dependencies
+natsort
+

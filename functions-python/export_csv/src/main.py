@@ -18,9 +18,10 @@ import csv
 import logging
 import os
 import re
-from typing import Dict, Iterator
-
+from typing import Dict, Iterator, Optional
+from natsort import natsorted
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 import functions_framework
 
 from packaging.version import Version
@@ -29,9 +30,14 @@ from geoalchemy2.shape import to_shape
 
 from shared.helpers.logger import Logger
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Feed
-from shared.common.db_utils import get_all_gtfs_rt_feeds, get_all_gtfs_feeds
+from shared.common.db_utils import (
+    get_all_gtfs_rt_feeds,
+    get_all_gtfs_feeds,
+    get_geopolygons,
+)
 
-from shared.database.database import with_db_session
+from shared.helpers.database import with_db_session
+from shared.database_gen.sqlacodegen_models import Geopolygon
 
 load_dotenv()
 csv_default_file_path = "./output.csv"
@@ -101,12 +107,11 @@ bounding_box_lookup = {}
 
 
 @functions_framework.http
-def export_and_upload_csv(request=None):
+def export_and_upload_csv(_):
     """
     HTTP Function entry point Reads the DB and outputs a csv file with feeds data.
     This function requires the following environment variables to be set:
         FEEDS_DATABASE_URL: database URL
-    :param request: HTTP request object
     :return: HTTP response object
     """
     Logger.init_logger()
@@ -128,35 +133,62 @@ def export_csv(csv_file_path: str):
         writer = csv.DictWriter(out, fieldnames=headers)
         writer.writeheader()
 
-        count = 0
-        for feed in fetch_feeds():
-            # We're counting on the writer to leave an empty field in the csv for None values
+        feeds = list(fetch_feeds())
+        sorted_feeds = natsorted(feeds, key=lambda x: x["id"])
+        for feed in sorted_feeds:
             writer.writerow(feed)
-            count += 1
 
-    logging.info(f"Exported {count} feeds to CSV file {csv_file_path}.")
+    logging.info(f"Exported {len(feeds)} feeds to CSV file {csv_file_path}.")
+
+
+def process_feeds(
+    query_fun: callable, processing_fun: callable, db_session: Session
+) -> Iterator[Dict]:
+    """
+    Process feeds from the database and yield the results.
+    :param query_fun: Function to query feeds from the database.
+    :param processing_fun: Function to process each feed.
+    :param db_session: Database session.
+    :return: Yields processed feed data.
+    """
+    stable_ids = set()
+    for w_extracted_locations_only in (True, False):
+        feeds = list(
+            query_fun(
+                db_session,
+                published_only=True,
+                w_extracted_locations_only=w_extracted_locations_only,
+            )
+        )
+        geopolygons_map = (
+            get_geopolygons(db_session, feeds) if w_extracted_locations_only else None
+        )
+        for feed in feeds:
+            if feed.stable_id in stable_ids:
+                continue
+            stable_ids.add(feed.stable_id)
+            yield processing_fun(feed, geopolygons_map)
+        logging.info(
+            f"Found {len(feeds)} feeds " + "with location data."
+            if w_extracted_locations_only
+            else "no location data."
+        )
 
 
 @with_db_session
-def fetch_feeds(db_session) -> Iterator[Dict]:
+def fetch_feeds(db_session: Session) -> Iterator[Dict]:
     """
     Fetch and return feed data from the DB.
     :return: Data to write to the output CSV file.
     """
     try:
-        feed_count = 0
-        for feed in get_all_gtfs_feeds(db_session, published_only=True):
-            yield get_gtfs_feed_csv_data(feed)
-            feed_count += 1
+        logging.info("Processing GTFS feeds...")
+        yield from process_feeds(get_all_gtfs_feeds, get_gtfs_feed_csv_data, db_session)
 
-        logging.info(f"Processed {feed_count} GTFS feeds.")
-
-        rt_feed_count = 0
-        for feed in get_all_gtfs_rt_feeds(db_session, published_only=True):
-            yield get_gtfs_rt_feed_csv_data(feed)
-            rt_feed_count += 1
-
-        logging.info(f"Processed {rt_feed_count} GTFS realtime feeds.")
+        logging.info("Processing GTFS RT feeds...")
+        yield from process_feeds(
+            get_all_gtfs_rt_feeds, get_gtfs_rt_feed_csv_data, db_session
+        )
 
     except Exception as error:
         logging.error(f"Error retrieving feeds: {error}")
@@ -168,7 +200,9 @@ def extract_numeric_version(version):
     return match.group(1) if match else version
 
 
-def get_gtfs_feed_csv_data(feed: Gtfsfeed):
+def get_gtfs_feed_csv_data(
+    feed: Gtfsfeed, geopolygon_map: Optional[Dict[str, Geopolygon]]
+) -> Dict:
     """
     This function takes a Gtfsfeed object and returns a dictionary with the data to be written to the CSV file.
     :param feed: Gtfsfeed object containing feed data.
@@ -179,7 +213,7 @@ def get_gtfs_feed_csv_data(feed: Gtfsfeed):
     bounding_box = None
 
     # First extract the common feed data
-    data = get_feed_csv_data(feed)
+    data = get_feed_csv_data(feed, geopolygon_map)
 
     # Then supplement with the GTFS specific data
     latest_dataset = next(
@@ -242,7 +276,57 @@ def get_gtfs_feed_csv_data(feed: Gtfsfeed):
     return data
 
 
-def get_feed_csv_data(feed: Feed):
+def get_location_data(
+    feed: Feed, geopolygon_map: Optional[Dict[str, Geopolygon]]
+) -> tuple:
+    """Extract location data from a feed with fallbacks for missing values."""
+    if not geopolygon_map or not feed.feedosmlocationgroups:
+        if not feed.locations:
+            return "", "", ""
+        sorted_locations = sorted(feed.locations, key=lambda location: location.id)
+        return (
+            sorted_locations[0].country_code,
+            sorted_locations[0].subdivision_name,
+            sorted_locations[0].municipality,
+        )
+    osm_location_group = next(
+        (
+            group
+            for group in sorted(
+                feed.feedosmlocationgroups, key=lambda g: g.group.group_name
+            )
+        )
+    )
+    group_id = osm_location_group.group_id
+    split_group_id = [osm_id.strip() for osm_id in group_id.split(".")]
+    if not split_group_id:
+        logging.error(f"Invalid group ID: {group_id}")
+        return "", "", ""
+    country_osm_id = split_group_id[0]
+    subdivision_osm_id = split_group_id[1] if len(split_group_id) > 1 else None
+    municipality_osm_id = split_group_id[-1] if len(split_group_id) > 2 else None
+
+    country_code = (
+        geopolygon_map.get(country_osm_id).iso_3166_1_code
+        if country_osm_id in geopolygon_map
+        else None
+    )
+    subdivision_name = (
+        geopolygon_map.get(subdivision_osm_id).name
+        if subdivision_osm_id in geopolygon_map
+        else None
+    )
+    municipality = (
+        geopolygon_map.get(municipality_osm_id).name
+        if municipality_osm_id in geopolygon_map
+        else None
+    )
+    return country_code, subdivision_name, municipality
+
+
+def get_feed_csv_data(
+    feed: Feed, geopolygon_map: Optional[Dict[str, Geopolygon]]
+) -> Dict:
     """
     This function takes a generic feed and returns a dictionary with the data to be written to the CSV file.
     Any specific data (for GTFS or GTFS_RT has to be added after this call.
@@ -278,19 +362,16 @@ def get_feed_csv_data(feed: Feed):
 
     # Some of the data is set to None or "" here but will be set to the proper value
     # later depending on the type (GTFS or GTFS_RT)
+    country_code, subdivision_name, municipality = get_location_data(
+        feed, geopolygon_map
+    )
     data = {
         "id": feed.stable_id,
         "data_type": feed.data_type,
         "entity_type": None,
-        "location.country_code": ""
-        if not feed.locations or not feed.locations[0]
-        else feed.locations[0].country_code,
-        "location.subdivision_name": ""
-        if not feed.locations or not feed.locations[0]
-        else feed.locations[0].subdivision_name,
-        "location.municipality": ""
-        if not feed.locations or not feed.locations[0]
-        else feed.locations[0].municipality,
+        "location.country_code": country_code,
+        "location.subdivision_name": subdivision_name,
+        "location.municipality": municipality,
         "provider": feed.provider,
         "is_official": feed.official,
         "name": feed.feed_name,
@@ -317,11 +398,13 @@ def get_feed_csv_data(feed: Feed):
     return data
 
 
-def get_gtfs_rt_feed_csv_data(feed: Gtfsrealtimefeed):
+def get_gtfs_rt_feed_csv_data(
+    feed: Gtfsrealtimefeed, geopolygon_map: Optional[Dict[str, Geopolygon]]
+) -> Dict:
     """
     This function takes a GtfsRTFeed and returns a dictionary with the data to be written to the CSV file.
     """
-    data = get_feed_csv_data(feed)
+    data = get_feed_csv_data(feed, geopolygon_map)
 
     entity_types = ""
     if feed.entitytypes:
