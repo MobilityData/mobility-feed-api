@@ -259,7 +259,8 @@ resource "google_cloudfunctions2_function" "tokens" {
   }
 }
 
-# 3. functions/validation_report_processor cloud function
+# 3. functions/validation_report_processor
+# 3.1 functions/validation_report_processor cloud function
 # Create a queue for the cloud tasks
 # The 2X rate is defined as 4*2 concurrent dispatches and 1 dispatch per second
 # The name of the queue need to be dynamic due to GCP limitations
@@ -329,6 +330,54 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
     max_instance_request_concurrency = local.function_process_validation_report_config.max_instance_request_concurrency
     max_instance_count               = local.function_process_validation_report_config.max_instance_count
     min_instance_count               = local.function_process_validation_report_config.min_instance_count
+  }
+}
+
+# 3.2 functions/compute_validation_report_counters cloud function
+resource "google_cloudfunctions2_function" "compute_validation_report_counters" {
+  name        = "compute-validation-report-counters"
+  description = "Cloud function to compute counters for validation reports"
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project     = var.project_id
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "compute_validation_report_counters"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.process_validation_report_zip.name
+      }
+    }
+  }
+
+  service_config {
+    available_memory = "512Mi"
+    available_cpu    = "1"
+    timeout_seconds  = 300
+    vpc_connector    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
+
+    environment_variables = {
+      ENV = var.environment
+      PYTHONNODEBUGRANGES = 0
+    }
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_process_validation_report_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+
+    service_account_email            = google_service_account.functions_service_account.email
+    max_instance_request_concurrency = 1
+    max_instance_count               = 1
+    min_instance_count               = 0
   }
 }
 
