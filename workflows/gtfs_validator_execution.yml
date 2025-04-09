@@ -116,13 +116,13 @@ main:
                         result: executionResultResponse
                     - validateStatus:
                         next: logExecutionResult
-                # Retrying 120 times with a delay of 10 seconds each time gives 20 minutes wait time.
+                # Retrying 120 times with a delay of 30 seconds each time gives 60 minutes wait time.
                 retry:
                   predicate: ${retry_predicate}
                   max_retries: 120
                   backoff:
-                    initial_delay: 10
-                    max_delay: 10
+                    initial_delay: 30
+                    max_delay: 30
                     multiplier: 1
       - logExecutionResult:
           steps:
@@ -253,56 +253,6 @@ main:
           args:
             text: ${"Created task for feed " + feedID + " Task ID:" + taskResponse.name}
             severity: INFO
-      # The waitForTaskCompletion will wait for HTTP error status 404 from google API.
-      # The cloud tasks API doesn't return a status field and when the task success it HTTP returns 404(tasks not found).
-      - waitForTaskCompletion:
-          try:
-            steps:
-              - getTaskStatus:
-                  call: googleapis.cloudtasks.v2beta3.projects.locations.queues.tasks.get
-                  args:
-                    name: ${taskResponse.name}
-                  result: taskStatus
-              - printTaskStatus:
-                  call: sys.log
-                  args:
-                    text: ${taskStatus}
-                    severity: INFO
-                  next: retryTaskStatus
-          except:
-            as: error
-            steps:
-              - printExceptTaskStatus:
-                  call: sys.log
-                  args:
-                    text: ${"HTTP error raised while calling get tasks endpoint:" + error.message}
-                    severity: INFO
-              - handle404:
-                  switch:
-                    - condition: ${error.code == 404}
-                      next: logTaskCompletion
-                    - condition: ${error.code != 404}
-                      raise: ${error}
-      - retryTaskStatus:
-          call: sys.sleep
-          args:
-            seconds: 30
-          next: waitForTaskCompletion
-      - logTaskCompletion:
-          call: sys.log
-          args:
-            text: ${"Completed task for feed " + feedID + " Task ID:" + taskResponse.name}
-            severity: INFO
-          next: successfulExecution
-      - fileExistenceTimeout:
-          steps:
-            - logFileExistenceTimeout:
-                call: sys.log
-                args:
-                    text: ${"File not found after 20 minutes for datasetID " + datasetID }
-                    severity: ERROR
-            - returnFileNotFound:
-                return:  ${"File not found after 20 minutes for datasetID " + datasetID }
       - successfulExecution:
           steps:
             - logSuccessfulExecution:
