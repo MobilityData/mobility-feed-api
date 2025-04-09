@@ -8,14 +8,19 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsfeed
-from shared.helpers.gtfs_validator_common import get_gtfs_validator_results_bucket, get_gtfs_validator_url
+from shared.helpers.gtfs_validator_common import (
+    get_gtfs_validator_results_bucket,
+    get_gtfs_validator_url,
+)
 from shared.helpers.query_helper import get_datasets_with_missing_reports_query
 from shared.helpers.validation_report.validation_report_update import execute_workflows
 
 logging.basicConfig(level=logging.INFO)
 
 
-def rebuild_missing_validation_reports_entry(payload, db_session: Session | None = None) -> flask.Response:
+def rebuild_missing_validation_reports_entry(
+    payload, db_session: Session | None = None
+) -> flask.Response:
     """
     Rebuilds missing validation reports for GTFS datasets.
     This function processes datasets with missing validation reports using the GTFS validator workflow.
@@ -31,17 +36,33 @@ def rebuild_missing_validation_reports_entry(payload, db_session: Session | None
     Returns:
         str: A message indicating the result of the operation with the total_processed datasets.
     """
-    dry_run, filter_after_in_days, filter_statuses, prod_env, validator_endpoint = get_parameters(payload)
+    (
+        dry_run,
+        filter_after_in_days,
+        filter_statuses,
+        prod_env,
+        validator_endpoint,
+    ) = get_parameters(payload)
 
-    return rebuild_missing_validation_reports(db_session=db_session, validator_endpoint=validator_endpoint,
-                                              dry_run=dry_run, filter_after_in_days=filter_after_in_days,
-                                              filter_statuses=filter_statuses, prod_env=prod_env,)
+    return rebuild_missing_validation_reports(
+        db_session=db_session,
+        validator_endpoint=validator_endpoint,
+        dry_run=dry_run,
+        filter_after_in_days=filter_after_in_days,
+        filter_statuses=filter_statuses,
+        prod_env=prod_env,
+    )
 
 
 @with_db_session
-def rebuild_missing_validation_reports(db_session: Session, validator_endpoint: str, dry_run: bool = True,
-                                       filter_after_in_days: int = 14,
-                                       filter_statuses: List[str] | None = None, prod_env: bool = False,):
+def rebuild_missing_validation_reports(
+    db_session: Session,
+    validator_endpoint: str,
+    dry_run: bool = True,
+    filter_after_in_days: int = 14,
+    filter_statuses: List[str] | None = None,
+    prod_env: bool = False,
+):
     """
     Rebuilds missing validation reports for GTFS datasets.
     :param db_session: DB session
@@ -66,8 +87,12 @@ def rebuild_missing_validation_reports(db_session: Session, validator_endpoint: 
             break
 
         if not dry_run:
-            execute_workflows(datasets, validator_endpoint=validator_endpoint, bypass_db_update=False,
-                              reports_bucket_name=get_gtfs_validator_results_bucket(prod_env), )
+            execute_workflows(
+                datasets,
+                validator_endpoint=validator_endpoint,
+                bypass_db_update=False,
+                reports_bucket_name=get_gtfs_validator_results_bucket(prod_env),
+            )
         else:
             logging.debug("Dry run: %s datasets would be processed", datasets)
         total_processed += len(datasets)
@@ -76,10 +101,12 @@ def rebuild_missing_validation_reports(db_session: Session, validator_endpoint: 
         if len(datasets) < limit:
             break
         offset += limit
-    return flask.jsonify({
-        "message": "Rebuild missing validation reports task executed successfully.",
-        "total_processed": total_processed
-    })
+    return flask.jsonify(
+        {
+            "message": "Rebuild missing validation reports task executed successfully.",
+            "total_processed": total_processed,
+        }
+    )
 
 
 def get_parameters(payload):

@@ -1,8 +1,12 @@
 import os
 from typing import Final
 
-GTFS_VALIDATOR_URL_PROD: Final[str] = "https://gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
-GTFS_VALIDATOR_URL_STAGING: Final[str] = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
+GTFS_VALIDATOR_URL_PROD: Final[
+    str
+] = "https://gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
+GTFS_VALIDATOR_URL_STAGING: Final[
+    str
+] = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
 
 
 def get_gtfs_validator_results_bucket(is_prod: bool) -> str:

@@ -20,19 +20,12 @@ app = Flask(__name__)
 
 if __name__ == "__main__":
     # Create a mock payload
-    payload = {
-        "task": "list_tasks"
-    }
+    payload = {"task": "list_tasks"}
 
     # Push the application context
     with app.app_context():
         # Build a mock request environment
-        builder = EnvironBuilder(
-            app=app,
-            method="POST",
-            path="/",
-            json=payload
-        )
+        builder = EnvironBuilder(app=app, method="POST", path="/", json=payload)
         env = builder.get_environ()
 
         # Create a Flask request object

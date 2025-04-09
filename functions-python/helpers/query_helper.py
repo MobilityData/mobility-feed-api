@@ -6,7 +6,9 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
     Gtfsfeed,
-    Gbfsfeed, Gtfsdataset, Validationreport,
+    Gbfsfeed,
+    Gtfsdataset,
+    Validationreport,
 )
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
@@ -158,14 +160,11 @@ def get_datasets_with_missing_reports_query(
         .select_from(Gtfsfeed)
         .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
         .outerjoin(Validationreport, Gtfsdataset.validation_reports)
-        .filter(
-            or_(
-                Validationreport.id.is_(None)
-            )
-        )
+        .filter(or_(Validationreport.id.is_(None)))
     )
     if filter_after:
         query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
-    query = (query.distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
-             .order_by(Gtfsdataset.stable_id, Gtfsfeed.stable_id))
+    query = query.distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id).order_by(
+        Gtfsdataset.stable_id, Gtfsfeed.stable_id
+    )
     return query

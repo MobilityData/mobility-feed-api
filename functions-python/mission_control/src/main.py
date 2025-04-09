@@ -9,17 +9,19 @@ LIST_COMMAND: Final[str] = "list"
 tasks = {
     "list_tasks": {
         "description": "List all available tasks.",
-        "handler": lambda payload: flask.jsonify({
-            "tasks": [
-                {"name": task_name, "description": task_info["description"]}
-                for task_name, task_info in tasks.items()
-            ]
-        })
+        "handler": lambda payload: flask.jsonify(
+            {
+                "tasks": [
+                    {"name": task_name, "description": task_info["description"]}
+                    for task_name, task_info in tasks.items()
+                ]
+            }
+        ),
     },
     "rebuild_missing_validation_reports": {
         "description": "Rebuilds missing validation reports for GTFS datasets.",
-        "handler": rebuild_missing_validation_reports
-    }
+        "handler": rebuild_missing_validation_reports,
+    },
 }
 
 
