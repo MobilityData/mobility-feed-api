@@ -319,6 +319,9 @@ components:
             - no_change
             - wip
             - published
+        official:
+          type: boolean
+          description: Whether this is an official feed.
       required:
         - id
         - status
