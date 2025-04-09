@@ -315,7 +315,7 @@ def process_validation_report(request):
 
 
 @functions_framework.http
-def compute_validation_report_counters(_):
+def compute_validation_report_counters():
     """
     Compute the total number of errors, warnings, and info notices,
     as well as the number of distinct codes for each severity level
