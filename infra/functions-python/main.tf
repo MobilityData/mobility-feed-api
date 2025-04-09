@@ -403,7 +403,7 @@ resource "google_cloudfunctions2_function" "compute_validation_report_counters" 
   service_config {
     available_memory = "512Mi"
     available_cpu    = "1"
-    timeout_seconds  = 300
+    timeout_seconds  = 600
     vpc_connector    = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
