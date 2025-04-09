@@ -14,6 +14,7 @@ from shared.database_gen.sqlacodegen_models import (
     Validationreport,
 )
 from main import compute_validation_report_counters
+from shared.helpers.database import Database
 from test_shared.test_utils.database_utils import default_db_url, get_testing_session
 from main import (
     read_json_report,
@@ -289,16 +290,15 @@ class TestValidationReportProcessor(unittest.TestCase):
         self.assertEqual(dataset.service_date_range_start, None)
         self.assertEqual(dataset.service_date_range_end, None)
 
-    @patch("main.Database")
-    def test_compute_validation_report_counters(self, mock_database):
+    def test_compute_validation_report_counters(self):
         """Test compute_validation_report_counters function."""
-
-        # # Assertions for computed counters
-        # self.assertEqual(mock_validation_report.total_info, 5)
-        # self.assertEqual(mock_validation_report.total_warning, 3)
-        # self.assertEqual(mock_validation_report.total_error, 3)
-        # self.assertEqual(mock_validation_report.unique_info_count, 1)
-        # self.assertEqual(mock_validation_report.unique_warning_count, 1)
-        # self.assertEqual(mock_validation_report.unique_error_count, 2)
-
         compute_validation_report_counters()
+        db = Database()
+        with db.start_db_session(echo=False) as session:
+            validation_report = session.query(Validationreport).one()
+            self.assertEqual(validation_report.total_info, 5)
+            self.assertEqual(validation_report.total_warning, 3)
+            self.assertEqual(validation_report.total_error, 3)
+            self.assertEqual(validation_report.unique_info_count, 1)
+            self.assertEqual(validation_report.unique_warning_count, 1)
+            self.assertEqual(validation_report.unique_error_count, 2)
