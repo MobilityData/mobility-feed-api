@@ -14,11 +14,11 @@
 #  limitations under the License.
 #
 
-from shared.database_gen.sqlacodegen_models import Gtfsfeed
 from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
 from feeds_operations.impl.models.redirect_impl import RedirectImpl
 from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed
 
 
 class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
@@ -79,6 +79,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
         entity.feed_name = update_request.feed_name
         entity.note = update_request.note
         entity.feed_contact_email = update_request.feed_contact_email
+        entity.official = update_request.official
         entity.producer_url = (
             None
             if (
@@ -119,9 +120,6 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             )
             else update_request.source_info.license_url
         )
-        
-        if update_request.official is not None:
-            entity.official = update_request.official
 
         redirecting_ids = (
             []

@@ -38,6 +38,7 @@ def update_request_gtfs_feed():
         ),
         redirects=[],
         operational_status_action="no_change",
+        official=True,
     )
 
 
@@ -52,7 +53,7 @@ def update_request_gtfs_feed():
 async def test_update_gtfs_feed_no_changes(_, update_request_gtfs_feed):
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
-    assert response.status_code == 204
+    assert response.status_code == 200
 
 
 @patch("shared.helpers.logger.Logger")
@@ -168,3 +169,27 @@ async def test_update_gtfs_feed_invalid_feed(_, update_request_gtfs_feed):
         await api.update_gtfs_feed(update_request_gtfs_feed)
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "Feed ID not found: invalid"
+
+
+@patch("shared.helpers.logger.Logger")
+@mock.patch.dict(
+    os.environ,
+    {
+        "FEEDS_DATABASE_URL": default_db_url,
+    },
+)
+@pytest.mark.asyncio
+async def test_update_gtfs_feed_official_field(_, update_request_gtfs_feed):
+    """Test updating the official field of a GTFS feed."""
+    update_request_gtfs_feed.official = True
+    with get_testing_session() as session:
+        api = OperationsApiImpl()
+        response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+        assert response.status_code == 204
+
+        db_feed = (
+            session.query(Gtfsfeed)
+            .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
+            .one()
+        )
+        assert db_feed.official is True
