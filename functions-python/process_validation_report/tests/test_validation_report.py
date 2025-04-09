@@ -10,7 +10,6 @@ from shared.database_gen.sqlacodegen_models import (
     Feature,
     Gtfsdataset,
     Gtfsfeed,
-    Notice,
     Validationreport,
 )
 from main import compute_validation_report_counters

@@ -17,7 +17,6 @@
 from datetime import datetime
 
 from faker import Faker
-from geoalchemy2 import WKTElement
 
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
