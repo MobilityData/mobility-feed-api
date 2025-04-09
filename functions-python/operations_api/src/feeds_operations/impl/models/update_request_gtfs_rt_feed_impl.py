@@ -71,6 +71,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
                 [EntityTypeImpl.from_orm(item) for item in obj.entitytypes]
             ),
             feed_references=sorted([item.stable_id for item in obj.gtfs_feeds]),
+            official=obj.official,
         )
 
     @classmethod
@@ -125,6 +126,9 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
             )
             else update_request.source_info.license_url
         )
+        
+        if update_request.official is not None:
+            entity.official = update_request.official
 
         redirecting_ids = (
             []

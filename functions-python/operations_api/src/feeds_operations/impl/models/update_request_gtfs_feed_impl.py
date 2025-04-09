@@ -64,6 +64,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 [ExternalIdImpl.from_orm(item) for item in obj.externalids],
                 key=lambda x: x.external_id,
             ),
+            official=obj.official,
         )
 
     @classmethod
@@ -118,6 +119,9 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
             )
             else update_request.source_info.license_url
         )
+        
+        if update_request.official is not None:
+            entity.official = update_request.official
 
         redirecting_ids = (
             []
