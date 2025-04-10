@@ -131,7 +131,9 @@ async def test_update_gtfs_rt_feed_set_published(
 
 @patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
-async def test_update_gtfs_rt_feed_official_field(_, update_request_gtfs_rt_feed, db_session):
+async def test_update_gtfs_rt_feed_official_field(
+    _, update_request_gtfs_rt_feed, db_session
+):
     """Test updating the official field of a GTFS-RT feed."""
     update_request_gtfs_rt_feed.official = True
     api = OperationsApiImpl()
