@@ -1,7 +1,8 @@
 import unittest
 from unittest.mock import patch
 
-from utils.logger import HttpRequest, LogRecord, AsyncStreamHandler, GCPLogHandler, Logger
+from utils.logger import HttpRequest, LogRecord, AsyncStreamHandler, GCPLogHandler
+from shared.common.logging_utils import Logger
 
 
 class TestLogger(unittest.TestCase):

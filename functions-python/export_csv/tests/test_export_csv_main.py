@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 import io
-import os
 
 import pandas as pd
 import pandas.testing as pdt
@@ -36,10 +35,6 @@ gtfs-rt-2,gtfs_rt,vp,,,,gtfs-rt-2 Some fake company,True,gtfs-rt-2 Some fake nam
 
 
 def test_export_csv():
-    os.environ[
-        "FEEDS_DATABASE_URL"
-    ] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
-
     csv_file_path = "./output.csv"
     main.export_csv(csv_file_path)
     df_actual = pd.read_csv(csv_file_path)

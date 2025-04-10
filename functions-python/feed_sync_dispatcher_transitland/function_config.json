@@ -3,10 +3,10 @@
   "description": "Feed Sync Dispatcher for Transitland",
   "entry_point": "feed_sync_dispatcher_transitland",
   "timeout": 3600,
-  "memory": "512Mi",
+  "memory": "1Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
-  "include_api_folders": ["database_gen"],
+  "include_api_folders": ["database_gen", "database", "common"],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"

@@ -8,6 +8,7 @@ from faker import Faker
 from geoalchemy2 import WKTElement
 
 from location_group_utils import GeopolygonAggregate
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Location,
@@ -22,7 +23,6 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from test_shared.test_utils.database_utils import (
     default_db_url,
-    get_testing_session,
     clean_testing_db,
 )
 
@@ -58,21 +58,15 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_request_parameters(request)
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_get_cached_geopolygons_empty_df(self):
+    @with_db_session(db_url=default_db_url)
+    def test_get_cached_geopolygons_empty_df(self, db_session):
         from reverse_geolocation_processor import get_cached_geopolygons
 
         with self.assertRaises(ValueError):
             get_cached_geopolygons("test-stable-id", pd.DataFrame())
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_get_cached_geopolygons_no_feed(self):
+    @with_db_session(db_url=default_db_url)
+    def test_get_cached_geopolygons_no_feed(self, db_session):
         from reverse_geolocation_processor import get_cached_geopolygons
 
         stops_df = pd.DataFrame(
@@ -86,11 +80,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         with self.assertRaises(ValueError):
             get_cached_geopolygons("test-stable-id", stops_df)
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_get_cached_geopolygons_no_cached_stop(self):
+    @with_db_session(db_url=default_db_url)
+    def test_get_cached_geopolygons_no_cached_stop(self, db_session):
         from reverse_geolocation_processor import get_cached_geopolygons
 
         stops_df = pd.DataFrame(
@@ -108,9 +99,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             id=feed_id,
             stable_id=stable_id,
         )
-        session = get_testing_session()
-        session.add(feed)
-        session.commit()
+        db_session.add(feed)
+        db_session.commit()
         result_feed_id, location_groups, results_df = get_cached_geopolygons(
             stable_id, stops_df
         )
@@ -118,11 +108,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertDictEqual(location_groups, {})
         self.assertEqual(results_df.shape, (2, 6))  # Added geometry columns
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_get_cached_geopolygons_w_cached_stop(self):
+    @with_db_session(db_url=default_db_url)
+    def test_get_cached_geopolygons_w_cached_stop(self, db_session):
         from reverse_geolocation_processor import get_cached_geopolygons
 
         stops_df = pd.DataFrame(
@@ -161,9 +148,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         feed = Gtfsfeed(
             id=feed_id, stable_id=stable_id, feedlocationgrouppoints=[stop_1, stop_2]
         )
-        session = get_testing_session()
-        session.add(feed)
-        session.commit()
+        db_session.add(feed)
+        db_session.commit()
         result_feed_id, location_groups, results_df = get_cached_geopolygons(
             stable_id, stops_df
         )
@@ -171,11 +157,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual(len(location_groups), 1)
         self.assertEqual(results_df.shape, (1, 6))  # Added geometry columns
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_extract_location_group(self):
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_group(self, db_session):
         from reverse_geolocation_processor import extract_location_aggregate
 
         clean_testing_db()
@@ -195,13 +178,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        session = get_testing_session()
-        session.add(geopolygon_country_lvl)
-        session.add(geopolygon_subdivision_lvl)
-        session.add(feed)
-        session.commit()
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(geopolygon_subdivision_lvl)
+        db_session.add(feed)
+        db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
         self.assertTrue(
             aggregate.iso_3166_1_code == geopolygon_country_lvl.iso_3166_1_code
         )
@@ -209,11 +191,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             aggregate.iso_3166_2_code == geopolygon_subdivision_lvl.iso_3166_2_code
         )
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_extract_location_duplicate_admin_level(self):
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_duplicate_admin_level(self, db_session):
         from reverse_geolocation_processor import extract_location_aggregate
 
         print("test extract location duplicate admin level")
@@ -235,20 +214,16 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        session = get_testing_session()
-        session.add(geopolygon_country_lvl)
-        session.add(geopolygon_subdivision_lvl)
-        session.add(feed)
-        session.commit()
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(geopolygon_subdivision_lvl)
+        db_session.add(feed)
+        db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
         self.assertIsNone(aggregate)
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_extract_location_not_enough_geopolygons(self):
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_not_enough_geopolygons(self, db_session):
         from reverse_geolocation_processor import extract_location_aggregate
 
         clean_testing_db()
@@ -261,19 +236,15 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        session = get_testing_session()
-        session.add(geopolygon_country_lvl)
-        session.add(feed)
-        session.commit()
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(feed)
+        db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
         self.assertIsNone(aggregate)
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_extract_location_missing_iso_codes(self):
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_missing_iso_codes(self, db_session):
         from reverse_geolocation_processor import extract_location_aggregate
 
         clean_testing_db()
@@ -292,28 +263,23 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        session = get_testing_session()
-        session.add(geopolygon_country_lvl)
-        session.add(geopolygon_subdivision_lvl)
-        session.add(feed)
-        session.commit()
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(geopolygon_subdivision_lvl)
+        db_session.add(feed)
+        db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
         self.assertIsNone(aggregate)
 
-    @patch.dict(
-        "os.environ",
-        {"FEEDS_DATABASE_URL": default_db_url},
-    )
-    def test_create_feed_osm_location(self):
+    @with_db_session(db_url=default_db_url)
+    def test_create_feed_osm_location(self, db_session):
         from reverse_geolocation_processor import get_or_create_feed_osm_location_group
 
         clean_testing_db()
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        session = get_testing_session()
-        session.add(feed)
-        session.commit()
+        db_session.add(feed)
+        db_session.commit()
         stops_count = faker.random_int()
         aggregate = GeopolygonAggregate(
             Osmlocationgroup(
@@ -333,7 +299,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             stops_count=stops_count,
         )
         feed_osm_location = get_or_create_feed_osm_location_group(
-            feed_id, aggregate, session
+            feed_id, aggregate, db_session
         )
         self.assertIsNotNone(feed_osm_location)
         self.assertEqual(feed_osm_location.stops_count, stops_count)
@@ -397,15 +363,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         # Check if the blob was made public
         mock_blob.make_public.assert_called_once()
 
-    @patch.dict("os.environ", {"FEEDS_DATABASE_URL": default_db_url})
-    def test_create_new_location(self):
+    @with_db_session(db_url=default_db_url)
+    def test_create_new_location(self, db_session):
         from reverse_geolocation_processor import get_or_create_location
 
         # Clean DB before test
         clean_testing_db()
-
-        # Mock session
-        session = get_testing_session()
 
         # Create sample Geopolygon and GeopolygonAggregate
         geopolygon_country = Geopolygon(
@@ -432,7 +395,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         location_aggregate = GeopolygonAggregate(group, stops_count=5)
 
         # Call the function
-        location = get_or_create_location(location_aggregate, session)
+        location = get_or_create_location(location_aggregate, db_session)
 
         # Assert location is created
         self.assertIsNotNone(location)
@@ -444,15 +407,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         self.assertEqual(location.municipality, location_aggregate.municipality())
 
-    @patch.dict("os.environ", {"FEEDS_DATABASE_URL": default_db_url})
-    def test_retrieve_existing_location(self):
+    @with_db_session(db_url=default_db_url)
+    def test_retrieve_existing_location(self, db_session):
         from reverse_geolocation_processor import get_or_create_location
 
         # Clean DB before test
         clean_testing_db()
-
-        # Mock session
-        session = get_testing_session()
 
         # Create sample Location
         existing_location = Location(
@@ -463,8 +423,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             municipality=faker.city(),
         )
 
-        session.add(existing_location)
-        session.commit()
+        db_session.add(existing_location)
+        db_session.commit()
 
         # Create GeopolygonAggregate with same location_id
         geopolygon_country = Geopolygon(
@@ -494,7 +454,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )  # Mocking location_id method
 
         # Call the function
-        location = get_or_create_location(location_aggregate, session)
+        location = get_or_create_location(location_aggregate, db_session)
 
         # Assert the existing location was returned
         self.assertIsNotNone(location)
@@ -509,13 +469,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         location = get_or_create_location(None, mock_session)
         self.assertIsNone(location)
 
-    @patch.dict("os.environ", {"FEEDS_DATABASE_URL": default_db_url})
-    def test_update_dataset_bounding_box_success(self):
+    @with_db_session(db_url=default_db_url)
+    def test_update_dataset_bounding_box_success(self, db_session):
         from reverse_geolocation_processor import update_dataset_bounding_box
 
         # Clean DB before test
         clean_testing_db()
-        session = get_testing_session()
 
         # Create sample dataset
         feed_id = faker.uuid4(cast_to=str)
@@ -530,8 +489,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             bounding_box=None,
             feed=feed,
         )
-        session.add(dataset)
-        session.commit()
+        db_session.add(dataset)
+        db_session.commit()
 
         # Prepare stops DataFrame
         stops_df = pd.DataFrame(
@@ -544,7 +503,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Call the function
         bounding_box = update_dataset_bounding_box(
-            dataset_id, stops_df, db_session=session
+            dataset_id, stops_df, db_session=db_session
         )
 
         # Expected bounding box: POLYGON((30 10, 40 10, 40 20, 30 20, 30 10))
@@ -557,13 +516,15 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Fetch the updated dataset from DB and verify bounding box
         updated_dataset = (
-            session.query(Gtfsdataset).filter(Gtfsdataset.stable_id == dataset_id).one()
+            db_session.query(Gtfsdataset)
+            .filter(Gtfsdataset.stable_id == dataset_id)
+            .one()
         )
         self.assertIsNotNone(updated_dataset.bounding_box)
         self.assertIn("POLYGON", str(updated_dataset.bounding_box))
 
-    @patch.dict("os.environ", {"FEEDS_DATABASE_URL": default_db_url})
-    def test_update_dataset_bounding_box_exception(self):
+    @with_db_session(db_url=default_db_url)
+    def test_update_dataset_bounding_box_exception(self, db_session):
         from reverse_geolocation_processor import update_dataset_bounding_box
 
         clean_testing_db()
@@ -574,23 +535,24 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                 "stop_lon": [30.0, 30.0, 40.0, 40.0],
             }
         )
-        session = get_testing_session()
 
         with self.assertRaises(Exception):
             update_dataset_bounding_box(
-                faker.uuid4(cast_to=str), stops_df, db_session=session
+                faker.uuid4(cast_to=str), stops_df, db_session=db_session
             )
 
-    @patch.dict("os.environ", {"FEEDS_DATABASE_URL": default_db_url})
+    @with_db_session(db_url=default_db_url)
     @patch("reverse_geolocation_processor.refresh_materialized_view")
     @patch("reverse_geolocation_processor.extract_location_aggregate")
     def test_extract_location_aggregates(
-        self, mock_extract_location_aggregate, mock_refresh_materialized_view
+        self,
+        mock_extract_location_aggregate,
+        mock_refresh_materialized_view,
+        db_session,
     ):
         from reverse_geolocation_processor import extract_location_aggregates
 
         clean_testing_db()
-        session = get_testing_session()
 
         # Create sample feed
         feed_id = faker.uuid4(cast_to=str)
@@ -599,8 +561,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             id=faker.uuid4(cast_to=str), stable_id=faker.uuid4(cast_to=str)
         )
         feed.gtfs_rt_feeds = [gtfs_rt_feed]
-        session.add(feed)
-        session.commit()
+        db_session.add(feed)
+        db_session.commit()
 
         # Prepare stops DataFrame
         stops_df = pd.DataFrame(
@@ -632,8 +594,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
 
         mock_aggregate = GeopolygonAggregate(group, stops_count=1)
-        session.add(group)
-        session.commit()
+        db_session.add(group)
+        db_session.commit()
 
         # Mock extract_location_aggregate behavior
         def side_effect(_, stop_geometry, __):
@@ -648,7 +610,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Call the function
         extract_location_aggregates(
-            feed_id, stops_df, location_aggregates, db_session=session
+            feed_id, stops_df, location_aggregates, db_session=db_session
         )
 
         # Assertions
@@ -660,6 +622,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Verify materialized view was refreshed
         mock_refresh_materialized_view.assert_called_once_with(
-            session, t_feedsearch.name
+            db_session, t_feedsearch.name
         )
-        session.close_all()
+        db_session.close_all()

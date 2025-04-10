@@ -8,7 +8,7 @@ from geoalchemy2 import WKTElement
 from google.cloud import bigquery
 
 from shared.database_gen.sqlacodegen_models import Geopolygon
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 from shared.helpers.logger import Logger
 from enum import Enum
 

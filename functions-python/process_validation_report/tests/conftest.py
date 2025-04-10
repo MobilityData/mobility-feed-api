@@ -18,20 +18,21 @@ from datetime import datetime
 
 from faker import Faker
 
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsdataset,
     Validationreport,
     Notice,
 )
-from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
+from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
 
-def populate_database():
+@with_db_session(db_url=default_db_url)
+def populate_database(db_session):
     """
     Populates the database with fake data with the following distribution:
     """
-    session = get_testing_session()
     fake = Faker()
     # Create GTFS feeds
     feed = Gtfsfeed(
@@ -49,7 +50,7 @@ def populate_database():
         operational_status="published",
         official=True,
     )
-    session.add(feed)
+    db_session.add(feed)
 
     # Create GTFS datasets
     gtfs_dataset = Gtfsdataset(
@@ -74,9 +75,9 @@ def populate_database():
         json_report=fake.url(),
     )
     validation_reports.append(validation_report)
-    session.add_all(validation_reports)
+    db_session.add_all(validation_reports)
     gtfs_dataset.validation_reports.append(validation_report)
-    session.add(gtfs_dataset)
+    db_session.add(gtfs_dataset)
 
     # Create notices
     notice_list = []
@@ -114,9 +115,9 @@ def populate_database():
     )
     notice_list.append(notice)
 
-    session.add_all(notice_list)
+    db_session.add_all(notice_list)
 
-    session.commit()
+    db_session.commit()
 
 
 def pytest_configure(config):

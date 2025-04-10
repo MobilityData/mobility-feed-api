@@ -1,5 +1,3 @@
-import os
-from unittest import mock
 from unittest.mock import patch
 
 import pytest
@@ -13,8 +11,9 @@ from feeds_operations_gen.models.external_id import ExternalId
 from feeds_operations_gen.models.feed_status import FeedStatus
 from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import Gtfsfeed
-from test_shared.test_utils.database_utils import get_testing_session, default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 
 
 @pytest.fixture
@@ -42,13 +41,15 @@ def update_request_gtfs_feed():
     )
 
 
+@pytest.fixture
+def db_session():
+    # Provide a database session fixture
+    db = Database(feeds_database_url=default_db_url)
+    with db.start_db_session() as session:
+        yield session
+
+
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
 async def test_update_gtfs_feed_no_changes(_, update_request_gtfs_feed):
     api = OperationsApiImpl()
@@ -56,15 +57,9 @@ async def test_update_gtfs_feed_no_changes(_, update_request_gtfs_feed):
     assert response.status_code == 200
 
 
-@patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_field_change(_, update_request_gtfs_feed):
+@pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
+async def test_update_gtfs_feed_field_change(update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.feed_name = "New feed name"
     update_request_gtfs_feed.external_ids = [
         ExternalId(
@@ -72,95 +67,72 @@ async def test_update_gtfs_feed_field_change(_, update_request_gtfs_feed):
             source="new_source",
         )
     ]
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
-        assert response.status_code == 200
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    assert response.status_code == 200
 
-        db_feed = (
-            session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
-            .one()
-        )
-        assert db_feed.feed_name == "New feed name"
+    db_feed = (
+        db_session.query(Gtfsfeed)
+        .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
+        .one()
+    )
+    assert db_feed.feed_name == "New feed name"
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_set_wip(_, update_request_gtfs_feed):
+@pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
+async def test_update_gtfs_feed_set_wip(_, update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.operational_status_action = "wip"
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
-        assert response.status_code == 200
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    assert response.status_code == 200
 
-        db_feed = (
-            session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
-            .one()
-        )
-        assert db_feed.operational_status == "wip"
+    db_feed = (
+        db_session.query(Gtfsfeed)
+        .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
+        .one()
+    )
+    assert db_feed.operational_status == "wip"
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_set_wip_nochange(_, update_request_gtfs_feed):
+@pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
+async def test_update_gtfs_feed_set_wip_nochange(
+    _, update_request_gtfs_feed, db_session
+):
     update_request_gtfs_feed.operational_status_action = "no_change"
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
-        assert response.status_code == 204
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    assert response.status_code == 204
 
-        db_feed = (
-            session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
-            .one()
-        )
-        assert db_feed.operational_status == "wip"
+    db_feed = (
+        db_session.query(Gtfsfeed)
+        .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
+        .one()
+    )
+    assert db_feed.operational_status == "wip"
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_set_published(_, update_request_gtfs_feed):
+@pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
+async def test_update_gtfs_feed_set_published(_, update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.operational_status_action = "published"
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
-        assert response.status_code == 200
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    assert response.status_code == 200
 
-        db_feed = (
-            session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
-            .one()
-        )
-        assert db_feed.operational_status == "published"
+    db_feed = (
+        db_session.query(Gtfsfeed)
+        .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
+        .one()
+    )
+    assert db_feed.operational_status == "published"
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
 async def test_update_gtfs_feed_invalid_feed(_, update_request_gtfs_feed):
     update_request_gtfs_feed.id = "invalid"
@@ -172,24 +144,17 @@ async def test_update_gtfs_feed_invalid_feed(_, update_request_gtfs_feed):
 
 
 @patch("shared.helpers.logger.Logger")
-@mock.patch.dict(
-    os.environ,
-    {
-        "FEEDS_DATABASE_URL": default_db_url,
-    },
-)
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_official_field(_, update_request_gtfs_feed):
+async def test_update_gtfs_feed_official_field(_, update_request_gtfs_feed, db_session):
     """Test updating the official field of a GTFS feed."""
     update_request_gtfs_feed.official = True
-    with get_testing_session() as session:
-        api = OperationsApiImpl()
-        response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
-        assert response.status_code == 204
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
+    assert response.status_code == 204
 
-        db_feed = (
-            session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
-            .one()
-        )
-        assert db_feed.official is True
+    db_feed = (
+        db_session.query(Gtfsfeed)
+        .filter(Gtfsfeed.stable_id == feed_mdb_40.stable_id)
+        .one()
+    )
+    assert db_feed.official is True
