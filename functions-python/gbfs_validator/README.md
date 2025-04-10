@@ -32,9 +32,9 @@ The message published by the batch function to the Pub/Sub topic follows this fo
 
 - **`gbfs-validator-batch`**: Triggered per execution ID, this function iterates over all GBFS feeds, preparing and publishing individual messages to the Pub/Sub topic.
 - **`gbfs-validator-pubsub`**: Triggered per feed, this function performs the following steps:
-  1. **Download the feed snapshot to GCP**: It uploads all related files to the specified Cloud Storage bucket and updates the `gbfs.json` file to point to the newly uploaded files.
-  2. **Validate the feed**: Run the GBFS validator on the feed snapshot.
-  3. **Update the database**: The function updates the database with the snapshot information and validation report details.
+  1. **Access the autodiscovery URL and update versions**: The function accesses the autodiscovery URL to update the **GBFSVersions** table.
+  2. **Measure latency and validate the feed**: For each version, the function measures the response latency and validates the feed. The validation summary is stored in GCP, and the total error count is extracted and saved in the **GBFSValidationReport**.
+  3. **Store validation details**: The function stores detailed errors as **GBFSNotice** entities.
 
 ## Function Configuration
 

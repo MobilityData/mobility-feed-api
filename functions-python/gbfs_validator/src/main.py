@@ -1,15 +1,20 @@
 import json
 import logging
 import os
+import traceback
 import uuid
 from datetime import datetime
 from typing import List
 
 import functions_framework
 from cloudevents.http import CloudEvent
-from google.cloud import pubsub_v1, storage
-from sqlalchemy.orm import joinedload, Session
-import traceback
+from google.cloud import pubsub_v1
+from sqlalchemy.orm import Session
+
+from gbfs_data_processor import GBFSDataProcessor
+from gbfs_utils import (
+    save_trace_with_error,
+)
 from shared.database_gen.sqlacodegen_models import Gbfsfeed
 from shared.dataset_service.main import (
     DatasetTraceService,
@@ -21,22 +26,14 @@ from shared.dataset_service.main import (
 from shared.database.database import with_db_session
 from shared.helpers.logger import Logger, StableIdFilter
 from shared.helpers.parser import jsonify_pubsub
-from gbfs_utils import (
-    GBFSValidator,
-    fetch_gbfs_files,
-    save_trace_with_error,
-    save_snapshot_and_report,
-)
 
 logging.basicConfig(level=logging.INFO)
-
-BUCKET_NAME = os.getenv("BUCKET_NAME", "mobilitydata-gbfs-snapshots-dev")
 
 
 def fetch_all_gbfs_feeds(db_session: Session) -> List[Gbfsfeed]:
     try:
         gbfs_feeds = (
-            db_session.query(Gbfsfeed).options(joinedload(Gbfsfeed.gbfsversions)).all()
+            db_session.query(Gbfsfeed).filter(Gbfsfeed.status != "deprecated").all()
         )
         db_session.expunge_all()
         return gbfs_feeds
@@ -51,6 +48,7 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
     data = cloud_event.data
     logging.info(f"Function triggered with Pub/Sub event data: {data}")
 
+    # Get the pubsub message data
     message_json = jsonify_pubsub(data)
     if message_json is None:
         return "Invalid Pub/Sub message data."
@@ -64,9 +62,11 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         logging.error(f"Missing required field: {e}")
         return f"Invalid Pub/Sub message data. Missing {e}."
 
+    # Add stable_id to logs
     stable_id_filter = StableIdFilter(stable_id)
     logging.getLogger().addFilter(stable_id_filter)
     try:
+        # Save trace and validate if the execution is allowed
         trace_service = DatasetTraceService()
         trace_id = str(uuid.uuid4())
         trace = DatasetTrace(
@@ -88,31 +88,19 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
             save_trace_with_error(trace, error_message, trace_service)
             return error_message
 
+        # Process GBFS data
         try:
-            storage_client = storage.Client()
-            bucket = storage_client.bucket(BUCKET_NAME)
-            gbfs_data = fetch_gbfs_files(url)
-            validator = GBFSValidator(stable_id)
-            validator.create_gbfs_json_with_bucket_paths(bucket, gbfs_data)
+            processor = GBFSDataProcessor(stable_id, feed_id)
+            processor.process_gbfs_data(url)
         except Exception as e:
-            error_message = f"Error processing GBFS files: {e}"
-            logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
-            save_trace_with_error(trace, error_message, trace_service)
-            return error_message
-
-        try:
-            snapshot = validator.create_snapshot(feed_id)
-            validation_results = validator.validate_gbfs_feed(bucket)
-            save_snapshot_and_report(snapshot, validation_results)
-        except Exception as e:
-            error_message = f"Error validating GBFS feed: {e}"
+            error_message = f"Error processing GBFS data: {e}"
             logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
             save_trace_with_error(trace, error_message, trace_service)
             return error_message
 
         trace.status = Status.SUCCESS
         trace_service.save(trace)
-        return "GBFS files processed and stored successfully."
+        return "GBFS data processed and stored successfully."
     finally:
         logging.getLogger().removeFilter(stable_id_filter)
 
@@ -142,22 +130,11 @@ def gbfs_validator_batch(_, db_session: Session):
     execution_id = str(uuid.uuid4())
 
     for gbfs_feed in gbfs_feeds:
-        if len(gbfs_feed.gbfsversions) == 0:
-            logging.warning(f"Feed {gbfs_feed.stable_id} has no versions.")
-            latest_version = None
-        else:
-            latest_version = sorted(
-                gbfs_feed.gbfsversions, key=lambda v: v.version, reverse=True
-            )[0].version
-            logging.info(
-                f"Latest version for feed {gbfs_feed.stable_id}: {latest_version}"
-            )
         feed_data = {
             "execution_id": execution_id,
             "stable_id": gbfs_feed.stable_id,
             "feed_id": gbfs_feed.id,
             "url": gbfs_feed.auto_discovery_url,
-            "latest_version": latest_version,
         }
         feeds_data.append(feed_data)
         logging.info(f"Feed {gbfs_feed.stable_id} added to the batch.")
