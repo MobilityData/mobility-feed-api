@@ -1,32 +1,25 @@
-import os
 import unittest
 import pytest
 from unittest.mock import patch, MagicMock
 
 from faker import Faker
 
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Location, Gtfsdataset
 from test_shared.test_utils.database_utils import (
     default_db_url,
     clean_testing_db,
-    get_testing_session,
 )
 
 faker = Faker()
 
 
 class TestReverseGeolocationBatch(unittest.TestCase):
-    @patch.dict(
-        os.environ,
-        {
-            "FEEDS_DATABASE_URL": default_db_url,
-        },
-    )
-    def test_get_feed_data(self):
+    @with_db_session(db_url=default_db_url)
+    def test_get_feed_data(self, db_session):
         from reverse_geolocation_batch import get_feeds_data
 
         clean_testing_db()
-        session = get_testing_session()
         gtfs_dataset_1 = Gtfsdataset(
             id="test_dataset_latest",
             stable_id="test_dataset_latest",
@@ -59,9 +52,9 @@ class TestReverseGeolocationBatch(unittest.TestCase):
             gtfsdatasets=[gtfs_dataset_3],
             locations=[Location(country_code="US", id="US")],
         )
-        session.add(feed)
-        session.add(feed_2)
-        session.commit()
+        db_session.add(feed)
+        db_session.add(feed_2)
+        db_session.commit()
 
         results = get_feeds_data(["CA"])
         self.assertEqual(len(results), 1)
@@ -99,12 +92,6 @@ class TestReverseGeolocationBatch(unittest.TestCase):
     @patch("reverse_geolocation_batch.publish_messages")
     @patch("reverse_geolocation_batch.get_feeds_data")
     @patch("reverse_geolocation_batch.parse_request_parameters")
-    @patch.dict(
-        os.environ,
-        {
-            "DEBUG": "True",
-        },
-    )
     def test_reverse_geolocation_batch(self, mock_parse_request, mock_get_feeds, _):
         from reverse_geolocation_batch import reverse_geolocation_batch
 

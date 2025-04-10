@@ -27,3 +27,6 @@ pycountry
 shapely
 gtfs-kit
 matplotlib
+
+# Configuration
+python-dotenv==1.0.0

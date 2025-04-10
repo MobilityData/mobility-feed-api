@@ -1,5 +1,7 @@
 from unittest.mock import patch, MagicMock
-from test_shared.test_utils.database_utils import default_db_url, get_testing_session
+
+from shared.database.database import with_db_session
+from test_shared.test_utils.database_utils import default_db_url
 from main import (
     update_feed_status,
     update_feed_statuses_query,
@@ -34,17 +36,17 @@ def fetch_feeds(session: Session) -> Iterator[PartialFeed]:
         yield PartialFeed(id=feed.id, status=feed.status)
 
 
-def test_update_feed_status():
-    session = get_testing_session()
-    feeds_before: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(session)}
-    result = dict(update_feed_statuses_query(session))
+@with_db_session(db_url=default_db_url)
+def test_update_feed_status(db_session: Session) -> None:
+    feeds_before: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
+    result = dict(update_feed_statuses_query(db_session))
     assert result == {
         "inactive": 3,
         "active": 2,
         "future": 1,
     }
 
-    feeds_after: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(session)}
+    feeds_after: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
     expected_status_changes = {
         "2": "active",
         "7": "inactive",

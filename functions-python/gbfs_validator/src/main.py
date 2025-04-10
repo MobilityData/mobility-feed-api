@@ -23,15 +23,14 @@ from shared.dataset_service.main import (
     PipelineStage,
     MaxExecutionsReachedError,
 )
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 from shared.helpers.logger import Logger, StableIdFilter
 from shared.helpers.parser import jsonify_pubsub
 
 logging.basicConfig(level=logging.INFO)
 
 
-@with_db_session(echo=False)
-def fetch_all_gbfs_feeds(db_session: "Session") -> List[Gbfsfeed]:
+def fetch_all_gbfs_feeds(db_session: Session) -> List[Gbfsfeed]:
     try:
         gbfs_feeds = (
             db_session.query(Gbfsfeed).filter(Gbfsfeed.status != "deprecated").all()
@@ -106,8 +105,9 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         logging.getLogger().removeFilter(stable_id_filter)
 
 
+@with_db_session
 @functions_framework.http
-def gbfs_validator_batch(_):
+def gbfs_validator_batch(_, db_session: Session):
     """
     HTTP Cloud Function to trigger the GBFS Validator function for multiple datasets.
     @param _: The request object.
@@ -122,7 +122,7 @@ def gbfs_validator_batch(_):
 
     # Get all GBFS feeds from the database
     try:
-        gbfs_feeds = fetch_all_gbfs_feeds()
+        gbfs_feeds = fetch_all_gbfs_feeds(db_session)
     except Exception:
         return "Error getting all GBFS feeds.", 500
 

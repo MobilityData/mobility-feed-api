@@ -17,3 +17,6 @@ geoalchemy2==0.14.7
 # Google specific packages for this function
 cloudevents~=1.10.1
 google-cloud-storage
+
+# Configuration
+python-dotenv==1.0.0

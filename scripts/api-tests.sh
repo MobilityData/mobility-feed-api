@@ -7,10 +7,10 @@
 #   api-test.sh [options]
 #
 # Options:
-#   -test_file <TEST_FILE> : Execute a specific test file. (optional)
-#   -folder <FOLDER>       : Execute tests in a specific folder. (optional)
-#   -html_report           : Generate an HTML coverage report in addition to the standard report. (optional)
-#   -help                  : Display this help content.
+#   --test_file <TEST_FILE> : Execute a specific test file. (optional)
+#   --folder <FOLDER>       : Execute tests in a specific folder. (optional)
+#   --html_report           : Generate an HTML coverage report in addition to the standard report. (optional)
+#   --help                  : Display this help content.
 #
 # By default, without any options, the script executes all tests within the <project_folder>/tests
 # directory and generates a coverage report. If the -html_report option is used, an additional HTML
@@ -37,7 +37,7 @@ ABS_SCRIPTPATH="$(
 TEST_FILE=""
 FOLDER=""
 HTML_REPORT=false
-COVERAGE_THRESHOLD=80 # Branch coverage threshold should be 85, this is temporary
+COVERAGE_THRESHOLD=80
 
 # color codes for easier reading
 RED='\033[0;31m'
@@ -100,7 +100,7 @@ execute_tests() {
 
 # Run tests with coverage. Add the path to the main file and the shared packages that were linked.
   PT="src:tests:$PYTHONPATH"
-  PYTHONPATH="$PT" venv/bin/coverage run --branch -m pytest -W 'ignore::DeprecationWarning' tests
+  PYTHONPATH="$PT" venv/bin/coverage run --branch -m pytest -s -W 'ignore::DeprecationWarning' tests
   # Fail if tests fail
   if [ $? -ne 0 ]; then
     printf "\n${RED}Tests failed in $1${NC}\n"
