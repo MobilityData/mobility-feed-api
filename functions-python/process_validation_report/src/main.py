@@ -167,9 +167,6 @@ def generate_report_entities(
         feature.validations.append(validation_report_entity)
         entities.append(feature)
 
-    # Process notices and compute counters
-    counters = process_validation_report_notices(json_report["notices"])
-
     for notice in json_report["notices"]:
         notice_entity = Notice(
             dataset_id=dataset.id,
@@ -181,6 +178,19 @@ def generate_report_entities(
         dataset.notices.append(notice_entity)
         entities.append(notice_entity)
 
+    # Process notices and compute counters
+    populate_counters(dataset.notices, validation_report_entity)
+    return entities
+
+
+def populate_counters(notices, validation_report_entity):
+    """
+    Populates the validation report entity with counters based on the notices.
+    :param notices: Notices
+    :param validation_report_entity: validation report entity
+    """
+    counters = process_validation_report_notices(notices)
+
     # Update the validation report entity with computed counters
     validation_report_entity.total_info = counters["total_info"]
     validation_report_entity.total_warning = counters["total_warning"]
@@ -188,7 +198,6 @@ def generate_report_entities(
     validation_report_entity.unique_info_count = counters["unique_info_count"]
     validation_report_entity.unique_warning_count = counters["unique_warning_count"]
     validation_report_entity.unique_error_count = counters["unique_error_count"]
-    return entities
 
 
 def populate_service_date(dataset, json_report, timezone=None):
@@ -327,9 +336,25 @@ def compute_validation_report_counters(request, db_session: Session):
     """
     batch_size = 100  # Number of reports to process in each batch
     offset = 0
+    notice_exists = (
+        db_session.query(Notice)
+        .filter(Notice.validation_report_id == Validationreport.id)
+        .exists()
+    )
+
     while True:
         validation_reports = (
-            db_session.query(Validationreport).limit(batch_size).offset(offset).all()
+            db_session.query(Validationreport)
+            .filter(
+                (Validationreport.unique_info_count == 0)
+                & (Validationreport.unique_warning_count == 0)
+                & (Validationreport.unique_error_count == 0)
+                & notice_exists
+            )
+            .order_by(Validationreport.validated_at.desc())
+            .limit(batch_size)
+            .offset(offset)
+            .all()
         )
         print(
             f"Processing {len(validation_reports)} validation reports from offset {offset}."
@@ -339,16 +364,7 @@ def compute_validation_report_counters(request, db_session: Session):
             break
 
         for report in validation_reports:
-            counters = process_validation_report_notices(report.notices)
-
-            # Update the report with computed counters
-            report.total_info = counters["total_info"]
-            report.total_warning = counters["total_warning"]
-            report.total_error = counters["total_error"]
-            report.unique_info_count = counters["unique_info_count"]
-            report.unique_warning_count = counters["unique_warning_count"]
-            report.unique_error_count = counters["unique_error_count"]
-
+            populate_counters(report.notices, report)
             logging.info(
                 f"Updated ValidationReport {report.id} with counters: "
                 f"INFO={report.total_info}, WARNING={report.total_warning}, ERROR={report.total_error}, "
@@ -359,8 +375,9 @@ def compute_validation_report_counters(request, db_session: Session):
         # Commit the changes for the current batch
         db_session.commit()
 
-        # Move to the next batch
-        offset += batch_size
+        # Last page
+        if len(validation_reports) < batch_size:
+            break
 
     return {"message": "Validation report counters computed successfully."}, 200
 
