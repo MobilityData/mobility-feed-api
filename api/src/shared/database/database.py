@@ -44,20 +44,25 @@ def configure_polymorphic_mappers():
     gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
 
 
+cascade_entities = {
+    "Gtfsfeed": ["redirectingids", "redirectingids_", "externalids", "externalids_"],
+    "Gbfsversion": ["gbfsendpoints", "gbfsvalidationreports"],
+    "Gbfsfeed": ["gbfsversions"],
+    "Gbfsvalidationreport": ["gbfsnotices"],
+}
+
+
 def set_cascade(mapper, class_):
     """
     Set cascade for relationships in Gtfsfeed.
     This allows to delete/add the relationships when their respective relation array changes.
     """
-    if class_.__name__ == "Gtfsfeed":
+    mapper.confirm_deleted_rows = False  # Disable confirm_deleted_rows to avoid warnings in logs with delete-orphan
+    if class_.__name__ in cascade_entities:
         for rel in class_.__mapper__.relationships:
-            if rel.key in [
-                "redirectingids",
-                "redirectingids_",
-                "externalids",
-                "externalids_",
-            ]:
+            if rel.key in cascade_entities.get(class_.__name__, []):
                 rel.cascade = "all, delete-orphan"
+                rel.passive_deletes = True
 
 
 def mapper_configure_listener(mapper, class_):

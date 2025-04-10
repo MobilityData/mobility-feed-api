@@ -5,10 +5,10 @@ from unittest.mock import patch
 import faker
 
 from gbfs_data_processor import GBFSDataProcessor
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gbfsfeed
 from test_shared.test_utils.database_utils import (
     default_db_url,
-    get_testing_session,
     clean_testing_db,
 )
 
@@ -67,6 +67,7 @@ class TestGbfsDataProcessor(unittest.TestCase):
             stable_id=self.stable_id, feed_id=self.feed_id
         )
 
+    @with_db_session(db_url=default_db_url)
     @patch(
         "gbfs_data_processor.GBFSEndpoint.get_request_metadata",
         side_effect=mock_get_request_metadata,
@@ -76,7 +77,9 @@ class TestGbfsDataProcessor(unittest.TestCase):
     @patch("requests.post")
     @patch("requests.get")
     @patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
-    def test_fetch_gbfs_files(self, _, mock_post, __, mock_cloud_storage_client, ___):
+    def test_fetch_gbfs_files(
+        self, _, mock_post, __, mock_cloud_storage_client, ___, db_session
+    ):
         autodiscovery_url = "http://example.com/gbfs.json"
         # Add GBFS feed to the database
         gbfs_feed = Gbfsfeed(
@@ -88,7 +91,7 @@ class TestGbfsDataProcessor(unittest.TestCase):
             status="active",
             operational_status="published",
         )
-        session = get_testing_session()
+        session = db_session
         session.add(gbfs_feed)
         session.commit()
         (

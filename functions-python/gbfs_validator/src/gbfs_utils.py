@@ -21,6 +21,7 @@ class GBFSEndpoint:
     latency: Optional[float]
     status_code: int
     response_size_bytes: Optional[int]
+    language: Optional[str] = None
 
     @staticmethod
     def get_request_metadata(url: str) -> Optional[Dict[str, Any]]:
@@ -42,7 +43,9 @@ class GBFSEndpoint:
             }
 
     @staticmethod
-    def from_dict(data: List[Dict[str, Any]]) -> List["GBFSEndpoint"]:
+    def from_dict(
+        data: List[Dict[str, Any]], language: Optional[str]
+    ) -> List["GBFSEndpoint"]:
         """Creates a list of GBFSEndpoint objects from a list of dictionaries."""
         endpoints = []
         for file in data:
@@ -56,6 +59,7 @@ class GBFSEndpoint:
                             latency=metadata["latency"],
                             status_code=metadata["status_code"],
                             response_size_bytes=metadata["response_size_bytes"],
+                            language=language,
                         )
                     )
         return endpoints

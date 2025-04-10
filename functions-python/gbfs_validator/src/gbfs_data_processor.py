@@ -1,4 +1,5 @@
 import json
+import language_tags
 import logging
 from datetime import datetime
 from http import HTTPMethod
@@ -24,7 +25,7 @@ from shared.database_gen.sqlacodegen_models import (
     Httpaccesslog,
 )
 from sqlalchemy.orm import Session
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 
 
 class GBFSDataProcessor:
@@ -52,7 +53,7 @@ class GBFSDataProcessor:
         # Update database entities
         self.update_database_entities()
 
-    @with_db_session(echo=False)
+    @with_db_session()
     def record_autodiscovery_request(
         self, autodiscovery_url: str, db_session: Session
     ) -> None:
@@ -101,10 +102,23 @@ class GBFSDataProcessor:
                 f"No feeds found in the GBFS data for version {gbfs_version.version}."
             )
             return None, gbfs_version
-
-        endpoints = GBFSEndpoint.from_dict(feeds_matches[0].value)
+        endpoints = []
+        for feed_match in feeds_matches:
+            try:
+                parent_element = feed_match.context.path.fields[0]
+                # Validate BCP-47 compliance according the GBFS spec
+                language = (
+                    parent_element if language_tags.tags.check(parent_element) else None
+                )
+            except AttributeError:
+                language = None
+            print(language)
+            endpoints += GBFSEndpoint.from_dict(feed_match.value, language)
         unique_endpoints = list(
-            {endpoint.name: endpoint for endpoint in endpoints}.values()
+            {
+                f"{endpoint.name}, {endpoint.language or ''}": endpoint
+                for endpoint in endpoints
+            }.values()
         )
         logging.info(f"Found version {gbfs_version.version}.")
         logging.info(
@@ -165,7 +179,7 @@ class GBFSDataProcessor:
             return None
         return max_version.version
 
-    @with_db_session(echo=False)
+    @with_db_session()
     def update_database_entities(self, db_session: Session) -> None:
         """Update the database entities with the processed GBFS data."""
         gbfs_feed = (
@@ -186,8 +200,8 @@ class GBFSDataProcessor:
         active_versions = [version.version for version in self.gbfs_versions]
         for gbfs_version_orm in gbfs_feed.gbfsversions:
             if gbfs_version_orm.version not in active_versions:
-                gbfs_version_orm.is_active = False
-                gbfs_versions_orm.append(gbfs_version_orm)
+                db_session.delete(gbfs_version_orm)
+                db_session.flush()
 
         # Update or create GBFS versions and endpoints
         for gbfs_version in self.gbfs_versions:
@@ -220,8 +234,8 @@ class GBFSDataProcessor:
             active_endpoints = [endpoint.name for endpoint in gbfs_endpoints]
             for gbfs_endpoint_orm in gbfs_version_orm.gbfsendpoints:
                 if gbfs_endpoint_orm.name not in active_endpoints:
-                    gbfs_endpoint_orm.is_active = False
-                    gbfs_endpoints_orm.append(gbfs_endpoint_orm)
+                    db_session.delete(gbfs_endpoint_orm)
+                    db_session.flush()
             gbfs_version_orm.gbfsendpoints = gbfs_endpoints_orm
 
             validation_report_orm = self.create_validation_report_entities(
@@ -259,17 +273,20 @@ class GBFSDataProcessor:
         features: List[str],
     ) -> Gbfsendpoint:
         """Update or create a GBFS endpoint entity."""
-        formatted_id = f"{self.stable_id}_{version}_{endpoint.name}"
+        formatted_id = (
+            f"{self.stable_id}_{version}_{endpoint.name}_{endpoint.language or ''}"
+        )
         gbfs_endpoint_orm = (
             db_session.query(Gbfsendpoint)
             .filter(Gbfsendpoint.id == formatted_id)
             .first()
         )
         if not gbfs_endpoint_orm:
-            gbfs_endpoint_orm = Gbfsendpoint(id=formatted_id, name=endpoint.name)
+            gbfs_endpoint_orm = Gbfsendpoint(
+                id=formatted_id, name=endpoint.name, language=endpoint.language
+            )
 
         gbfs_endpoint_orm.url = endpoint.url  # Update the URL
-        gbfs_endpoint_orm.is_active = True  # Set the endpoint as active
         gbfs_endpoint_orm.is_feature = endpoint.name in features
         return gbfs_endpoint_orm
 
@@ -307,19 +324,6 @@ class GBFSDataProcessor:
                     if not obj.get("required", True) and obj.get("exists", False)
                 ],
             }
-
-    def get_gbfs_endpoints(self):
-        """Retrieve endpoints for all versions of the GBFS feed."""
-        for version in self.gbfs_versions:
-            gbfs_json = fetch_gbfs_data(version.url)
-            feeds_matches = parse("$..feeds").find(gbfs_json)
-            if feeds_matches:
-                feeds = feeds_matches[0].value  # First match
-                self.gbfs_endpoints[version.version] = GBFSEndpoint.from_dict(feeds)
-            else:
-                logging.error(
-                    f"No feeds found in the GBFS data for version {version.version}."
-                )
 
     def create_validation_report_entities(
         self, gbfs_version_orm: Gbfsversion, validation_report_data: Dict
