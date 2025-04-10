@@ -18,12 +18,14 @@ import os
 import logging
 from datetime import datetime
 import requests
+from sqlalchemy.orm import Session
+
+from shared.database.database import with_db_session
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
     get_service_date_range_with_timezone_utc,
 )
 import functions_framework
-from shared.helpers.database import Database
 from shared.database_gen.sqlacodegen_models import (
     Validationreport,
     Feature,
@@ -211,7 +213,10 @@ def populate_service_date(dataset, json_report, timezone=None):
         dataset.service_date_range_end = utc_service_end_date
 
 
-def create_validation_report_entities(feed_stable_id, dataset_stable_id, version):
+@with_db_session
+def create_validation_report_entities(
+    feed_stable_id, dataset_stable_id, version, db_session
+):
     """
     Creates and stores entities based on a validation report.
     This includes the validation report itself, related feature entities,
@@ -235,31 +240,29 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id, version
     except Exception as error:
         return str(error), 500
 
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session() as session:
-            logging.info("Database session started.")
-            # Generate the database entities required for the report
-            try:
-                entities = generate_report_entities(
-                    version,
-                    validated_at,
-                    json_report,
-                    dataset_stable_id,
-                    session,
-                    feed_stable_id,
-                )
-            except Exception as error:
-                return str(error), 200  # Report already exists
+        logging.info("Database session started.")
+        # Generate the database entities required for the report
+        try:
+            entities = generate_report_entities(
+                version,
+                validated_at,
+                json_report,
+                dataset_stable_id,
+                db_session,
+                feed_stable_id,
+            )
+        except Exception as error:
+            return str(error), 200  # Report already exists
 
-            # Commit the entities to the database
-            for entity in entities:
-                session.add(entity)
-            logging.info(f"Committing {len(entities)} entities to the database.")
-            session.commit()
+        # Commit the entities to the database
+        for entity in entities:
+            db_session.add(entity)
+        logging.info(f"Committing {len(entities)} entities to the database.")
+        db_session.commit()
 
-            logging.info("Entities committed successfully.")
-            return f"Created {len(entities)} entities.", 200
+        logging.info("Entities committed successfully.")
+        return f"Created {len(entities)} entities.", 200
     except Exception as error:
         logging.error(f"Error creating validation report entities: {error}")
         return f"Error creating validation report entities: {error}", 500
@@ -315,7 +318,8 @@ def process_validation_report(request):
 
 
 @functions_framework.http
-def compute_validation_report_counters(request):
+@with_db_session
+def compute_validation_report_counters(request, db_session: Session):
     """
     Compute the total number of errors, warnings, and info notices,
     as well as the number of distinct codes for each severity level
@@ -323,42 +327,40 @@ def compute_validation_report_counters(request):
     """
     batch_size = 100  # Number of reports to process in each batch
     offset = 0
-    db = Database()
-    with db.start_db_session(echo=False) as session:
-        while True:
-            validation_reports = (
-                session.query(Validationreport).limit(batch_size).offset(offset).all()
+    while True:
+        validation_reports = (
+            db_session.query(Validationreport).limit(batch_size).offset(offset).all()
+        )
+        print(
+            f"Processing {len(validation_reports)} validation reports from offset {offset}."
+        )
+        # Break the loop if no more reports are found
+        if len(validation_reports) == 0:
+            break
+
+        for report in validation_reports:
+            counters = process_validation_report_notices(report.notices)
+
+            # Update the report with computed counters
+            report.total_info = counters["total_info"]
+            report.total_warning = counters["total_warning"]
+            report.total_error = counters["total_error"]
+            report.unique_info_count = counters["unique_info_count"]
+            report.unique_warning_count = counters["unique_warning_count"]
+            report.unique_error_count = counters["unique_error_count"]
+
+            logging.info(
+                f"Updated ValidationReport {report.id} with counters: "
+                f"INFO={report.total_info}, WARNING={report.total_warning}, ERROR={report.total_error}, "
+                f"Unique INFO Code={report.unique_info_count}, Unique WARNING Code={report.unique_warning_count}, "
+                f"Unique ERROR Code={report.unique_error_count}"
             )
-            print(
-                f"Processing {len(validation_reports)} validation reports from offset {offset}."
-            )
-            # Break the loop if no more reports are found
-            if len(validation_reports) == 0:
-                break
 
-            for report in validation_reports:
-                counters = process_validation_report_notices(report.notices)
+        # Commit the changes for the current batch
+        db_session.commit()
 
-                # Update the report with computed counters
-                report.total_info = counters["total_info"]
-                report.total_warning = counters["total_warning"]
-                report.total_error = counters["total_error"]
-                report.unique_info_count = counters["unique_info_count"]
-                report.unique_warning_count = counters["unique_warning_count"]
-                report.unique_error_count = counters["unique_error_count"]
-
-                logging.info(
-                    f"Updated ValidationReport {report.id} with counters: "
-                    f"INFO={report.total_info}, WARNING={report.total_warning}, ERROR={report.total_error}, "
-                    f"Unique INFO Code={report.unique_info_count}, Unique WARNING Code={report.unique_warning_count}, "
-                    f"Unique ERROR Code={report.unique_error_count}"
-                )
-
-            # Commit the changes for the current batch
-            session.commit()
-
-            # Move to the next batch
-            offset += batch_size
+        # Move to the next batch
+        offset += batch_size
 
     return {"message": "Validation report counters computed successfully."}, 200
 

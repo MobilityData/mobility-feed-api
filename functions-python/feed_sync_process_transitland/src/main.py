@@ -24,7 +24,7 @@ from google.cloud import pubsub_v1
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from shared.helpers.database import Database, configure_polymorphic_mappers
+from shared.database.database import with_db_session
 from shared.helpers.logger import Logger
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
@@ -179,17 +179,15 @@ class FeedProcessor:
         self.session.rollback()
 
 
+@with_db_session
 @functions_framework.cloud_event
-def process_feed_event(cloud_event) -> None:
+def process_feed_event(cloud_event, db_session: Session) -> None:
     """Cloud Function entry point for feed processing."""
     Logger.init_logger()
-    configure_polymorphic_mappers()
     try:
         message_data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         payload = FeedPayload(**json.loads(message_data))
-        db = Database(FEEDS_DATABASE_URL)
-        with db.start_db_session() as db_session:
-            processor = FeedProcessor(db_session)
-            processor.process_feed(payload)
+        processor = FeedProcessor(db_session)
+        processor.process_feed(payload)
     except Exception as e:
         logging.error(f"Error processing feed event: {str(e)}")

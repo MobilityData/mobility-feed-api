@@ -1,4 +1,3 @@
-import os
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
@@ -6,15 +5,16 @@ from datetime import datetime, timezone
 
 from faker import Faker
 
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feature,
     Gtfsdataset,
     Gtfsfeed,
     Validationreport,
 )
+
+from test_shared.test_utils.database_utils import default_db_url
 from main import compute_validation_report_counters
-from shared.helpers.database import Database
-from test_shared.test_utils.database_utils import default_db_url, get_testing_session
 from main import (
     read_json_report,
     get_feature,
@@ -52,26 +52,26 @@ class TestValidationReportProcessor(unittest.TestCase):
         with self.assertRaises(Exception):
             read_json_report(json_report_url)
 
-    def test_get_feature(self):
+    @with_db_session(db_url=default_db_url)
+    def test_get_feature(self, db_session):
         """Test get_feature function."""
-        session = get_testing_session()
         feature_name = faker.word()
-        feature = get_feature(feature_name, session)
-        session.add(feature)
-        session.flush()
-        same_feature = get_feature(feature_name, session)
+        feature = get_feature(feature_name, db_session)
+        db_session.add(feature)
+        db_session.flush()
+        same_feature = get_feature(feature_name, db_session)
 
         self.assertIsInstance(feature, Feature)
         self.assertEqual(feature.name, feature_name)
         self.assertEqual(feature, same_feature)
-        session.rollback()
-        session.close()
+        db_session.rollback()
+        db_session.close()
 
-    def test_get_dataset(self):
+    @with_db_session(db_url=default_db_url)
+    def test_get_dataset(self, db_session):
         """Test get_dataset function."""
-        session = get_testing_session()
         dataset_stable_id = faker.word()
-        dataset = get_dataset(dataset_stable_id, session)
+        dataset = get_dataset(dataset_stable_id, db_session)
         self.assertIsNone(dataset)
 
         # Create GTFS Feed
@@ -81,23 +81,23 @@ class TestValidationReportProcessor(unittest.TestCase):
             id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
         )
         try:
-            session.add(feed)
-            session.add(dataset)
-            session.flush()
-            returned_dataset = get_dataset(dataset_stable_id, session)
+            db_session.add(feed)
+            db_session.add(dataset)
+            db_session.flush()
+            returned_dataset = get_dataset(dataset_stable_id, db_session)
             self.assertIsNotNone(returned_dataset)
             self.assertEqual(returned_dataset, dataset)
         except Exception as e:
-            session.rollback()
-            session.close()
+            db_session.rollback()
+            db_session.close()
             raise e
         finally:
-            session.rollback()
-            session.close()
+            db_session.rollback()
+            db_session.close()
 
-    @mock.patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
     @mock.patch("requests.get")
-    def test_create_validation_report_entities(self, mock_get):
+    @with_db_session(db_url=default_db_url)
+    def test_create_validation_report_entities(self, mock_get, db_session):
         """Test create_validation_report_entities function."""
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -121,16 +121,15 @@ class TestValidationReportProcessor(unittest.TestCase):
         dataset = Gtfsdataset(
             id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
         )
-        session = get_testing_session()
         try:
-            session.add(feed)
-            session.add(dataset)
-            session.commit()
+            db_session.add(feed)
+            db_session.add(dataset)
+            db_session.commit()
             create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
 
             # Validate that the validation report was created
             validation_report = (
-                session.query(Validationreport)
+                db_session.query(Validationreport)
                 .filter(Validationreport.id == f"{dataset_stable_id}_1.0")
                 .one_or_none()
             )
@@ -138,10 +137,9 @@ class TestValidationReportProcessor(unittest.TestCase):
         except Exception as e:
             raise e
         finally:
-            session.rollback()
-            session.close()
+            db_session.rollback()
+            db_session.close()
 
-    @mock.patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
     @mock.patch("requests.get")
     def test_create_validation_report_entities_json_error1(self, mock_get):
         """Test create_validation_report_entities function with a JSON error."""
@@ -165,7 +163,6 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         self.assertEqual(status, 400)
 
-    @mock.patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
     @mock.patch("requests.get")
     def test_create_validation_report_entities_json_error2(self, mock_get):
         """Test create_validation_report_entities function with JSON parsing exception."""
@@ -289,17 +286,16 @@ class TestValidationReportProcessor(unittest.TestCase):
         self.assertEqual(dataset.service_date_range_start, None)
         self.assertEqual(dataset.service_date_range_end, None)
 
-    def test_compute_validation_report_counters(self):
+    @with_db_session(db_url=default_db_url)
+    def test_compute_validation_report_counters(self, db_session):
         """Test compute_validation_report_counters function."""
         # Mock the request object
         request = MagicMock()
         compute_validation_report_counters(request)
-        db = Database()
-        with db.start_db_session(echo=False) as session:
-            validation_report = session.query(Validationreport).one()
-            self.assertEqual(validation_report.total_info, 5)
-            self.assertEqual(validation_report.total_warning, 3)
-            self.assertEqual(validation_report.total_error, 3)
-            self.assertEqual(validation_report.unique_info_count, 1)
-            self.assertEqual(validation_report.unique_warning_count, 1)
-            self.assertEqual(validation_report.unique_error_count, 2)
+        validation_report = db_session.query(Validationreport).one()
+        self.assertEqual(validation_report.total_info, 5)
+        self.assertEqual(validation_report.total_warning, 3)
+        self.assertEqual(validation_report.total_error, 3)
+        self.assertEqual(validation_report.unique_info_count, 1)
+        self.assertEqual(validation_report.unique_warning_count, 1)
+        self.assertEqual(validation_report.unique_error_count, 2)

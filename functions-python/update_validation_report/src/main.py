@@ -22,6 +22,7 @@ import functions_framework
 import requests
 import sqlalchemy.orm
 from sqlalchemy import or_
+from sqlalchemy.orm import Session
 from google.cloud import storage
 from sqlalchemy.engine import Row
 from sqlalchemy.engine.interfaces import Any
@@ -31,8 +32,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Validationreport,
 )
-from shared.helpers.database import Database
 from shared.helpers.gtfs_validator_common import get_gtfs_validator_results_bucket
+from shared.database.database import with_db_session
 
 from shared.helpers.logger import Logger
 from shared.helpers.validation_report.validation_report_update import execute_workflows
@@ -42,8 +43,9 @@ env = os.getenv("ENV", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
 
 
+@with_db_session
 @functions_framework.http
-def update_validation_report(request: flask.Request):
+def update_validation_report(request: flask.Request, db_session: Session):
     """
     Update the validation report for the datasets that need it
     """
@@ -72,11 +74,9 @@ def update_validation_report(request: flask.Request):
     validator_version = get_validator_version(validator_endpoint)
     logging.info(f"Accessing bucket {bucket_name}")
 
-    db = Database()
-    with db.start_db_session(echo=False) as session:
-        latest_datasets = get_latest_datasets_without_validation_reports(
-            session, validator_version, force_update
-        )
+    latest_datasets = get_latest_datasets_without_validation_reports(
+        db_session, validator_version, force_update
+    )
     logging.info(f"Retrieved {len(latest_datasets)} latest datasets.")
 
     valid_latest_datasets = get_datasets_for_validation(latest_datasets)

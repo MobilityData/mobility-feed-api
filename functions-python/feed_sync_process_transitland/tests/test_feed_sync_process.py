@@ -17,9 +17,6 @@ with mock.patch("shared.helpers.logger.Logger.init_logger") as mock_init_logger:
         process_feed_event,
     )
 
-# Environment variables for tests
-TEST_DB_URL = "postgresql://test:test@localhost:54320/test"
-
 
 @pytest.fixture
 def mock_feed():
@@ -40,9 +37,8 @@ def mock_location():
 
 
 @pytest.fixture
-def mock_db():
-    with patch("main.Database") as mock_db:
-        yield mock_db
+def mock_db_session():
+    return Mock()
 
 
 class MockLogger:
@@ -106,7 +102,6 @@ def feed_payload():
 @mock.patch.dict(
     "os.environ",
     {
-        "FEEDS_DATABASE_URL": TEST_DB_URL,
         "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
     },
 )
@@ -259,26 +254,8 @@ class TestFeedProcessor:
 
         process_feed_event(cloud_event)
 
-    def test_process_feed_event_database_connection_error(
-        self, processor, feed_payload, mock_logging, mock_db
-    ):
-        """Test feed event processing with database connection error."""
-        # Create cloud event with valid payload
-        payload_dict = self._create_payload_dict(feed_payload)
-        payload_data = base64.b64encode(
-            json.dumps(payload_dict).encode("utf-8")
-        ).decode()
-        cloud_event = Mock()
-        cloud_event.data = {"message": {"data": payload_data}}
-
-        # Mock database session to raise error
-        mock_db.return_value.start_db_session.side_effect = SQLAlchemyError(
-            "Database connection error"
-        )
-        process_feed_event(cloud_event)
-
     def test_process_feed_event_pubsub_error(
-        self, processor, feed_payload, mock_logging, mock_db
+        self, processor, feed_payload, mock_logging, mock_db_session
     ):
         """Test feed event processing handles missing credentials error."""
         # Create cloud event with valid payload
@@ -294,11 +271,8 @@ class TestFeedProcessor:
         # Mock database session with minimal setup
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.all.return_value = []
-        mock_db.return_value.start_db_session.return_value.__enter__.return_value = (
-            mock_session
-        )
 
-        process_feed_event(cloud_event)
+        process_feed_event(cloud_event, db_session=mock_session)
 
     def test_process_feed_event_malformed_cloud_event(self, mock_logging):
         """Test feed event processing with malformed cloud event."""

@@ -28,6 +28,7 @@ from packaging.version import Version
 from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
+from shared.database.database import with_db_session
 from shared.helpers.logger import Logger
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Feed
 from shared.common.db_utils import (
@@ -36,7 +37,6 @@ from shared.common.db_utils import (
     get_geopolygons,
 )
 
-from shared.helpers.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Geopolygon
 
 load_dotenv()

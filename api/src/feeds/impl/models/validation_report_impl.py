@@ -1,6 +1,6 @@
 from shared.database_gen.sqlacodegen_models import Validationreport
 from feeds_gen.models.validation_report import ValidationReport
-from utils.logger import Logger
+from shared.common.logging_utils import Logger
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
