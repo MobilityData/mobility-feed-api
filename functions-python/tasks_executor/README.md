@@ -1,4 +1,4 @@
-# Mission Control
+# Tasks Executor
 
 This directory contains Google Cloud Functions used as a single point of access to multiple _tasks_.
 

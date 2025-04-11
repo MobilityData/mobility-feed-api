@@ -18,7 +18,7 @@ from shared.helpers.validation_report.validation_report_update import execute_wo
 logging.basicConfig(level=logging.INFO)
 
 
-def rebuild_missing_validation_reports_entry(
+def rebuild_missing_validation_reports_handler(
     payload, db_session: Session | None = None
 ) -> flask.Response:
     """

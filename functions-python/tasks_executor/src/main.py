@@ -3,7 +3,9 @@ from typing import Any, Final
 import flask
 import functions_framework
 
-from tasks.rebuild_missing_validation_reports import rebuild_missing_validation_reports
+from tasks.validation_reports.rebuild_missing_validation_reports import (
+    rebuild_missing_validation_reports_handler,
+)
 
 LIST_COMMAND: Final[str] = "list"
 tasks = {
@@ -20,7 +22,7 @@ tasks = {
     },
     "rebuild_missing_validation_reports": {
         "description": "Rebuilds missing validation reports for GTFS datasets.",
-        "handler": rebuild_missing_validation_reports,
+        "handler": rebuild_missing_validation_reports_handler,
     },
 }
 
@@ -38,12 +40,10 @@ def get_task(request: flask.Request):
     if not request_json:
         raise ValueError("Invalid JSON payload")
     if not request_json.get("task"):
-        raise ValueError("Missing task")
+        raise ValueError("Task not provided")
     task = request_json.get("task")
     if task not in tasks:
-        raise ValueError("Task not provided")
-    if not tasks[task]:
-        raise ValueError("Task not found")
+        raise ValueError("Task not supported")
     payload = request_json.get("payload")
     if not payload:
         payload = {}
@@ -51,16 +51,16 @@ def get_task(request: flask.Request):
 
 
 @functions_framework.http
-def mission_control(request: flask.Request) -> flask.Response:
+def tasks_executor(request: flask.Request) -> flask.Response:
     task: Any
     payload: Any
     try:
         task, payload = get_task(request)
     except ValueError as error:
-        return flask.jsonify({"error": error}), 400
+        return flask.jsonify({"error": str(error), "status": 400})
     # Execute task
     handler = tasks[task]["handler"]
     try:
         return handler(payload=payload)
     except Exception as error:
-        return flask.jsonify({"error": str(error)}), 500
+        return flask.jsonify({"error": str(error), "status": 500})
