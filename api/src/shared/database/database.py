@@ -7,7 +7,15 @@ from typing import Type, Callable
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import load_only, Query, class_mapper, Session, mapper
-from shared.database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
+from shared.database_gen.sqlacodegen_models import (
+    Base,
+    Feed,
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Gbfsversion,
+    Gbfsfeed,
+    Gbfsvalidationreport,
+)
 from sqlalchemy.orm import sessionmaker
 import logging
 
@@ -44,20 +52,26 @@ def configure_polymorphic_mappers():
     gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
 
 
+cascade_entities = {
+    Gtfsfeed: [Gtfsfeed.redirectingids, Gtfsfeed.redirectingids_, Gtfsfeed.externalids],
+    Gbfsversion: [Gbfsversion.gbfsendpoints, Gbfsversion.gbfsvalidationreports],
+    Gbfsfeed: [Gbfsfeed.gbfsversions],
+    Gbfsvalidationreport: [Gbfsvalidationreport.gbfsnotices],
+}
+
+
 def set_cascade(mapper, class_):
     """
     Set cascade for relationships in Gtfsfeed.
     This allows to delete/add the relationships when their respective relation array changes.
     """
-    if class_.__name__ == "Gtfsfeed":
+    mapper.confirm_deleted_rows = False  # Disable confirm_deleted_rows to avoid warnings in logs with delete-orphan
+    if class_ in cascade_entities:
+        relationship_keys = {rel.prop.key for rel in cascade_entities[class_]}
         for rel in class_.__mapper__.relationships:
-            if rel.key in [
-                "redirectingids",
-                "redirectingids_",
-                "externalids",
-                "externalids_",
-            ]:
+            if rel.key in relationship_keys:
                 rel.cascade = "all, delete-orphan"
+                rel.passive_deletes = True
 
 
 def mapper_configure_listener(mapper, class_):
