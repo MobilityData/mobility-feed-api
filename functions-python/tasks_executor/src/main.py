@@ -1,3 +1,19 @@
+#
+#   MobilityData 2025
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+
 from typing import Any, Final
 
 import flask
@@ -11,7 +27,7 @@ LIST_COMMAND: Final[str] = "list"
 tasks = {
     "list_tasks": {
         "description": "List all available tasks.",
-        "handler": lambda payload: flask.jsonify(
+        "handler": lambda payload: (
             {
                 "tasks": [
                     {"name": task_name, "description": task_info["description"]}
@@ -57,10 +73,10 @@ def tasks_executor(request: flask.Request) -> flask.Response:
     try:
         task, payload = get_task(request)
     except ValueError as error:
-        return flask.jsonify({"error": str(error), "status": 400})
+        return flask.make_response(flask.jsonify({"error": str(error)}), 400)
     # Execute task
     handler = tasks[task]["handler"]
     try:
-        return handler(payload=payload)
+        return flask.make_response(flask.jsonify(handler(payload=payload)), 200)
     except Exception as error:
-        return flask.jsonify({"error": str(error), "status": 500})
+        return flask.make_response(flask.jsonify({"error": str(error)}), 500)
