@@ -18,7 +18,9 @@ import os
 import logging
 from datetime import datetime
 import requests
-from shared.helpers.database import Database
+from sqlalchemy.orm import Session
+
+from shared.database.database import with_db_session
 from shared.helpers.timezone import (
     extract_timezone_from_json_validation_report,
     get_service_date_range_with_timezone_utc,
@@ -164,6 +166,7 @@ def generate_report_entities(
         feature = get_feature(feature_name, session)
         feature.validations.append(validation_report_entity)
         entities.append(feature)
+
     for notice in json_report["notices"]:
         notice_entity = Notice(
             dataset_id=dataset.id,
@@ -174,7 +177,27 @@ def generate_report_entities(
         )
         dataset.notices.append(notice_entity)
         entities.append(notice_entity)
+
+    # Process notices and compute counters
+    populate_counters(dataset.notices, validation_report_entity)
     return entities
+
+
+def populate_counters(notices, validation_report_entity):
+    """
+    Populates the validation report entity with counters based on the notices.
+    :param notices: Notices
+    :param validation_report_entity: validation report entity
+    """
+    counters = process_validation_report_notices(notices)
+
+    # Update the validation report entity with computed counters
+    validation_report_entity.total_info = counters["total_info"]
+    validation_report_entity.total_warning = counters["total_warning"]
+    validation_report_entity.total_error = counters["total_error"]
+    validation_report_entity.unique_info_count = counters["unique_info_count"]
+    validation_report_entity.unique_warning_count = counters["unique_warning_count"]
+    validation_report_entity.unique_error_count = counters["unique_error_count"]
 
 
 def populate_service_date(dataset, json_report, timezone=None):
@@ -199,7 +222,10 @@ def populate_service_date(dataset, json_report, timezone=None):
         dataset.service_date_range_end = utc_service_end_date
 
 
-def create_validation_report_entities(feed_stable_id, dataset_stable_id, version):
+@with_db_session
+def create_validation_report_entities(
+    feed_stable_id, dataset_stable_id, version, db_session
+):
     """
     Creates and stores entities based on a validation report.
     This includes the validation report itself, related feature entities,
@@ -223,32 +249,29 @@ def create_validation_report_entities(feed_stable_id, dataset_stable_id, version
     except Exception as error:
         return str(error), 500
 
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session() as session:
-            logging.info("Database session started.")
+        logging.info("Database session started.")
+        # Generate the database entities required for the report
+        try:
+            entities = generate_report_entities(
+                version,
+                validated_at,
+                json_report,
+                dataset_stable_id,
+                db_session,
+                feed_stable_id,
+            )
+        except Exception as error:
+            return str(error), 200  # Report already exists
 
-            # Generate the database entities required for the report
-            try:
-                entities = generate_report_entities(
-                    version,
-                    validated_at,
-                    json_report,
-                    dataset_stable_id,
-                    session,
-                    feed_stable_id,
-                )
-            except Exception as error:
-                return str(error), 200  # Report already exists
+        # Commit the entities to the database
+        for entity in entities:
+            db_session.add(entity)
+        logging.info(f"Committing {len(entities)} entities to the database.")
+        db_session.commit()
 
-            # Commit the entities to the database
-            for entity in entities:
-                session.add(entity)
-            logging.info(f"Committing {len(entities)} entities to the database.")
-            session.commit()
-
-            logging.info("Entities committed successfully.")
-            return f"Created {len(entities)} entities.", 200
+        logging.info("Entities committed successfully.")
+        return f"Created {len(entities)} entities.", 200
     except Exception as error:
         logging.error(f"Error creating validation report entities: {error}")
         return f"Error creating validation report entities: {error}", 500
@@ -301,3 +324,95 @@ def process_validation_report(request):
         f"Processing validation report version {validator_version} for dataset {dataset_id} in feed {feed_id}."
     )
     return create_validation_report_entities(feed_id, dataset_id, validator_version)
+
+
+@functions_framework.http
+@with_db_session
+def compute_validation_report_counters(request, db_session: Session):
+    """
+    Compute the total number of errors, warnings, and info notices,
+    as well as the number of distinct codes for each severity level
+    across all validation reports in the database, and write the results to the database.
+    """
+    batch_size = 100  # Number of reports to process in each batch
+    offset = 0
+    notice_exists = (
+        db_session.query(Notice)
+        .filter(Notice.validation_report_id == Validationreport.id)
+        .exists()
+    )
+
+    while True:
+        validation_reports = (
+            db_session.query(Validationreport)
+            .filter(
+                (Validationreport.unique_info_count == 0)
+                & (Validationreport.unique_warning_count == 0)
+                & (Validationreport.unique_error_count == 0)
+                & notice_exists
+            )
+            .order_by(Validationreport.validated_at.desc())
+            .limit(batch_size)
+            .offset(offset)
+            .all()
+        )
+        print(
+            f"Processing {len(validation_reports)} validation reports from offset {offset}."
+        )
+        # Break the loop if no more reports are found
+        if len(validation_reports) == 0:
+            break
+
+        for report in validation_reports:
+            populate_counters(report.notices, report)
+            logging.info(
+                f"Updated ValidationReport {report.id} with counters: "
+                f"INFO={report.total_info}, WARNING={report.total_warning}, ERROR={report.total_error}, "
+                f"Unique INFO Code={report.unique_info_count}, Unique WARNING Code={report.unique_warning_count}, "
+                f"Unique ERROR Code={report.unique_error_count}"
+            )
+
+        # Commit the changes for the current batch
+        db_session.commit()
+
+        # Last page
+        if len(validation_reports) < batch_size:
+            break
+
+    return {"message": "Validation report counters computed successfully."}, 200
+
+
+def process_validation_report_notices(notices):
+    """
+    Processes the notices of a validation report and computes counters for different severities.
+
+    :param report: A Validationreport object containing associated notices.
+    :return: A dictionary with computed counters for total and unique counts of INFO, WARNING, and ERROR severities.
+    """
+    # Initialize counters for the current report
+    total_info, total_warning, total_error = 0, 0, 0
+    info_codes, warning_codes, error_codes = set(), set(), set()
+
+    # Process associated notices
+    for notice in notices:
+        match notice.severity:
+            case "INFO":
+                total_info += notice.total_notices
+                info_codes.add(notice.notice_code)
+            case "WARNING":
+                total_warning += notice.total_notices
+                warning_codes.add(notice.notice_code)
+            case "ERROR":
+                total_error += notice.total_notices
+                error_codes.add(notice.notice_code)
+            case _:
+                logging.warning(f"Unknown severity: {notice.severity}")
+
+    return {
+        "total_info": total_info,
+        "total_warning": total_warning,
+        "total_error": total_error,
+        "unique_info_count": len(info_codes),
+        "unique_warning_count": len(warning_codes),
+        "unique_error_count": len(error_codes),
+    }

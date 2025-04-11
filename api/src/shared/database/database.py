@@ -5,11 +5,21 @@ import threading
 import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.orm import load_only, Query, class_mapper, Session
-from shared.database_gen.sqlacodegen_models import Base, Feed, Gtfsfeed, Gtfsrealtimefeed, Gbfsfeed
+from sqlalchemy import create_engine, text, event
+from sqlalchemy.orm import load_only, Query, class_mapper, Session, mapper
+from shared.database_gen.sqlacodegen_models import (
+    Base,
+    Feed,
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Gbfsversion,
+    Gbfsfeed,
+    Gbfsvalidationreport,
+)
 from sqlalchemy.orm import sessionmaker
 import logging
+
+from shared.common.logging_utils import get_env_logging_level
 
 
 def generate_unique_id() -> str:
@@ -42,7 +52,54 @@ def configure_polymorphic_mappers():
     gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
 
 
-def with_db_session(func):
+cascade_entities = {
+    Gtfsfeed: [Gtfsfeed.redirectingids, Gtfsfeed.redirectingids_, Gtfsfeed.externalids],
+    Gbfsversion: [Gbfsversion.gbfsendpoints, Gbfsversion.gbfsvalidationreports],
+    Gbfsfeed: [Gbfsfeed.gbfsversions],
+    Gbfsvalidationreport: [Gbfsvalidationreport.gbfsnotices],
+}
+
+
+def set_cascade(mapper, class_):
+    """
+    Set cascade for relationships in Gtfsfeed.
+    This allows to delete/add the relationships when their respective relation array changes.
+    """
+    mapper.confirm_deleted_rows = False  # Disable confirm_deleted_rows to avoid warnings in logs with delete-orphan
+    if class_ in cascade_entities:
+        relationship_keys = {rel.prop.key for rel in cascade_entities[class_]}
+        for rel in class_.__mapper__.relationships:
+            if rel.key in relationship_keys:
+                rel.cascade = "all, delete-orphan"
+                rel.passive_deletes = True
+
+
+def mapper_configure_listener(mapper, class_):
+    """
+    Mapper configure listener
+    """
+    set_cascade(mapper, class_)
+    configure_polymorphic_mappers()
+
+
+# Add the mapper_configure_listener to the mapper_configured event
+event.listen(mapper, "mapper_configured", mapper_configure_listener)
+
+
+def refresh_materialized_view(session: "Session", view_name: str) -> bool:
+    """
+    Refresh Materialized view by name.
+    @return: True if the view was refreshed successfully, False otherwise
+    """
+    try:
+        session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
+        return True
+    except Exception as error:
+        logging.error(f"Error raised while refreshing view: {error}")
+        return False
+
+
+def with_db_session(func=None, db_url: str | None = None):
     """
     Decorator to handle the session management for the decorated function.
 
@@ -58,12 +115,15 @@ def with_db_session(func):
           exception occurs, and closed in either case.
         - The session is then passed to the decorated function as the 'db_session' keyword argument.
         - If 'db_session' is already provided, it simply calls the decorated function with the existing session.
+        - The echoed SQL queries will be logged if the environment variable LOGGING_LEVEL is set to DEBUG.
     """
+    if func is None:
+        return lambda f: with_db_session(f, db_url=db_url)
 
     def wrapper(*args, **kwargs):
         db_session = kwargs.get("db_session")
         if db_session is None:
-            db = Database()
+            db = Database(echo_sql=get_env_logging_level() == "DEBUG", feeds_database_url=db_url)
             with db.start_db_session() as session:
                 kwargs["db_session"] = session
                 return func(*args, **kwargs)
@@ -89,12 +149,16 @@ class Database:
                     cls.instance = object.__new__(cls)
         return cls.instance
 
-    def __init__(self, echo_sql=False):
+    def __init__(self, echo_sql=False, feeds_database_url: str | None = None):
         """
         Initializes the database instance
-        :param echo_sql: whether to echo the SQL queries or not
-        echo_sql set to False reduces the amount of information and noise going to the logs.
-        In case of errors, the exceptions will still contain relevant information about the failing queries.
+
+        :param echo_sql: whether to echo the SQL queries or not echo_sql.
+            False reduces the amount of information and noise going to the logs.
+            In case of errors, the exceptions will still contain relevant information about the failing queries.
+
+        :param feeds_database_url: The URL of the target database.
+            If it's None the URL will be assigned from the environment variable FEEDS_DATABASE_URL.
         """
 
         # This init function is called each time we call Database(), but in the case of a singleton, we only want to
@@ -107,7 +171,7 @@ class Database:
             load_dotenv()
             self.logger = logging.getLogger(__name__)
             self.connection_attempts = 0
-            database_url = os.getenv("FEEDS_DATABASE_URL")
+            database_url = feeds_database_url if feeds_database_url else os.getenv("FEEDS_DATABASE_URL")
             if database_url is None:
                 raise Exception("Database URL not provided.")
             self.pool_size = int(os.getenv("DB_POOL_SIZE", 10))

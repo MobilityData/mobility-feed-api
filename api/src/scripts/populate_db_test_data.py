@@ -17,7 +17,7 @@ from shared.database_gen.sqlacodegen_models import (
     Officialstatushistory,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
-from utils.logger import Logger
+from shared.common.logging_utils import Logger
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

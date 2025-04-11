@@ -19,22 +19,25 @@ from datetime import datetime
 from faker import Faker
 from geoalchemy2 import WKTElement
 
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
+    Validationreport,
+    Feature,
+    Redirectingid,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gtfsdataset,
     Location,
     Entitytype,
+    Feedosmlocationgroup,
+    Osmlocationgroup,
+    Geopolygon,
 )
-from shared.database_gen.sqlacodegen_models import (
-    Validationreport,
-    Feature,
-    Redirectingid,
-)
-from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
+from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
 
-def populate_database():
+@with_db_session(db_url=default_db_url)
+def populate_database(db_session):
     """
     Populates the database with fake data with the following distribution:
     - 5 GTFS feeds
@@ -44,7 +47,6 @@ def populate_database():
     - 3 GTFS datasets
     - 4 GTFS Realtime feeds, with 1 of them inactive
     """
-    session = get_testing_session()
     fake = Faker()
 
     feeds = []
@@ -93,8 +95,8 @@ def populate_database():
     ]
 
     for feed in feeds:
-        session.add(feed)
-
+        db_session.add(feed)
+    db_session.flush()
     for i in range(2):
         feed = Gtfsfeed(
             id=fake.uuid4(),
@@ -113,7 +115,7 @@ def populate_database():
             operational_status="published",
             official=True,
         )
-        session.add(feed)
+        db_session.add(feed)
 
     location_entity = Location(id="CA-quebec-montreal")
 
@@ -121,22 +123,23 @@ def populate_database():
     location_entity.country_code = "CA"
     location_entity.subdivision_name = "Quebec"
     location_entity.municipality = "Montreal"
-    session.add(location_entity)
+    db_session.add(location_entity)
     locations = [location_entity]
 
     feature1 = Feature(name="Shapes")
-    session.add(feature1)
+    db_session.add(feature1)
     feature2 = Feature(name="Route Colors")
-    session.add(feature2)
+    db_session.add(feature2)
 
     # GTFS datasets leaving one active feed without a dataset
     active_gtfs_feeds = (
-        session.query(Gtfsfeed)
+        db_session.query(Gtfsfeed)
         .filter(Gtfsfeed.status == "active")
         .order_by(Gtfsfeed.stable_id)
         .all()
     )
 
+    db_session.flush()
     # the first 2 datasets are for the first active feed, one dataset is for the second active feed
     for i in range(1, 4):
         feed_index = 0 if i in [1, 2] else 1
@@ -166,7 +169,7 @@ def populate_database():
         validation_report.features.append(feature1)
         validation_report.features.append(feature2)
 
-        session.add(validation_report)
+        db_session.add(validation_report)
         gtfs_dataset.validation_reports.append(validation_report)
 
         gtfs_dataset.locations = locations
@@ -175,15 +178,75 @@ def populate_database():
     active_gtfs_feeds[0].locations = locations
     active_gtfs_feeds[1].locations = locations
 
-    vp_entitytype = session.query(Entitytype).filter_by(name="vp").first()
+    # Add extracted locations to a feed
+    geopolygons = [
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=2,
+            name="Canada",
+            iso_3166_1_code="CA",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=4,
+            name="Quebec",
+            iso_3166_2_code="QC",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=6,
+            name="Montreal",
+            iso_3166_2_code="QC",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=8,
+            name="Laval",
+            iso_3166_2_code="QC",
+        ),
+    ]
+    first_feed = active_gtfs_feeds[0]
+    first_feed.feedosmlocationgroups = [
+        # Location in Montreal, Quebec, Canada with fewer stops
+        Feedosmlocationgroup(
+            feed_id=first_feed.id,
+            stops_count=10,
+            group=Osmlocationgroup(
+                group_id=".".join(
+                    [str(geopolygon.osm_id) for geopolygon in geopolygons[0:3]]
+                ),
+                group_name="Canada, Quebec, Montreal",
+                osms=geopolygons[0:3],
+            ),
+        ),
+        # Location in Laval, Quebec, Canada with the most stops
+        Feedosmlocationgroup(
+            feed_id=first_feed.id,
+            stops_count=100,
+            group=Osmlocationgroup(
+                group_id=".".join(
+                    [
+                        str(geopolygon.osm_id)
+                        for geopolygon in geopolygons[0:2] + [geopolygons[3]]
+                    ]
+                ),
+                group_name="Canada, Quebec, Laval",
+                osms=geopolygons[0:2] + [geopolygons[3]],
+            ),
+        ),
+    ]
+
+    vp_entitytype = db_session.query(Entitytype).filter_by(name="vp").first()
+
     if not vp_entitytype:
         vp_entitytype = Entitytype(name="vp")
-        session.add(vp_entitytype)
-    tu_entitytype = session.query(Entitytype).filter_by(name="tu").first()
+        db_session.add(vp_entitytype)
+    tu_entitytype = db_session.query(Entitytype).filter_by(name="tu").first()
     if not tu_entitytype:
         tu_entitytype = Entitytype(name="tu")
-        session.add(tu_entitytype)
+        db_session.add(tu_entitytype)
 
+    db_session.flush()
     # GTFS Realtime feeds
     gtfs_rt_feeds = []
     for i in range(3):
@@ -224,9 +287,9 @@ def populate_database():
         ),
     ]
 
-    session.add_all(gtfs_rt_feeds)
+    db_session.add_all(gtfs_rt_feeds)
 
-    session.commit()
+    db_session.commit()
 
 
 def pytest_configure(config):

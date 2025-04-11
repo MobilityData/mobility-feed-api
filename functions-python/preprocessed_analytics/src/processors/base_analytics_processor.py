@@ -9,11 +9,11 @@ from sqlalchemy.orm import Query
 from sqlalchemy.orm.session import Session
 from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
-    Gbfssnapshot,
+    # Gbfssnapshot,
     Gtfsfeed,
     Gtfsdataset,
 )
-from shared.helpers.database import with_db_session
+from shared.database.database import with_db_session
 
 
 class NoFeedDataException(Exception):
@@ -36,7 +36,7 @@ class BaseAnalyticsProcessor:
         raise NotImplementedError("Subclasses should implement this method.")
 
     def process_feed_data(
-        self, feed: Gtfsfeed | Gbfsfeed, dataset_or_snapshot: Gtfsdataset | Gbfssnapshot
+        self, feed: Gtfsfeed | Gbfsfeed, dataset_or_snapshot: Gtfsdataset | None
     ) -> None:
         raise NotImplementedError("Subclasses should implement this method.")
 
