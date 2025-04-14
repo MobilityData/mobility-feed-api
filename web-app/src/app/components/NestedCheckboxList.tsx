@@ -10,11 +10,14 @@ import {
 } from '@mui/material';
 import * as React from 'react';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
+import { useCallback, useRef } from 'react';
 
 interface NestedCheckboxListProps {
   checkboxData: CheckboxStructure[];
   onCheckboxChange: (checkboxData: CheckboxStructure[]) => void;
   onExpandGroupChange?: (checkboxData: CheckboxStructure[]) => void;
+  disableAll?: boolean;
+  debounceTime?: number;
 }
 
 // NOTE: Although the data structure allows for multiple levels of nesting, the current implementation only supports two levels.
@@ -25,28 +28,84 @@ export interface CheckboxStructure {
   checked: boolean;
   seeChildren?: boolean;
   children?: CheckboxStructure[];
+  disabled?: boolean;
 }
+
+function useDebouncedCallback(callback: () => void, delay: number) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const debouncedFunction = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      callback();
+    }, delay);
+  }, [callback, delay]);
+
+  return debouncedFunction;
+}
+
+export const checkboxCheckValue = (
+  checkboxData: CheckboxStructure,
+  disableAll: boolean,
+): boolean => {
+  if (checkboxData.disabled || disableAll) {
+    return false;
+  }
+  return (
+    checkboxData.checked ||
+    (checkboxData.children !== undefined &&
+      checkboxData.children.length > 0 &&
+      checkboxData.children.every((child) => child.checked))
+  );
+};
+
+export const checkboxIndeterminateValue = (
+  checkboxData: CheckboxStructure,
+  disableAll: boolean,
+): boolean => {
+  if (disableAll || checkboxData.children == undefined) {
+    return false;
+  }
+  const checkboxCheck =
+    checkboxData.children.some((child) => child.checked) &&
+    !checkboxData.children.every((child) => child.checked);
+  const areAllChildrenDisabled = checkboxData.children.every(
+    (child) => child.disabled,
+  );
+  return !areAllChildrenDisabled && checkboxCheck;
+};
 
 export default function NestedCheckboxList({
   checkboxData,
   onCheckboxChange,
   onExpandGroupChange,
+  disableAll = false,
+  debounceTime = 0,
 }: NestedCheckboxListProps): JSX.Element {
-  const [checkboxStructure, setCheckboxStructure] =
-    React.useState<CheckboxStructure[]>(checkboxData);
+  const [checkboxStructure, setCheckboxStructure] = React.useState<
+    CheckboxStructure[]
+  >([...checkboxData]);
   const [hasChange, setHasChange] = React.useState<boolean>(false);
   const theme = useTheme();
 
   React.useEffect(() => {
     if (hasChange) {
       setHasChange(false);
-      onCheckboxChange(checkboxStructure);
+      debouncedSubmit();
     }
   }, [checkboxStructure]);
 
   React.useEffect(() => {
     setCheckboxStructure(checkboxData);
   }, [checkboxData]);
+
+  const debouncedSubmit = useDebouncedCallback(
+    () => onCheckboxChange(checkboxStructure),
+    debounceTime,
+  );
 
   return (
     <List sx={{ width: '100%' }} dense>
@@ -71,6 +130,7 @@ export default function NestedCheckboxList({
                 {checkboxData.children !== undefined &&
                   checkboxData.children?.length > 0 && (
                     <IconButton
+                      disabled={disableAll || checkboxData.disabled}
                       edge={'end'}
                       aria-label='expand'
                       onClick={() => {
@@ -85,7 +145,8 @@ export default function NestedCheckboxList({
                         }
                       }}
                     >
-                      {checkboxData.seeChildren !== undefined &&
+                      {!disableAll &&
+                      checkboxData.seeChildren != undefined &&
                       checkboxData.seeChildren ? (
                         <ExpandLess />
                       ) : (
@@ -99,6 +160,7 @@ export default function NestedCheckboxList({
             {checkboxData.type === 'checkbox' && (
               <ListItemButton
                 role={undefined}
+                disabled={disableAll || checkboxData.disabled}
                 dense={true}
                 sx={{ p: 0 }}
                 onClick={() => {
@@ -118,18 +180,11 @@ export default function NestedCheckboxList({
                   tabIndex={-1}
                   disableRipple
                   inputProps={{ 'aria-labelledby': labelId }}
-                  checked={
-                    checkboxData.checked ||
-                    (checkboxData.children !== undefined &&
-                      checkboxData.children.length > 0 &&
-                      checkboxData.children.every((child) => child.checked))
-                  }
-                  indeterminate={
-                    checkboxData.children !== undefined
-                      ? checkboxData.children.some((child) => child.checked) &&
-                        !checkboxData.children.every((child) => child.checked)
-                      : false
-                  }
+                  checked={checkboxCheckValue(checkboxData, disableAll)}
+                  indeterminate={checkboxIndeterminateValue(
+                    checkboxData,
+                    disableAll,
+                  )}
                 />
                 <ListItemText
                   id={labelId}
@@ -151,7 +206,7 @@ export default function NestedCheckboxList({
             )}
             {checkboxData.children !== undefined && (
               <Collapse
-                in={checkboxData.seeChildren}
+                in={checkboxData.seeChildren && !disableAll}
                 timeout='auto'
                 unmountOnExit
               >
@@ -184,6 +239,7 @@ export default function NestedCheckboxList({
                       >
                         <ListItemButton
                           role={undefined}
+                          disabled={disableAll || value.disabled}
                           dense={true}
                           sx={{ p: 0, pl: 1 }}
                         >
@@ -191,7 +247,11 @@ export default function NestedCheckboxList({
                             edge='start'
                             tabIndex={-1}
                             disableRipple
-                            checked={value.checked || checkboxData.checked}
+                            checked={
+                              !value.disabled &&
+                              !disableAll &&
+                              (value.checked || checkboxData.checked)
+                            }
                             inputProps={{ 'aria-labelledby': labelId }}
                           />
 
