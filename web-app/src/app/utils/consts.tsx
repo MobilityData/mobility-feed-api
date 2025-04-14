@@ -24,6 +24,11 @@ export interface DatasetComponentFeature extends DatasetFeature {
   feature: string;
 }
 
+interface ComprehensiveDatasetFeature extends DatasetFeature {
+  color: string;
+  icon: JSX.Element;
+}
+
 export function groupFeaturesByComponent(
   features: string[] = Object.keys(DATASET_FEATURES),
 ): Record<string, DatasetComponentFeature[]> {
@@ -41,6 +46,19 @@ export function groupFeaturesByComponent(
     }
   });
   return groupedFeatures;
+}
+
+/**
+ *
+ * @param feature The gtfs schedule feature
+ * @returns Gets the feature data as well as the associated component data
+ */
+export function getFeatureComponentDecorators(
+  feature: string,
+): ComprehensiveDatasetFeature {
+  const featureData = DATASET_FEATURES[feature] ?? {};
+  const component = DATASET_FEATURES[feature]?.component ?? 'Overview';
+  return { ...getComponentDecorators(component), ...featureData };
 }
 
 export function getComponentDecorators(component: string): {
