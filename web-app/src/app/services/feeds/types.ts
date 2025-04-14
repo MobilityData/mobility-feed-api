@@ -25,6 +25,10 @@ export interface paths {
     /** @description Get some (or all) GTFS Realtime feeds from the Mobility Database. */
     get: operations['getGtfsRtFeeds'];
   };
+  '/v1/gbfs_feeds': {
+    /** @description Get GBFS feeds from the Mobility Database. */
+    get: operations['getGbfsFeeds'];
+  };
   '/v1/gtfs_feeds/{id}': {
     /** @description Get the specified GTFS feed from the Mobility Database. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
     get: operations['getGtfsFeed'];
@@ -37,6 +41,15 @@ export interface paths {
   '/v1/gtfs_rt_feeds/{id}': {
     /** @description Get the specified GTFS Realtime feed from the Mobility Database. */
     get: operations['getGtfsRtFeed'];
+    parameters: {
+      path: {
+        id: components['parameters']['feed_id_path_param'];
+      };
+    };
+  };
+  '/v1/gbfs_feeds/{id}': {
+    /** @description Get the specified GBFS feed from the Mobility Database. */
+    get: operations['getGbfsFeed'];
     parameters: {
       path: {
         id: components['parameters']['feed_id_path_param'];
@@ -120,52 +133,19 @@ export interface components {
        * @example gtfs
        * @enum {string}
        */
-      data_type?: 'gtfs' | 'gtfs_rt';
-      /**
-       * @description Describes status of the Feed. Should be one of
-       *   * `active` Feed should be used in public trip planners.
-       *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-       *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-       *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
-       *   * `future` Feed is not yet active but will be in the future.
-       *
-       * @example deprecated
-       * @enum {string}
-       */
-      status?: 'active' | 'deprecated' | 'inactive' | 'development' | 'future';
+      data_type?: 'gtfs' | 'gtfs_rt' | 'gbfs';
       /**
        * Format: date-time
        * @description The date and time the feed was added to the database, in ISO 8601 date-time format.
        * @example "2023-07-10T22:06:00.000Z"
        */
       created_at?: string;
-      /**
-       * @description A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
-       *
-       * @example true
-       */
-      official?: boolean;
-      /**
-       * Format: date-time
-       * @description The date and time the official status was last updated, in ISO 8601 date-time format.
-       *
-       * @example "2023-07-10T22:06:00.000Z"
-       */
-      official_updated_at?: string;
       external_ids?: components['schemas']['ExternalIds'];
       /**
        * @description A commonly used name for the transit provider included in the feed.
        * @example Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
        */
       provider?: string;
-      /**
-       * @description An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
-       *
-       * @example Bus
-       */
-      feed_name?: string;
-      /** @description A note to clarify complex use cases for consumers. */
-      note?: string;
       /**
        * @description Use to contact the feed producer.
        * @example someEmail@ladotbus.com
@@ -174,20 +154,162 @@ export interface components {
       source_info?: components['schemas']['SourceInfo'];
       redirects?: Array<components['schemas']['Redirect']>;
     };
-    GtfsFeed: {
-      data_type: 'gtfs';
+    Feed: {
+      data_type: 'Feed';
+    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
+        /**
+         * @description Describes status of the Feed. Should be one of
+         *   * `active` Feed should be used in public trip planners.
+         *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+         *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+         *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
+         *   * `future` Feed is not yet active but will be in the future.
+         *
+         * @example deprecated
+         * @enum {string}
+         */
+        status?:
+          | 'active'
+          | 'deprecated'
+          | 'inactive'
+          | 'development'
+          | 'future';
+        /**
+         * @description A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
+         *
+         * @example true
+         */
+        official?: boolean;
+        /**
+         * Format: date-time
+         * @description The date and time the official status was last updated, in ISO 8601 date-time format.
+         *
+         * @example "2023-07-10T22:06:00.000Z"
+         */
+        official_updated_at?: string;
+        /**
+         * @description An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
+         *
+         * @example Bus
+         */
+        feed_name?: string;
+        /** @description A note to clarify complex use cases for consumers. */
+        note?: string;
+      };
+    GtfsFeed: components['schemas']['Feed'] & {
+      locations?: components['schemas']['Locations'];
+      latest_dataset?: components['schemas']['LatestDataset'];
+    };
+    GbfsFeed: {
+      data_type: 'GbfsFeed';
     } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
         locations?: components['schemas']['Locations'];
-        latest_dataset?: components['schemas']['LatestDataset'];
+        /**
+         * @description The system ID of the feed. This is a unique identifier for the system that the feed belongs to.
+         *
+         * @example system-1234
+         */
+        system_id?: string;
+        /**
+         * Format: url
+         * @description The URL of the provider's website. This is the website of the organization that operates the system that the feed belongs to.
+         *
+         * @example https://www.citybikenyc.com/
+         */
+        provider_url?: string;
+        /** @description A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints. */
+        versions?: Array<components['schemas']['GbfsVersion']>;
       };
-    GtfsRTFeed: {
-      data_type: 'gtfs_rt';
-    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
-        entity_types?: Array<'vp' | 'tu' | 'sa'>;
-        /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
-        feed_references?: string[];
-        locations?: components['schemas']['Locations'];
-      };
+    GbfsVersion: {
+      /**
+       * @description The version of the GBFS specification that the feed is using.  This is a string that follows the semantic versioning format.
+       *
+       * @example 2.3
+       */
+      version?: string;
+      /**
+       * Format: date-time
+       * @description The date when the GBFS version was saved to the database.
+       *
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      created_at?: string;
+      /**
+       * Format: date-time
+       * @description The date when the GBFS version was last updated in the database.
+       *
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      last_updated_at?: string;
+      /**
+       * @description A boolean value indicating if this is the latest version of the GBFS feed.
+       *
+       * @example true
+       */
+      latest?: boolean;
+      /** @description A list of endpoints that are available in the version. */
+      endpoints?: Array<components['schemas']['GbfsEndpoint']>;
+      latest_validation_report?: components['schemas']['GbfsValidationReport'];
+    };
+    /** @description A validation report of the GBFS feed. */
+    GbfsValidationReport: {
+      /**
+       * Format: date-time
+       * @description The date and time the GBFS feed was validated, in ISO 8601 date-time format.
+       *
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      validated_at?: string;
+      /** @example 10 */
+      total_error?: number;
+      /**
+       * Format: url
+       * @description The URL of the JSON report of the validation summary.
+       *
+       * @example https://storage.googleapis.com/mobilitydata-datasets-prod/validation-reports/gbfs-1234-202402121801.json
+       */
+      report_summary_url?: string;
+      /**
+       * @description The version of the validator used to validate the GBFS feed.
+       *
+       * @example 1.0.13
+       */
+      validator_version?: string;
+    };
+    GbfsEndpoint: {
+      /**
+       * @description The name of the endpoint. This is a human-readable name for the endpoint.
+       *
+       * @example system_information
+       */
+      name?: string;
+      /**
+       * Format: url
+       * @description The URL of the endpoint. This is the URL where the endpoint can be accessed.
+       *
+       * @example https://gbfs.citibikenyc.com/gbfs/system_information.json
+       */
+      url?: string;
+      /**
+       * @description The language of the endpoint. This is the language that the endpoint is available in for versions 2.3  and prior.
+       *
+       * @example en
+       */
+      language?: string;
+      /**
+       * @description A boolean value indicating if the endpoint is a feature. A feature is defined as an optionnal endpoint.
+       *
+       * @example false
+       */
+      is_feature?: boolean;
+    };
+    GbfsFeeds: Array<components['schemas']['GbfsFeed']>;
+    GtfsRTFeed: components['schemas']['Feed'] & {
+      entity_types?: Array<'vp' | 'tu' | 'sa'>;
+      /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
+      feed_references?: string[];
+      locations?: components['schemas']['Locations'];
+    };
     SearchFeedItemResult: {
       /**
        * @description Unique identifier used as a key for the feeds table.
@@ -198,7 +320,7 @@ export interface components {
        * @example gtfs
        * @enum {string}
        */
-      data_type: 'gtfs' | 'gtfs_rt';
+      data_type: 'gtfs' | 'gtfs_rt' | 'gbfs';
       /**
        * @description Describes status of the Feed. Should be one of
        *   * `active` Feed should be used in public trip planners.
@@ -250,7 +372,7 @@ export interface components {
       /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
       feed_references?: string[];
     };
-    BasicFeeds: Array<components['schemas']['BasicFeed']>;
+    Feeds: Array<components['schemas']['Feed']>;
     GtfsFeeds: Array<components['schemas']['GtfsFeed']>;
     GtfsRTFeeds: Array<components['schemas']['GtfsRTFeed']>;
     LatestDataset: {
@@ -578,6 +700,10 @@ export interface components {
     feed_id_of_datasets_path_param: string;
     /** @description The ID of the requested dataset. */
     dataset_id_path_param: string;
+    /** @description Filter feeds by their system ID. This is a unique identifier for the system that the feed belongs to. */
+    system_id_param?: string;
+    /** @description Filter feeds by their supported GBFS version. This is a string that follows the semantic versioning format. */
+    version_param?: string;
   };
   requestBodies: never;
   headers: never;
@@ -619,7 +745,7 @@ export interface operations {
       /** @description Successful pull of the feeds common info.  This info has a reduced set of fields that are common to all types of feeds. */
       200: {
         content: {
-          'application/json': components['schemas']['BasicFeeds'];
+          'application/json': components['schemas']['Feeds'];
         };
       };
     };
@@ -635,7 +761,7 @@ export interface operations {
       /** @description Successful pull of the feeds common info for the provided ID. This info has a reduced set of fields that are common to all types of feeds. */
       200: {
         content: {
-          'application/json': components['schemas']['BasicFeed'];
+          'application/json': components['schemas']['Feed'];
         };
       };
     };
@@ -690,6 +816,30 @@ export interface operations {
       };
     };
   };
+  /** @description Get GBFS feeds from the Mobility Database. */
+  getGbfsFeeds: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['limit_query_param_gtfs_feeds_endpoint'];
+        offset?: components['parameters']['offset'];
+        provider?: components['parameters']['provider'];
+        producer_url?: components['parameters']['producer_url'];
+        country_code?: components['parameters']['country_code'];
+        subdivision_name?: components['parameters']['subdivision_name'];
+        municipality?: components['parameters']['municipality'];
+        system_id?: components['parameters']['system_id_param'];
+        version?: components['parameters']['version_param'];
+      };
+    };
+    responses: {
+      /** @description Successful pull of the GBFS feeds info. */
+      200: {
+        content: {
+          'application/json': components['schemas']['GbfsFeeds'];
+        };
+      };
+    };
+  };
   /** @description Get the specified GTFS feed from the Mobility Database. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly. */
   getGtfsFeed: {
     parameters: {
@@ -718,6 +868,22 @@ export interface operations {
       200: {
         content: {
           'application/json': components['schemas']['GtfsRTFeed'];
+        };
+      };
+    };
+  };
+  /** @description Get the specified GBFS feed from the Mobility Database. */
+  getGbfsFeed: {
+    parameters: {
+      path: {
+        id: components['parameters']['feed_id_path_param'];
+      };
+    };
+    responses: {
+      /** @description Successful pull of the requested feed. */
+      200: {
+        content: {
+          'application/json': components['schemas']['GbfsFeed'];
         };
       };
     };

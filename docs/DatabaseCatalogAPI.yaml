@@ -33,6 +33,8 @@ tags:
     description: "Datasets of the Mobility Database"
   - name: "metadata"
     description: "Metadata about the API"
+  - name: "beta"
+    description: "Beta endpoints of the API."
 
 paths:
   /v1/feeds:
@@ -140,7 +142,8 @@ paths:
     get:
       description: Get GBFS feeds from the Mobility Database.
       tags:
-        - "feeds"
+#        - "feeds" # Uncomment this line to add the tag to the endpoint after the beta release
+        - "beta"
       operationId: getGbfsFeeds
       parameters:
         - $ref: "#/components/parameters/limit_query_param_gtfs_feeds_endpoint"
@@ -170,7 +173,8 @@ paths:
     get:
       description: Get the specified GTFS feed from the Mobility Database. Once a week, we check if the latest dataset has been updated and, if so, we update it in our system accordingly.
       tags:
-        - "feeds"
+#        - "feeds"  # Uncomment this line to add the tag to the endpoint after the beta release
+        - "beta"
       operationId: getGtfsFeed
 
       security:
