@@ -33,34 +33,17 @@ class TestMainFunctions(unittest.TestCase):
         },
     )
     @patch("main.DatasetTraceService")
-    @patch("main.fetch_gbfs_files")
-    @patch("main.GBFSValidator.create_gbfs_json_with_bucket_paths")
-    @patch("main.GBFSValidator.create_snapshot")
-    @patch("main.GBFSValidator.validate_gbfs_feed")
-    @patch("main.save_snapshot_and_report")
     @patch("main.Logger")
-    @patch("main.storage.Client")
+    @patch("main.GBFSDataProcessor.process_gbfs_data")
     def test_gbfs_validator_pubsub(
         self,
+        _,
         __,
-        _,  # mock_logger
-        mock_save_snapshot_and_report,
-        mock_validate_gbfs_feed,
-        mock_create_snapshot,
-        mock_create_gbfs_json,
-        mock_fetch_gbfs_files,
         mock_dataset_trace_service,
     ):
         # Prepare mocks
         mock_trace_service = MagicMock()
         mock_dataset_trace_service.return_value = mock_trace_service
-
-        mock_create_snapshot.return_value = MagicMock()
-
-        mock_validate_gbfs_feed.return_value = {
-            "report_summary_url": "http://report-summary-url.com",
-            "json_report_summary": {"summary": "validation report"},
-        }
 
         # Prepare a mock CloudEvent
         data = {
@@ -79,13 +62,7 @@ class TestMainFunctions(unittest.TestCase):
         )
         # Call the function
         result = gbfs_validator_pubsub(cloud_event)
-        self.assertEqual(result, "GBFS files processed and stored successfully.")
-
-        mock_fetch_gbfs_files.assert_called_once_with("http://mock-url.com")
-        mock_create_gbfs_json.assert_called_once()
-        mock_create_snapshot.assert_called_once()
-        mock_validate_gbfs_feed.assert_called_once()
-        mock_save_snapshot_and_report.assert_called_once()
+        self.assertEqual(result, "GBFS data processed and stored successfully.")
 
     @patch.dict(
         os.environ,
@@ -136,7 +113,7 @@ class TestMainFunctions(unittest.TestCase):
         db._get_session.return_value.return_value = mock_session
 
         mock_feed = MagicMock()
-        mock_session.query.return_value.options.return_value.all.return_value = [
+        mock_session.query.return_value.filter.return_value.all.return_value = [
             mock_feed
         ]
 

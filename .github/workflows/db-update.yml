@@ -199,11 +199,11 @@ jobs:
       id: getsyspath
       run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
 
-    - name: GTFS - Update Database Content
-      run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
-
     - name: GBFS - Update Database Content
       run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
+
+    - name: GTFS - Update Database Content
+      run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
     - name: GTFS - Upload log file for verification
       if: ${{ always() }}
