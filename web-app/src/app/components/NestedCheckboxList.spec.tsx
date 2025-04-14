@@ -1,7 +1,7 @@
 import {
   checkboxCheckValue,
   checkboxIndeterminateValue,
-  CheckboxStructure,
+  type CheckboxStructure,
 } from './NestedCheckboxList';
 
 const baseCheckbox = (

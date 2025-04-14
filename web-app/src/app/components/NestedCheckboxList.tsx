@@ -1,4 +1,5 @@
 import {
+  Box,
   Checkbox,
   Collapse,
   IconButton,
@@ -20,8 +21,6 @@ interface NestedCheckboxListProps {
   debounceTime?: number;
 }
 
-// NOTE: Although the data structure allows for multiple levels of nesting, the current implementation only supports two levels.
-// TODO: Implement support for multiple levels of nesting
 export interface CheckboxStructure {
   title: string;
   type: 'label' | 'checkbox';
@@ -31,11 +30,11 @@ export interface CheckboxStructure {
   disabled?: boolean;
 }
 
-function useDebouncedCallback(callback: () => void, delay: number) {
+function useDebouncedCallback(callback: () => void, delay: number): () => void {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const debouncedFunction = useCallback(() => {
-    if (timeoutRef.current) {
+    if (timeoutRef.current != null) {
       clearTimeout(timeoutRef.current);
     }
 
@@ -51,7 +50,7 @@ export const checkboxCheckValue = (
   checkboxData: CheckboxStructure,
   disableAll: boolean,
 ): boolean => {
-  if (checkboxData.disabled || disableAll) {
+  if ((checkboxData.disabled != null && checkboxData.disabled) || disableAll) {
     return false;
   }
   return (
@@ -102,10 +101,9 @@ export default function NestedCheckboxList({
     setCheckboxStructure(checkboxData);
   }, [checkboxData]);
 
-  const debouncedSubmit = useDebouncedCallback(
-    () => onCheckboxChange(checkboxStructure),
-    debounceTime,
-  );
+  const debouncedSubmit = useDebouncedCallback(() => {
+    onCheckboxChange(checkboxStructure);
+  }, debounceTime);
 
   return (
     <List sx={{ width: '100%' }} dense>
@@ -206,67 +204,30 @@ export default function NestedCheckboxList({
             )}
             {checkboxData.children !== undefined && (
               <Collapse
-                in={checkboxData.seeChildren && !disableAll}
+                in={
+                  checkboxData.seeChildren != null &&
+                  checkboxData.seeChildren &&
+                  !disableAll
+                }
                 timeout='auto'
                 unmountOnExit
               >
-                <List
-                  sx={{
-                    ml: 1,
-                    display: { xs: 'flex', md: 'block' },
-                    flexWrap: 'wrap',
-                  }}
-                  dense
-                >
-                  {checkboxData.children.map((value) => {
-                    const labelId = `checkbox-list-label-${value.title}`;
-
-                    return (
-                      <ListItem
-                        key={value.title}
-                        disablePadding
-                        sx={{ width: { xs: '50%', sm: '33%', md: '100%' } }}
-                        onClick={() => {
-                          setCheckboxStructure((prev) => {
-                            value.checked = !value.checked;
-                            if (!value.checked) {
-                              checkboxData.checked = false;
-                            }
-                            return [...prev];
-                          });
-                          setHasChange(true);
-                        }}
-                      >
-                        <ListItemButton
-                          role={undefined}
-                          disabled={disableAll || value.disabled}
-                          dense={true}
-                          sx={{ p: 0, pl: 1 }}
-                        >
-                          <Checkbox
-                            edge='start'
-                            tabIndex={-1}
-                            disableRipple
-                            checked={
-                              !value.disabled &&
-                              !disableAll &&
-                              (value.checked || checkboxData.checked)
-                            }
-                            inputProps={{ 'aria-labelledby': labelId }}
-                          />
-
-                          <ListItemText
-                            id={labelId}
-                            primary={`${value.title}`}
-                            primaryTypographyProps={{
-                              variant: 'body1',
-                            }}
-                          />
-                        </ListItemButton>
-                      </ListItem>
-                    );
-                  })}
-                </List>
+                <Box sx={{ pl: 1, width: '100%' }}>
+                  <NestedCheckboxList
+                    checkboxData={checkboxData.children}
+                    onCheckboxChange={(children) => {
+                      setCheckboxStructure((prev) => {
+                        checkboxData.children = children;
+                        prev[index] = checkboxData;
+                        return [...prev];
+                      });
+                      setHasChange(true);
+                    }}
+                    onExpandGroupChange={onExpandGroupChange}
+                    disableAll={disableAll || checkboxData.disabled}
+                    debounceTime={0}
+                  ></NestedCheckboxList>
+                </Box>
               </Collapse>
             )}
           </ListItem>
