@@ -1,0 +1,27 @@
+{
+   "copyToClipboard": "In die Zwischenablage kopieren",
+   "copied": "Kopiert!",
+   "name": "Name",
+   "email": "E-Mail",
+   "organization": "Organisation",
+   "signOut": "Abmelden",
+   "unknown": "Unbekannt",
+   "search": "Suchen",
+   "feeds": "Feeds",
+   "gtfsSchedule": "GTFS Schedule",
+   "gtfsRealtime": "GTFS Realtime",
+   "gtfsRealtimeEntities": {
+      "tripUpdates": "Fahrtaktualisierungen",
+      "vehiclePositions": "Fahrzeugpositionen",
+      "serviceAlerts": "Servicewarnungen"
+   },
+   "loading": "Wird geladen...",
+   "errors": {
+      "generic": "Wir können Ihre Anfrage momentan nicht abschließen."
+   },
+   "others": "andere",
+   "apiKey": "API-Schlüssel",
+   "httpHeader": "HTTP-Header",
+   "back": "Zurück",
+   "and": "und"
+}

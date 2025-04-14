@@ -1,0 +1,42 @@
+{
+ "feeds": "Feeds",
+ "dataType": "Datentyp",
+ "transitProvider": "Verkehrsanbieter",
+ "location": "Standort",
+ "feedDescription": "Feed-Beschreibung",
+ "searchFor": "Suchen nach",
+ "resultsFor": "{{startResult}}-{{endResult}} von {{totalResults}} Ergebnissen",
+ "deprecated": "Veraltet",
+ "searchPlaceholder": "Verkehrsanbieter, Feedname oder Standort",
+ "noResults": "Leider haben wir keine Suchergebnisse für „{{activeSearch}}“ gefunden.",
+ "searchSuggestions": "Suchvorschläge: ",
+ "searchTips": {
+    "twoDigit": "Verwenden Sie einen zweistelligen Code, um nach dem Land zu suchen, z. B. „FR“ für Frankreich",
+    "fullName": "Geben Sie den vollständigen Namen des Verkehrsanbieters ein, z. B. „Toronto Transit Commission“ statt „TTC“",
+    "checkSpelling": "Überprüfen Sie die Rechtschreibung noch einmal"
+ },
+ "errorAndContact": "Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut. Wenn das Problem weiterhin besteht, <1>kontaktieren Sie uns</1> für weitere Unterstützung.",
+ "errorLoadingFeed": "Beim Laden des Feeds ist ein Fehler aufgetreten.",
+ "form": {
+    "addOrUpdateFeed": "Feed hinzufügen oder aktualisieren",
+    "signUp": "Registrieren Sie sich für ein Mobility Database-Konto oder melden Sie sich an, um einen GTFS-Feed hinzuzufügen oder zu aktualisieren.",
+    "signUpAction": "Registrieren Sie sich für ein Konto",
+    "loginSuccess": "Sie wurden erfolgreich angemeldet. Sie können jetzt einen Feed hinzufügen oder aktualisieren."
+ },
+ "seeFullList": "Vollständige Liste anzeigen",
+ "hideFullList": "Vollständige Liste ausblenden",
+ "producerDownloadUrl": "Download-URL des Herstellers",
+ "copyDownloadUrl": "Download-URL kopieren",
+ "producerUrlCopied": "URL des Herstellers in die Zwischenablage kopiert",
+ "authenticationType": "Authentifizierungstyp",
+ "registerToDownloadFeed": "Registrieren Sie sich, um den Feed herunterzuladen",
+ "feedContactEmail": "Feed-Kontakt-E-Mail",
+ "copyFeedContactEmail": "Feed-Kontakt-E-Mail kopieren",
+ "features": "Funktionen",
+ "unableToDownloadFeed": "Dieser Feed konnte nicht heruntergeladen werden. Wenn es eine neuere URL für diesen Feed gibt, <1>geben Sie sie bitte hier ein.</1>",
+ "feedHasBeenReplaced": "Dieser Feed wurde durch eine andere Produzenten-URL ersetzt.{' '}<1>Hier gelangen Sie zum neuen Feed</1>.",
+ "downloadLatest": "Neueste herunterladen",
+ "seeLicense": "Lizenz anzeigen",
+ "boundingBoxTitle": "Begrenzungsrahmen aus stops.txt",
+ "unableToGenerateBoundingBox": "Begrenzungsrahmen konnte nicht generiert werden."
+}
