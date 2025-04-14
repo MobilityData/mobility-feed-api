@@ -10,6 +10,9 @@
     "feeds": "Feeds",
     "gtfsSchedule": "GTFS Schedule",
     "gtfsRealtime": "GTFS Realtime",
+    "gtfs": "GTFS Schedule",
+    "gtfs_rt": "GTFS Realtime",
+    "gbfs": "GBFS",
     "gtfsRealtimeEntities": {
         "tripUpdates": "Trip Updates",
         "vehiclePositions": "Vehicle Positions",

@@ -21,7 +21,7 @@ import {
 import { type components } from '../../services/feeds/types';
 import { useTranslation } from 'react-i18next';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { getDataFeatureUrl } from '../../utils/consts';
+import { getFeatureComponentDecorators } from '../../utils/consts';
 import PublicIcon from '@mui/icons-material/Public';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
 import LinkIcon from '@mui/icons-material/Link';
@@ -370,7 +370,10 @@ export default function FeedSummary({
                     },
                   }}
                   onClick={() => {
-                    window.open(getDataFeatureUrl(feature), '_blank');
+                    window.open(
+                      getFeatureComponentDecorators(feature)?.linkToInfo,
+                      '_blank',
+                    );
                   }}
                 />
               </Grid>
