@@ -13,6 +13,8 @@ import {
   Skeleton,
   TableContainer,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -44,6 +46,9 @@ import {
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import { MainPageHeader } from '../../styles/PageHeader.style';
 import { ColoredContainer } from '../../styles/PageLayout.style';
+import AdvancedSearchTable from './AdvancedSearchTable';
+import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
+import GridViewIcon from '@mui/icons-material/GridView';
 
 export default function Feed(): React.ReactElement {
   const theme = useTheme();
@@ -71,6 +76,9 @@ export default function Feed(): React.ReactElement {
   >([]);
   const [activePagination, setActivePagination] = useState(
     searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1,
+  );
+  const [searchView, setSearchView] = useState<'simple' | 'advanced'>(
+    'advanced',
   );
   const user = useSelector(selectUserProfile);
   const dispatch = useAppDispatch();
@@ -269,8 +277,21 @@ export default function Feed(): React.ReactElement {
     };
   }, []);
 
+  const handleViewChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newSearchView: 'simple' | 'advanced',
+  ): void => {
+    setSearchView(newSearchView);
+  };
+
   return (
-    <Container component='main' maxWidth={false}>
+    <Container
+      component='main'
+      maxWidth={false}
+      sx={{
+        overflowX: 'initial',
+      }}
+    >
       <CssBaseline />
       <Box
         sx={{
@@ -589,8 +610,16 @@ export default function Feed(): React.ReactElement {
                   {feedsData?.results !== undefined &&
                     feedsData?.results !== null &&
                     feedsData?.results?.length > 0 && (
-                      <TableContainer>
-                        <Grid item xs={12}>
+                      <TableContainer sx={{ overflowX: 'initial' }}>
+                        <Grid
+                          item
+                          xs={12}
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'self-end',
+                          }}
+                        >
                           <Typography
                             variant='subtitle2'
                             sx={{ fontWeight: 'bold' }}
@@ -598,8 +627,36 @@ export default function Feed(): React.ReactElement {
                           >
                             {getSearchResultNumbers()}
                           </Typography>
+                          <ToggleButtonGroup
+                            color='primary'
+                            value={searchView}
+                            exclusive
+                            onChange={handleViewChange}
+                            aria-label='Platform'
+                          >
+                            <ToggleButton
+                              value='simple'
+                              aria-label='Simple Search View'
+                            >
+                              <ViewHeadlineIcon></ViewHeadlineIcon>
+                            </ToggleButton>
+                            <ToggleButton
+                              value='advanced'
+                              aria-label='Advanced Search View'
+                            >
+                              <GridViewIcon></GridViewIcon>
+                            </ToggleButton>
+                          </ToggleButtonGroup>
                         </Grid>
-                        <SearchTable feedsData={feedsData} />
+                        {searchView === 'simple' ? (
+                          <SearchTable feedsData={feedsData} />
+                        ) : (
+                          <AdvancedSearchTable
+                            feedsData={feedsData}
+                            selectedFeatures={selectedFeatures}
+                          />
+                        )}
+
                         <Pagination
                           sx={{
                             mt: 2,
