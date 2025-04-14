@@ -401,7 +401,7 @@ export default function Feed(): React.ReactElement {
                 </>
               )}
 
-              {(config.enableFeatureFilterSearch || 3 > 2) && (
+              {(config.enableFeatureFilterSearch) && (
                 <>
                   <SearchHeader
                     variant='h6'
