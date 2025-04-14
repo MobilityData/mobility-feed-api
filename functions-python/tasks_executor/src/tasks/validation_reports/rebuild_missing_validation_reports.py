@@ -141,7 +141,7 @@ def get_parameters(payload):
     Returns:
         dict: dict with: dry_run, filter_after_in_days, filter_statuses, prod_env, validator_endpoint parameters
     """
-    prod_env = os.getenv("ENVIRONMENT", "").lower() == "prod"
+    prod_env = os.getenv("ENV", "").lower() == "prod"
     validator_endpoint = get_gtfs_validator_url(prod_env)
     dry_run = payload.get("dry_run")
     filter_after_in_days = payload.get("filter_after_in_days")

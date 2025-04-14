@@ -20,3 +20,8 @@ Example:
     "filter_statuses": ["active", "inactive", "future"]
 }
 `````
+
+# GCP environment variables
+The function uses the following environment variables:
+- `ENV`: The environment to use. It can be `dev`, `staging` or `prod`. Default is `dev`.
+- `LOCATION`: The location of the GCP project. Default is `northamerica-northeast1`.
