@@ -6,14 +6,9 @@ This directory contains Google Cloud Functions used as a single point of access 
 The function receive the following payload:
 ```
   {
-   "name": "string", # [required] Name of the task to execute
+   "task": "string", # [required] Name of the task to execute
    "payload": { } [optional] Payload to pass to the task
   }
-```
-Example:
-```
-{
-  "name": "rebuild_missing_validation_reports",
   "payload": {
     "dry_run": true,
     "filter_after_in_days": 14,
