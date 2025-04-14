@@ -59,7 +59,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BasicFeeds"
+                $ref: "#/components/schemas/Feeds"
 
   /v1/feeds/{id}:
     parameters:
@@ -79,7 +79,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BasicFeed"
+                $ref: "#/components/schemas/Feed"
 
   /v1/gtfs_feeds:
     get:
@@ -136,6 +136,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/GtfsRTFeeds"
 
+  /v1/gbfs_feeds:
+    get:
+      description: Get GBFS feeds from the Mobility Database.
+      tags:
+        - "feeds"
+      operationId: getGbfsFeeds
+      parameters:
+        - $ref: "#/components/parameters/limit_query_param_gtfs_feeds_endpoint"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/provider"
+        - $ref: "#/components/parameters/producer_url"
+        - $ref: "#/components/parameters/country_code"
+        - $ref: "#/components/parameters/subdivision_name"
+        - $ref: "#/components/parameters/municipality"
+        - $ref: "#/components/parameters/system_id_param"
+        - $ref: "#/components/parameters/version_param"
+
+      security:
+        - Authentication: [ ]
+      responses:
+        200:
+          description: Successful pull of the GBFS feeds info.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GbfsFeeds"
+
+
   /v1/gtfs_feeds/{id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -173,6 +201,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GtfsRTFeed"
+
+  /v1/gbfs_feeds/{id}:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: Get the specified GBFS feed from the Mobility Database.
+      tags:
+        - "feeds"
+      operationId: getGbfsFeed
+
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: Successful pull of the requested feed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GbfsFeed"
 
   /v1/gtfs_feeds/{id}/datasets:
     parameters:
@@ -315,6 +362,7 @@ components:
           description: A comment explaining the redirect.
           type: string
           example: Redirected because of a change of URL.
+
     BasicFeed:
       type: object
       discriminator:
@@ -332,59 +380,21 @@ components:
           enum:
             - gtfs
             - gtfs_rt
+            - gbfs
           example: gtfs
 #    Have to put the enum inline because of a bug in openapi-generator
 #          $ref: "#/components/schemas/DataType"
-        status:
-          description: >
-            Describes status of the Feed. Should be one of 
-              * `active` Feed should be used in public trip planners.
-              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-              * `development` Feed is being used for development purposes and should not be used in public trip planners.
-              * `future` Feed is not yet active but will be in the future.
-          type: string
-          enum:
-            - active
-            - deprecated
-            - inactive
-            - development
-            - future
-          example: deprecated
-#           Have to put the enum inline because of a bug in openapi-generator
-#          $ref: "#/components/schemas/FeedStatus"
         created_at:
           description: The date and time the feed was added to the database, in ISO 8601 date-time format.
           type: string
           example: 2023-07-10T22:06:00Z
           format: date-time
-        official:
-            description: >
-                A boolean value indicating if the feed is official or not. 
-                Official feeds are provided by the transit agency or a trusted source.
-            type: boolean
-            example: true
-        official_updated_at:
-            description: >
-                The date and time the official status was last updated, in ISO 8601 date-time format.
-            type: string
-            example: 2023-07-10T22:06:00Z
-            format: date-time
         external_ids:
           $ref: "#/components/schemas/ExternalIds"
         provider:
           description: A commonly used name for the transit provider included in the feed.
           type: string
           example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
-        feed_name:
-          description: >
-            An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
-            multiple providers, or which network is represented by the feed.
-          type: string
-          example: Bus
-        note:
-         description: A note to clarify complex use cases for consumers.
-         type: string
         feed_contact_email:
           description: Use to contact the feed producer.
           type: string
@@ -396,9 +406,54 @@ components:
           items:
             $ref: "#/components/schemas/Redirect"
 
-    GtfsFeed:
+    Feed:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          properties:
+            status:
+              description: >
+                Describes status of the Feed. Should be one of
+                  * `active` Feed should be used in public trip planners.
+                  * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+                  * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+                  * `development` Feed is being used for development purposes and should not be used in public trip planners.
+                  * `future` Feed is not yet active but will be in the future.
+              type: string
+              enum:
+                - active
+                - deprecated
+                - inactive
+                - development
+                - future
+              example: deprecated
+            #           Have to put the enum inline because of a bug in openapi-generator
+            #          $ref: "#/components/schemas/FeedStatus"
+            official:
+              description: >
+                A boolean value indicating if the feed is official or not. 
+                Official feeds are provided by the transit agency or a trusted source.
+              type: boolean
+              example: true
+            official_updated_at:
+              description: >
+                The date and time the official status was last updated, in ISO 8601 date-time format.
+              type: string
+              example: 2023-07-10T22:06:00Z
+              format: date-time
+            feed_name:
+              description: >
+                An optional description of the data feed, e.g to specify if the data feed is an aggregate of 
+                multiple providers, or which network is represented by the feed.
+              type: string
+              example: Bus
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
+
+    GtfsFeed:
+      allOf:
+        - $ref: "#/components/schemas/Feed"
         - type: object
           properties:
             locations:
@@ -406,9 +461,127 @@ components:
             latest_dataset:
               $ref: "#/components/schemas/LatestDataset"
 
-    GtfsRTFeed:
+    GbfsFeed:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          properties:
+            locations:
+              $ref: "#/components/schemas/Locations"
+            system_id:
+              description: >
+                The system ID of the feed. This is a unique identifier for the system that the feed belongs to.
+              type: string
+              example: system-1234
+            provider_url:
+              description: >
+                The URL of the provider's website. This is the website of the organization that operates the system that the feed belongs to.
+              type: string
+              format: url
+              example: https://www.citybikenyc.com/
+            versions:
+              description: >
+                  A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints.
+              type: array
+              items:
+                  $ref: "#/components/schemas/GbfsVersion"
+
+    GbfsVersion:
+      type: object
+      properties:
+        version:
+          description: >
+            The version of the GBFS specification that the feed is using. 
+            This is a string that follows the semantic versioning format.
+          type: string
+          example: 2.3
+        created_at:
+          description: >
+            The date when the GBFS version was saved to the database.
+          type: string
+          format: date-time
+          example: 2023-07-10T22:06:00Z
+        last_updated_at:
+          description: >
+            The date when the GBFS version was last updated in the database.
+          type: string
+          format: date-time
+          example: 2023-07-10T22:06:00Z
+        latest:
+          description: >
+              A boolean value indicating if this is the latest version of the GBFS feed.
+          type: boolean
+          example: true
+        endpoints:
+          description: >
+            A list of endpoints that are available in the version.
+          type: array
+          items:
+            $ref: "#/components/schemas/GbfsEndpoint"
+        latest_validation_report:
+            $ref: "#/components/schemas/GbfsValidationReport"
+
+    GbfsValidationReport:
+      type: object
+      description: >
+        A validation report of the GBFS feed.
+      properties:
+        validated_at:
+            description: >
+                The date and time the GBFS feed was validated, in ISO 8601 date-time format.
+            type: string
+            example: 2023-07-10T22:06:00Z
+            format: date-time
+        total_error:
+            type: integer
+            example: 10
+            minimum: 0
+        report_summary_url:
+          description: >
+            The URL of the JSON report of the validation summary.
+          type: string
+          format: url
+          example: https://storage.googleapis.com/mobilitydata-datasets-prod/validation-reports/gbfs-1234-202402121801.json
+        validator_version:
+            description: >
+                The version of the validator used to validate the GBFS feed.
+            type: string
+            example: 1.0.13
+
+    GbfsEndpoint:
+      type: object
+      properties:
+        name:
+          description: >
+            The name of the endpoint. This is a human-readable name for the endpoint.
+          type: string
+          example: system_information
+        url:
+            description: >
+                The URL of the endpoint. This is the URL where the endpoint can be accessed.
+            type: string
+            format: url
+            example: https://gbfs.citibikenyc.com/gbfs/system_information.json
+        language:
+            description: >
+                The language of the endpoint. This is the language that the endpoint is available in for versions 2.3 
+                and prior.
+            type: string
+            example: en
+        is_feature:
+          description: >
+            A boolean value indicating if the endpoint is a feature. A feature is defined as an optionnal endpoint.
+          type: boolean
+          example: false
+
+    GbfsFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/GbfsFeed"
+
+    GtfsRTFeed:
+      allOf:
+        - $ref: "#/components/schemas/Feed"
         - type: object
           properties:
             entity_types:
@@ -439,7 +612,7 @@ components:
 
     SearchFeedItemResult:
     # The following schema is used to represent the search results for feeds.
-    # The schema is a union of all the possible types(BasicFeed, GtfsFeed and GtfsRTFeed) of feeds that can be returned.
+    # The schema is a union of all the possible types(Feed, GtfsFeed, GtfsRTFeed and GbfsFeed) of feeds that can be returned.
     # This union is not based on its original types due to the limitations of openapi-generator.
     # For the same reason it's not defined as anyOf, but as a single object with all the possible properties.
       type: object
@@ -457,6 +630,7 @@ components:
           enum:
             - gtfs
             - gtfs_rt
+            - gbfs
           example: gtfs
 #    Have to put the enum inline because of a bug in openapi-generator
 #          $ref: "#/components/schemas/DataType"
@@ -542,10 +716,10 @@ components:
             type: string
             example: "mdb-20"
 
-    BasicFeeds:
+    Feeds:
       type: array
       items:
-        $ref: "#/components/schemas/BasicFeed"
+        $ref: "#/components/schemas/Feed"
 
     GtfsFeeds:
       type: array
@@ -902,9 +1076,9 @@ components:
 #      enum:
 #        - gtfs
 #        - gtfs_rt
+#        - gbfs
 #      example: gtfs
   parameters:
-
     status:
       name: status
       in: query
@@ -1186,6 +1360,25 @@ components:
       schema:
         type: string
         example: mdb-1210-202402121801
+
+    system_id_param:
+      name: system_id
+      in: query
+      description: Filter feeds by their system ID. This is a unique identifier for the system that the feed belongs to.
+      required: False
+      schema:
+        type: string
+        example: system-1234
+
+    version_param:
+      name: version
+      in: query
+      description: Filter feeds by their supported GBFS version. This is a string that follows the semantic versioning format.
+      required: False
+      schema:
+        type: string
+        example: 2.3
+
 
   securitySchemes:
     Authentication:

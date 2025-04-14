@@ -1,11 +1,11 @@
+from feeds.impl.models.feed_impl import FeedImpl
 from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
-from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_feed import GtfsFeed
 
 
-class GtfsFeedImpl(BaseFeedImpl, GtfsFeed):
+class GtfsFeedImpl(FeedImpl, GtfsFeed):
     """Implementation of the `GtfsFeed` model.
     This class converts a SQLAlchemy row DB object to a Pydantic model.
     """

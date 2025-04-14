@@ -85,23 +85,27 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                     gbfs_feed.feed_contact_email = (
                         system_information_content.get("feed_contact_email") if system_information_content else None
                     )
+                    gbfs_feed.system_id = str(row["System ID"]).strip()
                     gbfs_feed.operator = row["Name"]
+                    gbfs_feed.provider = row["Name"]
                     gbfs_feed.operator_url = row["URL"]
+                    gbfs_feed.producer_url = row["URL"]
                     gbfs_feed.auto_discovery_url = row["Auto-Discovery URL"]
                     gbfs_feed.updated_at = datetime.now(pytz.utc)
 
-                    country_code = self.get_safe_value(row, "Country Code", "")
-                    municipality = self.get_safe_value(row, "Location", "")
-                    location_id = self.get_location_id(country_code, None, municipality)
-                    country = pycountry.countries.get(alpha_2=country_code) if country_code else None
-                    location = session.get(Location, location_id) or Location(
-                        id=location_id,
-                        country_code=country_code,
-                        country=country.name if country else None,
-                        municipality=municipality,
-                    )
-                    gbfs_feed.locations.clear()
-                    gbfs_feed.locations = [location]
+                    if not gbfs_feed.locations:  # If locations are empty, create a new location (no overwrite)
+                        country_code = self.get_safe_value(row, "Country Code", "")
+                        municipality = self.get_safe_value(row, "Location", "")
+                        location_id = self.get_location_id(country_code, None, municipality)
+                        country = pycountry.countries.get(alpha_2=country_code) if country_code else None
+                        location = session.get(Location, location_id) or Location(
+                            id=location_id,
+                            country_code=country_code,
+                            country=country.name if country else None,
+                            municipality=municipality,
+                        )
+                        gbfs_feed.locations.clear()
+                        gbfs_feed.locations = [location]
 
                     self.logger.info(80 * "-")
 

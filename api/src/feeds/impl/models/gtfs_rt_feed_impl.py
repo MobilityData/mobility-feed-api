@@ -1,10 +1,10 @@
+from feeds.impl.models.feed_impl import FeedImpl
 from shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed as GtfsRTFeedOrm
-from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_rt_feed import GtfsRTFeed
 
 
-class GtfsRTFeedImpl(BaseFeedImpl, GtfsRTFeed):
+class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
     """Implementation of the 'Gtfsrealtimefeed' model."""
 
     class Config:
