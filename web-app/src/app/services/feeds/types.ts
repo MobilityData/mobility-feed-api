@@ -154,72 +154,63 @@ export interface components {
       source_info?: components['schemas']['SourceInfo'];
       redirects?: Array<components['schemas']['Redirect']>;
     };
-    Feed: {
-      data_type: 'Feed';
-    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
-        /**
-         * @description Describes status of the Feed. Should be one of
-         *   * `active` Feed should be used in public trip planners.
-         *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
-         *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
-         *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
-         *   * `future` Feed is not yet active but will be in the future.
-         *
-         * @example deprecated
-         * @enum {string}
-         */
-        status?:
-          | 'active'
-          | 'deprecated'
-          | 'inactive'
-          | 'development'
-          | 'future';
-        /**
-         * @description A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
-         *
-         * @example true
-         */
-        official?: boolean;
-        /**
-         * Format: date-time
-         * @description The date and time the official status was last updated, in ISO 8601 date-time format.
-         *
-         * @example "2023-07-10T22:06:00.000Z"
-         */
-        official_updated_at?: string;
-        /**
-         * @description An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
-         *
-         * @example Bus
-         */
-        feed_name?: string;
-        /** @description A note to clarify complex use cases for consumers. */
-        note?: string;
-      };
+    Feed: components['schemas']['BasicFeed'] & {
+      /**
+       * @description Describes status of the Feed. Should be one of
+       *   * `active` Feed should be used in public trip planners.
+       *   * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+       *   * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+       *   * `development` Feed is being used for development purposes and should not be used in public trip planners.
+       *   * `future` Feed is not yet active but will be in the future.
+       *
+       * @example deprecated
+       * @enum {string}
+       */
+      status?: 'active' | 'deprecated' | 'inactive' | 'development' | 'future';
+      /**
+       * @description A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
+       *
+       * @example true
+       */
+      official?: boolean;
+      /**
+       * Format: date-time
+       * @description The date and time the official status was last updated, in ISO 8601 date-time format.
+       *
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      official_updated_at?: string;
+      /**
+       * @description An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
+       *
+       * @example Bus
+       */
+      feed_name?: string;
+      /** @description A note to clarify complex use cases for consumers. */
+      note?: string;
+    };
     GtfsFeed: components['schemas']['Feed'] & {
       locations?: components['schemas']['Locations'];
       latest_dataset?: components['schemas']['LatestDataset'];
     };
-    GbfsFeed: {
-      data_type: 'GbfsFeed';
-    } & Omit<components['schemas']['BasicFeed'], 'data_type'> & {
-        locations?: components['schemas']['Locations'];
-        /**
-         * @description The system ID of the feed. This is a unique identifier for the system that the feed belongs to.
-         *
-         * @example system-1234
-         */
-        system_id?: string;
-        /**
-         * Format: url
-         * @description The URL of the provider's website. This is the website of the organization that operates the system that the feed belongs to.
-         *
-         * @example https://www.citybikenyc.com/
-         */
-        provider_url?: string;
-        /** @description A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints. */
-        versions?: Array<components['schemas']['GbfsVersion']>;
-      };
+    GbfsFeed: components['schemas']['BasicFeed'] & {
+      locations?: components['schemas']['Locations'];
+      /**
+       * @description The system ID of the feed. This is a unique identifier for the system that the feed belongs to.
+       *
+       * @example system-1234
+       */
+      system_id?: string;
+      /**
+       * Format: url
+       * @description The URL of the provider's website. This is the website of the organization that operates the system that the feed belongs to.
+       *
+       * @example https://www.citybikenyc.com/
+       */
+      provider_url?: string;
+      /** @description A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints. */
+      versions?: Array<components['schemas']['GbfsVersion']>;
+    };
     GbfsVersion: {
       /**
        * @description The version of the GBFS specification that the feed is using.  This is a string that follows the semantic versioning format.
@@ -691,7 +682,7 @@ export interface components {
     /** @description General search query to match against transit provider, location, and feed name. */
     search_text_query_param?: string;
     /** @description Unique identifier used as a key for the feeds table. */
-    data_type_query_param?: 'gtfs' | 'gtfs_rt';
+    data_type_query_param?: 'gtfs' | 'gtfs_rt' | 'gbfs';
     /** @description The feed ID of the requested feed. */
     feed_id_query_param?: string;
     /** @description The feed ID of the requested feed. */

@@ -369,11 +369,6 @@ components:
 
     BasicFeed:
       type: object
-      discriminator:
-        propertyName: data_type
-        mapping:
-          gtfs: '#/components/schemas/GtfsFeed'
-          gtfs_rt: '#/components/schemas/GtfsRTFeed'
       properties:
         id:
           description: Unique identifier used as a key for the feeds table.
@@ -414,6 +409,11 @@ components:
       allOf:
         - $ref: "#/components/schemas/BasicFeed"
         - type: object
+          discriminator:
+            propertyName: data_type
+            mapping:
+              gtfs: '#/components/schemas/GtfsFeed'
+              gtfs_rt: '#/components/schemas/GtfsRTFeed'
           properties:
             status:
               description: >
@@ -1327,6 +1327,7 @@ components:
         enum:
           - gtfs
           - gtfs_rt
+          - gbfs
         example: gtfs
 
     feed_id_query_param:
