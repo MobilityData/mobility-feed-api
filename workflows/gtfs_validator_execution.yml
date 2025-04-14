@@ -86,7 +86,7 @@ main:
                 - targetHtmlReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".html"}
                 - targetJsonReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".json"}
 
-    # Checking if the target file names exists in the bucket. If exits the validator execution will be skipped and the workflow jumps to: shouldUpdateDb
+    # Checking if the target file names exist in the bucket. If exists, the validator execution will be skipped and the workflow jumps to: shouldUpdateDb
       - checkTargetFilesExistence:
             steps:
             - checkSystemErrorsFile:
