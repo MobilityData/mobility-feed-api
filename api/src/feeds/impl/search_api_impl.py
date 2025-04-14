@@ -11,6 +11,7 @@ from feeds_gen.apis.search_api_base import BaseSearchApi
 from feeds_gen.models.search_feeds200_response import SearchFeeds200Response
 from middleware.request_context import is_user_email_restricted
 from sqlalchemy import or_
+import logging
 
 feed_search_columns = [column for column in t_feedsearch.columns if column.name != "document"]
 
@@ -54,8 +55,10 @@ class SearchApiImpl(BaseSearchApi):
                 query = query.where(t_feedsearch.c.status.in_([s.strip().lower() for s in status_list]))
         if is_official is not None:
             if is_official:
-                query = query.where(t_feedsearch.c.official.is_(True))
+                logging.debug("is_official is true")
+                query = query.where(t_feedsearch.c.official.is_not(None))
             else:
+                logging.debug("is_official is false")
                 query = query.where(or_(t_feedsearch.c.official.is_(False), t_feedsearch.c.official.is_(None)))
         if search_query and len(search_query.strip()) > 0:
             query = query.filter(
