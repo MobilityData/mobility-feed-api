@@ -5,6 +5,15 @@ import {
 } from '@mui/material/styles';
 import { type Property } from 'csstype';
 
+declare module '@mui/material/styles' {
+  interface Palette {
+    boxShadow: string;
+  }
+  interface PaletteOptions {
+    boxShadow?: string;
+  }
+}
+
 declare module '@mui/material/Typography' {
   interface TypographyPropsVariantOverrides {
     sectionTitle: true;
@@ -53,6 +62,7 @@ const palette = {
     disabled: 'rgba(0,0,0,0.3)',
   },
   divider: 'rgba(0, 0, 0, 0.23)',
+  boxShadow: '0px 1px 4px 2px rgba(0,0,0,0.2)',
 };
 
 const darkPalette = {
@@ -78,6 +88,7 @@ const darkPalette = {
     disabled: 'rgba(255, 255, 255, 0.3)',
   },
   divider: 'rgba(255, 255, 255, 0.23)',
+  boxShadow: '0px 1px 4px 2px rgba(0,0,0,0.6)',
 };
 
 export const getTheme = (mode: ThemeModeEnum): Theme => {
