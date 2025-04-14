@@ -20,6 +20,7 @@ from typing import Annotated, Optional
 from deepdiff import DeepDiff
 from fastapi import HTTPException
 from pydantic import Field
+from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from feeds_operations.impl.models.get_feeds_response import GetFeeds200Response
@@ -39,13 +40,12 @@ from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGt
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
 )
-from sqlalchemy.orm import Session
-from shared.database.database import with_db_session, refresh_materialized_view
 from .request_validator import validate_request
 
 logging.basicConfig(level=logging.INFO)
@@ -72,20 +72,23 @@ class OperationsApiImpl(BaseOperationsApi):
     @with_db_session
     async def get_feeds(
         self,
-        db_session: Session,
         operation_status: Optional[str] = None,
         data_type: Optional[str] = None,
-        offset: int = 0,
-        limit: int = 50,
+        offset: str = "0",
+        limit: str = "50",
+        db_session: Session = None,
     ) -> GetFeeds200Response:
         """Get a list of feeds with optional filtering and pagination."""
         try:
+            limit_int = int(limit) if limit else 50
+            offset_int = int(offset) if offset else 0
+
             query = get_feeds_query(
                 db_session=db_session,
                 operation_status=operation_status,
                 data_type=data_type,
-                limit=limit,
-                offset=offset,
+                limit=limit_int,
+                offset=offset_int,
             )
 
             logging.info("Executing query with data_type: %s", data_type)
@@ -100,7 +103,7 @@ class OperationsApiImpl(BaseOperationsApi):
                 feed_list.append(processed_feed)
 
             response = GetFeeds200Response(
-                total=total, offset=offset, limit=limit, feeds=feed_list
+                total=total, offset=offset_int, limit=limit_int, feeds=feed_list
             )
             logging.info("Returning response with %d feeds", len(feed_list))
             return response
