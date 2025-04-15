@@ -77,6 +77,10 @@ export default function Feed(): React.ReactElement {
   const feedsData = useSelector(selectFeedsData);
   const feedStatus = useSelector(selectFeedsStatus);
 
+  // features i/o
+  const areFeatureFiltersEnabled =
+    !selectedFeedTypes.gtfs_rt || selectedFeedTypes.gtfs;
+
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
       searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1;
@@ -399,8 +403,15 @@ export default function Feed(): React.ReactElement {
 
               {config.enableFeatureFilterSearch && (
                 <>
-                  <SearchHeader variant='h6'>Features</SearchHeader>
+                  <SearchHeader
+                    variant='h6'
+                    sx={areFeatureFiltersEnabled ? {} : { opacity: 0.5 }}
+                  >
+                    Features
+                  </SearchHeader>
                   <NestedCheckboxList
+                    disableAll={!areFeatureFiltersEnabled}
+                    debounceTime={500}
                     checkboxData={featureCheckboxData}
                     onExpandGroupChange={(checkboxData) => {
                       const newExpandGroup: Record<string, boolean> = {};
@@ -474,19 +485,20 @@ export default function Feed(): React.ReactElement {
                     }}
                   />
                 )}
-                {selectedFeatures.map((feature) => (
-                  <Chip
-                    color='secondary'
-                    size='small'
-                    label={feature}
-                    key={feature}
-                    onDelete={() => {
-                      setSelectedFeatures([
-                        ...selectedFeatures.filter((sf) => sf !== feature),
-                      ]);
-                    }}
-                  />
-                ))}
+                {areFeatureFiltersEnabled &&
+                  selectedFeatures.map((feature) => (
+                    <Chip
+                      color='secondary'
+                      size='small'
+                      label={feature}
+                      key={feature}
+                      onDelete={() => {
+                        setSelectedFeatures([
+                          ...selectedFeatures.filter((sf) => sf !== feature),
+                        ]);
+                      }}
+                    />
+                  ))}
                 {(selectedFeatures.length > 0 ||
                   isOfficialFeedSearch ||
                   selectedFeedTypes.gtfs_rt ||
