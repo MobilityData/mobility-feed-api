@@ -1,4 +1,4 @@
-# GTFS Spreadsheet sahemas
+# GTFS Spreadsheet schemas
 
 Table of contents
 - [GTFS Schedule Spreadsheet Schema](#gtfs-schedule-spreadsheet-schema)
