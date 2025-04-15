@@ -106,9 +106,13 @@ def rebuild_missing_validation_reports(
     for i in range(0, len(dataset_ids), limit):
         batch_ids = dataset_ids[i : i + limit]
         datasets = (
-            db_session.query(Gtfsdataset).filter(Gtfsdataset.id.in_(batch_ids)).all()
+            db_session.query(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
+            .select_from(Gtfsfeed)
+            .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
+            .filter(Gtfsdataset.id.in_(batch_ids))
+            .all()
         )
-        logging.debug("Found %s datasets, offset %s", len(datasets), offset)
+        logging.info("Found %s datasets, offset %s", len(datasets), offset)
 
         if not dry_run:
             execute_workflows(
@@ -122,13 +126,20 @@ def rebuild_missing_validation_reports(
         total_processed += len(datasets)
 
     message = (
-        "Rebuild missing validation reports task executed successfully."
-        if not dry_run
-        else "Dry run: no datasets processed."
+        "Dry run: no datasets processed."
+        if dry_run
+        else "Rebuild missing validation reports task executed successfully."
     )
     return {
         "message": message,
         "total_processed": total_processed,
+        "params": {
+            "dry_run": dry_run,
+            "filter_after_in_days": filter_after_in_days,
+            "filter_statuses": filter_statuses,
+            "prod_env": prod_env,
+            "validator_endpoint": validator_endpoint,
+        },
     }
 
 
@@ -143,7 +154,13 @@ def get_parameters(payload):
     """
     prod_env = os.getenv("ENV", "").lower() == "prod"
     validator_endpoint = get_gtfs_validator_url(prod_env)
-    dry_run = payload.get("dry_run")
-    filter_after_in_days = payload.get("filter_after_in_days")
-    filter_statuses = payload.get("filter_statuses")
+    dry_run = payload.get("dry_run", True)
+    dry_run = dry_run if isinstance(dry_run, bool) else str(dry_run).lower() == "true"
+    filter_after_in_days = payload.get("filter_after_in_days", 7)
+    filter_after_in_days = (
+        filter_after_in_days
+        if isinstance(filter_after_in_days, int)
+        else int(filter_after_in_days)
+    )
+    filter_statuses = payload.get("filter_statuses", None)
     return dry_run, filter_after_in_days, filter_statuses, prod_env, validator_endpoint
