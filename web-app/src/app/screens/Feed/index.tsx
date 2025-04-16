@@ -15,7 +15,7 @@ import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
 
 import { useAppDispatch } from '../../hooks';
-import { loadingFeed } from '../../store/feed-reducer';
+import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
 import {
   selectIsAnonymous,
   selectIsAuthenticated,
@@ -58,6 +58,11 @@ import {
 } from './Feed.functions';
 import FeedTitle from './FeedTitle';
 import OfficialChip from '../../components/OfficialChip';
+import {
+  type GTFSFeedType,
+  type GTFSRTFeedType,
+} from '../../services/feeds/utils';
+import DownloadIcon from '@mui/icons-material/Download';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -165,17 +170,17 @@ export default function Feed(): React.ReactElement {
       feed.data_type,
       feed?.feed_name,
     );
-    // if (
-    //   feed?.data_type === 'gtfs_rt' &&
-    //   feedLoadingStatus === 'loaded' &&
-    //   // feed.feed_references != undefined
-    // ) {
-    //   dispatch(
-    //     loadingRelatedFeeds({
-    //       feedIds: feed.feed_references,
-    //     }),
-    //   );
-    // }
+    if (
+      feed?.data_type === 'gtfs_rt' &&
+      feedLoadingStatus === 'loaded' &&
+      (feed as GTFSRTFeedType)?.feed_references != undefined
+    ) {
+      dispatch(
+        loadingRelatedFeeds({
+          feedIds: (feed as GTFSRTFeedType)?.feed_references ?? [],
+        }),
+      );
+    }
     if (
       feedId != undefined &&
       feed?.data_type === 'gtfs' &&
@@ -271,10 +276,10 @@ export default function Feed(): React.ReactElement {
   const hasDatasets = datasets != undefined && datasets.length > 0;
   const hasFeedRedirect =
     feed?.redirects != undefined && feed?.redirects.length > 0;
-  // const downloadLatestUrl =
-  //   feed?.data_type === 'gtfs'
-  //     ? feed?.latest_dataset?.hosted_url
-  //     : feed?.source_info?.producer_url;
+  const downloadLatestUrl =
+    feed?.data_type === 'gtfs'
+      ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
+      : feed?.source_info?.producer_url;
 
   return wrapComponent(
     feedLoadingStatus,
@@ -387,37 +392,39 @@ export default function Feed(): React.ReactElement {
         )}
       </Box>
 
-      {/* {feed?.data_type === 'gtfs_rt' && feed.entity_types != undefined && ( */}
-      {/*  <Grid item xs={12}> */}
-      {/*    <Typography variant='h5'> */}
-      {/*      {' '} */}
-      {/*      {feed.entity_types */}
-      {/*        .map( */}
-      {/*          (entityType) => */}
-      {/*            ({ */}
-      {/*              tu: t('common:gtfsRealtimeEntities.tripUpdates'), */}
-      {/*              vp: t('common:gtfsRealtimeEntities.vehiclePositions'), */}
-      {/*              sa: t('common:gtfsRealtimeEntities.serviceAlerts'), */}
-      {/*            })[entityType], */}
-      {/*        ) */}
-      {/*        .join(' ' + t('common:and') + ' ')} */}
-      {/*    </Typography> */}
-      {/*  </Grid> */}
-      {/* )} */}
-      {/* {feedType === 'gtfs' && */}
-      {/*  datasetLoadingStatus === 'loaded' && */}
-      {/*  !hasDatasets && */}
-      {/*  !hasFeedRedirect && ( */}
-      {/*    <WarningContentBox> */}
-      {/*      <Trans i18nKey='unableToDownloadFeed'> */}
-      {/*        Unable to download this feed. If there is a more recent URL for */}
-      {/*        this feed,{' '} */}
-      {/*        <Button variant='text' className='inline' href='/contribute'> */}
-      {/*          please submit it here */}
-      {/*        </Button> */}
-      {/*      </Trans> */}
-      {/*    </WarningContentBox> */}
-      {/*  )} */}
+      {feed?.data_type === 'gtfs_rt' &&
+        (feed as GTFSRTFeedType)?.entity_types != undefined && (
+          <Grid item xs={12}>
+            <Typography variant='h5'>
+              {' '}
+              {(feed as GTFSRTFeedType)?.entity_types ??
+                []
+                  .map(
+                    (entityType) =>
+                      ({
+                        tu: t('common:gtfsRealtimeEntities.tripUpdates'),
+                        vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
+                        sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
+                      })[entityType],
+                  )
+                  .join(' ' + t('common:and') + ' ')}
+            </Typography>
+          </Grid>
+        )}
+      {feedType === 'gtfs' &&
+        datasetLoadingStatus === 'loaded' &&
+        !hasDatasets &&
+        !hasFeedRedirect && (
+          <WarningContentBox>
+            <Trans i18nKey='unableToDownloadFeed'>
+              Unable to download this feed. If there is a more recent URL for
+              this feed,{' '}
+              <Button variant='text' className='inline' href='/contribute'>
+                please submit it here
+              </Button>
+            </Trans>
+          </WarningContentBox>
+        )}
       {hasFeedRedirect && (
         <Grid item xs={12}>
           <WarningContentBox>
@@ -435,31 +442,31 @@ export default function Feed(): React.ReactElement {
         </Grid>
       )}
       <Box sx={ctaContainerStyle}>
-        {/* {feedType === 'gtfs' && downloadLatestUrl != undefined && ( */}
-        {/*  <Button */}
-        {/*    disableElevation */}
-        {/*    variant='contained' */}
-        {/*    href={downloadLatestUrl} */}
-        {/*    target='_blank' */}
-        {/*    rel='noreferrer nofollow' */}
-        {/*    id='download-latest-button' */}
-        {/*    endIcon={<DownloadIcon></DownloadIcon>} */}
-        {/*  > */}
-        {/*    {t('downloadLatest')} */}
-        {/*  </Button> */}
-        {/* )} */}
-        {/* {latestDataset?.validation_report?.url_html != undefined && ( */}
-        {/*  <Button */}
-        {/*    variant='contained' */}
-        {/*    disableElevation */}
-        {/*    href={`${latestDataset?.validation_report?.url_html}`} */}
-        {/*    target='_blank' */}
-        {/*    rel='noreferrer nofollow' */}
-        {/*    endIcon={<OpenInNewIcon></OpenInNewIcon>} */}
-        {/*  > */}
-        {/*    {t('openFullQualityReport')} */}
-        {/*  </Button> */}
-        {/* )} */}
+        {feedType === 'gtfs' && downloadLatestUrl != undefined && (
+          <Button
+            disableElevation
+            variant='contained'
+            href={downloadLatestUrl}
+            target='_blank'
+            rel='noreferrer nofollow'
+            id='download-latest-button'
+            endIcon={<DownloadIcon></DownloadIcon>}
+          >
+            {t('downloadLatest')}
+          </Button>
+        )}
+        {latestDataset?.validation_report?.url_html != undefined && (
+          <Button
+            variant='contained'
+            disableElevation
+            href={`${latestDataset?.validation_report?.url_html}`}
+            target='_blank'
+            rel='noreferrer nofollow'
+            endIcon={<OpenInNewIcon></OpenInNewIcon>}
+          >
+            {t('openFullQualityReport')}
+          </Button>
+        )}
         {feed?.source_info?.license_url != undefined &&
           feed?.source_info?.license_url !== '' && (
             <Button

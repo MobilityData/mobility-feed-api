@@ -1,22 +1,19 @@
 import os
-import traceback
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 import pycountry
 import pytz
-from sqlalchemy import text
 
 from scripts.load_dataset_on_create import publish_all
 from scripts.populate_db import DatabasePopulateHelper, set_up_configs
-from shared.database.database import generate_unique_id, configure_polymorphic_mappers
+from shared.database.database import generate_unique_id
 from shared.database_gen.sqlacodegen_models import (
     Entitytype,
     Externalid,
     Gtfsrealtimefeed,
     Location,
     Redirectingid,
-    t_feedsearch,
 )
 from utils.data_utils import set_up_defaults
 
@@ -191,7 +188,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         # Flush to avoid FK violation
                         session.flush()
 
-    def populate_db(self, session: "Session"):
+    def populate_db(self, session: "Session", fetch_url: bool = True):
         """
         Populate the database with the sources.csv data
         """
@@ -285,26 +282,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 set_country_count += 1
         session.commit()
         self.logger.info(f"Had to set the country for {set_country_count} locations")
-
-    # Extracted the following code from main, so it can be executed as a library function
-    def initialize(self, trigger_downstream_tasks: bool = True):
-        try:
-            configure_polymorphic_mappers()
-            with self.db.start_db_session() as session:
-                self.populate_db(session)
-                session.commit()
-
-                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-                session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
-                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
-                session.commit()
-                self.logger.info("\n----- Database populated with sources.csv data. -----")
-                if trigger_downstream_tasks:
-                    self.trigger_downstream_tasks()
-        except Exception as e:
-            self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
-            traceback.print_exc()
-            exit(1)
 
 
 if __name__ == "__main__":

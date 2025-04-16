@@ -1320,15 +1320,11 @@ components:
     data_type_query_param:
       name: data_type
       in: query
-      description: Unique identifier used as a key for the feeds table.
+      description: Comma separated list of data types to filter by. Valid values are gtfs, gtfs_rt and gbfs.
       required: False
       schema:
         type: string
-        enum:
-          - gtfs
-          - gtfs_rt
-          - gbfs
-        example: gtfs
+        example: gtfs,gtfs_rt
 
     feed_id_query_param:
       name: feed_id

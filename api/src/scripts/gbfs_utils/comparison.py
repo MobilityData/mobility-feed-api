@@ -29,6 +29,9 @@ def generate_system_csv_from_db(df, db_session):
                 "Supported Versions": " ; ".join(supported_versions),
             }
         )
+    if not data:
+        # Return an empty DataFrame with the same columns
+        return pd.DataFrame(columns=df.columns)
     return pd.DataFrame(data)
 
 

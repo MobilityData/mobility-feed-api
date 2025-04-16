@@ -19,9 +19,10 @@ export function getInitialSelectedFeedTypes(
   const gtfsRtSearch = searchParams.get('gtfs_rt');
 
   if (gtfsSearch === null && gtfsRtSearch === null) {
+    // TODO: Change when GBFS is implemented
     return {
-      gtfs: false,
-      gtfs_rt: false,
+      gtfs: true,
+      gtfs_rt: true,
     };
   } else {
     return {
