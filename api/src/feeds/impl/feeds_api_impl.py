@@ -33,6 +33,7 @@ from shared.common.error_handling import (
     gtfs_feed_not_found,
     gtfs_rt_feed_not_found,
     InternalHTTPException,
+    gbfs_feed_not_found,
 )
 from shared.common.logging_utils import Logger
 from shared.database.database import Database, with_db_session
@@ -365,7 +366,7 @@ class FeedsApiImpl(BaseFeedsApi):
         if result:
             return GbfsFeedImpl.from_orm(result)
         else:
-            raise_http_error(404, gtfs_rt_feed_not_found.format(id))
+            raise_http_error(404, gbfs_feed_not_found.format(id))
 
     @with_db_session
     def get_gbfs_feeds(
