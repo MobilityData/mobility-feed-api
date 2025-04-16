@@ -177,7 +177,7 @@
   ],
   "features": [
     "Text-to-speech",
-    "Wheelchair accesibility",
+    "Wheelchair accessibility",
     "Route Colors",
     "Bike Allowed",
     "Translations",
@@ -194,7 +194,7 @@
     },
     {
       "validation_report_id": "dataset-1-report-1",
-      "feature_name": "Wheelchair accesibility"
+      "feature_name": "Wheelchair accessibility"
     },
     {
       "validation_report_id": "dataset-1-report-1",

@@ -1,5 +1,3 @@
--- select * from databasechangelog
-
 --
 -- This SQL adds the validation features and totals of the latest dataset to the FeedSearch view.
 --
