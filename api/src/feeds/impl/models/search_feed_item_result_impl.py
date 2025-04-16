@@ -51,7 +51,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 service_date_range_end=feed_search_row.latest_dataset_service_date_range_end,
                 agency_timezone=feed_search_row.latest_dataset_agency_timezone,
                 validation_report=LatestDatasetValidationReport(
-                    total_error=feed_search_row.latest_total_error.la.total_error,
+                    total_error=feed_search_row.latest_total_error,
                     total_warning=feed_search_row.latest_total_warning,
                     total_info=feed_search_row.latest_total_info,
                     unique_error_count=feed_search_row.latest_unique_error_count,
