@@ -2,13 +2,10 @@ import logging
 import functions_framework
 from shared.helpers.logger import Logger
 from shared.helpers.feed_status import update_feed_statuses_query
-from typing import TYPE_CHECKING
 from shared.database.database import with_db_session
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
-
 logging.basicConfig(level=logging.INFO)
+
 
 @with_db_session
 @functions_framework.http

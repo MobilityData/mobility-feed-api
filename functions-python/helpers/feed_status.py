@@ -3,6 +3,11 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, t_feedsearch
 from shared.database.database import refresh_materialized_view
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
 
 #  query to update the status of the feeds based on the service date range of the latest dataset
 def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
@@ -41,24 +46,25 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
     try:
         diff_counts: dict[str, int] = {}
 
-        filters = [
-            Feed.id == latest_dataset_subq.c.feed_id,
-            Feed.status != text("'deprecated'::status"),
-            Feed.status != text("'development'::status"),
-            # We filter out feeds that already have the status so that the
-            # update count reflects the number of feeds that actually
-            # changed status.
-            Feed.status != text("'%s'::status" % status),
-            service_date_conditions,
-        ]
+        def get_filters(status: str):
+            filters = [
+                Feed.id == latest_dataset_subq.c.feed_id,
+                Feed.status != text("'deprecated'::status"),
+                Feed.status != text("'development'::status"),
+                # We filter out feeds that already have the status so that the
+                # update count reflects the number of feeds that actually
+                # changed status.
+                Feed.status != text("'%s'::status" % status),
+                service_date_conditions,
+            ]
 
-        if len(stable_feed_ids) > 0:
-            filters.append(Feed.stable_feed_id.in_(stable_feed_ids))
+            if len(stable_feed_ids) > 0:
+                filters.append(Feed.stable_feed_id.in_(stable_feed_ids))
 
         for service_date_conditions, status in status_conditions:
             diff_counts[status] = (
                 session.query(Feed)
-                .filter(*filters)
+                .filter(*get_filters(status))
                 .update({Feed.status: status}, synchronize_session=False)
             )
     except Exception as e:
