@@ -8,6 +8,7 @@ invalid_bounding_method: Final[str] = "Invalid bounding_filter_method {}"
 feed_not_found: Final[str] = "Feed '{}' not found"
 gtfs_feed_not_found: Final[str] = "GTFS feed '{}' not found"
 gtfs_rt_feed_not_found: Final[str] = "GTFS realtime Feed '{}' not found"
+gbfs_feed_not_found: Final[str] = "GBFS feed '{}' not found"
 dataset_not_found: Final[str] = "Dataset '{}' not found"
 
 

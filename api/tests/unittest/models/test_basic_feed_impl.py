@@ -3,6 +3,7 @@ import unittest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from feeds.impl.models.feed_impl import FeedImpl
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Externalid,
@@ -12,7 +13,6 @@ from shared.database_gen.sqlacodegen_models import (
     Redirectingid,
     Feature,
 )
-from feeds.impl.models.basic_feed_impl import BasicFeedImpl
 from feeds.impl.models.external_id_impl import ExternalIdImpl
 from feeds.impl.models.redirect_impl import RedirectImpl
 from feeds_gen.models.source_info import SourceInfo
@@ -86,7 +86,7 @@ feed_orm = Feed(
     ],
 )
 
-expected_base_feed_result = BasicFeedImpl(
+expected_base_feed_result = FeedImpl(
     id="stable_id",
     data_type="gtfs",
     status="active",
@@ -116,7 +116,7 @@ class TestBasicFeedImpl(unittest.TestCase):
 
     def test_from_orm_all_fields(self):
         """Test the `from_orm` method with all fields."""
-        result = BasicFeedImpl.from_orm(feed_orm)
+        result = FeedImpl.from_orm(feed_orm)
         assert result == expected_base_feed_result
 
     def test_from_orm_empty_fields(self):
@@ -138,23 +138,23 @@ class TestBasicFeedImpl(unittest.TestCase):
         target_expected_base_feed_result.external_ids = []
         target_expected_base_feed_result.redirects = []
 
-        result = BasicFeedImpl.from_orm(target_feed_orm)
+        result = FeedImpl.from_orm(target_feed_orm)
         assert result == target_expected_base_feed_result
 
         # Test all None values
         # No error should be raised
         # Resulting list must be empty and not None
         empty_feed_orm = Feed()
-        expected_empty_feed = BasicFeedImpl(
+        expected_empty_feed = FeedImpl(
             external_ids=[],
             redirects=[],
             source_info=SourceInfo(),
         )
-        empty_result = BasicFeedImpl.from_orm(empty_feed_orm)
+        empty_result = FeedImpl.from_orm(empty_feed_orm)
         assert empty_result == expected_empty_feed
         # Setting the target at the end of the test
         feed_orm.redirectingids[0].target = targetFeed
 
     def test_from_orm_none(self):
         """Test the `from_orm` method with None."""
-        assert BasicFeedImpl.from_orm(None) is None
+        assert FeedImpl.from_orm(None) is None
