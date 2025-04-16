@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import Type
 
 from shared.database_gen.sqlacodegen_models import (
@@ -6,6 +7,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Gtfsfeed,
     Gbfsfeed,
+    Gtfsdataset,
+    Validationreport,
 )
 from sqlalchemy import and_
 from sqlalchemy.orm import Session, joinedload
@@ -133,3 +136,35 @@ def get_feeds_query(
     except Exception as e:
         logging.error("Error building query: %s", str(e))
         raise
+
+
+def get_datasets_with_missing_reports_query(
+    db_session: Session,
+    filter_after: datetime | None = None,
+) -> Query:
+    """
+    Get datasets with missing validation reports.
+
+    Args:
+        db_session: SQLAlchemy session
+        filter_after: Optional date to filter datasets
+
+    Returns:
+        A SQLAlchemy query object for datasets with missing validation reports order by feed and dataset stable id.
+    """
+    query = (
+        db_session.query(
+            Gtfsfeed.stable_id,
+            Gtfsdataset.stable_id,
+        )
+        .select_from(Gtfsfeed)
+        .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
+        .outerjoin(Validationreport, Gtfsdataset.validation_reports)
+        .filter(Validationreport.id.is_(None))
+    )
+    if filter_after:
+        query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
+    query = query.distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id).order_by(
+        Gtfsdataset.stable_id, Gtfsfeed.stable_id
+    )
+    return query

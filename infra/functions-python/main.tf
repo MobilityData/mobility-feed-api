@@ -65,6 +65,9 @@ locals {
 
   function_export_csv_config = jsondecode(file("${path.module}/../../functions-python/export_csv/function_config.json"))
   function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
+
+  function_tasks_executor_config = jsondecode(file("${path.module}/../../functions-python/tasks_executor/function_config.json"))
+  function_tasks_executor_zip = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
 }
 
 locals {
@@ -77,7 +80,8 @@ locals {
     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
     [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
     [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
-    [for x in local.function_export_csv_config.secret_environment_variables : x.key]
+    [for x in local.function_export_csv_config.secret_environment_variables : x.key],
+    [for x in local.function_tasks_executor_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -209,6 +213,13 @@ resource "google_storage_bucket_object" "reverse_geolocation_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "reverse-geolocation-${substr(filebase64sha256(local.function_reverse_geolocation_zip), 0, 10)}.zip"
   source = local.function_reverse_geolocation_zip
+}
+
+# 14. Task Executor
+resource "google_storage_bucket_object" "tasks_executor_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "task-executor-${substr(filebase64sha256(local.function_tasks_executor_zip), 0, 10)}.zip"
+  source = local.function_tasks_executor_zip
 }
 
 # Secrets access
@@ -1168,6 +1179,52 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
     dynamic "secret_environment_variables" {
       for_each = local.function_reverse_geolocation_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
+
+# 14. functions/tasks_executor cloud function
+resource "google_cloudfunctions2_function" "tasks_executor" {
+  name        = "${local.function_tasks_executor_config.name}-${var.environment}"
+  project     = var.project_id
+  description = local.function_tasks_executor_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_tasks_executor_config.entry_point}"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.tasks_executor_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID  = var.project_id
+      ENV = var.environment
+    }
+    available_memory                 = local.function_tasks_executor_config.memory
+    timeout_seconds                  = local.function_tasks_executor_config.timeout
+    available_cpu                    = local.function_tasks_executor_config.available_cpu
+    max_instance_request_concurrency = local.function_tasks_executor_config.max_instance_request_concurrency
+    max_instance_count               = local.function_tasks_executor_config.max_instance_count
+    min_instance_count               = local.function_tasks_executor_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_tasks_executor_config.secret_environment_variables
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id

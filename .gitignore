@@ -58,7 +58,7 @@ secrets-*.env
 vars.envx
 vars-*.env
 
-config/.env.dev
+config/.env.*
 venv
 cypress.env.json
 
