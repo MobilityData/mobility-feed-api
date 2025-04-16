@@ -34,6 +34,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.helpers.logger import Logger
 from shared.helpers.transform import get_nested_value
+from shared.helpers.feed_status import update_feed_statuses_query
 
 logging.basicConfig(level=logging.INFO)
 
@@ -269,8 +270,10 @@ def create_validation_report_entities(
             db_session.add(entity)
         logging.info(f"Committing {len(entities)} entities to the database.")
         db_session.commit()
-
         logging.info("Entities committed successfully.")
+
+        update_feed_statuses_query(db_session, [feed_stable_id])
+
         return f"Created {len(entities)} entities.", 200
     except Exception as error:
         logging.error(f"Error creating validation report entities: {error}")
