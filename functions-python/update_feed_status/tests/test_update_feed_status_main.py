@@ -39,7 +39,7 @@ def fetch_feeds(session: Session) -> Iterator[PartialFeed]:
 @with_db_session(db_url=default_db_url)
 def test_update_feed_status(db_session: Session) -> None:
     feeds_before: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
-    result = dict(update_feed_statuses_query(db_session))
+    result = dict(update_feed_statuses_query(db_session, []))
     assert result == {
         "inactive": 3,
         "active": 2,
@@ -79,7 +79,7 @@ def test_update_feed_status_failed_query():
     mock_update_query.update.side_effect = Exception("Mocked exception")
 
     try:
-        update_feed_statuses_query(mock_session)
+        update_feed_statuses_query(mock_session, [])
     except Exception as e:
         assert str(e) == "Error updating feed statuses: Mocked exception"
 
