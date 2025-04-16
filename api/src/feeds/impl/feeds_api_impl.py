@@ -25,7 +25,7 @@ from shared.common.db_utils import (
     get_gtfs_rt_feeds_query,
     get_joinedload_options,
     add_official_filter,
-    get_gbfs_feeds,
+    get_gbfs_feeds_query,
 )
 from shared.common.error_handling import (
     invalid_date_message,
@@ -361,7 +361,7 @@ class FeedsApiImpl(BaseFeedsApi):
         db_session: Session,
     ) -> GbfsFeed:
         """Get the specified GBFS feed from the Mobility Database."""
-        result = get_gbfs_feeds(db_session, stable_id=id).one_or_none()
+        result = get_gbfs_feeds_query(db_session, stable_id=id).one_or_none()
         if result:
             return GbfsFeedImpl.from_orm(result)
         else:
@@ -381,10 +381,8 @@ class FeedsApiImpl(BaseFeedsApi):
         version: str,
         db_session: Session,
     ) -> List[GbfsFeed]:
-        results = get_gbfs_feeds(
+        query = get_gbfs_feeds_query(
             db_session=db_session,
-            limit=limit,
-            offset=offset,
             provider=provider,
             producer_url=producer_url,
             country_code=country_code,
@@ -392,5 +390,10 @@ class FeedsApiImpl(BaseFeedsApi):
             municipality=municipality,
             system_id=system_id,
             version=version,
-        ).all()
+        )
+        if limit:
+            query = query.limit(limit)
+        if offset:
+            query = query.offset(offset)
+        results = query.all()
         return [GbfsFeedImpl.from_orm(feed) for feed in results]

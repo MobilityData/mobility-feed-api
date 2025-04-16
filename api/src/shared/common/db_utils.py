@@ -391,11 +391,9 @@ def get_joinedload_options(include_extracted_location_entities: bool = False) ->
     ]
 
 
-def get_gbfs_feeds(
+def get_gbfs_feeds_query(
     db_session: Session,
     stable_id: Optional[str] = None,
-    limit: Optional[int] = None,
-    offset: Optional[int] = None,
     provider: Optional[str] = None,
     producer_url: Optional[str] = None,
     country_code: Optional[str] = None,
@@ -451,8 +449,4 @@ def get_gbfs_feeds(
             *get_joinedload_options(),
         )
     )
-    if limit is not None:
-        query = query.limit(limit)
-    if offset is not None:
-        query = query.offset(offset)
     return query
