@@ -681,8 +681,8 @@ export interface components {
     offset?: number;
     /** @description General search query to match against transit provider, location, and feed name. */
     search_text_query_param?: string;
-    /** @description Unique identifier used as a key for the feeds table. */
-    data_type_query_param?: 'gtfs' | 'gtfs_rt' | 'gbfs';
+    /** @description Comma separated list of data types to filter by. Valid values are gtfs, gtfs_rt and gbfs. */
+    data_type_query_param?: string;
     /** @description The feed ID of the requested feed. */
     feed_id_query_param?: string;
     /** @description The feed ID of the requested feed. */
