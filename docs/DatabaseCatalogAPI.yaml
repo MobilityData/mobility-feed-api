@@ -600,6 +600,12 @@ components:
         validation_report:
           type: object
           properties:
+            features:
+              description: List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
+              type: array
+              items:
+                type: string
+              example: ["Shapes", "Headsigns", "Wheelchair Accessibility"]
             total_error:
               type: integer
               example: 10
@@ -848,11 +854,11 @@ components:
           example: 2023-07-10T22:06:00Z
           format: date-time
         features:
-          description: An array of features for this dataset.
+          description: List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
           type: array
           items:
             type: string
-            example: Fares_V1
+          example: ["Shapes", "Headsigns", "Wheelchair Accessibility"]
         validator_version:
           type: string
           example: 4.2.0

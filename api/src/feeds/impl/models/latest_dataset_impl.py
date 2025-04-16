@@ -36,7 +36,9 @@ class LatestDatasetImpl(LatestDataset):
                 unique_error_count=latest_report.unique_error_count,
                 unique_warning_count=latest_report.unique_warning_count,
                 unique_info_count=latest_report.unique_info_count,
+                features=[feature.name for feature in latest_report.features] if latest_report.features else [],
             )
+
         return cls(
             id=dataset.stable_id,
             hosted_url=dataset.hosted_url,
