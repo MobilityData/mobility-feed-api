@@ -1,10 +1,11 @@
 import contextlib
 from datetime import datetime, timedelta
 from distutils.util import strtobool
-from typing import Final
+from typing import Final, List
 
 from sqlalchemy.engine.url import make_url
 
+from scripts.populate_db_gbfs import GBFSDatabasePopulateHelper
 from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, empty_database
 from shared.database.database import Database
 
@@ -24,7 +25,7 @@ datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, d
 
 
 @contextlib.contextmanager
-def populate_database(db: Database, data_dirs: str):
+def populate_database(db: Database, data_dirs: List[str]):
     try:
 
         # Check if connected to test DB.
@@ -41,15 +42,23 @@ def populate_database(db: Database, data_dirs: str):
         # Make a list of all the sources_test.csv in test_data and keep only if the file exists
         csv_filepaths = [
             filepath
-            for dir in data_dirs
-            if (filepath := os.path.join(dir, "sources_test.csv")) and os.path.isfile(filepath)
+            for directory in data_dirs
+            if (filepath := os.path.join(directory, "sources_test.csv")) and os.path.isfile(filepath)
         ]
 
         if len(csv_filepaths) == 0:
             raise Exception("No sources_test.csv file found in test_data directories")
 
-        db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
-        db_helper.initialize(trigger_downstream_tasks=False)
+        gtfs_db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
+        gtfs_db_helper.initialize(trigger_downstream_tasks=False)
+
+        # Add GBFS data to the database
+        gbfs_csv_filepaths = [
+            filepath
+            for directory in data_dirs
+            if (filepath := os.path.join(directory, "systems_test.csv")) and os.path.isfile(filepath)
+        ]
+        GBFSDatabasePopulateHelper(gbfs_csv_filepaths).initialize(trigger_downstream_tasks=False, fetch_url=False)
 
         # Make a list of all the extra_test_data.json files in the test_data directories and load the data
         json_filepaths = [

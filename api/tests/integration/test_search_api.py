@@ -130,11 +130,7 @@ def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
 
 @pytest.mark.parametrize(
     "data_type, expected_results_total",
-    [
-        ("gtfs", 10),
-        ("not_valid_gtfs", 0),
-        ("gtfs_rt", 3),
-    ],
+    [("gtfs", 10), ("not_valid_gtfs", 0), ("gtfs_rt", 3), ("gtfs,gtfs_rt", 13)],
 )
 def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expected_results_total: int):
     """
@@ -168,16 +164,16 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
     assert len(response_body.results) == expected_results_total
     if expected_results_total > 1:
         for result in response_body.results:
-            assert result.data_type == data_type
+            assert result.data_type in data_type.split(",")
 
 
 @pytest.mark.parametrize(
     "status, expected_results_total",
     [
-        ("active", 9),
+        ("active", 12),
         ("not_valid_status", 0),
         ("inactive", 2),
-        ("active,inactive", 11),
+        ("active,inactive", 14),
     ],
 )
 def test_search_feeds_filter_status(client: TestClient, status: str, expected_results_total: int):
@@ -394,8 +390,8 @@ def test_search_feeds_filter_accents(client: TestClient, values: dict):
     "values",
     [
         {"official": True, "expected_count": 2},
-        {"official": False, "expected_count": 11},
-        {"official": None, "expected_count": 13},
+        {"official": False, "expected_count": 14},
+        {"official": None, "expected_count": 16},
     ],
     ids=[
         "Official",

@@ -41,7 +41,7 @@ const HeaderTableCell = styled(TableCell)(() => ({
 }));
 
 export const getDataTypeElement = (
-  dataType: 'gtfs' | 'gtfs_rt',
+  dataType: 'gtfs' | 'gtfs_rt' | 'gbfs',
 ): JSX.Element => {
   const { t } = useTranslation('feeds');
   const DataTypeHolder = ({

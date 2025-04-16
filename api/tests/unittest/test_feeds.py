@@ -5,6 +5,7 @@ import json
 
 from fastapi.testclient import TestClient
 
+from feeds.impl.models.feed_impl import FeedImpl
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -15,7 +16,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
 )
 from shared.feed_filters.feed_filter import FeedFilter
-from feeds.impl.models.basic_feed_impl import BaseFeedImpl
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 from tests.test_utils.token import authHeaders
 
@@ -34,7 +34,7 @@ mock_feed = Feed(
     note="test_note",
     feed_contact_email="test_feed_contact_email",
     producer_url="test_producer_url",
-    authentication_type=1,
+    authentication_type="1",
     authentication_info_url="test_authentication_info_url",
     api_key_parameter_name="test_api_key_parameter_name",
     license_url="test_license_url",
@@ -55,7 +55,7 @@ mock_feed = Feed(
 )
 
 expected_feed_response = json.loads(
-    BaseFeedImpl(
+    FeedImpl(
         id="test_id",
         data_type="gtfs",
         created_at="2023-07-10T22:06:00Z",
@@ -93,7 +93,7 @@ def test_feeds_get(client: TestClient, mocker):
     mock_filter_offset = Mock()
     mock_filter_order_by = Mock()
     mock_options = Mock()
-    mock_filter.return_value.filter.return_value.filter.return_value.order_by.return_value = mock_filter_order_by
+    mock_filter.return_value.filter.return_value.order_by.return_value = mock_filter_order_by
     mock_filter_order_by.options.return_value = mock_options
     mock_options.limit.return_value = mock_filter_limit
     mock_filter_limit.offset.return_value = mock_filter_offset
@@ -129,7 +129,7 @@ def test_feed_get(client: TestClient, mocker):
     Unit test for get_feeds
     """
     mock_filter = mocker.patch.object(FeedFilter, "filter")
-    mock_filter.return_value.filter.return_value.filter.return_value.first.return_value = mock_feed
+    mock_filter.return_value.filter.return_value.first.return_value = mock_feed
 
     response = client.request(
         "GET",
