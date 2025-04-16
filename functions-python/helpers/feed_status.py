@@ -59,7 +59,7 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
             ]
 
             if len(stable_feed_ids) > 0:
-                filters.append(Feed.stable_feed_id.in_(stable_feed_ids))
+                filters.insert(0, Feed.stable_id.in_(stable_feed_ids))
 
             return filters
 
