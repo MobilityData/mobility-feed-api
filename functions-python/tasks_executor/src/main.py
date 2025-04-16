@@ -54,12 +54,12 @@ def get_task(request: flask.Request):
     """
     request_json = request.get_json(silent=True)
     if not request_json:
-        raise ValueError("Invalid JSON payload")
+        raise ValueError("Invalid JSON request")
     if not request_json.get("task"):
         raise ValueError("Task not provided")
     task = request_json.get("task")
     if task not in tasks:
-        raise ValueError("Task not supported")
+        raise ValueError("Task not supported: %s", task)
     payload = request_json.get("payload")
     if not payload:
         payload = {}
