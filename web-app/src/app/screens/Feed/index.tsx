@@ -45,7 +45,6 @@ import { WarningContentBox } from '../../components/WarningContentBox';
 import { Trans, useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import DownloadIcon from '@mui/icons-material/Download';
 import {
   ctaContainerStyle,
   feedDetailContentContainerStyle,
@@ -59,6 +58,11 @@ import {
 } from './Feed.functions';
 import FeedTitle from './FeedTitle';
 import OfficialChip from '../../components/OfficialChip';
+import {
+  type GTFSFeedType,
+  type GTFSRTFeedType,
+} from '../../services/feeds/utils';
+import DownloadIcon from '@mui/icons-material/Download';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -169,11 +173,11 @@ export default function Feed(): React.ReactElement {
     if (
       feed?.data_type === 'gtfs_rt' &&
       feedLoadingStatus === 'loaded' &&
-      feed.feed_references != undefined
+      (feed as GTFSRTFeedType)?.feed_references != undefined
     ) {
       dispatch(
         loadingRelatedFeeds({
-          feedIds: feed.feed_references,
+          feedIds: (feed as GTFSRTFeedType)?.feed_references ?? [],
         }),
       );
     }
@@ -274,7 +278,7 @@ export default function Feed(): React.ReactElement {
     feed?.redirects != undefined && feed?.redirects.length > 0;
   const downloadLatestUrl =
     feed?.data_type === 'gtfs'
-      ? feed?.latest_dataset?.hosted_url
+      ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
 
   return wrapComponent(
@@ -388,23 +392,25 @@ export default function Feed(): React.ReactElement {
         )}
       </Box>
 
-      {feed?.data_type === 'gtfs_rt' && feed.entity_types != undefined && (
-        <Grid item xs={12}>
-          <Typography variant='h5'>
-            {' '}
-            {feed.entity_types
-              .map(
-                (entityType) =>
-                  ({
-                    tu: t('common:gtfsRealtimeEntities.tripUpdates'),
-                    vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
-                    sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
-                  })[entityType],
-              )
-              .join(' ' + t('common:and') + ' ')}
-          </Typography>
-        </Grid>
-      )}
+      {feed?.data_type === 'gtfs_rt' &&
+        (feed as GTFSRTFeedType)?.entity_types != undefined && (
+          <Grid item xs={12}>
+            <Typography variant='h5'>
+              {' '}
+              {(feed as GTFSRTFeedType)?.entity_types ??
+                []
+                  .map(
+                    (entityType) =>
+                      ({
+                        tu: t('common:gtfsRealtimeEntities.tripUpdates'),
+                        vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
+                        sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
+                      })[entityType],
+                  )
+                  .join(' ' + t('common:and') + ' ')}
+            </Typography>
+          </Grid>
+        )}
       {feedType === 'gtfs' &&
         datasetLoadingStatus === 'loaded' &&
         !hasDatasets &&

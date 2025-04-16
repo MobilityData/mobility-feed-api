@@ -67,6 +67,29 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
         )
 
     @classmethod
+    def from_orm_gbfs(cls, feed_search_row):
+        """Create a model instance from a SQLAlchemy a GTFS row object."""
+        return cls(
+            id=feed_search_row.feed_stable_id,
+            data_type=feed_search_row.data_type,
+            status=feed_search_row.status,
+            external_ids=feed_search_row.external_ids,
+            provider=feed_search_row.provider,
+            feed_contact_email=feed_search_row.feed_contact_email,
+            source_info=SourceInfo(
+                producer_url=feed_search_row.producer_url,
+                authentication_type=int(feed_search_row.authentication_type)
+                if feed_search_row.authentication_type
+                else None,
+                authentication_info_url=feed_search_row.authentication_info_url,
+                api_key_parameter_name=feed_search_row.api_key_parameter_name,
+                license_url=feed_search_row.license_url,
+            ),
+            redirects=feed_search_row.redirect_ids,
+            locations=cls.resolve_locations(feed_search_row.locations),
+        )
+
+    @classmethod
     def from_orm_gtfs_rt(cls, feed_search_row):
         """Create a model instance from a SQLAlchemy a GTFS-RT row object."""
         return cls(
@@ -129,5 +152,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 return cls.from_orm_gtfs(feed_search_row)
             case "gtfs_rt":
                 return cls.from_orm_gtfs_rt(feed_search_row)
+            case "gbfs":
+                return cls.from_orm_gbfs(feed_search_row)
             case _:
                 raise ValueError(f"Unknown data type: {feed_search_row.data_type}")

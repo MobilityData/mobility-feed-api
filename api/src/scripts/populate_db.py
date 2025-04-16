@@ -1,15 +1,21 @@
 import argparse
 import logging
 import os
+import traceback
 from pathlib import Path
 from typing import Type, TYPE_CHECKING
 
 import pandas
 from dotenv import load_dotenv
+from sqlalchemy import text
 
-from shared.database.database import Database
-from shared.database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
 from shared.common.logging_utils import Logger
+from shared.database.database import Database
+from shared.database.database import configure_polymorphic_mappers
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
+from shared.database_gen.sqlacodegen_models import (
+    t_feedsearch,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -117,3 +123,35 @@ class DatabasePopulateHelper:
         Filter the data to only include the necessary columns
         """
         pass  # Should be implemented in the child class
+
+    def populate_db(self, session: "Session", fetch_url: bool = True):
+        """
+        Populate the database with the data
+        """
+        pass  # Should be implemented in the child class
+
+    def trigger_downstream_tasks(self):
+        """
+        Trigger downstream tasks
+        """
+        pass  # Should be implemented in the child class
+
+    # Extracted the following code from main, so it can be executed as a library function
+    def initialize(self, trigger_downstream_tasks: bool = True, fetch_url: bool = True):
+        try:
+            configure_polymorphic_mappers()
+            with self.db.start_db_session() as session:
+                self.populate_db(session, fetch_url=fetch_url)
+                session.commit()
+
+                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
+                session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
+                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
+                session.commit()
+                self.logger.info("\n----- Database populated with sources.csv data. -----")
+                if trigger_downstream_tasks:
+                    self.trigger_downstream_tasks()
+        except Exception as e:
+            self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
+            traceback.print_exc()
+            exit(1)

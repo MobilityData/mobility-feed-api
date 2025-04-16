@@ -10,7 +10,6 @@ export function formatProvidersSorted(provider: string): string[] {
 
 export function getFeedFormattedName(
   sortedProviders: string[],
-  dataType: 'gtfs' | 'gtfs_rt',
   feedName?: string,
 ): string {
   let formattedName = '';
@@ -29,14 +28,10 @@ export function getFeedFormattedName(
 export function generateDescriptionMetaTag(
   t: TFunction<'feeds'>,
   sortedProviders: string[],
-  dataType: 'gtfs' | 'gtfs_rt',
+  dataType: 'gtfs' | 'gtfs_rt' | 'gbfs' | undefined,
   feedName?: string,
 ): string {
-  const formattedName = getFeedFormattedName(
-    sortedProviders,
-    dataType,
-    feedName,
-  );
+  const formattedName = getFeedFormattedName(sortedProviders, feedName);
   if (
     sortedProviders.length === 0 &&
     (feedName === undefined || feedName === '')
@@ -50,10 +45,10 @@ export function generateDescriptionMetaTag(
 
 export function generatePageTitle(
   sortedProviders: string[],
-  dataType: 'gtfs' | 'gtfs_rt',
+  dataType: 'gtfs' | 'gtfs_rt' | 'gbfs' | undefined,
   feedName?: string,
 ): string {
-  let newDocTitle = getFeedFormattedName(sortedProviders, dataType, feedName);
+  let newDocTitle = getFeedFormattedName(sortedProviders, feedName);
   const dataTypeVerbose = dataType === 'gtfs' ? 'Schedule' : 'Realtime';
 
   if (newDocTitle !== '') {

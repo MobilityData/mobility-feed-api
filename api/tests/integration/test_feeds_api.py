@@ -265,13 +265,20 @@ def test_feeds_gtfs_rt_id_get(client: TestClient):
         },
         {
             "endpoint": "/v1/feeds",
-            "all_feeds_count": 13,
-            "false_feeds_count": 11,
+            "all_feeds_count": 16,
+            "false_feeds_count": 14,
             "true_feeds_count": 2,
             "official_feeds": ["mdb-1562", "mdb-40"],
         },
+        {
+            "endpoint": "/v1/gbfs_feeds",
+            "all_feeds_count": 3,
+            "false_feeds_count": None,
+            "true_feeds_count": None,
+            "official_feeds": [],
+        },
     ],
-    ids=["gtfs_feeds", "gtfs_rt_feeds", "feeds"],
+    ids=["gtfs_feeds", "gtfs_rt_feeds", "feeds", "gbfs_feeds"],
 )
 def test_feeds_filter_by_official(client: TestClient, values):
     endpoint = values["endpoint"]
@@ -293,32 +300,34 @@ def test_feeds_filter_by_official(client: TestClient, values):
     ), f"official not specified should return {all_feeds_count} feeds but got {len(response_no_filter_json)}"
 
     # 2 - Test with official=false
-    response_official_false = client.request(
-        "GET",
-        endpoint,
-        headers=authHeaders,
-        params=[("is_official", "false")],
-    )
-    assert response_official_false.status_code == 200
-    response_official_false_json = response_official_false.json()
-    assert (
-        len(response_official_false_json) == false_feeds_count
-    ), f"official=false should return {false_feeds_count} feeds but got {len(response_official_false_json)}"
-    assert not any(
-        response["id"] in official_feeds for response in response_official_false_json
-    ), f"official=false expected no feed with stable_id {official_feeds} since it is official"
+    if false_feeds_count is not None:
+        response_official_false = client.request(
+            "GET",
+            endpoint,
+            headers=authHeaders,
+            params=[("is_official", "false")],
+        )
+        assert response_official_false.status_code == 200
+        response_official_false_json = response_official_false.json()
+        assert (
+            len(response_official_false_json) == false_feeds_count
+        ), f"official=false should return {false_feeds_count} feeds but got {len(response_official_false_json)}"
+        assert not any(
+            response["id"] in official_feeds for response in response_official_false_json
+        ), f"official=false expected no feed with stable_id {official_feeds} since it is official"
 
     # 3 - Test with official=true
-    response = client.request(
-        "GET",
-        endpoint,
-        headers=authHeaders,
-        params=[("is_official", "true")],
-    )
-    assert response.status_code == 200
-    json_response = response.json()
-    assert len(json_response) == true_feeds_count, f"official=true should return {true_feeds_count} feeds"
-    assert json_response[0]["id"] in official_feeds, f"official=true should return {official_feeds}"
+    if true_feeds_count is not None:
+        response = client.request(
+            "GET",
+            endpoint,
+            headers=authHeaders,
+            params=[("is_official", "true")],
+        )
+        assert response.status_code == 200
+        json_response = response.json()
+        assert len(json_response) == true_feeds_count, f"official=true should return {true_feeds_count} feeds"
+        assert json_response[0]["id"] in official_feeds, f"official=true should return {official_feeds}"
 
 
 def test_non_existent_gtfs_rt_feed_get(client: TestClient):
@@ -631,11 +640,6 @@ def test_filter_by_subdivision(client):
 
 def test_filter_by_municipality(client):
     """Test filter by municipality"""
-
-    # params = [
-    #     ("municipality", "Barrie"),
-    # ]
-
     params = {"municipality": "Barrie"}
     response = client.request(
         "GET",

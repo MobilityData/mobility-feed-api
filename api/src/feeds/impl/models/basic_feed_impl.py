@@ -23,16 +23,11 @@ class BaseFeedImpl(BasicFeed):
         return cls(
             id=feed.stable_id,
             data_type=feed.data_type,
-            status=feed.status,
-            official=feed.official,
-            official_updated_at=feed.official_updated_at,
             created_at=feed.created_at,
             external_ids=sorted(
                 [ExternalIdImpl.from_orm(item) for item in feed.externalids], key=lambda x: x.external_id
             ),
             provider=feed.provider,
-            feed_name=feed.feed_name,
-            note=feed.note,
             feed_contact_email=feed.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed.producer_url,

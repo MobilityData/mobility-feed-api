@@ -47,6 +47,7 @@ class DatabasePopulateTestDataHelper:
         """
         Populate the database with the test datasets
         """
+        # TODO: parse GBFS versions
         # Load the JSON file
         with open(filepath) as f:
             data = json.load(f)

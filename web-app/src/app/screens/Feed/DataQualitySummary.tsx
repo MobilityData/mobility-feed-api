@@ -10,7 +10,7 @@ import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import OfficialChip from '../../components/OfficialChip';
 
 export interface DataQualitySummaryProps {
-  feedStatus: components['schemas']['BasicFeed']['status'];
+  feedStatus: components['schemas']['Feed']['status'];
   isOfficialFeed: boolean;
   latestDataset: components['schemas']['GtfsDataset'] | undefined;
 }

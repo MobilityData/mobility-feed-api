@@ -37,7 +37,6 @@ class SearchApiImpl(BaseSearchApi):
         Filter values are trimmed and converted to lowercase.
         The search query is also converted to its unaccented version.
         """
-        query = query.filter(t_feedsearch.c.data_type != "gbfs")  # Filter out GBFS feeds
         query = query.filter(
             or_(
                 t_feedsearch.c.operational_status == "published",
@@ -47,7 +46,9 @@ class SearchApiImpl(BaseSearchApi):
         if feed_id:
             query = query.where(t_feedsearch.c.feed_stable_id == feed_id.strip().lower())
         if data_type:
-            query = query.where(t_feedsearch.c.data_type == data_type.strip().lower())
+            data_types = [dt.strip().lower() for dt in data_type.split(",")]
+            if data_types:
+                query = query.where(t_feedsearch.c.data_type.in_(data_types))
         if status:
             status_list = [s.strip().lower() for s in status[0].split(",") if s]
             if status_list:
