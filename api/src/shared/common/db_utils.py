@@ -83,7 +83,9 @@ def get_gtfs_feeds_query(
 
     if include_options_for_joinedload:
         feed_query = feed_query.options(
-            contains_eager(Gtfsfeed.gtfsdatasets).joinedload(Gtfsdataset.validation_reports),
+            contains_eager(Gtfsfeed.gtfsdatasets)
+            .joinedload(Gtfsdataset.validation_reports)
+            .joinedload(Validationreport.features),
             *get_joinedload_options(),
         ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
 
