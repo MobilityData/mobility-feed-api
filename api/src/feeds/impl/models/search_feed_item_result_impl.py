@@ -1,7 +1,10 @@
 from feeds_gen.models.latest_dataset import LatestDataset
+from feeds_gen.models.latest_dataset_validation_report import LatestDatasetValidationReport
 from feeds_gen.models.search_feed_item_result import SearchFeedItemResult
 from feeds_gen.models.source_info import SourceInfo
 import pycountry
+
+from shared.database_gen.sqlacodegen_models import t_feedsearch
 
 
 class SearchFeedItemResultImpl(SearchFeedItemResult):
@@ -16,7 +19,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
         from_attributes = True
 
     @classmethod
-    def from_orm_gtfs(cls, feed_search_row):
+    def from_orm_gtfs(cls, feed_search_row: t_feedsearch):
         """Create a model instance from a SQLAlchemy a GTFS row object."""
         return cls(
             id=feed_search_row.feed_stable_id,
@@ -47,6 +50,17 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                 service_date_range_start=feed_search_row.latest_dataset_service_date_range_start,
                 service_date_range_end=feed_search_row.latest_dataset_service_date_range_end,
                 agency_timezone=feed_search_row.latest_dataset_agency_timezone,
+                validation_report=LatestDatasetValidationReport(
+                    total_error=feed_search_row.latest_total_error,
+                    total_warning=feed_search_row.latest_total_warning,
+                    total_info=feed_search_row.latest_total_info,
+                    unique_error_count=feed_search_row.latest_unique_error_count,
+                    unique_warning_count=feed_search_row.latest_unique_warning_count,
+                    unique_info_count=feed_search_row.latest_unique_info_count,
+                    features=sorted([feature for feature in feed_search_row.latest_dataset_features])
+                    if feed_search_row.latest_dataset_features
+                    else [],
+                ),
             )
             if feed_search_row.latest_dataset_id
             else None,
