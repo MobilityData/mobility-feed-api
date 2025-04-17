@@ -409,6 +409,15 @@ export interface components {
        */
       agency_timezone?: string;
       validation_report?: {
+        /**
+         * @description List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
+         * @example [
+         *   "Shapes",
+         *   "Headsigns",
+         *   "Wheelchair Accessibility"
+         * ]
+         */
+        features?: string[];
         /** @example 10 */
         total_error?: number;
         /** @example 20 */
@@ -589,7 +598,14 @@ export interface components {
        * @example "2023-07-10T22:06:00.000Z"
        */
       validated_at?: string;
-      /** @description An array of features for this dataset. */
+      /**
+       * @description List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
+       * @example [
+       *   "Shapes",
+       *   "Headsigns",
+       *   "Wheelchair Accessibility"
+       * ]
+       */
       features?: string[];
       /** @example 4.2.0 */
       validator_version?: string;
