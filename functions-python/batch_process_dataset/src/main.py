@@ -238,9 +238,13 @@ class DatasetProcessor:
                 latest_dataset.latest = False
                 db_session.add(latest_dataset)
             db_session.add(new_dataset)
+            db_session.commit()
+            logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
             refresh_materialized_view(db_session, t_feedsearch.name)
-            logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
+            logging.info(
+                f"[{self.feed_stable_id}] Materialized view refresh event triggered successfully."
+            )
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
