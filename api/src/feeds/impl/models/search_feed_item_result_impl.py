@@ -57,7 +57,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
                     unique_error_count=feed_search_row.latest_unique_error_count,
                     unique_warning_count=feed_search_row.latest_unique_warning_count,
                     unique_info_count=feed_search_row.latest_unique_info_count,
-                    features=[feature for feature in feed_search_row.latest_dataset_features]
+                    features=sorted([feature for feature in feed_search_row.latest_dataset_features])
                     if feed_search_row.latest_dataset_features
                     else [],
                 ),
