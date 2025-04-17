@@ -176,6 +176,34 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         self.assertEqual(status, 500)
 
+    @mock.patch("requests.get")
+    def test_create_validation_report_entities_missing_dataset(self, mock_get):
+        """Test create_validation_report_entities function."""
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "summary": {
+                    "validatedAt": "2021-01-01T00:00:00Z",
+                    "validatorVersion": "1.0",
+                    "gtfsFeatures": ["stops", "routes"],
+                },
+                "notices": [
+                    {"code": "notice_code", "severity": "ERROR", "totalNotices": 1}
+                ],
+            },
+        )
+        feed_stable_id = faker.word()
+        dataset_stable_id = "MISSING_ID"
+
+        message, status = create_validation_report_entities(
+            feed_stable_id, dataset_stable_id, "1.0"
+        )
+        self.assertEqual(500, status)
+        self.assertEqual(
+            "Error creating validation report entities: Dataset MISSING_ID not found.",
+            message,
+        )
+
     @patch("main.Logger")
     @patch("main.create_validation_report_entities")
     def test_process_validation_report(self, create_validation_report_entities_mock, _):
