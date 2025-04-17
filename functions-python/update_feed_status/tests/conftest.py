@@ -54,7 +54,9 @@ def populate_database(db_session):
     }
     for status, (a, b) in id_range_by_status.items():
         for _id in map(str, range(a, b + 1)):
-            db_session.add(Feed(id=str(_id), status=status))
+            db_session.add(
+                Feed(id=str(_id), status=status, stable_id="mdb-" + str(_id))
+            )
 
     # -> inactive
     for _id in [

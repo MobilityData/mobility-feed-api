@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 
+from conftest import clean_testing_db, populate_database
 from shared.database.database import with_db_session
 from test_shared.test_utils.database_utils import default_db_url
 from main import (
@@ -39,7 +40,7 @@ def fetch_feeds(session: Session) -> Iterator[PartialFeed]:
 @with_db_session(db_url=default_db_url)
 def test_update_feed_status(db_session: Session) -> None:
     feeds_before: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
-    result = dict(update_feed_statuses_query(db_session))
+    result = dict(update_feed_statuses_query(db_session, []))
     assert result == {
         "inactive": 3,
         "active": 2,
@@ -54,6 +55,29 @@ def test_update_feed_status(db_session: Session) -> None:
         "10": "future",
         "22": "inactive",
         "25": "active",
+    }
+    for feed_id, feed_before in feeds_before.items():
+        feed_after = feeds_after[feed_id]
+        assert feed_after.status == expected_status_changes.get(
+            feed_id, feed_before.status
+        )
+
+
+@with_db_session(db_url=default_db_url)
+def test_update_feed_status_with_ids(db_session: Session) -> None:
+    clean_testing_db()
+    populate_database()
+    feeds_before: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
+    result = dict(update_feed_statuses_query(db_session, ["mdb-8"]))
+    assert result == {
+        "inactive": 1,
+        "active": 0,
+        "future": 0,
+    }
+
+    feeds_after: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
+    expected_status_changes = {
+        "8": "inactive",
     }
     for feed_id, feed_before in feeds_before.items():
         feed_after = feeds_after[feed_id]
@@ -79,7 +103,7 @@ def test_update_feed_status_failed_query():
     mock_update_query.update.side_effect = Exception("Mocked exception")
 
     try:
-        update_feed_statuses_query(mock_session)
+        update_feed_statuses_query(mock_session, [])
     except Exception as e:
         assert str(e) == "Error updating feed statuses: Mocked exception"
 
