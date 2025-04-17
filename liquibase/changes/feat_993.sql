@@ -82,30 +82,58 @@ LEFT JOIN (
 -- Latest dataset features
 LEFT JOIN (
     SELECT 
-        GtfsDataset.id as FeatureGtfsDatasetId,
-        array_agg(featurevalidationreport.feature) as LatestDatasetFeatures
-    FROM FeatureValidationReport
-    JOIN ValidationReportGtfsDataset on FeatureValidationReport.validation_id = ValidationReportGtfsDataset.validation_report_id
-    JOIN GtfsDataset on GtfsDataset.id = ValidationReportGtfsDataset.dataset_id
+        GtfsDataset.id AS FeatureGtfsDatasetId,
+        array_agg(DISTINCT FeatureValidationReport.feature) AS LatestDatasetFeatures
+    FROM GtfsDataset
+    JOIN ValidationReportGtfsDataset
+      ON ValidationReportGtfsDataset.dataset_id = GtfsDataset.id
+    JOIN (
+        -- Pick latest ValidationReport per dataset based on validated_at
+        SELECT DISTINCT ON (ValidationReportGtfsDataset.dataset_id)
+            ValidationReportGtfsDataset.dataset_id,
+            ValidationReport.id AS latest_validation_report_id
+        FROM ValidationReportGtfsDataset
+        JOIN ValidationReport
+          ON ValidationReport.id = ValidationReportGtfsDataset.validation_report_id
+        ORDER BY
+            ValidationReportGtfsDataset.dataset_id,
+            ValidationReport.validated_at DESC
+    ) AS LatestReports
+      ON LatestReports.latest_validation_report_id = ValidationReportGtfsDataset.validation_report_id
+    JOIN FeatureValidationReport
+      ON FeatureValidationReport.validation_id = ValidationReportGtfsDataset.validation_report_id
     GROUP BY FeatureGtfsDatasetId
 ) AS LatestDatasetFeaturesJoin ON Latest_dataset.id = FeatureGtfsDatasetId
 
 -- Latest dataset validation report
 LEFT JOIN (
     SELECT 
-        GtfsDataset.id as ValidationReportGtfsDatasetId,
-        MAX(ValidationReport.total_error) AS total_error,
-        MAX(ValidationReport.total_warning) AS total_warning,
-        MAX(ValidationReport.total_info) AS total_info,
-        MAX(ValidationReport.unique_error_count) AS unique_error_count,
-        MAX(ValidationReport.unique_warning_count) AS unique_warning_count,
-        MAX(ValidationReport.unique_info_count) AS unique_info_count
-    FROM ValidationReport
-    JOIN ValidationReportGtfsDataset ON ValidationReport.id = ValidationReportGtfsDataset.validation_report_id
-    JOIN GtfsDataset ON GtfsDataset.id = ValidationReportGtfsDataset.dataset_id
-    GROUP BY GtfsDataset.id
+        GtfsDataset.id AS ValidationReportGtfsDatasetId,
+        ValidationReport.total_error,
+        ValidationReport.total_warning,
+        ValidationReport.total_info,
+        ValidationReport.unique_error_count,
+        ValidationReport.unique_warning_count,
+        ValidationReport.unique_info_count
+    FROM GtfsDataset
+    JOIN ValidationReportGtfsDataset
+      ON ValidationReportGtfsDataset.dataset_id = GtfsDataset.id
+    JOIN (
+        -- Pick latest ValidationReport per dataset based on validated_at
+        SELECT DISTINCT ON (ValidationReportGtfsDataset.dataset_id)
+            ValidationReportGtfsDataset.dataset_id,
+            ValidationReport.id AS latest_validation_report_id
+        FROM ValidationReportGtfsDataset
+        JOIN ValidationReport
+          ON ValidationReport.id = ValidationReportGtfsDataset.validation_report_id
+        ORDER BY
+            ValidationReportGtfsDataset.dataset_id,
+            ValidationReport.validated_at DESC
+    ) AS LatestReports
+      ON LatestReports.latest_validation_report_id = ValidationReportGtfsDataset.validation_report_id
+    JOIN ValidationReport
+      ON ValidationReport.id = ValidationReportGtfsDataset.validation_report_id
 ) AS LatestDatasetValidationReportJoin ON Latest_dataset.id = ValidationReportGtfsDatasetId
-
 
 -- External ids
 LEFT JOIN (
