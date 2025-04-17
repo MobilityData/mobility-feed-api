@@ -178,7 +178,9 @@ class TestValidationReportProcessor(unittest.TestCase):
 
     @mock.patch("requests.get")
     def test_create_validation_report_entities_missing_dataset(self, mock_get):
-        """Test create_validation_report_entities function."""
+        """
+        Test the create_validation_report_entities function when the dataset is not found in the DB
+        """
         mock_get.return_value = MagicMock(
             status_code=200,
             json=lambda: {
