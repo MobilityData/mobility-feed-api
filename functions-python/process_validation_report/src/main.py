@@ -277,6 +277,7 @@ def create_validation_report_entities(
                 "Could not commit %s entities to the database: %s", entities, error
             )
             return str(error), 200
+
         update_feed_statuses_query(db_session, [feed_stable_id])
 
         return f"Created {len(entities)} entities.", 200
