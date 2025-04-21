@@ -25,12 +25,11 @@ jobs:
       - name: Create DB dump bucket
         run: |
           DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
-          BUCKET_PROJECT_ID=${{ QA_MOBILITY_FEEDS_PROJECT_ID }}
+          BUCKET_PROJECT_ID=${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
           GCP_REGION=${{ vars.MOBILITY_FEEDS_REGION }}
-          BUCKET_PROJECT_ID="${{ vars.DEV_MOBILITY_FEEDS_PROJECT_ID }}"
 
           # Check if the bucket already exists
-          if ! gsutil ls -b "gs://${BUCKET_NAME}" &> /dev/null; then
+          if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
             echo "Bucket doesn't exist. Creating..."
             gsutil mb -l $GCP_REGION -p $BUCKET_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
           else
