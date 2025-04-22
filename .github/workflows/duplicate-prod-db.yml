@@ -24,8 +24,8 @@ jobs:
 
       - name: Create DB dump bucket
         run: |
-          SOURCE_PROJECT_ID={{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
-          DEST_PROJECT_ID={{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+          SOURCE_PROJECT_ID=${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+          DEST_PROJECT_ID=${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
           DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
           BUCKET_PROJECT_ID=${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
           GCP_REGION=${{ vars.MOBILITY_FEEDS_REGION }}
