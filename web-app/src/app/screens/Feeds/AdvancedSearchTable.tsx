@@ -163,12 +163,7 @@ export default function AdvancedSearchTable({
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
-                  {/* <Box sx={{ mr: 1}}> */}
-                  <Typography
-                    variant='h6'
-                    sx={{ fontWeight: 'bold', mr: 1 }}
-                    component={'span'}
-                  >
+                  <Typography variant='h6' sx={{ fontWeight: 'bold', mr: 1 }}>
                     <ProviderTitle
                       feed={feed}
                       setPopoverData={(popoverData) => {
@@ -182,7 +177,6 @@ export default function AdvancedSearchTable({
                       }}
                     ></ProviderTitle>
                   </Typography>
-                  {/* </Box> */}
 
                   {feed.official === true && (
                     <OfficialChip isLongDisplay={false}></OfficialChip>
