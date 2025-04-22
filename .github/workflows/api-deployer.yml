@@ -80,7 +80,7 @@ jobs:
     uses: ./.github/workflows/build-test.yml
     name: Build & Test
     with:
-      SKIP_TEST: ${{ inputs.SKIP_TESTS }}
+      SKIP_TEST: ${{ inputs.SKIP_TEST }}
 
   create-artifact-repo:
     runs-on: ubuntu-latest
