@@ -1,6 +1,6 @@
--- Updating the FeedSearch materialized view to include location extraction details
--- 1. Added osm_locations as a column which is a json list of OsmlLocationGroup names and their locations
--- 2. Added the names of the locations to the document for full-text search
+-- Updating the FeedSearch materialized view to include Feed.official field as official status
+-- Adds the 'official' status flag from the Feed table
+
 DROP MATERIALIZED VIEW IF EXISTS FeedSearch;
 CREATE MATERIALIZED VIEW FeedSearch AS
 SELECT
