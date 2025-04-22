@@ -29,6 +29,7 @@ jobs:
           DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
           BUCKET_PROJECT_ID=${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
           GCP_REGION=${{ vars.MOBILITY_FEEDS_REGION }}
+          SQL_INSTANCE_NAME=${{ secrets.DB_INSTANCE_NAME }}
 
           # Check if the bucket already exists
           if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
