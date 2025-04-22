@@ -114,6 +114,7 @@ jobs:
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         with:
           name: coverage_report
           path: scripts/coverage_reports/
@@ -121,6 +122,7 @@ jobs:
 
       - name: Upload DB models
         uses: actions/upload-artifact@v4
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         with:
           name: database_gen
           path: api/src/shared/database_gen/
