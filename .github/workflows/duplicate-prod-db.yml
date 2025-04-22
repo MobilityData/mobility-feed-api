@@ -24,6 +24,8 @@ jobs:
 
       - name: Create DB dump bucket
         run: |
+          SOURCE_PROJECT_ID={{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+          DEST_PROJECT_ID={{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
           DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
           BUCKET_PROJECT_ID=${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
           GCP_REGION=${{ vars.MOBILITY_FEEDS_REGION }}
@@ -36,8 +38,16 @@ jobs:
             echo "Bucket already exists."
           fi
 
-        # Give write permission for the source sql instance to write to the bucket
-        #        gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectCreator gs://$BUCKET_NAME
+          # Get the service account got the PROD DB and give write permsssion to the bucket
+          SOURCE_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          echo "Source SQL Service Account: $SOURCE_SQL_SERVICE_ACCOUNT"
+          
+          # Give write permission for the source sql instance to write to the bucket
+          gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectCreator gs://$DUMP_BUCKET_NAME
 
-        # Give read permission on the bucket to the destination sql instance
-        #gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectViewer gs://$BUCKET_NAME
+          # Get the service account got the QA DB and give read permsssion to the bucket
+          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=DEST_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
+          
+          # Give read permission on the bucket to the destination sql instance
+          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectViewer gs://$BUCKET_NAME
