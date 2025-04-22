@@ -108,7 +108,7 @@ export default function Feed(): React.ReactElement {
             limit: searchLimit,
             offset: paginationOffset,
             search_query: activeSearch,
-            data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
+            data_type: 'gbfs',//getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
             is_official: isOfficialFeedSearch || undefined,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
