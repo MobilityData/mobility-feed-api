@@ -1,6 +1,15 @@
 import { utcToZonedTime } from 'date-fns-tz';
 import { intervalToDuration, isFuture } from 'date-fns';
 
+export const displayFormattedDate = (stringDate: string) => {
+  const date = new Date(stringDate);
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
 /**
  *
  * @param dateString date in ISO format

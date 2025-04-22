@@ -2,14 +2,14 @@ import { type SxProps, type Theme } from '@mui/material';
 
 export const feedDetailContentContainerStyle = (props: {
   theme: Theme;
-  isGtfsSchedule: boolean;
+  isGtfsRT: boolean;
 }): SxProps => {
   return {
     width: '100%',
     display: 'flex',
     flexDirection: {
-      xs: props.isGtfsSchedule ? 'column-reverse' : 'column',
-      md: props.isGtfsSchedule ? 'row-reverse' : 'row',
+      xs: props.isGtfsRT ? 'column' : 'column-reverse',
+      md: props.isGtfsRT ? 'row' : 'row-reverse',
     },
     gap: 3,
     flexWrap: 'nowrap',

@@ -5,6 +5,7 @@ import {
   ToggleButton,
   Tooltip,
   Skeleton,
+  Button,
 } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
@@ -94,33 +95,39 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       outlineColor={theme.palette.primary.dark}
       padding={2}
       action={
-        <ToggleButtonGroup
-          value={view}
-          color='primary'
-          exclusive
-          aria-label='map view selection'
-          onChange={handleViewChange}
-        >
-          <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
-            <ToggleButton
-              value='detailedCoveredAreaView'
-              disabled={
-                geoJsonLoading || geoJsonError || boundingBox === undefined
-              }
-              aria-label='Detailed Covered Area View'
+        <>
+          {3 > 2 ? (
+            <Button>View real-time visualization</Button>
+          ) : (
+            <ToggleButtonGroup
+              value={view}
+              color='primary'
+              exclusive
+              aria-label='map view selection'
+              onChange={handleViewChange}
             >
-              <TravelExploreIcon />
-            </ToggleButton>
-          </Tooltip>
-          <Tooltip title={t('boundingBoxViewTooltip')}>
-            <ToggleButton
-              value='boundingBoxView'
-              aria-label='Bounding Box View'
-            >
-              <MapIcon />
-            </ToggleButton>
-          </Tooltip>
-        </ToggleButtonGroup>
+              <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
+                <ToggleButton
+                  value='detailedCoveredAreaView'
+                  disabled={
+                    geoJsonLoading || geoJsonError || boundingBox === undefined
+                  }
+                  aria-label='Detailed Covered Area View'
+                >
+                  <TravelExploreIcon />
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title={t('boundingBoxViewTooltip')}>
+                <ToggleButton
+                  value='boundingBoxView'
+                  aria-label='Bounding Box View'
+                >
+                  <MapIcon />
+                </ToggleButton>
+              </Tooltip>
+            </ToggleButtonGroup>
+          )}
+        </>
       }
     >
       {boundingBox === undefined && view === 'boundingBoxView' && (
