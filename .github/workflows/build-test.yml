@@ -24,8 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     name: Build & Test
-    env:
-      SKIP_TESTS: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,7 +47,7 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Run lint checks
-        if: ${{ env.SKIP_TESTS != 'true' }}
+        if: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
         shell: bash
         run: |
           scripts/lint-tests.sh
@@ -87,13 +85,13 @@ jobs:
           scripts/api-operations-gen.sh
 
       - name: Unit tests - API
-        if: ${{ env.SKIP_TESTS != 'true' }}
+        if: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder api --html_report
 
       - name: Unit tests - Python Functions
-        if: ${{ env.SKIP_TESTS != 'true' }}
+        if: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder functions-python --html_report
