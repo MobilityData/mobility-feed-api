@@ -8,10 +8,17 @@ on:
       - "functions/**"
       - ".github/workflows/web-*.yml"
   workflow_call:
+    inputs:
+      SKIP_TEST:
+        description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
+        required: false
+        type: boolean
+        default: false
 
 env:
   python_version: '3.11'
   java_version: '11' # needed by setup-openapi-generator.sh
+  SKIP_TESTS: ${{ inputs.SKIP_TEST || false }} 
 
 jobs:
   build-test:
@@ -54,13 +61,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install liquibase=4.25.1
 
-#      Uncomment the following block to test the local databases connections
-#      - name: Test Database Connection
-#        run: |
-#          sudo apt-get update && sudo apt-get install -y postgresql-client
-#          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d MobilityDatabase -c "SELECT version();"
-#          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
-
       - name: Run Liquibase on Python functions test DB
         run: |
           export LIQUIBASE_CLASSPATH="liquibase"
@@ -85,11 +85,13 @@ jobs:
           scripts/api-operations-gen.sh
 
       - name: Unit tests - API
+        if: ${{ !env.SKIP_TESTS }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder api --html_report
 
       - name: Unit tests - Python Functions
+        if: ${{ !env.SKIP_TESTS }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder functions-python --html_report
