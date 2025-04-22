@@ -35,3 +35,9 @@ jobs:
           else
             echo "Bucket already exists."
           fi
+
+        # Give write permission for the source sql instance to write to the bucket
+        #        gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectCreator gs://$BUCKET_NAME
+
+        # Give read permission on the bucket to the destination sql instance
+        #gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectViewer gs://$BUCKET_NAME
