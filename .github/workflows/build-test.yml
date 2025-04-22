@@ -31,6 +31,7 @@ jobs:
       - name: Set whether to run tests
         id: set-should-run-tests
         run: |
+          echo "$INPUTS_SKIP_TESTS"
           if [[ "$GITHUB_EVENT_NAME" != "workflow_call" ]]; then
             echo "result=true" >> "$GITHUB_OUTPUT"
           elif [[ "$INPUTS_SKIP_TESTS" == "false" ]]; then
