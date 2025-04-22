@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from geoalchemy2 import WKTElement
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport, Feature
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 
@@ -36,6 +36,7 @@ class TestLatestDatasetImpl(unittest.TestCase):
                         unique_error_count=0,
                         unique_warning_count=0,
                         unique_info_count=0,
+                        features=[],
                     ),
                     Validationreport(
                         validator_version="1.2.0",
@@ -45,6 +46,7 @@ class TestLatestDatasetImpl(unittest.TestCase):
                         unique_error_count=2,
                         unique_warning_count=1,
                         unique_info_count=1,
+                        features=[Feature(name="feature 1.2.0 1"), Feature(name="feature 1.2.0 2")],
                     ),
                     Validationreport(
                         validator_version="1.1.1",
@@ -54,6 +56,7 @@ class TestLatestDatasetImpl(unittest.TestCase):
                         unique_error_count=1,
                         unique_warning_count=1,
                         unique_info_count=0,
+                        features=[Feature(name="feature 1.1.1 1"), Feature(name="feature 1.1.1 2")],
                     ),
                 ],
             )
@@ -74,6 +77,7 @@ class TestLatestDatasetImpl(unittest.TestCase):
             service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
             agency_timezone="Canada/Atlantic",
             validation_report={
+                "features": ["feature 1.2.0 1", "feature 1.2.0 2"],
                 "validator_version": "1.2.0",
                 "total_error": 3,
                 "total_info": 1,
