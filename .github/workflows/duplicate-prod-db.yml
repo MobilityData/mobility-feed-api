@@ -40,7 +40,7 @@ jobs:
           fi
 
           # Get the service account got the PROD DB and give write permsssion to the bucket
-          SOURCE_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          SOURCE_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-database-instance" --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
           echo "Source SQL Service Account: $SOURCE_SQL_SERVICE_ACCOUNT"
           
           # Give write permission for the source sql instance to write to the bucket
