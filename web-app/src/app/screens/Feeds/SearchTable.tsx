@@ -211,16 +211,20 @@ export default function SearchTable({
                   )}
                 </>
               ) : (
-                <Chip
-                  key={
-                    feed.locations?.[0] != null
-                      ? feed.locations[0].country_code
-                      : 'cc-key'
-                  }
-                  label={getLocationName(feed.locations)}
-                  size='medium'
-                  sx={{ mr: 1 }}
-                />
+                <>
+                  {feed.locations?.[0] != null && (
+                    <Chip
+                      key={
+                        feed.locations?.[0] != null
+                          ? feed.locations[0].country_code
+                          : 'cc-key'
+                      }
+                      label={getLocationName(feed.locations)}
+                      size='medium'
+                      sx={{ mr: 1 }}
+                    />
+                  )}
+                </>
               )}
             </TableCell>
             <TableCell className='feed-column' component={Box}>

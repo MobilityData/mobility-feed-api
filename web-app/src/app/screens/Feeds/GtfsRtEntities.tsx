@@ -13,14 +13,14 @@ interface GtfsRtEntitiesProps {
   includeName?: boolean;
 }
 
-const iconStyle: SxProps = {
-  color: 'white',
+const iconStyle = (textColor: string): SxProps => ({
+  color: textColor,
   borderRadius: '50%',
   display: 'block',
   '&.MuiSvgIcon-root.MuiChip-icon': {
-    color: 'white',
+    color: textColor,
   },
-};
+});
 
 const longContainerStyle: SxProps = {
   flexDirection: 'row',
@@ -47,22 +47,33 @@ export default function GtfsRtEntities({
   const entityData = {
     vp: {
       icon: (
-        <LocationOnIcon sx={{ ...iconStyle, background: colors.blue[600] }} />
+        <LocationOnIcon
+          sx={{ ...iconStyle('white'), background: colors.blue[700] }}
+        />
       ),
       title: t('gtfsRealtimeEntities.vehiclePositions'),
-      color: colors.blue[600],
+      color: colors.blue[700],
+      textColor: 'white',
     },
     tu: {
-      icon: <UpdateIcon sx={{ ...iconStyle, background: colors.blue[300] }} />,
+      icon: (
+        <UpdateIcon
+          sx={{ ...iconStyle(colors.blue[900]), background: colors.blue[200] }}
+        />
+      ),
       title: t('gtfsRealtimeEntities.tripUpdates'),
-      color: colors.blue[300],
+      color: colors.blue[200],
+      textColor: colors.blue[900],
     },
     sa: {
       icon: (
-        <WarningAmberIcon sx={{ ...iconStyle, background: colors.blue[900] }} />
+        <WarningAmberIcon
+          sx={{ ...iconStyle('white'), background: colors.blue[900] }}
+        />
       ),
       title: t('gtfsRealtimeEntities.serviceAlerts'),
       color: colors.blue[900],
+      textColor: 'white',
     },
   };
 
@@ -85,7 +96,8 @@ export default function GtfsRtEntities({
                   width: 'fit-content',
                   backgroundColor: entityData[entity].color,
                   borderColor: entityData[entity].color,
-                  color: 'white',
+                  fontWeight: 'bold',
+                  color: entityData[entity].textColor,
                 }}
               ></Chip>
             ) : (

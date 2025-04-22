@@ -26,24 +26,6 @@ import { getFeatureComponentDecorators } from '../../utils/consts';
 import PopoverList from './PopoverList';
 import ProviderTitle from './ProviderTitle';
 
-// TODO: remove when features are fixed
-const fakeFeatures = [
-  'Route Colors',
-  'Shapes',
-  'Headsigns',
-  'Feed Information',
-  'Location Types',
-  'Stops Wheelchair Accessibility',
-  'Trips Wheelchair Accessibility',
-  'Transfers',
-  'Translations',
-  'Fare Media',
-  'Fare Products',
-  'Levels',
-  'Booking Rules',
-  'Pathway Signs',
-];
-
 export interface AdvancedSearchTableProps {
   feedsData: AllFeedsType | undefined;
   selectedFeatures: string[] | undefined;
@@ -54,47 +36,50 @@ const renderGTFSDetails = (
   selectedFeatures: string[],
 ): React.ReactElement => {
   const theme = useTheme();
-  const number = Number(gtfsFeed?.id?.split('-')[1]) % 14;
-  const displayFeatures = fakeFeatures.slice(0, number);
   return (
     <>
-      <Typography variant='body1' sx={{ mb: 1 }}>
-        {gtfsFeed?.feed_name}
-      </Typography>
+      {gtfsFeed?.feed_name != null && (
+        <Typography
+          variant='body1'
+          sx={selectedFeatures.length > 0 ? { mb: 1 } : { mb: 0 }}
+        >
+          {gtfsFeed.feed_name}
+        </Typography>
+      )}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {/* TODO: uncomment when features are fixed
-        {gtfsFeed?.latest_dataset?.validation_report?.features?.map((feature: any, index: number) => (
-                <Chip label={feature} key={index} size='small' variant='outlined' sx={{ mr: 1 }} />
-        )} */}
-        {displayFeatures.map((feature: string, index: number) => {
-          const featureData = getFeatureComponentDecorators(feature);
-          return (
-            <Tooltip
-              title={`Group: ${featureData.component}`}
-              key={index}
-              placement='top'
-            >
-              <Chip
-                label={feature}
+        {gtfsFeed?.latest_dataset?.validation_report?.features?.map(
+          (feature: string, index: number) => {
+            const featureData = getFeatureComponentDecorators(feature);
+            return (
+              <Tooltip
+                title={`Group: ${featureData.component}`}
                 key={index}
-                size='small'
-                sx={{
-                  background: featureData.color,
-                  border: selectedFeatures.includes(feature)
-                    ? `2px solid ${theme.palette.primary.main}`
-                    : 'none',
-                  color: 'black',
-                }}
-              />
-            </Tooltip>
-          );
-        })}
+                placement='top'
+              >
+                <Chip
+                  label={feature}
+                  key={index}
+                  size='small'
+                  sx={{
+                    background: featureData.color,
+                    border: selectedFeatures.includes(feature)
+                      ? `2px solid ${theme.palette.primary.main}`
+                      : 'none',
+                    color: 'black',
+                  }}
+                />
+              </Tooltip>
+            );
+          },
+        )}
       </Box>
     </>
   );
 };
 
-const renderGTFSRTDetails = (gtfsRtFeed: GTFSRTFeedType): React.ReactElement => {
+const renderGTFSRTDetails = (
+  gtfsRtFeed: GTFSRTFeedType,
+): React.ReactElement => {
   return (
     <GtfsRtEntities
       entities={gtfsRtFeed?.entity_types}
@@ -148,10 +133,10 @@ export default function AdvancedSearchTable({
         if (feed == null) {
           return <></>;
         }
+        const hasGtfsFeatures =
+          (feed?.latest_dataset?.validation_report?.features?.length ?? 0) > 0;
         return (
           <Card
-            component={'a'}
-            href={`/feeds/${feed.data_type}/${feed.id}`}
             key={index}
             sx={{
               my: 2,
@@ -161,16 +146,29 @@ export default function AdvancedSearchTable({
               bgcolor: 'background.default',
             }}
           >
-            <CardActionArea sx={{ p: 1 }}>
+            <CardActionArea
+              sx={{ p: 1 }}
+              component={'a'}
+              href={`/feeds/${feed.data_type}/${feed.id}`}
+            >
               <Box
                 sx={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
+                  flexWrap: {
+                    xs: 'wrap-reverse',
+                    sm: 'nowrap',
+                  },
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Typography variant='h6' sx={{ mr: 1, fontWeight: 'bold' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                  {/* <Box sx={{ mr: 1}}> */}
+                  <Typography
+                    variant='h6'
+                    sx={{ fontWeight: 'bold', mr: 1 }}
+                    component={'span'}
+                  >
                     <ProviderTitle
                       feed={feed}
                       setPopoverData={(popoverData) => {
@@ -184,6 +182,7 @@ export default function AdvancedSearchTable({
                       }}
                     ></ProviderTitle>
                   </Typography>
+                  {/* </Box> */}
 
                   {feed.official === true && (
                     <OfficialChip isLongDisplay={false}></OfficialChip>
@@ -198,7 +197,6 @@ export default function AdvancedSearchTable({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1,
-                    flexWrap: 'wrap',
                   }}
                 >
                   {feed.source_info?.authentication_type !== 0 && (
@@ -248,7 +246,7 @@ export default function AdvancedSearchTable({
                                 sx={{
                                   fontStyle: 'italic',
                                   mr: 1,
-                                  fontWeight: 'bold'
+                                  fontWeight: 'bold',
                                 }}
                                 variant='caption'
                                 onMouseEnter={(event) => {
@@ -286,8 +284,10 @@ export default function AdvancedSearchTable({
                 {feed.data_type === 'gtfs' && (
                   <Box
                     sx={
-                      // TODO: address : feed.latest_dataset?.validation_report?.features.length > 0
-                      3 > 2 ? descriptionDividerStyle : {}
+                      hasGtfsFeatures ||
+                      (feed.feed_name != null && feed.feed_name !== '')
+                        ? descriptionDividerStyle
+                        : {}
                     }
                   >
                     {renderGTFSDetails(

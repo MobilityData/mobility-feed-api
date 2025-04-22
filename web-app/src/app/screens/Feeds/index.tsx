@@ -279,9 +279,11 @@ export default function Feed(): React.ReactElement {
 
   const handleViewChange = (
     event: React.MouseEvent<HTMLElement>,
-    newSearchView: 'simple' | 'advanced',
+    newSearchView: 'simple' | 'advanced' | null,
   ): void => {
-    setSearchView(newSearchView);
+    if (newSearchView != null) {
+      setSearchView(newSearchView);
+    }
   };
 
   return (
@@ -469,7 +471,8 @@ export default function Feed(): React.ReactElement {
               <Box sx={chipHolderStyles}>
                 {selectedFeedTypes.gtfs && (
                   <Chip
-                    color='secondary'
+                    color='primary'
+                    variant='outlined'
                     size='small'
                     label={t('common:gtfsSchedule')}
                     onDelete={() => {
@@ -483,7 +486,8 @@ export default function Feed(): React.ReactElement {
                 )}
                 {selectedFeedTypes.gtfs_rt && (
                   <Chip
-                    color='secondary'
+                    color='primary'
+                    variant='outlined'
                     size='small'
                     label={t('common:gtfsRealtime')}
                     onDelete={() => {
@@ -497,7 +501,8 @@ export default function Feed(): React.ReactElement {
                 )}
                 {isOfficialFeedSearch && (
                   <Chip
-                    color='secondary'
+                    color='primary'
+                    variant='outlined'
                     size='small'
                     label={'Official Feeds'}
                     onDelete={() => {
@@ -509,7 +514,8 @@ export default function Feed(): React.ReactElement {
                 {areFeatureFiltersEnabled &&
                   selectedFeatures.map((feature) => (
                     <Chip
-                      color='secondary'
+                      color='primary'
+                      variant='outlined'
                       size='small'
                       label={feature}
                       key={feature}
@@ -528,7 +534,7 @@ export default function Feed(): React.ReactElement {
                     variant={'text'}
                     onClick={clearAllFilters}
                     size={'small'}
-                    color={'secondary'}
+                    color={'primary'}
                   >
                     Clear All
                   </Button>
