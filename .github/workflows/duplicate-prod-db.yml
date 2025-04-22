@@ -46,6 +46,8 @@ jobs:
           GCP_REGION=${{ vars.MOBILITY_FEEDS_REGION }}
           SQL_INSTANCE_NAME=${{ secrets.DB_INSTANCE_NAME }}
 
+          gcloud config set project $DEST_PROJECT_ID
+          
           # Check if the bucket already exists
           if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
             echo "Bucket doesn't exist. Creating..."
