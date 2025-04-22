@@ -131,6 +131,25 @@ async def test_update_gtfs_rt_feed_set_published(
 
 @patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
+async def test_update_gtfs_rt_feed_set_unpublished(
+    _, update_request_gtfs_rt_feed, db_session
+):
+    update_request_gtfs_rt_feed.operational_status_action = "unpublished"
+    api = OperationsApiImpl()
+    response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
+    assert response.status_code == 200
+
+    db_feed = (
+        db_session.query(Gtfsrealtimefeed)
+        .filter(Gtfsrealtimefeed.stable_id == feed_mdb_41.stable_id)
+        .one()
+    )
+    assert db_feed.operational_status == "unpublished"
+
+
+@patch("shared.helpers.logger.Logger")
+@pytest.mark.asyncio
 async def test_update_gtfs_rt_feed_official_field(
     _, update_request_gtfs_rt_feed, db_session
 ):
