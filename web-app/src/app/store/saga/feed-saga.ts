@@ -20,6 +20,7 @@ import {
 import { type PayloadAction } from '@reduxjs/toolkit';
 import {
   getFeed,
+  getGbfsFeed,
   getGtfsFeed,
   getGtfsFeedAssociatedGtfsRtFeeds,
   getGtfsRtFeed,
@@ -40,16 +41,23 @@ function* getFeedSaga({
   try {
     if (feedId !== undefined) {
       const accessToken = (yield call(getUserAccessToken)) as string;
-      let isGtfs = false;
+
       if (feedDataType == undefined) {
         const basicFeed = yield call(getFeed, feedId, accessToken);
-        isGtfs = basicFeed?.data_type === 'gtfs';
-      } else {
-        isGtfs = feedDataType === 'gtfs';
+        feedDataType = basicFeed?.data_type;
       }
-      const feed = isGtfs
-        ? yield call(getGtfsFeed, feedId, accessToken)
-        : yield call(getGtfsRtFeed, feedId, accessToken);
+
+      let feed: AllFeedType;
+      if(feedDataType === 'gtfs') {
+        feed = yield call(getGtfsFeed, feedId, accessToken)
+      } else if(feedDataType === 'gtfs_rt') {
+        feed = yield call(getGtfsRtFeed, feedId, accessToken);
+      } else if (feedDataType === 'gbfs') {
+        feed = yield call(getGbfsFeed, feedId, accessToken);
+      } else {
+        throw new Error('Invalid feed data type');
+      }
+      
       yield put(loadingFeedSuccess({ data: feed }));
     }
   } catch (error) {
