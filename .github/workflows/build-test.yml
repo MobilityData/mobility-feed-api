@@ -28,6 +28,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set whether to run tests
+        id: set-should-run-tests
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" != "workflow_call" ]]; then
+            echo "result=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$INPUTS_SKIP_TESTS" == "false" ]]; then
+            echo "result=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          INPUTS_SKIP_TESTS: ${{ inputs.SKIP_TESTS }}
+
+      - name: Echo decision (debug)
+        run: echo "Tests should run? ${{ steps.set-should-run-tests.outputs.result }}"
+
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
@@ -47,7 +63,7 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Run lint checks
-        if: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         shell: bash
         run: |
           scripts/lint-tests.sh
@@ -85,13 +101,13 @@ jobs:
           scripts/api-operations-gen.sh
 
       - name: Unit tests - API
-        if: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder api --html_report
 
       - name: Unit tests - Python Functions
-        if: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder functions-python --html_report
