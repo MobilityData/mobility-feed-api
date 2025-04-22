@@ -9,7 +9,7 @@ on:
       - ".github/workflows/web-*.yml"
   workflow_call:
     inputs:
-      SKIP_TEST:
+      SKIP_TESTS:
         description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
         required: false
         type: boolean
@@ -18,7 +18,7 @@ on:
 env:
   python_version: '3.11'
   java_version: '11' # needed by setup-openapi-generator.sh
-  SKIP_TESTS: ${{ inputs.SKIP_TEST || false }} 
+  SKIP_TESTS: ${{ github.event_name == 'workflow_call' && inputs.SKIP_TESTS || false }}
 
 jobs:
   build-test:

@@ -60,7 +60,7 @@ on:
         description: Oauth client id part of the authorization for the operations API
         required: true
         type: string
-      SKIP_TEST:
+      SKIP_TESTS:
         description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
         required: false
         type: boolean
@@ -80,7 +80,7 @@ jobs:
     uses: ./.github/workflows/build-test.yml
     name: Build & Test
     with:
-      SKIP_TEST: ${{ inputs.SKIP_TEST }}
+      SKIP_TESTS: ${{ inputs.SKIP_TESTS }}
 
   create-artifact-repo:
     runs-on: ubuntu-latest
