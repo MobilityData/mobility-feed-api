@@ -155,6 +155,8 @@ def generate_report_entities(
     entities.append(validation_report_entity)
 
     dataset = get_dataset(dataset_stable_id, session)
+    if not dataset:
+        raise Exception(f"Dataset {dataset_stable_id} not found.")
     dataset.validation_reports.append(validation_report_entity)
 
     extracted_timezone = extract_timezone_from_json_validation_report(json_report)
@@ -251,32 +253,36 @@ def create_validation_report_entities(
         return str(error), 500
 
     try:
-        logging.info("Database session started.")
         # Generate the database entities required for the report
-        try:
-            entities = generate_report_entities(
-                version,
-                validated_at,
-                json_report,
-                dataset_stable_id,
-                db_session,
-                feed_stable_id,
-            )
-        except Exception as error:
-            return str(error), 200  # Report already exists
+        # If an error is thrown we should let the retry mechanism to do its work
+        entities = generate_report_entities(
+            version,
+            validated_at,
+            json_report,
+            dataset_stable_id,
+            db_session,
+            feed_stable_id,
+        )
 
-        # Commit the entities to the database
         for entity in entities:
             db_session.add(entity)
-        logging.info(f"Committing {len(entities)} entities to the database.")
-        db_session.commit()
-        logging.info("Entities committed successfully.")
+        # In this case the report entities are already in the DB or cannot be saved for other reasons
+        # In any case, this will fail in any retried event
+        try:
+            logging.info("Committing %s entities to the database.", len(entities))
+            db_session.commit()
+            logging.info("Entities committed successfully.")
+        except Exception as error:
+            logging.warning(
+                "Could not commit %s entities to the database: %s", entities, error
+            )
+            return str(error), 200
 
         update_feed_statuses_query(db_session, [feed_stable_id])
 
         return f"Created {len(entities)} entities.", 200
     except Exception as error:
-        logging.error(f"Error creating validation report entities: {error}")
+        logging.error("Error creating validation report entities: : %s", error)
         return f"Error creating validation report entities: {error}", 500
     finally:
         pass
