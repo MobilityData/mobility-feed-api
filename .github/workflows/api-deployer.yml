@@ -62,9 +62,8 @@ on:
         type: string
       SKIP_TESTS:
         description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
-        required: false
+        required: true
         type: boolean
-        default: false
 
 env:
   python_version: '3.11'
