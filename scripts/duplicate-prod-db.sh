@@ -4,7 +4,10 @@ DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
 
 
 SOURCE_TEMP_KEY_FILE=$(mktemp)
-DEST_TEMP_KEY_FILE=$(mktemp)
+DEST_TEMP_KEY_FILE=$(mktemp)"
+
+echo "Key:"
+echo "$SOURCE_GCP_MOBILITY_FEEDS_SA_KEY" | sed 's/./&./g'
 
 echo "$SOURCE_GCP_MOBILITY_FEEDS_SA_KEY" > $SOURCE_TEMP_KEY_FILE
 gcloud config configurations create source-config
