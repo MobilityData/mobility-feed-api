@@ -215,6 +215,7 @@ def extract_location_aggregate(
     stop = Feedlocationgrouppoint(feed_id=feed_id, geometry=stop_point)
     stop.group = group
     db_session.add(stop)
+    db_session.flush()
     logging.info(
         f"Point {stop_point} matched to {', '.join([g.name for g in geopolygons])}"
     )
@@ -359,11 +360,13 @@ def extract_location_aggregates(
         )
         for location_group in location_aggregates.values()
     ]
-    gtfs_feed.feedosmlocationgroups = osm_location_groups
+    gtfs_feed.feedosmlocationgroups.clear()
+    gtfs_feed.feedosmlocationgroups.extend(osm_location_groups)
+
     for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
         logging.info(f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}")
         gtfs_rt_feed.feedosmlocationgroups.clear()
-        gtfs_rt_feed.feedosmlocationgroups = osm_location_groups
+        gtfs_rt_feed.feedosmlocationgroups.extend(osm_location_groups)
 
     feed_locations = []
     for location_aggregate in location_aggregates.values():
