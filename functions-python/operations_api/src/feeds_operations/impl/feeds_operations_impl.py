@@ -238,6 +238,8 @@ class OperationsApiImpl(BaseOperationsApi):
                 feed.operational_status = "wip"
             elif action.lower() == "published":
                 feed.operational_status = "published"
+            elif action.lower() == "unpublished":
+                feed.operational_status = "unpublished"
         session.add(feed)
 
     @staticmethod

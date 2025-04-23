@@ -218,3 +218,60 @@ async def test_get_feeds_gtfs_rt_entity_types():
         assert isinstance(feed.entity_types, list)
         for entity_type in feed.entity_types:
             assert entity_type in ["vp", "tu", "sa"]
+
+
+@pytest.mark.asyncio
+async def test_get_feeds_unpublished_status():
+    """
+    Test get_feeds endpoint with unpublished operational status filter.
+    Should return only feeds with unpublished status.
+    """
+    api = OperationsApiImpl()
+
+    # Test with unpublished status filter
+    response = await api.get_feeds(operation_status="unpublished")
+    assert response is not None
+    for feed in response.feeds:
+        assert feed.operational_status == "unpublished"
+
+
+@pytest.mark.asyncio
+async def test_get_feeds_all_operational_statuses():
+    """
+    Test get_feeds endpoint with all possible operational status values.
+    Verifies that each operational status filter works correctly.
+    """
+    api = OperationsApiImpl()
+
+    # Test each operational status
+    for status in ["wip", "published", "unpublished"]:
+        response = await api.get_feeds(operation_status=status)
+        assert response is not None
+        for feed in response.feeds:
+            assert feed.operational_status == status
+
+
+@pytest.mark.asyncio
+async def test_get_feeds_unpublished_with_data_type():
+    """
+    Test get_feeds endpoint with unpublished status and data type filters combined.
+    """
+    api = OperationsApiImpl()
+
+    gtfs_response = await api.get_feeds(
+        operation_status="unpublished", data_type="gtfs"
+    )
+    assert gtfs_response is not None
+    for feed in gtfs_response.feeds:
+        assert feed.operational_status == "unpublished"
+        assert feed.data_type == "gtfs"
+        assert isinstance(feed, GtfsFeedResponse)
+
+    rt_response = await api.get_feeds(
+        operation_status="unpublished", data_type="gtfs_rt"
+    )
+    assert rt_response is not None
+    for feed in rt_response.feeds:
+        assert feed.operational_status == "unpublished"
+        assert feed.data_type == "gtfs_rt"
+        assert isinstance(feed, GtfsRtFeedResponse)
