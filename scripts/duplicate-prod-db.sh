@@ -4,10 +4,7 @@ DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
 
 
 SOURCE_TEMP_KEY_FILE=$(mktemp)
-DEST_TEMP_KEY_FILE=$(mktemp)"
-
-#echo "Key:"
-#echo "$SOURCE_GCP_MOBILITY_FEEDS_SA_KEY" | sed 's/./&./g'
+DEST_TEMP_KEY_FILE=$(mktemp)
 
 echo "$SOURCE_GCP_MOBILITY_FEEDS_SA_KEY" > $SOURCE_TEMP_KEY_FILE
 gcloud config configurations create source-config
@@ -26,7 +23,7 @@ SOURCE_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-databas
 gcloud config configurations activate dest-config
 
 if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
-    echo "Bucket doesn't exist. Creating..."
+    echo "Bucket doesnt exist. Creating..."
     gsutil mb -l $GCP_REGION -p $DEST_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
 else
     echo "Bucket already exists."
