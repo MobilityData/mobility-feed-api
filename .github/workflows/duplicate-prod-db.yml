@@ -97,6 +97,16 @@ jobs:
           # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
           gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
           
+          # Delete the existing database
+          gcloud sql databases delete $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME --quiet
+          
+          # Create a the new database
+          gcloud sql databases create $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME
+          
           # Import the dump into the QA database
+          # The exported sql contains statements that require authentication as user postgres.
+          # In theory we could dump the DB without these statements, with:
+          # pg_dump --no-owner --no-privileges -d your_database > clean_dump.sql.
+
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
           gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_USER --quiet
