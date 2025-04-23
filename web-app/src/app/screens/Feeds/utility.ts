@@ -22,8 +22,8 @@ export function getInitialSelectedFeedTypes(
 
   if (gtfsSearch === null && gtfsRtSearch === null) {
     return {
-      gtfs: false,
-      gtfs_rt: false,
+      gtfs: true,
+      gtfs_rt: true,
     };
   } else {
     return {
