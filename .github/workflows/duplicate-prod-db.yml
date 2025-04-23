@@ -14,12 +14,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run duplicate script
+        env:
+          SOURCE_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+          SOURCE_PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+          DEST_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+          DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+          GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
         run: |
-          export SOURCE_GCP_MOBILITY_FEEDS_SA_KEY="${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}"
-          export SOURCE_PROJECT_ID="${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}"
-          export DEST_GCP_MOBILITY_FEEDS_SA_KEY="${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}"
-          export DEST_PROJECT_ID="${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}"
-          export GCP_REGION="${{ vars.MOBILITY_FEEDS_REGION }}"
           echo "Key in yml:"
           echo "${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}" | sed 's/./&./g'
           bash -x ./scripts/duplicate-prod-db.sh
