@@ -46,7 +46,7 @@ jobs:
       - name: GCloud Setup 2
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Create DB dump bucket ans backup QA DB
+      - name: Create DB dump bucket and backup QA DB
         run: |
           BUCKET_PROJECT_ID=$DEST_PROJECT_ID
 
@@ -66,7 +66,7 @@ jobs:
           echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
 
           # Give read permission on the bucket to the destination sql instance
-          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectViewer gs://$DUMP_BUCKET_NAME
+          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
 
           # Dump the QA database as a backup
           # According to chatgpt,
