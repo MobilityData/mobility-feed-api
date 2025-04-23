@@ -2,6 +2,8 @@
 BUCKET_PROJECT_ID=$DEST_PROJECT_ID
 DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
 
+echo "Key:"
+echo "$SOURCE_GCP_MOBILITY_FEEDS_SA_KEY" | sed 's/./&./g'
 
 SOURCE_TEMP_KEY_FILE=$(mktemp)
 DEST_TEMP_KEY_FILE=$(mktemp)
