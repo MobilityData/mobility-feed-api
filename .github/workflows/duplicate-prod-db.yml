@@ -23,9 +23,6 @@ jobs:
 
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Authenticate to Google Cloud PROD project
         id: gcloud_auth_prod
         uses: google-github-actions/auth@v2
@@ -91,6 +88,8 @@ jobs:
 
       - name: GCloud Setup 3
         uses: google-github-actions/setup-gcloud@v2
+
+      - name: QA backup and import dump into the QA DB
         run: |
           # Dump the QA database as a backup
           # According to chatgpt,
