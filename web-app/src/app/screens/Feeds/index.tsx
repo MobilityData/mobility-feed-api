@@ -385,13 +385,6 @@ export default function Feed(): React.ReactElement {
                 pr: 2,
               }}
             >
-              <Typography
-                variant='sectionTitle'
-                component={'h3'}
-                sx={{ mb: '40px', fontSize: '1.7rem' }}
-              >
-                {t('common:filters')}
-              </Typography>
               <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
               <NestedCheckboxList
                 checkboxData={[
