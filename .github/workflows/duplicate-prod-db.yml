@@ -19,7 +19,7 @@ jobs:
       DUMP_FILE_NAME: "prod-db-dump.sql"
       SOURCE_DATABASE_NAME: ${{ secrets.PROD_POSTGRE_SQL_DB_NAME }}
       DEST_DATABASE_NAME: "testDB"
-      DEST_DATABASE_USER: ${{ QA_POSTGRE_USER_NAME }}
+      DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
 
 
     steps:
