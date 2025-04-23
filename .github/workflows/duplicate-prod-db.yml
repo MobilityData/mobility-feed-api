@@ -8,6 +8,15 @@ on:
 jobs:
   run-script:
     runs-on: ubuntu-latest
+    env:
+      SOURCE_PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+      DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      DUMP_BUCKET_NAME: "mobilitydata-database-dump-qa"
+      BUCKET_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      DUMP_FILE_NAME: "prod-db-dump.sql"
+      DATABASE_NAME: "MobilityDatabase"
 
     steps:
       - name: Checkout code
@@ -19,12 +28,10 @@ jobs:
         with:
           credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: GCloud Setup 1
+      - name: GCloud Setup PROD 1
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Get PROD SQL service account
-        env:
-          SOURCE_PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
         run: |
           SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-database-instance" --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
           echo "SOURCE_SQL_SERVICE_ACCOUNT=$SERVICE_ACCOUNT" >> $GITHUB_ENV
@@ -39,13 +46,7 @@ jobs:
       - name: GCloud Setup 2
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Create DB dump bucket
-        env:
-          DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-          DUMP_BUCKET_NAME: "mobilitydata-database-dump-qa"
-          BUCKET_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-          GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
-          SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      - name: Create DB dump bucket ans backup QA DB
         run: |
           BUCKET_PROJECT_ID=$DEST_PROJECT_ID
 
@@ -61,8 +62,22 @@ jobs:
           gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectCreator gs://$DUMP_BUCKET_NAME
 
           # Get the service account for the QA DB and give read permission to the bucket
-          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=$DEST_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
           echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
 
           # Give read permission on the bucket to the destination sql instance
           gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectViewer gs://$DUMP_BUCKET_NAME
+
+          # Dump the QA database as a backup
+          # According to chatgpt,
+          # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
+          # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
+          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$DATABASE_NAME --quiet
+
+#      - name: Authenticate to Google Cloud PROD project Again
+#        uses: google-github-actions/auth@v2
+#        with:
+#          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#      - name: GCloud Setup PROD 1
+#        uses: google-github-actions/setup-gcloud@v2
