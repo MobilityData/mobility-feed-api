@@ -77,7 +77,7 @@ jobs:
           gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectCreator gs://$DUMP_BUCKET_NAME
 
           # Get the service account for the QA DB and give read permsssion to the bucket
-          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=DEST_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=$DEST_PROJECT_ID --format="value(serviceAccountEmailAddress)")
           echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
 
           # Give read permission on the bucket to the destination sql instance
