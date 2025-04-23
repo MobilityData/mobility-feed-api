@@ -45,39 +45,40 @@ jobs:
           echo "SOURCE_SQL_SERVICE_ACCOUNT=$SERVICE_ACCOUNT" >> $GITHUB_ENV
           echo "Destination SQL Service Account: $SERVICE_ACCOUNT"
 
-#      - name: Authenticate to Google Cloud QA project
-#        id: gcloud_auth_qa
-#        uses: google-github-actions/auth@v2
-#        with:
-#          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#      - name: GCloud Setup
-#        uses: google-github-actions/setup-gcloud@v2
-#
-#      - name: Create DB dump bucket
-#        run: |
-#          DEST_PROJECT_ID=${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-#          DUMP_BUCKET_NAME="mobilitydata-database-dump-qa"
-#          BUCKET_PROJECT_ID=${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-#          GCP_REGION=${{ vars.MOBILITY_FEEDS_REGION }}
-#          SQL_INSTANCE_NAME=${{ secrets.DB_INSTANCE_NAME }}
-#
+      - name: Authenticate to Google Cloud QA project
+        id: gcloud_auth_qa
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Create DB dump bucket
+        env:
+          DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+          DUMP_BUCKET_NAME: "mobilitydata-database-dump-qa"
+          BUCKET_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+          GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+          SQL_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+        run: |
+           BUCKET_PROJECT_ID=$DEST_PROJECT_ID
 #          gcloud config set project $DEST_PROJECT_ID
-#
-#          # Check if the bucket already exists
-#          if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
-#            echo "Bucket doesn't exist. Creating..."
-#            gsutil mb -l $GCP_REGION -p $BUCKET_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
-#          else
-#            echo "Bucket already exists."
-#          fi
-#
-#          # Give write permission for the source sql instance to write to the bucket
-#          gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectCreator gs://$DUMP_BUCKET_NAME
-#
-#          # Get the service account for the QA DB and give read permsssion to the bucket
-#          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=DEST_PROJECT_ID --format="value(serviceAccountEmailAddress)")
-#          echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
-#
-#          # Give read permission on the bucket to the destination sql instance
-#          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectViewer gs://$BUCKET_NAME
+
+          # Check if the bucket already exists
+          if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
+            echo "Bucket doesn't exist. Creating..."
+            gsutil mb -l $GCP_REGION -p $BUCKET_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
+          else
+            echo "Bucket already exists."
+          fi
+
+          # Give write permission for the source sql instance to write to the bucket
+          gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectCreator gs://$DUMP_BUCKET_NAME
+
+          # Get the service account for the QA DB and give read permsssion to the bucket
+          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $SQL_INSTANCE_NAME --project=DEST_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
+
+          # Give read permission on the bucket to the destination sql instance
+          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectViewer gs://$DUMP_BUCKET_NAME
