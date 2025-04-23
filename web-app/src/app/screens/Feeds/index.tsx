@@ -261,7 +261,7 @@ export default function Feed(): React.ReactElement {
 
   const containerRef = React.useRef(null);
   useEffect(() => {
-    if (selectedFeedTypes.gtfs_rt == false && selectedFeedTypes.gtfs == false) {
+    if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
       setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
     }
     const observer = new IntersectionObserver(
