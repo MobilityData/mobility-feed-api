@@ -34,7 +34,7 @@ jobs:
           credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
 
 
-      - name: GCloud Setup
+      - name: GCloud Setup 1
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Get PROD SQL service account
@@ -51,7 +51,7 @@ jobs:
         with:
           credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
 
-      - name: GCloud Setup
+      - name: GCloud Setup 2
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Create DB dump bucket
