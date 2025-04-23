@@ -15,8 +15,12 @@ jobs:
       BUCKET_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
       GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
       DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      DEST_DATABASE_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DUMP_FILE_NAME: "prod-db-dump.sql"
-      DATABASE_NAME: "MobilityDatabase"
+      SOURCE_DATABASE_NAME: ${{ secrets.PROD_POSTGRE_SQL_DB_NAME }}
+      DEST_DATABASE_NAME: "testDB"
+      DEST_DATABASE_USER: ${{ QA_POSTGRE_USER_NAME }}
+
 
     steps:
       - name: Checkout code
@@ -46,7 +50,7 @@ jobs:
       - name: GCloud Setup 2
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Create DB dump bucket and backup QA DB
+      - name: Create DB dump bucket and give permissions
         run: |
           BUCKET_PROJECT_ID=$DEST_PROJECT_ID
 
@@ -68,12 +72,6 @@ jobs:
           # Give read-write permission on the bucket to the destination sql instance
           gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
 
-          # Dump the QA database as a backup
-          # According to chatgpt,
-          # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
-          # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
-          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$DATABASE_NAME --quiet
-
       - name: Authenticate to Google Cloud PROD project Again
         uses: google-github-actions/auth@v2
         with:
@@ -84,4 +82,22 @@ jobs:
 
       - name: Dump the PROD DB
         run: |
-          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DATABASE_NAME --quiet
+          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$SOURCE_DATABASE_NAME --quiet
+
+      - name: Authenticate to Google Cloud QA project Again Again
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup 3
+        uses: google-github-actions/setup-gcloud@v2
+        run: |
+          # Dump the QA database as a backup
+          # According to chatgpt,
+          # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
+          # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
+          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
+          
+          # Import the dump into the QA database
+          export PGPASSWORD=$DEST_DATABASE_PASSWORD
+          gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_USER --quiet
