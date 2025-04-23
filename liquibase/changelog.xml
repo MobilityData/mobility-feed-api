@@ -51,5 +51,4 @@
 <!-- Materialized view updated. Added features and totals. -->
     <include file="changes/feat_993.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1132.sql" relativeToChangelogFile="true"/>
-    <include file="changes/feat_1132_2.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
