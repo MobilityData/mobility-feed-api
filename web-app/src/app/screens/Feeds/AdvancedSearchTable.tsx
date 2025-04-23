@@ -230,19 +230,7 @@ export default function AdvancedSearchTable({
                               key={index}
                               sx={{ display: 'flex', alignItems: 'center' }}
                             >
-                              <Typography>
-                                {getEmojiFlag(
-                                  location.country_code as TCountryCode,
-                                )}{' '}
-                                {location.country}
-                              </Typography>
                               <Typography
-                                sx={{
-                                  fontStyle: 'italic',
-                                  mr: 1,
-                                  fontWeight: 'bold',
-                                }}
-                                variant='caption'
                                 onMouseEnter={(event) => {
                                   setPopoverData(
                                     locationForCountry?.map(
@@ -259,8 +247,21 @@ export default function AdvancedSearchTable({
                                   setPopoverTitle(undefined);
                                 }}
                               >
-                                &nbsp;(
-                                {locationForCountry?.length})
+                                {getEmojiFlag(
+                                  location.country_code as TCountryCode,
+                                )}{' '}
+                                {location.country}
+                                <Typography
+                                  sx={{
+                                    fontStyle: 'italic',
+                                    mr: 1,
+                                    fontWeight: 'bold',
+                                  }}
+                                  variant='caption'
+                                >
+                                  &nbsp;(
+                                  {locationForCountry?.length})
+                                </Typography>
                               </Typography>
                             </Box>
                           );
