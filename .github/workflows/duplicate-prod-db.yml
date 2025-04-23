@@ -65,7 +65,7 @@ jobs:
           DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
           echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
 
-          # Give read permission on the bucket to the destination sql instance
+          # Give read-write permission on the bucket to the destination sql instance
           gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
 
           # Dump the QA database as a backup
@@ -74,10 +74,14 @@ jobs:
           # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
           gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$DATABASE_NAME --quiet
 
-#      - name: Authenticate to Google Cloud PROD project Again
-#        uses: google-github-actions/auth@v2
-#        with:
-#          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#      - name: GCloud Setup PROD 1
-#        uses: google-github-actions/setup-gcloud@v2
+      - name: Authenticate to Google Cloud PROD project Again
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup PROD 2
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Dump the PROD DB
+        run: |
+          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DATABASE_NAME --quiet
