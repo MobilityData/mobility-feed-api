@@ -16,7 +16,9 @@ logging.basicConfig(level=logging.INFO)
 
 
 @with_db_session
-def get_feeds_data(country_codes: List[str], db_session: Session) -> List[Dict]:
+def get_feeds_data(
+    country_codes: List[str], include_only_unprocessed: bool, db_session: Session
+) -> List[Dict]:
     """Get the feeds data for the given country codes. In case no country codes are provided, fetch feeds for all
     countries."""
     query = (
@@ -35,6 +37,10 @@ def get_feeds_data(country_codes: List[str], db_session: Session) -> List[Dict]:
     else:
         logging.warning("No country codes provided. Fetching feeds for all countries.")
 
+    if include_only_unprocessed:
+        logging.info("Filtering for unprocessed feeds.")
+        query = query.filter(~Gtfsfeed.feedlocationgrouppoints.any())
+
     results = query.populate_existing().all()
     logging.info(f"Found {len(results)} feeds.")
 
@@ -49,24 +55,28 @@ def get_feeds_data(country_codes: List[str], db_session: Session) -> List[Dict]:
     return data
 
 
-def parse_request_parameters(request: flask.Request) -> List[str]:
-    """Parse the request parameters to get the country codes."""
-    country_codes = request.args.get("country_codes", "").split(",")
+def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool]:
+    """Parse the request parameters to get the country codes and whether to include only unprocessed feeds."""
+    json_request = request.get_json()
+    country_codes = json_request.get("country_codes", "").split(",")
     country_codes = [code.strip().upper() for code in country_codes if code]
 
     # Validate country codes
     for country_code in country_codes:
         if not pycountry.countries.get(alpha_2=country_code):
             raise ValueError(f"Invalid country code: {country_code}")
-    return country_codes
+    include_only_unprocessed = (
+        json_request.get("include_only_unprocessed", True) is True
+    )
+    return country_codes, include_only_unprocessed
 
 
 def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
     """Batch function to trigger reverse geolocation for feeds."""
     try:
         Logger.init_logger()
-        country_codes = parse_request_parameters(request)
-        feeds_data = get_feeds_data(country_codes)
+        country_codes, include_only_unprocessed = parse_request_parameters(request)
+        feeds_data = get_feeds_data(country_codes, include_only_unprocessed)
         logging.info(f"Valid feeds with latest dataset: {len(feeds_data)}")
 
         pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)

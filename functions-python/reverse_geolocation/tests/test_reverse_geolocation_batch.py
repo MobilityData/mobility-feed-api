@@ -56,16 +56,16 @@ class TestReverseGeolocationBatch(unittest.TestCase):
         db_session.add(feed_2)
         db_session.commit()
 
-        results = get_feeds_data(["CA"])
+        results = get_feeds_data(["CA"], True)
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["stable_id"], "test_feed")
         self.assertEqual(results[0]["dataset_id"], "test_dataset_latest")
         self.assertEqual(results[0]["url"], "test_url")
 
-        results_2 = get_feeds_data([])
+        results_2 = get_feeds_data([], False)
         self.assertEqual(len(results_2), 2)
 
-        results_3 = get_feeds_data(["US"])
+        results_3 = get_feeds_data(["US"], True)
         self.assertEqual(len(results_3), 1)
         self.assertEqual(results_3[0]["stable_id"], "test_feed_2")
         self.assertEqual(results_3[0]["dataset_id"], "test_dataset_3")
@@ -75,16 +75,17 @@ class TestReverseGeolocationBatch(unittest.TestCase):
 
     def test_parse_request_parameters(self):
         request = MagicMock()
-        request.args.get = lambda value, default: {"country_codes": "Ca , uS"}.get(
-            value, default
-        )
+        request.get_json.return_value.get = lambda value, default: {
+            "country_codes": "Ca , uS"
+        }.get(value, default)
         from reverse_geolocation_batch import parse_request_parameters
 
-        country_codes = parse_request_parameters(request)
-        self.assertEqual(country_codes, ["CA", "US"])
+        country_codes, include_only_unprocessed = parse_request_parameters(request)
+        self.assertEqual(["CA", "US"], country_codes)
+        self.assertTrue(include_only_unprocessed)
 
         with pytest.raises(ValueError):
-            request.args.get = lambda value, default: {
+            request.get_json.return_value.get = lambda value, default: {
                 "country_codes": "CA , US, XX"
             }.get(value, default)
             parse_request_parameters(request)

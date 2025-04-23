@@ -16,6 +16,10 @@ This HTTP function initiates reverse geolocation for multiple feeds. It accepts 
 
 - **`country_codes`** (optional): A comma-separated list of country codes specifying which feeds should be processed.  
   - If not provided, the function processes feeds from all available countries.
+- **`include_only_unprocessed`** (optional): A boolean flag indicating whether to include only feeds that have not been processed yet.  
+  - If set to `true`, only unprocessed feeds will be considered for reverse geolocation.
+  - If set to `false`, all feeds will be processed, regardless of their processing status.
+  - Default is `true`.
 
 **Behavior:**  
 The function publishes a message to the `reverse-geolocation` Pub/Sub topic for each non deprecated feed that matches the specified country codes.  
