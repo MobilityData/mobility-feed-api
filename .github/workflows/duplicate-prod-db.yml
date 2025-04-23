@@ -13,37 +13,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run duplicate script
-        env:
-          SOURCE_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-          SOURCE_PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
-          DEST_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-          DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
-          GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
-        run: |
-          echo "Key in yml:"
-          echo "${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}" | sed 's/./&./g'
-          bash -x ./scripts/duplicate-prod-db.sh
-
-          
-
-#      - name: Authenticate to Google Cloud PROD project
-#        id: gcloud_auth_prod
-#        uses: google-github-actions/auth@v2
-#        with:
-#          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#
-#      - name: GCloud Setup
-#        uses: google-github-actions/setup-gcloud@v2
-#
-#      - name: Get PROD SQL service account
+#      - name: Run duplicate script
+#        env:
+#          SOURCE_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+#          SOURCE_PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+#          DEST_GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+#          DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+#          GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
 #        run: |
-#          SOURCE_PROJECT_ID=${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
-#          SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-database-instance" --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
-#          echo "SOURCE_SQL_SERVICE_ACCOUNT=$SERVICE_ACCOUNT" >> $GITHUB_ENV
-#          echo "Destination SQL Service Account: $SERVICE_ACCOUNT"
+#          echo "Key in yml:"
+#          echo "${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}" | sed 's/./&./g'
+#          bash -x ./scripts/duplicate-prod-db.sh
 #
+#
+
+      - name: Authenticate to Google Cloud PROD project
+        id: gcloud_auth_prod
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+
+      - name: GCloud Setup
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get PROD SQL service account
+        env:
+          SOURCE_PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+        run: |
+          SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-database-instance" --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          echo "SOURCE_SQL_SERVICE_ACCOUNT=$SERVICE_ACCOUNT" >> $GITHUB_ENV
+          echo "Destination SQL Service Account: $SERVICE_ACCOUNT"
+
 #      - name: Authenticate to Google Cloud QA project
 #        id: gcloud_auth_qa
 #        uses: google-github-actions/auth@v2
