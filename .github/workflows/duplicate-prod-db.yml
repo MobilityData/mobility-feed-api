@@ -21,8 +21,8 @@ jobs:
           DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
           GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
         run: |
-          echo "Key in yml:"
-          echo "${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}" | sed 's/./&./g'
+#          echo "Key in yml:"
+#          echo "${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}" | sed 's/./&./g'
           bash -x ./scripts/duplicate-prod-db.sh
 
           
