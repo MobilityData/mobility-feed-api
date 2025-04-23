@@ -211,6 +211,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     created_at=datetime.now(pytz.utc),
                     operational_status="published",
                 )
+                feed.status = self.get_safe_value(row, "status", "active")
                 self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 session.add(feed)
                 if data_type == "gtfs":
@@ -237,7 +238,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")
             feed.api_key_parameter_name = self.get_safe_value(row, "urls.api_key_parameter_name", "")
             feed.license_url = self.get_safe_value(row, "urls.license", "")
-            feed.status = self.get_safe_value(row, "status", "active")
             feed.feed_contact_email = self.get_safe_value(row, "feed_contact_email", "")
             feed.provider = self.get_safe_value(row, "provider", "")
 
