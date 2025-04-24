@@ -35,10 +35,10 @@ import {
   selectHasLoadedAllDatasets,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
-import PreviousDatasets from './PreviousDatasets';
-import FeedSummary from './FeedSummary';
-import DataQualitySummary from './DataQualitySummary';
-import AssociatedFeeds from './AssociatedFeeds';
+import PreviousDatasets from './components/PreviousDatasets';
+import FeedSummary from './components/FeedSummary';
+import DataQualitySummary from './components/DataQualitySummary';
+import AssociatedFeeds from './components/AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
 import { Trans, useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
@@ -54,7 +54,7 @@ import {
   generatePageTitle,
   generateDescriptionMetaTag,
 } from './Feed.functions';
-import FeedTitle from './FeedTitle';
+import FeedTitle from './components/FeedTitle';
 import OfficialChip from '../../components/OfficialChip';
 import {
   GBFSFeedType,
@@ -62,8 +62,8 @@ import {
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import DownloadIcon from '@mui/icons-material/Download';
-import GbfsFeedInfo from './GbfsFeedInfo';
-import GbfsVersions from './GbfsVersions';
+import GbfsFeedInfo from './components/GbfsFeedInfo';
+import GbfsVersions from './components/GbfsVersions';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -281,6 +281,29 @@ export default function Feed(): React.ReactElement {
       ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
 
+  const gbfsOpenFeedUrlElement = (
+    gbfsFeed: GBFSFeedType,
+  ): React.JSX.Element => {
+    const latestGbfsVersionElement = gbfsFeed?.versions?.find((s) => s.latest);
+    if (latestGbfsVersionElement === undefined) {
+      return <></>;
+    }
+    return (
+      <Button
+        disableElevation
+        variant='contained'
+        sx={{ marginRight: 2 }}
+        href={''} // latestGbfsVersionElement.autodiscovery_url}
+        target='_blank'
+        rel='noreferrer'
+        endIcon={<OpenInNewIcon></OpenInNewIcon>}
+      >
+        Open Feed URL v(
+        {latestGbfsVersionElement.version})
+      </Button>
+    );
+  };
+
   return wrapComponent(
     feedLoadingStatus,
     generateDescriptionMetaTag(
@@ -330,7 +353,10 @@ export default function Feed(): React.ReactElement {
             >
               {t(`common:${feed?.data_type}`)}
             </Button>
-            / {feed.data_type === 'gbfs' ? feed?.id?.replace('gbfs-', '') : feed?.id}
+            /{' '}
+            {feed.data_type === 'gbfs'
+              ? feed?.id?.replace('gbfs-', '')
+              : feed?.id}
           </Typography>
         </Grid>
       </Grid>
@@ -466,18 +492,7 @@ export default function Feed(): React.ReactElement {
           </Button>
         )}
         {feed?.data_type === 'gbfs' && (
-          <Button
-            disableElevation
-            variant='contained'
-            sx={{ marginRight: 2 }}
-            href={''}
-            target='_blank'
-            rel='noreferrer'
-            endIcon={<OpenInNewIcon></OpenInNewIcon>}
-          >
-            Open Feed URL v(
-            {(feed as GBFSFeedType)?.versions?.find((s) => s.latest)?.version})
-          </Button>
+          <>{gbfsOpenFeedUrlElement(feed as GBFSFeedType)}</>
         )}
         {feed?.source_info?.license_url != undefined &&
           feed?.source_info?.license_url !== '' && (
@@ -505,6 +520,7 @@ export default function Feed(): React.ReactElement {
             <CoveredAreaMap
               boundingBox={boundingBox}
               latestDataset={latestDataset}
+              feed={feed}
             />
           )}
 

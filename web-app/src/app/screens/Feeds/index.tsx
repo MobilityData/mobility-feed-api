@@ -108,7 +108,7 @@ export default function Feed(): React.ReactElement {
             limit: searchLimit,
             offset: paginationOffset,
             search_query: activeSearch,
-            data_type: 'gbfs',//getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
+            data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes, config.enableGbfsInSearchPage),
             is_official: isOfficialFeedSearch || undefined,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
@@ -141,6 +141,9 @@ export default function Feed(): React.ReactElement {
     }
     if (selectedFeedTypes.gtfs_rt) {
       newSearchParams.set('gtfs_rt', 'true');
+    }
+    if (selectedFeedTypes.gbfs && config.enableGbfsInSearchPage) {
+      newSearchParams.set('gbfs', 'true');
     }
     if (selectedFeatures.length > 0) {
       newSearchParams.set('features', selectedFeatures.join(','));
@@ -288,6 +291,26 @@ export default function Feed(): React.ReactElement {
       setSearchView(newSearchView);
     }
   };
+  const dataTypesCheckboxData: CheckboxStructure[] = [
+    {
+      title: t('common:gtfsSchedule'),
+      checked: selectedFeedTypes.gtfs,
+      type: 'checkbox',
+    },
+    {
+      title: t('common:gtfsRealtime'),
+      checked: selectedFeedTypes.gtfs_rt,
+      type: 'checkbox',
+    }
+  ]
+
+  if(config.enableGbfsInSearchPage) {
+    dataTypesCheckboxData.push(    {
+      title: t('common:gbfs'),
+      checked: selectedFeedTypes.gbfs,
+      type: 'checkbox',
+    });
+  }
 
   return (
     <Container
@@ -387,24 +410,14 @@ export default function Feed(): React.ReactElement {
             >
               <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
               <NestedCheckboxList
-                checkboxData={[
-                  {
-                    title: t('common:gtfsSchedule'),
-                    checked: selectedFeedTypes.gtfs,
-                    type: 'checkbox',
-                  },
-                  {
-                    title: t('common:gtfsRealtime'),
-                    checked: selectedFeedTypes.gtfs_rt,
-                    type: 'checkbox',
-                  },
-                ]}
+                checkboxData={dataTypesCheckboxData}
                 onCheckboxChange={(checkboxData) => {
                   setActivePagination(1);
                   setSelectedFeedTypes({
                     ...selectedFeedTypes,
                     gtfs: checkboxData[0].checked,
                     gtfs_rt: checkboxData[1].checked,
+                    gbfs: checkboxData[2].checked,
                   });
                 }}
               ></NestedCheckboxList>
@@ -498,6 +511,20 @@ export default function Feed(): React.ReactElement {
                       setSelectedFeedTypes({
                         ...selectedFeedTypes,
                         gtfs_rt: false,
+                      });
+                    }}
+                  />
+                )}
+                {selectedFeedTypes.gbfs && (
+                  <Chip
+                    color='secondary'
+                    size='small'
+                    label={t('common:gbfs')}
+                    onDelete={() => {
+                      setActivePagination(1);
+                      setSelectedFeedTypes({
+                        ...selectedFeedTypes,
+                        gbfs: false,
                       });
                     }}
                   />

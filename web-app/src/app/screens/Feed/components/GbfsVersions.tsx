@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ContentBox } from '../../components/ContentBox';
+import { ContentBox } from '../../../components/ContentBox';
 import {
   Box,
   Button,
@@ -21,76 +21,30 @@ import {
   LaunchOutlined,
   CheckCircle,
 } from '@mui/icons-material';
-import { type paths } from '../../services/feeds/types';
+import { type paths } from '../../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import CodeIcon from '@mui/icons-material/Code';
 import DateRangeIcon from '@mui/icons-material/DateRange';
-import { WEB_VALIDATOR_LINK } from '../../constants/Navigation';
-import { formatServiceDateRange } from './Feed.functions';
+import { WEB_VALIDATOR_LINK } from '../../../constants/Navigation';
+import { formatServiceDateRange } from '../Feed.functions';
 import { useTranslation } from 'react-i18next';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { GBFSFeedType } from '../../services/feeds/utils';
-import { displayFormattedDate } from '../../utils/date';
+import { type GBFSFeedType, type GBFSVersionType } from '../../../services/feeds/utils';
+import { displayFormattedDate } from '../../../utils/date';
 
 export interface GbfsVersionsProps {
   feed: GBFSFeedType;
 }
 
-const sampleData = [
-  {
-    version: 'v3.0',
-    autoDiscovery:
-      'https://buenosaires.publicbikesystem.net/customer/gbfs/v3/gbfs.json	',
-    validationReportTimestamp: '2023-10-01T12:00:00Z',
-    validationErrors: 0,
-    features: [
-      'Manifest',
-      'Geofencing',
-      'Pricing Plans',
-      'Bike Availability',
-      'Station',
-      'Vehicle Types',
-      'Station',
-      'Vehicle Types',
-    ],
-  },
-  {
-    version: 'v2.0',
-    autoDiscovery:
-      'https://buenosaires.publicbikesystem.net/customer/gbfs/v2/gbfs.json	',
-    validationReportTimestamp: '2023-10-01T12:00:00Z',
-    validationErrors: 0,
-    features: [
-      'Manifest',
-      'Geofencing',
-      'Pricing Plans',
-      'Bike Availability',
-      'Station',
-      'Vehicle Types',
-    ],
-  },
-  {
-    version: 'v1.0',
-    autoDiscovery:
-      'https://buenosaires.publicbikesystem.net/customer/gbfs/v1/gbfs.json	',
-    validationReportTimestamp: '2023-10-01T12:00:00Z',
-    validationErrors: 3,
-    features: ['Manifest', 'Station', 'Vehicle Types'],
-  },
-];
-
-
-
-
 export default function GbfsVersions({
   feed,
 }: GbfsVersionsProps): React.ReactElement {
   const theme = useTheme();
-  const { t } = useTranslation('feeds');
+  const { t } = useTranslation('gbfsFeatures');
 
   return (
     <>
@@ -120,7 +74,7 @@ export default function GbfsVersions({
               flexDirection: 'column',
               justifyContent: 'space-between',
             }}
-            width={{ xs: '100%'}}
+            width={{ xs: '100%' }}
           >
             <Box>
               <Box>
@@ -133,15 +87,7 @@ export default function GbfsVersions({
                     alignItems: 'center',
                   }}
                 >
-                  {item.version}
-                  {index === 0 && (
-                    <Chip
-                      label='latest'
-                      variant='filled'
-                      color='primary'
-                      sx={{ ml: 2 }}
-                    />
-                  )}
+                  v{item.version}
                   <Chip
                     icon={
                       item.latest_validation_report?.total_error === 0 ? (
@@ -151,12 +97,18 @@ export default function GbfsVersions({
                       )
                     }
                     label={
-                      item.latest_validation_report?.total_error != null && item.latest_validation_report?.total_error > 0
+                      item.latest_validation_report?.total_error != null &&
+                      item.latest_validation_report?.total_error > 0
                         ? `${item.latest_validation_report?.total_error} errors`
                         : 'no errors'
                     }
                     variant='outlined'
-                    color={item.latest_validation_report?.total_error != null && item.latest_validation_report?.total_error > 0 ? 'error' : 'success'}
+                    color={
+                      item.latest_validation_report?.total_error != null &&
+                      item.latest_validation_report?.total_error > 0
+                        ? 'error'
+                        : 'success'
+                    }
                     sx={{ ml: 2 }}
                   />
                 </Typography>
@@ -165,9 +117,11 @@ export default function GbfsVersions({
                   component={'div'}
                   sx={{ mt: '-2px', mb: 2 }}
                 >
-                  Quality report updated at: {displayFormattedDate(item.latest_validation_report?.validated_at ?? '')} 
+                  Quality report updated at:{' '}
+                  {displayFormattedDate(
+                    item.latest_validation_report?.validated_at ?? '',
+                  )}
                   {/* TODO: timezone? */}
-                  
                 </Typography>
                 <Typography variant='h6' sx={{ fontSize: '1.1rem' }}>
                   Auto-Discovery Url
@@ -175,7 +129,8 @@ export default function GbfsVersions({
                 <Box
                   sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}
                 >
-                  {/* <Link href={item.autoDiscovery}>{item.autoDiscovery}</Link> */}
+                  <Link sx={{wordWrap: 'break-word', wordBreak: 'break-all'}} href='https://data.lime.bike/api/partners/v2/gbfs/louisville/gbfs.json'>https://data.lime.bike/api/partners/v2/gbfs/louisville/gbfs.json</Link>  
+                  {/* TODO: href={item.autoDiscovery}{item.autoDiscovery} */}
                   <ContentCopyIcon></ContentCopyIcon>
                 </Box>
                 <Box>
@@ -183,41 +138,60 @@ export default function GbfsVersions({
                     Features
                   </Typography>
                   {item.endpoints?.map((endpoint, index) => (
-                    <Chip
-                      key={index}
-                      label={endpoint.name}
-                      color='info'
-                      variant='filled'
-                      sx={{ margin: '4px' }}
-                    />
+                    <>
+                    {endpoint.name != null && (
+                      <Chip
+                        component={Link}
+                        key={index}
+                        label={t(endpoint.name)}
+                        color='info'
+                        variant='filled'
+                        sx={{ margin: '4px' }}
+                        clickable
+                        target='_blank'
+                        rel='noreferrer'
+                        href={`https://github.com/MobilityData/gbfs/blob/v${item.version}/gbfs.md#${endpoint.name}json`}
+                        // TODO: ISSUE: some urls are like: https://github.com/MobilityData/gbfs/blob/v2.2/gbfs.md#vehicle_typesjson-added-in-v21
+                        // the 'json-added-in-v21' makes the url unreliable
+                        // it will still go to the page, but not the correct anchor
+                      />
+                    )}
+                    </>
+                    
                   ))}
                 </Box>
               </Box>
-              </Box>
-              <Box
-                sx={{
-                  width: '100%',
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: 2,
-                  mt: 3,
-                }}
+            </Box>
+            <Box
+              sx={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 2,
+                mt: 3,
+              }}
+            >
+              <Button
+                variant='text'
+                color='primary'
+                href={''} // TODO: `https://gbfs-validator.mobilitydata.org/validator?url=${item.autoDiscovery}`
+                target='_blank'
+                rel='noreferrer'
+                endIcon={<OpenInNewIcon></OpenInNewIcon>}
               >
-                {/* <Button variant='text' color='primary' >
-              View Visualization
-            </Button> */}
-                <Button variant='text' color='primary'>
-                  Run Validation Report
-                </Button>
-                <Button
-                  variant='contained'
-                  color='primary'
-                  endIcon={<OpenInNewIcon></OpenInNewIcon>}
-                >
-                  Open Feed Url
-                </Button>
-              </Box>
-           
+                Run Validation Report
+              </Button>
+              <Button
+                variant='contained'
+                color='primary'
+                href='' // TODO: item.autoDiscovery
+                target='_blank'
+                rel='noreferrer'
+                endIcon={<OpenInNewIcon></OpenInNewIcon>}
+              >
+                Open Feed Url
+              </Button>
+            </Box>
           </ContentBox>
         ))}
       </Box>

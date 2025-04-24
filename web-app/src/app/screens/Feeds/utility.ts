@@ -1,17 +1,18 @@
 export function getDataTypeParamFromSelectedFeedTypes(
   selectedFeedTypes: Record<string, boolean>,
-): 'gtfs' | 'gtfs_rt' | 'gtfs,gtfs_rt' | 'gtfs,gtfs_rt,gbfs' | undefined {
-  // TODO: Add support for GBFS feeds
-  let dataTypeQueryParam: 'gtfs' | 'gtfs_rt' | 'gtfs,gtfs_rt' | 'gtfs,gtfs_rt,gbfs' | undefined;
-  if (selectedFeedTypes.gtfs && !selectedFeedTypes.gtfs_rt) {
-    dataTypeQueryParam = 'gtfs';
-  } else if (!selectedFeedTypes.gtfs && selectedFeedTypes.gtfs_rt) {
-    dataTypeQueryParam = 'gtfs_rt';
-  } else {
-    // Both GTFS and GTFS-RT are selected or none are selected
-    dataTypeQueryParam = 'gtfs,gtfs_rt,gbfs'; // Temporarily filtering out GBFS feeds
+  isGbfsEnabled: boolean,
+): string | undefined {
+  let dataTypeQueryParam = '';
+  if(selectedFeedTypes.gtfs) {
+    dataTypeQueryParam += 'gtfs';
   }
-  return dataTypeQueryParam;
+  if(selectedFeedTypes.gtfs_rt) {
+    dataTypeQueryParam += (dataTypeQueryParam.length > 0 ? ',' : '') + 'gtfs_rt';
+  }
+  if(selectedFeedTypes.gbfs && isGbfsEnabled) {
+    dataTypeQueryParam += (dataTypeQueryParam.length > 0 ? ',' : '') + 'gbfs';
+  }
+  return dataTypeQueryParam.length > 0 ? dataTypeQueryParam : (isGbfsEnabled ? undefined : 'gtfs,gtfs_rt');
 }
 
 export function getInitialSelectedFeedTypes(

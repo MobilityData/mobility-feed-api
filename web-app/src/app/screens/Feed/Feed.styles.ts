@@ -1,4 +1,4 @@
-import { type SxProps, type Theme } from '@mui/material';
+import { Box, styled, type SxProps, type Theme } from '@mui/material';
 
 export const feedDetailContentContainerStyle = (props: {
   theme: Theme;
@@ -33,3 +33,38 @@ export const mapBoxPositionStyle = {
   mb: '-16px',
   mx: '-16px',
 };
+
+export const boxElementStyle: SxProps = {
+  width: '100%',
+  mt: 2,
+  mb: 1,
+};
+
+export const boxElementStyleTransitProvider: SxProps = {
+  width: '100%',
+  mt: 2,
+  borderBottom: 'none',
+};
+
+export const boxElementStyleProducerURL: SxProps = {
+  width: '100%',
+  mb: 1,
+};
+
+export const StyledTitleContainer = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  gap: theme.spacing(1),
+  marginBottom: '4px',
+  marginTop: theme.spacing(3),
+  alignItems: 'center',
+}));
+
+export const ResponsiveListItem = styled('li')(({ theme }) => ({
+  width: '100%',
+  margin: '5px 0',
+  fontWeight: 'normal',
+  fontSize: '16px',
+  [theme.breakpoints.up('lg')]: {
+    width: 'calc(50% - 15px)',
+  },
+}));

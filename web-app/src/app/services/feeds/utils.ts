@@ -49,6 +49,8 @@ export type GBFSFeedType =
   | paths['/v1/gbfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
   | undefined;
 
+export type GBFSVersionType = components['schemas']['GbfsVersion'];
+
 export const isGbfsFeedType = (
   data: AllFeedType,
 ): data is paths['/v1/gbfs_feeds/{id}']['get']['responses'][200]['content']['application/json'] => {

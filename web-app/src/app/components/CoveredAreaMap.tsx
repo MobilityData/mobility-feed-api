@@ -17,10 +17,13 @@ import { Map } from './Map';
 import { useTranslation } from 'react-i18next';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
+import { type GBFSFeedType, type AllFeedType } from '../services/feeds/utils';
+import { OpenInNew } from '@mui/icons-material';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
   latestDataset?: { hosted_url?: string };
+  feed: AllFeedType;
 }
 
 export const fetchGeoJson = async (
@@ -41,6 +44,7 @@ export const fetchGeoJson = async (
 const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   boundingBox,
   latestDataset,
+  feed,
 }) => {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
@@ -83,6 +87,13 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (newView !== null) setView(newView);
   };
 
+  const getGbfsLatestVersionVisualizationUrl = (feed: GBFSFeedType): string => {
+    // TODO: Redo logic when versions all have the auto discovery
+    return `https://gbfs-validator.mobilitydata.org/visualization?url=${(
+      feed as GBFSFeedType
+    )?.source_info?.producer_url}`;
+  };
+
   return (
     <ContentBox
       sx={{
@@ -96,8 +107,15 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       padding={2}
       action={
         <>
-          {3 > 2 ? (
-            <Button>View real-time visualization</Button>
+          {feed?.data_type === 'gbfs' ? (
+            <Button
+              href={getGbfsLatestVersionVisualizationUrl(feed as GBFSFeedType)}
+              target='_blank'
+              rel='noreferrer'
+              endIcon={<OpenInNew />}
+            >
+              View real-time visualization
+            </Button>
           ) : (
             <ToggleButtonGroup
               value={view}

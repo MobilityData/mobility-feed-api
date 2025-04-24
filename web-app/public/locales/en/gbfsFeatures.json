@@ -1,0 +1,16 @@
+{
+    "gbfs": "GBFS",
+    "system_regions": "System Regions",
+    "system_information": "System Information",
+    "geofencing_zones": "Geofencing Zones",
+    "system_pricing_plans": "System Pricing Plans",
+    "vehicle_types": "Vehicle Types",
+    "vehicle_status": "Vehicle Status",
+    "station_status": "Station Status",
+    "system_calendar": "System Calendar",
+    "system_hours": "System Hours",
+    "gbfs_versions": "GBFS Versions",
+    "station_information": "Station Information",
+    "system_alerts": "System Alerts",
+    "free_bike_status": "Free Bike Status"
+}
