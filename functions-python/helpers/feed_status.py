@@ -77,6 +77,7 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
         session.commit()
         refresh_materialized_view(session, t_feedsearch.name)
         logging.info("Feed Database changes for status committed.")
+        logging.info("Status Changes: %s", diff_counts)
         session.close()
         return diff_counts
     except Exception as e:
