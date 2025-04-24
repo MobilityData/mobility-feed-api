@@ -63,6 +63,7 @@ export const FeedStatusIndicator = (
               width: '12px',
               height: '12px',
               borderRadius: '50%',
+              minWidth: '12px',
             }}
           ></Box>
         </Tooltip>
