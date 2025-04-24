@@ -383,7 +383,7 @@ class TestValidationReportProcessor(unittest.TestCase):
         self, mock_get, db_session
     ):
         """Test create_validation_report_entities function
-        when the validator version is missing from the JSON report."""
+        when the validation report already exists."""
         version = "1.0"
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -429,7 +429,7 @@ class TestValidationReportProcessor(unittest.TestCase):
             self.assertIsNotNone(validation_report)
             create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
 
-            # Validate that the validation report remained
+            # Validate that the validation report remained in the DB
             validation_report = (
                 db_session.query(Validationreport)
                 .filter(Validationreport.id == report_id)
