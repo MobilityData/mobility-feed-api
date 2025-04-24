@@ -8,6 +8,12 @@ on:
       - "functions/**"
       - ".github/workflows/web-*.yml"
   workflow_call:
+    inputs:
+      SKIP_TESTS:
+        description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
+        required: false
+        type: boolean
+        default: false
 
 env:
   python_version: '3.11'
@@ -21,6 +27,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set whether to run tests
+        id: set-should-run-tests
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "workflow_call" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            echo "result=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$INPUTS_SKIP_TESTS" == "false" ]]; then
+            echo "result=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          INPUTS_SKIP_TESTS: ${{ inputs.SKIP_TESTS }}
 
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
@@ -41,6 +60,7 @@ jobs:
         working-directory: ${{ github.workspace }}
 
       - name: Run lint checks
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         shell: bash
         run: |
           scripts/lint-tests.sh
@@ -53,13 +73,6 @@ jobs:
 
           sudo apt-get update
           sudo apt-get install liquibase=4.25.1
-
-#      Uncomment the following block to test the local databases connections
-#      - name: Test Database Connection
-#        run: |
-#          sudo apt-get update && sudo apt-get install -y postgresql-client
-#          PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d MobilityDatabase -c "SELECT version();"
-#          PGPASSWORD=postgres psql -h localhost -p 54320 -U postgres -d MobilityDatabaseTest -c "SELECT version();"
 
       - name: Run Liquibase on Python functions test DB
         run: |
@@ -85,17 +98,20 @@ jobs:
           scripts/api-operations-gen.sh
 
       - name: Unit tests - API
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder api --html_report
 
       - name: Unit tests - Python Functions
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         shell: bash
         run: |
           scripts/api-tests.sh --folder functions-python --html_report
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         with:
           name: coverage_report
           path: scripts/coverage_reports/
@@ -103,6 +119,7 @@ jobs:
 
       - name: Upload DB models
         uses: actions/upload-artifact@v4
+        if: ${{ steps.set-should-run-tests.outputs.result == 'true' }}
         with:
           name: database_gen
           path: api/src/shared/database_gen/
