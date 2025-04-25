@@ -12,5 +12,6 @@
     "gbfs_versions": "GBFS Versions",
     "station_information": "Station Information",
     "system_alerts": "System Alerts",
-    "free_bike_status": "Free Bike Status"
+    "free_bike_status": "Free Bike Status",
+    "nearby_stations": "Nearby Stations"
 }
