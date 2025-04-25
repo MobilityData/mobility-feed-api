@@ -12,7 +12,7 @@ export function getDataTypeParamFromSelectedFeedTypes(
   if(selectedFeedTypes.gbfs && isGbfsEnabled) {
     dataTypeQueryParam += (dataTypeQueryParam.length > 0 ? ',' : '') + 'gbfs';
   }
-  return dataTypeQueryParam.length > 0 ? dataTypeQueryParam : (isGbfsEnabled ? undefined : 'gtfs,gtfs_rt');
+  return dataTypeQueryParam.length > 0 ? dataTypeQueryParam : (isGbfsEnabled ? 'gtfs,gtfs_rt,gbfs' : 'gtfs,gtfs_rt');
 }
 
 export function getInitialSelectedFeedTypes(

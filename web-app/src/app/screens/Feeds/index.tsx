@@ -87,7 +87,8 @@ export default function Feed(): React.ReactElement {
 
   // features i/o
   const areFeatureFiltersEnabled =
-    !selectedFeedTypes.gtfs_rt || selectedFeedTypes.gtfs;
+    (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
+    selectedFeedTypes.gtfs;
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
@@ -108,7 +109,10 @@ export default function Feed(): React.ReactElement {
             limit: searchLimit,
             offset: paginationOffset,
             search_query: activeSearch,
-            data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes, config.enableGbfsInSearchPage),
+            data_type: getDataTypeParamFromSelectedFeedTypes(
+              selectedFeedTypes,
+              config.enableGbfsInSearchPage,
+            ),
             is_official: isOfficialFeedSearch || undefined,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
@@ -142,6 +146,7 @@ export default function Feed(): React.ReactElement {
     if (selectedFeedTypes.gtfs_rt) {
       newSearchParams.set('gtfs_rt', 'true');
     }
+    console.log('config.enableGbfsInSearchPage', config.enableGbfsInSearchPage);
     if (selectedFeedTypes.gbfs && config.enableGbfsInSearchPage) {
       newSearchParams.set('gbfs', 'true');
     }
@@ -187,6 +192,7 @@ export default function Feed(): React.ReactElement {
     }
 
     const newFeedTypes = getInitialSelectedFeedTypes(searchParams);
+    console.log('newFeedTypes', newFeedTypes);
     if (newFeedTypes.gtfs !== selectedFeedTypes.gtfs) {
       setSelectedFeedTypes({
         ...selectedFeedTypes,
@@ -198,6 +204,13 @@ export default function Feed(): React.ReactElement {
       setSelectedFeedTypes({
         ...selectedFeedTypes,
         gtfs_rt: newFeedTypes.gtfs_rt,
+      });
+    }
+
+    if (newFeedTypes.gbfs !== selectedFeedTypes.gbfs) {
+      setSelectedFeedTypes({
+        ...selectedFeedTypes,
+        gbfs: newFeedTypes.gbfs,
       });
     }
   }, [searchParams]);
@@ -253,6 +266,7 @@ export default function Feed(): React.ReactElement {
     setSelectedFeedTypes({
       gtfs: false,
       gtfs_rt: false,
+      gbfs: false,
     });
     setSelectedFeatures([]);
     setIsOfficialFeedSearch(false);
@@ -264,9 +278,20 @@ export default function Feed(): React.ReactElement {
 
   const containerRef = React.useRef(null);
   useEffect(() => {
-    if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
-      setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
+    if (!config.enableGbfsInSearchPage) {
+      if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
+        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
+      }
+    } else {
+      if (
+        !selectedFeedTypes.gtfs_rt &&
+        !selectedFeedTypes.gtfs &&
+        !selectedFeedTypes.gbfs
+      ) {
+        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true, gbfs: true });
+      }
     }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsSticky(!entry.isIntersecting);
@@ -301,11 +326,11 @@ export default function Feed(): React.ReactElement {
       title: t('common:gtfsRealtime'),
       checked: selectedFeedTypes.gtfs_rt,
       type: 'checkbox',
-    }
-  ]
+    },
+  ];
 
-  if(config.enableGbfsInSearchPage) {
-    dataTypesCheckboxData.push(    {
+  if (config.enableGbfsInSearchPage) {
+    dataTypesCheckboxData.push({
       title: t('common:gbfs'),
       checked: selectedFeedTypes.gbfs,
       type: 'checkbox',

@@ -51,6 +51,8 @@ export type GBFSFeedType =
 
 export type GBFSVersionType = components['schemas']['GbfsVersion'];
 
+export type GBFSVersionEndpointType = components['schemas']['GbfsEndpoint'];
+
 export const isGbfsFeedType = (
   data: AllFeedType,
 ): data is paths['/v1/gbfs_feeds/{id}']['get']['responses'][200]['content']['application/json'] => {
