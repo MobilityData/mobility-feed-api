@@ -100,6 +100,10 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
+        maxHeight: {
+          xs: '100%',
+          md: '70vh',
+        }
       }}
       title={t('coveredAreaTitle') + ' - ' + t(view)}
       width={{ xs: '100%' }}

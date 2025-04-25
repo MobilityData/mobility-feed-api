@@ -46,6 +46,12 @@ export default function GbfsVersions({
   const theme = useTheme();
   const { t } = useTranslation('gbfsFeatures');
 
+  const sortVersions = (a: GBFSVersionType, b: GBFSVersionType) => {
+    const na = (a.version ?? '0').replace(/[^0-9.]/g, '');
+    const nb = (b.version ?? '0').replace(/[^0-9.]/g, '');
+    return parseFloat(nb) - parseFloat(na);
+  }
+
   return (
     <>
       <Typography
@@ -62,7 +68,7 @@ export default function GbfsVersions({
           justifyContent: 'flex-end',
         }}
       >
-        {feed?.versions?.map((item, index) => (
+        {feed?.versions?.sort((a, b) => sortVersions(a,b)).map((item, index) => (
           <ContentBox
             key={index}
             title={``}
@@ -110,6 +116,11 @@ export default function GbfsVersions({
                         : 'success'
                     }
                     sx={{ ml: 2 }}
+                    clickable
+                    component={Link}
+                    href={item.latest_validation_report?.report_summary_url}
+                    target='_blank'
+                    rel='noreferrer'
                   />
                 </Typography>
                 <Typography
@@ -121,7 +132,6 @@ export default function GbfsVersions({
                   {displayFormattedDate(
                     item.latest_validation_report?.validated_at ?? '',
                   )}
-                  {/* TODO: timezone? */}
                 </Typography>
                 <Typography variant='h6' sx={{ fontSize: '1.1rem' }}>
                   Auto-Discovery Url

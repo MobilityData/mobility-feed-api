@@ -421,17 +421,16 @@ export default function Feed(): React.ReactElement {
           <Grid item xs={12}>
             <Typography variant='h5'>
               {' '}
-              {(feed as GTFSRTFeedType)?.entity_types ??
-                []
-                  .map(
-                    (entityType) =>
-                      ({
-                        tu: t('common:gtfsRealtimeEntities.tripUpdates'),
-                        vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
-                        sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
-                      })[entityType],
-                  )
-                  .join(' ' + t('common:and') + ' ')}
+              {((feed as GTFSRTFeedType)?.entity_types ?? [])
+                .map(
+                  (entityType) =>
+                    ({
+                      tu: t('common:gtfsRealtimeEntities.tripUpdates'),
+                      vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
+                      sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
+                    })[entityType],
+                )
+                .join(' ' + t('common:and') + ' ')}
             </Typography>
           </Grid>
         )}
@@ -524,7 +523,7 @@ export default function Feed(): React.ReactElement {
             />
           )}
 
-          <Box sx={{ width: { xs: '100%', md: '40%' } }}>
+          <Box sx={{ width: { xs: '100%', md: '60%' } }}>
             {feed.data_type === 'gbfs' ? (
               <GbfsFeedInfo feed={feed as GTFSFeedType}></GbfsFeedInfo>
             ) : (

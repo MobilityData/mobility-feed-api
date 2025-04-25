@@ -53,7 +53,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableFeatureFilterSearch: false,
   enableIsOfficialFilterSearch: false,
   enableFeedStatusBadge: false,
-  enableGbfsInSearchPage: true, // TODO: change to false
+  enableGbfsInSearchPage: false,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;

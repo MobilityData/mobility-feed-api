@@ -517,7 +517,8 @@ export default function Feed(): React.ReactElement {
                 )}
                 {selectedFeedTypes.gbfs && (
                   <Chip
-                    color='secondary'
+                    color='primary'
+                    variant='outlined'
                     size='small'
                     label={t('common:gbfs')}
                     onDelete={() => {
