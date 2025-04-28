@@ -64,7 +64,7 @@ class SearchApiImpl(BaseSearchApi):
             )
         # Add feature filter with OR logic
         if features:
-            features_list = [s.strip().lower() for s in features[0].split(",") if s]
+            features_list = [s.strip() for s in features[0].split(",") if s]
             if features_list:
                 query = query.filter(
                     t_feedsearch.c.latest_dataset_features.op("&&")(features_list)
