@@ -84,13 +84,13 @@ jobs:
 #        run: |
 #          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$SOURCE_DATABASE_NAME --quiet
 #
-#      - name: Authenticate to Google Cloud QA project Again
-#        uses: google-github-actions/auth@v2
-#        with:
-#          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#      - name: GCloud Setup QA Again
-#        uses: google-github-actions/setup-gcloud@v2
+      - name: Authenticate to Google Cloud QA project Again
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup QA Again
+        uses: google-github-actions/setup-gcloud@v2
 #
 #      - name: QA backup and import dump into the QA DB
 #        run: |
