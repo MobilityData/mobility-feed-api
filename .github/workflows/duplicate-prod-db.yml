@@ -20,6 +20,7 @@ jobs:
       SOURCE_DATABASE_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
       DEST_DATABASE_NAME: "testDB"
       DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
+      DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
 
 
@@ -110,7 +111,7 @@ jobs:
           # pg_dump --no-owner --no-privileges -d your_database > clean_dump.sql.
 
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
-          gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_USER --quiet
+          gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_IMPORT_USER --quiet
 
       - name: Load secrets from 1Password
         uses: 1password/load-secrets-action@v2.0.0
