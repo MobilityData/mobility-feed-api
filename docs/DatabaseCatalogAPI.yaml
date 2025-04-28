@@ -1169,6 +1169,7 @@ components:
             - Shapes
             - Transfers
             - Frequencies
+            - Text-to-Speech
             - Wheelchair Accessibility
             - Bikes Allowance
             - Transfer Fares
