@@ -137,7 +137,7 @@ jobs:
           sleep 10 # Wait for the tunnel to establish
 
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
-          cat <<EOF | psql -h localhost -p 5454 -U data_feeds_user -d $DEST_DATABASE_NAME 
+          cat <<'EOF' | psql -h localhost -p 5454 -U data_feeds_user -d $DEST_DATABASE_NAME 
           DO $$
           DECLARE
               r RECORD;
