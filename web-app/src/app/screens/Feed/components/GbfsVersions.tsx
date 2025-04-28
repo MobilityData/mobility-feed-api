@@ -57,9 +57,12 @@ export const sortVersions = (
   a: GBFSVersionType,
   b: GBFSVersionType,
 ): number => {
-  const na = String(a.version ?? '0').replace(/[^0-9.]/g, '');
-  const nb = String(b.version ?? '0').replace(/[^0-9.]/g, '');
-  return parseFloat(nb) - parseFloat(na);
+  const na = parseFloat(String(a.version ?? '0').replace(/[^0-9.]/g, ''));
+  const nb = parseFloat(String(b.version ?? '0').replace(/[^0-9.]/g, ''));
+  if (Number.isNaN(na) || Number.isNaN(nb)) {
+    return -1;
+  }
+  return nb - na;
 };
 
 export default function GbfsVersions({

@@ -55,8 +55,8 @@ describe('getGbfsFeatures', () => {
       ],
     };
     expect(getGbfsFeatures(input)).toEqual([
-      { name: 'feature1', is_feature: true, language: null },
-      { name: 'feature2', is_feature: true, language: null },
+      { name: 'feature1', is_feature: true, language: undefined },
+      { name: 'feature2', is_feature: true, language: undefined },
     ]);
   });
 
