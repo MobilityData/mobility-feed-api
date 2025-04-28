@@ -448,9 +448,9 @@ export default function Feed(): React.ReactElement {
                     ...selectedFeedTypes,
                     gtfs: checkboxData[0].checked,
                     gtfs_rt: checkboxData[1].checked,
-                    gbfs: false
-                  }
-                  if(config.enableGbfsInSearchPage) {
+                    gbfs: false,
+                  };
+                  if (config.enableGbfsInSearchPage) {
                     checkedFeedTypes.gbfs = checkboxData[2].checked;
                   }
                   setSelectedFeedTypes(checkedFeedTypes);
