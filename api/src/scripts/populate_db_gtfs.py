@@ -223,7 +223,10 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         source="mdb",
                     )
                 ]
-
+            # Always set the deprecated status if found in the csv
+            csv_status = self.get_safe_value(row, "status", "active")
+            if csv_status.lower() == "deprecated":
+                feed.status = "deprecated"
             # If the is_official field from the CSV is empty, the value here will be None and we don't touch the DB
             if is_official_from_csv is not None:
                 if feed.official != is_official_from_csv:
