@@ -57,7 +57,7 @@ import {
 import FeedTitle from './components/FeedTitle';
 import OfficialChip from '../../components/OfficialChip';
 import {
-  GBFSFeedType,
+  type GBFSFeedType,
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
@@ -298,7 +298,7 @@ export default function Feed(): React.ReactElement {
         rel='noreferrer'
         endIcon={<OpenInNewIcon></OpenInNewIcon>}
       >
-        Open Feed URL v(
+        {t('gbfs:openFeedUrl')} v(
         {latestGbfsVersionElement.version})
       </Button>
     );
@@ -554,9 +554,7 @@ export default function Feed(): React.ReactElement {
           <PreviousDatasets
             datasets={datasets}
             isLoadingDatasets={datasetLoadingStatus === 'loading'}
-            hasloadedAllDatasets={
-              hasLoadedAllDatasets != undefined && !!hasLoadedAllDatasets
-            }
+            hasloadedAllDatasets={hasLoadedAllDatasets ?? false}
             loadMoreDatasets={(offset: number) => {
               loadDatasets(offset);
             }}

@@ -3,16 +3,21 @@ export function getDataTypeParamFromSelectedFeedTypes(
   isGbfsEnabled: boolean,
 ): string | undefined {
   let dataTypeQueryParam = '';
-  if(selectedFeedTypes.gtfs) {
+  if (selectedFeedTypes.gtfs) {
     dataTypeQueryParam += 'gtfs';
   }
-  if(selectedFeedTypes.gtfs_rt) {
-    dataTypeQueryParam += (dataTypeQueryParam.length > 0 ? ',' : '') + 'gtfs_rt';
+  if (selectedFeedTypes.gtfs_rt) {
+    dataTypeQueryParam +=
+      (dataTypeQueryParam.length > 0 ? ',' : '') + 'gtfs_rt';
   }
-  if(selectedFeedTypes.gbfs && isGbfsEnabled) {
+  if (selectedFeedTypes.gbfs && isGbfsEnabled) {
     dataTypeQueryParam += (dataTypeQueryParam.length > 0 ? ',' : '') + 'gbfs';
   }
-  return dataTypeQueryParam.length > 0 ? dataTypeQueryParam : (isGbfsEnabled ? 'gtfs,gtfs_rt,gbfs' : 'gtfs,gtfs_rt');
+  return dataTypeQueryParam.length > 0
+    ? dataTypeQueryParam
+    : isGbfsEnabled
+      ? 'gtfs,gtfs_rt,gbfs'
+      : 'gtfs,gtfs_rt';
 }
 
 export function getInitialSelectedFeedTypes(

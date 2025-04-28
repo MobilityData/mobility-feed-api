@@ -146,7 +146,6 @@ export default function Feed(): React.ReactElement {
     if (selectedFeedTypes.gtfs_rt) {
       newSearchParams.set('gtfs_rt', 'true');
     }
-    console.log('config.enableGbfsInSearchPage', config.enableGbfsInSearchPage);
     if (selectedFeedTypes.gbfs && config.enableGbfsInSearchPage) {
       newSearchParams.set('gbfs', 'true');
     }
@@ -192,7 +191,6 @@ export default function Feed(): React.ReactElement {
     }
 
     const newFeedTypes = getInitialSelectedFeedTypes(searchParams);
-    console.log('newFeedTypes', newFeedTypes);
     if (newFeedTypes.gtfs !== selectedFeedTypes.gtfs) {
       setSelectedFeedTypes({
         ...selectedFeedTypes,

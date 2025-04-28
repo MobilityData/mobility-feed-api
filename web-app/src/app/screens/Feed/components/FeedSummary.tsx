@@ -5,10 +5,8 @@ import {
   Button,
   Chip,
   Grid,
-  type SxProps,
   Typography,
   Snackbar,
-  styled,
   IconButton,
   Tooltip,
   useTheme,
@@ -34,7 +32,13 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { FeedStatusIndicator } from '../../../components/FeedStatus';
 import Locations from '../../../components/Locations';
 import { formatServiceDateRange } from '../Feed.functions';
-import { boxElementStyle, StyledTitleContainer, boxElementStyleTransitProvider, ResponsiveListItem, boxElementStyleProducerURL } from '../Feed.styles';
+import {
+  boxElementStyle,
+  StyledTitleContainer,
+  boxElementStyleTransitProvider,
+  ResponsiveListItem,
+  boxElementStyleProducerURL,
+} from '../Feed.styles';
 import FeedAuthenticationSummaryInfo from './FeedAuthenticationSummaryInfo';
 
 export interface FeedSummaryProps {

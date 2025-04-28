@@ -1,7 +1,5 @@
 import { Box, Button, Typography } from '@mui/material';
-import {
-  AllFeedType,
-} from '../../../services/feeds/utils';
+import { type AllFeedType } from '../../../services/feeds/utils';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import LockIcon from '@mui/icons-material/Lock';
 import { useTranslation } from 'react-i18next';

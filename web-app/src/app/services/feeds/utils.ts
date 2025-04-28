@@ -59,7 +59,6 @@ export const isGbfsFeedType = (
   return data !== undefined && data.data_type === 'gbfs';
 };
 
-
 export type AllDatasetType =
   | paths['/v1/gtfs_feeds/{id}/datasets']['get']['responses'][200]['content']['application/json']
   | paths['/v1/datasets/gtfs/{id}']['get']['responses'][200]['content']['application/json']

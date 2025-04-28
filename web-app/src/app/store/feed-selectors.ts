@@ -5,7 +5,7 @@ import {
   isGtfsRtFeedType,
   type BasicFeedType,
   type AllFeedType,
-  GBFSFeedType,
+  type GBFSFeedType,
   isGbfsFeedType,
 } from '../services/feeds/utils';
 import { type RootState } from './store';

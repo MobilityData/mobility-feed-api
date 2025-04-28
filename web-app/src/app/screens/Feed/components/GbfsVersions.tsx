@@ -1,13 +1,21 @@
 import * as React from 'react';
 import { ContentBox } from '../../../components/ContentBox';
-import { Box, Button, Chip, Link, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  Chip,
+  Link,
+  Snackbar,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
-  GBFSVersionEndpointType,
+  type GBFSVersionEndpointType,
   type GBFSFeedType,
   type GBFSVersionType,
 } from '../../../services/feeds/utils';
@@ -17,19 +25,54 @@ export interface GbfsVersionsProps {
   feed: GBFSFeedType;
 }
 
+// gbfs endpoints need to be filtered if they are not features
+// and this function will return only the features of the language with the most features
+export const getGbfsFeatures = (
+  gbfsVersionElement: GBFSVersionType,
+): GBFSVersionEndpointType[] => {
+  const featuresByLanguage = new Map<string, GBFSVersionEndpointType[]>();
+  let maxLanguageElements = 0;
+  let maxLanguage = '';
+  gbfsVersionElement.endpoints?.forEach((endpoint) => {
+    if (
+      endpoint.name != null &&
+      endpoint.is_feature === true &&
+      endpoint.language != null
+    ) {
+      if (!featuresByLanguage.has(endpoint.language)) {
+        featuresByLanguage.set(endpoint.language, []);
+      }
+      featuresByLanguage.get(endpoint.language)?.push(endpoint);
+      if (
+        (featuresByLanguage.get(endpoint.language)?.length ?? 0) >
+        maxLanguageElements
+      ) {
+        maxLanguageElements =
+          featuresByLanguage.get(endpoint.language)?.length ?? 0;
+        maxLanguage = endpoint.language;
+      }
+    }
+  });
+  return featuresByLanguage.get(maxLanguage) ?? [];
+};
+
+export const sortVersions = (
+  a: GBFSVersionType,
+  b: GBFSVersionType,
+): number => {
+  const na = String(a.version ?? '0').replace(/[^0-9.]/g, '');
+  const nb = String(b.version ?? '0').replace(/[^0-9.]/g, '');
+  return parseFloat(nb) - parseFloat(na);
+};
+
 export default function GbfsVersions({
   feed,
 }: GbfsVersionsProps): React.ReactElement {
+  const [snackbarOpen, setSnackbarOpen] = React.useState(false);
   const theme = useTheme();
-  const { t } = useTranslation('gbfsFeatures');
+  const { t } = useTranslation('gbfs');
 
-  const sortVersions = (a: GBFSVersionType, b: GBFSVersionType) => {
-    const na = String(a.version ?? '0').replace(/[^0-9.]/g, '');
-    const nb = String(b.version ?? '0').replace(/[^0-9.]/g, '');
-    return parseFloat(nb) - parseFloat(na);
-  };
-
-  const getGbfsVersionUrl = (version: string, feature: string) => {
+  const getGbfsVersionUrl = (version: string, feature: string): string => {
     if (
       version === '1.1' ||
       version === '2.0' ||
@@ -48,34 +91,6 @@ export default function GbfsVersions({
     return `https://github.com/MobilityData/gbfs/blob/v${version}/gbfs.md#${feature}json`;
   };
 
-  const getGbfsFeatures = (gbfsVersionElement: GBFSVersionType) => {
-    // group by language
-    let featuresByLanguage = new Map<string, GBFSVersionEndpointType[]>();
-    let maxLanguageElements = 0;
-    let maxLanguage = '';
-    gbfsVersionElement.endpoints?.forEach((endpoint) => {
-      if (
-        endpoint.name != null &&
-        endpoint.is_feature &&
-        endpoint.language != null
-      ) {
-        if (!featuresByLanguage.has(endpoint.language)) {
-          featuresByLanguage.set(endpoint.language, []);
-        }
-        featuresByLanguage.get(endpoint.language)?.push(endpoint);
-        if (
-          featuresByLanguage.get(endpoint.language)?.length ??
-          0 > maxLanguageElements
-        ) {
-          maxLanguageElements =
-            featuresByLanguage.get(endpoint.language)?.length ?? 0;
-          maxLanguage = endpoint.language;
-        }
-      }
-    });
-    return featuresByLanguage.get(maxLanguage) ?? [];
-  };
-
   if (feed?.versions == null || feed?.versions?.length === 0) {
     return <></>;
   }
@@ -85,7 +100,7 @@ export default function GbfsVersions({
       <Typography
         sx={{ fontSize: { xs: 18, sm: 24 }, fontWeight: 'bold', mb: 1 }}
       >
-        Versions
+        {t('versions')}
       </Typography>
       <Box
         sx={{
@@ -135,8 +150,10 @@ export default function GbfsVersions({
                       label={
                         item.latest_validation_report?.total_error != null &&
                         item.latest_validation_report?.total_error > 0
-                          ? `${item.latest_validation_report?.total_error} errors`
-                          : 'no errors'
+                          ? `${item.latest_validation_report?.total_error} ${t(
+                              'common:feedback.errors',
+                            )}`
+                          : t('common:feedback.noErrors')
                       }
                       variant='outlined'
                       color={
@@ -158,13 +175,13 @@ export default function GbfsVersions({
                     component={'div'}
                     sx={{ mt: '-2px', mb: 2 }}
                   >
-                    Quality report updated at:{' '}
+                    {t('feed:qualityReportUpdated')}:
                     {displayFormattedDate(
                       item.latest_validation_report?.validated_at ?? '',
                     )}
                   </Typography>
                   <Typography variant='h6' sx={{ fontSize: '1.1rem' }}>
-                    Auto-Discovery Url
+                    {t('autodiscoveryUrl')}
                   </Typography>
                   <Box
                     sx={{
@@ -181,7 +198,29 @@ export default function GbfsVersions({
                       https://data.lime.bike/api/partners/v2/gbfs/louisville/gbfs.json
                     </Link>
                     {/* TODO: href={item.autoDiscovery}{item.autoDiscovery} */}
-                    {/* <ContentCopyIcon></ContentCopyIcon> */}
+                    <ContentCopyIcon
+                      titleAccess={t('autodiscoveryUrlCopied')}
+                      sx={{ cursor: 'pointer', ml: 1 }}
+                      onClick={() => {
+                        if (feed?.source_info?.producer_url !== undefined) {
+                          setSnackbarOpen(true);
+                          void navigator.clipboard
+                            .writeText(
+                              'https://data.lime.bike/api/partners/v2/gbfs/louisville/gbfs.json',
+                            )
+                            .then((value) => {});
+                        }
+                      }}
+                    ></ContentCopyIcon>
+                    <Snackbar
+                      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                      open={snackbarOpen}
+                      autoHideDuration={5000}
+                      onClose={() => {
+                        setSnackbarOpen(false);
+                      }}
+                      message={t('producerUrlCopied')}
+                    />
                   </Box>
                   <Box>
                     <Typography variant='h6' sx={{ mt: 1, fontSize: '1.1rem' }}>
@@ -193,7 +232,7 @@ export default function GbfsVersions({
                           <Chip
                             component={Link}
                             key={index}
-                            label={t(endpoint.name)}
+                            label={t('features.' + endpoint.name)}
                             color='info'
                             variant='filled'
                             sx={{ margin: '4px' }}
@@ -228,7 +267,7 @@ export default function GbfsVersions({
                   rel='noreferrer'
                   endIcon={<OpenInNewIcon></OpenInNewIcon>}
                 >
-                  Run Validation Report
+                  {t('runValidationReport')}
                 </Button>
                 <Button
                   variant='contained'
@@ -238,7 +277,7 @@ export default function GbfsVersions({
                   rel='noreferrer'
                   endIcon={<OpenInNewIcon></OpenInNewIcon>}
                 >
-                  Open Feed Url
+                  {t('openFeedUrl')}
                 </Button>
               </Box>
             </ContentBox>

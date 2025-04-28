@@ -89,9 +89,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
 
   const getGbfsLatestVersionVisualizationUrl = (feed: GBFSFeedType): string => {
     // TODO: Redo logic when versions all have the auto discovery
-    return `https://gbfs-validator.mobilitydata.org/visualization?url=${(
-      feed as GBFSFeedType
-    )?.source_info?.producer_url}`;
+    return `https://gbfs-validator.mobilitydata.org/visualization?url=${feed?.source_info?.producer_url}`;
   };
 
   return (
@@ -103,7 +101,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         maxHeight: {
           xs: '100%',
           md: '70vh',
-        }
+        },
       }}
       title={t('coveredAreaTitle') + ' - ' + t(view)}
       width={{ xs: '100%' }}
@@ -118,7 +116,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
               rel='noreferrer'
               endIcon={<OpenInNew />}
             >
-              View real-time visualization
+              {t('viewRealtimeVisualization')}
             </Button>
           ) : (
             <ToggleButtonGroup

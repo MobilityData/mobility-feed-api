@@ -48,16 +48,16 @@ function* getFeedSaga({
       }
 
       let feed: AllFeedType;
-      if(feedDataType === 'gtfs') {
-        feed = yield call(getGtfsFeed, feedId, accessToken)
-      } else if(feedDataType === 'gtfs_rt') {
+      if (feedDataType === 'gtfs') {
+        feed = yield call(getGtfsFeed, feedId, accessToken);
+      } else if (feedDataType === 'gtfs_rt') {
         feed = yield call(getGtfsRtFeed, feedId, accessToken);
       } else if (feedDataType === 'gbfs') {
         feed = yield call(getGbfsFeed, feedId, accessToken);
       } else {
         throw new Error('Invalid feed data type');
       }
-      
+
       yield put(loadingFeedSuccess({ data: feed }));
     }
   } catch (error) {
