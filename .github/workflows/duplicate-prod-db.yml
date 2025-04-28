@@ -24,6 +24,8 @@ jobs:
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 #      - name: Authenticate to Google Cloud PROD project
 #        id: gcloud_auth_prod
 #        uses: google-github-actions/auth@v2
