@@ -1138,45 +1138,6 @@ components:
         type: array
         items:
           type: string
-          enum: # Copied from web-app/src/app/utils/consts.tsx
-            - Text-To-Speech
-            - Stops Wheelchair Accessibility
-            - Trips Wheelchair Accessibility
-            - Route Colors
-            - Bike Allowed
-            - Translations
-            - Headsigns
-            - Fare Products
-            - Fare Media
-            - Route-Based Fares
-            - Time-Based Fares
-            - Zone-Based Fares
-            - Fare Transfers
-            - Fares V1
-            - Pathway Connections
-            - Pathway Details
-            - Levels
-            - In-station Traversal Time
-            - Pathway Signs
-            - Location Types
-            - Feed Information
-            - Attributions
-            - Continuous Stops
-            - Booking Rules
-            - Fixed-Stops Demand Responsive Transit
-            - Zone-Based Demand Responsive Services
-            - Predefined Routes with Deviation
-            - Shapes
-            - Transfers
-            - Frequencies
-            - Text-to-Speech
-            - Wheelchair Accessibility
-            - Bikes Allowance
-            - Transfer Fares
-            - Pathways (basic)
-            - Pathways (extra)
-            - Traversal Time
-            - Pathways Directions
     provider:
       name: provider
       in: query
