@@ -51,6 +51,7 @@
   "linkToLicense": "Link to feed license",
   "authenticationType": "Authentication type",
   "selectAuthenticationType": "Please select an authentication type",
+  "authenticationRequired": "This feed requires authentication",
   "registerToDownloadFeed": "Register to download feed",
   "feedContactEmail": "Feed contact email",
   "copyFeedContactEmail": "Copy feed contact email",
