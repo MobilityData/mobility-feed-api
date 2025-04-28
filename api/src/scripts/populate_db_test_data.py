@@ -15,6 +15,9 @@ from shared.database_gen.sqlacodegen_models import (
     t_feedsearch,
     Location,
     Officialstatushistory,
+    Gbfsversion,
+    Gbfsendpoint,
+    Gbfsfeed,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
 from shared.common.logging_utils import Logger
@@ -47,7 +50,6 @@ class DatabasePopulateTestDataHelper:
         """
         Populate the database with the test datasets
         """
-        # TODO: parse GBFS versions
         # Load the JSON file
         with open(filepath) as f:
             data = json.load(f)
@@ -124,6 +126,27 @@ class DatabasePopulateTestDataHelper:
                 validation_report_dict[report_features["validation_report_id"]].features.append(
                     db_session.query(Feature).filter(Feature.name == report_features["feature_name"]).first()
                 )
+
+        # GBFS version
+        if "gbfs_versions" in data:
+            for version in data["gbfs_versions"]:
+                gbfs_feed = db_session.query(Gbfsfeed).filter(Gbfsfeed.stable_id == version["feed_id"]).one_or_none()
+                if not gbfs_feed:
+                    self.logger.error(f"No feed found with stable_id: {version['feed_id']}")
+                    continue
+                gbfs_version = Gbfsversion(
+                    id=version["id"], version=version["version"], url=version["url"], latest=version["latest"]
+                )
+                if version.get("endpoints"):
+                    for endpoint in version["endpoints"]:
+                        gbfs_endpoint = Gbfsendpoint(
+                            id=endpoint["id"],
+                            url=endpoint["url"],
+                            language=endpoint.get("language"),
+                            name=endpoint["name"],
+                        )
+                        gbfs_version.gbfsendpoints.append(gbfs_endpoint)
+                gbfs_feed.gbfsversions.append(gbfs_version)
 
         db_session.commit()
         db_session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))

@@ -842,3 +842,104 @@ def test_hard_limits(client, monkeypatch, values):
         params={"limit": hard_limit + 1},
     )
     assert response.status_code != 200
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"response_code": 200, "expected_feed_ids": ["gbfs-system_id_1", "gbfs-system_id_2", "gbfs-system_id_3"]},
+        {
+            "provider": "Provider Name 1",
+            "response_code": 200,
+            "expected_feed_ids": ["gbfs-system_id_1", "gbfs-system_id_2"],
+        },
+        {"provider": "Provider Name 2", "response_code": 200, "expected_feed_ids": ["gbfs-system_id_3"]},
+        {
+            "country_code": "CA",
+            "response_code": 200,
+            "expected_feed_ids": ["gbfs-system_id_1", "gbfs-system_id_2", "gbfs-system_id_3"],
+        },
+        {"country_code": "US", "response_code": 200, "expected_feed_ids": []},
+        {"municipality": "Laval", "response_code": 200, "expected_feed_ids": ["gbfs-system_id_2"]},
+        {
+            "producer_url": "https://www.example.com/gbfs_feed_3/",
+            "response_code": 200,
+            "expected_feed_ids": ["gbfs-system_id_3"],
+        },
+        {"system_id": "system_id_1", "response_code": 200, "expected_feed_ids": ["gbfs-system_id_1"]},
+        {"version": "3.0", "response_code": 200, "expected_feed_ids": ["gbfs-system_id_1"]},
+        {"version": "2.3", "response_code": 200, "expected_feed_ids": ["gbfs-system_id_1", "gbfs-system_id_2"]},
+        {"version": "1.0", "response_code": 200, "expected_feed_ids": []},
+        {"system_id": "system_id_1", "response_code": 200, "expected_feed_ids": ["gbfs-system_id_1"]},
+        {"system_id": "doesnt_exist", "response_code": 200, "expected_feed_ids": []},
+    ],
+    ids=[
+        "all_none",
+        "provider_name_1",
+        "provider_name_2",
+        "country_code_ca",
+        "country_code_us",
+        "municipality_laval",
+        "producer_url",
+        "system_id",
+        "version_3.0",
+        "version_2.3",
+        "version_1.0",
+        "system_id_1",
+        "system_id_doesnt_exist",
+    ],
+)
+def test_gbfs_filters(client, values):
+    """Test /v1/gbfs_feeds filters by system_id"""
+    params = {
+        "provider": values["provider"] if "provider" in values else None,
+        "country_code": values["country_code"] if "country_code" in values else None,
+        "municipality": values["municipality"] if "municipality" in values else None,
+        "producer_url": values["producer_url"] if "producer_url" in values else None,
+        "system_id": values["system_id"] if "system_id" in values else None,
+        "version": values["version"] if "version" in values else None,
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+
+    response = client.request(
+        "GET",
+        "/v1/gbfs_feeds",
+        headers=authHeaders,
+        params=params,
+    )
+    assert response.status_code == values["response_code"]
+    if values["response_code"] != 200:
+        return
+
+    feeds = response.json()
+    assert isinstance(feeds, list), "Response should be a list."
+    assert len(feeds) == len(values["expected_feed_ids"]), (
+        f"Expected {len(values['expected_feed_ids'])} feeds, " f"got {len(feeds)}."
+    )
+    if len(values["expected_feed_ids"]) != 0:
+        assert any(feed["id"] in values["expected_feed_ids"] for feed in feeds)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"response_code": 200, "expected_feed_ids": ["gbfs-system_id_1"]},
+        {"response_code": 200, "expected_feed_ids": ["gbfs-system_id_2"]},
+        {"response_code": 200, "expected_feed_ids": ["gbfs-system_id_3"]},
+        {"response_code": 404},
+    ],
+    ids=["valid_id", "valid_id_2", "valid_id_3", "invalid_id"],
+)
+def test_gbfs_feed_id_get(client: TestClient, values):
+    """Test case for gbfs_feed_id_get"""
+    test_id = values.get("expected_feed_ids", ["dummy_id"])[0]
+    response = client.request(
+        "GET",
+        "/v1/gbfs_feeds/{id}".format(id=test_id),
+        headers=authHeaders,
+    )
+
+    assert response.status_code == values["response_code"]
+    if values["response_code"] != 200:
+        return
+    assert response.json()["id"] == test_id
