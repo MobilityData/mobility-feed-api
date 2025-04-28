@@ -138,21 +138,21 @@ jobs:
 
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
           
-#          cat <<'EOF' | psql -h localhost -p 5454 -U data_feeds_user -d $DEST_DATABASE_NAME
-#          DO $$
-#          DECLARE
-#              r RECORD;
-#          BEGIN
-#              FOR r IN
-#                  SELECT table_name
-#                  FROM information_schema.tables
-#                  WHERE table_schema = 'public'
-#              LOOP
-#                  EXECUTE format('ALTER TABLE public.%I OWNER TO postgres;', r.table_name);
-#              END LOOP;
-#          END
-#          $$;
-#          EOF
+          cat <<'EOF' | psql -h localhost -p 5454 -U data_feeds_user -d $DEST_DATABASE_NAME
+          DO $$
+          DECLARE
+              r RECORD;
+          BEGIN
+              FOR r IN
+                  SELECT table_name
+                  FROM information_schema.tables
+                  WHERE table_schema = 'public'
+              LOOP
+                  EXECUTE format('ALTER TABLE public.%I OWNER TO postgres;', r.table_name);
+              END LOOP;
+          END
+          $$;
+          EOF
           
           cat <<'EOF' | psql -h localhost -p 5454 -U data_feeds_user -d $DEST_DATABASE_NAME
           UPDATE feed
