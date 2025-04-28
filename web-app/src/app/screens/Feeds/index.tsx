@@ -86,6 +86,14 @@ export default function Feed(): React.ReactElement {
   const feedStatus = useSelector(selectFeedsStatus);
 
   // features i/o
+  const areNoDataTypesSelected =
+    !selectedFeedTypes.gtfs &&
+    !selectedFeedTypes.gtfs_rt &&
+    !selectedFeedTypes.gbfs;
+  const isOfficialTagFilterEnabled =
+    selectedFeedTypes.gtfs ||
+    selectedFeedTypes.gtfs_rt ||
+    areNoDataTypesSelected;
   const areFeatureFiltersEnabled =
     (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
     selectedFeedTypes.gtfs;
@@ -446,8 +454,14 @@ export default function Feed(): React.ReactElement {
               ></NestedCheckboxList>
               {config.enableIsOfficialFilterSearch && (
                 <>
-                  <SearchHeader variant='h6'>Tags</SearchHeader>
+                  <SearchHeader
+                    variant='h6'
+                    sx={isOfficialTagFilterEnabled ? {} : { opacity: 0.5 }}
+                  >
+                    Tags
+                  </SearchHeader>
                   <NestedCheckboxList
+                    disableAll={!isOfficialTagFilterEnabled}
                     checkboxData={[
                       {
                         title: 'Official Feeds',

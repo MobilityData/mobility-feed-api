@@ -31,30 +31,42 @@ describe('getGbfsFeatures', () => {
     ]);
   });
 
-  it('returns features for the correct language even if features are spread', () => {
+  it('returns features from "no-lang" when language is null', () => {
     const input: GBFSVersionType = {
       endpoints: [
-        { name: 'feature1', is_feature: true, language: 'fr' },
-        { name: 'feature2', is_feature: true, language: 'fr' },
+        { name: 'feature1', is_feature: true, language: undefined },
+        { name: 'feature2', is_feature: true, language: undefined },
         { name: 'feature3', is_feature: true, language: 'en' },
-        { name: 'feature4', is_feature: true, language: 'en' },
-        { name: 'feature5', is_feature: true, language: 'en' },
       ],
     };
     expect(getGbfsFeatures(input)).toEqual([
-      { name: 'feature3', is_feature: true, language: 'en' },
-      { name: 'feature4', is_feature: true, language: 'en' },
-      { name: 'feature5', is_feature: true, language: 'en' },
+      { name: 'feature1', is_feature: true, language: undefined },
+      { name: 'feature2', is_feature: true, language: undefined },
     ]);
   });
 
-  it('ignores endpoints with missing name, language, or wrong is_feature', () => {
+  it('prefers "no-lang" if it has the most features', () => {
+    const input: GBFSVersionType = {
+      endpoints: [
+        { name: 'feature1', is_feature: true, language: undefined },
+        { name: 'feature2', is_feature: true, language: undefined },
+        { name: 'feature3', is_feature: true, language: 'en' },
+        { name: 'feature4', is_feature: true, language: 'en' },
+      ],
+    };
+    expect(getGbfsFeatures(input)).toEqual([
+      { name: 'feature1', is_feature: true, language: null },
+      { name: 'feature2', is_feature: true, language: null },
+    ]);
+  });
+
+  it('ignores endpoints with missing name or is_feature=false', () => {
     const input: GBFSVersionType = {
       endpoints: [
         { name: 'feature1', is_feature: true, language: 'en' },
-        { name: undefined, is_feature: true, language: 'en' }, // ignored (name is null)
-        { name: 'feature2', is_feature: false, language: 'en' }, // ignored (is_feature false)
-        { name: 'feature3', is_feature: true, language: undefined }, // ignored (language is null)
+        { name: undefined, is_feature: true, language: 'en' }, // ignored
+        { name: 'feature2', is_feature: false, language: 'en' }, // ignored
+        { name: 'feature3', is_feature: true, language: undefined },
       ],
     };
     expect(getGbfsFeatures(input)).toEqual([

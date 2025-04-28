@@ -27,6 +27,15 @@ export const ctaContainerStyle: SxProps<Theme> = (theme) => ({
   pt: 3,
 });
 
+export const featureChipsStyle: SxProps<Theme> = (theme) => ({
+  color: theme.palette.primary.contrastText,
+  backgroundColor: theme.palette.primary.dark,
+  border: `2px solid transparent`,
+  ':hover': {
+    opacity: 0.95,
+  },
+});
+
 export const mapBoxPositionStyle = {
   width: 'calc(100% + 32px)',
   flexGrow: 1,

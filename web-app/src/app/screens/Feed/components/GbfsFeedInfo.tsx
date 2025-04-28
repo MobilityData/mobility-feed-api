@@ -47,7 +47,12 @@ export default function GbfsFeedInfo({
             {t('producer')}
           </Typography>
         </StyledTitleContainer>
-        <Link href={feed?.provider_url} variant='body1'>
+        <Link
+          href={feed?.provider_url}
+          variant='body1'
+          target='_blank'
+          rel='noreferrer'
+        >
           {feed?.provider}
         </Link>
       </Box>

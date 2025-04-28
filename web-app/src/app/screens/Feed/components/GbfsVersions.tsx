@@ -20,6 +20,7 @@ import {
   type GBFSVersionType,
 } from '../../../services/feeds/utils';
 import { displayFormattedDate } from '../../../utils/date';
+import { featureChipsStyle } from '../Feed.styles';
 
 export interface GbfsVersionsProps {
   feed: GBFSFeedType;
@@ -32,24 +33,20 @@ export const getGbfsFeatures = (
 ): GBFSVersionEndpointType[] => {
   const featuresByLanguage = new Map<string, GBFSVersionEndpointType[]>();
   let maxLanguageElements = 0;
-  let maxLanguage = '';
+  let maxLanguage = 'no-lang';
   gbfsVersionElement.endpoints?.forEach((endpoint) => {
-    if (
-      endpoint.name != null &&
-      endpoint.is_feature === true &&
-      endpoint.language != null
-    ) {
-      if (!featuresByLanguage.has(endpoint.language)) {
-        featuresByLanguage.set(endpoint.language, []);
+    if (endpoint.name != null && endpoint.is_feature === true) {
+      if (!featuresByLanguage.has(endpoint.language ?? 'no-lang')) {
+        featuresByLanguage.set(endpoint.language ?? 'no-lang', []);
       }
-      featuresByLanguage.get(endpoint.language)?.push(endpoint);
+      featuresByLanguage.get(endpoint.language ?? 'no-lang')?.push(endpoint);
       if (
-        (featuresByLanguage.get(endpoint.language)?.length ?? 0) >
+        (featuresByLanguage.get(endpoint.language ?? 'no-lang')?.length ?? 0) >
         maxLanguageElements
       ) {
         maxLanguageElements =
-          featuresByLanguage.get(endpoint.language)?.length ?? 0;
-        maxLanguage = endpoint.language;
+          featuresByLanguage.get(endpoint.language ?? 'no-lang')?.length ?? 0;
+        maxLanguage = endpoint.language ?? 'no-lang';
       }
     }
   });
@@ -175,7 +172,8 @@ export default function GbfsVersions({
                     component={'div'}
                     sx={{ mt: '-2px', mb: 2 }}
                   >
-                    {t('feed:qualityReportUpdated')}:
+                    {t('feeds:qualityReportUpdated')}
+                    {': '}
                     {displayFormattedDate(
                       item.latest_validation_report?.validated_at ?? '',
                     )}
@@ -219,34 +217,38 @@ export default function GbfsVersions({
                       onClose={() => {
                         setSnackbarOpen(false);
                       }}
-                      message={t('producerUrlCopied')}
+                      message={t('autodiscoveryUrlCopied')}
                     />
                   </Box>
                   <Box>
                     <Typography variant='h6' sx={{ mt: 1, fontSize: '1.1rem' }}>
-                      Features
+                      {t('feeds:features')}
                     </Typography>
-                    {getGbfsFeatures(item).map((endpoint, index) => (
-                      <>
-                        {endpoint.name != null && item.version != null && (
-                          <Chip
-                            component={Link}
-                            key={index}
-                            label={t('features.' + endpoint.name)}
-                            color='info'
-                            variant='filled'
-                            sx={{ margin: '4px' }}
-                            clickable
-                            target='_blank'
-                            rel='noreferrer'
-                            href={getGbfsVersionUrl(
-                              item.version,
-                              endpoint.name,
-                            )}
-                          />
-                        )}
-                      </>
-                    ))}
+                    <Box
+                      sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}
+                    >
+                      {getGbfsFeatures(item).map((endpoint, index) => (
+                        <>
+                          {endpoint.name != null && item.version != null && (
+                            <Chip
+                              component={Link}
+                              key={index}
+                              label={t('features.' + endpoint.name)}
+                              color='info'
+                              variant='filled'
+                              sx={featureChipsStyle}
+                              clickable
+                              target='_blank'
+                              rel='noreferrer'
+                              href={getGbfsVersionUrl(
+                                item.version,
+                                endpoint.name,
+                              )}
+                            />
+                          )}
+                        </>
+                      ))}
+                    </Box>
                   </Box>
                 </Box>
               </Box>

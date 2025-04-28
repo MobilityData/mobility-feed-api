@@ -10,6 +10,7 @@ import {
   IconButton,
   Tooltip,
   useTheme,
+  Link,
 } from '@mui/material';
 import { ContentCopy, ContentCopyOutlined } from '@mui/icons-material';
 import {
@@ -38,6 +39,7 @@ import {
   boxElementStyleTransitProvider,
   ResponsiveListItem,
   boxElementStyleProducerURL,
+  featureChipsStyle,
 } from '../Feed.styles';
 import FeedAuthenticationSummaryInfo from './FeedAuthenticationSummaryInfo';
 
@@ -297,21 +299,14 @@ export default function FeedSummary({
             {latestDataset.validation_report?.features?.map((feature) => (
               <Grid item key={feature} data-testid='feature-chips'>
                 <Chip
+                  component={Link}
                   label={feature}
                   variant='filled'
-                  sx={{
-                    color: '#fff',
-                    backgroundColor: theme.palette.primary.dark,
-                    ':hover': {
-                      backgroundColor: theme.palette.primary.light,
-                    },
-                  }}
-                  onClick={() => {
-                    window.open(
-                      getFeatureComponentDecorators(feature)?.linkToInfo,
-                      '_blank',
-                    );
-                  }}
+                  sx={featureChipsStyle}
+                  clickable
+                  target='_blank'
+                  rel='noreferrer'
+                  href={getFeatureComponentDecorators(feature)?.linkToInfo}
                 />
               </Grid>
             ))}

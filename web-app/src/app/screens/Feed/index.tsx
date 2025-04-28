@@ -549,7 +549,7 @@ export default function Feed(): React.ReactElement {
         <GbfsVersions feed={feed as GBFSFeedType}></GbfsVersions>
       )}
 
-      {feed?.data_type === 'gtfs' && hasDatasets && false && (
+      {feed?.data_type === 'gtfs' && hasDatasets && (
         <Grid item xs={12}>
           <PreviousDatasets
             datasets={datasets}
