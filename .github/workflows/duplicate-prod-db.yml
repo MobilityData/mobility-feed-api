@@ -24,94 +24,130 @@ jobs:
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
 
     steps:
-      - name: Authenticate to Google Cloud PROD project
-        id: gcloud_auth_prod
-        uses: google-github-actions/auth@v2
+#      - name: Authenticate to Google Cloud PROD project
+#        id: gcloud_auth_prod
+#        uses: google-github-actions/auth@v2
+#        with:
+#          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#      - name: GCloud Setup PROD
+#        uses: google-github-actions/setup-gcloud@v2
+#
+#      - name: Get PROD SQL service account
+#        run: |
+#          SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-database-instance" --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+#          echo "SOURCE_SQL_SERVICE_ACCOUNT=$SERVICE_ACCOUNT" >> $GITHUB_ENV
+#          echo "Destination SQL Service Account: $SERVICE_ACCOUNT"
+#
+#      - name: Authenticate to Google Cloud QA project
+#        id: gcloud_auth_qa
+#        uses: google-github-actions/auth@v2
+#        with:
+#          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#      - name: GCloud Setup QA
+#        uses: google-github-actions/setup-gcloud@v2
+#
+#      - name: Create DB dump bucket and give permissions
+#        run: |
+#          BUCKET_PROJECT_ID=$DEST_PROJECT_ID
+#
+#          # Check if the bucket already exists
+#          if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
+#            echo "Bucket doesn't exist. Creating..."
+#            gsutil mb -l $GCP_REGION -p $BUCKET_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
+#          else
+#            echo "Bucket already exists."
+#          fi
+#
+#          # Give write permission for the source sql instance to write to the bucket
+#          gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
+#
+#          # Get the service account for the QA DB and give read permission to the bucket
+#          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
+#          echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
+#
+#          # Give read-write permission on the bucket to the destination sql instance
+#          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
+#
+#      - name: Authenticate to Google Cloud PROD project Again
+#        uses: google-github-actions/auth@v2
+#        with:
+#          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#      - name: GCloud Setup PROD again
+#        uses: google-github-actions/setup-gcloud@v2
+#
+#      - name: Dump the PROD DB
+#        run: |
+#          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$SOURCE_DATABASE_NAME --quiet
+#
+#      - name: Authenticate to Google Cloud QA project Again
+#        uses: google-github-actions/auth@v2
+#        with:
+#          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+#
+#      - name: GCloud Setup QA Again
+#        uses: google-github-actions/setup-gcloud@v2
+#
+#      - name: QA backup and import dump into the QA DB
+#        run: |
+#          # Dump the QA database as a backup
+#          # According to chatgpt,
+#          # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
+#          # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
+#          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
+#
+#          # Delete the existing database
+#          gcloud sql databases delete $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME --quiet
+#
+#          # Create a the new database
+#          gcloud sql databases create $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME
+#
+#          # Import the dump into the QA database
+#          # The exported sql contains statements that require authentication as user postgres.
+#          # In theory we could dump the DB without these statements, with:
+#          # pg_dump --no-owner --no-privileges -d your_database > clean_dump.sql.
+#
+#          export PGPASSWORD=$DEST_DATABASE_PASSWORD
+#          gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_IMPORT_USER --quiet
+#
+#      - name: Delete dump file from bucket
+#        run: |
+#          gsutil rm gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME
+
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@v2.0.0
         with:
-          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+          export-env: true # Export loaded secrets as environment variables
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
+          GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
+          GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
 
-      - name: GCloud Setup PROD 1
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Get PROD SQL service account
+      - name: Tunnel
         run: |
-          SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-database-instance" --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
-          echo "SOURCE_SQL_SERVICE_ACCOUNT=$SERVICE_ACCOUNT" >> $GITHUB_ENV
-          echo "Destination SQL Service Account: $SERVICE_ACCOUNT"
-
-      - name: Authenticate to Google Cloud QA project
-        id: gcloud_auth_qa
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: GCloud Setup 2
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Create DB dump bucket and give permissions
-        run: |
-          BUCKET_PROJECT_ID=$DEST_PROJECT_ID
-
-          # Check if the bucket already exists
-          if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
-            echo "Bucket doesn't exist. Creating..."
-            gsutil mb -l $GCP_REGION -p $BUCKET_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
-          else
-            echo "Bucket already exists."
-          fi
-
-          # Give write permission for the source sql instance to write to the bucket
-          gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
-
-          # Get the service account for the QA DB and give read permission to the bucket
-          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
-          echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
-
-          # Give read-write permission on the bucket to the destination sql instance
-          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
-
-      - name: Authenticate to Google Cloud PROD project Again
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: GCloud Setup PROD 2
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Dump the PROD DB
-        run: |
-          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$SOURCE_DATABASE_NAME --quiet
-
-      - name: Authenticate to Google Cloud QA project Again Again
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-
-      - name: GCloud Setup 3
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: QA backup and import dump into the QA DB
-        run: |
-          # Dump the QA database as a backup
-          # According to chatgpt,
-          # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
-          # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
-          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
-          
-          # Delete the existing database
-          gcloud sql databases delete $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME --quiet
-          
-          # Create a the new database
-          gcloud sql databases create $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME
-          
-          # Import the dump into the QA database
-          # The exported sql contains statements that require authentication as user postgres.
-          # In theory we could dump the DB without these statements, with:
-          # pg_dump --no-owner --no-privileges -d your_database > clean_dump.sql.
+          mkdir -p ~/.ssh
+          echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa             
+          ./scripts/tunnel-create.sh -project_id $DEST_PROJECT_ID -zone ${GCP_REGION}-a -instance ${GCP_FEED_BASTION_NAME}-qa -target_account ${GCP_FEED_SSH_USER} -db_instance ${DB_INSTANCE_NAME} -port 5454
+          sleep 10 # Wait for the tunnel to establish
 
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
-          gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_IMPORT_USER --quiet
-
-      - name: Delete dump file from bucket
-        run: |
-          gsutil rm gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME
+          cat <<EOF | psql -h localhost -p 5454 -U data_feeds_user -d $DEST_DATABASE_NAME 
+          DO $$
+          DECLARE
+              r RECORD;
+          BEGIN
+              FOR r IN
+                  SELECT table_name
+                  FROM information_schema.tables
+                  WHERE table_schema = 'public'
+              LOOP
+                  EXECUTE format('ALTER TABLE public.%I OWNER TO postgres;', r.table_name);
+              END LOOP;
+          END
+          $$;
+          EOF
+          
