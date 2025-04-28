@@ -108,7 +108,7 @@ export default function PreviousDatasets({
           sx={{
             height: '100%',
             maxHeight: 'min(600px, 60vh)',
-            overflowY: 'scroll',
+            overflowY: 'auto',
             pb: '5px', // for the bottomRef trigger spacing
           }}
           ref={listRef}

@@ -444,12 +444,16 @@ export default function Feed(): React.ReactElement {
                 checkboxData={dataTypesCheckboxData}
                 onCheckboxChange={(checkboxData) => {
                   setActivePagination(1);
-                  setSelectedFeedTypes({
+                  const checkedFeedTypes = {
                     ...selectedFeedTypes,
                     gtfs: checkboxData[0].checked,
                     gtfs_rt: checkboxData[1].checked,
-                    gbfs: checkboxData[2].checked,
-                  });
+                    gbfs: false
+                  }
+                  if(config.enableGbfsInSearchPage) {
+                    checkedFeedTypes.gbfs = checkboxData[2].checked;
+                  }
+                  setSelectedFeedTypes(checkedFeedTypes);
                 }}
               ></NestedCheckboxList>
               {config.enableIsOfficialFilterSearch && (
