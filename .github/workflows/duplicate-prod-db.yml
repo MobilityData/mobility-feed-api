@@ -23,7 +23,6 @@ jobs:
       DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
 
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
