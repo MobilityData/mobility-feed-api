@@ -195,6 +195,8 @@ export default function GbfsVersions({
                     <Link
                       sx={{ wordWrap: 'break-word', wordBreak: 'break-all' }}
                       href='https://data.lime.bike/api/partners/v2/gbfs/louisville/gbfs.json'
+                      target='_blank'
+                      rel='noreferrer'
                     >
                       https://data.lime.bike/api/partners/v2/gbfs/louisville/gbfs.json
                     </Link>
