@@ -9,7 +9,7 @@ class GBFSFeedsEndpointTests(IntegrationTests):
         """Test retrieval of GBFS feeds filtered by provider"""
         providers = ["BIXI Montréal", "Bird Laval", "Lime Ottawa"]
         task_id = self.progress.add_task(
-            "[yellow]Validating GTFS feeds by provider...[/yellow]",
+            "[yellow]Validating GBFS feeds by provider...[/yellow]",
             total=len(providers),
         )
         for i, provider_id in enumerate(providers):
@@ -24,7 +24,7 @@ class GBFSFeedsEndpointTests(IntegrationTests):
         """Test retrieval of GBFS feeds filtered by version"""
         versions = ["1.0", "2.3", "3.0"]
         task_id = self.progress.add_task(
-            "[yellow]Validating GTFS feeds by version...[/yellow]",
+            "[yellow]Validating GBFS feeds by version...[/yellow]",
             total=len(versions),
         )
         total_returned = 0
@@ -55,7 +55,7 @@ class GBFSFeedsEndpointTests(IntegrationTests):
         """Test retrieval of GBFS feeds filtered by system_id"""
         system_ids = ["bird-edmonton", "Bixi_MTL", "lime_ottawa"]
         task_id = self.progress.add_task(
-            "[yellow]Validating GTFS feeds by system_id...[/yellow]",
+            "[yellow]Validating GBFS feeds by system_id...[/yellow]",
             total=len(system_ids),
         )
         for i, system_id in enumerate(system_ids):
