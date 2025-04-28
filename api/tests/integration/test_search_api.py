@@ -23,7 +23,13 @@ def test_search_feeds_all_feeds(client: TestClient, search_query: str):
     """
     Retrieve all feeds with a search query using provider or feed name.
     """
-    params = [("limit", 100), ("offset", 0), ("feed_id", ""), ("data_type", ""), ("search_query", search_query)]
+    params = [
+        ("limit", 100),
+        ("offset", 0),
+        ("feed_id", ""),
+        ("data_type", ""),
+        ("search_query", search_query),
+    ]
     headers = {
         "Authentication": "special-key",
     }
@@ -61,7 +67,13 @@ def test_search_feeds_all_feeds_with_limit(client: TestClient, search_query: str
     """
     Retrieve 2 feeds using limit with a search query using provider or feed name.
     """
-    params = [("limit", 2), ("offset", 0), ("feed_id", ""), ("data_type", ""), ("search_query", search_query)]
+    params = [
+        ("limit", 100),
+        ("offset", 0),
+        ("feed_id", ""),
+        ("data_type", ""),
+        ("search_query", search_query),
+    ]
     headers = {
         "Authentication": "special-key",
     }
@@ -424,3 +436,55 @@ def test_search_filter_by_official_status(client: TestClient, values: dict):
     assert (
         response_body.total == expected_count
     ), f"There should be {expected_count} feeds for official={values['official']}"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"features": "Text-To-Speech", "expected_count": 3},
+        {"features": "Fare Products", "expected_count": 2},
+        {"features": "Levels", "expected_count": 1},
+    ],
+    ids=[
+        "Accessibility",
+        "Fares",
+        "Pathways",
+    ],
+)
+def test_search_filter_by_features(client: TestClient, values: dict):
+    """
+    Retrieve feeds that contain specific features.
+    """
+    params = None
+    if values["features"] is not None:
+        params = [
+            ("features", values["features"]),
+        ]
+
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds with features={values['features']}"
+
+    # Verify all returned feeds have at least one of the requested features
+    if values["features"] and expected_count > 0:
+        requested_features = values["features"].split(",")
+        for result in response_body.results:
+            # Check that at least one of the feed's features is in the requested features
+            assert any(
+                feature in requested_features for feature in result.features
+            ), f"Feed {result.id} does not have any of the requested features: {requested_features}"
