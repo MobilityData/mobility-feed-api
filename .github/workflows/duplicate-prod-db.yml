@@ -160,4 +160,3 @@ jobs:
           WHERE feed_contact_email IS NOT NULL
             AND TRIM(feed_contact_email) <> '';
           EOF
-          
