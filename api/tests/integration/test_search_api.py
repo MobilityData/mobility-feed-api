@@ -429,9 +429,9 @@ def test_search_filter_by_official_status(client: TestClient, values: dict):
 @pytest.mark.parametrize(
     "values",
     [
-        {"features": "", "expected_count": 16},
-        {"features": "Bike Allowed", "expected_count": 2},
-        {"features": "Stops Wheelchair Accessibility", "expected_count": 0},
+        {"feature": "", "expected_count": 16},
+        {"feature": "Bike Allowed", "expected_count": 2},
+        {"feature": "Stops Wheelchair Accessibility", "expected_count": 0},
     ],
     ids=[
         "All",
@@ -439,14 +439,14 @@ def test_search_filter_by_official_status(client: TestClient, values: dict):
         "Stops Wheelchair Accessibility",
     ],
 )
-def test_search_filter_by_features(client: TestClient, values: dict):
+def test_search_filter_by_feature(client: TestClient, values: dict):
     """
     Retrieve feeds that contain specific features.
     """
     params = None
-    if values["features"] is not None:
+    if values["feature"] is not None:
         params = [
-            ("features", values["features"]),
+            ("feature", values["feature"]),
         ]
 
     headers = {
@@ -466,14 +466,14 @@ def test_search_filter_by_features(client: TestClient, values: dict):
     expected_count = values["expected_count"]
     assert (
         response_body.total == expected_count
-    ), f"There should be {expected_count} feeds with features={values['features']}"
+    ), f"There should be {expected_count} feeds with feature={values['feature']}"
 
     # Verify all returned feeds have at least one of the requested features
-    if values["features"] and expected_count > 0:
-        requested_features = set(values["features"].split(","))
+    if values["feature"] and expected_count > 0:
+        requested_features = set(values["feature"].split(","))
         for result in response_body.results:
             features = result.latest_dataset.validation_report.features
             # Check that at least one of the feed's features is in the requested features
             assert requested_features.intersection(features), (
-                f"Feed {result.id} with features {features} does not match " f"requested features {requested_features}"
+                f"Feed {result.id} with features {features} does not match " f"requested features {requested_feature}"
             )

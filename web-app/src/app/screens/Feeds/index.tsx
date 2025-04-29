@@ -125,7 +125,7 @@ export default function Feed(): React.ReactElement {
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
             status: ['active', 'inactive', 'development', 'future'],
-            features: selectedFeatures,
+            feature: selectedFeatures,
           },
         },
       }),
