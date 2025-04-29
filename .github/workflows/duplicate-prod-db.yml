@@ -2,7 +2,7 @@ name: Copy PROD DB to QA
 on:
   workflow_dispatch:  # Supports manual deployment
     inputs:
-      DEST_DATABASE:
+      dest_database_name:
         description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
         required: false
         default: 'MobilityDatabaseProdDuplicate2'
@@ -23,7 +23,7 @@ jobs:
       DEST_DATABASE_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DUMP_FILE_NAME: "prod-db-dump.sql"
       SOURCE_DATABASE_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
-      DEST_DATABASE_NAME: ${{ inputs.DEST_DATABASE }}
+      DEST_DATABASE_NAME: ${{ inputs.dest_database_name || 'MobilityDatabaseProdDuplicate2' }}
       DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
       DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
@@ -60,7 +60,7 @@ jobs:
         run: |
           BUCKET_PROJECT_ID=$DEST_PROJECT_ID
 
-          # Check if the bucket already exists
+          echo "Checking if bucket exists..."
           if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
             echo "Bucket doesn't exist. Creating..."
             gsutil mb -l $GCP_REGION -p $BUCKET_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
@@ -68,14 +68,14 @@ jobs:
             echo "Bucket already exists."
           fi
 
-          # Give write permission for the source sql instance to write to the bucket
+          echo "Giving write permission for the source sql instance to write to the bucket"
           gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
 
-          # Get the service account for the QA DB and give read permission to the bucket
+          echo "Getting the service account for the QA DB to give permission to the bucket`
           DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
           echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
 
-          # Give read-write permission on the bucket to the destination sql instance
+          echo "Giving permission on the bucket to the destination sql instance"
           gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
 
       - name: Authenticate to Google Cloud PROD project Again
@@ -100,19 +100,19 @@ jobs:
 
       - name: QA backup and import dump into the QA DB
         run: |
-          # Dump the QA database as a backup
+          echo "Dump the QA database as a backup"
           # According to chatgpt,
           # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
           # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
           gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
 
-          # Delete the existing database
+          echo "Deleting the existing $DEST_DATABASE_NAME database"
           gcloud sql databases delete $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME --quiet
 
-          # Create a the new database
+          echo "Recreating the $DEST_DATABASE_NAME database"
           gcloud sql databases create $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME
 
-          # Import the dump into the QA database
+          echo "Importing the dump into the QA database"
           # The exported sql contains statements that require authentication as user postgres.
           # In theory we could dump the DB without these statements, with:
           # pg_dump --no-owner --no-privileges -d your_database > clean_dump.sql.
@@ -137,6 +137,7 @@ jobs:
 
       - name: Tunnel and update database
         run: |
+          echo "Tunelling"
           mkdir -p ~/.ssh
           echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa             
@@ -163,7 +164,7 @@ jobs:
           $$;
           EOF
           
-          echo "Replacing email addresses to make sure we don't email by mistake"
+          echo "Redirecting email addresses to mobilitydata.org"
           cat <<'EOF' | psql -h localhost -p 5454 -U postgres -d $DEST_DATABASE_NAME
           UPDATE feed
           SET feed_contact_email = REPLACE(feed_contact_email, '@', '_at_') || '@mobilitydata.org'
