@@ -18,9 +18,6 @@ import {
   getLocationName,
   getCountryLocationSummaries,
 } from '../../services/feeds/utils';
-import BusAlertIcon from '@mui/icons-material/BusAlert';
-import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
-import BikeScooterIcon from '@mui/icons-material/BikeScooter';
 import { useTranslation } from 'react-i18next';
 import GtfsRtEntities from './GtfsRtEntities';
 import { Link } from 'react-router-dom';
@@ -60,26 +57,11 @@ export const getDataTypeElement = (
     );
   };
   if (dataType === 'gtfs') {
-    return (
-      <DataTypeHolder>
-        <DirectionsBusIcon sx={{ m: 1, ml: 0 }}></DirectionsBusIcon>
-        {t('common:gtfsSchedule')}
-      </DataTypeHolder>
-    );
+    return <DataTypeHolder>{t('common:gtfsSchedule')}</DataTypeHolder>;
   } else if (dataType === 'gtfs_rt') {
-    return (
-      <DataTypeHolder>
-        <BusAlertIcon sx={{ m: 1, ml: 0 }}></BusAlertIcon>
-        {t('common:gtfsRealtime')}
-      </DataTypeHolder>
-    );
+    return <DataTypeHolder>{t('common:gtfsRealtime')}</DataTypeHolder>;
   } else {
-    return (
-      <DataTypeHolder>
-        <BikeScooterIcon sx={{ m: 1, ml: 0 }}></BikeScooterIcon>
-        {t('common:gbfs')}
-      </DataTypeHolder>
-    );
+    return <DataTypeHolder>{t('common:gbfs')}</DataTypeHolder>;
   }
 };
 
@@ -148,7 +130,7 @@ export default function SearchTable({
           },
           '.feed-row .feed-column:last-child': {
             borderRight: `1px solid ${theme.palette.divider}`,
-            minWidth: '210px',
+            minWidth: '180px',
           },
         }}
       >

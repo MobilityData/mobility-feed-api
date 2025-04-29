@@ -298,7 +298,7 @@ export default function Feed(): React.ReactElement {
         rel='noreferrer'
         endIcon={<OpenInNewIcon></OpenInNewIcon>}
       >
-        {t('gbfs:openFeedUrl')} v(
+        {t('gbfs:openFeedUrl')} (v
         {latestGbfsVersionElement.version})
       </Button>
     );

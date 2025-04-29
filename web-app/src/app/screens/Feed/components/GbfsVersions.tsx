@@ -182,7 +182,7 @@ export default function GbfsVersions({
                     )}
                   </Typography>
                   <Typography variant='h6' sx={{ fontSize: '1.1rem' }}>
-                    {t('autodiscoveryUrl')}
+                    {t('feedUrl')}
                   </Typography>
                   <Box
                     sx={{
@@ -202,7 +202,7 @@ export default function GbfsVersions({
                     </Link>
                     {/* TODO: href={item.autoDiscovery}{item.autoDiscovery} */}
                     <ContentCopyIcon
-                      titleAccess={t('autodiscoveryUrlCopied')}
+                      titleAccess={t('feedUrlCopied')}
                       sx={{ cursor: 'pointer', ml: 1 }}
                       onClick={() => {
                         if (feed?.source_info?.producer_url !== undefined) {
@@ -222,7 +222,7 @@ export default function GbfsVersions({
                       onClose={() => {
                         setSnackbarOpen(false);
                       }}
-                      message={t('autodiscoveryUrlCopied')}
+                      message={t('feedUrlCopied')}
                     />
                   </Box>
                   <Box>

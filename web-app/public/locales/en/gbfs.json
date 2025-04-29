@@ -1,7 +1,7 @@
 {
-    "versions": "Versions",
-    "autodiscoveryUrl": "Auto-Discovery Url",
-    "autodiscoveryUrlCopied": "Auto-Discovery Url Copied",
+    "versions": "GBFS Versions",
+    "feedUrl": "Feed URL",
+    "feedUrlCopied": "Feed URL Copied",
     "runValidationReport": "Run Validation Report",
     "openFeedUrl": "Open Feed URL",
     "features": {
