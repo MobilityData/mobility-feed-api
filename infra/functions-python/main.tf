@@ -116,6 +116,11 @@ resource "google_storage_bucket" "functions_bucket" {
 resource "google_storage_bucket" "gbfs_snapshots_bucket" {
   location = var.gcp_region
   name     = "${var.gbfs_bucket_name}-${var.environment}"
+  cors {
+    origin = ["*"]
+    method = ["GET"]
+    response_header = ["*"]
+  }
 }
 
 resource "google_storage_bucket_iam_member" "datasets_bucket_functions_service_account" {
