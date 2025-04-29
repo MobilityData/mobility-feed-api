@@ -1,6 +1,11 @@
 name: Copy PROD DB to QA
 on:
   workflow_dispatch:  # Supports manual deployment
+  inputs:
+    DEST_DATABASE:
+      description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
+      required: false
+      default: 'MobilityDatabaseProdDuplicate2'
   push:
     branches:
       - 1117-allow-qa-environment-to-use-prod-database-contents
@@ -18,7 +23,7 @@ jobs:
       DEST_DATABASE_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DUMP_FILE_NAME: "prod-db-dump.sql"
       SOURCE_DATABASE_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
-      DEST_DATABASE_NAME: "MobilityDatabaseProdDuplicate"
+      DEST_DATABASE_NAME: ${{ inputs.DEST_DATABASE }}
       DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
       DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
