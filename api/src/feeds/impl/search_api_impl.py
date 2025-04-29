@@ -127,15 +127,6 @@ class SearchApiImpl(BaseSearchApi):
         db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
-        # logging params
-        print("limit: ", limit)
-        print("offset: ", offset)
-        print("status: ", status)
-        print("feed_id: ", feed_id)
-        print("data_type: ", data_type)
-        print("is_official: ", is_official)
-        print("search_query: ", search_query)
-        print("features: ", features)
         query = self.create_search_query(status, feed_id, data_type, is_official, search_query, features)
         feed_rows = Database().select(
             session=db_session,

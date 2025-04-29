@@ -50,7 +50,6 @@ paths:
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
         - $ref: "#/components/parameters/is_official_query_param"
-        - $ref: "#/components/parameters/features"
 
       security:
         - Authentication: []
@@ -455,14 +454,6 @@ components:
             note:
               description: A note to clarify complex use cases for consumers.
               type: string
-            features:
-              description: >
-                A list of GTFS features associated to the feed.
-              type: array
-              items:
-                type: string
-              example:
-                ["Text-To-Speech", "Headsigns", "Wheelchair Accessibility"]
 
     GtfsFeed:
       allOf:
