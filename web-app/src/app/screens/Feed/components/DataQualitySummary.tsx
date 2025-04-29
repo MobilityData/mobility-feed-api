@@ -1,13 +1,13 @@
 import * as React from 'react';
 import { Box, Chip } from '@mui/material';
 import { CheckCircle, ReportOutlined } from '@mui/icons-material';
-import { type components } from '../../services/feeds/types';
+import { type components } from '../../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { WarningContentBox } from '../../components/WarningContentBox';
+import { WarningContentBox } from '../../../components/WarningContentBox';
 import { useTranslation } from 'react-i18next';
-import { FeedStatusChip } from '../../components/FeedStatus';
-import { useRemoteConfig } from '../../context/RemoteConfigProvider';
-import OfficialChip from '../../components/OfficialChip';
+import { FeedStatusChip } from '../../../components/FeedStatus';
+import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
+import OfficialChip from '../../../components/OfficialChip';
 
 export interface DataQualitySummaryProps {
   feedStatus: components['schemas']['Feed']['status'];

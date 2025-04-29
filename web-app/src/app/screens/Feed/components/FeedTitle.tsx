@@ -2,7 +2,7 @@ import { Typography, useTheme } from '@mui/material';
 import {
   type GTFSFeedType,
   type GTFSRTFeedType,
-} from '../../services/feeds/utils';
+} from '../../../services/feeds/utils';
 import { useTranslation } from 'react-i18next';
 
 interface FeedTitleProps {

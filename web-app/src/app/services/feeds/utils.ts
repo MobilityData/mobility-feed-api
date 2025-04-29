@@ -12,6 +12,7 @@ export type AllFeedType =
   | paths['/v1/feeds/{id}']['get']['responses'][200]['content']['application/json']
   | paths['/v1/gtfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
   | paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json']
+  | paths['/v1/gbfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
   | undefined;
 
 export type BasicFeedType =
@@ -42,6 +43,20 @@ export const isGtfsRtFeedType = (
   data: AllFeedType,
 ): data is paths['/v1/gtfs_rt_feeds/{id}']['get']['responses'][200]['content']['application/json'] => {
   return data !== undefined && data.data_type === 'gtfs_rt';
+};
+
+export type GBFSFeedType =
+  | paths['/v1/gbfs_feeds/{id}']['get']['responses'][200]['content']['application/json']
+  | undefined;
+
+export type GBFSVersionType = components['schemas']['GbfsVersion'];
+
+export type GBFSVersionEndpointType = components['schemas']['GbfsEndpoint'];
+
+export const isGbfsFeedType = (
+  data: AllFeedType,
+): data is paths['/v1/gbfs_feeds/{id}']['get']['responses'][200]['content']['application/json'] => {
+  return data !== undefined && data.data_type === 'gbfs';
 };
 
 export type AllDatasetType =
