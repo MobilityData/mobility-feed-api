@@ -571,6 +571,10 @@ resource "google_cloudfunctions2_function" "gbfs_validator_pubsub" {
     environment_variables = {
       ENV = var.environment
       BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_gbfs_validation_report_config.secret_environment_variables
