@@ -24,8 +24,6 @@ import {
 import {
   selectFeedData,
   selectFeedLoadingStatus,
-  selectGTFSFeedData,
-  selectGTFSRTFeedData,
   selectRelatedFeedsData,
   selectRelatedGtfsRTFeedsData,
 } from '../../store/feed-selectors';
@@ -37,10 +35,10 @@ import {
   selectHasLoadedAllDatasets,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
-import PreviousDatasets from './PreviousDatasets';
-import FeedSummary from './FeedSummary';
-import DataQualitySummary from './DataQualitySummary';
-import AssociatedFeeds from './AssociatedFeeds';
+import PreviousDatasets from './components/PreviousDatasets';
+import FeedSummary from './components/FeedSummary';
+import DataQualitySummary from './components/DataQualitySummary';
+import AssociatedFeeds from './components/AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
 import { Trans, useTranslation } from 'react-i18next';
 import { Helmet } from 'react-helmet-async';
@@ -56,13 +54,16 @@ import {
   generatePageTitle,
   generateDescriptionMetaTag,
 } from './Feed.functions';
-import FeedTitle from './FeedTitle';
+import FeedTitle from './components/FeedTitle';
 import OfficialChip from '../../components/OfficialChip';
 import {
+  type GBFSFeedType,
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import DownloadIcon from '@mui/icons-material/Download';
+import GbfsFeedInfo from './components/GbfsFeedInfo';
+import GbfsVersions from './components/GbfsVersions';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -104,6 +105,7 @@ const wrapComponent = (
             color: theme.palette.text.primary,
             fontSize: '18px',
             fontWeight: 700,
+            position: 'relative',
           }}
         >
           {feedLoadingStatus === 'error' && <>{t('errorLoadingFeed')}</>}
@@ -130,9 +132,7 @@ export default function Feed(): React.ReactElement {
   const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
-  const gtfsFeedData = useSelector(selectGTFSFeedData);
-  const gtfsRtFeedData = useSelector(selectGTFSRTFeedData);
-  const feed = feedType === 'gtfs' ? gtfsFeedData : gtfsRtFeedData;
+  const feed = useSelector(selectFeedData);
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
@@ -281,6 +281,29 @@ export default function Feed(): React.ReactElement {
       ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
 
+  const gbfsOpenFeedUrlElement = (
+    gbfsFeed: GBFSFeedType,
+  ): React.JSX.Element => {
+    const latestGbfsVersionElement = gbfsFeed?.versions?.find((s) => s.latest);
+    if (latestGbfsVersionElement === undefined) {
+      return <></>;
+    }
+    return (
+      <Button
+        disableElevation
+        variant='contained'
+        sx={{ marginRight: 2 }}
+        href={''} // latestGbfsVersionElement.autodiscovery_url}
+        target='_blank'
+        rel='noreferrer'
+        endIcon={<OpenInNewIcon></OpenInNewIcon>}
+      >
+        {t('gbfs:openFeedUrl')} (v
+        {latestGbfsVersionElement.version})
+      </Button>
+    );
+  };
+
   return wrapComponent(
     feedLoadingStatus,
     generateDescriptionMetaTag(
@@ -291,7 +314,7 @@ export default function Feed(): React.ReactElement {
     ),
     feedType,
     feedId,
-    <Box>
+    <Box sx={{ position: 'relative' }}>
       <Grid container item xs={12} spacing={3} alignItems={'center'}>
         <Grid
           item
@@ -328,11 +351,12 @@ export default function Feed(): React.ReactElement {
               href={`/feeds?${feed?.data_type}=true`}
               className='inline'
             >
-              {feed?.data_type === 'gtfs'
-                ? t('common:gtfsSchedule')
-                : t('common:gtfsRealtime')}
+              {t(`common:${feed?.data_type}`)}
             </Button>
-            / {feed?.id}
+            /{' '}
+            {feed.data_type === 'gbfs'
+              ? feed?.id?.replace('gbfs-', '')
+              : feed?.id}
           </Typography>
         </Grid>
       </Grid>
@@ -397,17 +421,16 @@ export default function Feed(): React.ReactElement {
           <Grid item xs={12}>
             <Typography variant='h5'>
               {' '}
-              {(feed as GTFSRTFeedType)?.entity_types ??
-                []
-                  .map(
-                    (entityType) =>
-                      ({
-                        tu: t('common:gtfsRealtimeEntities.tripUpdates'),
-                        vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
-                        sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
-                      })[entityType],
-                  )
-                  .join(' ' + t('common:and') + ' ')}
+              {((feed as GTFSRTFeedType)?.entity_types ?? [])
+                .map(
+                  (entityType) =>
+                    ({
+                      tu: t('common:gtfsRealtimeEntities.tripUpdates'),
+                      vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
+                      sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
+                    })[entityType],
+                )
+                .join(' ' + t('common:and') + ' ')}
             </Typography>
           </Grid>
         )}
@@ -467,6 +490,9 @@ export default function Feed(): React.ReactElement {
             {t('openFullQualityReport')}
           </Button>
         )}
+        {feed?.data_type === 'gbfs' && (
+          <>{gbfsOpenFeedUrlElement(feed as GBFSFeedType)}</>
+        )}
         {feed?.source_info?.license_url != undefined &&
           feed?.source_info?.license_url !== '' && (
             <Button
@@ -486,21 +512,29 @@ export default function Feed(): React.ReactElement {
         <Box
           sx={feedDetailContentContainerStyle({
             theme,
-            isGtfsSchedule: feed?.data_type === 'gtfs',
+            isGtfsRT: feed?.data_type === 'gtfs_rt',
           })}
         >
-          {feed?.data_type === 'gtfs' && (
+          {(feed?.data_type === 'gtfs' || feed.data_type === 'gbfs') && (
             <CoveredAreaMap
               boundingBox={boundingBox}
               latestDataset={latestDataset}
+              feed={feed}
             />
           )}
-          <FeedSummary
-            feed={feed}
-            sortedProviders={sortedProviders}
-            latestDataset={latestDataset}
-            width={{ xs: '100%' }}
-          />
+
+          <Box sx={{ width: { xs: '100%', md: '60%' } }}>
+            {feed.data_type === 'gbfs' ? (
+              <GbfsFeedInfo feed={feed as GTFSFeedType}></GbfsFeedInfo>
+            ) : (
+              <FeedSummary
+                feed={feed}
+                sortedProviders={sortedProviders}
+                latestDataset={latestDataset}
+                width={{ xs: '100%' }}
+              />
+            )}
+          </Box>
 
           {feed?.data_type === 'gtfs_rt' && relatedFeeds != undefined && (
             <AssociatedFeeds
@@ -510,14 +544,17 @@ export default function Feed(): React.ReactElement {
           )}
         </Box>
       </Grid>
+
+      {feed?.data_type === 'gbfs' && (
+        <GbfsVersions feed={feed as GBFSFeedType}></GbfsVersions>
+      )}
+
       {feed?.data_type === 'gtfs' && hasDatasets && (
         <Grid item xs={12}>
           <PreviousDatasets
             datasets={datasets}
             isLoadingDatasets={datasetLoadingStatus === 'loading'}
-            hasloadedAllDatasets={
-              hasLoadedAllDatasets != undefined && hasLoadedAllDatasets
-            }
+            hasloadedAllDatasets={hasLoadedAllDatasets ?? false}
             loadMoreDatasets={(offset: number) => {
               loadDatasets(offset);
             }}

@@ -45,6 +45,7 @@
   },
   "seeFullList": "See full list",
   "hideFullList": "Hide full list",
+  "producer": "Producer",
   "producerDownloadUrl": "Producer download URL",
   "copyDownloadUrl": "Copy download URL",
   "producerUrlCopied": "Producer url copied to clipboard",
@@ -141,5 +142,7 @@
     "downloadReport": "Download the dataset for this feed",
     "viewReport": "View Validation Report",
     "viewJsonReport": "View Validation Report in JSON format"
-  }
+  },
+  "viewRealtimeVisualization": "View real-time visualization",
+  "versions": "Versions"
 }

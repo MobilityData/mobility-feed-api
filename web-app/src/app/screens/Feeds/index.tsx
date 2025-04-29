@@ -86,8 +86,17 @@ export default function Feed(): React.ReactElement {
   const feedStatus = useSelector(selectFeedsStatus);
 
   // features i/o
+  const areNoDataTypesSelected =
+    !selectedFeedTypes.gtfs &&
+    !selectedFeedTypes.gtfs_rt &&
+    !selectedFeedTypes.gbfs;
+  const isOfficialTagFilterEnabled =
+    selectedFeedTypes.gtfs ||
+    selectedFeedTypes.gtfs_rt ||
+    areNoDataTypesSelected;
   const areFeatureFiltersEnabled =
-    !selectedFeedTypes.gtfs_rt || selectedFeedTypes.gtfs;
+    (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
+    selectedFeedTypes.gtfs;
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
@@ -108,7 +117,10 @@ export default function Feed(): React.ReactElement {
             limit: searchLimit,
             offset: paginationOffset,
             search_query: activeSearch,
-            data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
+            data_type: getDataTypeParamFromSelectedFeedTypes(
+              selectedFeedTypes,
+              config.enableGbfsInSearchPage,
+            ),
             is_official: isOfficialFeedSearch || undefined,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
@@ -141,6 +153,9 @@ export default function Feed(): React.ReactElement {
     }
     if (selectedFeedTypes.gtfs_rt) {
       newSearchParams.set('gtfs_rt', 'true');
+    }
+    if (selectedFeedTypes.gbfs && config.enableGbfsInSearchPage) {
+      newSearchParams.set('gbfs', 'true');
     }
     if (selectedFeatures.length > 0) {
       newSearchParams.set('features', selectedFeatures.join(','));
@@ -197,6 +212,13 @@ export default function Feed(): React.ReactElement {
         gtfs_rt: newFeedTypes.gtfs_rt,
       });
     }
+
+    if (newFeedTypes.gbfs !== selectedFeedTypes.gbfs) {
+      setSelectedFeedTypes({
+        ...selectedFeedTypes,
+        gbfs: newFeedTypes.gbfs,
+      });
+    }
   }, [searchParams]);
 
   const getSearchResultNumbers = (): string => {
@@ -250,6 +272,7 @@ export default function Feed(): React.ReactElement {
     setSelectedFeedTypes({
       gtfs: false,
       gtfs_rt: false,
+      gbfs: false,
     });
     setSelectedFeatures([]);
     setIsOfficialFeedSearch(false);
@@ -261,9 +284,20 @@ export default function Feed(): React.ReactElement {
 
   const containerRef = React.useRef(null);
   useEffect(() => {
-    if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
-      setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
+    if (!config.enableGbfsInSearchPage) {
+      if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
+        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
+      }
+    } else {
+      if (
+        !selectedFeedTypes.gtfs_rt &&
+        !selectedFeedTypes.gtfs &&
+        !selectedFeedTypes.gbfs
+      ) {
+        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true, gbfs: true });
+      }
     }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsSticky(!entry.isIntersecting);
@@ -288,6 +322,26 @@ export default function Feed(): React.ReactElement {
       setSearchView(newSearchView);
     }
   };
+  const dataTypesCheckboxData: CheckboxStructure[] = [
+    {
+      title: t('common:gtfsSchedule'),
+      checked: selectedFeedTypes.gtfs,
+      type: 'checkbox',
+    },
+    {
+      title: t('common:gtfsRealtime'),
+      checked: selectedFeedTypes.gtfs_rt,
+      type: 'checkbox',
+    },
+  ];
+
+  if (config.enableGbfsInSearchPage) {
+    dataTypesCheckboxData.push({
+      title: t('common:gbfs'),
+      checked: selectedFeedTypes.gbfs,
+      type: 'checkbox',
+    });
+  }
 
   return (
     <Container
@@ -387,31 +441,31 @@ export default function Feed(): React.ReactElement {
             >
               <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
               <NestedCheckboxList
-                checkboxData={[
-                  {
-                    title: t('common:gtfsSchedule'),
-                    checked: selectedFeedTypes.gtfs,
-                    type: 'checkbox',
-                  },
-                  {
-                    title: t('common:gtfsRealtime'),
-                    checked: selectedFeedTypes.gtfs_rt,
-                    type: 'checkbox',
-                  },
-                ]}
+                checkboxData={dataTypesCheckboxData}
                 onCheckboxChange={(checkboxData) => {
                   setActivePagination(1);
-                  setSelectedFeedTypes({
+                  const checkedFeedTypes = {
                     ...selectedFeedTypes,
                     gtfs: checkboxData[0].checked,
                     gtfs_rt: checkboxData[1].checked,
-                  });
+                    gbfs: false,
+                  };
+                  if (config.enableGbfsInSearchPage) {
+                    checkedFeedTypes.gbfs = checkboxData[2].checked;
+                  }
+                  setSelectedFeedTypes(checkedFeedTypes);
                 }}
               ></NestedCheckboxList>
               {config.enableIsOfficialFilterSearch && (
                 <>
-                  <SearchHeader variant='h6'>Tags</SearchHeader>
+                  <SearchHeader
+                    variant='h6'
+                    sx={isOfficialTagFilterEnabled ? {} : { opacity: 0.5 }}
+                  >
+                    Tags
+                  </SearchHeader>
                   <NestedCheckboxList
+                    disableAll={!isOfficialTagFilterEnabled}
                     checkboxData={[
                       {
                         title: 'Official Feeds',
@@ -498,6 +552,21 @@ export default function Feed(): React.ReactElement {
                       setSelectedFeedTypes({
                         ...selectedFeedTypes,
                         gtfs_rt: false,
+                      });
+                    }}
+                  />
+                )}
+                {selectedFeedTypes.gbfs && (
+                  <Chip
+                    color='primary'
+                    variant='outlined'
+                    size='small'
+                    label={t('common:gbfs')}
+                    onDelete={() => {
+                      setActivePagination(1);
+                      setSelectedFeedTypes({
+                        ...selectedFeedTypes,
+                        gbfs: false,
                       });
                     }}
                   />
