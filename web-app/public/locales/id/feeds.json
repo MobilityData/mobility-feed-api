@@ -1,0 +1,42 @@
+{
+   "feeds": "Feed",
+   "dataType": "Tipe Data",
+   "transitProvider": "Penyedia Transit",
+   "location": "Lokasi",
+   "feedDescription": "Deskripsi Feed",
+   "searchFor": "Cari",
+   "resultsFor": "{{startResult}}-{{endResult}} dari hasil {{totalResults}}",
+   "deprecated": "Tidak digunakan lagi",
+   "searchPlaceholder": "Penyedia transit, nama feed, atau lokasi",
+   "noResults": "Maaf, kami tidak menemukan hasil pencarian untuk \"{{activeSearch}}\"",
+   "searchSuggestions": "Saran pencarian: ",
+   "searchTips": {
+      "twoDigit": "Gunakan kode dua digit untuk mencari negara, misalnya \"FR\" untuk Prancis",
+      "fullName": "Sertakan nama lengkap penyedia transit, misalnya \"Toronto Transit Commission\" bukan \"TTC\"",
+      "checkSpelling": "Periksa ulang ejaannya"
+   },
+   "errorAndContact": "Silakan periksa koneksi internet Anda dan coba lagi. Jika masalah berlanjut <1>hubungi kami</1> untuk bantuan lebih lanjut.",
+   "errorLoadingFeed": "Terjadi kesalahan saat memuat feed.",
+   "form": {
+      "addOrUpdateFeed": "Menambahkan atau Memperbarui Feed",
+      "signUp": "Mendaftar untuk akun Mobility Database atau masuk untuk menambahkan atau memperbarui feed GTFS.",
+      "signUpAction": "Mendaftar untuk akun",
+      "loginSuccess": "Anda berhasil masuk, sekarang Anda dapat menambahkan atau memperbarui feed."
+   },
+   "seeFullList": "Lihat daftar lengkap",
+   "hideFullList": "Sembunyikan daftar lengkap",
+   "producerDownloadUrl": "URL unduhan produser",
+   "copyDownloadUrl": "Salin URL unduhan",
+   "producerUrlCopied": "URL produser disalin ke clipboard",
+   "authenticationType": "Jenis autentikasi",
+   "registerToDownloadFeed": "Daftar untuk mengunduh feed",
+   "feedContactEmail": "Email kontak feed",
+   "copyFeedContactEmail": "Salin email kontak feed",
+   "features": "Fitur",
+   "unableToDownloadFeed": "Tidak dapat mengunduh feed ini. Jika ada URL yang lebih baru untuk feed ini, <1>harap kirimkan di sini</1> ",
+   "feedHasBeenReplaced": "Umpan ini telah diganti dengan URL produsen yang berbeda.{' '}<1> Buka umpan baru di sini</1> .",
+   "downloadLatest": "Unduh Terbaru",
+   "seeLicense": "Lihat Lisensi",
+   "boundingBoxTitle": "Kotak pembatas dari stops.txt",
+   "unableToGenerateBoundingBox": "Tidak dapat membuat kotak pembatas."
+}
