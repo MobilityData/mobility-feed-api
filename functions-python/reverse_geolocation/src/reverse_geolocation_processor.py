@@ -1,4 +1,3 @@
-import io
 import json
 import logging
 import os
@@ -8,7 +7,6 @@ from typing import Dict, Tuple, Optional, List
 
 import flask
 import pandas as pd
-import requests
 import shapely.geometry
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
@@ -24,6 +22,8 @@ from location_group_utils import (
     generate_color,
     geopolygons_as_string,
 )
+from parse_request import parse_request_parameters
+from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Feed,
@@ -35,47 +35,10 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Gtfsfeed,
 )
-from shared.database.database import with_db_session, refresh_materialized_view
 from shared.helpers.logger import Logger, StableIdFilter
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
-
-
-def parse_request_parameters(
-    request: flask.Request,
-) -> Tuple[pd.DataFrame, str, str]:
-    """
-    Parse the request parameters and return a DataFrame with the stops data.
-    @:returns Tuple: A tuple containing the stops DataFrame, stable ID, and dataset ID.
-    """
-    logging.info("Parsing request parameters.")
-    request_json = request.get_json(silent=True)
-    logging.info(f"Request JSON: {request_json}")
-
-    if (
-        not request_json
-        or "stops_url" not in request_json
-        or "stable_id" not in request_json
-        or "dataset_id" not in request_json
-    ):
-        raise ValueError(
-            "Invalid request: missing 'stops_url', 'dataset_id' or 'stable_id' parameter."
-        )
-
-    stable_id = request_json["stable_id"]
-    dataset_id = request_json["dataset_id"]
-
-    # Read the stops from the URL
-    try:
-        s = requests.get(request_json["stops_url"]).content
-        stops_df = pd.read_csv(io.StringIO(s.decode("utf-8")))
-    except Exception as e:
-        raise ValueError(
-            f"Error reading stops from URL {request_json['stops_url']}: {e}"
-        )
-
-    return stops_df, stable_id, dataset_id
 
 
 @with_db_session
@@ -248,6 +211,8 @@ def create_geojson_aggregate(
     total_stops: int,
     stable_id: str,
     bounding_box: shapely.Polygon,
+    data_type: str,
+    extraction_url: str = None,
 ) -> None:
     """Create a GeoJSON file with the aggregated locations. This file will be uploaded to GCS and used for
     visualization."""
@@ -269,6 +234,8 @@ def create_geojson_aggregate(
     )
     json_data = {
         "type": "FeatureCollection",
+        "extracted_at": datetime.now().isoformat(),
+        "extraction_url": extraction_url,
         "features": [
             {
                 "type": "Feature",
@@ -292,7 +259,12 @@ def create_geojson_aggregate(
         ],
     }
     storage_client = storage.Client()
-    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
+    if data_type == 'gtfs':
+        bucket_name = os.getenv("DATASETS_BUCKET_NAME_GTFS")
+    elif data_type == 'gbfs':
+        bucket_name = os.getenv("DATASETS_BUCKET_NAME_GBFS")
+    else:
+        raise ValueError("The data type must be either 'gtfs' or 'gbfs'.")
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(f"{stable_id}/geolocation.geojson")
     blob.upload_from_string(json.dumps(json_data))
@@ -353,35 +325,36 @@ def extract_location_aggregates(
         ):  # Commit every 100 stops to avoid reprocessing all stops in case of failure
             db_session.commit()
 
-    gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed_id).one_or_none()
+    feed = db_session.query(Feed).filter(Feed.id == feed_id).one_or_none()
     osm_location_groups = [
         get_or_create_feed_osm_location_group(
             feed_id, location_aggregates[location_group.group_id], db_session
         )
         for location_group in location_aggregates.values()
     ]
-    gtfs_feed.feedosmlocationgroups.clear()
-    gtfs_feed.feedosmlocationgroups.extend(osm_location_groups)
-
-    for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
-        logging.info(f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}")
-        gtfs_rt_feed.feedosmlocationgroups.clear()
-        gtfs_rt_feed.feedosmlocationgroups.extend(osm_location_groups)
-
+    feed.feedosmlocationgroups.clear()
+    feed.feedosmlocationgroups.extend(osm_location_groups)
     feed_locations = []
     for location_aggregate in location_aggregates.values():
         location = get_or_create_location(location_aggregate, db_session)
         if location:
             feed_locations.append(location)
-    if feed_locations:
-        gtfs_feed.locations = feed_locations
-        for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
-            logging.info(
-                f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}"
-            )
-            gtfs_rt_feed.locations.clear()
-            gtfs_rt_feed.locations = feed_locations
 
+    if feed.data_type == 'gtfs':
+        gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed_id).one_or_none()
+        for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
+            logging.info(f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}")
+            gtfs_rt_feed.feedosmlocationgroups.clear()
+            gtfs_rt_feed.feedosmlocationgroups.extend(osm_location_groups)
+            if feed_locations:
+                gtfs_rt_feed.locations.clear()
+                gtfs_rt_feed.locations = feed_locations
+
+    if feed_locations:
+        feed.locations = feed_locations
+
+    # Commit the changes to the database before refreshing the materialized view
+    db_session.commit()
     refresh_materialized_view(db_session, t_feedsearch.name)
 
 
@@ -405,6 +378,8 @@ def update_dataset_bounding_box(
         f")",
         srid=4326,
     )
+    if not dataset_id:
+        return to_shape(bounding_box)
     gtfs_dataset = (
         db_session.query(Gtfsdataset)
         .filter(Gtfsdataset.stable_id == dataset_id)
@@ -427,7 +402,7 @@ def reverse_geolocation_process(
 
     try:
         # Parse request parameters
-        stops_df, stable_id, dataset_id = parse_request_parameters(request)
+        stops_df, stable_id, dataset_id, data_type, extraction_url = parse_request_parameters(request)
 
         # Remove duplicate lat/lon points
         stops_df["stop_lat"] = pd.to_numeric(stops_df["stop_lat"], errors="coerce")
@@ -464,6 +439,8 @@ def reverse_geolocation_process(
             total_stops=total_stops,
             stable_id=stable_id,
             bounding_box=bounding_box,
+            data_type=data_type,
+            extraction_url=extraction_url,
         )
 
         # Overall Time

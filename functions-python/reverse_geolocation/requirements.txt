@@ -27,6 +27,7 @@ pycountry
 shapely
 gtfs-kit
 matplotlib
+jsonpath_ng
 
 # Configuration
 python-dotenv==1.0.0

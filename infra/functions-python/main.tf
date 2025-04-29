@@ -986,7 +986,8 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      DATASETS_BUCKET_NAME_GTFS = "${var.datasets_bucket_name}-${var.environment}"
+      DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
     }
     available_memory = local.function_reverse_geolocation_config.available_memory
     timeout_seconds = 3600

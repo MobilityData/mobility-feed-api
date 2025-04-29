@@ -30,9 +30,9 @@ faker = Faker()
 
 
 class TestReverseGeolocationProcessor(unittest.TestCase):
-    @patch("reverse_geolocation_processor.requests")
+    @patch("parse_request.requests")
     def test_parse_request_parameters(self, requests_mock):
-        from reverse_geolocation_processor import parse_request_parameters
+        from parse_request import parse_request_parameters
 
         # No exception should be raised
         requests_mock.get.return_value.content = (

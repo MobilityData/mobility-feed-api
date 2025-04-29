@@ -8,9 +8,9 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from google.cloud import tasks_v2
 
-from location_group_utils import create_http_task, project_id, gcp_region
 from shared.helpers.logger import Logger
 from shared.helpers.parser import jsonify_pubsub
+from shared.helpers.utils import create_http_task
 
 
 def init(request: CloudEvent) -> None:
@@ -110,8 +110,15 @@ def create_http_processor_task(
     body = json.dumps(
         {"stable_id": stable_id, "stops_url": stops_url, "dataset_id": dataset_id}
     ).encode()
+    queue_name = os.getenv("QUEUE_NAME")
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+
     create_http_task(
         client,
         body,
         f"https://{gcp_region}-{project_id}.cloudfunctions.net/reverse-geolocation-processor",
+        project_id,
+        gcp_region,
+        queue_name,
     )

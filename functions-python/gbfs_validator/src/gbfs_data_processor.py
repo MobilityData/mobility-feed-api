@@ -5,6 +5,7 @@ from datetime import datetime
 from http import HTTPMethod
 from typing import Dict, Any, Optional, List, Tuple
 from jsonpath_ng import parse
+from google.cloud import tasks_v2
 import requests
 from requests.exceptions import RequestException
 from google.cloud import storage
@@ -16,6 +17,7 @@ from gbfs_utils import (
     BUCKET_NAME,
     VALIDATOR_URL,
 )
+import os
 from shared.database_gen.sqlacodegen_models import (
     Gbfsnotice,
     Gbfsversion,
@@ -26,6 +28,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from sqlalchemy.orm import Session
 from shared.database.database import with_db_session
+from shared.helpers.utils import create_http_task
 
 
 class GBFSDataProcessor:
@@ -52,6 +55,8 @@ class GBFSDataProcessor:
 
         # Update database entities
         self.update_database_entities()
+
+        self.trigger_location_extraction()
 
     @with_db_session()
     def record_autodiscovery_request(
@@ -376,3 +381,53 @@ class GBFSDataProcessor:
                 self.gbfs_endpoints[version.version] = endpoints
             else:
                 logging.error(f"No endpoints found for version {version.version}.")
+
+    def trigger_location_extraction(self):
+        """Trigger the location extraction process."""
+        latest_version = self.get_latest_version()
+        if not latest_version:
+            logging.error("No latest version found.")
+            return
+        endpoints = self.gbfs_endpoints.get(latest_version, [])
+        # Find the station_information_url endpoint
+        station_information_url = next(
+            (
+                endpoint.url
+                for endpoint in endpoints
+                if endpoint.name == "station_information"
+            ),
+            None,
+        )
+        # If station_information_url is not found, use vehicle_status_url
+        vehicle_status_url = next(
+            (
+                endpoint.url
+                for endpoint in endpoints
+                if endpoint.name == "vehicle_status"
+            ),
+            None,
+        )
+        if not station_information_url and not vehicle_status_url:
+            logging.error("No station_information_url or vehicle_status_url found.")
+            return
+        client = tasks_v2.CloudTasksClient()
+        body = json.dumps(
+            {
+                "stable_id": self.stable_id,
+                "data_type": "gbfs",
+                "station_information_url": station_information_url,
+                "vehicle_status_url": vehicle_status_url
+            }
+        ).encode()
+        project_id = os.getenv("PROJECT_ID")
+        gcp_region = os.getenv("GCP_REGION")
+        queue_name = os.getenv("QUEUE_NAME")
+        create_http_task(
+            client,
+            body,
+            f"https://{gcp_region}-{project_id}.cloudfunctions.net/reverse-geolocation-processor",
+            project_id,
+            gcp_region,
+            queue_name
+        )
+
