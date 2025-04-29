@@ -644,7 +644,7 @@ export interface components {
       'active' | 'deprecated' | 'inactive' | 'development' | 'future'
     >;
     /** @description Filter feeds by their GTFS features. [GTFS features definitions defined here](https://gtfs.org/getting-started/features/overview) */
-    features?: string[];
+    feature?: string[];
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
     provider?: string;
     /** @description List only feeds with the specified value. Can be a partial match. Case insensitive. */
@@ -993,7 +993,7 @@ export interface operations {
         data_type?: components['parameters']['data_type_query_param'];
         is_official?: components['parameters']['is_official_query_param'];
         search_query?: components['parameters']['search_text_query_param'];
-        features?: components['parameters']['features'];
+        feature?: components['parameters']['feature'];
       };
     };
     responses: {
