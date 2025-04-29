@@ -1,11 +1,11 @@
 name: Copy PROD DB to QA
 on:
   workflow_dispatch:  # Supports manual deployment
-  inputs:
-    DEST_DATABASE:
-      description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
-      required: false
-      default: 'MobilityDatabaseProdDuplicate2'
+    inputs:
+      DEST_DATABASE:
+        description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
+        required: false
+        default: 'MobilityDatabaseProdDuplicate2'
   push:
     branches:
       - 1117-allow-qa-environment-to-use-prod-database-contents
