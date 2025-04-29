@@ -42,11 +42,6 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             ),
             redirects=feed_search_row.redirect_ids,
             locations=cls.resolve_locations(feed_search_row.locations),
-            features=(
-                sorted([feature for feature in feed_search_row.latest_dataset_features])
-                if feed_search_row.latest_dataset_features
-                else []
-            ),
             latest_dataset=(
                 LatestDataset(
                     id=feed_search_row.latest_dataset_id,
