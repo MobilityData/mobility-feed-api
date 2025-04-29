@@ -71,7 +71,7 @@ jobs:
           echo "Giving write permission for the source sql instance to write to the bucket"
           gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
 
-          echo "Getting the service account for the QA DB to give permission to the bucket`
+          echo "Getting the service account for the QA DB to give permission to the bucket"
           DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
           echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
 
