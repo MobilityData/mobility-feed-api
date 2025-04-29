@@ -114,7 +114,7 @@ export default function Feed(): React.ReactElement {
             // Filtering out deprecated feeds
             status: ['active', 'inactive', 'development'],
             features: selectedFeatures,
-          } as any, // Type assertion to bypass type checking
+          },
         },
       }),
     );
