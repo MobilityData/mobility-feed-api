@@ -6,9 +6,6 @@ on:
         description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
         required: false
         default: 'MobilityDatabaseProdDuplicate'
-  push:
-    branches:
-      - 1117-allow-qa-environment-to-use-prod-database-contents
 
 jobs:
   run-script:
