@@ -2,6 +2,10 @@ import logging
 from datetime import datetime
 from typing import Type
 
+from sqlalchemy import and_
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm.query import Query
+
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsrealtimefeed,
@@ -10,9 +14,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Validationreport,
 )
-from sqlalchemy import and_
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy.orm.query import Query
 
 feed_mapping = {"gtfs_rt": Gtfsrealtimefeed, "gtfs": Gtfsfeed, "gbfs": Gbfsfeed}
 
