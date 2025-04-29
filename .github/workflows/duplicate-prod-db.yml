@@ -112,6 +112,7 @@ jobs:
           # In theory we could dump the DB without these statements, with:
           # pg_dump --no-owner --no-privileges -d your_database > clean_dump.sql.
 
+          # The dumped DB refers to the PROD database user (data_feeds_user), so we need to be this user when importing.
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
           gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_IMPORT_USER --quiet
 
@@ -129,7 +130,7 @@ jobs:
           GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
           GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
 
-      - name: Tunnel
+      - name: Tunnel and update database
         run: |
           mkdir -p ~/.ssh
           echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
@@ -137,9 +138,11 @@ jobs:
           ./scripts/tunnel-create.sh -project_id $DEST_PROJECT_ID -zone ${GCP_REGION}-a -instance ${GCP_FEED_BASTION_NAME}-qa -target_account ${GCP_FEED_SSH_USER} -db_instance ${DB_INSTANCE_NAME} -port 5454
           sleep 10 # Wait for the tunnel to establish
 
+          # All  the tables in the database are owned by the user that imported them (data-feeds-user). 
+          # But we are currently using postgres as the user in QA API. So we need to change the user for all tables.
+          echo "Changing ownership of tables to the postgres user"
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
-          
-          cat <<'EOF' | psql -h localhost -p 5454 -U data_feeds_user -d $DEST_DATABASE_NAME
+          cat <<'EOF' | psql -h localhost -p 5454 -U $DEST_DATABASE_IMPORT_USER -d $DEST_DATABASE_NAME
           DO $$
           DECLARE
               r RECORD;
@@ -155,9 +158,10 @@ jobs:
           $$;
           EOF
           
+          echo "Replacing email addresses to make sure we don't email by mistake"
           cat <<'EOF' | psql -h localhost -p 5454 -U postgres -d $DEST_DATABASE_NAME
           UPDATE feed
-          SET feed_contact_email = REPLACE(feed_contact_email, '@', '_') || '@mobilitydata.org'
+          SET feed_contact_email = REPLACE(feed_contact_email, '@', '_at_') || '@mobilitydata.org'
           WHERE feed_contact_email IS NOT NULL
             AND TRIM(feed_contact_email) <> '';
           EOF
