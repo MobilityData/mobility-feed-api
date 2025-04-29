@@ -108,7 +108,9 @@ def parse_json_report(json_report):
     try:
         dt = json_report["summary"]["validatedAt"]
         validated_at = datetime.fromisoformat(dt.replace("Z", "+00:00"))
-        version = json_report["summary"]["validatorVersion"]
+        version = None
+        if "validatorVersion" in json_report["summary"]:
+            version = json_report["summary"]["validatorVersion"]
         logging.info(
             f"Validation report validated at {validated_at} with version {version}."
         )
@@ -141,9 +143,11 @@ def generate_report_entities(
     json_report_url = (
         f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report_{version}.json"
     )
-    if get_validation_report(report_id, session):  # Check if report already exists
+    # Check if report already exists
+    # If exists, the function should graceful finish avoiding retry mechanism to trigger again
+    if get_validation_report(report_id, session):
         logging.warning(f"Validation report {report_id} already exists. Terminating.")
-        raise Exception(f"Validation report {report_id} already exists.")
+        return []
 
     validation_report_entity = Validationreport(
         id=report_id,
@@ -155,6 +159,8 @@ def generate_report_entities(
     entities.append(validation_report_entity)
 
     dataset = get_dataset(dataset_stable_id, session)
+    if not dataset:
+        raise Exception(f"Dataset {dataset_stable_id} not found.")
     dataset.validation_reports.append(validation_report_entity)
 
     extracted_timezone = extract_timezone_from_json_validation_report(json_report)
@@ -246,37 +252,42 @@ def create_validation_report_entities(
         return json_report, code
 
     try:
-        validated_at, version = parse_json_report(json_report)
+        validated_at, version_from_json = parse_json_report(json_report)
     except Exception as error:
         return str(error), 500
 
     try:
-        logging.info("Database session started.")
         # Generate the database entities required for the report
-        try:
-            entities = generate_report_entities(
-                version,
-                validated_at,
-                json_report,
-                dataset_stable_id,
-                db_session,
-                feed_stable_id,
-            )
-        except Exception as error:
-            return str(error), 200  # Report already exists
+        # If an error is thrown we should let the retry mechanism to do its work
+        entities = generate_report_entities(
+            # default to the version parameter
+            version_from_json if version_from_json else version,
+            validated_at,
+            json_report,
+            dataset_stable_id,
+            db_session,
+            feed_stable_id,
+        )
 
-        # Commit the entities to the database
         for entity in entities:
             db_session.add(entity)
-        logging.info(f"Committing {len(entities)} entities to the database.")
-        db_session.commit()
-        logging.info("Entities committed successfully.")
+        # In this case the report entities are already in the DB or cannot be saved for other reasons
+        # In any case, this will fail in any retried event
+        try:
+            logging.info("Committing %s entities to the database.", len(entities))
+            db_session.commit()
+            logging.info("Entities committed successfully.")
+        except Exception as error:
+            logging.warning(
+                "Could not commit %s entities to the database: %s", entities, error
+            )
+            return str(error), 200
 
         update_feed_statuses_query(db_session, [feed_stable_id])
 
         return f"Created {len(entities)} entities.", 200
     except Exception as error:
-        logging.error(f"Error creating validation report entities: {error}")
+        logging.error("Error creating validation report entities: : %s", error)
         return f"Error creating validation report entities: {error}", 500
     finally:
         pass

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ContentBox } from '../../components/ContentBox';
+import { ContentBox } from '../../../components/ContentBox';
 import {
   Box,
   Button,
@@ -21,13 +21,13 @@ import {
   LaunchOutlined,
   CheckCircle,
 } from '@mui/icons-material';
-import { type paths } from '../../services/feeds/types';
+import { type paths } from '../../../services/feeds/types';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SummarizeIcon from '@mui/icons-material/Summarize';
 import CodeIcon from '@mui/icons-material/Code';
 import DateRangeIcon from '@mui/icons-material/DateRange';
-import { WEB_VALIDATOR_LINK } from '../../constants/Navigation';
-import { formatServiceDateRange } from './Feed.functions';
+import { WEB_VALIDATOR_LINK } from '../../../constants/Navigation';
+import { formatServiceDateRange } from '../Feed.functions';
 import { useTranslation } from 'react-i18next';
 
 export interface PreviousDatasetsProps {
@@ -108,7 +108,7 @@ export default function PreviousDatasets({
           sx={{
             height: '100%',
             maxHeight: 'min(600px, 60vh)',
-            overflowY: 'scroll',
+            overflowY: 'auto',
             pb: '5px', // for the bottomRef trigger spacing
           }}
           ref={listRef}

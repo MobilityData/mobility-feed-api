@@ -5,6 +5,7 @@ import {
   ToggleButton,
   Tooltip,
   Skeleton,
+  Button,
 } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
@@ -16,10 +17,13 @@ import { Map } from './Map';
 import { useTranslation } from 'react-i18next';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
+import { type GBFSFeedType, type AllFeedType } from '../services/feeds/utils';
+import { OpenInNew } from '@mui/icons-material';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
   latestDataset?: { hosted_url?: string };
+  feed: AllFeedType;
 }
 
 export const fetchGeoJson = async (
@@ -40,6 +44,7 @@ export const fetchGeoJson = async (
 const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   boundingBox,
   latestDataset,
+  feed,
 }) => {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
@@ -82,45 +87,67 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (newView !== null) setView(newView);
   };
 
+  const getGbfsLatestVersionVisualizationUrl = (feed: GBFSFeedType): string => {
+    // TODO: Redo logic when versions all have the auto discovery
+    return `https://gbfs-validator.mobilitydata.org/visualization?url=${feed?.source_info?.producer_url}`;
+  };
+
   return (
     <ContentBox
       sx={{
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
+        maxHeight: {
+          xs: '100%',
+          md: '70vh',
+        },
       }}
       title={t('coveredAreaTitle') + ' - ' + t(view)}
       width={{ xs: '100%' }}
       outlineColor={theme.palette.primary.dark}
       padding={2}
       action={
-        <ToggleButtonGroup
-          value={view}
-          color='primary'
-          exclusive
-          aria-label='map view selection'
-          onChange={handleViewChange}
-        >
-          <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
-            <ToggleButton
-              value='detailedCoveredAreaView'
-              disabled={
-                geoJsonLoading || geoJsonError || boundingBox === undefined
-              }
-              aria-label='Detailed Covered Area View'
+        <>
+          {feed?.data_type === 'gbfs' ? (
+            <Button
+              href={getGbfsLatestVersionVisualizationUrl(feed as GBFSFeedType)}
+              target='_blank'
+              rel='noreferrer'
+              endIcon={<OpenInNew />}
             >
-              <TravelExploreIcon />
-            </ToggleButton>
-          </Tooltip>
-          <Tooltip title={t('boundingBoxViewTooltip')}>
-            <ToggleButton
-              value='boundingBoxView'
-              aria-label='Bounding Box View'
+              {t('viewRealtimeVisualization')}
+            </Button>
+          ) : (
+            <ToggleButtonGroup
+              value={view}
+              color='primary'
+              exclusive
+              aria-label='map view selection'
+              onChange={handleViewChange}
             >
-              <MapIcon />
-            </ToggleButton>
-          </Tooltip>
-        </ToggleButtonGroup>
+              <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
+                <ToggleButton
+                  value='detailedCoveredAreaView'
+                  disabled={
+                    geoJsonLoading || geoJsonError || boundingBox === undefined
+                  }
+                  aria-label='Detailed Covered Area View'
+                >
+                  <TravelExploreIcon />
+                </ToggleButton>
+              </Tooltip>
+              <Tooltip title={t('boundingBoxViewTooltip')}>
+                <ToggleButton
+                  value='boundingBoxView'
+                  aria-label='Bounding Box View'
+                >
+                  <MapIcon />
+                </ToggleButton>
+              </Tooltip>
+            </ToggleButtonGroup>
+          )}
+        </>
       }
     >
       {boundingBox === undefined && view === 'boundingBoxView' && (

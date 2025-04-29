@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ContentBox } from '../../components/ContentBox';
+import { ContentBox } from '../../../components/ContentBox';
 import {
   Box,
   TableBody,
@@ -13,7 +13,7 @@ import {
   type GTFSFeedType,
   type AllFeedType,
   type GTFSRTFeedType,
-} from '../../services/feeds/utils';
+} from '../../../services/feeds/utils';
 import { Link } from 'react-router-dom';
 
 export interface AssociatedFeedsProps {

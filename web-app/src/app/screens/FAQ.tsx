@@ -56,7 +56,7 @@ export default function FAQ(): React.ReactElement {
           <Button
             variant='text'
             className='inline'
-            href={'https://bit.ly/catalogs-csv'}
+            href={'https://files.mobilitydatabase.org/feeds_v2.csv'}
             endIcon={<FileDownloadIcon />}
           >
             spreadsheet export available here
@@ -66,7 +66,7 @@ export default function FAQ(): React.ReactElement {
             variant='text'
             className='inline'
             href={
-              'https://github.com/MobilityData/mobility-database-catalogs?tab=readme-ov-file#schemas'
+              'https://github.com/MobilityData/mobility-feed-api/blob/main/docs/SpreadsheetSchemaV2.md'
             }
             rel='noreferrer'
             target='_blank'

@@ -9,7 +9,7 @@ import {
   generatePageTitle,
   generateDescriptionMetaTag,
 } from './Feed.functions';
-import FeedTitle from './FeedTitle';
+import FeedTitle from './components/FeedTitle';
 
 const mockFeed: GTFSFeedType = {
   id: 'mdb-x',

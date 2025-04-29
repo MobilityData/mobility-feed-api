@@ -7,7 +7,7 @@ const ThemeToggle = (): JSX.Element => {
   const { toggleTheme } = useTheme();
 
   return (
-    <IconButton onClick={toggleTheme} color='inherit'>
+    <IconButton onClick={toggleTheme} color='inherit' aria-label='Theme Toggle'>
       {localStorage.getItem('theme') === 'dark' ? (
         <Brightness7Icon />
       ) : (

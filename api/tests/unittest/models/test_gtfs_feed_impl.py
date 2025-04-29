@@ -172,6 +172,7 @@ expected_gtfs_feed_result = GtfsFeedImpl(
             unique_error_count=3,
             unique_warning_count=4,
             unique_info_count=2,
+            features=["feature"],
         ),
         service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
         service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),

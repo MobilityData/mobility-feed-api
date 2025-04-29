@@ -176,6 +176,36 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         self.assertEqual(status, 500)
 
+    @mock.patch("requests.get")
+    def test_create_validation_report_entities_missing_dataset(self, mock_get):
+        """
+        Test the create_validation_report_entities function when the dataset is not found in the DB
+        """
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "summary": {
+                    "validatedAt": "2021-01-01T00:00:00Z",
+                    "validatorVersion": "1.0",
+                    "gtfsFeatures": ["stops", "routes"],
+                },
+                "notices": [
+                    {"code": "notice_code", "severity": "ERROR", "totalNotices": 1}
+                ],
+            },
+        )
+        feed_stable_id = faker.word()
+        dataset_stable_id = "MISSING_ID"
+
+        message, status = create_validation_report_entities(
+            feed_stable_id, dataset_stable_id, "1.0"
+        )
+        self.assertEqual(500, status)
+        self.assertEqual(
+            "Error creating validation report entities: Dataset MISSING_ID not found.",
+            message,
+        )
+
     @patch("main.Logger")
     @patch("main.create_validation_report_entities")
     def test_process_validation_report(self, create_validation_report_entities_mock, _):
@@ -299,3 +329,115 @@ class TestValidationReportProcessor(unittest.TestCase):
         self.assertEqual(validation_report.unique_info_count, 1)
         self.assertEqual(validation_report.unique_warning_count, 1)
         self.assertEqual(validation_report.unique_error_count, 2)
+
+    @mock.patch("requests.get")
+    @with_db_session(db_url=default_db_url)
+    def test_create_validation_report_entities_missing_validator_version(
+        self, mock_get, db_session
+    ):
+        """Test create_validation_report_entities function
+        when the validator version is missing from the JSON report."""
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "summary": {
+                    "validatedAt": "2021-01-01T00:00:00Z",
+                    "gtfsFeatures": ["stops", "routes"],
+                },
+                "notices": [
+                    {"code": "notice_code", "severity": "ERROR", "totalNotices": 1}
+                ],
+            },
+        )
+        feed_stable_id = faker.word()
+        dataset_stable_id = faker.word()
+
+        # Create GTFS Feed
+        feed = Gtfsfeed(id=faker.word(), data_type="gtfs", stable_id=feed_stable_id)
+        # Create a new dataset
+        dataset = Gtfsdataset(
+            id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
+        )
+        try:
+            db_session.add(feed)
+            db_session.add(dataset)
+            db_session.commit()
+            create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
+
+            # Validate that the validation report was created
+            validation_report = (
+                db_session.query(Validationreport)
+                .filter(Validationreport.id == f"{dataset_stable_id}_1.0")
+                .one_or_none()
+            )
+            self.assertIsNotNone(validation_report)
+        except Exception as e:
+            raise e
+        finally:
+            db_session.rollback()
+            db_session.close()
+
+    @mock.patch("requests.get")
+    @with_db_session(db_url=default_db_url)
+    def test_create_validation_report_entities_validation_report_exists(
+        self, mock_get, db_session
+    ):
+        """Test create_validation_report_entities function
+        when the validation report already exists."""
+        version = "1.0"
+        mock_get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "summary": {
+                    "validatedAt": "2021-01-01T00:00:00Z",
+                    "gtfsFeatures": ["stops", "routes"],
+                    "validatorVersion": version,
+                },
+                "notices": [
+                    {"code": "notice_code", "severity": "ERROR", "totalNotices": 1}
+                ],
+            },
+        )
+        feed_stable_id = faker.word()
+        dataset_stable_id = faker.word()
+        report_id = f"{dataset_stable_id}_{version}"
+        # Create GTFS Feed
+        feed = Gtfsfeed(id=faker.word(), data_type="gtfs", stable_id=feed_stable_id)
+        # Create a new dataset
+        dataset = Gtfsdataset(
+            id=faker.word(),
+            feed_id=feed.id,
+            stable_id=dataset_stable_id,
+            latest=True,
+            validation_reports=[
+                Validationreport(
+                    id=report_id, validator_version="1.0", notices=[], features=[]
+                )
+            ],
+        )
+
+        try:
+            db_session.add(feed)
+            db_session.add(dataset)
+            db_session.commit()
+            # Validate that the validation report is already in the DB
+            validation_report = (
+                db_session.query(Validationreport)
+                .filter(Validationreport.id == report_id)
+                .one_or_none()
+            )
+            self.assertIsNotNone(validation_report)
+            create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
+
+            # Validate that the validation report remained in the DB
+            validation_report = (
+                db_session.query(Validationreport)
+                .filter(Validationreport.id == report_id)
+                .one_or_none()
+            )
+            self.assertIsNotNone(validation_report)
+        except Exception as e:
+            raise e
+        finally:
+            db_session.rollback()
+            db_session.close()

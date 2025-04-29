@@ -33,7 +33,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [ wip, published ]
+            enum: [ wip, published, unpublished ]
         - name: data_type
           in: query
           description: Filter feeds by data type.
@@ -179,7 +179,7 @@ components:
           $ref: "#/components/schemas/SourceInfo"
         operational_status:
           type: string
-          enum: [ wip, published ]
+          enum: [ wip, published, unpublished ]
           description: Current operational status of the feed.
         created_at:
           type: string
@@ -319,6 +319,7 @@ components:
             - no_change
             - wip
             - published
+            - unpublished
         official:
           type: boolean
           description: Whether this is an official feed.
@@ -367,6 +368,7 @@ components:
             - no_change
             - wip
             - published
+            - unpublished
         official:
           type: boolean
           description: Whether this is an official feed.
