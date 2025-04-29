@@ -109,6 +109,10 @@ def get_feeds_query(
 
         conditions = []
 
+        if data_type is None:
+            conditions.append(model.data_type.in_(["gtfs", "gtfs_rt"]))
+            logging.info("Added filter to exclude gbfs feeds")
+
         if operation_status:
             conditions.append(model.operational_status == operation_status)
             logging.info("Added operational_status filter: %s", operation_status)
