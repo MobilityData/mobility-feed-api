@@ -20,13 +20,13 @@ def parse_request_parameters(
     logging.info(f"Request JSON: {request_json}")
 
     if (
-            not request_json
-            or (
-                ("stops_url" not in request_json or "dataset_id" not in request_json) and
-                "station_information_url" not in request_json and
-                "vehicle_status_url" not in request_json
-            )
-            or "stable_id" not in request_json
+        not request_json
+        or (
+            ("stops_url" not in request_json or "dataset_id" not in request_json)
+            and "station_information_url" not in request_json
+            and "vehicle_status_url" not in request_json
+        )
+        or "stable_id" not in request_json
     ):
         raise ValueError(
             "Missing required parameters: [stops_url, dataset_id  | station_information_url | vehicle_status_url], "
@@ -46,13 +46,15 @@ def parse_request_parameters(
     return df, stable_id, dataset_id, data_type, url
 
 
-def parse_request_parameters_gtfs(request_json: dict) -> Tuple[pd.DataFrame, str, Optional[str], str]:
-    """ Parse the request parameters for GTFS data. """
+def parse_request_parameters_gtfs(
+    request_json: dict,
+) -> Tuple[pd.DataFrame, str, Optional[str], str]:
+    """Parse the request parameters for GTFS data."""
     if (
-            not request_json
-            or "stops_url" not in request_json
-            or "stable_id" not in request_json
-            or "dataset_id" not in request_json
+        not request_json
+        or "stops_url" not in request_json
+        or "stable_id" not in request_json
+        or "dataset_id" not in request_json
     ):
         raise ValueError(
             "Invalid request: missing 'stops_url', 'dataset_id' or 'stable_id' parameter."
@@ -73,14 +75,14 @@ def parse_request_parameters_gtfs(request_json: dict) -> Tuple[pd.DataFrame, str
 
 
 def parse_station_information_url(station_information_url) -> pd.DataFrame:
-    """ Parse the station information URL and return a DataFrame with the stops' data. """
+    """Parse the station information URL and return a DataFrame with the stops' data."""
     response = requests.get(station_information_url)
     response.raise_for_status()
     data = response.json()
 
-    lat_expr = parse('data.stations[*].lat')
-    lon_expr = parse('data.stations[*].lon')
-    station_id_expr = parse('data.stations[*].station_id')
+    lat_expr = parse("data.stations[*].lat")
+    lon_expr = parse("data.stations[*].lon")
+    station_id_expr = parse("data.stations[*].station_id")
 
     lats = [match.value for match in lat_expr.find(data)]
     lons = [match.value for match in lon_expr.find(data)]
@@ -94,14 +96,14 @@ def parse_station_information_url(station_information_url) -> pd.DataFrame:
 
 
 def parse_vehicle_status_url(vehicle_status_url) -> pd.DataFrame:
-    """ Parse the vehicle status URL and return a DataFrame with vehicle_id, lat, and lon. """
+    """Parse the vehicle status URL and return a DataFrame with vehicle_id, lat, and lon."""
     response = requests.get(vehicle_status_url)
     response.raise_for_status()
     data = response.json()
 
-    lat_expr = parse('data.vehicles[*].lat')
-    lon_expr = parse('data.vehicles[*].lon')
-    vehicle_id_expr = parse('data.vehicles[*].vehicle_id')
+    lat_expr = parse("data.vehicles[*].lat")
+    lon_expr = parse("data.vehicles[*].lon")
+    vehicle_id_expr = parse("data.vehicles[*].vehicle_id")
 
     lats = [match.value for match in lat_expr.find(data)]
     lons = [match.value for match in lon_expr.find(data)]
@@ -115,12 +117,17 @@ def parse_vehicle_status_url(vehicle_status_url) -> pd.DataFrame:
     return pd.DataFrame(vehicles_info)
 
 
-def parse_request_parameters_gbfs(request_json: dict) -> Tuple[pd.DataFrame, str, Optional[str], str]:
-    """ Parse the request parameters for GBFS data. """
+def parse_request_parameters_gbfs(
+    request_json: dict,
+) -> Tuple[pd.DataFrame, str, Optional[str], str]:
+    """Parse the request parameters for GBFS data."""
     if (
-            not request_json
-            or ("station_information_url" not in request_json and "vehicle_status_url" not in request_json)
-            or "stable_id" not in request_json
+        not request_json
+        or (
+            "station_information_url" not in request_json
+            and "vehicle_status_url" not in request_json
+        )
+        or "stable_id" not in request_json
     ):
         raise ValueError(
             "Invalid request: missing ['station_information_url' | 'vehicle_status_url'], 'dataset_id' or 'stable_id' "
@@ -131,10 +138,9 @@ def parse_request_parameters_gbfs(request_json: dict) -> Tuple[pd.DataFrame, str
     station_information_url = request_json.get("station_information_url")
     vehicle_status_url = request_json.get("vehicle_status_url")
     if station_information_url:
-        logging.info('Parsing station information URL')
+        logging.info("Parsing station information URL")
         stops_df = parse_station_information_url(station_information_url)
     else:
-        logging.info('Parsing vehicle status URL')
+        logging.info("Parsing vehicle status URL")
         stops_df = parse_vehicle_status_url(vehicle_status_url)
     return stops_df, stable_id, None, station_information_url or vehicle_status_url
-

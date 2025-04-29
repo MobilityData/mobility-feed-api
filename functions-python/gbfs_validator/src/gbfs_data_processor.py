@@ -117,7 +117,6 @@ class GBFSDataProcessor:
                 )
             except AttributeError:
                 language = None
-            print(language)
             endpoints += GBFSEndpoint.from_dict(feed_match.value, language)
         unique_endpoints = list(
             {
@@ -416,7 +415,7 @@ class GBFSDataProcessor:
                 "stable_id": self.stable_id,
                 "data_type": "gbfs",
                 "station_information_url": station_information_url,
-                "vehicle_status_url": vehicle_status_url
+                "vehicle_status_url": vehicle_status_url,
             }
         ).encode()
         project_id = os.getenv("PROJECT_ID")
@@ -428,6 +427,5 @@ class GBFSDataProcessor:
             f"https://{gcp_region}-{project_id}.cloudfunctions.net/reverse-geolocation-processor",
             project_id,
             gcp_region,
-            queue_name
+            queue_name,
         )
-

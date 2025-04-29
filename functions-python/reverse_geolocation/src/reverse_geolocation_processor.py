@@ -259,9 +259,9 @@ def create_geojson_aggregate(
         ],
     }
     storage_client = storage.Client()
-    if data_type == 'gtfs':
+    if data_type == "gtfs":
         bucket_name = os.getenv("DATASETS_BUCKET_NAME_GTFS")
-    elif data_type == 'gbfs':
+    elif data_type == "gbfs":
         bucket_name = os.getenv("DATASETS_BUCKET_NAME_GBFS")
     else:
         raise ValueError("The data type must be either 'gtfs' or 'gbfs'.")
@@ -340,10 +340,12 @@ def extract_location_aggregates(
         if location:
             feed_locations.append(location)
 
-    if feed.data_type == 'gtfs':
+    if feed.data_type == "gtfs":
         gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed_id).one_or_none()
         for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
-            logging.info(f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}")
+            logging.info(
+                f"Updating GTFS-RT feed with stable ID {gtfs_rt_feed.stable_id}"
+            )
             gtfs_rt_feed.feedosmlocationgroups.clear()
             gtfs_rt_feed.feedosmlocationgroups.extend(osm_location_groups)
             if feed_locations:
@@ -402,7 +404,13 @@ def reverse_geolocation_process(
 
     try:
         # Parse request parameters
-        stops_df, stable_id, dataset_id, data_type, extraction_url = parse_request_parameters(request)
+        (
+            stops_df,
+            stable_id,
+            dataset_id,
+            data_type,
+            extraction_url,
+        ) = parse_request_parameters(request)
 
         # Remove duplicate lat/lon points
         stops_df["stop_lat"] = pd.to_numeric(stops_df["stop_lat"], errors="coerce")

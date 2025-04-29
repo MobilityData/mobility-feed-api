@@ -134,12 +134,12 @@ def download_and_get_hash(
 
 
 def create_http_task(
-        client: tasks_v2.CloudTasksClient,
-        body: bytes,
-        url: str,
-        project_id: str,
-        gcp_region: str,
-        queue_name: str,
+    client: tasks_v2.CloudTasksClient,
+    body: bytes,
+    url: str,
+    project_id: str,
+    gcp_region: str,
+    queue_name: str,
 ) -> None:
     """Creates a GCP Cloud Task."""
     task = tasks_v2.Task(
