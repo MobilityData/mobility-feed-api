@@ -146,7 +146,7 @@ jobs:
 
           # All  the tables in the database are owned by the user that imported them (data-feeds-user). 
           # But we are currently using postgres as the user in QA API. So we need to change the user for all tables.
-          echo "Changing ownership of tables to the postgres user"
+          echo "Giving new role to postgres user"
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
           psql -h localhost -p 5454 -U $DEST_DATABASE_IMPORT_USER -d $DEST_DATABASE_NAME -c "ALTER TABLE public.feed OWNER TO postgres;"
           
