@@ -3,7 +3,7 @@ import { Box, Typography, useTheme, type SxProps } from '@mui/material';
 
 export interface ContentBoxProps {
   title: string;
-  width: Record<string, string>;
+  width?: Record<string, string>;
   outlineColor: string;
   padding?: Partial<SxProps>;
   margin?: string | number;
@@ -17,7 +17,7 @@ export const ContentBox = (
   const theme = useTheme();
   return (
     <Box
-      width={props.width}
+      width={props.width ?? { xs: '100%', sm: '100%', md: '100%' }}
       sx={{
         background: theme.palette.background.default,
         color: theme.palette.text.primary,
