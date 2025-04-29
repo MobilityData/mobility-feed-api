@@ -5,7 +5,7 @@ on:
       dest_database_name:
         description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
         required: false
-        default: 'MobilityDatabaseProdDuplicate2'
+        default: 'MobilityDatabaseProdDuplicate'
   push:
     branches:
       - 1117-allow-qa-environment-to-use-prod-database-contents
@@ -23,7 +23,7 @@ jobs:
       DEST_DATABASE_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DUMP_FILE_NAME: "prod-db-dump.sql"
       SOURCE_DATABASE_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
-      DEST_DATABASE_NAME: ${{ inputs.dest_database_name || 'MobilityDatabaseProdDuplicate2' }}
+      DEST_DATABASE_NAME: ${{ inputs.dest_database_name || 'MobilityDatabaseProdDuplicate' }}
       DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
       DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
@@ -148,21 +148,7 @@ jobs:
           # But we are currently using postgres as the user in QA API. So we need to change the user for all tables.
           echo "Changing ownership of tables to the postgres user"
           export PGPASSWORD=$DEST_DATABASE_PASSWORD
-          cat <<'EOF' | psql -h localhost -p 5454 -U $DEST_DATABASE_IMPORT_USER -d $DEST_DATABASE_NAME
-          DO $$
-          DECLARE
-              r RECORD;
-          BEGIN
-              FOR r IN
-                  SELECT table_name
-                  FROM information_schema.tables
-                  WHERE table_schema = 'public'
-              LOOP
-                  EXECUTE format('ALTER TABLE public.%I OWNER TO postgres;', r.table_name);
-              END LOOP;
-          END
-          $$;
-          EOF
+          psql -h localhost -p 5454 -U $DEST_DATABASE_IMPORT_USER -d $DEST_DATABASE_NAME -c "ALTER TABLE public.feed OWNER TO postgres;"
           
           echo "Redirecting email addresses to mobilitydata.org"
           cat <<'EOF' | psql -h localhost -p 5454 -U postgres -d $DEST_DATABASE_NAME
