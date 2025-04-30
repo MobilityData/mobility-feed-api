@@ -336,6 +336,7 @@ paths:
         - $ref: "#/components/parameters/is_official_query_param"
         - $ref: "#/components/parameters/versions_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
+        - $ref: "#/components/parameters/feature"
       security:
         - Authentication: []
       responses:
@@ -1127,6 +1128,17 @@ components:
             - inactive
             - development
             - future
+    feature:
+      name: feature
+      in: query
+      description: Filter feeds by their GTFS features. [GTFS features definitions defined here](https://gtfs.org/getting-started/features/overview)
+      required: false
+      style: form
+      explode: false
+      schema:
+        type: array
+        items:
+          type: string
     provider:
       name: provider
       in: query

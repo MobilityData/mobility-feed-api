@@ -31,7 +31,7 @@ class SearchApiImpl(BaseSearchApi):
         return func.plainto_tsquery("english", unaccent(parsed_query))
 
     @staticmethod
-    def add_search_query_filters(query, search_query, data_type, feed_id, status, is_official, versions) -> Query:
+    def add_search_query_filters(query, search_query, data_type, feed_id, status, is_official, features, versions) -> Query:
         """
         Add filters to the search query.
         Filter values are trimmed and converted to lowercase.
@@ -66,6 +66,13 @@ class SearchApiImpl(BaseSearchApi):
             query = query.filter(
                 t_feedsearch.c.document.op("@@")(SearchApiImpl.get_parsed_search_tsquery(search_query))
             )
+        # Add feature filter with OR logic
+        if features:
+            features_list = [s.strip() for s in features[0].split(",") if s]
+            if features_list:
+                query = query.filter(
+                    t_feedsearch.c.latest_dataset_features.op("&&")(features_list)
+                )  # overlap: Test if elements are a superset of the elements of the argument array expression.
         return query
 
     @staticmethod
@@ -74,6 +81,7 @@ class SearchApiImpl(BaseSearchApi):
         feed_id: str,
         data_type: str,
         is_official: bool,
+        features,
         versions: str,
         search_query: str,
     ) -> Query:
@@ -82,49 +90,18 @@ class SearchApiImpl(BaseSearchApi):
         """
         query = select(func.count(t_feedsearch.c.feed_id))
         return SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, versions
-        )
-
-    @with_db_session
-    def search_feeds(
-        self,
-        limit: int,
-        offset: int,
-        status: List[str],
-        feed_id: str,
-        data_type: str,
-        is_official: bool,
-        versions: str,
-        search_query: str,
-        db_session: "Session",
-    ) -> SearchFeeds200Response:
-        """Search feeds using full-text search on feed, location and provider&#39;s information."""
-        query = self.create_search_query(status, feed_id, data_type, is_official, versions, search_query)
-        feed_rows = Database().select(
-            session=db_session,
-            query=query,
-            limit=limit,
-            offset=offset,
-        )
-        feed_total_count = Database().select(
-            session=db_session,
-            query=self.create_count_search_query(status, feed_id, data_type, is_official, versions, search_query),
-        )
-        if feed_rows is None or feed_total_count is None:
-            return SearchFeeds200Response(
-                results=[],
-                total=0,
-            )
-
-        results = list(map(lambda feed: SearchFeedItemResultImpl.from_orm(feed), feed_rows))
-        return SearchFeeds200Response(
-            results=results,
-            total=feed_total_count[0][0] if feed_total_count and feed_total_count[0] else 0,
+            query, search_query, data_type, feed_id, status, is_official, features, versions
         )
 
     @staticmethod
     def create_search_query(
-        status: List[str], feed_id: str, data_type: str, is_official: bool, versions: str, search_query: str
+        status: List[str],
+        feed_id: str,
+        data_type: str,
+        is_official: bool,
+        search_query: str,
+        features: List[str],
+        versions: str,
     ) -> Query:
         """
         Create a search query for the database.
@@ -138,6 +115,44 @@ class SearchApiImpl(BaseSearchApi):
             *feed_search_columns,
         )
         query = SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, versions
+            query, search_query, data_type, feed_id, status, is_official, features, versions
         )
         return query.order_by(rank_expression.desc())
+
+    @with_db_session
+    def search_feeds(
+        self,
+        limit: int,
+        offset: int,
+        status: List[str],
+        feed_id: str,
+        data_type: str,
+        is_official: bool,
+        versions: str,
+        search_query: str,
+        feature: List[str],
+        db_session: "Session",
+    ) -> SearchFeeds200Response:
+        """Search feeds using full-text search on feed, location and provider&#39;s information."""
+        query = self.create_search_query(status, feed_id, data_type, is_official, search_query, feature, versions)
+        feed_rows = Database().select(
+            session=db_session,
+            query=query,
+            limit=limit,
+            offset=offset,
+        )
+        feed_total_count = Database().select(
+            session=db_session,
+            query=self.create_count_search_query(status, feed_id, data_type, is_official, feature, versions, search_query),
+        )
+        if feed_rows is None or feed_total_count is None:
+            return SearchFeeds200Response(
+                results=[],
+                total=0,
+            )
+
+        results = list(map(lambda feed: SearchFeedItemResultImpl.from_orm(feed), feed_rows))
+        return SearchFeeds200Response(
+            results=results,
+            total=feed_total_count[0][0] if feed_total_count and feed_total_count[0] else 0,
+        )
