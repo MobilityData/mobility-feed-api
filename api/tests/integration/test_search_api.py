@@ -424,3 +424,56 @@ def test_search_filter_by_official_status(client: TestClient, values: dict):
     assert (
         response_body.total == expected_count
     ), f"There should be {expected_count} feeds for official={values['official']}"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"feature": "", "expected_count": 16},
+        {"feature": "Bike Allowed", "expected_count": 2},
+        {"feature": "Stops Wheelchair Accessibility", "expected_count": 0},
+    ],
+    ids=[
+        "All",
+        "Bike Allowed",
+        "Stops Wheelchair Accessibility",
+    ],
+)
+def test_search_filter_by_feature(client: TestClient, values: dict):
+    """
+    Retrieve feeds that contain specific features.
+    """
+    params = None
+    if values["feature"] is not None:
+        params = [
+            ("feature", values["feature"]),
+        ]
+
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.model_validate(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds with feature={values['feature']}"
+
+    # Verify all returned feeds have at least one of the requested features
+    if values["feature"] and expected_count > 0:
+        requested_features = set(values["feature"].split(","))
+        for result in response_body.results:
+            features = result.latest_dataset.validation_report.features
+            # Check that at least one of the feed's features is in the requested features
+            assert requested_features.intersection(features), (
+                f"Feed {result.id} with features {features} does not match " f"requested features {requested_features}"
+            )
