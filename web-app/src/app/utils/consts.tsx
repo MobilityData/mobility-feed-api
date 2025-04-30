@@ -146,6 +146,12 @@ export const DATASET_FEATURES: DatasetFeatures = {
     fileName: 'fare_media.txt',
     linkToInfo: 'https://gtfs.org/getting-started/features/fares/#fare-media',
   },
+  'Rider Categories': {
+    component: 'Fares',
+    componentSubgroup: 'Fares v2',
+    fileName: 'rider_categories.txt',
+    linkToInfo: 'https://gtfs.org/getting-started/features/fares/#rider-categories',
+  },
   'Route-Based Fares': {
     component: 'Fares',
     componentSubgroup: 'Fares v2',
