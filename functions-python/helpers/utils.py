@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-from google.cloud import tasks_v2
 import hashlib
 import logging
 import os
@@ -134,7 +133,7 @@ def download_and_get_hash(
 
 
 def create_http_task(
-    client: tasks_v2.CloudTasksClient,
+    client,  # type: tasks_v2.CloudTasksClient
     body: bytes,
     url: str,
     project_id: str,
@@ -142,6 +141,8 @@ def create_http_task(
     queue_name: str,
 ) -> None:
     """Creates a GCP Cloud Task."""
+    from google.cloud import tasks_v2
+
     task = tasks_v2.Task(
         http_request=tasks_v2.HttpRequest(
             url=url,

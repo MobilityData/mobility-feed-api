@@ -17,7 +17,6 @@ geoalchemy2==0.14.7
 # Google specific packages for this function
 google-cloud-storage
 google-cloud-pubsub
-google-cloud-tasks
 google-api-core
 google-cloud-firestore
 google-cloud-datastore

@@ -407,7 +407,7 @@ class GBFSDataProcessor:
             None,
         )
         if not station_information_url and not vehicle_status_url:
-            logging.error("No station_information_url or vehicle_status_url found.")
+            logging.warning("No station_information_url or vehicle_status_url found.")
             return
         client = tasks_v2.CloudTasksClient()
         body = json.dumps(
