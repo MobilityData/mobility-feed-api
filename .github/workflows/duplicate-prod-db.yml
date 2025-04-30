@@ -57,31 +57,30 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Create DB dump bucket and give permissions
+        run: bash scripts/duplicate-prod-db/create-dump-bucket.sh
+
+      - name: Authenticate to Google Cloud PROD project Again
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup PROD again
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Dump the PROD DB
         run: |
-          bash -x scripts/duplicate-prod-db/create-dump-bucket.sh
-#
-#      - name: Authenticate to Google Cloud PROD project Again
-#        uses: google-github-actions/auth@v2
-#        with:
-#          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#      - name: GCloud Setup PROD again
-#        uses: google-github-actions/setup-gcloud@v2
-#
-#      - name: Dump the PROD DB
-#        run: |
-#          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$SOURCE_DATABASE_NAME --quiet
-#
-#      - name: Authenticate to Google Cloud QA project Again
-#        uses: google-github-actions/auth@v2
-#        with:
-#          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
-#
-#      - name: GCloud Setup QA Again
-#        uses: google-github-actions/setup-gcloud@v2
-#
-#      - name: QA backup and import dump into the QA DB
-#        run: |
+          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$SOURCE_DATABASE_NAME --quiet
+
+      - name: Authenticate to Google Cloud QA project Again
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup QA Again
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: QA backup and import dump into the QA DB
+        run: bash -x scripts/duplicate-prod-db/copy-prod-db-to-qa.sh
 #          echo "Dump the QA database as a backup"
 #          # According to chatgpt,
 #          # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
