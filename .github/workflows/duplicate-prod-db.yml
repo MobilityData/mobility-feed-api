@@ -59,25 +59,6 @@ jobs:
       - name: Create DB dump bucket and give permissions
         run: |
           bash -x scripts/duplicate-prod-db/create-dump-bucket.sh
-#          BUCKET_PROJECT_ID=$DEST_PROJECT_ID
-#
-#          echo "Checking if bucket exists..."
-#          if ! gsutil ls -b "gs://${DUMP_BUCKET_NAME}" &> /dev/null; then
-#            echo "Bucket doesn't exist. Creating..."
-#            gsutil mb -l $GCP_REGION -p $BUCKET_PROJECT_ID "gs://${DUMP_BUCKET_NAME}"
-#          else
-#            echo "Bucket already exists."
-#          fi
-#
-#          echo "Giving write permission for the source sql instance to write to the bucket"
-#          gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
-#
-#          echo "Getting the service account for the QA DB to give permission to the bucket"
-#          DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
-#          echo "Destination SQL Service Account: $DEST_SQL_SERVICE_ACCOUNT"
-#
-#          echo "Giving permission on the bucket to the destination sql instance"
-#          gsutil iam ch serviceAccount:$DEST_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
 #
 #      - name: Authenticate to Google Cloud PROD project Again
 #        uses: google-github-actions/auth@v2
