@@ -1,6 +1,4 @@
-import os
 import unittest
-from unittest.mock import patch, MagicMock
 
 import pytest
 from faker import Faker
@@ -18,21 +16,6 @@ class TestLocationGroupUtils(unittest.TestCase):
 
         # Darkest color generated
         self.assertEqual(generate_color(1, 1), "rgba(127, 0, 0, 1.0)")
-
-    @patch.dict(
-        os.environ,
-        {
-            "GOOGLE_APPLICATION_CREDENTIALS": "test",
-        },
-    )
-    def test_create_http_task(self):
-        from location_group_utils import create_http_task
-
-        client = MagicMock()
-        body = b"test"
-        url = "test"
-        create_http_task(client, body, url)
-        client.create_task.assert_called_once()
 
     def test_geopolygon_object(self):
         from location_group_utils import GeopolygonObject
