@@ -10,9 +10,6 @@ on:
         description: 'Backup the current QA DB before importing the dump'
         required: false
         default: 'true'
-  push:
-    branches:
-      - 1153-test
 
 jobs:
   run-script:
