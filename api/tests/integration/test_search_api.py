@@ -475,5 +475,5 @@ def test_search_filter_by_feature(client: TestClient, values: dict):
             features = result.latest_dataset.validation_report.features
             # Check that at least one of the feed's features is in the requested features
             assert requested_features.intersection(features), (
-                f"Feed {result.id} with features {features} does not match " f"requested features {requested_feature}"
+                f"Feed {result.id} with features {features} does not match " f"requested features {requested_features}"
             )
