@@ -80,44 +80,20 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: QA backup and import dump into the QA DB
-        run: bash -x scripts/duplicate-prod-db/copy-prod-db-to-qa.sh
-#          echo "Dump the QA database as a backup"
-#          # According to chatgpt,
-#          # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
-#          # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
-#          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
-#
-#          echo "Deleting the existing $DEST_DATABASE_NAME database"
-#          gcloud sql databases delete $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME --quiet
-#
-#          echo "Recreating the $DEST_DATABASE_NAME database"
-#          gcloud sql databases create $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME
-#
-#          echo "Importing the dump into the QA database"
-#          # The exported sql contains statements that require authentication as user postgres.
-#          # In theory we could dump the DB without these statements, with:
-#          # pg_dump --no-owner --no-privileges -d your_database > clean_dump.sql.
-#
-#          # The dumped DB refers to the PROD database user (data_feeds_user), so we need to be this user when importing.
-#          export PGPASSWORD=$DEST_DATABASE_PASSWORD
-#          gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_IMPORT_USER --quiet
-#
-#      - name: Delete dump file from bucket
-#        run: |
-#          gsutil rm gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME
-#
-#      - name: Load secrets from 1Password
-#        uses: 1password/load-secrets-action@v2.0.0
-#        with:
-#          export-env: true # Export loaded secrets as environment variables
-#        env:
-#          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-#          GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
-#          GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
-#          GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
-#
-#      - name: Tunnel and update database
-#        run: |
+        run: bash scripts/duplicate-prod-db/copy-prod-db-to-qa.sh
+
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@v2.0.0
+        with:
+          export-env: true # Export loaded secrets as environment variables
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
+          GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
+          GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
+
+      - name: Tunnel and run SQL scripts on imported database
+        run: bash scripts/duplicate-prod-db/post-import.sh
 #          echo "Tunelling"
 #          mkdir -p ~/.ssh
 #          echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa

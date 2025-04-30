@@ -41,3 +41,6 @@ echo "Importing the dump into the QA database"
 # The dumped DB refers to the PROD database user (data_feeds_user), so we need to be this user when importing.
 export PGPASSWORD=$DEST_DATABASE_PASSWORD
 gcloud sql import sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$DEST_DATABASE_NAME --user=$DEST_DATABASE_IMPORT_USER --quiet
+
+echo "Deleting the dump file from the bucket"
+gsutil rm gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME
