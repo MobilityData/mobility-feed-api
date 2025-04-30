@@ -114,6 +114,13 @@ class GBFSDataProcessor:
                 language = None
             print(language)
             endpoints += GBFSEndpoint.from_dict(feed_match.value, language)
+
+        # If the autodiscovery endpoint is not listed then add it
+        if not any(endpoint.name == "gbfs" for endpoint in endpoints):
+            endpoints += GBFSEndpoint.from_dict(
+                [{"name": "gbfs", "url": gbfs_json_url}], None
+            )
+
         unique_endpoints = list(
             {
                 f"{endpoint.name}, {endpoint.language or ''}": endpoint
