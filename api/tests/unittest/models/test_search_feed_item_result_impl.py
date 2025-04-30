@@ -86,7 +86,6 @@ class TestSearchFeeds200ResponseResultsInnerImpl(unittest.TestCase):
             ),
             redirects=item.redirect_ids,
             locations=item.locations,
-            features=sorted([feature for feature in item.latest_dataset_features]),
             latest_dataset=LatestDataset(
                 id=item.latest_dataset_id,
                 hosted_url=item.latest_dataset_hosted_url,

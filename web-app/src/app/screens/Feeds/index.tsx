@@ -121,11 +121,13 @@ export default function Feed(): React.ReactElement {
               selectedFeedTypes,
               config.enableGbfsInSearchPage,
             ),
-            is_official: isOfficialFeedSearch || undefined,
+            is_official: isOfficialTagFilterEnabled
+              ? isOfficialFeedSearch || undefined
+              : undefined,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
             status: ['active', 'inactive', 'development', 'future'],
-            feature: selectedFeatures,
+            feature: areFeatureFiltersEnabled ? selectedFeatures : undefined,
           },
         },
       }),
