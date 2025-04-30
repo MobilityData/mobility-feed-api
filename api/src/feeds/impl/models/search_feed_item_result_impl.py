@@ -33,37 +33,41 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
-                authentication_type=int(feed_search_row.authentication_type)
-                if feed_search_row.authentication_type
-                else None,
+                authentication_type=(
+                    int(feed_search_row.authentication_type) if feed_search_row.authentication_type else None
+                ),
                 authentication_info_url=feed_search_row.authentication_info_url,
                 api_key_parameter_name=feed_search_row.api_key_parameter_name,
                 license_url=feed_search_row.license_url,
             ),
             redirects=feed_search_row.redirect_ids,
             locations=cls.resolve_locations(feed_search_row.locations),
-            latest_dataset=LatestDataset(
-                id=feed_search_row.latest_dataset_id,
-                hosted_url=feed_search_row.latest_dataset_hosted_url,
-                downloaded_at=feed_search_row.latest_dataset_downloaded_at,
-                hash=feed_search_row.latest_dataset_hash,
-                service_date_range_start=feed_search_row.latest_dataset_service_date_range_start,
-                service_date_range_end=feed_search_row.latest_dataset_service_date_range_end,
-                agency_timezone=feed_search_row.latest_dataset_agency_timezone,
-                validation_report=LatestDatasetValidationReport(
-                    total_error=feed_search_row.latest_total_error,
-                    total_warning=feed_search_row.latest_total_warning,
-                    total_info=feed_search_row.latest_total_info,
-                    unique_error_count=feed_search_row.latest_unique_error_count,
-                    unique_warning_count=feed_search_row.latest_unique_warning_count,
-                    unique_info_count=feed_search_row.latest_unique_info_count,
-                    features=sorted([feature for feature in feed_search_row.latest_dataset_features])
-                    if feed_search_row.latest_dataset_features
-                    else [],
-                ),
-            )
-            if feed_search_row.latest_dataset_id
-            else None,
+            latest_dataset=(
+                LatestDataset(
+                    id=feed_search_row.latest_dataset_id,
+                    hosted_url=feed_search_row.latest_dataset_hosted_url,
+                    downloaded_at=feed_search_row.latest_dataset_downloaded_at,
+                    hash=feed_search_row.latest_dataset_hash,
+                    service_date_range_start=feed_search_row.latest_dataset_service_date_range_start,
+                    service_date_range_end=feed_search_row.latest_dataset_service_date_range_end,
+                    agency_timezone=feed_search_row.latest_dataset_agency_timezone,
+                    validation_report=LatestDatasetValidationReport(
+                        total_error=feed_search_row.latest_total_error,
+                        total_warning=feed_search_row.latest_total_warning,
+                        total_info=feed_search_row.latest_total_info,
+                        unique_error_count=feed_search_row.latest_unique_error_count,
+                        unique_warning_count=feed_search_row.latest_unique_warning_count,
+                        unique_info_count=feed_search_row.latest_unique_info_count,
+                        features=(
+                            sorted([feature for feature in feed_search_row.latest_dataset_features])
+                            if feed_search_row.latest_dataset_features
+                            else []
+                        ),
+                    ),
+                )
+                if feed_search_row.latest_dataset_id
+                else None
+            ),
         )
 
     @classmethod
@@ -78,9 +82,9 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
-                authentication_type=int(feed_search_row.authentication_type)
-                if feed_search_row.authentication_type
-                else None,
+                authentication_type=(
+                    int(feed_search_row.authentication_type) if feed_search_row.authentication_type else None
+                ),
                 authentication_info_url=feed_search_row.authentication_info_url,
                 api_key_parameter_name=feed_search_row.api_key_parameter_name,
                 license_url=feed_search_row.license_url,
@@ -104,9 +108,9 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             feed_contact_email=feed_search_row.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
-                authentication_type=int(feed_search_row.authentication_type)
-                if feed_search_row.authentication_type
-                else None,
+                authentication_type=(
+                    int(feed_search_row.authentication_type) if feed_search_row.authentication_type else None
+                ),
                 authentication_info_url=feed_search_row.authentication_info_url,
                 api_key_parameter_name=feed_search_row.api_key_parameter_name,
                 license_url=feed_search_row.license_url,
@@ -125,9 +129,9 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
         return [
             {
                 **location,
-                "country": location.get("country")
-                if location.get("country")
-                else cls.resolve_country_by_code(location),
+                "country": (
+                    location.get("country") if location.get("country") else cls.resolve_country_by_code(location)
+                ),
             }
             for location in locations
         ]
