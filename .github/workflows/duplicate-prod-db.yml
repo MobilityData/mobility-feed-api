@@ -6,6 +6,10 @@ on:
         description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
         required: false
         default: 'MobilityDatabaseProdDuplicate'
+      backup_db:
+        description: 'Backup the current QA DB before importing the dump'
+        required: false
+        default: 'true'
   push:
     branches:
       - 1153-test
@@ -27,6 +31,7 @@ jobs:
       DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
       DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
+      BACKUP_DB: ${{ inputs.backup_db || 'true' }}
 
     steps:
       - name: Checkout code
@@ -94,21 +99,4 @@ jobs:
 
       - name: Tunnel and run SQL scripts on imported database
         run: bash scripts/duplicate-prod-db/post-import.sh
-#          echo "Tunelling"
-#          mkdir -p ~/.ssh
-#          echo "${{ env.GCP_FEED_BASTION_SSH_KEY }}" > ~/.ssh/id_rsa
-#          chmod 600 ~/.ssh/id_rsa
-#          ./scripts/tunnel-create.sh -project_id $DEST_PROJECT_ID -zone ${GCP_REGION}-a -instance ${GCP_FEED_BASTION_NAME}-qa -target_account ${GCP_FEED_SSH_USER} -db_instance ${DB_INSTANCE_NAME} -port 5454
-#          sleep 10 # Wait for the tunnel to establish
-#
-#          echo "Giving new role to postgres user"
-#          export PGPASSWORD=$DEST_DATABASE_PASSWORD
-#          psql -h localhost -p 5454 -U $DEST_DATABASE_IMPORT_USER -d $DEST_DATABASE_NAME -c "GRANT data_feeds_user TO postgres;"
-#
-#          echo "Redirecting email addresses to mobilitydata.org"
-#          cat <<'EOF' | psql -h localhost -p 5454 -U postgres -d $DEST_DATABASE_NAME
-#          UPDATE feed
-#          SET feed_contact_email = REPLACE(feed_contact_email, '@', '_at_') || '@mobilitydata.org'
-#          WHERE feed_contact_email IS NOT NULL
-#            AND TRIM(feed_contact_email) <> '';
-#          EOF
+

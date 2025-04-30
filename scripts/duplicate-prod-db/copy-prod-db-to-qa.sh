@@ -12,6 +12,8 @@ REQUIRED_VARS=(
   "DEST_DATABASE_PASSWORD"
   "DEST_DATABASE_IMPORT_USER"
   "DUMP_FILE_NAME"
+  "BACKUP_DB"
+
 )
 
 for VAR in "${REQUIRED_VARS[@]}"; do
@@ -21,11 +23,15 @@ for VAR in "${REQUIRED_VARS[@]}"; do
   fi
 done
 
-echo "Dump the QA database as a backup"
-# According to chatgpt,
-# This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
-# in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
-gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
+if [ "$BACKUP_DB" == "true" ]; then
+  echo "Dump the QA database as a backup"
+  # According to chatgpt,
+  # This is Google's recommended, safe method and doesn’t require direct access to the DB. It runs the export
+  # in a way that avoids locking the database and works from GCP itself (so no traffic leaves GCP).
+  gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/qa-db-dump-backup.sql --database=$SOURCE_DATABASE_NAME --quiet
+else
+  echo "Skipping backup of the QA database as it was not requested"
+fi
 
 echo "Deleting the existing $DEST_DATABASE_NAME database"
 gcloud sql databases delete $DEST_DATABASE_NAME --instance=$DB_INSTANCE_NAME --quiet
