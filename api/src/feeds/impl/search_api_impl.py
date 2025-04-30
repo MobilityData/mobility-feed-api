@@ -31,7 +31,9 @@ class SearchApiImpl(BaseSearchApi):
         return func.plainto_tsquery("english", unaccent(parsed_query))
 
     @staticmethod
-    def add_search_query_filters(query, search_query, data_type, feed_id, status, is_official, features, versions) -> Query:
+    def add_search_query_filters(
+        query, search_query, data_type, feed_id, status, is_official, features, versions
+    ) -> Query:
         """
         Add filters to the search query.
         Filter values are trimmed and converted to lowercase.
@@ -143,7 +145,9 @@ class SearchApiImpl(BaseSearchApi):
         )
         feed_total_count = Database().select(
             session=db_session,
-            query=self.create_count_search_query(status, feed_id, data_type, is_official, feature, versions, search_query),
+            query=self.create_count_search_query(
+                status, feed_id, data_type, is_official, feature, versions, search_query
+            ),
         )
         if feed_rows is None or feed_total_count is None:
             return SearchFeeds200Response(
