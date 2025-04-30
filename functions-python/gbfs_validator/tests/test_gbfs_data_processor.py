@@ -69,6 +69,7 @@ class TestGbfsDataProcessor(unittest.TestCase):
 
     @with_db_session(db_url=default_db_url)
     @patch("gbfs_data_processor.create_http_task")
+    @patch("gbfs_data_processor.tasks_v2")
     @patch(
         "gbfs_data_processor.GBFSEndpoint.get_request_metadata",
         side_effect=mock_get_request_metadata,
@@ -85,7 +86,7 @@ class TestGbfsDataProcessor(unittest.TestCase):
         },
     )
     def test_fetch_gbfs_files(
-        self, _, mock_post, __, mock_cloud_storage_client, ___, ____, db_session
+        self, _, mock_post, __, mock_cloud_storage_client, ___, ____, _____, db_session
     ):
         autodiscovery_url = "http://example.com/gbfs.json"
         # Add GBFS feed to the database
