@@ -206,3 +206,18 @@ class TestHelpers(unittest.TestCase):
             "Failed to download",
             "Should raise the correct exception",
         )
+
+    @patch.dict(
+        os.environ,
+        {
+            "GOOGLE_APPLICATION_CREDENTIALS": "test",
+        },
+    )
+    def test_create_http_task(self):
+        from utils import create_http_task
+
+        client = MagicMock()
+        body = b"test"
+        url = "test"
+        create_http_task(client, body, url, "test", "test", "test")
+        client.create_task.assert_called_once()

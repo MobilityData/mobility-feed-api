@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
 import hashlib
 import logging
 import os
@@ -131,3 +130,30 @@ def download_and_get_hash(
         if os.path.exists(file_path):
             os.remove(file_path)
         raise e
+
+
+def create_http_task(
+    client,  # type: tasks_v2.CloudTasksClient
+    body: bytes,
+    url: str,
+    project_id: str,
+    gcp_region: str,
+    queue_name: str,
+) -> None:
+    """Creates a GCP Cloud Task."""
+    from google.cloud import tasks_v2
+
+    task = tasks_v2.Task(
+        http_request=tasks_v2.HttpRequest(
+            url=url,
+            http_method=tasks_v2.HttpMethod.POST,
+            oidc_token=tasks_v2.OidcToken(
+                service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL")
+            ),
+            body=body,
+            headers={"Content-Type": "application/json"},
+        )
+    )
+    client.create_task(
+        parent=client.queue_path(project_id, gcp_region, queue_name), task=task
+    )
