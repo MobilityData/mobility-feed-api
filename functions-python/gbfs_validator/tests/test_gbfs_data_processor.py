@@ -77,7 +77,13 @@ class TestGbfsDataProcessor(unittest.TestCase):
     @patch("gbfs_data_processor.fetch_gbfs_data", side_effect=mock_fetch_gbfs_data)
     @patch("requests.post")
     @patch("requests.get")
-    @patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url})
+    @patch.dict(
+        os.environ,
+        {
+            "FEEDS_DATABASE_URL": default_db_url,
+            "GOOGLE_APPLICATION_CREDENTIALS": "test",
+        },
+    )
     def test_fetch_gbfs_files(
         self, _, mock_post, __, mock_cloud_storage_client, ___, ____, db_session
     ):
