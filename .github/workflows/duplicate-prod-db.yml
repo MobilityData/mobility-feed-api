@@ -1,0 +1,99 @@
+name: Copy PROD DB to QA
+on:
+  workflow_dispatch:  # Supports manual deployment
+    inputs:
+      dest_database_name:
+        description: 'The name of the destination database (using MobilityDatabase will overwrite the current QA DB)'
+        required: false
+        default: 'MobilityDatabaseProdDuplicate'
+      backup_db:
+        description: 'Backup the current QA DB before importing the dump'
+        required: false
+        default: 'true'
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_PROJECT_ID: ${{ vars.PROD_MOBILITY_FEEDS_PROJECT_ID }}
+      DEST_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      DUMP_BUCKET_NAME: "mobilitydata-database-dump-qa"
+      BUCKET_PROJECT_ID: ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }}
+      GCP_REGION: ${{ vars.MOBILITY_FEEDS_REGION }}
+      DB_INSTANCE_NAME: ${{ secrets.DB_INSTANCE_NAME }}
+      DEST_DATABASE_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
+      DUMP_FILE_NAME: "prod-db-dump.sql"
+      SOURCE_DATABASE_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
+      DEST_DATABASE_NAME: ${{ inputs.dest_database_name || 'MobilityDatabaseProdDuplicate' }}
+      DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
+      DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
+      GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
+      BACKUP_DB: ${{ inputs.backup_db || 'true' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Authenticate to Google Cloud PROD project
+        id: gcloud_auth_prod
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup PROD
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get PROD SQL service account
+        run: |
+          SERVICE_ACCOUNT=$(gcloud sql instances describe "mobilitydata-database-instance" --project=$SOURCE_PROJECT_ID --format="value(serviceAccountEmailAddress)")
+          echo "SOURCE_SQL_SERVICE_ACCOUNT=$SERVICE_ACCOUNT" >> $GITHUB_ENV
+          echo "Destination SQL Service Account: $SERVICE_ACCOUNT"
+
+      - name: Authenticate to Google Cloud QA project
+        id: gcloud_auth_qa
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup QA
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Create DB dump bucket and give permissions
+        run: bash scripts/duplicate-prod-db/create-dump-bucket.sh
+
+      - name: Authenticate to Google Cloud PROD project Again
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PROD_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup PROD again
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Dump the PROD DB
+        run: |
+          gcloud sql export sql $DB_INSTANCE_NAME gs://$DUMP_BUCKET_NAME/$DUMP_FILE_NAME --database=$SOURCE_DATABASE_NAME --quiet
+
+      - name: Authenticate to Google Cloud QA project Again
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.QA_GCP_MOBILITY_FEEDS_SA_KEY }}
+
+      - name: GCloud Setup QA Again
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: QA backup and import dump into the QA DB
+        run: bash scripts/duplicate-prod-db/copy-prod-db-to-qa.sh
+
+      - name: Load secrets from 1Password
+        uses: 1password/load-secrets-action@v2.0.0
+        with:
+          export-env: true # Export loaded secrets as environment variables
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          GCP_FEED_SSH_USER: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_SSH_USER/username"
+          GCP_FEED_BASTION_NAME: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_NAME/username"
+          GCP_FEED_BASTION_SSH_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_FEED_BASTION_SSH_KEY/private key"
+
+      - name: Tunnel and run SQL scripts on imported database
+        run: bash scripts/duplicate-prod-db/post-import.sh
+
