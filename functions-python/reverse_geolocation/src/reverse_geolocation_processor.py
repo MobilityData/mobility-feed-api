@@ -175,10 +175,14 @@ def extract_location_aggregate(
             group_name=", ".join([g.name for g in geopolygons]),
             osms=geopolygons,
         )
-    stop = db_session.query(Feedlocationgrouppoint).filter(
-        Feedlocationgrouppoint.feed_id == feed_id,
-        Feedlocationgrouppoint.geometry == stop_point,
-    ).one_or_none()
+    stop = (
+        db_session.query(Feedlocationgrouppoint)
+        .filter(
+            Feedlocationgrouppoint.feed_id == feed_id,
+            Feedlocationgrouppoint.geometry == stop_point,
+        )
+        .one_or_none()
+    )
     if not stop:
         stop = Feedlocationgrouppoint(
             feed_id=feed_id,
