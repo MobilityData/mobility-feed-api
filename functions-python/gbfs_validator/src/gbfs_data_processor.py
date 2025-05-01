@@ -284,9 +284,9 @@ class GBFSDataProcessor:
         features: List[str],
     ) -> Gbfsendpoint:
         """Update or create a GBFS endpoint entity."""
-        formatted_id = (
-            f"{self.stable_id}_{version}_{endpoint.name}_{endpoint.language or ''}"
-        )
+        formatted_id = f"{self.stable_id}_{version}_{endpoint.name}"
+        if endpoint.language:
+            formatted_id += f"_{endpoint.language}"
         gbfs_endpoint_orm = (
             db_session.query(Gbfsendpoint)
             .filter(Gbfsendpoint.id == formatted_id)
