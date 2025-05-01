@@ -29,7 +29,7 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
 import { Trans, useTranslation } from 'react-i18next';
-import { groupFeaturesByComponent } from '../../utils/consts';
+import { DATASET_FEATURES, groupFeaturesByComponent } from '../../utils/consts';
 import NestedCheckboxList, {
   type CheckboxStructure,
 } from '../../components/NestedCheckboxList';
@@ -240,14 +240,19 @@ export default function Feed(): React.ReactElement {
 
   function setInitialExpandGroup(): Record<string, boolean> {
     const expandGroup: Record<string, boolean> = {};
-    Object.keys(groupFeaturesByComponent()).forEach((featureGroup) => {
+    Object.keys(
+      groupFeaturesByComponent(Object.keys(DATASET_FEATURES), true),
+    ).forEach((featureGroup) => {
       expandGroup[featureGroup] = false;
     });
     return expandGroup;
   }
 
   function generateCheckboxStructure(): CheckboxStructure[] {
-    const groupedFeatures = groupFeaturesByComponent();
+    const groupedFeatures = groupFeaturesByComponent(
+      Object.keys(DATASET_FEATURES),
+      true,
+    );
     return Object.entries(groupedFeatures)
       .filter(([parent]) => parent !== 'Other')
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
