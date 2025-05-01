@@ -39,7 +39,7 @@ export function groupFeaturesByComponent(
   features.forEach((feature) => {
     const featureData = DATASET_FEATURES[feature];
     if (featureData !== undefined) {
-      if (removeDeprecated && featureData.deprecated) {
+      if (removeDeprecated && featureData.deprecated === true) {
         return;
       }
       const component =
