@@ -57,6 +57,7 @@ cascade_entities = {
     Gbfsversion: [Gbfsversion.gbfsendpoints, Gbfsversion.gbfsvalidationreports],
     Gbfsfeed: [Gbfsfeed.gbfsversions],
     Gbfsvalidationreport: [Gbfsvalidationreport.gbfsnotices],
+    Feed: [Feed.feedosmlocationgroups],
 }
 
 
