@@ -52,20 +52,25 @@ Currently, storing `stops.txt` in GCP is a temporary implementation and may be m
 
 ## 3. `reverse_geolocation_process` Function
 
-This function performs the core reverse geolocation logic. It processes each stop in `stops.txt` and determines its geographic location.
+This function performs the core reverse geolocation logic. It processes location data from GTFS or GBFS feeds to determine their geographic context and stores it accordingly.
 
 ### Parameters:
-- `stable_id`: Identifies the GTFS feed.
-- `dataset_id`: Identifies the dataset being processed.
-- `stops_url`: URL of the `stops.txt` file.
+- `stable_id`: Identifies the feed (GTFS or GBFS).
+- `dataset_id`: Required if `data_type` is not provided or is `gtfs`. Identifies the dataset being processed.
+- `stops_url`: Required if `data_type` is not provided or is `gtfs`. URL of the GTFS `stops.txt` file.
+- `station_information_url`: Required if `data_type` is `gbfs` and `vehicle_status_url` is omitted. URL of the GBFS `station_information.json` file.
+- `vehicle_status_url`: Required if `data_type` is `gbfs` and `station_information_url` is omitted. URL of the GBFS `vehicle_status.json` file.
+- `data_type`: Optional. Specifies the type of data being processed. Can be `gtfs` or `gbfs`. If not provided, the function will attempt to determine the type based on the URLs provided.
 
 ### Processing Steps:
 
-1. **Load Stop Data**  
-   - The function reads `stops.txt` into a Pandas DataFrame, ensuring unique longitude-latitude combinations to avoid redundant processing.
+1. **Load Location Data**  
+   - For GTFS: the function reads `stops.txt` into a Pandas DataFrame, ensuring unique longitude-latitude pairs.  
+   - For GBFS: location data is extracted from `station_information.json` (preferred) or `vehicle_status.json` (fallback), also ensuring uniqueness.
 
-2. **Update Dataset Bounding Box**  
-   - The dataset's bounding box is updated using only the extreme coordinate values, forming a rectangular boundary.
+2. **Updates Bounding Box**  
+   - For GTFS: the bounding box is derived from stop coordinates. The dataset's bounding box is updated in the database.
+   - For GBFS: it’s based on extracted station or vehicle coordinates. No database update is performed. We will use the term `stop` to refer to both GTFS stops and GBFS stations/vehicles.
 
 3. **Check for Previously Processed Stops**  
    - Stops are matched against existing `Stop` entities in PostgreSQL using geographic coordinates (not `stop_id`).
@@ -79,11 +84,17 @@ This function performs the core reverse geolocation logic. It processes each sto
 5. **Store Results in PostgreSQL**  
    - Unique location aggregates are identified, and stop counts per location are recorded.
    - `Location` entities are created based on the extracted administrative hierarchy.
+
 6. **GeoJSON Generation**  
-   - The function creates a **GeoJSON file** containing location aggregates and their corresponding stop counts.  
-   - The file is stored in **GCP Storage** following a consistent path format:  
-     - **`<feed_stable_id>/geolocation.geojson`**  
-   - This file always reflects the **latest dataset** results and is used for **location heatmap visualization on the front end**.
+   - A **GeoJSON file** is created representing the aggregated locations and their counts.  
+   - It is stored in GCS GTFS or GBFS buckets, depending on the data type under:  
+     - **`<stable_id>/geolocation.geojson`**  
+   - The file includes:
+     - Extracted locations,
+     - Timestamp of extraction,
+     - URL used for data extraction.  
+   - This file always reflects the most recent dataset/gbfs version results and powers the **location heatmap visualization** on the front end.
+
 ### Location Mapping:
 - **`country_code` / `country`**: Taken from the `Geopolygon` with an ISO 3166-1 code.
 - **`subdivision_name`**: Derived from the lowest administrative `Geopolygon` with an ISO 3166-2 code, but no ISO 3166-1 code.

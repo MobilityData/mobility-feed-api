@@ -1,17 +1,10 @@
-import os
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import pycountry
 from geoalchemy2.shape import to_shape
-from google.cloud import tasks_v2
 
 from shared.database_gen.sqlacodegen_models import Geopolygon, Osmlocationgroup
-
-queue_name = os.getenv("QUEUE_NAME")
-project_id = os.getenv("PROJECT_ID")
-gcp_region = os.getenv("GCP_REGION")
-
 
 ERROR_STATUS_CODE = 299  # Custom error code for the function to avoid retries
 
@@ -27,24 +20,6 @@ def generate_color(
     normalized_value = 0.5 + 0.5 * (points_match / max_match)
     rgba = colormap(normalized_value)  # Returns RGBA
     return f"rgba({int(rgba[0] * 255)}, {int(rgba[1] * 255)}, {int(rgba[2] * 255)}, {rgba[3]})"
-
-
-def create_http_task(client: tasks_v2.CloudTasksClient, body: bytes, url: str) -> None:
-    """Creates a GCP Cloud Task."""
-    task = tasks_v2.Task(
-        http_request=tasks_v2.HttpRequest(
-            url=url,
-            http_method=tasks_v2.HttpMethod.POST,
-            oidc_token=tasks_v2.OidcToken(
-                service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL")
-            ),
-            body=body,
-            headers={"Content-Type": "application/json"},
-        )
-    )
-    client.create_task(
-        parent=client.queue_path(project_id, gcp_region, queue_name), task=task
-    )
 
 
 class GeopolygonAggregate:

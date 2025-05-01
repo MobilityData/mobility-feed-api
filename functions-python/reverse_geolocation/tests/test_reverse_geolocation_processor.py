@@ -30,9 +30,9 @@ faker = Faker()
 
 
 class TestReverseGeolocationProcessor(unittest.TestCase):
-    @patch("reverse_geolocation_processor.requests")
+    @patch("parse_request.requests")
     def test_parse_request_parameters(self, requests_mock):
-        from reverse_geolocation_processor import parse_request_parameters
+        from parse_request import parse_request_parameters
 
         # No exception should be raised
         requests_mock.get.return_value.content = (
@@ -45,15 +45,98 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             "dataset_id": "test_dataset_id",
             "stops_url": "test_url",
         }
-        stops_df, stable_id, dataset_id = parse_request_parameters(request)
+        stops_df, stable_id, dataset_id, data_type, url = parse_request_parameters(
+            request
+        )
         self.assertEqual(stable_id, "test_stable_id")
         self.assertEqual(dataset_id, "test_dataset_id")
         self.assertEqual(stops_df.shape, (2, 4))
+        self.assertEqual(data_type, "gtfs")
 
         # Exception should be raised
         requests_mock.get.return_value.content = None
         with self.assertRaises(ValueError):
             parse_request_parameters(request)
+        request.get_json.return_value = {}
+        with self.assertRaises(ValueError):
+            parse_request_parameters(request)
+
+    @patch("parse_request.requests")
+    def test_parse_request_parameters_gbfs_station_information(self, requests_mock):
+        from parse_request import parse_request_parameters
+
+        # Mocked station information response
+        requests_mock.get.return_value.json.return_value = {
+            "data": {
+                "stations": [
+                    {"station_id": "s1", "lat": 1.0, "lon": 2.0},
+                    {"station_id": "s2", "lat": 3.0, "lon": 4.0},
+                ]
+            }
+        }
+
+        request = MagicMock()
+        request.get_json.return_value = {
+            "stable_id": "stable123",
+            "station_information_url": "http://dummy.url",
+            "data_type": "gbfs",
+        }
+
+        df, stable_id, dataset_id, data_type, url = parse_request_parameters(request)
+
+        self.assertEqual(stable_id, "stable123")
+        self.assertEqual(dataset_id, None)
+        self.assertEqual(data_type, "gbfs")
+        self.assertEqual(url, "http://dummy.url")
+        self.assertEqual(df.shape, (2, 3))
+        self.assertIn("station_id", df.columns)
+
+    @patch("parse_request.requests")
+    def test_parse_request_parameters_gbfs_vehicle_status(self, requests_mock):
+        from parse_request import parse_request_parameters
+
+        # Mocked vehicle status response
+        requests_mock.get.return_value.json.return_value = {
+            "data": {
+                "vehicles": [
+                    {"vehicle_id": "v1", "lat": 10.0, "lon": 20.0},
+                    {"vehicle_id": "v2", "lat": 30.0, "lon": 40.0},
+                ]
+            }
+        }
+
+        request = MagicMock()
+        request.get_json.return_value = {
+            "stable_id": "stable456",
+            "vehicle_status_url": "http://dummy.vehicle",
+            "data_type": "gbfs",
+        }
+
+        df, stable_id, dataset_id, data_type, url = parse_request_parameters(request)
+
+        self.assertEqual(stable_id, "stable456")
+        self.assertEqual(dataset_id, None)
+        self.assertEqual(data_type, "gbfs")
+        self.assertEqual(url, "http://dummy.vehicle")
+        self.assertEqual(df.shape, (2, 3))
+        self.assertIn("vehicle_id", df.columns)
+
+    @patch("parse_request.requests")
+    def test_parse_request_parameters_invalid_request(self, requests_mock):
+        from parse_request import parse_request_parameters
+
+        # Case 1: content returns None
+        requests_mock.get.return_value.content = None
+        request = MagicMock()
+        request.get_json.return_value = {
+            "stable_id": "bad",
+            "dataset_id": "bad",
+            "stops_url": "bad",
+        }
+        with self.assertRaises(ValueError):
+            parse_request_parameters(request)
+
+        # Case 2: missing JSON keys
         request.get_json.return_value = {}
         with self.assertRaises(ValueError):
             parse_request_parameters(request)
@@ -340,6 +423,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             total_stops=20,
             stable_id="test_stable_id",
             bounding_box=bounding_box,
+            data_type="gtfs",
+            extraction_url="test_extraction_url",
         )
 
         # Assertions on blob upload
