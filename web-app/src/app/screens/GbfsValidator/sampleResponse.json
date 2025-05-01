@@ -1,0 +1,82 @@
+{
+    "summary": {
+      "validatorVersion": "v1.2",
+      "files": [
+        {
+          "name": "gbfs",
+          "url": "https://www.example.com/gbfs/v3/gbfs.json",
+          "version": "3.0",
+          "language": "en",
+          "errors": [],
+          "schema": {
+            "$id": "https://gbfs.org/schemas/gbfs.json",
+            "type": "object"
+          }
+        },
+        {
+          "name": "system_information",
+          "url": "https://www.example.com/gbfs/v3/system_information.json",
+          "version": "3.0",
+          "language": "en",
+          "errors": [
+            {
+              "keyword": "required",
+              "instancePath": "",
+              "schemaPath": "#/required",
+              "message": "must have required property 'system_id'",
+              "params": {
+                "missingProperty": "system_id"
+              }
+            }
+          ],
+          "schema": {
+            "$id": "https://gbfs.org/schemas/system_information.json",
+            "type": "object"
+          }
+        },
+        {
+          "name": "station_information",
+          "url": "https://www.example.com/gbfs/v3/station_information.json",
+          "version": "3.0",
+          "language": "en",
+          "errors": [
+            {
+              "keyword": "type",
+              "instancePath": "/data/stations/0/capacity",
+              "schemaPath": "#/properties/data/properties/stations/items/properties/capacity/type",
+              "message": "must be integer",
+              "params": {
+                "type": "integer"
+              }
+            },
+            {
+              "keyword": "minimum",
+              "instancePath": "/data/stations/0/lat",
+              "schemaPath": "#/properties/data/properties/stations/items/properties/lat/minimum",
+              "message": "must be >= -90",
+              "params": {
+                "comparison": ">=",
+                "limit": -90
+              }
+            }
+          ],
+          "schema": {
+            "$id": "https://gbfs.org/schemas/station_information.json",
+            "type": "object"
+          }
+        },
+        {
+          "name": "station_status",
+          "url": "https://www.example.com/gbfs/v3/station_status.json",
+          "version": "3.0",
+          "language": "en",
+          "errors": [],
+          "schema": {
+            "$id": "https://gbfs.org/schemas/station_status.json",
+            "type": "object"
+          }
+        }
+      ]
+    }
+  }
+  
