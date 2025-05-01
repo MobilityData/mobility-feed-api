@@ -98,7 +98,7 @@ def get_cached_geopolygons(
                 list(geometries_to_delete)
             ),
         ).delete(synchronize_session=False)
-        db_session.commit()
+        db_session.flush()
 
     matched_geometries = matched_stops_df["geometry"].tolist()
     if not matched_geometries:
@@ -175,10 +175,17 @@ def extract_location_aggregate(
             group_name=", ".join([g.name for g in geopolygons]),
             osms=geopolygons,
         )
-    stop = Feedlocationgrouppoint(feed_id=feed_id, geometry=stop_point)
+    stop = db_session.query(Feedlocationgrouppoint).filter(
+        Feedlocationgrouppoint.feed_id == feed_id,
+        Feedlocationgrouppoint.geometry == stop_point,
+    ).one_or_none()
+    if not stop:
+        stop = Feedlocationgrouppoint(
+            feed_id=feed_id,
+            geometry=stop_point,
+        )
+        db_session.add(stop)
     stop.group = group
-    db_session.add(stop)
-    db_session.flush()
     logging.info(
         f"Point {stop_point} matched to {', '.join([g.name for g in geopolygons])}"
     )
