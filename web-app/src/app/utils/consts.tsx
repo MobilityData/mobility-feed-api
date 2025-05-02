@@ -96,7 +96,7 @@ export const DATASET_FEATURES: DatasetFeatures = {
     fileName: '',
     linkToInfo: 'https://gtfs.org/getting-started/features/overview/',
   },
-  'Text-To-Speech': {
+  'Text-to-Speech': {
     component: 'Accessibility',
     fileName: 'stops.txt',
     linkToInfo:
@@ -292,8 +292,8 @@ export const DATASET_FEATURES: DatasetFeatures = {
   },
 };
 // SPELLING CORRECTIONS
-DATASET_FEATURES['Text-to-Speech'] = {
-  ...DATASET_FEATURES['Text-To-Speech'],
+DATASET_FEATURES['Text-To-Speech'] = {
+  ...DATASET_FEATURES['Text-to-Speech'],
   deprecated: true,
 };
 
