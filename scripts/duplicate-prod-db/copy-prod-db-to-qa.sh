@@ -3,6 +3,9 @@
 # It exports the PROD DB to a bucket, then imports it to the QA DB.
 # It also makes a backup of the QA DB.
 
+# Exit on any error
+set -e
+
 # Validate required environment variables
 REQUIRED_VARS=(
   "DB_INSTANCE_NAME"
