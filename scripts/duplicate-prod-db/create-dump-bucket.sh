@@ -3,6 +3,9 @@
 # It creates a bucket to house the dump of the production database.
 # It also gives permission to the dump bucket so the SQL instances in PROD and QA can use it.
 
+# Exit on any error
+set -e
+
 # Validate required environment variables
 REQUIRED_VARS=(
   "DEST_PROJECT_ID"

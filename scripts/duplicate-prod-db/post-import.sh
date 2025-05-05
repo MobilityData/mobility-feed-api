@@ -4,6 +4,10 @@
 #   - Give permission to the tables to the postgres user.
 #   - Modify the email addresses in the DB so we can't accidentally email real people.
 
+# Exit on any error
+set -e
+
+# Validate required environment variables
 REQUIRED_VARS=(
   "GCP_FEED_BASTION_SSH_KEY"
   "DEST_PROJECT_ID"
@@ -15,6 +19,14 @@ REQUIRED_VARS=(
   "DEST_DATABASE_IMPORT_USER"
   "DEST_DATABASE_NAME"
 )
+
+for VAR in "${REQUIRED_VARS[@]}"; do
+  if [ -z "${!VAR}" ]; then
+    echo "Error: Environment variable $VAR is not set."
+    exit 1
+  fi
+done
+
 echo "Tunelling"
 mkdir -p ~/.ssh
 echo "$GCP_FEED_BASTION_SSH_KEY" > ~/.ssh/id_rsa
