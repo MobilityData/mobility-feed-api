@@ -3,6 +3,9 @@
 # It creates a bucket to house the dump of the production database.
 # It also gives permission to the dump bucket so the SQL instances in PROD and QA can use it.
 
+# Exit on any error
+set -e
+
 # Validate required environment variables
 REQUIRED_VARS=(
   "DEST_PROJECT_ID"
@@ -31,7 +34,7 @@ else
 fi
 
 echo "Giving permission for the source sql instance to read-write to the bucket"
-gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectAdmin gs://$DUMP_BUCKET_NAME
+gsutil iam ch serviceAccount:$SOURCE_SQL_SERVICE_ACCOUNT:objectAdminQaz gs://$DUMP_BUCKET_NAME
 
 echo "Getting the service account for the QA DB to give permission to the bucket"
 DEST_SQL_SERVICE_ACCOUNT=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(serviceAccountEmailAddress)")
