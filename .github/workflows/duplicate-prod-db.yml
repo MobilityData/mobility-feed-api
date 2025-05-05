@@ -26,7 +26,7 @@ jobs:
       DEST_DATABASE_PASSWORD: ${{ secrets.QA_POSTGRE_USER_PASSWORD }}
       DUMP_FILE_NAME: "prod-db-dump.sql"
       SOURCE_DATABASE_NAME: ${{ vars.PROD_POSTGRE_SQL_DB_NAME }}
-      DEST_DATABASE_NAME: ${{ inputs.dest_database_name || 'MobilityDatabaseProdDuplicate' }}
+      DEST_DATABASE_NAME: ${{ inputs.dest_database_name || 'MobilityDatabase' }}
       DEST_DATABASE_USER: ${{ secrets.QA_POSTGRE_USER_NAME }}
       DEST_DATABASE_IMPORT_USER: ${{ secrets.PROD_POSTGRE_USER_NAME }}
       GCP_FEED_BASTION_SSH_KEY: ${{ secrets.GCP_FEED_BASTION_SSH_KEY }}
