@@ -243,5 +243,10 @@ class TestGbfsDataProcessor(unittest.TestCase):
             # Validate versions
             self.assertEqual(len(gbfs_feed.gbfsversions), 2)
             versions = [version.version for version in gbfs_feed.gbfsversions]
+            # Validate that autodiscovery url endpoint is added to all versions
+            for gbfs_version in gbfs_feed.gbfsversions:
+                assert any(
+                    endpoint.name == "gbfs" for endpoint in gbfs_version.gbfsendpoints
+                )
             self.assertIn("2.2", versions)
             self.assertIn("2.1", versions)
