@@ -450,7 +450,7 @@ def test_search_filter_by_versions(client: TestClient, values: dict):
     params = None
     if values["versions"] is not None:
         params = [
-            ("versions", values["versions"]),
+            ("version", values["versions"]),
         ]
 
     headers = {

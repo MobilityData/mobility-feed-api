@@ -334,7 +334,7 @@ paths:
         - $ref: "#/components/parameters/feed_id_query_param"
         - $ref: "#/components/parameters/data_type_query_param"
         - $ref: "#/components/parameters/is_official_query_param"
-        - $ref: "#/components/parameters/versions_query_param"
+        - $ref: "#/components/parameters/version_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
         - $ref: "#/components/parameters/feature"
       security:
@@ -1342,8 +1342,8 @@ components:
       schema:
         type: string
 
-    versions_query_param:
-      name: versions
+    version_query_param:
+      name: version
       in: query
       description: Comma separated list of GBFS versions to filter by.
       required: False

@@ -32,7 +32,7 @@ class SearchApiImpl(BaseSearchApi):
 
     @staticmethod
     def add_search_query_filters(
-        query, search_query, data_type, feed_id, status, is_official, features, versions
+        query, search_query, data_type, feed_id, status, is_official, features, version
     ) -> Query:
         """
         Add filters to the search query.
@@ -60,8 +60,8 @@ class SearchApiImpl(BaseSearchApi):
                 query = query.where(t_feedsearch.c.official.is_(True))
             else:
                 query = query.where(or_(t_feedsearch.c.official.is_(False), t_feedsearch.c.official.is_(None)))
-        if versions:
-            versions_list = [v.strip().lower() for v in versions.split(",") if v]
+        if version:
+            versions_list = [v.strip().lower() for v in version.split(",") if v]
             if versions_list:
                 query = query.where(t_feedsearch.c.versions.op("?|")(array(versions_list)))
         if search_query and len(search_query.strip()) > 0:
@@ -84,7 +84,7 @@ class SearchApiImpl(BaseSearchApi):
         data_type: str,
         is_official: bool,
         features,
-        versions: str,
+        version: str,
         search_query: str,
     ) -> Query:
         """
@@ -92,7 +92,7 @@ class SearchApiImpl(BaseSearchApi):
         """
         query = select(func.count(t_feedsearch.c.feed_id))
         return SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, features, versions
+            query, search_query, data_type, feed_id, status, is_official, features, version
         )
 
     @staticmethod
@@ -103,7 +103,7 @@ class SearchApiImpl(BaseSearchApi):
         is_official: bool,
         search_query: str,
         features: List[str],
-        versions: str,
+        version: str,
     ) -> Query:
         """
         Create a search query for the database.
@@ -117,7 +117,7 @@ class SearchApiImpl(BaseSearchApi):
             *feed_search_columns,
         )
         query = SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, features, versions
+            query, search_query, data_type, feed_id, status, is_official, features, version
         )
         return query.order_by(rank_expression.desc())
 
@@ -130,13 +130,13 @@ class SearchApiImpl(BaseSearchApi):
         feed_id: str,
         data_type: str,
         is_official: bool,
-        versions: str,
+        version: str,
         search_query: str,
         feature: List[str],
         db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
-        query = self.create_search_query(status, feed_id, data_type, is_official, search_query, feature, versions)
+        query = self.create_search_query(status, feed_id, data_type, is_official, search_query, feature, version)
         feed_rows = Database().select(
             session=db_session,
             query=query,
@@ -146,7 +146,7 @@ class SearchApiImpl(BaseSearchApi):
         feed_total_count = Database().select(
             session=db_session,
             query=self.create_count_search_query(
-                status, feed_id, data_type, is_official, feature, versions, search_query
+                status, feed_id, data_type, is_official, feature, version, search_query
             ),
         )
         if feed_rows is None or feed_total_count is None:
