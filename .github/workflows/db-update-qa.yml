@@ -1,10 +1,10 @@
-# Update the Mobility Database Schema
 name: Database Update - QA
 on:
   workflow_dispatch:
   workflow_call:
-  repository_dispatch: # Update on mobility-database-catalog repo dispatch
-    types: [ catalog-sources-updated ]
+  repository_dispatch:
+    types: [ catalog-sources-updated, gbfs-repo-updated ]
+
 jobs:
   update:
     uses: ./.github/workflows/db-update.yml

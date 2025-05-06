@@ -8,7 +8,7 @@ on:
       - 'liquibase/changelog.xml'
       - 'api/src/scripts/populate_db*'
   repository_dispatch: # Update on mobility-database-catalog repo dispatch
-    types: [ catalog-sources-updated ]
+    types: [ catalog-sources-updated, gbfs-repo-updated ]
   workflow_dispatch:
 jobs:
   update:
