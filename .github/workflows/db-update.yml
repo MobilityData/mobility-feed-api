@@ -130,7 +130,6 @@ jobs:
         liquibase update
 
   db-content-update:
-    # Here if the trigger is repo dispatch of the catalog
     name: 'Database Content Update'
     permissions: write-all
     runs-on: ubuntu-latest
