@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   workflow_call:
   repository_dispatch:
-    types: [ catalog-sources-updated, gbfs-repo-updated ]
+    types: [ catalog-sources-updated, gbfs-systems-updated ]
 
 jobs:
   update:

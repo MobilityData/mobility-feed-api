@@ -186,14 +186,6 @@ jobs:
     - name: Install requirements and generate db model
       run: scripts/db-gen.sh
 
-# TODO: remove before merge
-    - name: Log GitHub event payload
-      run: |
-        echo "GITHUB_EVENT_NAME=${{ github.event_name }}"
-        echo "GITHUB_EVENT_ACTION=${{ github.event.action }}"
-        echo "Full GitHub Event Payload:"
-        cat $GITHUB_EVENT_PATH
-
     - name: Determine update type
       id: update-type
       run: |
