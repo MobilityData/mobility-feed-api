@@ -113,8 +113,8 @@ class FeedsApiImpl(BaseFeedsApi):
                 not is_email_restricted,  # Allow all feeds to be returned if the user is not restricted
             )
         )
-        # Results are sorted by provider
-        feed_query = feed_query.order_by(FeedOrm.provider, FeedOrm.stable_id)
+        # Results are sorted by created_at timestamp, newest first
+        feed_query = feed_query.order_by(FeedOrm.created_at.desc())
         feed_query = feed_query.options(*get_joinedload_options())
         if limit is not None:
             feed_query = feed_query.limit(limit)
