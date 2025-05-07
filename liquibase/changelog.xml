@@ -53,4 +53,5 @@
     <!-- Materialized view updated. Used Feed.official field as official status. -->
     <include file="changes/feat_1083.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1132.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_1125.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
