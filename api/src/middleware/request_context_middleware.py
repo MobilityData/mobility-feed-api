@@ -4,6 +4,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from middleware.request_context import RequestContext, _request_context
 from utils.logger import HttpRequest, API_ACCESS_LOG
+from shared.common.logging_utils import Logger
 
 
 class RequestContextMiddleware:
@@ -12,7 +13,8 @@ class RequestContextMiddleware:
     """
 
     def __init__(self, app: ASGIApp) -> None:
-        self.logger = logging.getLogger(API_ACCESS_LOG)
+        # self.logger = logging.getLogger(API_ACCESS_LOG)
+        self.logger = Logger(API_ACCESS_LOG).get_logger()
         self.app = app
 
     @staticmethod
@@ -38,10 +40,12 @@ class RequestContextMiddleware:
         """
         request_method = scope["method"]
         request_path = scope["path"]
+        query_string = scope.get("query_string", b"").decode("utf-8")
         protocol = scope["scheme"].upper() + "/" + str(scope["http_version"])
         return HttpRequest(
             requestMethod=request_method,
             requestUrl=f"{request_context.protocol}://{request_context.host}{request_path}",
+            queryString=query_string,
             remoteIp=request_context.client_host,
             protocol=protocol,
             status=status_code,

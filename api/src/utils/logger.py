@@ -29,6 +29,7 @@ class HttpRequest:
     serverIp: str
     latency: float
     protocol: str
+    queryString: str
 
 
 @dataclass
