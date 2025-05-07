@@ -2,7 +2,7 @@ from typing import List
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Query, Session
-
+from sqlalchemy.dialects.postgresql import array
 from shared.database.database import Database, with_db_session
 from shared.database.sql_functions.unaccent import unaccent
 from shared.database_gen.sqlacodegen_models import t_feedsearch
@@ -31,7 +31,9 @@ class SearchApiImpl(BaseSearchApi):
         return func.plainto_tsquery("english", unaccent(parsed_query))
 
     @staticmethod
-    def add_search_query_filters(query, search_query, data_type, feed_id, status, is_official, features) -> Query:
+    def add_search_query_filters(
+        query, search_query, data_type, feed_id, status, is_official, features, version
+    ) -> Query:
         """
         Add filters to the search query.
         Filter values are trimmed and converted to lowercase.
@@ -58,6 +60,10 @@ class SearchApiImpl(BaseSearchApi):
                 query = query.where(t_feedsearch.c.official.is_(True))
             else:
                 query = query.where(or_(t_feedsearch.c.official.is_(False), t_feedsearch.c.official.is_(None)))
+        if version:
+            versions_list = [v.strip().lower() for v in version.split(",") if v]
+            if versions_list:
+                query = query.where(t_feedsearch.c.versions.op("?|")(array(versions_list)))
         if search_query and len(search_query.strip()) > 0:
             query = query.filter(
                 t_feedsearch.c.document.op("@@")(SearchApiImpl.get_parsed_search_tsquery(search_query))
@@ -77,15 +83,16 @@ class SearchApiImpl(BaseSearchApi):
         feed_id: str,
         data_type: str,
         is_official: bool,
-        search_query: str,
         features,
+        version: str,
+        search_query: str,
     ) -> Query:
         """
         Create a search query for the database.
         """
         query = select(func.count(t_feedsearch.c.feed_id))
         return SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, features
+            query, search_query, data_type, feed_id, status, is_official, features, version
         )
 
     @staticmethod
@@ -96,6 +103,7 @@ class SearchApiImpl(BaseSearchApi):
         is_official: bool,
         search_query: str,
         features: List[str],
+        version: str,
     ) -> Query:
         """
         Create a search query for the database.
@@ -109,7 +117,7 @@ class SearchApiImpl(BaseSearchApi):
             *feed_search_columns,
         )
         query = SearchApiImpl.add_search_query_filters(
-            query, search_query, data_type, feed_id, status, is_official, features
+            query, search_query, data_type, feed_id, status, is_official, features, version
         )
         return query.order_by(rank_expression.desc())
 
@@ -122,12 +130,13 @@ class SearchApiImpl(BaseSearchApi):
         feed_id: str,
         data_type: str,
         is_official: bool,
+        version: str,
         search_query: str,
-        features: List[str],
+        feature: List[str],
         db_session: "Session",
     ) -> SearchFeeds200Response:
         """Search feeds using full-text search on feed, location and provider&#39;s information."""
-        query = self.create_search_query(status, feed_id, data_type, is_official, search_query, features)
+        query = self.create_search_query(status, feed_id, data_type, is_official, search_query, feature, version)
         feed_rows = Database().select(
             session=db_session,
             query=query,
@@ -136,7 +145,9 @@ class SearchApiImpl(BaseSearchApi):
         )
         feed_total_count = Database().select(
             session=db_session,
-            query=self.create_count_search_query(status, feed_id, data_type, is_official, search_query, features),
+            query=self.create_count_search_query(
+                status, feed_id, data_type, is_official, feature, version, search_query
+            ),
         )
         if feed_rows is None or feed_total_count is None:
             return SearchFeeds200Response(

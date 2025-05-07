@@ -334,6 +334,7 @@ paths:
         - $ref: "#/components/parameters/feed_id_query_param"
         - $ref: "#/components/parameters/data_type_query_param"
         - $ref: "#/components/parameters/is_official_query_param"
+        - $ref: "#/components/parameters/version_query_param"
         - $ref: "#/components/parameters/search_text_query_param"
         - $ref: "#/components/parameters/feature"
       security:
@@ -713,6 +714,12 @@ components:
                 * sa - service alerts
 #              Have to put the enum inline because of a bug in openapi-generator
 #              $ref: "#/components/schemas/EntityTypes"
+        versions:
+          type: array
+          items:
+            type: string
+            example: 2.3
+          description: The supported versions of the GBFS feed.
         feed_references:
           description:
             A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
@@ -1334,6 +1341,15 @@ components:
       required: False
       schema:
         type: string
+
+    version_query_param:
+      name: version
+      in: query
+      description: Comma separated list of GBFS versions to filter by.
+      required: False
+      schema:
+        type: string
+        example: 2.0,2.1
 
     data_type_query_param:
       name: data_type
