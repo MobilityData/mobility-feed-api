@@ -702,7 +702,7 @@ export interface components {
     /** @description General search query to match against transit provider, location, and feed name. */
     search_text_query_param?: string;
     /** @description Comma separated list of GBFS versions to filter by. */
-    versions_query_param?: string;
+    version_query_param?: string;
     /** @description Comma separated list of data types to filter by. Valid values are gtfs, gtfs_rt and gbfs. */
     data_type_query_param?: string;
     /** @description The feed ID of the requested feed. */
@@ -996,7 +996,7 @@ export interface operations {
         feed_id?: components['parameters']['feed_id_query_param'];
         data_type?: components['parameters']['data_type_query_param'];
         is_official?: components['parameters']['is_official_query_param'];
-        versions?: components['parameters']['versions_query_param'];
+        version?: components['parameters']['version_query_param'];
         search_query?: components['parameters']['search_text_query_param'];
         feature?: components['parameters']['feature'];
       };
