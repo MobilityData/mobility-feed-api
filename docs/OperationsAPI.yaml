@@ -444,12 +444,14 @@ components:
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
           * `development` Feed is being used for development purposes and should not be used in public trip planners.
+          * `future` Feed is not yet active but will be in the future.
       type: string
       enum:
         - active
         - deprecated
         - inactive
         - development
+        - future
       example: active
 
     DataType:

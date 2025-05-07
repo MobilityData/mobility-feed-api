@@ -120,6 +120,13 @@ class GBFSDataProcessor:
             except AttributeError:
                 language = None
             endpoints += GBFSEndpoint.from_dict(feed_match.value, language)
+
+        # If the autodiscovery endpoint is not listed then add it
+        if not any(endpoint.name == "gbfs" for endpoint in endpoints):
+            endpoints += GBFSEndpoint.from_dict(
+                [{"name": "gbfs", "url": gbfs_json_url}], None
+            )
+
         unique_endpoints = list(
             {
                 f"{endpoint.name}, {endpoint.language or ''}": endpoint
@@ -279,9 +286,9 @@ class GBFSDataProcessor:
         features: List[str],
     ) -> Gbfsendpoint:
         """Update or create a GBFS endpoint entity."""
-        formatted_id = (
-            f"{self.stable_id}_{version}_{endpoint.name}_{endpoint.language or ''}"
-        )
+        formatted_id = f"{self.stable_id}_{version}_{endpoint.name}"
+        if endpoint.language:
+            formatted_id += f"_{endpoint.language}"
         gbfs_endpoint_orm = (
             db_session.query(Gbfsendpoint)
             .filter(Gbfsendpoint.id == formatted_id)

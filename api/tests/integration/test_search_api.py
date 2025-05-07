@@ -429,6 +429,50 @@ def test_search_filter_by_official_status(client: TestClient, values: dict):
 @pytest.mark.parametrize(
     "values",
     [
+        {"versions": "1.0", "expected_count": 0},
+        {"versions": "2.3,3.0", "expected_count": 2},
+        {"versions": "3.0", "expected_count": 1},
+        {"versions": "2.3", "expected_count": 2},
+        {"versions": None, "expected_count": 16},
+    ],
+    ids=[
+        "Version 1.0",
+        "Versions 2.3 and 3.0",
+        "Version 3.0",
+        "Version 2.3",
+        "No version specified",
+    ],
+)
+def test_search_filter_by_versions(client: TestClient, values: dict):
+    """
+    Retrieve feeds with the version.
+    """
+    params = None
+    if values["versions"] is not None:
+        params = [
+            ("version", values["versions"]),
+        ]
+
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds for versions={values['versions']}"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
         {"feature": "", "expected_count": 16},
         {"feature": "Bike Allowed", "expected_count": 2},
         {"feature": "Stops Wheelchair Accessibility", "expected_count": 0},

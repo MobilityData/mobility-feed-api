@@ -80,6 +80,7 @@ class SearchFeedItemResultImpl(SearchFeedItemResult):
             external_ids=feed_search_row.external_ids,
             provider=feed_search_row.provider,
             feed_contact_email=feed_search_row.feed_contact_email,
+            versions=feed_search_row.versions,
             source_info=SourceInfo(
                 producer_url=feed_search_row.producer_url,
                 authentication_type=(
