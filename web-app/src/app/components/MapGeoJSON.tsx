@@ -26,9 +26,15 @@ export interface GeoJSONData {
   }>;
 }
 
+export interface GeoJSONDataGBFS extends GeoJSONData {
+  extracted_at: string;
+  extraction_url: string;
+}
+
 export interface MapProps {
   geoJSONData: GeoJSONData | null;
   polygon: LatLngExpression[];
+  displayMapDetails?: boolean;
 }
 
 export const MapGeoJSON = (
@@ -36,7 +42,7 @@ export const MapGeoJSON = (
 ): JSX.Element => {
   const theme = useTheme();
   const { t } = useTranslation('feeds');
-  const { geoJSONData } = props;
+  const { geoJSONData, displayMapDetails = true } = props;
   const bounds = React.useMemo(() => {
     return props.polygon.length > 0
       ? (props.polygon as LatLngBoundsExpression)
@@ -85,7 +91,7 @@ export const MapGeoJSON = (
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url={mapTiles}
         />
-        {props.geoJSONData !== null && (
+        {props.geoJSONData !== null && displayMapDetails && (
           <Box
             sx={{
               position: 'absolute',
@@ -157,23 +163,25 @@ export const MapGeoJSON = (
           <GeoJSON
             data={geoJSONData}
             onEachFeature={(feature, layer) => {
-              const container = document.createElement('div');
-              container.style.background = theme.palette.background.default;
-              const root = createRoot(container);
-              root.render(
-                <PopupTable properties={feature.properties} theme={theme} />,
-              );
-              layer.bindPopup(container);
+              if (displayMapDetails) {
+                const container = document.createElement('div');
+                container.style.background = theme.palette.background.default;
+                const root = createRoot(container);
+                root.render(
+                  <PopupTable properties={feature.properties} theme={theme} />,
+                );
+                layer.bindPopup(container);
 
-              // Handle feature clicks
-              layer.on({
-                click: (e) => {
-                  handleFeatureClick(
-                    e,
-                    feature?.properties?.color ?? '#3388ff',
-                  );
-                },
-              });
+                // Handle feature clicks
+                layer.on({
+                  click: (e) => {
+                    handleFeatureClick(
+                      e,
+                      feature?.properties?.color ?? '#3388ff',
+                    );
+                  },
+                });
+              }
             }}
             style={(feature) => ({
               weight: 3,

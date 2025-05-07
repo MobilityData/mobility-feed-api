@@ -1,5 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { type TFunction } from 'i18next';
+import { type GBFSVersionType } from '../../services/feeds/utils';
+import { type LatLngExpression } from 'leaflet';
 
 export function formatProvidersSorted(provider: string): string[] {
   const providers = provider.split(',').filter((n) => n);
@@ -92,3 +94,72 @@ export const formatServiceDateRange = (
     </Box>
   );
 };
+
+export const sortGbfsVersions = (
+  a: GBFSVersionType,
+  b: GBFSVersionType,
+): number => {
+  const na = parseFloat(String(a.version ?? '0').replace(/[^0-9.]/g, ''));
+  const nb = parseFloat(String(b.version ?? '0').replace(/[^0-9.]/g, ''));
+  if (Number.isNaN(na) || Number.isNaN(nb)) {
+    return -1;
+  }
+  return nb - na;
+};
+
+// Could be temporary function
+// Discuss if gbfs-feeds endpoint should include the bounding box
+/* eslint-disable */
+export function computeBoundingBox(
+  geojson: any,
+): LatLngExpression[] | undefined {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+
+  function extend(coord: any) {
+    const [x, y] = coord;
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+
+  function extractCoords(geometry: any) {
+    if (!geometry) return undefined;
+    const { type, coordinates } = geometry;
+
+    if (type === 'Point') {
+      extend(coordinates);
+    } else if (type === 'MultiPoint' || type === 'LineString') {
+      coordinates.forEach(extend);
+    } else if (type === 'MultiLineString' || type === 'Polygon') {
+      coordinates.forEach((line: any) => line.forEach(extend));
+    } else if (type === 'MultiPolygon') {
+      coordinates.forEach((polygon: any) =>
+        polygon.forEach((line: any) => line.forEach(extend)),
+      );
+    } else if (type === 'GeometryCollection') {
+      geometry.geometries.forEach(extractCoords);
+    }
+  }
+
+  if (geojson.type === 'FeatureCollection') {
+    geojson.features.forEach((f: any) => extractCoords(f.geometry));
+  }
+
+  if (
+    minX === Infinity ||
+    minY === Infinity ||
+    maxX === -Infinity ||
+    maxY === -Infinity
+  ) {
+    return undefined;
+  }
+
+  return [
+    [minY, minX],
+    [maxY, maxX],
+  ];
+}
