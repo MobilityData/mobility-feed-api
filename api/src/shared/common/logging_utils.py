@@ -29,11 +29,13 @@ class Logger:
         #     '%(asctime)s %(levelname)s %(name)s %(message)s'
         # )
 
-        if is_local_env():
+        if not is_local_env():
             handler = logging.StreamHandler()
         else:
             try:
                 client = google.cloud.logging.Client()
+                client.setup_logging()
+                self.logger.info("GCP logging client initialized")
                 handler = CloudLoggingHandler(client)
             except Exception as e:
                 # fallback to stdout if cloud client fails
@@ -45,13 +47,14 @@ class Logger:
 
         # Also configure SQLAlchemy to use this logger
         self.setup_sqlalchemy_logger(handler)
+        self.logger.info("Logger initialized")
 
     def setup_sqlalchemy_logger(self, handler):
         sqlalchemy_loggers = [
             "sqlalchemy.engine",
             # "sqlalchemy.pool",
             # "sqlalchemy.dialects.postgresql",
-            "sqlalchemy.engine.Engine"
+            "sqlalchemy.engine.Engine",
         ]
         for logger_name in sqlalchemy_loggers:
             logger = logging.getLogger(logger_name)
