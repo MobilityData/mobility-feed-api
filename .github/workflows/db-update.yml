@@ -188,7 +188,7 @@ jobs:
     - name: Determine update type
       id: update-type
       run: |
-        if [[ "${{ github.event.action }}" == "gbfs-repo-updated" ]]; then
+        if [[ "${{ github.event.action }}" == "gbfs-systems-updated" ]]; then
           echo "UPDATE_TYPE=gbfs" >> $GITHUB_ENV
         elif [[ "${{ github.event.action }}" == "catalog-sources-updated" ]]; then
           echo "UPDATE_TYPE=gtfs" >> $GITHUB_ENV
