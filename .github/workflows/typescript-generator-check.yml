@@ -49,7 +49,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated_types.ts
-          path: src/app/services/feeds/generated/types.ts
+          path: web-app/src/app/services/feeds/generated/types.ts
 
       - name: Compare TypeScript types with existing types
         working-directory: web-app
