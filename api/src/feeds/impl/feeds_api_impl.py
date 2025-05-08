@@ -61,9 +61,9 @@ class FeedsApiImpl(BaseFeedsApi):
     If a method is left blank the associated endpoint will return a 500 HTTP response.
     """
 
-    APIFeedType = Union[FeedOrm, GtfsFeed, GtfsRTFeed]
 
     def __init__(self) -> None:
+        Logger.init_logger()
         self.logger = Logger("FeedsApiImpl").get_logger()
 
     @with_db_session
