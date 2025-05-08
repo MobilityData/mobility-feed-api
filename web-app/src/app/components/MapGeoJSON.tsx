@@ -173,17 +173,14 @@ export const MapGeoJSON = (
                 featureProperties.color = 'rgba(127, 0, 0, 1.0)';
               }
               root.render(
-                <PopupTable properties={feature.properties} theme={theme} />,
+                <PopupTable properties={featureProperties} theme={theme} />,
               );
               layer.bindPopup(container);
 
               // Handle feature clicks
               layer.on({
                 click: (e) => {
-                  handleFeatureClick(
-                    e,
-                    feature?.properties?.color ?? '#3388ff',
-                  );
+                  handleFeatureClick(e, featureProperties?.color ?? '#3388ff');
                 },
               });
             }}
