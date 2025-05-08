@@ -52,6 +52,14 @@ export const MapGeoJSON = (
         ] as LatLngBoundsExpression);
   }, [props.polygon]);
 
+  if (!displayMapDetails) {
+    geoJSONData?.features?.forEach((feature) => {
+      feature.properties.color = 'rgba(127, 0, 0, 1.0)';
+      delete feature.properties.stops_in_area;
+      delete feature.properties.stops_in_area_coverage;
+    });
+  }
+
   const handleFeatureClick = (
     e: LeafletMouseEvent,
     previousColor: string,
@@ -167,16 +175,10 @@ export const MapGeoJSON = (
               container.style.background = theme.palette.background.default;
               const root = createRoot(container);
               const featureProperties = feature?.properties ?? {};
-              if (!displayMapDetails) {
-                delete featureProperties.stops_in_area;
-                delete featureProperties.stops_in_area_coverage;
-                featureProperties.color = 'rgba(127, 0, 0, 1.0)';
-              }
               root.render(
                 <PopupTable properties={featureProperties} theme={theme} />,
               );
               layer.bindPopup(container);
-
               // Handle feature clicks
               layer.on({
                 click: (e) => {
