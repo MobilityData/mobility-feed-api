@@ -163,25 +163,29 @@ export const MapGeoJSON = (
           <GeoJSON
             data={geoJSONData}
             onEachFeature={(feature, layer) => {
-              if (displayMapDetails) {
-                const container = document.createElement('div');
-                container.style.background = theme.palette.background.default;
-                const root = createRoot(container);
-                root.render(
-                  <PopupTable properties={feature.properties} theme={theme} />,
-                );
-                layer.bindPopup(container);
-
-                // Handle feature clicks
-                layer.on({
-                  click: (e) => {
-                    handleFeatureClick(
-                      e,
-                      feature?.properties?.color ?? '#3388ff',
-                    );
-                  },
-                });
+              const container = document.createElement('div');
+              container.style.background = theme.palette.background.default;
+              const root = createRoot(container);
+              const featureProperties = feature?.properties ?? {};
+              if (!displayMapDetails) {
+                delete featureProperties.stops_in_area;
+                delete featureProperties.stops_in_area_coverage;
+                featureProperties.color = 'rgba(127, 0, 0, 1.0)';
               }
+              root.render(
+                <PopupTable properties={feature.properties} theme={theme} />,
+              );
+              layer.bindPopup(container);
+
+              // Handle feature clicks
+              layer.on({
+                click: (e) => {
+                  handleFeatureClick(
+                    e,
+                    feature?.properties?.color ?? '#3388ff',
+                  );
+                },
+              });
             }}
             style={(feature) => ({
               weight: 3,
