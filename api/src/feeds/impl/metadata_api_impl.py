@@ -4,7 +4,9 @@ import os
 
 from feeds_gen.apis.metadata_api_base import BaseMetadataApi
 from feeds_gen.models.metadata import Metadata
+from shared.common.logging_utils import Logger
 
+Logger.init_logger()
 
 class MetadataApiImpl(BaseMetadataApi):
     """
@@ -37,7 +39,7 @@ class MetadataApiImpl(BaseMetadataApi):
             # Access the values using the get() method
             long_commit_hash = config.get("DEFAULT", "LONG_COMMIT_HASH")
             version = config.get("DEFAULT", "EXTRACTED_VERSION")
-
+            logging.info(f"Retrieved metadata for {version}")
         except Exception as e:
             logging.error(f"Cannot read {file} file from directory {current_directory}: \n {e}")
 
