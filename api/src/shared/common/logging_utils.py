@@ -88,5 +88,10 @@ class Logger:
     def get_logger(self):
         return self.logger
 
-def new_logger(self):
+def new_logger(self, name: str):
+    """
+    Create a new logger with the given name.
+    """
     logging.basicConfig(level=get_env_logging_level())
+    return logging.getLogger(name)
+

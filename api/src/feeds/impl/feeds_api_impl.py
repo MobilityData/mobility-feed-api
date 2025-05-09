@@ -35,7 +35,7 @@ from shared.common.error_handling import (
     InternalHTTPException,
     gbfs_feed_not_found,
 )
-from shared.common.logging_utils import Logger
+from shared.common.logging_utils import Logger, new_logger
 from shared.database.database import Database, with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed as FeedOrm,
@@ -64,7 +64,7 @@ class FeedsApiImpl(BaseFeedsApi):
 
     def __init__(self) -> None:
         Logger.init_logger()
-        self.logger = Logger("FeedsApiImpl").get_logger()
+        self.logger = new_logger("FeedsApiImpl")
 
     @with_db_session
     def get_feed(self, id: str, db_session: Session) -> Feed:
@@ -101,7 +101,7 @@ class FeedsApiImpl(BaseFeedsApi):
     ) -> List[Feed]:
         """Get some (or all) feeds from the Mobility Database."""
         is_email_restricted = is_user_email_restricted()
-        self.logger.debug(f"User email is restricted: {is_email_restricted}")
+        self.logger.info(f"User email is restricted: {is_email_restricted}")
         feed_filter = FeedFilter(
             status=status, provider__ilike=provider, producer_url__ilike=producer_url, stable_id=None
         )

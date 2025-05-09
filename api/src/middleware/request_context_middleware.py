@@ -1,10 +1,9 @@
-import logging
 import time
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from middleware.request_context import RequestContext, _request_context
 from utils.logger import HttpRequest, API_ACCESS_LOG
-from shared.common.logging_utils import Logger
+from shared.common.logging_utils import Logger, new_logger
 
 
 class RequestContextMiddleware:
@@ -13,8 +12,8 @@ class RequestContextMiddleware:
     """
 
     def __init__(self, app: ASGIApp) -> None:
-        # self.logger = logging.getLogger(API_ACCESS_LOG)
-        self.logger = Logger(API_ACCESS_LOG).get_logger()
+        Logger.init_logger()
+        self.logger = new_logger(API_ACCESS_LOG)
         self.app = app
 
     @staticmethod
