@@ -4,7 +4,7 @@ import os
 
 from feeds_gen.apis.metadata_api_base import BaseMetadataApi
 from feeds_gen.models.metadata import Metadata
-from shared.common.logging_utils import Logger
+from utils.logging_utils import Logger
 
 Logger.init_logger()
 

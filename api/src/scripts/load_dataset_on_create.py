@@ -10,7 +10,7 @@ from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.futures import Future
 
 from shared.database_gen.sqlacodegen_models import Feed
-from shared.common.logging_utils import Logger
+from utils.logging_utils import Logger
 
 # Lazy create so we won't try to connect to google cloud when the file is imported.
 pubsub_client = None

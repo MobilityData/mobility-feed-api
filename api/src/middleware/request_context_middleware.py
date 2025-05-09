@@ -3,7 +3,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from middleware.request_context import RequestContext, _request_context
 from utils.logger import HttpRequest, API_ACCESS_LOG
-from shared.common.logging_utils import Logger, new_logger
+from utils.logging_utils import Logger, new_logger
 
 
 class RequestContextMiddleware:

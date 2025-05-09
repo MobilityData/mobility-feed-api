@@ -9,7 +9,7 @@ import pandas
 from dotenv import load_dotenv
 from sqlalchemy import text
 
-from shared.common.logging_utils import Logger
+from utils.logging_utils import Logger
 from shared.database.database import Database
 from shared.database.database import configure_polymorphic_mappers
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed

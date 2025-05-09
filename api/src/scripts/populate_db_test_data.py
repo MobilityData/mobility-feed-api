@@ -20,7 +20,7 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
-from shared.common.logging_utils import Logger
+from utils.logging_utils import Logger
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

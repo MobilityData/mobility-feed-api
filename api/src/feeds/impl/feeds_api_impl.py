@@ -35,7 +35,7 @@ from shared.common.error_handling import (
     InternalHTTPException,
     gbfs_feed_not_found,
 )
-from shared.common.logging_utils import Logger, new_logger
+from utils.logging_utils import Logger, new_logger
 from shared.database.database import Database, with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed as FeedOrm,

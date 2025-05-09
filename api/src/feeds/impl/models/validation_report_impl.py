@@ -1,6 +1,5 @@
 from shared.database_gen.sqlacodegen_models import Validationreport
 from feeds_gen.models.validation_report import ValidationReport
-from shared.common.logging_utils import Logger
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -15,10 +14,6 @@ class ValidationReportImpl(ValidationReport):
         Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-
-    @classmethod
-    def _get_logger(cls):
-        return Logger(ValidationReportImpl.__class__.__module__).get_logger()
 
     @classmethod
     def from_orm(cls, validation_report: Validationreport | None) -> ValidationReport | None:
