@@ -24,6 +24,7 @@ import {
 import {
   selectFeedData,
   selectFeedLoadingStatus,
+  selectLatestGbfsVersion,
   selectRelatedFeedsData,
   selectRelatedGtfsRTFeedsData,
 } from '../../store/feed-selectors';
@@ -131,6 +132,7 @@ export default function Feed(): React.ReactElement {
   const datasets = useSelector(selectDatasetsData);
   const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
+  const latestGbfsVersion = useSelector(selectLatestGbfsVersion);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
   const feed = useSelector(selectFeedData);
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
@@ -284,8 +286,10 @@ export default function Feed(): React.ReactElement {
   const gbfsOpenFeedUrlElement = (
     gbfsFeed: GBFSFeedType,
   ): React.JSX.Element => {
-    const latestGbfsVersionElement = gbfsFeed?.versions?.find((s) => s.latest);
-    if (latestGbfsVersionElement === undefined) {
+    const latestAutodiscoveryUrl = latestGbfsVersion?.endpoints?.find(
+      (endpoint) => endpoint.name === 'gbfs',
+    )?.url;
+    if (latestGbfsVersion == undefined || latestAutodiscoveryUrl == undefined) {
       return <></>;
     }
     return (
@@ -293,13 +297,13 @@ export default function Feed(): React.ReactElement {
         disableElevation
         variant='contained'
         sx={{ marginRight: 2 }}
-        href={''} // latestGbfsVersionElement.autodiscovery_url}
+        href={latestAutodiscoveryUrl}
         target='_blank'
         rel='noreferrer'
         endIcon={<OpenInNewIcon></OpenInNewIcon>}
       >
         {t('gbfs:openFeedUrl')} (v
-        {latestGbfsVersionElement.version})
+        {latestGbfsVersion.version})
       </Button>
     );
   };

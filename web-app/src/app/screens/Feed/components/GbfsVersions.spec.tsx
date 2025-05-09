@@ -1,5 +1,6 @@
 import { type GBFSVersionType } from '../../../services/feeds/utils';
-import { getGbfsFeatures, sortVersions } from './GbfsVersions';
+import { sortGbfsVersions } from '../Feed.functions';
+import { getGbfsFeatures } from './GbfsVersions';
 
 describe('getGbfsFeatures', () => {
   it('returns an empty array if endpoints is undefined', () => {
@@ -86,7 +87,7 @@ describe('getGbfsFeatures', () => {
   });
 });
 
-describe('sortVersions used with Array.sort()', () => {
+describe('sortGbfsVersions used with Array.sort()', () => {
   it('sorts versions descending numerically', () => {
     const versions: GBFSVersionType[] = [
       { version: '2.0' },
@@ -94,7 +95,7 @@ describe('sortVersions used with Array.sort()', () => {
       { version: '2.1' },
       { version: '1.0' },
     ];
-    versions.sort(sortVersions);
+    versions.sort(sortGbfsVersions);
     expect(versions).toEqual([
       { version: '2.1' },
       { version: '2.0' },
@@ -109,7 +110,7 @@ describe('sortVersions used with Array.sort()', () => {
       { version: undefined },
       { version: '2.0' },
     ];
-    versions.sort(sortVersions);
+    versions.sort(sortGbfsVersions);
     expect(versions).toEqual([
       { version: '2.0' },
       { version: '1.0' },
@@ -123,7 +124,7 @@ describe('sortVersions used with Array.sort()', () => {
       { version: 'v1.1-beta' },
       { version: 'v2.1-rc1' },
     ];
-    versions.sort(sortVersions);
+    versions.sort(sortGbfsVersions);
     expect(versions).toEqual([
       { version: 'v2.1-rc1' },
       { version: 'v2.0' },
@@ -137,7 +138,7 @@ describe('sortVersions used with Array.sort()', () => {
       { version: '2.0' },
       { version: '1.0' },
     ];
-    versions.sort(sortVersions);
+    versions.sort(sortGbfsVersions);
     expect(versions).toEqual([
       { version: '2.0' },
       { version: '1.0' },
@@ -151,7 +152,7 @@ describe('sortVersions used with Array.sort()', () => {
       { version: '2.0' },
       { version: '2.0' },
     ];
-    versions.sort(sortVersions);
+    versions.sort(sortGbfsVersions);
     expect(versions).toEqual([
       { version: '2.0' },
       { version: '2.0' },

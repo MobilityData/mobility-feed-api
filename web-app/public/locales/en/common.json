@@ -20,6 +20,7 @@
     },
     "loading": "Loading...",
     "download": "Download",
+    "updated": "Updated",
     "errors": {
         "generic": "We are unable to complete your request at the moment."
     },

@@ -31,7 +31,7 @@ export const ContentBox = (
         ...props.sx,
       }}
     >
-      {props.title.trim() !== '' && (
+      {(props.title.trim() !== '' || props.action != null) && (
         <Typography
           variant='h5'
           sx={{
@@ -42,7 +42,7 @@ export const ContentBox = (
             mb: 1,
           }}
         >
-          {props.title}
+          <span>{props.title}</span>
           {props.action != null && props.action}
         </Typography>
       )}

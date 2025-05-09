@@ -30,6 +30,18 @@ from sqlalchemy.orm import Session
 from shared.database.database import with_db_session
 from shared.helpers.utils import create_http_task
 
+FEATURE_ENDPOINTS = [
+    "manifest",
+    "gbfs_versions",
+    "vehicle_types",
+    "station_status",
+    "vehicle_status",
+    "system_regions",
+    "system_pricing_plans",
+    "system_alerts",
+    "geofencing_zones",
+]
+
 
 class GBFSDataProcessor:
     def __init__(self, stable_id: str, feed_id: str):
@@ -298,7 +310,9 @@ class GBFSDataProcessor:
             )
 
         gbfs_endpoint_orm.url = endpoint.url  # Update the URL
-        gbfs_endpoint_orm.is_feature = endpoint.name in features
+        gbfs_endpoint_orm.is_feature = (
+            endpoint.name in features and endpoint.name in FEATURE_ENDPOINTS
+        )
         return gbfs_endpoint_orm
 
     def validate_gbfs_feed_versions(self) -> None:
