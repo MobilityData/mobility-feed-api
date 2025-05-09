@@ -57,7 +57,12 @@ function Component(): React.ReactElement {
   const theme = useTheme();
 
   const handleSearch = (): void => {
-    navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
+    const encodedURI = encodeURIComponent(searchInputValue.trim())
+    if(encodedURI.length === 0) {
+      navigate('/feeds');
+    } else {
+      navigate(`/feeds?q=${encodedURI}`);
+    }
   };
 
   const handleKeyDown = (

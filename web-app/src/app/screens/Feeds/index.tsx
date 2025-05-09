@@ -388,7 +388,7 @@ export default function Feed(): React.ReactElement {
             onSubmit={(event) => {
               event.preventDefault();
               setActivePagination(1);
-              setActiveSearch(searchQuery);
+              setActiveSearch(searchQuery.trim());
             }}
             sx={searchBarStyles}
           >
@@ -409,7 +409,7 @@ export default function Feed(): React.ReactElement {
                     }}
                     onClick={() => {
                       setActivePagination(1);
-                      setActiveSearch(searchQuery);
+                      setActiveSearch(searchQuery.trim());
                     }}
                     position='start'
                   >
