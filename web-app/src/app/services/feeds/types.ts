@@ -190,10 +190,20 @@ export interface components {
       note?: string;
     };
     GtfsFeed: components['schemas']['Feed'] & {
+      /**
+       * @example gtfs
+       * @enum {string}
+       */
+      data_type?: 'gtfs' | 'gtfs_rt' | 'gbfs';
       locations?: components['schemas']['Locations'];
       latest_dataset?: components['schemas']['LatestDataset'];
     };
     GbfsFeed: components['schemas']['BasicFeed'] & {
+      /**
+       * @example gbfs
+       * @enum {string}
+       */
+      data_type?: 'gtfs' | 'gtfs_rt' | 'gbfs';
       locations?: components['schemas']['Locations'];
       /**
        * @description The system ID of the feed. This is a unique identifier for the system that the feed belongs to.
@@ -296,6 +306,11 @@ export interface components {
     };
     GbfsFeeds: Array<components['schemas']['GbfsFeed']>;
     GtfsRTFeed: components['schemas']['Feed'] & {
+      /**
+       * @example gtfs_rt
+       * @enum {string}
+       */
+      data_type?: 'gtfs' | 'gtfs_rt' | 'gbfs';
       entity_types?: Array<'vp' | 'tu' | 'sa'>;
       /** @description A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs. */
       feed_references?: string[];
