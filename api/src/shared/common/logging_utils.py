@@ -1,5 +1,7 @@
 import logging
 import os
+import threading
+
 from google.cloud.logging.handlers import CloudLoggingHandler
 import google.cloud.logging
 from google.cloud.logging_v2 import Client
@@ -14,7 +16,7 @@ def get_env_logging_level():
 def is_local_env():
     return os.getenv("K_SERVICE") is None
 
-
+lock = threading.Lock()
 class Logger:
     """
     GCP-friendly logger: structured JSON output, works locally or in production.
@@ -54,44 +56,32 @@ class Logger:
         """
         Initializes the logger
         """
-        logging.basicConfig(level=get_env_logging_level())
-        if is_local_env():
-            # Use the default logging handler
-            logging.info("Using default logging handler")
-            return
-        try:
-            client = google.cloud.logging.Client()
-            client.get_default_handler()
-            client.setup_logging()
-            logging.info("GCP logging client initialized")
-            # return client
-        except Exception as error:
-            # This might happen when the GCP authorization credentials are not available.
-            # Example, when running the tests locally
-            logging.error(f"Error initializing the logger: {error}")
-        # return None
-
-    # def setup_sqlalchemy_logger(self, handler):
-    #     sqlalchemy_loggers = [
-    #         "sqlalchemy.engine",
-    #         # "sqlalchemy.pool",
-    #         # "sqlalchemy.dialects.postgresql",
-    #         "sqlalchemy.engine.Engine",
-    #     ]
-    #     for logger_name in sqlalchemy_loggers:
-    #         logger = logging.getLogger(logger_name)
-    #         logger.setLevel(get_env_logging_level())
-    #         logger.handlers.clear()
-    #         logger.addHandler(handler)
-    #         logger.propagate = False
+        with lock:
+            if hasattr(Logger, "initialized"):
+                return
+            logging.basicConfig(level=get_env_logging_level())
+            if not is_local_env():
+                # Use the default logging handler
+                logging.info("Using default logging handler")
+                return
+            try:
+                client = google.cloud.logging.Client()
+                client.get_default_handler()
+                client.setup_logging()
+                logging.info("GCP logging client initialized")
+            except Exception as error:
+                # This might happen when the GCP authorization credentials are not available.
+                # Example, when running the tests locally
+                logging.error(f"Error initializing the logger: {error}")
+        Logger.initialized = True
 
     def get_logger(self):
         return self.logger
 
-def new_logger(self, name: str):
+def new_logger(name: str):
     """
     Create a new logger with the given name.
     """
-    logging.basicConfig(level=get_env_logging_level())
+    Logger.init_logger()
     return logging.getLogger(name)
 
