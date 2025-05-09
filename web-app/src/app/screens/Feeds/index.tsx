@@ -71,6 +71,9 @@ export default function Feed(): React.ReactElement {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
     searchParams.get('features')?.split(',') ?? [],
   );
+  const [selectGbfsVersions, setSelectGbfsVersions] = useState<string[]>(
+    searchParams.get('gbfs_versions')?.split(',') ?? [],
+  );
   const [featureCheckboxData, setFeatureCheckboxData] = useState<
     CheckboxStructure[]
   >([]);
@@ -97,6 +100,8 @@ export default function Feed(): React.ReactElement {
   const areFeatureFiltersEnabled =
     (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
     selectedFeedTypes.gtfs;
+  const areGBFSFiltersEnabled =
+    selectedFeedTypes.gbfs || areNoDataTypesSelected;
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
@@ -128,6 +133,9 @@ export default function Feed(): React.ReactElement {
             // Filtering out deprecated feeds
             status: ['active', 'inactive', 'development', 'future'],
             feature: areFeatureFiltersEnabled ? selectedFeatures : undefined,
+            version: areGBFSFiltersEnabled
+              ? selectGbfsVersions.join(',')
+              : undefined,
           },
         },
       }),
@@ -140,6 +148,7 @@ export default function Feed(): React.ReactElement {
     searchLimit,
     isOfficialFeedSearch,
     selectedFeatures,
+    selectGbfsVersions,
   ]);
 
   useEffect(() => {
@@ -163,6 +172,9 @@ export default function Feed(): React.ReactElement {
     if (selectedFeatures.length > 0) {
       newSearchParams.set('features', selectedFeatures.join(','));
     }
+    if (selectGbfsVersions.length > 0) {
+      newSearchParams.set('gbfs_versions', selectGbfsVersions.join(','));
+    }
     if (isOfficialFeedSearch) {
       newSearchParams.set('official', 'true');
     }
@@ -174,6 +186,7 @@ export default function Feed(): React.ReactElement {
     activePagination,
     selectedFeedTypes,
     selectedFeatures,
+    selectGbfsVersions,
     isOfficialFeedSearch,
   ]);
 
@@ -194,6 +207,11 @@ export default function Feed(): React.ReactElement {
     const newFeatures = searchParams.get('features')?.split(',') ?? [];
     if (newFeatures.join(',') !== selectedFeatures.join(',')) {
       setSelectedFeatures([...newFeatures]);
+    }
+
+    const newGbfsVersions = searchParams.get('gbfs_versions')?.split(',') ?? [];
+    if (newGbfsVersions.join(',') !== selectGbfsVersions.join(',')) {
+      setSelectGbfsVersions([...newGbfsVersions]);
     }
 
     const newSearchOfficial = Boolean(searchParams.get('official')) ?? false;
@@ -283,6 +301,7 @@ export default function Feed(): React.ReactElement {
       gbfs: false,
     });
     setSelectedFeatures([]);
+    setSelectGbfsVersions([]);
     setIsOfficialFeedSearch(false);
   }
 
@@ -516,6 +535,45 @@ export default function Feed(): React.ReactElement {
                   />
                 </>
               )}
+
+              {config.enableGbfsInSearchPage && (
+                <>
+                  <SearchHeader
+                    variant='h6'
+                    sx={areGBFSFiltersEnabled ? {} : { opacity: 0.5 }}
+                  >
+                    GBFS Versions
+                  </SearchHeader>
+                  <NestedCheckboxList
+                    disableAll={!areGBFSFiltersEnabled}
+                    debounceTime={500}
+                    checkboxData={[
+                      '3.1-RC',
+                      '3.0',
+                      '2.3',
+                      '2.2',
+                      '2.1',
+                      '2.0',
+                      '1.1',
+                      '1.0',
+                    ].map((version) => ({
+                      title: version,
+                      checked: selectGbfsVersions.includes(version),
+                      type: 'checkbox',
+                    }))}
+                    onCheckboxChange={(checkboxData) => {
+                      const selectedVersions: string[] = [];
+                      checkboxData.forEach((checkbox) => {
+                        if (checkbox.checked) {
+                          selectedVersions.push(checkbox.title);
+                        }
+                      });
+                      setActivePagination(1);
+                      setSelectGbfsVersions([...selectedVersions]);
+                    }}
+                  ></NestedCheckboxList>
+                </>
+              )}
             </Grid>
 
             <Grid item xs={12} md={10}>
@@ -592,10 +650,30 @@ export default function Feed(): React.ReactElement {
                       }}
                     />
                   ))}
+
+                {areGBFSFiltersEnabled &&
+                  selectGbfsVersions.map((gbfsVersion) => (
+                    <Chip
+                      color='primary'
+                      variant='outlined'
+                      size='small'
+                      label={gbfsVersion}
+                      key={gbfsVersion}
+                      onDelete={() => {
+                        setSelectGbfsVersions([
+                          ...selectGbfsVersions.filter(
+                            (sv) => sv !== gbfsVersion,
+                          ),
+                        ]);
+                      }}
+                    />
+                  ))}
+
                 {(selectedFeatures.length > 0 ||
+                  selectGbfsVersions.length > 0 ||
                   isOfficialFeedSearch ||
                   selectedFeedTypes.gtfs_rt ||
-                  selectedFeedTypes.gtfs) && (
+                  selectedFeedTypes.gtfs || selectedFeedTypes.gbfs) && (
                   <Button
                     variant={'text'}
                     onClick={clearAllFilters}
@@ -726,6 +804,7 @@ export default function Feed(): React.ReactElement {
                           <AdvancedSearchTable
                             feedsData={feedsData}
                             selectedFeatures={selectedFeatures}
+                            selectedGbfsVersions={selectGbfsVersions}
                           />
                         )}
 
