@@ -91,26 +91,26 @@ const renderGTFSRTDetails = (
 const renderGBFSDetails = (
   gbfsFeedSearchElement: SearchFeedItem,
   selectedGbfsVersions: string[],
-) => {
+): JSX.Element => {
   const theme = useTheme();
   return (
-    <>
+    <Box>
       {gbfsFeedSearchElement.versions?.map((version: string, index: number) => (
         <Chip
-          label={version}
+          label={'v' + version}
           key={index}
           size='small'
           variant='outlined'
           sx={{
             mr: 1,
-            border: selectedGbfsVersions.includes(version)
+            border: selectedGbfsVersions.includes('v' + version)
               ? `2px solid ${theme.palette.primary.main}`
-              : 'none',
+              : '',
             color: 'black',
           }}
         />
       ))}
-    </>
+    </Box>
   );
 };
 
@@ -144,6 +144,8 @@ export default function AdvancedSearchTable({
         }
         const hasGtfsFeatures =
           (feed?.latest_dataset?.validation_report?.features?.length ?? 0) > 0;
+        const hasGbfsVersions = (feed.versions?.length ?? 0) > 0;
+
         return (
           <Card
             key={index}
@@ -304,7 +306,7 @@ export default function AdvancedSearchTable({
                 )}
 
                 {feed.data_type === 'gbfs' && (
-                  <Box>
+                  <Box sx={hasGbfsVersions ? descriptionDividerStyle : {}}>
                     {renderGBFSDetails(feed, selectedGbfsVersions ?? [])}
                   </Box>
                 )}
