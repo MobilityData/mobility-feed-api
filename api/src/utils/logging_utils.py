@@ -58,7 +58,7 @@ class Logger:
             if hasattr(Logger, "initialized"):
                 return
             logging.basicConfig(level=get_env_logging_level())
-            if not is_local_env():
+            if is_local_env():
                 # Use the default logging handler
                 logging.info("Using default logging handler")
             else:
