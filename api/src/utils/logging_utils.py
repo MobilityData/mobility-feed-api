@@ -78,24 +78,22 @@ class Logger:
         return self.logger
 
 
-class TraceLogger(logging.Logger):
-    def __init__(self, logger: logging.Logger, project_id: str, trace_id: str, span_id: str):
-        super().__init__(logger.name)
+class TraceLogger:
+    def __init__(self, logger: logging.Logger):
         self._logger = logger
-        self._logger.propagate = False
-        self._trace_id = None
-        self._span_id = None
-        self._project_id = project_id
-        self._trace_id = trace_id
-        self._span_id = span_id
+        self._logger.propagate = True
 
     def _inject_trace(self, extra):
-        if not self._trace_id or not self._span_id:
+        request_context = get_request_context()
+        if not request_context:
             return extra or {}
+        project_id = get_config(PROJECT_ID)
+        trace_id = request_context.get("trace_id")
+        span_id = request_context.get("span_id")
 
         trace_fields = {
-            "logging.googleapis.com/trace": f"projects/{self._project_id}/traces/{self._trace_id}",
-            "logging.googleapis.com/spanId": self._span_id,
+            "logging.googleapis.com/trace": f"projects/{project_id}/traces/{trace_id}",
+            "logging.googleapis.com/spanId": span_id,
             "logging.googleapis.com/trace_sampled": True,
         }
         if extra:
@@ -118,7 +116,7 @@ class TraceLogger(logging.Logger):
         return self._logger.exception(msg, *args, extra=self._inject_trace(extra), **kwargs)
 
 
-def new_logger(name: str) -> logging.Logger:
+def new_logger(name: str) -> TraceLogger:
     """
     Create a new logger with the given name.
     """
@@ -132,7 +130,6 @@ def _get_trace_logger(logger: logging.Logger) -> TraceLogger:
     """
     Create a new TraceLogger with the given logger and name.
     """
-    request_context = get_request_context()
-    return TraceLogger(logger, get_config(PROJECT_ID), request_context.get("trace_id"), request_context.get("span_id"))
+    return TraceLogger(logger)
 
 
