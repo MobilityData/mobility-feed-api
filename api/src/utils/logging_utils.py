@@ -9,6 +9,7 @@ from google.cloud.logging_v2 import Client
 from shared.common.logging_common import get_env_logging_level
 from middleware.request_context import get_request_context
 from utils.config import get_config, PROJECT_ID
+from utils.logger import GCPLogHandler
 
 
 def is_local_env():
@@ -119,14 +120,17 @@ class TraceLogger:
         return self._logger.exception(msg, *args, extra=self._inject_trace(extra), **kwargs)
 
 
-def new_logger(name: str) -> TraceLogger:
+def new_logger(name: str) -> logging.Logger:
     """
     Create a new logger with the given name.
     """
     Logger.init_logger()
     logger = logging.getLogger(name)
     logger.setLevel(get_env_logging_level())
-    return _get_trace_logger(logger)
+    if not is_local_env():
+        handler = GCPLogHandler()
+        logger.handlers.append(handler)
+    return logger
     # if not request_context:
     #     return logger
 def _get_trace_logger(logger: logging.Logger) -> TraceLogger:

@@ -56,13 +56,13 @@ app.include_router(MetadataApiRouter)
 app.include_router(SearchApiRouter)
 
 
-# @app.on_event("startup")
-# async def startup_event():
+@app.on_event("startup")
+async def startup_event():
     # Add the GCP log handler to the logger.
     # This is required to log the API access logs to the GCP logging service.
-    # logger = logging.getLogger(API_ACCESS_LOG)
-    # handler = GCPLogHandler()
-    # logger.handlers.append(handler)
+    logger = logging.getLogger(API_ACCESS_LOG)
+    handler = GCPLogHandler()
+    logger.handlers.append(handler)
 
 
 if __name__ == "__main__":
