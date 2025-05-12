@@ -92,7 +92,9 @@ export default function Feed(): React.ReactElement {
     (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
     selectedFeedTypes.gtfs;
   const areGBFSFiltersEnabled =
-    selectedFeedTypes.gbfs || areNoDataTypesSelected;
+    selectedFeedTypes.gbfs &&
+    !selectedFeedTypes.gtfs_rt &&
+    !selectedFeedTypes.gtfs;
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =

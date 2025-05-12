@@ -53,10 +53,9 @@ export function SearchFilters({
   const [expandedCategories, setExpandedCategories] = useState<
     Record<string, boolean>
   >({
-    dataTypes: false,
     features: areFeatureFiltersEnabled,
     tags: isOfficialTagFilterEnabled,
-    gbfsVersions: areGBFSFiltersEnabled,
+    gbfsVersions: true,
   });
   const [featureCheckboxData, setFeatureCheckboxData] = useState<
     CheckboxStructure[]
@@ -268,11 +267,19 @@ export function SearchFilters({
             <NestedCheckboxList
               disableAll={!areGBFSFiltersEnabled}
               debounceTime={500}
-              checkboxData={gbfsVersions.map((version) => ({
-                title: version,
-                checked: selectedGbfsVersions.includes(version),
-                type: 'checkbox',
-              }))}
+              checkboxData={gbfsVersions
+                .filter(
+                  (gbfsVersion) =>
+                    !(
+                      config.enableGbfs31RCSearchFilter &&
+                      gbfsVersion === 'v3.1-RC'
+                    ),
+                )
+                .map((version) => ({
+                  title: version,
+                  checked: selectedGbfsVersions.includes(version),
+                  type: 'checkbox',
+                }))}
               onCheckboxChange={(checkboxData) => {
                 const selectedVersions: string[] = [];
                 checkboxData.forEach((checkbox) => {
