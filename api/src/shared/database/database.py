@@ -19,7 +19,7 @@ from shared.database_gen.sqlacodegen_models import (
 from sqlalchemy.orm import sessionmaker
 import logging
 
-from utils.logging_utils import get_env_logging_level
+from shared.common.logging_common import get_env_logging_level
 
 
 def generate_unique_id() -> str:

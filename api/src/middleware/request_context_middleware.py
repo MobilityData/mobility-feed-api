@@ -12,7 +12,6 @@ class RequestContextMiddleware:
     """
 
     def __init__(self, app: ASGIApp) -> None:
-        Logger.init_logger()
         self.logger = new_logger(API_ACCESS_LOG)
         self.app = app
 
@@ -64,11 +63,11 @@ class RequestContextMiddleware:
         request = self.create_http_request(scope, request_context, status_code, content_length, latency)
         self.logger.info(
             "API Access Log",
-            extra={
-                "context": {
-                    "http_request": request,
-                }
-            },
+            # extra={
+            #     "context": {
+            #         "http_request": request,
+            #     }
+            # },
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:

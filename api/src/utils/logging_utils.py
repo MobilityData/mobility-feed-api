@@ -6,15 +6,9 @@ from google.cloud.logging.handlers import CloudLoggingHandler
 import google.cloud.logging
 from google.cloud.logging_v2 import Client
 
+from shared.common.logging_common import get_env_logging_level
 from middleware.request_context import get_request_context
 from utils.config import get_config, PROJECT_ID
-
-
-def get_env_logging_level():
-    """
-    Get the logging level from the environment via OS variable LOGGING_LEVEL. Returns INFO if not set.
-    """
-    return os.getenv("LOGGING_LEVEL", "INFO")
 
 
 def is_local_env():
@@ -64,28 +58,31 @@ class Logger:
             if hasattr(Logger, "initialized"):
                 return
             logging.basicConfig(level=get_env_logging_level())
-            if is_local_env():
+            if not is_local_env():
                 # Use the default logging handler
                 logging.info("Using default logging handler")
-                return
-            try:
-                client = google.cloud.logging_v2.Client()
-                client.get_default_handler()
-                client.setup_logging()
-                logging.info("GCP logging client initialized")
-            except Exception as error:
-                # This might happen when the GCP authorization credentials are not available.
-                # Example, when running the tests locally
-                logging.error(f"Error initializing the logger: {error}")
-        Logger.initialized = True
+            else:
+                try:
+                    client = google.cloud.logging_v2.Client()
+                    client.get_default_handler()
+                    client.setup_logging()
+                    logger = _get_trace_logger(logging.getLogger("LOGGING_UTILS"))
+                    logger.info("GCP logging client initialized")
+                except Exception as error:
+                    # This might happen when the GCP authorization credentials are not available.
+                    # Example, when running the tests locally
+                    logging.error(f"Error initializing the logger: {error}")
+            Logger.initialized = True
 
     def get_logger(self):
         return self.logger
 
 
-class TraceLogger:
+class TraceLogger(logging.Logger):
     def __init__(self, logger: logging.Logger, project_id: str, trace_id: str, span_id: str):
+        super().__init__(logger.name)
         self._logger = logger
+        self._logger.propagate = False
         self._trace_id = None
         self._span_id = None
         self._project_id = project_id
@@ -106,7 +103,7 @@ class TraceLogger:
         return trace_fields
 
     def info(self, msg, *args, extra=None, **kwargs):
-        return self._logger.info(msg, *args, extra=self._inject_trace(extra), **kwargs)
+        return self._logger.info(msg, extra=self._inject_trace(extra))
 
     def error(self, msg, *args, extra=None, **kwargs):
         return self._logger.error(msg, *args, extra=self._inject_trace(extra), **kwargs)
@@ -121,16 +118,21 @@ class TraceLogger:
         return self._logger.exception(msg, *args, extra=self._inject_trace(extra), **kwargs)
 
 
-def new_logger(name: str):
+def new_logger(name: str) -> logging.Logger:
     """
     Create a new logger with the given name.
     """
     Logger.init_logger()
     logger = logging.getLogger(name)
     logger.setLevel(get_env_logging_level())
-    request_context = get_request_context()
+    return _get_trace_logger(logger)
     # if not request_context:
     #     return logger
+def _get_trace_logger(logger: logging.Logger) -> TraceLogger:
+    """
+    Create a new TraceLogger with the given logger and name.
+    """
+    request_context = get_request_context()
     return TraceLogger(logger, get_config(PROJECT_ID), request_context.get("trace_id"), request_context.get("span_id"))
 
 
