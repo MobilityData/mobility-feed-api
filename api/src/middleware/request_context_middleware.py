@@ -61,18 +61,21 @@ class RequestContextMiddleware:
         latency = time.time() - start_time
         request = self.create_http_request(scope, request_context, status_code, content_length, latency)
         new_logger(API_ACCESS_LOG).info(
-            "API Access Log",
-            # extra={
-            #     "context": {
-            #         "http_request": request,
-            #     }
-            # },
+            "API Access Log1",
+            extra={
+                "context": {
+                    "http_request": request,
+                }
+            },
         )
         new_logger(API_ACCESS_LOG).info(
-            "API Access Log",
+            "API Access Log2",
             extra={
                 "labels": {
-                    "api_tag": "api_access_log",
+                    "python_logger": "api_access_log",
+                },
+                "context": {
+                    "http_request": request,
                 }
             },
         )

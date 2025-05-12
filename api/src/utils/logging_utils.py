@@ -92,9 +92,12 @@ class TraceLogger:
         span_id = request_context.get("span_id")
 
         trace_fields = {
-            "logging.googleapis.com/trace": f"projects/{project_id}/traces/{trace_id}",
-            "logging.googleapis.com/spanId": span_id,
-            "logging.googleapis.com/trace_sampled": True,
+            "context" : {
+                "trace": f"projects/{project_id}/traces/{trace_id}",
+                "spanId": span_id,
+                "trace_sampled": True,
+
+            },
         }
         if extra:
             trace_fields.update(extra)
