@@ -456,7 +456,7 @@ export default function Feed(): React.ReactElement {
                     }}
                   />
                 )}
-                {isOfficialFeedSearch && (
+                {isOfficialFeedSearch && isOfficialTagFilterEnabled && (
                   <Chip
                     color='primary'
                     variant='outlined'
