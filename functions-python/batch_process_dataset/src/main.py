@@ -38,9 +38,9 @@ from shared.helpers.logger import init_logger, get_logger, Logger
 from shared.helpers.utils import download_and_get_hash
 from sqlalchemy.orm import Session
 
-# init_logger()
+init_logger()
 
-logging.basicConfig(level=logging.INFO)
+# logging.basicConfig(level=logging.INFO)
 
 @dataclass
 class DatasetFile:
@@ -314,7 +314,7 @@ def process_dataset(cloud_event: CloudEvent):
         }
     }
     """
-    Logger.init_logger()
+    # init_logger()
     logging.info("Function Started")
     print("Function Started print")
     stable_id = "UNKNOWN"

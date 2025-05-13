@@ -14,14 +14,16 @@
 #  limitations under the License.
 #
 import os
-import threading
 import logging
+import threading
 
 import google.cloud.logging
 from google.cloud.logging_v2 import Client
 
 from shared.common.logging_utils import get_env_logging_level
 
+def is_local_env():
+    return os.getenv("K_SERVICE") is None
 
 class StableIdFilter(logging.Filter):
     """Add a stable_id to the log record"""
@@ -35,11 +37,28 @@ class StableIdFilter(logging.Filter):
             record.msg = f"[{self.stable_id}] {record.msg}"
         return True
 
+lock = threading.Lock()
+_logging_initialized = False
 def init_logger():
     """
     Initializes the logger
     """
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=get_env_logging_level())
+    global _logging_initialized
+    if not is_local_env() and not _logging_initialized:
+        with lock:
+            if _logging_initialized:
+                return
+            try:
+                client = google.cloud.logging.Client()
+                client.get_default_handler()
+                client.setup_logging()
+                return client
+            except Exception as error:
+                # This might happen when the GCP authorization credentials are not available.
+                # Example, when running the tests locally
+                logging.error(f"Error initializing the logger: {error}")
+            _logging_initialized = True
 
 
 def get_logger(name: str, stable_id: str = None):
