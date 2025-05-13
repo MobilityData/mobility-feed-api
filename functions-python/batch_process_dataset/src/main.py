@@ -314,6 +314,7 @@ def process_dataset(cloud_event: CloudEvent):
     }
     """
     logging.info("Function Started")
+    print("Function Started print")
     stable_id = "UNKNOWN"
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
 
