@@ -26,12 +26,14 @@ from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+
+from shared.common.logging_utils import get_env_logging_level
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 from shared.dataset_service.main import BatchExecutionService, BatchExecution
 from shared.database.database import with_db_session
 from shared.helpers.logger import Logger
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=get_env_logging_level())
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
 
@@ -139,7 +141,7 @@ def batch_datasets(request, db_session: Session):
             "api_key_parameter_name": feed.api_key_parameter_name,
         }
         data_str = json.dumps(payload)
-        logging.info(f"Publishing {data_str} to {topic_path}.")
+        logging.debug(f"Publishing {data_str} to {topic_path}.")
         future = publish(publisher, topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
             lambda _: publish_callback(future, feed.stable_id, topic_path)
@@ -151,4 +153,6 @@ def batch_datasets(request, db_session: Session):
             timestamp=timestamp,
         )
     )
-    return f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
+    message = f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
+    logging.info(message, extra={"message_extra": message})
+    return message
