@@ -269,7 +269,7 @@ export function SearchFilters({
             <NestedCheckboxList
               disableAll={!areGBFSFiltersEnabled}
               debounceTime={500}
-              checkboxData={gbfsVersionsObject.versions.map((version) => ({
+              checkboxData={gbfsVersionsObject.map((version) => ({
                 title: version,
                 checked: selectedGbfsVersions.includes(version),
                 type: 'checkbox',

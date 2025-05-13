@@ -6,9 +6,7 @@ export interface BypassConfig {
   regex: string[];
 }
 
-export interface GbfsVersionConfig {
-  versions: string[];
-}
+export type GbfsVersionConfig = string[];
 
 export interface RemoteConfigValues extends FirebaseDefaultConfig {
   enableAppleSSO: boolean;
@@ -43,7 +41,7 @@ const featureByPassDefault: BypassConfig = {
   regex: [],
 };
 
-const gbfsVersionsDefault: GbfsVersionConfig = { versions: [] };
+const gbfsVersionsDefault: GbfsVersionConfig = [];
 
 // Add default values for remote config here
 export const defaultRemoteConfigValues: RemoteConfigValues = {
