@@ -35,27 +35,17 @@ class StableIdFilter(logging.Filter):
             record.msg = f"[{self.stable_id}] {record.msg}"
         return True
 
-
-_logger_initialized = False
-lock = threading.Lock()
-
-
 def init_logger():
     """
     Initializes the logger
     """
-    with lock:
-        global _logger_initialized
-        if _logger_initialized:
-            return
-        logging.basicConfig(level=get_env_logging_level())
-        _logger_initialized = True
+    logging.basicConfig(level=get_env_logging_level())
 
 
 def get_logger(name: str, stable_id: str = None):
     logger = logging.getLogger(name)
     if stable_id and not any(
-        isinstance(handler, StableIdFilter) for handler in logger.handlers
+        isinstance(log_filter, StableIdFilter) for log_filter in logger.filters
     ):
         logger.addFilter(StableIdFilter(stable_id))
     return logger

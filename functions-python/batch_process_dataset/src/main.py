@@ -146,9 +146,7 @@ class DatasetProcessor:
         :return: the file hash and the hosted url as a tuple or None if no upload is required
         """
         try:
-            self.logger.info(
-                "Accessing URL %s", self.producer_url
-            )
+            self.logger.info("Accessing URL %s", self.producer_url)
             temp_file_path = self.generate_temp_filename()
             file_sha256_hash, is_zip = self.download_content(temp_file_path)
             if not is_zip:
