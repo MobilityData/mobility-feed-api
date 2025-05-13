@@ -152,5 +152,5 @@ def batch_datasets(request, db_session: Session):
         )
     )
     message = f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
-    logging.info(message, extra={"message_extra": message})
+    logging.info(message)
     return message

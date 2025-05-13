@@ -13,11 +13,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-import os
-
-import google.cloud.logging
-from google.cloud.logging_v2 import Client
+import threading
 import logging
+
+from shared.common.logging_utils import get_env_logging_level
 
 
 class StableIdFilter(logging.Filter):
@@ -33,37 +32,26 @@ class StableIdFilter(logging.Filter):
         return True
 
 
-class Logger:
+_logger_initialized = False
+lock = threading.Lock()
+
+
+def init_logger():
     """
-    Util class for logging information, errors or warnings.
-    This class uses the Google Cloud Logging API enhancing the logs with extra request information.
+    Initializes the logger
     """
+    with lock:
+        global _logger_initialized
+        if _logger_initialized:
+            return
+        logging.basicConfig(level=get_env_logging_level())
+        _logger_initialized = True
 
-    def __init__(self, name):
-        self.init_logger()
-        self.logger = self.init_logger().logger(name)
 
-    @staticmethod
-    def init_logger() -> Client | None:
-        """
-        Initializes the logger
-        """
-        if os.getenv("DEBUG", "False") == "True":
-            return None
-        try:
-            client = google.cloud.logging.Client()
-            client.get_default_handler()
-            client.setup_logging()
-            return client
-        except Exception as error:
-            # This might happen when the GCP authorization credentials are not available.
-            # Example, when running the tests locally
-            logging.error(f"Error initializing the logger: {error}")
-        return None
-
-    def get_logger(self) -> Client:
-        """
-        Get the GCP logger instance
-        :return: the logger instance
-        """
-        return self.logger
+def get_logger(name: str, stable_id: str = None):
+    logger = logging.getLogger(name)
+    if stable_id and not any(
+        isinstance(handler, StableIdFilter) for handler in logger.handlers
+    ):
+        logger.addFilter(StableIdFilter(stable_id))
+    return logger
