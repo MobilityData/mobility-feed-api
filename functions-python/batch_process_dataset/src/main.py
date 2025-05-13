@@ -38,8 +38,9 @@ from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import download_and_get_hash
 from sqlalchemy.orm import Session
 
-init_logger()
+# init_logger()
 
+logging.basicConfig(level=logging.INFO)
 
 @dataclass
 class DatasetFile:
