@@ -6,6 +6,10 @@ export interface BypassConfig {
   regex: string[];
 }
 
+export interface GbfsVersionConfig {
+  versions: string[];
+}
+
 export interface RemoteConfigValues extends FirebaseDefaultConfig {
   enableAppleSSO: boolean;
   enableFeedsPage: boolean;
@@ -32,12 +36,14 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   enableIsOfficialFilterSearch: boolean;
   enableFeedStatusBadge: boolean;
   enableGbfsInSearchPage: boolean;
-  enableGbfs31RCSearchFilter: boolean;
+  gbfsVersions: string;
 }
 
 const featureByPassDefault: BypassConfig = {
   regex: [],
 };
+
+const gbfsVersionsDefault: GbfsVersionConfig = { versions: [] };
 
 // Add default values for remote config here
 export const defaultRemoteConfigValues: RemoteConfigValues = {
@@ -55,7 +61,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableIsOfficialFilterSearch: false,
   enableFeedStatusBadge: false,
   enableGbfsInSearchPage: false,
-  enableGbfs31RCSearchFilter: false,
+  gbfsVersions: JSON.stringify(gbfsVersionsDefault),
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;

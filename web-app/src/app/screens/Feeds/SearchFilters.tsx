@@ -8,7 +8,7 @@ import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useEffect, useState } from 'react';
 import { DATASET_FEATURES, groupFeaturesByComponent } from '../../utils/consts';
-import { gbfsVersions } from '../../utils/gbfsConsts';
+import { type GbfsVersionConfig } from '../../interface/RemoteConfig';
 
 function setInitialExpandGroup(): Record<string, boolean> {
   const expandGroup: Record<string, boolean> = {};
@@ -49,6 +49,8 @@ export function SearchFilters({
 }: SearchFiltersProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const { config } = useRemoteConfig();
+
+  const gbfsVersionsObject: GbfsVersionConfig = JSON.parse(config.gbfsVersions);
 
   const [expandedCategories, setExpandedCategories] = useState<
     Record<string, boolean>
@@ -267,19 +269,11 @@ export function SearchFilters({
             <NestedCheckboxList
               disableAll={!areGBFSFiltersEnabled}
               debounceTime={500}
-              checkboxData={gbfsVersions
-                .filter(
-                  (gbfsVersion) =>
-                    !(
-                      config.enableGbfs31RCSearchFilter &&
-                      gbfsVersion === 'v3.1-RC'
-                    ),
-                )
-                .map((version) => ({
-                  title: version,
-                  checked: selectedGbfsVersions.includes(version),
-                  type: 'checkbox',
-                }))}
+              checkboxData={gbfsVersionsObject.versions.map((version) => ({
+                title: version,
+                checked: selectedGbfsVersions.includes(version),
+                type: 'checkbox',
+              }))}
               onCheckboxChange={(checkboxData) => {
                 const selectedVersions: string[] = [];
                 checkboxData.forEach((checkbox) => {
