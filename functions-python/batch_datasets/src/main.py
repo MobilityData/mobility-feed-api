@@ -93,8 +93,6 @@ def get_non_deprecated_feeds(session: Session):
         limit = os.getenv("FEEDS_LIMIT")
         query = query.limit(10 if limit is None else int(limit))
     results = query.all()
-    logging.info(f"Retrieved {len(results)} feeds.")
-
     return results
 
 
