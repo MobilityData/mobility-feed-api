@@ -22,6 +22,7 @@ import {
 import { displayFormattedDate } from '../../../utils/date';
 import { featureChipsStyle } from '../Feed.styles';
 import { sortGbfsVersions } from '../Feed.functions';
+import { WarningContentBox } from '../../../components/WarningContentBox';
 
 export interface GbfsVersionsProps {
   feed: GBFSFeedType;
@@ -80,10 +81,6 @@ export default function GbfsVersions({
     return `https://github.com/MobilityData/gbfs/blob/v${version}/gbfs.md#${feature}json`;
   };
 
-  if (feed?.versions == null || feed?.versions?.length === 0) {
-    return <></>;
-  }
-
   return (
     <>
       <Typography
@@ -100,6 +97,10 @@ export default function GbfsVersions({
           justifyContent: 'flex-end',
         }}
       >
+        {feed?.versions == null ||
+          (feed.versions.length === 0 && (
+            <WarningContentBox>{t('unableToDetectVersions')}</WarningContentBox>
+          ))}
         {[...(feed?.versions ?? [])]
           .sort((a, b) => sortGbfsVersions(a, b))
           .map((item, index) => {
