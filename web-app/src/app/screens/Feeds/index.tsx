@@ -292,20 +292,6 @@ export default function Feed(): React.ReactElement {
 
   const containerRef = React.useRef(null);
   useEffect(() => {
-    if (!config.enableGbfsInSearchPage) {
-      if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
-        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
-      }
-    } else {
-      if (
-        !selectedFeedTypes.gtfs_rt &&
-        !selectedFeedTypes.gtfs &&
-        !selectedFeedTypes.gbfs
-      ) {
-        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true, gbfs: true });
-      }
-    }
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsSticky(!entry.isIntersecting);
