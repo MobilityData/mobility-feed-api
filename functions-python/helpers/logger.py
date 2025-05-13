@@ -39,7 +39,7 @@ def init_logger():
     """
     Initializes the logger
     """
-    logging.basicConfig(level=get_env_logging_level())
+    logging.basicConfig(level=logging.INFO)
 
 
 def get_logger(name: str, stable_id: str = None):
