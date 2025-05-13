@@ -292,20 +292,6 @@ export default function Feed(): React.ReactElement {
 
   const containerRef = React.useRef(null);
   useEffect(() => {
-    if (!config.enableGbfsInSearchPage) {
-      if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
-        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
-      }
-    } else {
-      if (
-        !selectedFeedTypes.gtfs_rt &&
-        !selectedFeedTypes.gtfs &&
-        !selectedFeedTypes.gbfs
-      ) {
-        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true, gbfs: true });
-      }
-    }
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsSticky(!entry.isIntersecting);
@@ -388,7 +374,7 @@ export default function Feed(): React.ReactElement {
             onSubmit={(event) => {
               event.preventDefault();
               setActivePagination(1);
-              setActiveSearch(searchQuery);
+              setActiveSearch(searchQuery.trim());
             }}
             sx={searchBarStyles}
           >
@@ -409,7 +395,7 @@ export default function Feed(): React.ReactElement {
                     }}
                     onClick={() => {
                       setActivePagination(1);
-                      setActiveSearch(searchQuery);
+                      setActiveSearch(searchQuery.trim());
                     }}
                     position='start'
                   >
