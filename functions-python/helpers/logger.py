@@ -13,8 +13,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import os
 import threading
 import logging
+
+import google.cloud.logging
+from google.cloud.logging_v2 import Client
 
 from shared.common.logging_utils import get_env_logging_level
 
@@ -55,3 +59,39 @@ def get_logger(name: str, stable_id: str = None):
     ):
         logger.addFilter(StableIdFilter(stable_id))
     return logger
+
+
+class Logger:
+    """
+    Util class for logging information, errors or warnings.
+    This class uses the Google Cloud Logging API enhancing the logs with extra request information.
+    """
+
+    def __init__(self, name):
+        self.init_logger()
+        self.logger = self.init_logger().logger(name)
+
+    @staticmethod
+    def init_logger() -> Client | None:
+        """
+        Initializes the logger
+        """
+        if os.getenv("DEBUG", "False") == "True":
+            return None
+        try:
+            client = google.cloud.logging.Client()
+            client.get_default_handler()
+            client.setup_logging()
+            return client
+        except Exception as error:
+            # This might happen when the GCP authorization credentials are not available.
+            # Example, when running the tests locally
+            logging.error(f"Error initializing the logger: {error}")
+        return None
+
+    def get_logger(self) -> Client:
+        """
+        Get the GCP logger instance
+        :return: the logger instance
+        """
+        return self.logger
