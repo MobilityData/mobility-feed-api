@@ -57,4 +57,5 @@
     <!-- Materialized view updated. Added versions of GBFS feeds-->
     <include file="changes/feat_1118.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1125.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_1181.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

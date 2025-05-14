@@ -309,10 +309,29 @@ class GBFSDataProcessor:
                 id=formatted_id, name=endpoint.name, language=endpoint.language
             )
 
-        gbfs_endpoint_orm.url = endpoint.url  # Update the URL
-        gbfs_endpoint_orm.is_feature = (
-            endpoint.name in features and endpoint.name in FEATURE_ENDPOINTS
-        )
+        gbfs_endpoint_orm.url = endpoint.url
+
+        # Handle the vehicle status endpoints based on GBFS version
+        is_vehicle_status = False
+        if version.startswith("3."):
+            is_vehicle_status = True
+        else:
+            is_vehicle_status = False  # For versions below v3.0, free_bike_status is equivalent to vehicle_status
+
+        if is_vehicle_status:
+            gbfs_endpoint_orm.is_feature = (
+                endpoint.name in features and endpoint.name in FEATURE_ENDPOINTS
+            )
+        else:
+            old_version_features = FEATURE_ENDPOINTS.copy()
+            # For older versions, replace vehicle_status with free_bike_status
+            old_version_features = [
+                "free_bike_status" if feature == "vehicle_status" else feature
+                for feature in FEATURE_ENDPOINTS
+            ]
+            gbfs_endpoint_orm.is_feature = (
+                endpoint.name in features and endpoint.name in old_version_features
+            )
         return gbfs_endpoint_orm
 
     def validate_gbfs_feed_versions(self) -> None:
