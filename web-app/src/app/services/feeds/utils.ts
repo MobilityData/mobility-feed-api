@@ -4,6 +4,8 @@ import { type paths, type components } from './types';
 export type AllFeedsType =
   paths['/v1/search']['get']['responses'][200]['content']['application/json'];
 
+export type SearchFeedItem = components['schemas']['SearchFeedItemResult'];
+
 export type EntityLocations = components['schemas']['Locations'];
 
 export type AllFeedsParams = paths['/v1/search']['get']['parameters'];

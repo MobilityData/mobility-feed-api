@@ -51,10 +51,15 @@ export function generatePageTitle(
   feedName?: string,
 ): string {
   let newDocTitle = getFeedFormattedName(sortedProviders, feedName);
-  const dataTypeVerbose = dataType === 'gtfs' ? 'Schedule' : 'Realtime';
 
   if (newDocTitle !== '') {
-    newDocTitle += ` GTFS ${dataTypeVerbose} Feed - `;
+    if (dataType === 'gtfs') {
+      newDocTitle += ' GTFS Schedule Feed - ';
+    } else if (dataType === 'gtfs_rt') {
+      newDocTitle += ' GTFS Realtime Feed - ';
+    } else if (dataType === 'gbfs') {
+      newDocTitle += ' GBFS Feed - ';
+    }
   }
 
   newDocTitle += 'Mobility Database';
