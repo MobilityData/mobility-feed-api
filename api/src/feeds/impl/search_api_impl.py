@@ -119,7 +119,14 @@ class SearchApiImpl(BaseSearchApi):
         query = SearchApiImpl.add_search_query_filters(
             query, search_query, data_type, feed_id, status, is_official, features, version
         )
-        return query.order_by(rank_expression.desc())
+        # If search query is provided, use it as secondary sort after timestamp
+        if search_query and len(search_query.strip()) > 0:
+            return query.order_by(
+                t_feedsearch.c.created_at.desc(),  # Primary sort: newest first
+                rank_expression.desc(),  # Secondary sort: relevance
+            )
+        else:
+            return query.order_by(t_feedsearch.c.created_at.desc())
 
     @with_db_session
     def search_feeds(

@@ -29,10 +29,6 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
 import { Trans, useTranslation } from 'react-i18next';
-import { DATASET_FEATURES, groupFeaturesByComponent } from '../../utils/consts';
-import NestedCheckboxList, {
-  type CheckboxStructure,
-} from '../../components/NestedCheckboxList';
 import {
   getDataTypeParamFromSelectedFeedTypes,
   getInitialSelectedFeedTypes,
@@ -40,7 +36,6 @@ import {
 import {
   chipHolderStyles,
   searchBarStyles,
-  SearchHeader,
   stickyHeaderStyles,
 } from './Feeds.styles';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
@@ -49,6 +44,7 @@ import { ColoredContainer } from '../../styles/PageLayout.style';
 import AdvancedSearchTable from './AdvancedSearchTable';
 import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
 import GridViewIcon from '@mui/icons-material/GridView';
+import { SearchFilters } from './SearchFilters';
 
 export default function Feed(): React.ReactElement {
   const theme = useTheme();
@@ -65,15 +61,13 @@ export default function Feed(): React.ReactElement {
     Boolean(searchParams.get('official')) ?? false,
   );
   const [searchQuery, setSearchQuery] = useState(activeSearch);
-  const [expandedElements, setExpandedElements] = useState<
-    Record<string, boolean>
-  >(setInitialExpandGroup());
+
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
     searchParams.get('features')?.split(',') ?? [],
   );
-  const [featureCheckboxData, setFeatureCheckboxData] = useState<
-    CheckboxStructure[]
-  >([]);
+  const [selectGbfsVersions, setSelectGbfsVersions] = useState<string[]>(
+    searchParams.get('gbfs_versions')?.split(',') ?? [],
+  );
   const [activePagination, setActivePagination] = useState(
     searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1,
   );
@@ -97,6 +91,10 @@ export default function Feed(): React.ReactElement {
   const areFeatureFiltersEnabled =
     (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
     selectedFeedTypes.gtfs;
+  const areGBFSFiltersEnabled =
+    selectedFeedTypes.gbfs &&
+    !selectedFeedTypes.gtfs_rt &&
+    !selectedFeedTypes.gtfs;
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
@@ -128,6 +126,9 @@ export default function Feed(): React.ReactElement {
             // Filtering out deprecated feeds
             status: ['active', 'inactive', 'development', 'future'],
             feature: areFeatureFiltersEnabled ? selectedFeatures : undefined,
+            version: areGBFSFiltersEnabled
+              ? selectGbfsVersions.join(',').replaceAll('v', '')
+              : undefined,
           },
         },
       }),
@@ -140,6 +141,7 @@ export default function Feed(): React.ReactElement {
     searchLimit,
     isOfficialFeedSearch,
     selectedFeatures,
+    selectGbfsVersions,
   ]);
 
   useEffect(() => {
@@ -163,6 +165,9 @@ export default function Feed(): React.ReactElement {
     if (selectedFeatures.length > 0) {
       newSearchParams.set('features', selectedFeatures.join(','));
     }
+    if (selectGbfsVersions.length > 0) {
+      newSearchParams.set('gbfs_versions', selectGbfsVersions.join(','));
+    }
     if (isOfficialFeedSearch) {
       newSearchParams.set('official', 'true');
     }
@@ -174,6 +179,7 @@ export default function Feed(): React.ReactElement {
     activePagination,
     selectedFeedTypes,
     selectedFeatures,
+    selectGbfsVersions,
     isOfficialFeedSearch,
   ]);
 
@@ -194,6 +200,11 @@ export default function Feed(): React.ReactElement {
     const newFeatures = searchParams.get('features')?.split(',') ?? [];
     if (newFeatures.join(',') !== selectedFeatures.join(',')) {
       setSelectedFeatures([...newFeatures]);
+    }
+
+    const newGbfsVersions = searchParams.get('gbfs_versions')?.split(',') ?? [];
+    if (newGbfsVersions.join(',') !== selectGbfsVersions.join(',')) {
+      setSelectGbfsVersions([...newGbfsVersions]);
     }
 
     const newSearchOfficial = Boolean(searchParams.get('official')) ?? false;
@@ -238,43 +249,6 @@ export default function Feed(): React.ReactElement {
     }
   };
 
-  function setInitialExpandGroup(): Record<string, boolean> {
-    const expandGroup: Record<string, boolean> = {};
-    Object.keys(
-      groupFeaturesByComponent(Object.keys(DATASET_FEATURES), true),
-    ).forEach((featureGroup) => {
-      expandGroup[featureGroup] = false;
-    });
-    return expandGroup;
-  }
-
-  function generateCheckboxStructure(): CheckboxStructure[] {
-    const groupedFeatures = groupFeaturesByComponent(
-      Object.keys(DATASET_FEATURES),
-      true,
-    );
-    return Object.entries(groupedFeatures)
-      .filter(([parent]) => parent !== 'Other')
-      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-      .map(([parent, features]) => ({
-        title: parent,
-        checked: features.every((feature) =>
-          selectedFeatures.includes(feature.feature),
-        ),
-        seeChildren: expandedElements[parent],
-        type: 'checkbox',
-        children: features.map((feature) => {
-          return {
-            title: feature.feature,
-            type: 'checkbox',
-            checked: selectedFeatures.some(
-              (selectedFeature) => selectedFeature === feature.feature,
-            ),
-          };
-        }),
-      }));
-  }
-
   function clearAllFilters(): void {
     setActivePagination(1);
     setSelectedFeedTypes({
@@ -283,29 +257,12 @@ export default function Feed(): React.ReactElement {
       gbfs: false,
     });
     setSelectedFeatures([]);
+    setSelectGbfsVersions([]);
     setIsOfficialFeedSearch(false);
   }
 
-  React.useEffect(() => {
-    setFeatureCheckboxData(generateCheckboxStructure());
-  }, [selectedFeatures]);
-
   const containerRef = React.useRef(null);
   useEffect(() => {
-    if (!config.enableGbfsInSearchPage) {
-      if (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gtfs) {
-        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true });
-      }
-    } else {
-      if (
-        !selectedFeedTypes.gtfs_rt &&
-        !selectedFeedTypes.gtfs &&
-        !selectedFeedTypes.gbfs
-      ) {
-        setSelectedFeedTypes({ gtfs: true, gtfs_rt: true, gbfs: true });
-      }
-    }
-
     const observer = new IntersectionObserver(
       ([entry]) => {
         setIsSticky(!entry.isIntersecting);
@@ -330,26 +287,6 @@ export default function Feed(): React.ReactElement {
       setSearchView(newSearchView);
     }
   };
-  const dataTypesCheckboxData: CheckboxStructure[] = [
-    {
-      title: t('common:gtfsSchedule'),
-      checked: selectedFeedTypes.gtfs,
-      type: 'checkbox',
-    },
-    {
-      title: t('common:gtfsRealtime'),
-      checked: selectedFeedTypes.gtfs_rt,
-      type: 'checkbox',
-    },
-  ];
-
-  if (config.enableGbfsInSearchPage) {
-    dataTypesCheckboxData.push({
-      title: t('common:gbfs'),
-      checked: selectedFeedTypes.gbfs,
-      type: 'checkbox',
-    });
-  }
 
   return (
     <Container
@@ -388,7 +325,7 @@ export default function Feed(): React.ReactElement {
             onSubmit={(event) => {
               event.preventDefault();
               setActivePagination(1);
-              setActiveSearch(searchQuery);
+              setActiveSearch(searchQuery.trim());
             }}
             sx={searchBarStyles}
           >
@@ -409,7 +346,7 @@ export default function Feed(): React.ReactElement {
                     }}
                     onClick={() => {
                       setActivePagination(1);
-                      setActiveSearch(searchQuery);
+                      setActiveSearch(searchQuery.trim());
                     }}
                     position='start'
                   >
@@ -447,89 +384,31 @@ export default function Feed(): React.ReactElement {
                 pr: 2,
               }}
             >
-              <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
-              <NestedCheckboxList
-                checkboxData={dataTypesCheckboxData}
-                onCheckboxChange={(checkboxData) => {
+              <SearchFilters
+                selectedFeedTypes={selectedFeedTypes}
+                isOfficialFeedSearch={isOfficialFeedSearch}
+                selectedFeatures={selectedFeatures}
+                selectedGbfsVersions={selectGbfsVersions}
+                setSelectedFeedTypes={(feedTypes) => {
                   setActivePagination(1);
-                  const checkedFeedTypes = {
-                    ...selectedFeedTypes,
-                    gtfs: checkboxData[0].checked,
-                    gtfs_rt: checkboxData[1].checked,
-                    gbfs: false,
-                  };
-                  if (config.enableGbfsInSearchPage) {
-                    checkedFeedTypes.gbfs = checkboxData[2].checked;
-                  }
-                  setSelectedFeedTypes(checkedFeedTypes);
+                  setSelectedFeedTypes(feedTypes);
                 }}
-              ></NestedCheckboxList>
-              {config.enableIsOfficialFilterSearch && (
-                <>
-                  <SearchHeader
-                    variant='h6'
-                    sx={isOfficialTagFilterEnabled ? {} : { opacity: 0.5 }}
-                  >
-                    Tags
-                  </SearchHeader>
-                  <NestedCheckboxList
-                    disableAll={!isOfficialTagFilterEnabled}
-                    checkboxData={[
-                      {
-                        title: 'Official Feeds',
-                        checked: isOfficialFeedSearch,
-                        type: 'checkbox',
-                      },
-                    ]}
-                    onCheckboxChange={(checkboxData) => {
-                      setActivePagination(1);
-                      setIsOfficialFeedSearch(checkboxData[0].checked);
-                    }}
-                  ></NestedCheckboxList>
-                </>
-              )}
-
-              {config.enableFeatureFilterSearch && (
-                <>
-                  <SearchHeader
-                    variant='h6'
-                    sx={areFeatureFiltersEnabled ? {} : { opacity: 0.5 }}
-                  >
-                    Features
-                  </SearchHeader>
-                  <NestedCheckboxList
-                    disableAll={!areFeatureFiltersEnabled}
-                    debounceTime={500}
-                    checkboxData={featureCheckboxData}
-                    onExpandGroupChange={(checkboxData) => {
-                      const newExpandGroup: Record<string, boolean> = {};
-                      checkboxData.forEach((cd) => {
-                        if (cd.seeChildren !== undefined) {
-                          newExpandGroup[cd.title] = cd.seeChildren;
-                        }
-                      });
-                      setExpandedElements({
-                        ...expandedElements,
-                        ...newExpandGroup,
-                      });
-                    }}
-                    onCheckboxChange={(checkboxData) => {
-                      const selelectedFeatures: string[] = [];
-                      checkboxData.forEach((checkbox) => {
-                        if (checkbox.children !== undefined) {
-                          checkbox.children.forEach((child) => {
-                            if (child.checked) {
-                              selelectedFeatures.push(child.title);
-                            }
-                          });
-                        }
-                      });
-                      setActivePagination(1);
-                      setSelectedFeatures([...selelectedFeatures]);
-                    }}
-                  />
-                </>
-              )}
+                setIsOfficialFeedSearch={(isOfficial) => {
+                  setActivePagination(1);
+                  setIsOfficialFeedSearch(isOfficial);
+                }}
+                setSelectedFeatures={(features) => {
+                  setActivePagination(1);
+                  setSelectedFeatures(features);
+                }}
+                setSelectedGbfsVerions={(versions) => {
+                  setSelectGbfsVersions(versions);
+                  setActivePagination(1);
+                }}
+                isOfficialTagFilterEnabled={isOfficialTagFilterEnabled}
+                areFeatureFiltersEnabled={areFeatureFiltersEnabled}
+                areGBFSFiltersEnabled={areGBFSFiltersEnabled}
+              ></SearchFilters>
             </Grid>
 
             <Grid item xs={12} md={10}>
@@ -579,7 +458,7 @@ export default function Feed(): React.ReactElement {
                     }}
                   />
                 )}
-                {isOfficialFeedSearch && (
+                {isOfficialFeedSearch && isOfficialTagFilterEnabled && (
                   <Chip
                     color='primary'
                     variant='outlined'
@@ -606,10 +485,31 @@ export default function Feed(): React.ReactElement {
                       }}
                     />
                   ))}
+
+                {areGBFSFiltersEnabled &&
+                  selectGbfsVersions.map((gbfsVersion) => (
+                    <Chip
+                      color='primary'
+                      variant='outlined'
+                      size='small'
+                      label={gbfsVersion}
+                      key={gbfsVersion}
+                      onDelete={() => {
+                        setSelectGbfsVersions([
+                          ...selectGbfsVersions.filter(
+                            (sv) => sv !== gbfsVersion,
+                          ),
+                        ]);
+                      }}
+                    />
+                  ))}
+
                 {(selectedFeatures.length > 0 ||
+                  selectGbfsVersions.length > 0 ||
                   isOfficialFeedSearch ||
                   selectedFeedTypes.gtfs_rt ||
-                  selectedFeedTypes.gtfs) && (
+                  selectedFeedTypes.gtfs ||
+                  selectedFeedTypes.gbfs) && (
                   <Button
                     variant={'text'}
                     onClick={clearAllFilters}
@@ -740,6 +640,7 @@ export default function Feed(): React.ReactElement {
                           <AdvancedSearchTable
                             feedsData={feedsData}
                             selectedFeatures={selectedFeatures}
+                            selectedGbfsVersions={selectGbfsVersions}
                           />
                         )}
 
