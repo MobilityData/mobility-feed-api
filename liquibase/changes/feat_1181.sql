@@ -4,4 +4,4 @@ SET
   is_feature = TRUE
 WHERE
   name = 'vehicle_status'
-  AND gbfs_version_id::float < 3.0;
+;
