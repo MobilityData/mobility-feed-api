@@ -34,13 +34,12 @@ from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Statu
 from shared.database.database import with_db_session, refresh_materialized_view
 import logging
 
-from shared.helpers.logger import init_logger, get_logger, Logger
+from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import download_and_get_hash
 from sqlalchemy.orm import Session
 
 init_logger()
 
-# logging.basicConfig(level=logging.INFO)
 
 @dataclass
 class DatasetFile:
@@ -314,9 +313,7 @@ def process_dataset(cloud_event: CloudEvent):
         }
     }
     """
-    # init_logger()
     logging.info("Function Started")
-    print("Function Started print")
     stable_id = "UNKNOWN"
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
 

@@ -22,11 +22,15 @@ from google.cloud.logging_v2 import Client
 
 from shared.common.logging_utils import get_env_logging_level
 
+
 def is_local_env():
     return os.getenv("K_SERVICE") is None
 
+
 class StableIdFilter(logging.Filter):
-    """Add a stable_id to the log record"""
+    """
+    Add a stable_id to the log record with format: [stable_id] log_message
+    """
 
     def __init__(self, stable_id=None):
         super().__init__()
@@ -37,15 +41,20 @@ class StableIdFilter(logging.Filter):
             record.msg = f"[{self.stable_id}] {record.msg}"
         return True
 
+
 lock = threading.Lock()
 _logging_initialized = False
+
+
 def init_logger():
     """
-    Initializes the logger
+    Initializes the logger with level INFO if not set in the environment.
+    On cloud environment it will also initialize the GCP logger.
     """
     logging.basicConfig(level=get_env_logging_level())
     global _logging_initialized
     if not is_local_env() and not _logging_initialized:
+        # Avoids initializing the logs multiple times due to performance concerns
         with lock:
             if _logging_initialized:
                 return
@@ -62,6 +71,11 @@ def init_logger():
 
 
 def get_logger(name: str, stable_id: str = None):
+    """
+    Get the logger instance for the specified name.
+    If stable_id is provided, the StableIdFilter is added.
+    This method can be called multiple times for the same logger name without creating a side effect.
+    """
     logger = logging.getLogger(name)
     if stable_id and not any(
         isinstance(log_filter, StableIdFilter) for log_filter in logger.filters
@@ -70,6 +84,7 @@ def get_logger(name: str, stable_id: str = None):
     return logger
 
 
+# This class will be removed once all code using it is updated to use the new functions
 class Logger:
     """
     Util class for logging information, errors or warnings.

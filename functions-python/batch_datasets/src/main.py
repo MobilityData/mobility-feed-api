@@ -27,13 +27,12 @@ from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from shared.common.logging_utils import get_env_logging_level
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 from shared.dataset_service.main import BatchExecutionService, BatchExecution
 from shared.database.database import with_db_session
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 
-logging.basicConfig(level=get_env_logging_level())
+init_logger()
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
 
@@ -109,7 +108,6 @@ def batch_datasets(request, db_session: Session):
     :param db_session: database session object
     :return: HTTP response object
     """
-    Logger.init_logger()
     try:
         feeds = get_non_deprecated_feeds(db_session)
     except Exception as error:
