@@ -325,7 +325,11 @@ jobs:
       - name: Set Lighthouse CI env
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
-        run: npx serve -s build -l 55300 --single &
+        # We override the robots.txt to not penalize the SEO score
+        # Important that this step stays after the deploy
+        run: |
+          echo -e "User-agent: *\nAllow: /" > build/robots.txt
+          npx serve -s build -l 55300 --single &
 
       - name: Wait for server to be ready
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
