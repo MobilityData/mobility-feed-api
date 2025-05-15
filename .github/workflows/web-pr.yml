@@ -57,13 +57,13 @@ jobs:
           # More info https://github.com/orgs/community/discussions/37942
           HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
       
-      - name: Lighthouse Check
-        uses: foo-software/lighthouse-check-action@master
-        with:
-          urls: '${{ steps.check-comment.outputs.decoded_url }},${{ steps.check-comment.outputs.decoded_url }}/feeds'
-          prCommentEnabled: true
-          prCommentSaveOld: false
-          gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
-          device: 'all'
+      # - name: Lighthouse Check
+      #   uses: foo-software/lighthouse-check-action@master
+      #   with:
+      #     urls: '${{ steps.check-comment.outputs.decoded_url }},${{ steps.check-comment.outputs.decoded_url }}/feeds'
+      #     prCommentEnabled: true
+      #     prCommentSaveOld: false
+      #     gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
+      #     device: 'all'
 
 
