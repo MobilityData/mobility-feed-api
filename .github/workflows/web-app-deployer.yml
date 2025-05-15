@@ -325,7 +325,7 @@ jobs:
       - name: Set Lighthouse CI env
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         working-directory: web-app
-        run: npx serve -s build -l 55300 --single
+        run: npx serve -s build -l 55300 --single &
 
       - name: Wait for server to be ready
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
@@ -340,4 +340,9 @@ jobs:
           prCommentSaveOld: false
           gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
           device: 'all'
+      
+      - name: Cleanup server
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
+        run: |
+          pkill -f "serve -s build"
 
