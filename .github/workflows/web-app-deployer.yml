@@ -329,7 +329,7 @@ jobs:
 
       - name: Wait for server to be ready
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
-        run: wait-on http://localhost:55300
+        run: npx wait-on http://localhost:55300
 
       - name: Lighthouse Check
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
