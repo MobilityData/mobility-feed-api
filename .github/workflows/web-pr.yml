@@ -60,7 +60,7 @@ jobs:
       - name: Lighthouse Check
         uses: foo-software/lighthouse-check-action@master
         with:
-          urls: 'https://mobilitydatabase.org,https://mobilitydatabase.org/feeds'
+          urls: '${{ steps.check-comment.outputs.decoded_url }},${{ steps.check-comment.outputs.decoded_url }}/feeds'
           prCommentEnabled: true
           prCommentSaveOld: false
           gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
