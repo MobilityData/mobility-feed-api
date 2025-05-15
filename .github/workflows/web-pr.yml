@@ -30,7 +30,6 @@ jobs:
         id: check-comment
         run: |
           HOSTING_URL_DECODED=$(echo "$HOSTING_URL_64" | base64 -d | sed 's/__firebase_project__/mobility-feeds-dev/g')
-          echo "decoded_url=$HOSTING_URL_DECODED" >> $GITHUB_OUTPUT
           COMMENT="Preview Firebase Hosting URL: $HOSTING_URL_DECODED"
           echo "PR comment: $COMMENT"
           COMMENTS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/${{ github.repository }}/issues/${{ env.PR_ID }}/comments")
@@ -57,13 +56,5 @@ jobs:
           # More info https://github.com/orgs/community/discussions/37942
           HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
       
-      # - name: Lighthouse Check
-      #   uses: foo-software/lighthouse-check-action@master
-      #   with:
-      #     urls: '${{ steps.check-comment.outputs.decoded_url }},${{ steps.check-comment.outputs.decoded_url }}/feeds'
-      #     prCommentEnabled: true
-      #     prCommentSaveOld: false
-      #     gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
-      #     device: 'all'
 
 

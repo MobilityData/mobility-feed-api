@@ -338,6 +338,7 @@ jobs:
       - name: Lighthouse Check
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         uses: foo-software/lighthouse-check-action@master
+        # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
         with:
           urls: 'http://localhost:55300,http://localhost:55300/feeds,http://localhost:55300/feeds/gtfs/mdb-2126,http://localhost:55300/feeds/gtfs_rt/mdb-2585,http://localhost:55300/gbfs/gbfs-flamingo_porirua'
           prCommentEnabled: true
