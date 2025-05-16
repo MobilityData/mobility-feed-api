@@ -334,18 +334,50 @@ jobs:
       - name: Wait for server to be ready
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         run: npx wait-on http://localhost:55300
-
+      
       - name: Lighthouse Check
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
-        uses: foo-software/lighthouse-check-action@master
+        uses: treosh/lighthouse-ci-action@v12
         # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
         with:
-          urls: 'http://localhost:55300,http://localhost:55300/feeds,http://localhost:55300/feeds/gtfs/mdb-2126,http://localhost:55300/feeds/gtfs_rt/mdb-2585,http://localhost:55300/gbfs/gbfs-flamingo_porirua'
-          prCommentEnabled: true
-          prCommentSaveOld: false
-          maxRetries: 3
-          gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
-          device: 'desktop'
+          urls: |
+            http://localhost:55300
+            http://localhost:55300/feeds
+            http://localhost:55300/feeds/gtfs/mdb-2126
+            http://localhost:55300/feeds/gtfs_rt/mdb-2585
+            http://localhost:55300/gbfs/gbfs-flamingo_porirua
+          runs: 3
+          temporaryPublicStorage: true
+      
+      - name: Comment on PR with Lighthouse report
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPORT_URLS=$(cat .lighthouseci/.lighthouseci-urls.json | jq -r '.[]')
+          COMMENT="### 🔍 Lighthouse Report Results\n"
+          for URL in $REPORT_URLS; do
+            COMMENT+="✅ [Report for $URL]($URL)\n"
+          done
+          echo "$COMMENT"
+          curl -s -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -nc --arg body "$COMMENT" '{body: $body}')" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
+      
+
+      # - name: Lighthouse Check
+      #   if: ${{ inputs.PREVIEW_DEPLOYMENT }}
+      #   uses: foo-software/lighthouse-check-action@master
+      #   # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
+      #   with:
+      #     urls: 'http://localhost:55300,http://localhost:55300/feeds,http://localhost:55300/feeds/gtfs/mdb-2126,http://localhost:55300/feeds/gtfs_rt/mdb-2585,http://localhost:55300/gbfs/gbfs-flamingo_porirua'
+      #     prCommentEnabled: true
+      #     prCommentSaveOld: false
+      #     maxRetries: 3
+      #     gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
+      #     device: 'desktop'
       
       - name: Cleanup server
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
