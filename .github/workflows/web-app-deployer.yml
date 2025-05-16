@@ -341,7 +341,7 @@ jobs:
         uses: treosh/lighthouse-ci-action@v12
         # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
         with:
-          configPath: ./lighthouserc.json
+          configPath: ./.github/lighthouserc.json
           temporaryPublicStorage: true
           
       
