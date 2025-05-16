@@ -26,12 +26,13 @@ from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 from shared.dataset_service.main import BatchExecutionService, BatchExecution
 from shared.database.database import with_db_session
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 
-logging.basicConfig(level=logging.INFO)
+init_logger()
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
 
@@ -91,8 +92,6 @@ def get_non_deprecated_feeds(session: Session):
         limit = os.getenv("FEEDS_LIMIT")
         query = query.limit(10 if limit is None else int(limit))
     results = query.all()
-    logging.info(f"Retrieved {len(results)} feeds.")
-
     return results
 
 
@@ -109,7 +108,6 @@ def batch_datasets(request, db_session: Session):
     :param db_session: database session object
     :return: HTTP response object
     """
-    Logger.init_logger()
     try:
         feeds = get_non_deprecated_feeds(db_session)
     except Exception as error:
@@ -139,7 +137,7 @@ def batch_datasets(request, db_session: Session):
             "api_key_parameter_name": feed.api_key_parameter_name,
         }
         data_str = json.dumps(payload)
-        logging.info(f"Publishing {data_str} to {topic_path}.")
+        logging.debug(f"Publishing {data_str} to {topic_path}.")
         future = publish(publisher, topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
             lambda _: publish_callback(future, feed.stable_id, topic_path)
@@ -151,4 +149,6 @@ def batch_datasets(request, db_session: Session):
             timestamp=timestamp,
         )
     )
-    return f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
+    message = f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
+    logging.info(message)
+    return message

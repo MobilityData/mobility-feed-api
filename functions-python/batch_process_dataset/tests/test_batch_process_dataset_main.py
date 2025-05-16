@@ -356,11 +356,10 @@ class TestDatasetProcessor(unittest.TestCase):
         self.assertIsNone(result)
         processor.create_dataset.assert_not_called()
 
-    @patch("main.Logger")
     @patch("main.DatasetTraceService")
     @patch("main.DatasetProcessor")
     def test_process_dataset_normal_execution(
-        self, mock_dataset_processor, mock_dataset_trace, _
+        self, mock_dataset_processor, mock_dataset_trace
     ):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
@@ -392,11 +391,12 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_dataset_processor.assert_called_once()
         mock_dataset_processor_instance.process.assert_called_once()
 
-    @patch("main.Logger")
     @patch("main.DatasetTraceService")
     @patch("main.DatasetProcessor")
     def test_process_dataset_exception_caught(
-        self, mock_dataset_processor, mock_dataset_trace, _
+        self,
+        mock_dataset_processor,
+        mock_dataset_trace,
     ):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
@@ -416,9 +416,8 @@ class TestDatasetProcessor(unittest.TestCase):
         # Call the function
         process_dataset(cloud_event)
 
-    @patch("main.Logger")
     @patch("main.DatasetTraceService")
-    def test_process_dataset_missing_stable_id(self, mock_dataset_trace, _):
+    def test_process_dataset_missing_stable_id(self, mock_dataset_trace):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
 

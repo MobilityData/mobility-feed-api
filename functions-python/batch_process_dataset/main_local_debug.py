@@ -18,7 +18,7 @@ from cloudevents.http import CloudEvent
 # - python batch_process_dataset/main_local_debug.py
 
 from dotenv import load_dotenv
-from batch_process_dataset.src.main import process_dataset
+from main import process_dataset
 
 # Load environment variables from .env.local
 load_dotenv(dotenv_path=".env.local")
