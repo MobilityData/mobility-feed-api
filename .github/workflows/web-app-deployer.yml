@@ -336,35 +336,53 @@ jobs:
         run: npx wait-on http://localhost:55300
       
       - name: Lighthouse Check
+        id: lighthouse-check
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         uses: treosh/lighthouse-ci-action@v12
         # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
         with:
-          urls: |
-            http://localhost:55300
-            http://localhost:55300/feeds
-            http://localhost:55300/feeds/gtfs/mdb-2126
-            http://localhost:55300/feeds/gtfs_rt/mdb-2585
-            http://localhost:55300/gbfs/gbfs-flamingo_porirua
-          runs: 3
+          configPath: ./lighthouserc.json
           temporaryPublicStorage: true
+          
       
-      - name: Comment on PR with Lighthouse report
-        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
-        env:
+      - name: Format lighthouse score
+        id: format_lighthouse_score
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const result = ${{ steps.lighthouse-check.outputs.manifest }}[0].summary
+            const links = ${{ steps.lighthouse-check.outputs.links }}
+
+            const formatResult = (res) => Math.round((res * 100))
+            Object.keys(result).forEach(key => result[key] = formatResult(result[key]))
+
+            const score = res => res >= 90 ? '🟢' : res >= 50 ? '🟠' : '🔴'
+
+            const comment = [
+                `⚡️ [Lighthouse report](${Object.values(links)[0]}) for the changes in this PR:`,
+                '| Category | Score |',
+                '| --- | --- |',
+                `| ${score(result.performance)} Performance | ${result.performance} |`,
+                `| ${score(result.accessibility)} Accessibility | ${result.accessibility} |`,
+                `| ${score(result['best-practices'])} Best practices | ${result['best-practices']} |`,
+                `| ${score(result.seo)} SEO | ${result.seo} |`,
+                `| ${score(result.pwa)} PWA | ${result.pwa} |`,
+                ' ',
+                `*Lighthouse ran on [${Object.keys(links)[0]}](${Object.keys(links)[0]})*`
+            ].join('\n')
+
+             core.setOutput("comment", comment); 
+      
+      - name: Add lighthouse comment to PR
+        id: comment_to_pr
+        uses: marocchino/sticky-pull-request-comment@v1
+        with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          REPORT_URLS=$(cat .lighthouseci/.lighthouseci-urls.json | jq -r '.[]')
-          COMMENT="### 🔍 Lighthouse Report Results\n"
-          for URL in $REPORT_URLS; do
-            COMMENT+="✅ [Report for $URL]($URL)\n"
-          done
-          echo "$COMMENT"
-          curl -s -X POST \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -nc --arg body "$COMMENT" '{body: $body}')" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
+          number: ${{ github.event.issue.number }}
+          header: lighthouse
+          message: |
+            ${{ steps.format_lighthouse_score.outputs.comment }}
       
 
       # - name: Lighthouse Check
