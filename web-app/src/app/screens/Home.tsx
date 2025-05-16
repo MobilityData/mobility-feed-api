@@ -73,6 +73,8 @@ function Component(): React.ReactElement {
     }
   };
 
+  // Test comment to trigger a build 7
+
   return (
     <Container component='main' sx={{ px: { xs: 0, md: 3 } }}>
       <CssBaseline />
