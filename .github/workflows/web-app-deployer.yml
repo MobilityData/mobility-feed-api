@@ -353,7 +353,7 @@ jobs:
           script: |
             const results = ${{ steps.lighthouse-check.outputs.manifest }}
             let comment = []
-            results.forEach(resultData => {
+            results.forEach((resultData, index) => {
                 const result = resultData.summary;
                 const links = ${{ steps.lighthouse-check.outputs.links }}
 
@@ -363,8 +363,8 @@ jobs:
                 const score = res => res >= 90 ? '🟢' : res >= 50 ? '🟠' : '🔴'
 
                 comment.concat([
-                    `*Lighthouse ran on ${resultData.url}* (Desktop)`
-                    `⚡️ HTML Report [Lighthouse report](${links[resultData.url]}) for the changes in this PR:`,
+                    `*Lighthouse ran on ${Object.keys(links)[index]}* (Desktop)`
+                    `⚡️ HTML Report [Lighthouse report](${links[Object.keys(links)[index]]}) for the changes in this PR:`,
                     '| Performance | Accessibility | Best Practices | SEO |',
                     '| --- | --- | --- | --- |',
                     `| ${score(result.performance)} ${result.performance} | ${score(result.accessibility)} ${result.accessibility} | ${score(result['best-practices'])} ${result['best-practices']} | ${score(result.seo)} ${result.seo} |`,
