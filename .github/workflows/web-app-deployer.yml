@@ -363,7 +363,7 @@ jobs:
                 const score = res => res >= 90 ? '🟢' : res >= 50 ? '🟠' : '🔴'
 
                 comment.concat([
-                    `*Lighthouse ran on [${resultData.url}](${resultData.url})* (Desktop)`
+                    `*Lighthouse ran on ${resultData.url}* (Desktop)`
                     `⚡️ HTML Report [Lighthouse report](${links[resultData.url]}) for the changes in this PR:`,
                     '| Performance | Accessibility | Best Practices | SEO |',
                     '| --- | --- | --- | --- |',
