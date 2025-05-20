@@ -36,6 +36,7 @@ FEATURE_ENDPOINTS = [
     "vehicle_types",
     "station_status",
     "vehicle_status",
+    "free_bike_status",
     "system_regions",
     "system_pricing_plans",
     "system_alerts",
@@ -308,8 +309,7 @@ class GBFSDataProcessor:
             gbfs_endpoint_orm = Gbfsendpoint(
                 id=formatted_id, name=endpoint.name, language=endpoint.language
             )
-
-        gbfs_endpoint_orm.url = endpoint.url  # Update the URL
+        gbfs_endpoint_orm.url = endpoint.url
         gbfs_endpoint_orm.is_feature = (
             endpoint.name in features and endpoint.name in FEATURE_ENDPOINTS
         )
