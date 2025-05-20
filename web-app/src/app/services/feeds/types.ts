@@ -697,6 +697,8 @@ export interface components {
     limit_query_param_datasets_endpoint?: number;
     /** @description The number of items to be returned. */
     limit_query_param_search_endpoint?: number;
+    /** @description The number of items to be returned. */
+    limit_query_param_gbfs_feeds_endpoint?: number;
     /** @description Offset of the first item to return. */
     offset?: number;
     /** @description General search query to match against transit provider, location, and feed name. */
@@ -833,7 +835,7 @@ export interface operations {
   getGbfsFeeds: {
     parameters: {
       query?: {
-        limit?: components['parameters']['limit_query_param_gtfs_feeds_endpoint'];
+        limit?: components['parameters']['limit_query_param_gbfs_feeds_endpoint'];
         offset?: components['parameters']['offset'];
         provider?: components['parameters']['provider'];
         producer_url?: components['parameters']['producer_url'];
