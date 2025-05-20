@@ -433,8 +433,6 @@ components:
                 - development
                 - future
               example: deprecated
-            #           Have to put the enum inline because of a bug in openapi-generator
-            #          $ref: "#/components/schemas/FeedStatus"
             official:
               description: >
                 A boolean value indicating if the feed is official or not. 
@@ -462,6 +460,14 @@ components:
         - $ref: "#/components/schemas/Feed"
         - type: object
           properties:
+            # We reproduce this property here so we can have a specific example.
+            data_type:
+              type: string
+              enum:
+                - gtfs
+                - gtfs_rt
+                - gbfs
+              example: gtfs
             locations:
               $ref: "#/components/schemas/Locations"
             latest_dataset:
@@ -472,6 +478,14 @@ components:
         - $ref: "#/components/schemas/BasicFeed"
         - type: object
           properties:
+            # We reproduce this property here so we can have a specific example.
+            data_type:
+              type: string
+              enum:
+                - gtfs
+                - gtfs_rt
+                - gbfs
+              example: gbfs
             locations:
               $ref: "#/components/schemas/Locations"
             system_id:
@@ -590,6 +604,14 @@ components:
         - $ref: "#/components/schemas/Feed"
         - type: object
           properties:
+            # We reproduce this property here so we can have a specific example.
+            data_type:
+              type: string
+              enum:
+                - gtfs
+                - gtfs_rt
+                - gbfs
+              example: gtfs_rt
             entity_types:
               type: array
               items:
