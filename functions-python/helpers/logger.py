@@ -61,7 +61,6 @@ def init_logger():
             try:
                 client = google.cloud.logging.Client()
                 client.setup_logging()
-                return client
             except Exception as error:
                 # This might happen when the GCP authorization credentials are not available.
                 # Example, when running the tests locally
