@@ -197,6 +197,9 @@ describe('Feed page', () => {
 
     const titleAllEmpty = generatePageTitle([], 'gtfs', '');
     expect(titleAllEmpty).toEqual('Mobility Database');
+
+    const gbfsTitle = generatePageTitle(['Flamingo Porirua'], 'gbfs');
+    expect(gbfsTitle).toEqual('Flamingo Porirua GBFS Feed - Mobility Database');
   });
 
   it('should generate the correct page description', () => {

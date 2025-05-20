@@ -20,5 +20,6 @@
         "system_alerts": "System Alerts",
         "free_bike_status": "Free Bike Status",
         "nearby_stations": "Nearby Stations"
-    }
+    },
+    "unableToDetectVersions": "Unable to detect versions within this feed."
 }

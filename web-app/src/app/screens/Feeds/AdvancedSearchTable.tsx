@@ -12,8 +12,7 @@ import {
   type AllFeedsType,
   getCountryLocationSummaries,
   getLocationName,
-  type GTFSFeedType,
-  type GTFSRTFeedType,
+  type SearchFeedItem,
 } from '../../services/feeds/utils';
 import * as React from 'react';
 import { FeedStatusIndicator } from '../../components/FeedStatus';
@@ -29,10 +28,11 @@ import ProviderTitle from './ProviderTitle';
 export interface AdvancedSearchTableProps {
   feedsData: AllFeedsType | undefined;
   selectedFeatures: string[] | undefined;
+  selectedGbfsVersions: string[] | undefined;
 }
 
 const renderGTFSDetails = (
-  gtfsFeed: GTFSFeedType,
+  gtfsFeed: SearchFeedItem,
   selectedFeatures: string[],
 ): React.ReactElement => {
   const theme = useTheme();
@@ -78,7 +78,7 @@ const renderGTFSDetails = (
 };
 
 const renderGTFSRTDetails = (
-  gtfsRtFeed: GTFSRTFeedType,
+  gtfsRtFeed: SearchFeedItem,
 ): React.ReactElement => {
   return (
     <GtfsRtEntities
@@ -88,27 +88,36 @@ const renderGTFSRTDetails = (
   );
 };
 
-// TODO: Finalize with types and versions when GBFS endpoint is implemented
-// const renderGBFSDetails = (gbfsFeed: any) => {
-//   const fakeVersions = ['v3.0', 'v2.0', 'v1.0'];
-//   return (
-//     <>
-//       {fakeVersions.map((version: string, index: number) => (
-//         <Chip
-//           label={version}
-//           key={index}
-//           size='small'
-//           variant='outlined'
-//           sx={{ mr: 1 }}
-//         />
-//       ))}
-//     </>
-//   );
-// };
+const renderGBFSDetails = (
+  gbfsFeedSearchElement: SearchFeedItem,
+  selectedGbfsVersions: string[],
+): JSX.Element => {
+  const theme = useTheme();
+  return (
+    <Box>
+      {gbfsFeedSearchElement.versions?.map((version: string, index: number) => (
+        <Chip
+          label={'v' + version}
+          key={index}
+          size='small'
+          variant='outlined'
+          sx={{
+            mr: 1,
+            border: selectedGbfsVersions.includes('v' + version)
+              ? `2px solid ${theme.palette.primary.main}`
+              : '',
+            color: 'black',
+          }}
+        />
+      ))}
+    </Box>
+  );
+};
 
 export default function AdvancedSearchTable({
   feedsData,
   selectedFeatures,
+  selectedGbfsVersions,
 }: AdvancedSearchTableProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -135,6 +144,8 @@ export default function AdvancedSearchTable({
         }
         const hasGtfsFeatures =
           (feed?.latest_dataset?.validation_report?.features?.length ?? 0) > 0;
+        const hasGbfsVersions = (feed.versions?.length ?? 0) > 0;
+
         return (
           <Card
             key={index}
@@ -181,9 +192,11 @@ export default function AdvancedSearchTable({
                   {feed.official === true && (
                     <OfficialChip isLongDisplay={false}></OfficialChip>
                   )}
-                  <FeedStatusIndicator
-                    status={feed.status}
-                  ></FeedStatusIndicator>
+                  {feed.data_type !== 'gbfs' && (
+                    <FeedStatusIndicator
+                      status={feed.status}
+                    ></FeedStatusIndicator>
+                  )}
                 </Box>
 
                 <Box
@@ -285,22 +298,20 @@ export default function AdvancedSearchTable({
                         : {}
                     }
                   >
-                    {renderGTFSDetails(
-                      feed as GTFSFeedType,
-                      selectedFeatures ?? [],
-                    )}
+                    {renderGTFSDetails(feed, selectedFeatures ?? [])}
                   </Box>
                 )}
                 {feed.data_type === 'gtfs_rt' && (
                   <Box sx={descriptionDividerStyle}>
-                    {renderGTFSRTDetails(feed as GTFSRTFeedType)}
+                    {renderGTFSRTDetails(feed)}
                   </Box>
                 )}
-                {/*
-              TODO: uncomment when GBFS option is available
-              {feed.data_type === ('gbfs' as any) && (
-                <Box>{renderGBFSDetails(feed)}</Box>
-              )} */}
+
+                {feed.data_type === 'gbfs' && (
+                  <Box sx={hasGbfsVersions ? descriptionDividerStyle : {}}>
+                    {renderGBFSDetails(feed, selectedGbfsVersions ?? [])}
+                  </Box>
+                )}
               </Box>
             </CardActionArea>
           </Card>
