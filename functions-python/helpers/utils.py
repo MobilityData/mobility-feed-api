@@ -131,7 +131,6 @@ def download_and_get_hash(
                     raise ValueError(f"Invalid HTTP response code: {r.status}")
         return hash_object.hexdigest()
     except Exception as e:
-        logger.error(e)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
