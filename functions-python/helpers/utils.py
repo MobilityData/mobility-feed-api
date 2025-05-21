@@ -134,11 +134,10 @@ def download_and_get_hash(
         logger.error(e)
         if os.path.exists(file_path):
             try:
-                with open(file_path, "r") as file:
-                    logger.error(f"File content: {file.read()}")
-            except Exception as read_error:
-                logger.error(f"Failed to read file content: {read_error}")
-            os.remove(file_path)
+                os.remove(file_path)
+            except Exception:
+                logger.error(f"Delete file: [{file_path}]")
+
         raise e
 
 
