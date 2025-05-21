@@ -123,6 +123,7 @@ class DatasetProcessor:
             authentication_type=self.authentication_type,
             api_key_parameter_name=self.api_key_parameter_name,
             credentials=self.feed_credentials,
+            logger=self.logger,
         )
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
