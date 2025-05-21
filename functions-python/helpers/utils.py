@@ -119,7 +119,7 @@ def download_and_get_hash(
                 "GET", url, preload_content=False, headers=headers, redirect=True
             ) as r, open(file_path, "wb") as out_file:
                 if 200 <= r.status < 300:
-                    logger.info(f"HTTP response code: {r.status}")
+                    logger.info(f"HTTP response code: [{r.status}]")
                     while True:
                         data = r.read(chunk_size)
                         if not data:
@@ -128,7 +128,7 @@ def download_and_get_hash(
                         out_file.write(data)
                     r.release_conn()
                 else:
-                    raise ValueError(f"Invalid HTTP response code: {r.status}")
+                    raise ValueError(f"Invalid HTTP response code: [{r.status}]")
         return hash_object.hexdigest()
     except Exception as e:
         if os.path.exists(file_path):
