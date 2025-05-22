@@ -86,10 +86,12 @@ def download_and_get_hash(
     authentication_type=0,
     api_key_parameter_name=None,
     credentials=None,
+    logger=None,
 ):
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
+    logger = logger or logging.getLogger(__name__)
     try:
         hash_object = hashlib.new(hash_algorithm)
 
@@ -114,21 +116,27 @@ def download_and_get_hash(
 
         with urllib3.PoolManager(ssl_context=ctx) as http:
             with http.request(
-                "GET", url, preload_content=False, headers=headers
+                "GET", url, preload_content=False, headers=headers, redirect=True
             ) as r, open(file_path, "wb") as out_file:
-                while True:
-                    data = r.read(chunk_size)
-                    if not data:
-                        break
-                    hash_object.update(data)
-                    out_file.write(data)
-                r.release_conn()
+                if 200 <= r.status < 300:
+                    logger.info(f"HTTP response code: [{r.status}]")
+                    while True:
+                        data = r.read(chunk_size)
+                        if not data:
+                            break
+                        hash_object.update(data)
+                        out_file.write(data)
+                    r.release_conn()
+                else:
+                    raise ValueError(f"Invalid HTTP response code: [{r.status}]")
         return hash_object.hexdigest()
     except Exception as e:
-        print(e)
-        # Delete file if it exists
         if os.path.exists(file_path):
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except Exception:
+                logger.error(f"Delete file: [{file_path}]")
+
         raise e
 
 
