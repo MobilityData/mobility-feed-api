@@ -448,7 +448,9 @@ def get_gbfs_feeds_query(
         .options(
             contains_eager(Gbfsfeed.gbfsversions).contains_eager(Gbfsversion.gbfsvalidationreports),
             contains_eager(Gbfsfeed.gbfsversions).joinedload(Gbfsversion.gbfsendpoints),
-            *get_joinedload_options(),
+            joinedload(Feed.locations),
+            joinedload(Feed.externalids),
+            joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         )
     )
     return query
