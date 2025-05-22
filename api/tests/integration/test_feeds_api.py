@@ -829,6 +829,7 @@ def test_gtfs_redirect(client):
         {"endpoint": "/v1/gtfs_rt_feeds", "hard_limit": 1000},
         {"endpoint": "/v1/gtfs_feeds/mdb-1/datasets", "hard_limit": 500},
         {"endpoint": "/v1/search", "hard_limit": 3500},
+        {"endpoint": "/v1/gbfs_feeds", "hard_limit": 500},
     ],
 )
 def test_hard_limits(client, monkeypatch, values):
@@ -841,7 +842,7 @@ def test_hard_limits(client, monkeypatch, values):
         headers=authHeaders,
         params={"limit": hard_limit + 1},
     )
-    assert response.status_code != 200
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize(

@@ -124,7 +124,7 @@ def with_db_session(func=None, db_url: str | None = None):
     def wrapper(*args, **kwargs):
         db_session = kwargs.get("db_session")
         if db_session is None:
-            db = Database(echo_sql=get_env_logging_level() == "DEBUG", feeds_database_url=db_url)
+            db = Database(echo_sql=get_env_logging_level() == logging.getLevelName("DEBUG"), feeds_database_url=db_url)
             with db.start_db_session() as session:
                 kwargs["db_session"] = session
                 return func(*args, **kwargs)

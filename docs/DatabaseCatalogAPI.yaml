@@ -146,7 +146,7 @@ paths:
         - "beta"
       operationId: getGbfsFeeds
       parameters:
-        - $ref: "#/components/parameters/limit_query_param_gtfs_feeds_endpoint"
+        - $ref: "#/components/parameters/limit_query_param_gbfs_feeds_endpoint"
         - $ref: "#/components/parameters/offset"
         - $ref: "#/components/parameters/provider"
         - $ref: "#/components/parameters/producer_url"
@@ -1343,6 +1343,18 @@ components:
         minimum: 0
         maximum: 3500
         default: 3500
+        example: 10
+
+    limit_query_param_gbfs_feeds_endpoint:
+      name: limit
+      in: query
+      description: The number of items to be returned.
+      required: False
+      schema:
+        type: integer
+        minimum: 0
+        maximum: 500
+        default: 500
         example: 10
         
     offset:
