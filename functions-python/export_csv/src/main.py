@@ -29,7 +29,7 @@ from google.cloud import storage
 from geoalchemy2.shape import to_shape
 
 from shared.database.database import with_db_session
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed, Feed
 from shared.common.db_utils import (
     get_all_gtfs_rt_feeds,
@@ -41,7 +41,7 @@ from shared.database_gen.sqlacodegen_models import Geopolygon
 
 load_dotenv()
 csv_default_file_path = "./output.csv"
-
+init_logger()
 # This needs to be updated if we add fields to either `get_feed_csv_data` or
 # `get_gtfs_rt_feed_csv_data`, otherwise the extra field(s) will be excluded from
 # the generated CSV file.
@@ -114,7 +114,6 @@ def export_and_upload_csv(_):
         FEEDS_DATABASE_URL: database URL
     :return: HTTP response object
     """
-    Logger.init_logger()
     logging.info("Export started")
 
     csv_file_path = csv_default_file_path
