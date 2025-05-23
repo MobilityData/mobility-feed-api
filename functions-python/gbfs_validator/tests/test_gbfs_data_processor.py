@@ -49,7 +49,7 @@ def mock_fetch_gbfs_data(url):
         return {}
 
 
-def mock_get_request_metadata(_):
+def mock_get_request_metadata(*args, **kwargs):
     return {
         "latency": 100,
         "status_code": 200,
