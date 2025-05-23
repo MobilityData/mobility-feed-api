@@ -32,7 +32,7 @@ from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.feed_sync.feed_sync_common import FeedSyncProcessor, FeedSyncPayload
 from shared.helpers.feed_sync.feed_sync_dispatcher import feed_sync_dispatcher
 from shared.helpers.feed_sync.models import TransitFeedSyncPayload
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.pub_sub import get_pubsub_client, get_execution_id
 from typing import Tuple, List
 from collections import defaultdict
@@ -47,6 +47,7 @@ TRANSITLAND_FEED_URL = os.getenv("TRANSITLAND_FEED_URL")
 
 # session instance to reuse connections
 session = requests.Session()
+init_logger()
 
 
 def process_feed_urls(feed: dict, urls_in_db: List[str]) -> Tuple[List[str], List[str]]:
@@ -388,7 +389,6 @@ def feed_sync_dispatcher_transitland(request):
     """
     HTTP Function entry point queries the transitland API and publishes events to a Pub/Sub topic to be processed.
     """
-    Logger.init_logger()
     publisher = get_pubsub_client()
     topic_path = publisher.topic_path(PROJECT_ID, PUBSUB_TOPIC_NAME)
     transit_land_feed_sync_processor = TransitFeedSyncProcessor()
