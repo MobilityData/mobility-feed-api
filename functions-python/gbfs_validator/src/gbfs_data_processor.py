@@ -1,6 +1,5 @@
 import json
 import language_tags
-import logging
 from datetime import datetime
 from http import HTTPMethod
 from typing import Dict, Any, Optional, List, Tuple
@@ -28,6 +27,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from sqlalchemy.orm import Session
 from shared.database.database import with_db_session
+from shared.helpers.logger import get_logger
 from shared.helpers.utils import create_http_task
 
 FEATURE_ENDPOINTS = [
@@ -51,6 +51,7 @@ class GBFSDataProcessor:
         self.gbfs_versions: List[GBFSVersion] = []
         self.gbfs_endpoints: Dict[str, List[GBFSEndpoint]] = {}
         self.validation_reports: Dict[str, Dict[str, Any]] = {}
+        self.logger = get_logger(GBFSDataProcessor.__name__, stable_id)
 
     def process_gbfs_data(self, autodiscovery_url: str) -> None:
         """Process the GBFS data from the autodiscovery URL."""
@@ -76,8 +77,10 @@ class GBFSDataProcessor:
         self, autodiscovery_url: str, db_session: Session
     ) -> None:
         """Record the request to the autodiscovery URL."""
-        logging.info(f"Accessing auto-discovery URL: {autodiscovery_url}")
-        request_metadata = GBFSEndpoint.get_request_metadata(autodiscovery_url)
+        self.logger.info("Accessing auto-discovery URL: %s", autodiscovery_url)
+        request_metadata = GBFSEndpoint.get_request_metadata(
+            autodiscovery_url, self.logger
+        )
         gbfs_feed = (
             db_session.query(Gbfsfeed).filter(Gbfsfeed.id == self.feed_id).one_or_none()
         )
@@ -96,28 +99,28 @@ class GBFSDataProcessor:
         if request_metadata.get("response_size_bytes") is None:
             raise ValueError(f"Error fetching {autodiscovery_url}")
 
-    @staticmethod
     def extract_gbfs_endpoints(
+        self,
         gbfs_json_url: str,
     ) -> Tuple[Optional[List[GBFSEndpoint]], GBFSVersion]:
         """
         Extract GBFS endpoints from the GBFS JSON URL.
         @:returns: GBFS endpoints and the version of the GBFS feed.
         """
-        logging.info(f"Fetching GBFS data from {gbfs_json_url}")
+        self.logger.info("Fetching GBFS data from %s", gbfs_json_url)
         gbfs_json = fetch_gbfs_data(gbfs_json_url)
         feeds_matches = parse("$..feeds").find(gbfs_json)
         version_match = parse("$..version").find(gbfs_json)
         if not version_match:
-            logging.warning(
+            self.logger.warning(
                 "No version found in the GBFS data. Defaulting to version 1.0."
             )
             gbfs_version = GBFSVersion("1.0", gbfs_json_url)
         else:
             gbfs_version = GBFSVersion(version_match[0].value, gbfs_json_url)
         if not feeds_matches:
-            logging.error(
-                f"No feeds found in the GBFS data for version {gbfs_version.version}."
+            self.logger.error(
+                "No feeds found in the GBFS data for version %s.", gbfs_version.version
             )
             return None, gbfs_version
         endpoints = []
@@ -144,15 +147,15 @@ class GBFSDataProcessor:
                 for endpoint in endpoints
             }.values()
         )
-        logging.info(f"Found version {gbfs_version.version}.")
-        logging.info(
-            f"Found endpoints {', '.join([endpoint.name for endpoint in endpoints])}."
+        self.logger.info("Found version %s.", gbfs_version.version)
+        self.logger.info(
+            "Found endpoints %s.", ", ".join([endpoint.name for endpoint in endpoints])
         )
         return unique_endpoints, gbfs_version
 
     def extract_gbfs_versions(self, gbfs_json_url: str) -> Optional[List[GBFSVersion]]:
         """Extract GBFS versions from the autodiscovery URL"""
-        all_endpoints, version = GBFSDataProcessor.extract_gbfs_endpoints(gbfs_json_url)
+        all_endpoints, version = self.extract_gbfs_endpoints(gbfs_json_url)
         if not all_endpoints or not version:
             return None
         self.gbfs_endpoints[version.version] = all_endpoints
@@ -163,17 +166,20 @@ class GBFSDataProcessor:
         )
 
         if gbfs_versions_endpoint:
-            logging.info(f"Fetching GBFS versions from {gbfs_versions_endpoint.url}")
+            self.logger.info(
+                "Fetching GBFS versions from %s", gbfs_versions_endpoint.url
+            )
             gbfs_versions_json = fetch_gbfs_data(gbfs_versions_endpoint.url)
             versions_matches = parse("$..versions").find(gbfs_versions_json)
             if versions_matches:
                 gbfs_versions = GBFSVersion.from_dict(versions_matches[0].value)
-                logging.info(
-                    f"Found versions {', '.join([version.version for version in gbfs_versions])}"
+                self.logger.info(
+                    "Found versions %s",
+                    ", ".join([version.version for version in gbfs_versions]),
                 )
                 return gbfs_versions
             else:
-                logging.warning(
+                self.logger.warning(
                     "No versions found in the GBFS versions data. Defaulting to the autodiscovery URL version."
                 )
         return [
@@ -192,14 +198,14 @@ class GBFSDataProcessor:
             default=None,
         )
         if not max_version:
-            logging.error(
+            self.logger.error(
                 "No non-RC versions found. Trying to set the latest to a RC version."
             )
             max_version = max(
                 self.gbfs_versions, key=lambda version: version.version, default=None
             )
         if not max_version:
-            logging.error("No versions found.")
+            self.logger.error("No versions found.")
             return None
         return max_version.version
 
@@ -213,7 +219,7 @@ class GBFSDataProcessor:
             .one_or_none()
         )
         if not gbfs_feed:
-            logging.error(f"GBFS feed with ID {self.feed_id} not found.")
+            self.logger.error("GBFS feed with ID %s not found.", self.feed_id)
             return
         gbfs_versions_orm = []
         latest_version = self.get_latest_version()
@@ -329,7 +335,8 @@ class GBFSDataProcessor:
                 response.raise_for_status()
                 json_report_summary = response.json()
             except RequestException as e:
-                logging.error(f"Validation request failed for {version.url}: {e}")
+                self.logger.error("Validation request failed for %s", version.url)
+                self.logger.error(e)
                 continue
 
             report_summary_blob = bucket.blob(
@@ -362,7 +369,7 @@ class GBFSDataProcessor:
             "validatorVersion", None
         )
         if validator_version is None or validation_time is None:
-            logging.error("Validation version or time not found.")
+            self.logger.error("Validation version or time not found.")
             return None
 
         validation_report_id = (
@@ -400,13 +407,13 @@ class GBFSDataProcessor:
             if endpoints:
                 self.gbfs_endpoints[version.version] = endpoints
             else:
-                logging.error(f"No endpoints found for version {version.version}.")
+                self.logger.error("No endpoints found for version %s.", version.version)
 
     def trigger_location_extraction(self):
         """Trigger the location extraction process."""
         latest_version = self.get_latest_version()
         if not latest_version:
-            logging.error("No latest version found.")
+            self.logger.error("No latest version found.")
             return
         endpoints = self.gbfs_endpoints.get(latest_version, [])
         # Find the station_information_url endpoint
@@ -428,7 +435,9 @@ class GBFSDataProcessor:
             None,
         )
         if not station_information_url and not vehicle_status_url:
-            logging.warning("No station_information_url or vehicle_status_url found.")
+            self.logger.warning(
+                "No station_information_url or vehicle_status_url found."
+            )
             return
         client = tasks_v2.CloudTasksClient()
         body = json.dumps(

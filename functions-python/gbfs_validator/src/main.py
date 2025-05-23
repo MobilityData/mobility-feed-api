@@ -24,10 +24,10 @@ from shared.dataset_service.main import (
     MaxExecutionsReachedError,
 )
 from shared.database.database import with_db_session
-from shared.helpers.logger import Logger, StableIdFilter
+from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.parser import jsonify_pubsub
 
-logging.basicConfig(level=logging.INFO)
+init_logger()
 
 
 def fetch_all_gbfs_feeds(db_session: Session) -> List[Gbfsfeed]:
@@ -38,15 +38,14 @@ def fetch_all_gbfs_feeds(db_session: Session) -> List[Gbfsfeed]:
         db_session.expunge_all()
         return gbfs_feeds
     except Exception as e:
-        logging.error(f"Error fetching all GBFS feeds: {e}")
+        logging.error("Error fetching all GBFS feeds: %s", e)
         raise e
 
 
 @functions_framework.cloud_event
 def gbfs_validator_pubsub(cloud_event: CloudEvent):
-    Logger.init_logger()
     data = cloud_event.data
-    logging.info(f"Function triggered with Pub/Sub event data: {data}")
+    logging.info("Function triggered with Pub/Sub event data: %s", data)
 
     # Get the pubsub message data
     message_json = jsonify_pubsub(data)
@@ -59,50 +58,45 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
         url = message_json["url"]
         feed_id = message_json["feed_id"]
     except KeyError as e:
-        logging.error(f"Missing required field: {e}")
+        logging.error("Missing required field: %s", e)
         return f"Invalid Pub/Sub message data. Missing {e}."
 
-    # Add stable_id to logs
-    stable_id_filter = StableIdFilter(stable_id)
-    logging.getLogger().addFilter(stable_id_filter)
+    # get logger with stable_id
+    logger = get_logger(__name__, stable_id)
+    # Save trace and validate if the execution is allowed
+    trace_service = DatasetTraceService()
+    trace_id = str(uuid.uuid4())
+    trace = DatasetTrace(
+        trace_id=trace_id,
+        stable_id=stable_id,
+        execution_id=execution_id,
+        status=Status.PROCESSING,
+        timestamp=datetime.now(),
+        pipeline_stage=PipelineStage.GBFS_VALIDATION,
+    )
+
     try:
-        # Save trace and validate if the execution is allowed
-        trace_service = DatasetTraceService()
-        trace_id = str(uuid.uuid4())
-        trace = DatasetTrace(
-            trace_id=trace_id,
-            stable_id=stable_id,
-            execution_id=execution_id,
-            status=Status.PROCESSING,
-            timestamp=datetime.now(),
-            pipeline_stage=PipelineStage.GBFS_VALIDATION,
-        )
+        trace_service.validate_and_save(trace, int(os.getenv("MAXIMUM_EXECUTIONS", 1)))
+    except (ValueError, MaxExecutionsReachedError) as e:
+        error_message = str(e)
+        logger.error(error_message)
+        save_trace_with_error(trace, error_message, trace_service)
+        return error_message
 
-        try:
-            trace_service.validate_and_save(
-                trace, int(os.getenv("MAXIMUM_EXECUTIONS", 1))
-            )
-        except (ValueError, MaxExecutionsReachedError) as e:
-            error_message = str(e)
-            logging.error(error_message)
-            save_trace_with_error(trace, error_message, trace_service)
-            return error_message
+    # Process GBFS data
+    try:
+        processor = GBFSDataProcessor(stable_id, feed_id)
+        processor.process_gbfs_data(url)
+    except Exception as e:
+        error_message = f"Error processing GBFS data: {e}"
+        logger.error(error_message)
+        logger.error("Traceback: %s", traceback.format_exc())
+        save_trace_with_error(trace, error_message, trace_service)
+        return error_message
 
-        # Process GBFS data
-        try:
-            processor = GBFSDataProcessor(stable_id, feed_id)
-            processor.process_gbfs_data(url)
-        except Exception as e:
-            error_message = f"Error processing GBFS data: {e}"
-            logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
-            save_trace_with_error(trace, error_message, trace_service)
-            return error_message
-
-        trace.status = Status.SUCCESS
-        trace_service.save(trace)
-        return "GBFS data processed and stored successfully."
-    finally:
-        logging.getLogger().removeFilter(stable_id_filter)
+    trace.status = Status.SUCCESS
+    trace_service.save(trace)
+    return "GBFS data processed and stored successfully."
 
 
 @with_db_session
@@ -113,7 +107,6 @@ def gbfs_validator_batch(_, db_session: Session):
     @param _: The request object.
     @return: The response of the function.
     """
-    Logger.init_logger()
     logging.info("Batch function triggered.")
     pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
     if pubsub_topic_name is None:
@@ -137,7 +130,7 @@ def gbfs_validator_batch(_, db_session: Session):
             "url": gbfs_feed.auto_discovery_url,
         }
         feeds_data.append(feed_data)
-        logging.info(f"Feed {gbfs_feed.stable_id} added to the batch.")
+        logging.info("Feed %s added to the batch.", gbfs_feed.stable_id)
 
     # Publish to Pub/Sub topic
     try:
@@ -148,9 +141,9 @@ def gbfs_validator_batch(_, db_session: Session):
             message_data = json.dumps(feed_data).encode("utf-8")
             future = publisher.publish(topic_path, message_data)
             future.result()  # Ensure message was published
-            logging.info(f"Published feed {feed_data['stable_id']} to Pub/Sub.")
+            logging.info("Published feed %s to Pub/Sub.", feed_data["stable_id"])
     except Exception as e:
-        logging.error(f"Error publishing feeds to Pub/Sub: {e}")
+        logging.error("Error publishing feeds to Pub/Sub: %s", e)
         return "Error publishing feeds to Pub/Sub.", 500
 
     return (

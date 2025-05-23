@@ -24,9 +24,12 @@ class GBFSEndpoint:
     language: Optional[str] = None
 
     @staticmethod
-    def get_request_metadata(url: str) -> Optional[Dict[str, Any]]:
+    def get_request_metadata(
+        url: str, logger: Optional[logging.Logger] = None
+    ) -> Optional[Dict[str, Any]]:
         """Fetch the endpoint and return latency, status code, and response size."""
         try:
+            logger = logger or logging.getLogger(__name__)
             response = requests.get(url)
             response.raise_for_status()
             return {
@@ -35,7 +38,7 @@ class GBFSEndpoint:
                 "response_size_bytes": len(response.content),
             }
         except requests.exceptions.RequestException as error:
-            logging.error(f"Error fetching {url}: {error}")
+            logger.error("Error fetching %s. Error %s", url, error)
             return {
                 "latency": None,
                 "status_code": error.response.status_code if error.response else 400,
