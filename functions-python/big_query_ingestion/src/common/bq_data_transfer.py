@@ -29,12 +29,12 @@ class BigQueryDataTransfer:
         dataset_ref = bigquery.DatasetReference(project_id, dataset_id)
         try:
             self.bigquery_client.get_dataset(dataset_ref)
-            logging.info(f"Dataset {dataset_id} already exists.")
+            logging.info("Dataset %s already exists.", dataset_id)
         except Exception:
             dataset = bigquery.Dataset(dataset_ref)
             dataset.location = dataset_location
             self.bigquery_client.create_dataset(dataset)
-            logging.info(f"Created dataset {dataset_id}.")
+            logging.info("Created dataset %s", dataset_id)
 
     def create_bigquery_table(self):
         """Creates a BigQuery table if it does not exist."""
@@ -43,7 +43,7 @@ class BigQueryDataTransfer:
 
         try:
             self.bigquery_client.get_table(table_ref)
-            logging.info(f"Table {table_id} already exists.")
+            logging.info("Table %s  already exists.", table_id)
         except Exception:
             if self.schema_path is None:
                 raise Exception("Schema path is not provided")
@@ -53,7 +53,10 @@ class BigQueryDataTransfer:
             table = bigquery.Table(table_ref, schema=schema)
             table = self.bigquery_client.create_table(table)
             logging.info(
-                f"Created table {table.project}.{table.dataset_id}.{table.table_id}"
+                "Created table %s.%s.%s",
+                table.project,
+                table.dataset_id,
+                table.table_id,
             )
 
     def load_data_to_bigquery(self):
@@ -68,7 +71,7 @@ class BigQueryDataTransfer:
         for blob in blobs:
             uri = f"gs://{bucket_name}/{blob.name}"
             source_uris.append(uri)
-        logging.info(f"Found {len(source_uris)} files to load to BigQuery.")
+        logging.info("Found %s files to load to BigQuery.", len(source_uris))
 
         if len(source_uris) > 0:
             # Load the data to BigQuery
@@ -82,21 +85,25 @@ class BigQueryDataTransfer:
             try:
                 load_job.result()  # Wait for the job to complete
                 logging.info(
-                    f"Loaded {len(source_uris)} files into "
-                    f"{table_ref.project}.{table_ref.dataset_id}.{table_ref.table_id}"
+                    "Loaded %s files into %s.%s.%s.",
+                    len(source_uris),
+                    table_ref.project,
+                    table_ref.dataset_id,
+                    table_ref.table_id,
                 )
                 # If successful, delete the blobs
                 for blob in blobs:
                     blob.delete()
-                    logging.info(f"Deleted blob: {blob.name}")
+                    logging.debug("Deleted blob: %s", blob.name)
+                logging.info("Deleted blobs")
             except Exception as e:
-                logging.error(f"An error occurred while loading data to BigQuery: {e}")
+                logging.error("An error occurred while loading data to BigQuery: %s", e)
                 for error in load_job.errors:
-                    logging.error(f"Error: {error['message']}")
+                    logging.error("Error: %s", error["message"])
                     if "location" in error:
-                        logging.error(f"Location: {error['location']}")
+                        logging.error("Location: %s", error["location"])
                     if "reason" in error:
-                        logging.error(f"Reason: {error['reason']}")
+                        logging.error("Reason: %s", error["reason"])
 
     def send_data_to_bigquery(self):
         """Full process to send data to BigQuery."""
@@ -104,7 +111,9 @@ class BigQueryDataTransfer:
             self.create_bigquery_dataset()
             self.create_bigquery_table()
             self.load_data_to_bigquery()
-            return "Data successfully loaded to BigQuery", 200
+            msg = "Data successfully loaded to BigQuery"
+            logging.info(msg)
+            return msg, 200
         except Exception as e:
-            logging.error(f"An error occurred: {e}")
+            logging.error("An error occurred: %s", e)
             return f"Error while loading data: {e}", 500
