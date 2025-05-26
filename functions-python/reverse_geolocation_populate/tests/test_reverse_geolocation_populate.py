@@ -245,7 +245,7 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         mock_fetch_data,
         mock_fetch_country_admin_lvl,
         mock_parse_req,
-        mock_bigquery,up
+        mock_bigquery,
     ):
         mock_parse_req.return_value = ("CA", [2])
         mock_bigquery.Client.return_value = MagicMock()
