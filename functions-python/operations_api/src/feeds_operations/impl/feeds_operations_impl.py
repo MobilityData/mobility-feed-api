@@ -54,17 +54,18 @@ class OperationsApiImpl(BaseOperationsApi):
 
     def process_feed(self, feed) -> GtfsFeedResponse | GtfsRtFeedResponse:
         """Process a feed into the appropriate response type using fromOrm methods."""
-        logging.info("Processing feed %s with type %s", feed.stable_id, feed.data_type)
+        logging.debug("Processing feed %s with type %s", feed.stable_id, feed.data_type)
 
         if feed.data_type == "gtfs":
             result = GtfsFeedImpl.from_orm(feed)
-            logging.info("Successfully processed GTFS feed %s", feed.stable_id)
+            logging.debug("Successfully processed GTFS feed %s", feed.stable_id)
             return result
         elif feed.data_type == "gtfs_rt":
             result = GtfsRtFeedImpl.from_orm(feed)
-            logging.info("Successfully processed GTFS-RT feed %s", feed.stable_id)
+            logging.debug("Successfully processed GTFS-RT feed %s", feed.stable_id)
             return result
 
+        logging.error("Unsupported feed type: %s", feed.data_type)
         raise ValueError(f"Unsupported feed type: {feed.data_type}")
 
     @with_db_session
