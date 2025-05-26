@@ -70,7 +70,7 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
                 .update({Feed.status: status}, synchronize_session=False)
             )
     except Exception as e:
-        logging.error(f"Error updating feed statuses: {e}")
+        logging.error("Error updating feed statuses: %s", e)
         raise Exception(f"Error updating feed statuses: {e}")
 
     try:
