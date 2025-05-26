@@ -17,7 +17,7 @@ def parse_request_parameters(
     """
     logging.info("Parsing request parameters.")
     request_json = request.get_json(silent=True)
-    logging.info(f"Request JSON: {request_json}")
+    logging.info("Request JSON: %s", request_json)
 
     if (
         not request_json
@@ -34,7 +34,7 @@ def parse_request_parameters(
         )
 
     data_type = request_json.get("data_type", "gtfs")
-    logging.info(f"Data type: {data_type}")
+    logging.info("Data type: %s", data_type)
     if data_type == "gtfs":
         df, stable_id, dataset_id, url = parse_request_parameters_gtfs(request_json)
     elif data_type == "gbfs":

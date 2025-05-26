@@ -12,8 +12,6 @@ from shared.database.database import with_db_session
 from shared.helpers.logger import Logger
 from shared.helpers.pub_sub import publish_messages
 
-logging.basicConfig(level=logging.INFO)
-
 
 @with_db_session
 def get_feeds_data(
@@ -30,7 +28,7 @@ def get_feeds_data(
         .filter(Gtfsdataset.latest)
     )
     if country_codes:
-        logging.info(f"Getting feeds for country codes: {country_codes}")
+        logging.info("Getting feeds for country codes: %s", country_codes)
         query = query.filter(
             Gtfsfeed.locations.any(Location.country_code.in_(country_codes))
         )
@@ -77,15 +75,15 @@ def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
         Logger.init_logger()
         country_codes, include_only_unprocessed = parse_request_parameters(request)
         feeds_data = get_feeds_data(country_codes, include_only_unprocessed)
-        logging.info(f"Valid feeds with latest dataset: {len(feeds_data)}")
+        logging.info("Valid feeds with latest dataset: %s", len(feeds_data))
 
         pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
         project_id = os.getenv("PROJECT_ID")
 
-        logging.info(f"Publishing to topic: {pubsub_topic_name}")
+        logging.info("Publishing to topic: %s", pubsub_topic_name)
         publish_messages(feeds_data, project_id, pubsub_topic_name)
 
         return f"Batch function triggered for {len(feeds_data)} feeds.", 200
     except Exception as e:
-        logging.error(f"Execution error: {e}")
+        logging.error("Execution error: %s", e)
         return "Error while fetching feeds.", 500
