@@ -33,12 +33,10 @@ class TestMainFunctions(unittest.TestCase):
         },
     )
     @patch("main.DatasetTraceService")
-    @patch("main.Logger")
     @patch("main.GBFSDataProcessor.process_gbfs_data")
     def test_gbfs_validator_pubsub(
         self,
         _,
-        __,
         mock_dataset_trace_service,
     ):
         # Prepare mocks
@@ -72,9 +70,8 @@ class TestMainFunctions(unittest.TestCase):
     )
     @patch("main.pubsub_v1.PublisherClient")
     @patch("main.fetch_all_gbfs_feeds")
-    @patch("main.Logger")
     def test_gbfs_validator_batch(
-        self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client
+        self, mock_fetch_all_gbfs_feeds, mock_publisher_client
     ):
         # Prepare mocks
         mock_session = MagicMock()
@@ -99,14 +96,12 @@ class TestMainFunctions(unittest.TestCase):
         mock_fetch_all_gbfs_feeds.assert_called_once()
         self.assertEqual(mock_publisher.publish.call_count, 2)
 
-    @patch("main.Logger")
-    def test_gbfs_validator_batch_missing_topic(self, _):  # mock_logger
+    def test_gbfs_validator_batch_missing_topic(self):
         # Call the function
         result = gbfs_validator_batch(None)
         self.assertEqual(result[1], 500)
 
-    @patch("main.Logger")
-    def test_fetch_all_gbfs_feeds(self, _):
+    def test_fetch_all_gbfs_feeds(self):
         mock_session = MagicMock()
         db = MagicMock()
         db._get_session = MagicMock()
@@ -120,8 +115,7 @@ class TestMainFunctions(unittest.TestCase):
         result = fetch_all_gbfs_feeds(db_session=mock_session)
         self.assertEqual(result, [mock_feed])
 
-    @patch("main.Logger")
-    def test_fetch_all_gbfs_feeds_exception(self, _):
+    def test_fetch_all_gbfs_feeds_exception(self):
         mock_session = MagicMock()
         db = MagicMock()
         db._get_session = MagicMock()
@@ -148,8 +142,7 @@ class TestMainFunctions(unittest.TestCase):
         },
     )
     @patch("main.fetch_all_gbfs_feeds")
-    @patch("main.Logger")
-    def test_gbfs_validator_batch_fetch_exception(self, _, mock_fetch_all_gbfs_feeds):
+    def test_gbfs_validator_batch_fetch_exception(self, mock_fetch_all_gbfs_feeds):
         # Prepare mocks
         mock_fetch_all_gbfs_feeds.side_effect = Exception("Database error")
 
@@ -167,9 +160,8 @@ class TestMainFunctions(unittest.TestCase):
     )
     @patch("main.pubsub_v1.PublisherClient")
     @patch("main.fetch_all_gbfs_feeds")
-    @patch("main.Logger")
     def test_gbfs_validator_batch_publish_exception(
-        self, _, mock_fetch_all_gbfs_feeds, mock_publisher_client
+        self, mock_fetch_all_gbfs_feeds, mock_publisher_client
     ):
         # Prepare mocks
 
