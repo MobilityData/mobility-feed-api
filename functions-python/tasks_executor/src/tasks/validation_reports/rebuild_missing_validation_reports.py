@@ -30,8 +30,6 @@ from shared.helpers.gtfs_validator_common import (
 from shared.helpers.query_helper import get_datasets_with_missing_reports_query
 from shared.helpers.validation_report.validation_report_update import execute_workflows
 
-logging.basicConfig(level=logging.INFO)
-
 QUERY_LIMIT: Final[int] = 100
 
 
