@@ -164,10 +164,9 @@ def test_backfill_datasets_service_date_range_swap(mock_get, mock_storage_client
     mock_session.commit.assert_called_once()
 
 
-@patch("logging.error", autospec=True)
 @patch("google.cloud.storage.Client", autospec=True)
 @patch("requests.get")
-def test_backfill_datasets_error_commit(mock_get, mock_storage_client, mock_logger):
+def test_backfill_datasets_error_commit(mock_get, mock_storage_client):
     # Mock the storage client and bucket
     mock_bucket = MagicMock()
     mock_client_instance = mock_storage_client.return_value
@@ -412,9 +411,8 @@ def test_backfill_datasets_fail_to_get_validation_report(mock_get, mock_storage_
     mock_session.commit.assert_called_once()
 
 
-@patch("main.Logger", autospec=True)
 @patch("main.backfill_datasets")
-def test_backfill_dataset_service_date_range(mock_backfill_datasets, mock_logger):
+def test_backfill_dataset_service_date_range(mock_backfill_datasets):
     mock_backfill_datasets.return_value = 5
 
     with patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url}):
@@ -425,11 +423,8 @@ def test_backfill_dataset_service_date_range(mock_backfill_datasets, mock_logger
     assert status_code == 200
 
 
-@patch("main.Logger", autospec=True)
 @patch("main.backfill_datasets")
-def test_backfill_dataset_service_date_range_error_raised(
-    mock_backfill_datasets, mock_logger
-):
+def test_backfill_dataset_service_date_range_error_raised(mock_backfill_datasets):
     mock_backfill_datasets.side_effect = Exception("Mocked exception")
 
     with patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url}):
