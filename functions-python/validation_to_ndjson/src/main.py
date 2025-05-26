@@ -4,7 +4,7 @@ import flask
 import functions_framework
 from cloudevents.http import CloudEvent
 
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from google.cloud import storage
 from validation_report_converter import (
     ValidationReportConverter,
@@ -13,7 +13,7 @@ from validation_report_converter import (
 )
 
 
-logging.basicConfig(level=logging.INFO)
+init_logger()
 
 
 def parse_resource_data(data: dict) -> tuple:
@@ -39,11 +39,14 @@ def convert_reports_to_ndjson(cloud_event: CloudEvent):
     Convert a validation report to NDJSON format.
     @param cloud_event: The CloudEvent object.
     """
-    Logger.init_logger()
     logging.info("Function triggered")
     stable_id, dataset_id, report_id, url = parse_resource_data(cloud_event.data)
     logging.info(
-        f"Stable ID: {stable_id}, Dataset ID: {dataset_id}, URL: {url}, Report ID: {report_id}"
+        "Stable ID: %s, Dataset ID: %s, URL: %s, Report ID: %s",
+        stable_id,
+        dataset_id,
+        url,
+        report_id,
     )
     converter_type = ValidationReportConverter.get_converter()
     converter_type(stable_id, dataset_id, report_id, url).process()
@@ -53,7 +56,6 @@ def convert_reports_to_ndjson(cloud_event: CloudEvent):
 @functions_framework.http
 def batch_convert_reports_to_ndjson(request: flask.Request):
     """Batch convert all reports in the bucket to NDJSON format."""
-    Logger.init_logger()
     logging.info("Function triggered")
 
     # 1. Get the validator version from the request
@@ -62,7 +64,7 @@ def batch_convert_reports_to_ndjson(request: flask.Request):
         validator_version = request_json.get("validator_version", "")
         report_suffix = f"{validator_version}.json"
     except Exception as e:
-        logging.error(f"Failed to get validator version: {e}")
+        logging.error("Failed to get validator version: %s", e)
         report_suffix = ".json"
 
     # 2. Get all reports in the bucket
@@ -73,7 +75,7 @@ def batch_convert_reports_to_ndjson(request: flask.Request):
         for blob in blobs
         if "report_" in blob.name and blob.name.endswith(report_suffix)
     ]
-    logging.info(f"Found {len(report_blobs)} reports to process.")
+    logging.info("Found %s reports to process.", len(report_blobs))
 
     # 3. For each report create cloud event and call convert_reports_to_ndjson
     for blob in report_blobs:

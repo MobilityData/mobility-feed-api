@@ -32,7 +32,7 @@ class ValidationReportConverter:
         try:
             self.validation_report = requests.get(validation_report_url).json()
         except Exception as e:
-            logging.error(f"Failed to download the validation report: {e}")
+            logging.error("Failed to download the validation report: %", e)
             self.validation_report = None
         self.stable_id = stable_id
         self.dataset_id = dataset_id
@@ -69,7 +69,7 @@ class ValidationReportConverter:
             f"{self.report_id}.ndjson"
         )
         if self.validation_report is None:
-            logging.error(f"Validation report is empty for {self.report_id}.")
+            logging.error("Validation report is empty for %s.", self.report_id)
             return
 
         # Add feedId to the JSON data
@@ -93,7 +93,7 @@ class ValidationReportConverter:
         ndjson_content = json.dumps(json_data, separators=(",", ":"))
         ndjson_blob = bucket.blob(ndjson_blob_name)
         ndjson_blob.upload_from_string(ndjson_content + "\n")
-        logging.info(f"Processed and uploaded {ndjson_blob_name}")
+        logging.info("Processed and uploaded %s to", ndjson_blob_name)
 
 
 class GTFSValidationReportConverter(ValidationReportConverter):
