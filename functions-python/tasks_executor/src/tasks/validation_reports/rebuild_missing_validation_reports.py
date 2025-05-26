@@ -128,7 +128,7 @@ def rebuild_missing_validation_reports(
         if dry_run
         else "Rebuild missing validation reports task executed successfully."
     )
-    return {
+    result = {
         "message": message,
         "total_processed": total_processed,
         "params": {
@@ -139,6 +139,8 @@ def rebuild_missing_validation_reports(
             "validator_endpoint": validator_endpoint,
         },
     }
+    logging.info(result)
+    return result
 
 
 def get_parameters(payload):
