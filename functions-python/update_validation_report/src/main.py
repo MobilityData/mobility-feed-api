@@ -35,10 +35,10 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.gtfs_validator_common import get_gtfs_validator_results_bucket
 from shared.database.database import with_db_session
 
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.validation_report.validation_report_update import execute_workflows
 
-logging.basicConfig(level=logging.INFO)
+init_logger()
 env = os.getenv("ENV", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
 
@@ -49,8 +49,6 @@ def update_validation_report(request: flask.Request, db_session: Session):
     """
     Update the validation report for the datasets that need it
     """
-    Logger.init_logger()
-
     request_json = request.get_json()
     validator_endpoint = request_json.get(
         "validator_endpoint", os.getenv("WEB_VALIDATOR_URL")
@@ -77,10 +75,10 @@ def update_validation_report(request: flask.Request, db_session: Session):
     latest_datasets = get_latest_datasets_without_validation_reports(
         db_session, validator_version, force_update
     )
-    logging.info(f"Retrieved {len(latest_datasets)} latest datasets.")
+    logging.info("Retrieved %s latest datasets.", len(latest_datasets))
 
     valid_latest_datasets = get_datasets_for_validation(latest_datasets)
-    logging.info(f"Retrieved {len(latest_datasets)} blobs to update.")
+    logging.info("Retrieved %s blobs to update.", len(latest_datasets))
 
     execution_triggered_datasets = execute_workflows(
         valid_latest_datasets, validator_endpoint, bypass_db_update, reports_bucket_name
@@ -115,7 +113,7 @@ def get_validator_version(validator_url: str) -> str:
     """
     response = requests.get(f"{validator_url}/version")
     validator_version = response.json()["version"]
-    logging.info(f"Validator version: {validator_version}")
+    logging.info("Validator version: %s", validator_version)
     return validator_version
 
 
@@ -172,7 +170,9 @@ def get_datasets_for_validation(
             else:
                 report_update_needed.append((feed_id, dataset_id))
                 logging.info(
-                    f"Dataset blob found for {feed_id}/{dataset_id} -- Adding to update list"
+                    "Dataset blob found for %s/%s -- Adding to update list",
+                    feed_id,
+                    dataset_id,
                 )
         except Exception as e:
             logging.error(
