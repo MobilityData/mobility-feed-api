@@ -44,7 +44,7 @@ def validate_token_with_google(token: str, google_client_id: str) -> dict:
     try:
         response = get_tokeninfo_response(token)
     except Exception as e:
-        logging.error(f"Token validation failed: {e}")
+        logging.error("Token validation failed: %s", e)
         raise HTTPException(status_code=500, detail="Token validation failed")
 
     if response.status_code != 200:

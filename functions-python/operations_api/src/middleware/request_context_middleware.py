@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 
-import logging
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from middleware.request_context_oauth2 import (
@@ -29,7 +28,6 @@ class RequestContextMiddleware:
     """
 
     def __init__(self, app: ASGIApp) -> None:
-        self.logger = logging.getLogger()
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
