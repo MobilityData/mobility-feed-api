@@ -9,12 +9,12 @@ from google.cloud import bigquery
 
 from shared.database_gen.sqlacodegen_models import Geopolygon
 from shared.database.database import with_db_session
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from enum import Enum
 
 
 # Initialize logging
-logging.basicConfig(level=logging.INFO)
+init_logger()
 client = None  # Global BigQuery client
 
 
@@ -34,7 +34,7 @@ def parse_request_parameters(request):
 
     country_code = request_json["country_code"]
     if pycountry.countries.get(alpha_2=country_code) is None:
-        logging.error(f"Invalid country code detected: {country_code}")
+        logging.error("Invalid country code detected: %s", country_code)
         raise ValueError(f"Invalid country code: {country_code}")
 
     admin_levels = request_json.get("admin_levels", None)
@@ -44,7 +44,7 @@ def parse_request_parameters(request):
         if admin_levels and not all(2 <= level <= 8 for level in admin_levels):
             raise ValueError("Invalid admin levels.")
     except ValueError:
-        logging.error(f"Invalid admin levels detected: {admin_levels}")
+        logging.error("Invalid admin levels detected: %s", admin_levels)
         raise ValueError(f"Invalid admin levels: {admin_levels}")
     return country_code, admin_levels
 
@@ -102,7 +102,9 @@ def generate_query(admin_level, country_code, location_type, country_name=None):
     - For "locality", no extra ISO condition is applied.
     """
     logging.info(
-        f"Generating query for admin level: {admin_level}, country code: {country_code}"
+        "Generating query for admin level: %s, country code: %s",
+        admin_level,
+        country_code,
     )
     country_name_filter = ""
     # Define query parameters
@@ -155,7 +157,7 @@ def fetch_data(admin_level, country_code, location_type, country_name=None):
     )
     query_job = client.query(query, job_config=job_config)
     results = query_job.result()
-    logging.info(f"Fetched {results.total_rows} rows for admin level {admin_level}.")
+    logging.info("Fetched %s rows for admin level %s.", results.total_rows, admin_level)
 
     data = []
     for row in results:
@@ -182,7 +184,7 @@ def save_to_database(data, db_session=None):
     """Save data to the database."""
     for row in data:
         if not row["name"] or not row["geometry"]:
-            logging.info(f"Skipping row with missing data: {row['osm_id']}")
+            logging.info("Skipping row with missing data: %s", row["osm_id"])
             continue
 
         geopolygon = (
@@ -191,9 +193,9 @@ def save_to_database(data, db_session=None):
             .first()
         )
         if geopolygon:
-            logging.info(f"Geopolygon with osm_id {row['osm_id']} already exists.")
+            logging.info("Geopolygon with osm_id %s already exists.", row["osm_id"])
         else:
-            logging.info(f"Adding geopolygon with osm_id {row['osm_id']}.")
+            logging.info("Adding geopolygon with osm_id %s.", row["osm_id"])
             geopolygon = Geopolygon(osm_id=row["osm_id"])
             db_session.add(geopolygon)
 
@@ -215,14 +217,13 @@ def reverse_geolocation_populate(request):
         "admin_levels": "2,4,6", # Optional, comma-separated list of admin levels, otherwise levels are computed
     }
     """
-    Logger.init_logger()
     global client
     client = bigquery.Client()
     logging.info("Reverse geolocation database population triggered.")
 
     try:
         country_code, locality_admin_levels = parse_request_parameters(request)
-        logging.info(f"Country code parsed: {country_code}")
+        logging.info("Country code parsed: %s", country_code)
     except ValueError as e:
         logging.error(e)
         return str(e), 400
@@ -239,21 +240,21 @@ def reverse_geolocation_populate(request):
 
         country_admin_level = country_admin_levels[0]
 
-        logging.info(f"Country admin level: {country_admin_level}")
-        logging.info(f"Subdivision admin levels: {subdivision_admin_levels}")
+        logging.info("Country admin level: %s", country_admin_level)
+        logging.info("Subdivision admin levels: %s", subdivision_admin_levels)
 
         if not locality_admin_levels:
             locality_admin_levels = get_locality_admin_levels(
                 country_code, country_admin_level, subdivision_admin_levels
             )
-        logging.info(f"Filtered admin levels: {locality_admin_levels}")
+        logging.info("Filtered admin levels: %s", locality_admin_levels)
 
         data = []
 
         # Fetch country level data
         data.extend(fetch_data(country_admin_level, country_code, LocationType.COUNTRY))
         country_name = data[0]["name:en"] or data[0]["name"]
-        logging.info(f"Extracted country name: {country_name}")
+        logging.info("Extracted country name: %s", country_name)
 
         # Fetch subdivision level data
         for level in subdivision_admin_levels:
@@ -267,10 +268,12 @@ def reverse_geolocation_populate(request):
                 fetch_data(level, country_code, LocationType.LOCALITY, country_name)
             )
         save_to_database(data)
-        return f"Database initialized for {country_code}.", 200
+        result = f"Database initialized for {country_code}."
+        logging.info(result)
+        return result, 200
 
     except Exception as e:
-        logging.error(f"Error processing {country_code}: {e}")
+        logging.error("Error processing %s: %s", country_code, e)
         return str(e), 400
 
 
@@ -283,7 +286,7 @@ def get_locality_admin_levels(country_code, country_admin_level, subdivision_lev
         locality_levels_per_country = json.load(file)
         if country_code in locality_levels_per_country:
             locality_levels = locality_levels_per_country[country_code]
-            logging.info(f"Locality levels: {locality_levels}")
+            logging.info("Locality levels: %s", locality_levels)
         else:
             locality_levels = [
                 max(subdivision_levels + [country_admin_level])
