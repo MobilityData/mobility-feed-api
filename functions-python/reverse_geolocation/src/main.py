@@ -1,6 +1,12 @@
+import logging
+
 import flask
 import functions_framework
 from cloudevents.http import CloudEvent
+from shared.helpers.logger import init_logger
+
+
+init_logger()
 
 
 @functions_framework.http
@@ -11,7 +17,9 @@ def reverse_geolocation_processor(request: flask.Request):
     """
     from reverse_geolocation_processor import reverse_geolocation_process
 
-    return reverse_geolocation_process(request)
+    result = reverse_geolocation_process(request)
+    logging.info(result)
+    return result
 
 
 @functions_framework.http
@@ -22,7 +30,9 @@ def reverse_geolocation_batch(request: flask.Request):
     """
     from reverse_geolocation_batch import reverse_geolocation_batch
 
-    return reverse_geolocation_batch(request)
+    result = reverse_geolocation_batch(request)
+    logging.info(result)
+    return result
 
 
 @functions_framework.cloud_event
@@ -33,7 +43,9 @@ def reverse_geolocation(request: CloudEvent):
     """
     from reverse_geolocation import reverse_geolocation_storage_trigger
 
-    return reverse_geolocation_storage_trigger(request)
+    result = reverse_geolocation_storage_trigger(request)
+    logging.info(result)
+    return result
 
 
 @functions_framework.cloud_event
@@ -44,4 +56,6 @@ def reverse_geolocation_pubsub(request: CloudEvent):
     """
     from reverse_geolocation import reverse_geolocation_pubsub
 
-    return reverse_geolocation_pubsub(request)
+    result = reverse_geolocation_pubsub(request)
+    logging.info(result)
+    return result

@@ -1,4 +1,5 @@
 import json
+import logging
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -27,6 +28,7 @@ from test_shared.test_utils.database_utils import (
 )
 
 faker = Faker()
+logger = logging.getLogger(__name__)
 
 
 class TestReverseGeolocationProcessor(unittest.TestCase):
@@ -146,7 +148,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         from reverse_geolocation_processor import get_cached_geopolygons
 
         with self.assertRaises(ValueError):
-            get_cached_geopolygons("test-stable-id", pd.DataFrame())
+            get_cached_geopolygons("test-stable-id", pd.DataFrame(), logger)
 
     @with_db_session(db_url=default_db_url)
     def test_get_cached_geopolygons_no_feed(self, db_session):
@@ -161,7 +163,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             }
         )
         with self.assertRaises(ValueError):
-            get_cached_geopolygons("test-stable-id", stops_df)
+            get_cached_geopolygons("test-stable-id", stops_df, logger)
 
     @with_db_session(db_url=default_db_url)
     def test_get_cached_geopolygons_no_cached_stop(self, db_session):
@@ -185,7 +187,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.add(feed)
         db_session.commit()
         result_feed_id, location_groups, results_df = get_cached_geopolygons(
-            stable_id, stops_df
+            stable_id, stops_df, logger
         )
         self.assertEqual(result_feed_id, feed_id)
         self.assertDictEqual(location_groups, {})
@@ -234,7 +236,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.add(feed)
         db_session.commit()
         result_feed_id, location_groups, results_df = get_cached_geopolygons(
-            stable_id, stops_df
+            stable_id, stops_df, logger
         )
         self.assertEqual(result_feed_id, feed_id)
         self.assertEqual(len(location_groups), 1)
@@ -266,7 +268,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.add(feed)
         db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
         self.assertTrue(
             aggregate.iso_3166_1_code == geopolygon_country_lvl.iso_3166_1_code
         )
@@ -302,7 +304,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.add(feed)
         db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
         self.assertIsNone(aggregate)
 
     @with_db_session(db_url=default_db_url)
@@ -323,7 +325,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.add(feed)
         db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
         self.assertIsNone(aggregate)
 
     @with_db_session(db_url=default_db_url)
@@ -351,7 +353,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.add(feed)
         db_session.commit()
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, db_session)
+        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
         self.assertIsNone(aggregate)
 
     @with_db_session(db_url=default_db_url)
@@ -425,6 +427,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             bounding_box=bounding_box,
             data_type="gtfs",
             extraction_url="test_extraction_url",
+            logger=logger,
         )
 
         # Assertions on blob upload
@@ -480,7 +483,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         location_aggregate = GeopolygonAggregate(group, stops_count=5)
 
         # Call the function
-        location = get_or_create_location(location_aggregate, db_session)
+        location = get_or_create_location(location_aggregate, logger, db_session)
 
         # Assert location is created
         self.assertIsNotNone(location)
@@ -539,7 +542,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )  # Mocking location_id method
 
         # Call the function
-        location = get_or_create_location(location_aggregate, db_session)
+        location = get_or_create_location(location_aggregate, logger, db_session)
 
         # Assert the existing location was returned
         self.assertIsNotNone(location)
@@ -551,7 +554,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         mock_session = MagicMock()
         mock_session.query.side_effect = Exception("Test exception")
-        location = get_or_create_location(None, mock_session)
+        location = get_or_create_location(None, logger, mock_session)
         self.assertIsNone(location)
 
     @with_db_session(db_url=default_db_url)
@@ -683,7 +686,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.commit()
 
         # Mock extract_location_aggregate behavior
-        def side_effect(_, stop_geometry, __):
+        def side_effect(_, stop_geometry, __, ___):
             if stop_geometry.data == "POINT (10.0 10.0)":  # Simulate unmatched stop
                 return None
             return mock_aggregate
@@ -695,7 +698,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Call the function
         extract_location_aggregates(
-            feed_id, stops_df, location_aggregates, db_session=db_session
+            feed_id, stops_df, location_aggregates, logger, db_session=db_session
         )
 
         # Assertions

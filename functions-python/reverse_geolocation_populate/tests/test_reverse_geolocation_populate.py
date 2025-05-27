@@ -225,7 +225,6 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result, [6, 8])
 
-    @patch("main.Logger")
     @patch("main.bigquery")
     @patch("main.parse_request_parameters")
     @patch("main.fetch_country_admin_levels")
@@ -247,7 +246,6 @@ class TestReverseGeolocationPopulate(unittest.TestCase):
         mock_fetch_country_admin_lvl,
         mock_parse_req,
         mock_bigquery,
-        ___,
     ):
         mock_parse_req.return_value = ("CA", [2])
         mock_bigquery.Client.return_value = MagicMock()
