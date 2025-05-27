@@ -8,16 +8,18 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from google.cloud import tasks_v2
 
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.parser import jsonify_pubsub
 from shared.helpers.utils import create_http_task
+
+
+init_logger()
 
 
 def init(request: CloudEvent) -> None:
     """
     Initializer function.
     """
-    Logger.init_logger()
     logging.info("Processing reverse geolocation request.")
     logging.info("Request: %s", request)
 

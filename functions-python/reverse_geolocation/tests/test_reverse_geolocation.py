@@ -7,13 +7,6 @@ faker = Faker()
 
 
 class TestReverseGeolocation(unittest.TestCase):
-    @patch("reverse_geolocation.Logger")
-    def test_init(self, mock_logger):
-        from reverse_geolocation import init
-
-        init(MagicMock())
-        mock_logger.init_logger.assert_called_once()
-
     def test_parse_resource_data(self):
         from reverse_geolocation import parse_resource_data
 

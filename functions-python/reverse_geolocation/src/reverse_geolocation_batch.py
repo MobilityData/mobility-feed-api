@@ -9,8 +9,11 @@ from sqlalchemy.orm.session import Session
 
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset, Location
 from shared.database.database import with_db_session
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.pub_sub import publish_messages
+
+
+init_logger()
 
 
 @with_db_session
@@ -40,7 +43,7 @@ def get_feeds_data(
         query = query.filter(~Gtfsfeed.feedlocationgrouppoints.any())
 
     results = query.populate_existing().all()
-    logging.info(f"Found {len(results)} feeds.")
+    logging.info("Found %s feeds.", len(results))
 
     data = [
         {
@@ -72,7 +75,6 @@ def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool]:
 def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
     """Batch function to trigger reverse geolocation for feeds."""
     try:
-        Logger.init_logger()
         country_codes, include_only_unprocessed = parse_request_parameters(request)
         feeds_data = get_feeds_data(country_codes, include_only_unprocessed)
         logging.info("Valid feeds with latest dataset: %s", len(feeds_data))
