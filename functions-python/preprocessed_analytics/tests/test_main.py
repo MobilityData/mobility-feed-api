@@ -58,24 +58,21 @@ class TestAnalyticsFunctions(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
-    @patch("main.Logger.init_logger")
     @patch("main.GTFSAnalyticsProcessor.run")
-    def test_process_analytics_gtfs_error(self, mock_run, _):
+    def test_process_analytics_gtfs_error(self, mock_run):
         mock_run.side_effect = Exception("Test error")
         response = preprocess_analytics_gtfs(self.mock_request)
         self.assertEqual(response.status_code, 500)
 
-    @patch("main.Logger.init_logger")
     @patch("main.GBFSAnalyticsProcessor.run")
-    def test_process_analytics_gbfs_error(self, mock_run, _):
+    def test_process_analytics_gbfs_error(self, mock_run):
         mock_run.side_effect = Exception("Test error")
         response = preprocess_analytics_gbfs(self.mock_request)
         self.assertEqual(response.status_code, 500)
 
-    @patch("main.Logger.init_logger")
     @patch("main.GTFSAnalyticsProcessor.run")
     @patch("main.GTFSAnalyticsProcessor.__init__")
-    def test_process_analytics_success(self, mock_init, mock_run, _):
+    def test_process_analytics_success(self, mock_init, mock_run):
         mock_run.return_value = None
         mock_init.return_value = None
         response = preprocess_analytics(self.mock_request, GTFSAnalyticsProcessor)
@@ -84,9 +81,8 @@ class TestAnalyticsFunctions(unittest.TestCase):
             "Successfully processed analytics for date:", response.data.decode()
         )
 
-    @patch("main.Logger.init_logger")
     @patch("main.GTFSAnalyticsProcessor.run")
-    def test_process_analytics_failure(self, mock_run, _):
+    def test_process_analytics_failure(self, mock_run):
         mock_run.side_effect = Exception("Processing error")
         response = preprocess_analytics(self.mock_request, GTFSAnalyticsProcessor)
         self.assertEqual(response.status_code, 500)
