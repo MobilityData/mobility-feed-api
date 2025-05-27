@@ -18,11 +18,13 @@ from typing import Any, Final
 
 import flask
 import functions_framework
-
+from shared.helpers.logger import init_logger
 from tasks.validation_reports.rebuild_missing_validation_reports import (
     rebuild_missing_validation_reports_handler,
 )
 
+
+init_logger()
 LIST_COMMAND: Final[str] = "list"
 tasks = {
     "list_tasks": {

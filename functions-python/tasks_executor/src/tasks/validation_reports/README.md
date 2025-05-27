@@ -3,6 +3,9 @@
 This task generates the missing reports in the GTFS datasets. 
 The reports are generated using the _gtfs_validator_ GCP workflow.
 
+## Task ID
+Use task Id: `rebuild_missing_validation_reports`
+
 ## Usage
 The function receive the following payload:
 ```
@@ -13,13 +16,13 @@ The function receive the following payload:
     }
 ```
 Example:
-``
+```
 {
     "dry_run": true,
     "filter_after_in_days": 14,
     "filter_statuses": ["active", "inactive", "future"]
 }
-`````
+```
 
 # GCP environment variables
 The function uses the following environment variables:

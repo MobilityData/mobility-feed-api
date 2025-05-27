@@ -96,7 +96,7 @@ def refresh_materialized_view(session: "Session", view_name: str) -> bool:
         session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}"))
         return True
     except Exception as error:
-        logging.error(f"Error raised while refreshing view: {error}")
+        logging.error("Error raised while refreshing view: %s", error)
         return False
 
 
