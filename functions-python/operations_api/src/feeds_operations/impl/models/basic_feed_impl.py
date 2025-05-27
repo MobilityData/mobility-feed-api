@@ -1,13 +1,9 @@
-import logging
-
 from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
 from feeds_operations.impl.models.location_impl import LocationImpl
 from feeds_operations.impl.models.redirect_impl import RedirectImpl
 from feeds_operations_gen.models.base_feed import BaseFeed
 from feeds_operations_gen.models.source_info import SourceInfo
 from shared.database_gen.sqlacodegen_models import Feed
-
-logger = logging.getLogger(__name__)
 
 
 class BaseFeedImpl(BaseFeed):
