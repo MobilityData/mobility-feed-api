@@ -8,16 +8,18 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from google.cloud import tasks_v2
 
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.parser import jsonify_pubsub
 from shared.helpers.utils import create_http_task
+
+
+init_logger()
 
 
 def init(request: CloudEvent) -> None:
     """
     Initializer function.
     """
-    Logger.init_logger()
     logging.info("Processing reverse geolocation request.")
     logging.info("Request: %s", request)
 
@@ -58,7 +60,7 @@ def reverse_geolocation_pubsub(request: CloudEvent) -> None:
         url = message_json["url"]
         reverse_geolocation(stable_id, dataset_id, url)
     except Exception as e:
-        logging.error(f"Execution error: {e}")
+        logging.error("Execution error: %s", e)
 
 
 def reverse_geolocation_storage_trigger(request: CloudEvent) -> None:
@@ -70,7 +72,7 @@ def reverse_geolocation_storage_trigger(request: CloudEvent) -> None:
         stable_id, dataset_id, url = parse_resource_data(request.data)
         reverse_geolocation(stable_id, dataset_id, url)
     except Exception as e:
-        logging.error(f"Execution error: {e}")
+        logging.error("Execution error: %s", e)
 
 
 def reverse_geolocation(stable_id: str, dataset_id: str, url: str) -> None:
@@ -79,7 +81,10 @@ def reverse_geolocation(stable_id: str, dataset_id: str, url: str) -> None:
     """
     try:
         logging.info(
-            f"Stable ID: {stable_id} - Dataset Stable ID: {dataset_id} - URL: {url}"
+            "Stable ID: %s - Dataset Stable ID: %s - URL: %s",
+            stable_id,
+            dataset_id,
+            url,
         )
 
         # TODO: This logic should be moved to a separate service
@@ -90,12 +95,12 @@ def reverse_geolocation(stable_id: str, dataset_id: str, url: str) -> None:
         blob = bucket.blob(f"{stable_id}/{dataset_id}/stops.txt")
         blob.upload_from_filename("stops.txt")
         blob.make_public()
-        logging.info(f"Uploaded stops.txt to {blob.public_url}")
+        logging.info("Uploaded stops.txt to %s", blob.public_url)
 
         create_http_processor_task(stable_id, dataset_id, blob.public_url)
-        logging.info(f"Reverse geolocation task created for feed {stable_id}.")
+        logging.info("Reverse geolocation task created for feed %s.", stable_id)
     except Exception as e:
-        logging.error(f"Error creating task: {e}")
+        logging.error("Error creating task: %s", e)
 
 
 def create_http_processor_task(
