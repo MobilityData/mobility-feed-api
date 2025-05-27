@@ -243,7 +243,9 @@ export interface components {
        */
       last_updated_at?: string;
       /**
-       * @description The source from where the version was obtained. Possible values are:  - `autodiscovery`: The version was obtained through the autodiscovery url. - `gbfs_versions`: The version was obtained through the gbfs_versions endpoint.
+       * @description Indicates the origin of the version information. Possible values are:
+       *   * `autodiscovery`: Retrieved directly from the main GBFS autodiscovery URL.
+       *   * `gbfs_versions`: Retrieved from the `gbfs_versions` endpoint.
        *
        * @enum {string}
        */

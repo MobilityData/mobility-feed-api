@@ -528,14 +528,14 @@ components:
           format: date-time
           example: 2023-07-10T22:06:00Z
         source:
-            description: >
-              The source from where the version was obtained. Possible values are: 
-              - `autodiscovery`: The version was obtained through the autodiscovery url.
-              - `gbfs_versions`: The version was obtained through the gbfs_versions endpoint.
-            type: string
-            enum:
-              - autodiscovery
-              - gbfs_versions
+          description: >
+            Indicates the origin of the version information. Possible values are:
+              * `autodiscovery`: Retrieved directly from the main GBFS autodiscovery URL.
+              * `gbfs_versions`: Retrieved from the `gbfs_versions` endpoint.
+          type: string
+          enum:
+            - autodiscovery
+            - gbfs_versions
 
         endpoints:
           description: >
