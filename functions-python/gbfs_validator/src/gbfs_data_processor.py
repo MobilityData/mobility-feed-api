@@ -100,8 +100,7 @@ class GBFSDataProcessor:
             raise ValueError(f"Error fetching {autodiscovery_url}")
 
     def extract_gbfs_endpoints(
-        self,
-        gbfs_json_url: str, extracted_from: str, latency: bool = True
+        self, gbfs_json_url: str, extracted_from: str, latency: bool = True
     ) -> Tuple[Optional[List[GBFSEndpoint]], GBFSVersion]:
         """
         Extract GBFS endpoints from the GBFS JSON URL.
@@ -288,7 +287,9 @@ class GBFSDataProcessor:
         )
         if not gbfs_version_orm:
             gbfs_version_orm = Gbfsversion(
-                id=formatted_id, version=gbfs_version.version, source=gbfs_version.extracted_from
+                id=formatted_id,
+                version=gbfs_version.version,
+                source=gbfs_version.extracted_from,
             )
 
         gbfs_version_orm.url = gbfs_version.url  # Update the URL
