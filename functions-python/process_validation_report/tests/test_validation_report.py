@@ -206,9 +206,8 @@ class TestValidationReportProcessor(unittest.TestCase):
             message,
         )
 
-    @patch("main.Logger")
     @patch("main.create_validation_report_entities")
-    def test_process_validation_report(self, create_validation_report_entities_mock, _):
+    def test_process_validation_report(self, create_validation_report_entities_mock):
         request = MagicMock(
             get_json=MagicMock(
                 return_value={
@@ -221,10 +220,9 @@ class TestValidationReportProcessor(unittest.TestCase):
         process_validation_report(request)
         create_validation_report_entities_mock.assert_called_once()
 
-    @patch("main.Logger")
     @patch("main.create_validation_report_entities")
     def test_process_validation_report_invalid_request(
-        self, create_validation_report_entities_mock, _
+        self, create_validation_report_entities_mock
     ):
         request = MagicMock(
             get_json=MagicMock(
