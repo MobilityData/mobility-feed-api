@@ -187,7 +187,7 @@ class GBFSDataProcessor:
                 autodiscovery_url_in_extracted = any(
                     version.url == gbfs_json_url for version in extracted_versions
                 )
-                if not autodiscovery_url_in_extracted:
+                if len(extracted_versions) > 0 and not autodiscovery_url_in_extracted:
                     self.logger.warning(
                         "The autodiscovery URL is not included in gbfs_versions. There could be duplication"
                         " of versions."
