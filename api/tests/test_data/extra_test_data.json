@@ -766,7 +766,6 @@
       "id": "gbfs-system_id_1-2.3",
       "version": "2.3",
       "url": "https://www.example.com/gbfs_feed_1/2.3/gbfs.json",
-      "latest": false,
       "endpoints": [
         {
           "id": "gbfs-system_id_1-2.3-system_information",
@@ -789,7 +788,6 @@
       "id": "gbfs-system_id_1-3.0",
       "version": "3.0",
       "url": "https://www.example.com/gbfs_feed_1/3.0/gbfs.json",
-      "latest": true,
       "endpoints": [
         {
           "id": "gbfs-system_id_1-3.0-system_information",
@@ -810,7 +808,6 @@
       "id": "gbfs-system_id_2-2.3",
       "version": "2.3",
       "url": "https://www.example.com/gbfs_feed_1/2.3/gbfs.json",
-      "latest": false,
       "endpoints": [
         {
           "id": "gbfs-system_id_2-2.3-system_information",

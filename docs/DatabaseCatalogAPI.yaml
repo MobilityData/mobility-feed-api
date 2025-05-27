@@ -527,11 +527,16 @@ components:
           type: string
           format: date-time
           example: 2023-07-10T22:06:00Z
-        latest:
-          description: >
-              A boolean value indicating if this is the latest version of the GBFS feed.
-          type: boolean
-          example: true
+        source:
+            description: >
+              The source from where the version was obtained. Possible values are: 
+              - `autodiscovery`: The version was obtained through the autodiscovery url.
+              - `gbfs_versions`: The version was obtained through the gbfs_versions endpoint.
+            type: string
+            enum:
+              - autodiscovery
+              - gbfs_versions
+
         endpoints:
           description: >
             A list of endpoints that are available in the version.

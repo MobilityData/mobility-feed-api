@@ -99,6 +99,43 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
     return "GBFS data processed and stored successfully."
 
 
+@functions_framework.http
+def gbfs_validator_http(request):
+    Logger.init_logger()
+    logging.info("HTTP GBFS Validator function triggered.")
+
+    try:
+        message_json = request.get_json(silent=True)
+        if not message_json:
+            return "Invalid request: JSON body required.", 400
+
+        stable_id = message_json["stable_id"]
+        url = message_json["url"]
+        feed_id = message_json["feed_id"]
+    except KeyError as e:
+        logging.error(f"Missing required field: {e}")
+        return f"Invalid request data. Missing {e}.", 400
+    except Exception as e:
+        logging.error(f"Error parsing request: {e}")
+        return "Invalid request format.", 400
+
+    # Add stable_id to logs
+    stable_id_filter = StableIdFilter(stable_id)
+    logging.getLogger().addFilter(stable_id_filter)
+    try:
+        # Process GBFS data
+        try:
+            processor = GBFSDataProcessor(stable_id, feed_id)
+            processor.process_gbfs_data(url)
+        except Exception as e:
+            error_message = f"Error processing GBFS data: {e}"
+            logging.error(f"{error_message}\nTraceback:\n{traceback.format_exc()}")
+            return error_message, 500
+        return "GBFS data processed and stored successfully.", 200
+    finally:
+        logging.getLogger().removeFilter(stable_id_filter)
+
+
 @with_db_session
 @functions_framework.http
 def gbfs_validator_batch(_, db_session: Session):
