@@ -58,15 +58,16 @@ This function performs the core reverse geolocation logic. It processes location
 - `stable_id`: Identifies the feed (GTFS or GBFS).
 - `dataset_id`: Required if `data_type` is not provided or is `gtfs`. Identifies the dataset being processed.
 - `stops_url`: Required if `data_type` is not provided or is `gtfs`. URL of the GTFS `stops.txt` file.
-- `station_information_url`: Required if `data_type` is `gbfs` and `vehicle_status_url` is omitted. URL of the GBFS `station_information.json` file.
-- `vehicle_status_url`: Required if `data_type` is `gbfs` and `station_information_url` is omitted. URL of the GBFS `vehicle_status.json` file.
+- `station_information_url`: Required if `data_type` is `gbfs` and `vehicle_status_url` and `free_bike_status_url` are omitted. URL of the GBFS `station_information.json` file.
+- `vehicle_status_url`: Required if `data_type` is `gbfs` and `station_information_url` and `free_bike_status_url` are omitted. URL of the GBFS `vehicle_status.json` file.
+- `free_bike_status_url`: Required if `data_type` is `gbfs` and `station_information_url` and `vehicle_status_url` are omitted. URL of the GBFS `free_bike_status.json` file.
 - `data_type`: Optional. Specifies the type of data being processed. Can be `gtfs` or `gbfs`. If not provided, the function will attempt to determine the type based on the URLs provided.
 
 ### Processing Steps:
 
 1. **Load Location Data**  
    - For GTFS: the function reads `stops.txt` into a Pandas DataFrame, ensuring unique longitude-latitude pairs.  
-   - For GBFS: location data is extracted from `station_information.json` (preferred) or `vehicle_status.json` (fallback), also ensuring uniqueness.
+   - For GBFS: location data is extracted from `station_information.json` and `vehicle_status.json` and `free_bike_status.json`, also ensuring uniqueness.
 
 2. **Updates Bounding Box**  
    - For GTFS: the bounding box is derived from stop coordinates. The dataset's bounding box is updated in the database.
