@@ -436,7 +436,6 @@ class GBFSDataProcessor:
         version_id = f"{self.stable_id}_{autodiscovery_version.version}_{autodiscovery_version.extracted_from}"
         endpoints = self.gbfs_endpoints.get(version_id, [])
 
-
         def get_endpoint_url(name: str) -> Optional[str]:
             return next(
                 (endpoint.url for endpoint in endpoints if endpoint.name == name), None
