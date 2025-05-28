@@ -416,27 +416,24 @@ class GBFSDataProcessor:
             self.logger.error("No latest version found.")
             return
         endpoints = self.gbfs_endpoints.get(latest_version, [])
-        # Find the station_information_url endpoint
-        station_information_url = next(
-            (
-                endpoint.url
-                for endpoint in endpoints
-                if endpoint.name == "station_information"
-            ),
-            None,
-        )
-        # If station_information_url is not found, use vehicle_status_url
-        vehicle_status_url = next(
-            (
-                endpoint.url
-                for endpoint in endpoints
-                if endpoint.name == "vehicle_status"
-            ),
-            None,
-        )
-        if not station_information_url and not vehicle_status_url:
+
+        def get_endpoint_url(name: str) -> Optional[str]:
+            return next(
+                (endpoint.url for endpoint in endpoints if endpoint.name == name), None
+            )
+
+        # Get the URLs for the required endpoints
+        station_information_url = get_endpoint_url("station_information")
+        vehicle_status_url = get_endpoint_url("vehicle_status")
+        free_bike_status_url = get_endpoint_url("free_bike_status")
+
+        if (
+            not station_information_url
+            and not vehicle_status_url
+            and not free_bike_status_url
+        ):
             self.logger.warning(
-                "No station_information_url or vehicle_status_url found."
+                "No station_information_url or vehicle_status_url or free_bike_status_url found."
             )
             return
         client = tasks_v2.CloudTasksClient()
@@ -446,6 +443,7 @@ class GBFSDataProcessor:
                 "data_type": "gbfs",
                 "station_information_url": station_information_url,
                 "vehicle_status_url": vehicle_status_url,
+                "free_bike_status_url": free_bike_status_url,
             }
         ).encode()
         project_id = os.getenv("PROJECT_ID")

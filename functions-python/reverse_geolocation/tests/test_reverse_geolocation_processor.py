@@ -84,14 +84,13 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             "data_type": "gbfs",
         }
 
-        df, stable_id, dataset_id, data_type, url = parse_request_parameters(request)
+        df, stable_id, dataset_id, data_type, urls = parse_request_parameters(request)
 
         self.assertEqual(stable_id, "stable123")
         self.assertEqual(dataset_id, None)
         self.assertEqual(data_type, "gbfs")
-        self.assertEqual(url, "http://dummy.url")
-        self.assertEqual(df.shape, (2, 3))
-        self.assertIn("station_id", df.columns)
+        self.assertEqual(urls[0], "http://dummy.url")
+        self.assertEqual(df.shape, (2, 2))
 
     @patch("parse_request.requests")
     def test_parse_request_parameters_gbfs_vehicle_status(self, requests_mock):
@@ -114,14 +113,13 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             "data_type": "gbfs",
         }
 
-        df, stable_id, dataset_id, data_type, url = parse_request_parameters(request)
+        df, stable_id, dataset_id, data_type, urls = parse_request_parameters(request)
 
         self.assertEqual(stable_id, "stable456")
         self.assertEqual(dataset_id, None)
         self.assertEqual(data_type, "gbfs")
-        self.assertEqual(url, "http://dummy.vehicle")
-        self.assertEqual(df.shape, (2, 3))
-        self.assertIn("vehicle_id", df.columns)
+        self.assertEqual(urls[0], "http://dummy.vehicle")
+        self.assertEqual(df.shape, (2, 2))
 
     @patch("parse_request.requests")
     def test_parse_request_parameters_invalid_request(self, requests_mock):
@@ -426,7 +424,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             stable_id="test_stable_id",
             bounding_box=bounding_box,
             data_type="gtfs",
-            extraction_url="test_extraction_url",
+            extraction_urls=["test_extraction_url"],
             logger=logger,
         )
 
