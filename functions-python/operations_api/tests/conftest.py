@@ -98,6 +98,7 @@ def pytest_configure(config):
     """
     os.environ["DB_POOL_SIZE"] = "100"
 
+
 def pytest_sessionstart(session):
     """
     Called after the Session object has been created and
