@@ -6,7 +6,8 @@ BEGIN
     END IF;
 END
 $$;
-ALTER TABLE gbfsversion ADD COLUMN IF NOT EXISTS source gbfs_source DEFAULT 'gbfs_versions';
+ALTER TABLE gbfsversion DROP COLUMN IF EXISTS source;
+ALTER TABLE gbfsversion ADD COLUMN source gbfs_source DEFAULT 'gbfs_versions' NOT NULL;
 
 -- Remove latest tag in gbfsversion table
 ALTER TABLE gbfsversion
