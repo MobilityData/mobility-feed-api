@@ -71,18 +71,20 @@ function Component(): React.ReactElement {
                 >
                   Read our FAQ
                 </Button>
-
-                Want to submit a GBFS feed to the Mobility Database? Contribute through the
+                Want to submit a GBFS feed to the Mobility Database? Contribute
+                through the
                 <Button
-                                  variant='text'
-                                  className='inline'
-                                  sx={{ fontWeight: 700 }}
-                                  href={'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'}
-                                  rel='noreferrer'
-                                  target='_blank'
-                                >
+                  variant='text'
+                  className='inline'
+                  sx={{ fontWeight: 700 }}
+                  href={
+                    'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+                  }
+                  rel='noreferrer'
+                  target='_blank'
+                >
                   GBFS systems catalog
-                 </Button>
+                </Button>
               </Typography>
             </ColoredContainer>
             <Container maxWidth='md'>

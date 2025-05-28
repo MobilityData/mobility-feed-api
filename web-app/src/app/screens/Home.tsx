@@ -244,7 +244,12 @@ function Component(): React.ReactElement {
             mt: 5,
           }}
         >
-          The Mobility Database is an open data catalog including over 4000 GTFS, GTFS Realtime, and GBFS feeds in over 75 countries. Whether you’re a transportation operator, a researcher studying public transit and shared mobility trends, or a maps app needing reliable data to use with your application, the Mobility Database has everything you need in one central location.
+          The Mobility Database is an open data catalog including over 4000
+          GTFS, GTFS Realtime, and GBFS feeds in over 75 countries. Whether
+          you’re a transportation operator, a researcher studying public transit
+          and shared mobility trends, or a maps app needing reliable data to use
+          with your application, the Mobility Database has everything you need
+          in one central location.
           <br />
           <br />
           Our database integrates with
@@ -260,14 +265,14 @@ function Component(): React.ReactElement {
           </Button>
           and
           <Button
-                      variant='text'
-                      className='inline'
-                      href="https://gbfs-validator.mobilitydata.org/"
-                      rel='noreferrer'
-                      target='_blank'
-                      endIcon={<OpenInNewIcon />}
-                    >
-                    the GBFS Validator
+            variant='text'
+            className='inline'
+            href='https://gbfs-validator.mobilitydata.org/'
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
+            the GBFS Validator
           </Button>
           to provide detailed data quality reports on every feed.
         </Box>
