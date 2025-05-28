@@ -243,11 +243,13 @@ export interface components {
        */
       last_updated_at?: string;
       /**
-       * @description A boolean value indicating if this is the latest version of the GBFS feed.
+       * @description Indicates the origin of the version information. Possible values are:
+       *   * `autodiscovery`: Retrieved directly from the main GBFS autodiscovery URL.
+       *   * `gbfs_versions`: Retrieved from the `gbfs_versions` endpoint.
        *
-       * @example true
+       * @enum {string}
        */
-      latest?: boolean;
+      source?: 'autodiscovery' | 'gbfs_versions';
       /** @description A list of endpoints that are available in the version. */
       endpoints?: Array<components['schemas']['GbfsEndpoint']>;
       latest_validation_report?: components['schemas']['GbfsValidationReport'];

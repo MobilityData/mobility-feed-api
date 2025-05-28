@@ -100,8 +100,7 @@ class GBFSDataProcessor:
             raise ValueError(f"Error fetching {autodiscovery_url}")
 
     def extract_gbfs_endpoints(
-        self,
-        gbfs_json_url: str,
+        self, gbfs_json_url: str, extracted_from: str, latency: bool = True
     ) -> Tuple[Optional[List[GBFSEndpoint]], GBFSVersion]:
         """
         Extract GBFS endpoints from the GBFS JSON URL.
@@ -115,9 +114,11 @@ class GBFSDataProcessor:
             self.logger.warning(
                 "No version found in the GBFS data. Defaulting to version 1.0."
             )
-            gbfs_version = GBFSVersion("1.0", gbfs_json_url)
+            gbfs_version = GBFSVersion("1.0", gbfs_json_url, extracted_from)
         else:
-            gbfs_version = GBFSVersion(version_match[0].value, gbfs_json_url)
+            gbfs_version = GBFSVersion(
+                version_match[0].value, gbfs_json_url, extracted_from
+            )
         if not feeds_matches:
             self.logger.error(
                 "No feeds found in the GBFS data for version %s.", gbfs_version.version
@@ -133,9 +134,9 @@ class GBFSDataProcessor:
                 )
             except AttributeError:
                 language = None
-            endpoints += GBFSEndpoint.from_dict(feed_match.value, language)
+            endpoints += GBFSEndpoint.from_dict(feed_match.value, language, latency)
 
-        # If the autodiscovery endpoint is not listed then add it
+        # If the autodiscovery endpoint is not listed, then add it
         if not any(endpoint.name == "gbfs" for endpoint in endpoints):
             endpoints += GBFSEndpoint.from_dict(
                 [{"name": "gbfs", "url": gbfs_json_url}], None
@@ -147,6 +148,11 @@ class GBFSDataProcessor:
                 for endpoint in endpoints
             }.values()
         )
+        if len(unique_endpoints) != len(endpoints):
+            self.logger.warning(
+                "Duplicate endpoints found. This is a spec violation. Duplicates have been ignored."
+            )
+
         self.logger.info("Found version %s.", gbfs_version.version)
         self.logger.info(
             "Found endpoints %s.", ", ".join([endpoint.name for endpoint in endpoints])
@@ -155,10 +161,13 @@ class GBFSDataProcessor:
 
     def extract_gbfs_versions(self, gbfs_json_url: str) -> Optional[List[GBFSVersion]]:
         """Extract GBFS versions from the autodiscovery URL"""
-        all_endpoints, version = self.extract_gbfs_endpoints(gbfs_json_url)
+        all_endpoints, version = self.extract_gbfs_endpoints(
+            gbfs_json_url, "autodiscovery"
+        )
         if not all_endpoints or not version:
             return None
-        self.gbfs_endpoints[version.version] = all_endpoints
+        version_id = f"{self.stable_id}_{version.version}_{version.extracted_from}"
+        self.gbfs_endpoints[version_id] = all_endpoints
 
         # Fetch GBFS Versions
         gbfs_versions_endpoint = next(
@@ -172,7 +181,22 @@ class GBFSDataProcessor:
             gbfs_versions_json = fetch_gbfs_data(gbfs_versions_endpoint.url)
             versions_matches = parse("$..versions").find(gbfs_versions_json)
             if versions_matches:
-                gbfs_versions = GBFSVersion.from_dict(versions_matches[0].value)
+                extracted_versions = GBFSVersion.from_dict(
+                    versions_matches[0].value, "gbfs_versions"
+                )
+                autodiscovery_url_in_extracted = any(
+                    version.url == gbfs_json_url for version in extracted_versions
+                )
+                if len(extracted_versions) > 0 and not autodiscovery_url_in_extracted:
+                    self.logger.warning(
+                        "The autodiscovery URL is not included in gbfs_versions. There could be duplication"
+                        " of versions."
+                    )
+                gbfs_versions = [
+                    version
+                    for version in extracted_versions
+                    if version.url != gbfs_json_url
+                ] + [version]
                 self.logger.info(
                     "Found versions %s",
                     ", ".join([version.version for version in gbfs_versions]),
@@ -185,29 +209,6 @@ class GBFSDataProcessor:
         return [
             version
         ]  # If no gbfs_versions endpoint, return the version from the autodiscovery URL
-
-    def get_latest_version(self) -> Optional[str]:
-        """Get the latest GBFS version."""
-        max_version = max(
-            (
-                version
-                for version in self.gbfs_versions
-                if not version.version.lower().endswith("RC")
-            ),
-            key=lambda version: version.version,
-            default=None,
-        )
-        if not max_version:
-            self.logger.error(
-                "No non-RC versions found. Trying to set the latest to a RC version."
-            )
-            max_version = max(
-                self.gbfs_versions, key=lambda version: version.version, default=None
-            )
-        if not max_version:
-            self.logger.error("No versions found.")
-            return None
-        return max_version.version
 
     @with_db_session()
     def update_database_entities(self, db_session: Session) -> None:
@@ -222,9 +223,6 @@ class GBFSDataProcessor:
             self.logger.error("GBFS feed with ID %s not found.", self.feed_id)
             return
         gbfs_versions_orm = []
-        latest_version = self.get_latest_version()
-        if not latest_version:
-            return
 
         # Deactivate versions that are not in the current feed
         active_versions = [version.version for version in self.gbfs_versions]
@@ -236,28 +234,29 @@ class GBFSDataProcessor:
         # Update or create GBFS versions and endpoints
         for gbfs_version in self.gbfs_versions:
             gbfs_version_orm = self.update_or_create_gbfs_version(
-                db_session, gbfs_version, latest_version
+                db_session, gbfs_version
             )
             gbfs_versions_orm.append(gbfs_version_orm)
 
-            gbfs_endpoints = self.gbfs_endpoints.get(gbfs_version.version, [])
+            gbfs_endpoints = self.gbfs_endpoints.get(gbfs_version_orm.id, [])
             gbfs_endpoints_orm = []
-            features = self.validation_reports.get(gbfs_version.version, {}).get(
+            features = self.validation_reports.get(gbfs_version_orm.id, {}).get(
                 "features", []
             )
             for endpoint in gbfs_endpoints:
                 gbfs_endpoint_orm = self.update_or_create_gbfs_endpoint(
-                    db_session, gbfs_version.version, endpoint, features
+                    db_session, gbfs_version_orm.id, endpoint, features
                 )
-                gbfs_endpoint_orm.httpaccesslogs.append(
-                    Httpaccesslog(
-                        request_method=HTTPMethod.GET.value,
-                        request_url=endpoint.url,
-                        status_code=endpoint.status_code,
-                        latency_ms=endpoint.latency,
-                        response_size_bytes=endpoint.response_size_bytes,
+                if endpoint.status_code is not None:
+                    gbfs_endpoint_orm.httpaccesslogs.append(
+                        Httpaccesslog(
+                            request_method=HTTPMethod.GET.value,
+                            request_url=endpoint.url,
+                            status_code=endpoint.status_code,
+                            latency_ms=endpoint.latency,
+                            response_size_bytes=endpoint.response_size_bytes,
+                        )
                     )
-                )
                 gbfs_endpoints_orm.append(gbfs_endpoint_orm)
 
             # Deactivate endpoints that are not in the current feed
@@ -269,7 +268,7 @@ class GBFSDataProcessor:
             gbfs_version_orm.gbfsendpoints = gbfs_endpoints_orm
 
             validation_report_orm = self.create_validation_report_entities(
-                gbfs_version_orm, self.validation_reports.get(gbfs_version.version, {})
+                gbfs_version_orm, self.validation_reports.get(gbfs_version_orm.id, {})
             )
             if validation_report_orm:
                 gbfs_version_orm.gbfsvalidationreports.append(validation_report_orm)
@@ -277,33 +276,34 @@ class GBFSDataProcessor:
         db_session.commit()
 
     def update_or_create_gbfs_version(
-        self, db_session: Session, gbfs_version: GBFSVersion, latest_version: str
+        self, db_session: Session, gbfs_version: GBFSVersion
     ) -> Gbfsversion:
         """Update or create a GBFS version entity."""
-        formatted_id = f"{self.stable_id}_{gbfs_version.version}"
+        formatted_id = (
+            f"{self.stable_id}_{gbfs_version.version}_{gbfs_version.extracted_from}"
+        )
         gbfs_version_orm = (
             db_session.query(Gbfsversion).filter(Gbfsversion.id == formatted_id).first()
         )
         if not gbfs_version_orm:
             gbfs_version_orm = Gbfsversion(
-                id=formatted_id, version=gbfs_version.version
+                id=formatted_id,
+                version=gbfs_version.version,
+                source=gbfs_version.extracted_from,
             )
 
         gbfs_version_orm.url = gbfs_version.url  # Update the URL
-        gbfs_version_orm.latest = (
-            gbfs_version.version == latest_version
-        )  # Update the latest flag
         return gbfs_version_orm
 
     def update_or_create_gbfs_endpoint(
         self,
         db_session: Session,
-        version: str,
+        version_id: str,
         endpoint: GBFSEndpoint,
         features: List[str],
     ) -> Gbfsendpoint:
         """Update or create a GBFS endpoint entity."""
-        formatted_id = f"{self.stable_id}_{version}_{endpoint.name}"
+        formatted_id = f"{version_id}_{endpoint.name}"
         if endpoint.language:
             formatted_id += f"_{endpoint.language}"
         gbfs_endpoint_orm = (
@@ -346,7 +346,8 @@ class GBFSDataProcessor:
                 json.dumps(json_report_summary), content_type="application/json"
             )
             report_summary_blob.make_public()
-            self.validation_reports[version.version] = {
+            version_id = f"{self.stable_id}_{version.version}_{version.extracted_from}"
+            self.validation_reports[version_id] = {
                 "report_summary_url": report_summary_blob.public_url,
                 "json_report_summary": json_report_summary,
                 "validation_time": date_time_utc,
@@ -356,6 +357,9 @@ class GBFSDataProcessor:
                     if not obj.get("required", True) and obj.get("exists", False)
                 ],
             }
+            self.logger.info(
+                f"Validated GBFS feed version: {version.version} with URL: {version.url}"
+            )
 
     def create_validation_report_entities(
         self, gbfs_version_orm: Gbfsversion, validation_report_data: Dict
@@ -373,7 +377,7 @@ class GBFSDataProcessor:
             return None
 
         validation_report_id = (
-            f"{self.stable_id}_v{gbfs_version_orm.version}_{validation_time}"
+            f"{self.stable_id}_v{gbfs_version_orm.id}_{validation_time}"
         )
         validation_report = Gbfsvalidationreport(
             id=validation_report_id,
@@ -401,21 +405,37 @@ class GBFSDataProcessor:
     def extract_endpoints_for_all_versions(self):
         """Extract endpoints for all versions of the GBFS feed."""
         for version in self.gbfs_versions:
-            if version.version in self.gbfs_endpoints:
+            version_id = f"{self.stable_id}_{version.version}_{version.extracted_from}"
+            if version_id in self.gbfs_endpoints:
                 continue
-            endpoints, _ = self.extract_gbfs_endpoints(version.url)
+            self.logger.info(f"Extracting endpoints for version {version.version}.")
+            # Avoid fetching latency data for 'gbfs_versions' endpoint
+            endpoints, _ = self.extract_gbfs_endpoints(
+                version.url, "gbfs_versions", latency=False
+            )
             if endpoints:
-                self.gbfs_endpoints[version.version] = endpoints
+                self.gbfs_endpoints[version_id] = endpoints
             else:
                 self.logger.error("No endpoints found for version %s.", version.version)
 
     def trigger_location_extraction(self):
         """Trigger the location extraction process."""
-        latest_version = self.get_latest_version()
-        if not latest_version:
-            self.logger.error("No latest version found.")
+        autodiscovery_version = next(
+            (
+                version
+                for version in self.gbfs_versions
+                if version.extracted_from == "autodiscovery"
+            ),
+            None,
+        )
+        if not autodiscovery_version:
+            self.logger.error(
+                "No autodiscovery version found. Cannot trigger location extraction."
+            )
             return
-        endpoints = self.gbfs_endpoints.get(latest_version, [])
+        version_id = f"{self.stable_id}_{autodiscovery_version.version}_{autodiscovery_version.extracted_from}"
+        endpoints = self.gbfs_endpoints.get(version_id, [])
+
 
         def get_endpoint_url(name: str) -> Optional[str]:
             return next(

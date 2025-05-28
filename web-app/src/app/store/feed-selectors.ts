@@ -1,13 +1,13 @@
 import {
+  type AllFeedType,
+  type BasicFeedType,
+  type GBFSFeedType,
+  type GBFSVersionType,
   type GTFSFeedType,
   type GTFSRTFeedType,
+  isGbfsFeedType,
   isGtfsFeedType,
   isGtfsRtFeedType,
-  type BasicFeedType,
-  type AllFeedType,
-  type GBFSFeedType,
-  isGbfsFeedType,
-  type GBFSVersionType,
 } from '../services/feeds/utils';
 import { type RootState } from './store';
 
@@ -38,14 +38,13 @@ export const selectFeedId = (state: RootState): string => {
   return state.feedProfile.feedId ?? 'mdb-1';
 };
 
-export const selectLatestGbfsVersion = (
+export const selectAutodiscoveryGbfsVersion = (
   state: RootState,
 ): GBFSVersionType | undefined => {
   if (state.feedProfile.data?.data_type === 'gbfs') {
-    const latestGbfsVersion = (
-      state.feedProfile.data as GBFSFeedType
-    )?.versions?.find((v) => v.latest);
-    return latestGbfsVersion;
+    return (state.feedProfile.data as GBFSFeedType)?.versions?.find(
+      (v) => v.source === 'autodiscovery',
+    );
   }
   return undefined;
 };

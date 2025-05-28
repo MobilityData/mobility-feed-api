@@ -134,9 +134,7 @@ class DatabasePopulateTestDataHelper:
                 if not gbfs_feed:
                     self.logger.error(f"No feed found with stable_id: {version['feed_id']}")
                     continue
-                gbfs_version = Gbfsversion(
-                    id=version["id"], version=version["version"], url=version["url"], latest=version["latest"]
-                )
+                gbfs_version = Gbfsversion(id=version["id"], version=version["version"], url=version["url"])
                 if version.get("endpoints"):
                     for endpoint in version["endpoints"]:
                         gbfs_endpoint = Gbfsendpoint(

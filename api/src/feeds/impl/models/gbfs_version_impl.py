@@ -28,7 +28,7 @@ class GbfsVersionImpl(GbfsVersion):
             version=version.version,
             created_at=version.created_at,
             last_updated_at=latest_report.validated_at if latest_report else None,
-            latest=version.latest,
+            source=version.source,
             endpoints=[GbfsEndpointImpl.from_orm(item) for item in version.gbfsendpoints]
             if version.gbfsendpoints
             else [],
