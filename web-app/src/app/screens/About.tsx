@@ -3,6 +3,7 @@ import * as React from 'react';
 import Container from '@mui/material/Container';
 import { Button, Typography } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { MainPageHeader } from '../styles/PageHeader.style';
 import { ColoredContainer } from '../styles/PageLayout.style';
 
@@ -12,71 +13,81 @@ export default function About(): React.ReactElement {
       <MainPageHeader>About</MainPageHeader>
       <ColoredContainer maxWidth={false} sx={{ mt: 3 }}>
         <Typography sx={{ fontWeight: 700 }}>
-          The Mobility Database is hosted and supported by MobilityData, a
-          non-profit organization that improves and extends mobility data
-          formats, including GTFS, GTFS Realtime and GBFS.
+          The Mobility Database is an open catalog including over 4000 GTFS, GTFS Realtime, and GBFS feeds in over 75 countries. It integrates with the Canonical GTFS Schedule and GBFS Validators to share data quality reports for each feed.
           <br /> <br />
-          MobilityData is currently working on the Mobility Database because of
-          the need for a sustainable, community-supported hub for international
-          mobility datasets.
+          This database is hosted and maintained by MobilityData, the global non-profit organization dedicated to the advancement of open transportation data standards.
+          <br />
+           <Button
+                    component={'a'}
+                    variant='contained'
+                    sx={{ mt: 5 }}
+                    endIcon={<OpenInNew />}
+                    href='https://mobilitydata.org/'
+                    rel='noreferrer'
+                    target='_blank'
+                    className='btn-link-component'
+                  >
+                    Learn more about MobilityData
+                  </Button>
         </Typography>
+        <Typography
+                  variant='h5'
+                  color='primary'
+                  sx={{ fontWeight: 700, mt: 5, mb: 1 }}
+                >
+                  Why Use the Mobility Database?
+                </Typography>
+                <Typography className='answer'>
+                  The Mobility Database provides free access to historical and current GTFS, GTFS Realtime, and GBFS feeds from around the world. These feeds are checked for updates every day, ensuring that the data you’re looking at is the most recent data available.
+                   <br /> <br />
+                   In addition to our database, we develop and maintain other tools that integrate with it such as&#20;
+                    <Button
+                      variant='text'
+                               className='inline'
+                               href={
+                                 'https://gtfs-validator.mobilitydata.org/'
+                               }
+                               rel='noreferrer'
+                               target='_blank'
+                               endIcon={<OpenInNewIcon />}
 
-        <Typography
-          variant='h5'
-          color='primary'
-          sx={{ fontWeight: 700, mt: 5 }}
-        >
-          The History
-        </Typography>
-        <Typography>
-          Discoverability is at the heart of mobility: travelers need to know
-          the mobility options available and understand their intricacies to
-          plan their journey; app creators need simplified access to data to
-          relay to app users. Discoverability is the cement of the community
-          that MobilityData is building around open data formats (such as GTFS
-          and GBFS) and their datasets.
-          <br />
-          <br />
-          A need to improve discoverability gave rise to the TransitFeeds.com
-          project, which made it easier to find and query accurate and
-          up-to-date GTFS, GTFS Realtime, GBFS, and datasets. This project was
-          housed by MobilityData following a transition from ActionFigure
-          (formerly TransitScreen).
-          <br />
-          <br />
-          MobilityData created a long-term roadmap for the project, taking into
-          account the repeated historic challenges the GTFS repositories have
-          encountered and the need to expand to accommodate additional modes of
-          transport and data formats.
-        </Typography>
-        <Typography
-          variant='h5'
-          color='primary'
-          sx={{ fontWeight: 700, mt: 5 }}
-        >
-          About MobilityData
-        </Typography>
-        <Typography>
-          MobilityData began in 2015 as a Rocky Mountain Institute project and
-          became a Canadian non-profit in 2019 with the mission to improve
-          traveler information. Building on the strength of nearly 20 employees,
-          MobilityData brings together and supports mobility stakeholders such
-          as transport agencies, software vendors, mobility apps, and cities to
-          standardize and expand data formats for public transport (GTFS) and
-          shared mobility (GBFS).
-        </Typography>
-        <Button
-          component={'a'}
-          variant='contained'
-          sx={{ mt: 5 }}
-          endIcon={<OpenInNew />}
-          href='https://mobilitydata.org/'
-          rel='noreferrer'
-          target='_blank'
-          className='btn-link-component'
-        >
-          Learn more about MobilityData
-        </Button>
+                             >
+                              the Canonical GTFS Schedule Validator
+                             </Button>
+                    and
+                    <Button
+                      variant='text'
+                      className='inline'
+                      href={
+                            'https://gbfs-validator.mobilitydata.org/'
+                      }
+                      rel='noreferrer'
+                      target='_blank'
+                      endIcon={<OpenInNewIcon />}
+                    >
+                            the GBFS Validator.
+                    </Button>
+                    Additional benefits of using the Mobility Database include
+                    <ul>
+                        <li>Mirrored versions of operator-hosted GTFS Schedule feeds to avoid operator website downtimes and geoblocking</li>
+                        <li>Bounding boxes that help to visualize or filter in the API by a select region</li>
+                        <li>
+                            <Button
+                                                  variant='text'
+                                                  className='inline'
+                                                  href={
+                                                        '/contribute'
+                                                  }
+                                                  rel='noreferrer'
+                                                  target='_blank'
+
+                                                >
+                            A simple, easy-to-use form to add new feeds
+                            </Button>
+                        </li>
+                        <li>An open source community actively working to improve the tools</li>
+                    </ul>
+                </Typography>
       </ColoredContainer>
     </Container>
   );

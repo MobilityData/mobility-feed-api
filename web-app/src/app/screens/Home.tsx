@@ -118,7 +118,7 @@ function Component(): React.ReactElement {
           >
             4000
           </Box>
-          transit data feeds from
+          transportation data feeds from over
           <Box
             component='span'
             sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
