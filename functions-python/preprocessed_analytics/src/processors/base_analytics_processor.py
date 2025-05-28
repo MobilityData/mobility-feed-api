@@ -61,7 +61,7 @@ class BaseAnalyticsProcessor:
                 )
             except Exception as e:
                 logging.warning(
-                    f"Unable to convert data to DataFrame using Pandas: {e}"
+                    "Unable to convert data to DataFrame using Pandas: %s", e
                 )
                 return json.loads(json_data), blob
         return [], blob
@@ -72,13 +72,13 @@ class BaseAnalyticsProcessor:
             # Convert the data to JSON format
             json_data = pd.DataFrame(data).to_json(orient="records", date_format="iso")
         except Exception as e:
-            logging.warning(f"Unable to convert data to JSON using Pandas: {e}")
+            logging.warning("Unable to convert data to JSON using Pandas: %s", e)
             json_data = json.dumps(data, default=str)
 
         # Save the JSON file to the specified GCS bucket
         blob.upload_from_string(json_data, content_type="application/json")
         blob.make_public()
-        logging.info(f"{blob.name} saved to bucket")
+        logging.info("%s saved to bucket", blob.name)
 
     def _save_json(self, file_name: str, data: List[Dict]) -> None:
         # Save the JSON file to the specified GCS bucket
@@ -90,7 +90,7 @@ class BaseAnalyticsProcessor:
     ) -> None:
         blobs = self.analytics_bucket.list_blobs(prefix="summary/summary_")
         for blob in blobs:
-            logging.info(f"Aggregating data from {blob.name}")
+            logging.info("Aggregating data from %s", blob.name)
             summary_data, _ = self._load_json(blob.name)
             for key, new_data in summary_data.items():
                 if key in metrics_file_data:
@@ -129,7 +129,7 @@ class BaseAnalyticsProcessor:
         file_name = f"analytics_{self.run_date.strftime('%Y-%m-%d')}.json"
         self._save_json(file_name, self.data)
         self.save()
-        logging.info(f"Analytics saved to bucket as {file_name}")
+        logging.info("Analytics saved to bucket as %s", file_name)
 
     @with_db_session
     def run(self, db_session: Session) -> None:
@@ -139,16 +139,16 @@ class BaseAnalyticsProcessor:
         self.save_summary()
         self.save_analytics()
         self.update_analytics_files()
-        logging.info(f"Finished running analytics for date: {self.run_date}")
+        logging.info("Finished running analytics for date: %s", self.run_date)
 
     def _get_data(self, db_session: Session):
         query = self.get_latest_data(db_session)
         all_results = query.all()
         if len(all_results) == 0:
             raise NoFeedDataException("No feed data found")
-        logging.info(f"Loaded {len(all_results)} feeds to process")
+        logging.info("Loaded %s feeds to process", len(all_results))
         unique_feeds = {result[0].stable_id: result for result in all_results}
-        logging.info(f"Nb of unique feeds loaded: {len(unique_feeds)}")
+        logging.info("Nb of unique feeds loaded: %s", len(unique_feeds))
         return [(result[0], result[1]) for result in unique_feeds.values()]
 
     def update_analytics_files(self) -> None:
@@ -189,4 +189,4 @@ class BaseAnalyticsProcessor:
             )
 
         except Exception as e:
-            logging.error(f"Error updating analytics files: {e}")
+            logging.error("Error updating analytics files: %s", e)

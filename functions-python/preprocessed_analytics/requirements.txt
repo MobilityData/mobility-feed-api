@@ -17,6 +17,7 @@ geoalchemy2==0.14.7
 # Google specific packages for this function
 google-cloud-bigquery
 google-cloud-storage
+flask
 
 # Additional packages for this function
 pandas
