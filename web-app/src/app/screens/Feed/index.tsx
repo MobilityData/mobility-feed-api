@@ -24,7 +24,7 @@ import {
 import {
   selectFeedData,
   selectFeedLoadingStatus,
-  selectLatestGbfsVersion,
+  selectAutodiscoveryGbfsVersion,
   selectRelatedFeedsData,
   selectRelatedGtfsRTFeedsData,
 } from '../../store/feed-selectors';
@@ -132,7 +132,7 @@ export default function Feed(): React.ReactElement {
   const datasets = useSelector(selectDatasetsData);
   const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
-  const latestGbfsVersion = useSelector(selectLatestGbfsVersion);
+  const latestGbfsVersion = useSelector(selectAutodiscoveryGbfsVersion);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
   const feed = useSelector(selectFeedData);
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
