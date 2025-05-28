@@ -48,25 +48,24 @@ from shared.helpers.query_helper import (
 )
 from .request_validator import validate_request
 
-logging.basicConfig(level=logging.INFO)
-
 
 class OperationsApiImpl(BaseOperationsApi):
     """Implementation of the operations API."""
 
     def process_feed(self, feed) -> GtfsFeedResponse | GtfsRtFeedResponse:
         """Process a feed into the appropriate response type using fromOrm methods."""
-        logging.info(f"Processing feed {feed.stable_id} with type {feed.data_type}")
+        logging.debug("Processing feed %s with type %s", feed.stable_id, feed.data_type)
 
         if feed.data_type == "gtfs":
             result = GtfsFeedImpl.from_orm(feed)
-            logging.info(f"Successfully processed GTFS feed {feed.stable_id}")
+            logging.debug("Successfully processed GTFS feed %s", feed.stable_id)
             return result
         elif feed.data_type == "gtfs_rt":
             result = GtfsRtFeedImpl.from_orm(feed)
-            logging.info(f"Successfully processed GTFS-RT feed {feed.stable_id}")
+            logging.debug("Successfully processed GTFS-RT feed %s", feed.stable_id)
             return result
 
+        logging.error("Unsupported feed type: %s", feed.data_type)
         raise ValueError(f"Unsupported feed type: {feed.data_type}")
 
     @with_db_session
@@ -188,8 +187,9 @@ class OperationsApiImpl(BaseOperationsApi):
             )
 
             logging.info(
-                f"Feed ID: {update_request_feed.id} attempting to update with the following request: "
-                f"{update_request_feed}"
+                "Feed ID: %s attempting to update with the following request: %s",
+                update_request_feed.id,
+                update_request_feed,
             )
             impl_class = (
                 UpdateRequestGtfsFeedImpl
@@ -207,22 +207,23 @@ class OperationsApiImpl(BaseOperationsApi):
                 db_session.flush()
                 refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
                 logging.info(
-                    f"Materialized view {t_feedsearch.name} refreshed: {refreshed}"
+                    "Materialized view %s refreshed: %s", t_feedsearch.name, refreshed
                 )
                 db_session.commit()
                 logging.info(
-                    f"Feed ID: {update_request_feed.id} updated successfully with the following changes: "
-                    f"{diff.values()}"
+                    "Feed ID: %s updated successfully with the following changes: %s",
+                    update_request_feed.id,
+                    diff.values(),
                 )
                 return Response(status_code=200)
             else:
                 logging.info(
-                    f"No changes detected for feed ID: {update_request_feed.id}"
+                    "No changes detected for feed ID: %s", update_request_feed.id
                 )
                 return Response(status_code=204)
         except Exception as e:
             logging.error(
-                f"Failed to update feed ID: {update_request_feed.id}. Error: {e}"
+                "Failed to update feed ID: %s. Error: %s", update_request_feed.id, e
             )
             if isinstance(e, HTTPException):
                 raise e

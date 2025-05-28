@@ -108,9 +108,8 @@ def test_update_feed_status_failed_query():
         assert str(e) == "Error updating feed statuses: Mocked exception"
 
 
-@patch("main.Logger", autospec=True)
 @patch("main.update_feed_statuses_query")
-def test_updated_feed_status(mock_update_query, mock_logger):
+def test_updated_feed_status(mock_update_query):
     return_value = {"active": 5}
     mock_update_query.return_value = return_value
 
@@ -122,9 +121,8 @@ def test_updated_feed_status(mock_update_query, mock_logger):
     assert status_code == 200
 
 
-@patch("main.Logger", autospec=True)
 @patch("main.update_feed_statuses_query")
-def test_updated_feed_status_error_raised(mock_update_query, mock_logger):
+def test_updated_feed_status_error_raised(mock_update_query):
     mock_update_query.side_effect = Exception("Mocked exception")
 
     with patch.dict(os.environ, {"FEEDS_DATABASE_URL": default_db_url}):

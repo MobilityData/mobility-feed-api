@@ -1,17 +1,16 @@
 import logging
 import functions_framework
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.feed_status import update_feed_statuses_query
 from shared.database.database import with_db_session
 
-logging.basicConfig(level=logging.INFO)
+init_logger()
 
 
 @with_db_session
 @functions_framework.http
 def update_feed_status(_, db_session):
     """Updates the Feed status based on the latets dataset service date range."""
-    Logger.init_logger()
     try:
         logging.info("Database session started.")
         diff_counts = update_feed_statuses_query(db_session, [])

@@ -91,7 +91,7 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                 gbfs_feed.operator = row["Name"]
                 gbfs_feed.provider = row["Name"]
                 gbfs_feed.operator_url = row["URL"]
-                gbfs_feed.producer_url = row["URL"]
+                gbfs_feed.producer_url = row["Auto-Discovery URL"]
                 gbfs_feed.auto_discovery_url = row["Auto-Discovery URL"]
                 gbfs_feed.updated_at = datetime.now(pytz.utc)
 

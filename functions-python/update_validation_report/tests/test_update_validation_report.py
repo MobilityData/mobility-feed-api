@@ -103,7 +103,6 @@ class TestUpdateReportProcessor(unittest.TestCase):
     @patch("google.cloud.storage.Blob", autospec=True)
     @patch("requests.get", autospec=True)
     @patch("google.cloud.storage.Client", autospec=True)
-    @patch("main.Logger", autospec=True)
     @patch("google.cloud.workflows_v1.WorkflowsClient", autospec=True)
     @patch("google.cloud.workflows.executions_v1.ExecutionsClient", autospec=True)
     @patch("google.cloud.workflows.executions_v1.Execution", autospec=True)
@@ -112,7 +111,6 @@ class TestUpdateReportProcessor(unittest.TestCase):
         execution_mock,
         executions_client_mock,
         workflows_client_mock,
-        mock_logger,
         mock_client,
         mock_get,
         mock_blob,

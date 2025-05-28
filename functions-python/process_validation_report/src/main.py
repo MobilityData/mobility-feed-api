@@ -32,11 +32,11 @@ from shared.database_gen.sqlacodegen_models import (
     Notice,
     Gtfsdataset,
 )
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.transform import get_nested_value
 from shared.helpers.feed_status import update_feed_statuses_query
 
-logging.basicConfig(level=logging.INFO)
+init_logger()
 
 FILES_ENDPOINT = os.getenv("FILES_ENDPOINT")
 
@@ -91,11 +91,11 @@ def validate_json_report(json_report_url):
     try:
         json_report, code = read_json_report(json_report_url)
         if code != 200:
-            logging.error(f"Error reading JSON report: {code}")
+            logging.error("Error reading JSON report: %s", code)
             return f"Error reading JSON report at url {json_report_url}.", code
         return json_report, 200
     except Exception as error:  # JSONDecodeError or RequestException
-        logging.error(f"Error reading JSON report: {error}")
+        logging.error("Error reading JSON report: %s", str(error))
         return f"Error reading JSON report at url {json_report_url}: {error}", 500
 
 
@@ -112,11 +112,13 @@ def parse_json_report(json_report):
         if "validatorVersion" in json_report["summary"]:
             version = json_report["summary"]["validatorVersion"]
         logging.info(
-            f"Validation report validated at {validated_at} with version {version}."
+            "Validation report validated_at: %s with version: %s.",
+            validated_at,
+            version,
         )
         return validated_at, version
     except Exception as error:
-        logging.error(f"Error parsing JSON report: {error}")
+        logging.error("Error parsing JSON report: %s", error)
         raise Exception(f"Error parsing JSON report: {error}")
 
 
@@ -135,7 +137,7 @@ def generate_report_entities(
     """
     entities = []
     report_id = f"{dataset_stable_id}_{version}"
-    logging.info(f"Creating validation report entities for {report_id}.")
+    logging.info("Creating validation report entities for: %s.", report_id)
 
     html_report_url = (
         f"{FILES_ENDPOINT}/{feed_stable_id}/{dataset_stable_id}/report_{version}.html"
@@ -146,7 +148,7 @@ def generate_report_entities(
     # Check if report already exists
     # If exists, the function should graceful finish avoiding retry mechanism to trigger again
     if get_validation_report(report_id, session):
-        logging.warning(f"Validation report {report_id} already exists. Terminating.")
+        logging.warning("Validation report %s already exists. Terminating.", report_id)
         return []
 
     validation_report_entity = Validationreport(
@@ -284,8 +286,9 @@ def create_validation_report_entities(
             return str(error), 200
 
         update_feed_statuses_query(db_session, [feed_stable_id])
-
-        return f"Created {len(entities)} entities.", 200
+        result = f"Created {len(entities)} entities."
+        logging.info(result)
+        return result, 200
     except Exception as error:
         logging.error("Error creating validation report entities: : %s", error)
         return f"Error creating validation report entities: {error}", 500
@@ -314,10 +317,9 @@ def process_validation_report(request):
     :param request: Request object containing 'dataset_id' and 'feed_id'
     :return: HTTP response indicating the result of the operation
     """
-    Logger.init_logger()
     request_json = request.get_json(silent=True)
     logging.info(
-        f"Processing validation report function called with request: {request_json}"
+        "Processing validation report function called with request: %s", request_json
     )
     if (
         not request_json
@@ -335,7 +337,10 @@ def process_validation_report(request):
     feed_id = request_json["feed_id"]
     validator_version = request_json["validator_version"]
     logging.info(
-        f"Processing validation report version {validator_version} for dataset {dataset_id} in feed {feed_id}."
+        "Processing validation report version: %s for dataset: %s in feed: %s.",
+        validator_version,
+        dataset_id,
+        feed_id,
     )
     return create_validation_report_entities(feed_id, dataset_id, validator_version)
 
@@ -370,8 +375,10 @@ def compute_validation_report_counters(request, db_session: Session):
             .offset(offset)
             .all()
         )
-        print(
-            f"Processing {len(validation_reports)} validation reports from offset {offset}."
+        logging.info(
+            "Processing %s validation reports from offset: %s.",
+            len(validation_reports),
+            offset,
         )
         # Break the loop if no more reports are found
         if len(validation_reports) == 0:
@@ -380,10 +387,17 @@ def compute_validation_report_counters(request, db_session: Session):
         for report in validation_reports:
             populate_counters(report.notices, report)
             logging.info(
-                f"Updated ValidationReport {report.id} with counters: "
-                f"INFO={report.total_info}, WARNING={report.total_warning}, ERROR={report.total_error}, "
-                f"Unique INFO Code={report.unique_info_count}, Unique WARNING Code={report.unique_warning_count}, "
-                f"Unique ERROR Code={report.unique_error_count}"
+                "Updated ValidationReport %s with counters: "
+                "INFO=%s, WARNING=%s, ERROR=%s, "
+                "Unique INFO Code=%s, Unique WARNING Code=%s, "
+                "Unique ERROR Code=%s",
+                report.id,
+                report.total_info,
+                report.total_warning,
+                report.total_error,
+                report.unique_info_count,
+                report.unique_warning_count,
+                report.unique_error_count,
             )
 
         # Commit the changes for the current batch
@@ -420,7 +434,7 @@ def process_validation_report_notices(notices):
                 total_error += notice.total_notices
                 error_codes.add(notice.notice_code)
             case _:
-                logging.warning(f"Unknown severity: {notice.severity}")
+                logging.warning("Unknown severity: %s", notice.severity)
 
     return {
         "total_info": total_info,
