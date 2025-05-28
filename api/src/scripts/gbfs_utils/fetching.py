@@ -23,7 +23,7 @@ def fetch_data(auto_discovery_url, logger, urls=[], fields=[]):
                 break
             elif not feeds:
                 feeds = lang_feeds
-        logger.info(f"Feeds found from auto-discovery URL {auto_discovery_url}: {feeds}")
+        logger.debug(f"Feeds found from auto-discovery URL {auto_discovery_url}: {feeds}")
         if feeds:
             for url in urls:
                 fetched_data[url] = get_field_url(feeds, url)

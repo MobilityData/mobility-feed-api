@@ -47,13 +47,20 @@ class GBFSEndpoint:
 
     @staticmethod
     def from_dict(
-        data: List[Dict[str, Any]], language: Optional[str]
+        data: List[Dict[str, Any]], language: Optional[str], latency: bool = True
     ) -> List["GBFSEndpoint"]:
         """Creates a list of GBFSEndpoint objects from a list of dictionaries."""
         endpoints = []
         for file in data:
             if "name" in file and "url" in file:
-                metadata = GBFSEndpoint.get_request_metadata(file["url"])
+                if not latency:
+                    metadata = {
+                        "latency": None,
+                        "status_code": None,
+                        "response_size_bytes": None,
+                    }
+                else:
+                    metadata = GBFSEndpoint.get_request_metadata(file["url"])
                 if metadata:
                     endpoints.append(
                         GBFSEndpoint(
@@ -72,12 +79,15 @@ class GBFSEndpoint:
 class GBFSVersion:
     version: str
     url: str
+    extracted_from: str
 
     @staticmethod
-    def from_dict(data: List[Dict[str, Any]]) -> List["GBFSVersion"]:
+    def from_dict(
+        data: List[Dict[str, Any]], extracted_from: str
+    ) -> List["GBFSVersion"]:
         """Creates a list of GBFSFile objects from a list of dictionaries."""
         return [
-            GBFSVersion(version["version"], version["url"])
+            GBFSVersion(version["version"], version["url"], extracted_from)
             for version in data
             if "version" in version and "url" in version
         ]

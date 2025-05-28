@@ -27,7 +27,7 @@ import { OpenInNew } from '@mui/icons-material';
 import { computeBoundingBox } from '../screens/Feed/Feed.functions';
 import { displayFormattedDate } from '../utils/date';
 import { useSelector } from 'react-redux';
-import { selectLatestGbfsVersion } from '../store/feed-selectors';
+import { selectAutodiscoveryGbfsVersion } from '../store/feed-selectors';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
@@ -66,7 +66,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   const [view, setView] = useState<
     'boundingBoxView' | 'detailedCoveredAreaView'
   >('detailedCoveredAreaView');
-  const latestGbfsVersion = useSelector(selectLatestGbfsVersion);
+  const latestGbfsVersion = useSelector(selectAutodiscoveryGbfsVersion);
 
   const getAndSetGeoJsonData = (urlToExtract: string): void => {
     setGeoJsonLoading(true);
