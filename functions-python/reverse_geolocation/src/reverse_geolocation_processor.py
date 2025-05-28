@@ -227,7 +227,7 @@ def create_geojson_aggregate(
     bounding_box: shapely.Polygon,
     data_type: str,
     logger,
-    extraction_url: str = None,
+    extraction_urls: List[str] = None,
 ) -> None:
     """Create a GeoJSON file with the aggregated locations. This file will be uploaded to GCS and used for
     visualization."""
@@ -250,7 +250,7 @@ def create_geojson_aggregate(
     json_data = {
         "type": "FeatureCollection",
         "extracted_at": datetime.now().isoformat(),
-        "extraction_url": extraction_url,
+        "extraction_url": extraction_urls,
         "features": [
             {
                 "type": "Feature",
@@ -424,7 +424,7 @@ def reverse_geolocation_process(
             stable_id,
             dataset_id,
             data_type,
-            extraction_url,
+            extraction_urls,
         ) = parse_request_parameters(request)
 
         # Remove duplicate lat/lon points
@@ -464,7 +464,7 @@ def reverse_geolocation_process(
             stable_id=stable_id,
             bounding_box=bounding_box,
             data_type=data_type,
-            extraction_url=extraction_url,
+            extraction_urls=extraction_urls,
             logger=logger,
         )
 
