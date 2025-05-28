@@ -1,3 +1,4 @@
+import logging
 from contextvars import ContextVar
 
 import requests
@@ -49,7 +50,7 @@ class RequestContext:
                 return None
             return jwt.decode(token, self.google_public_keys, audience=get_config(PROJECT_ID))
         except Exception as e:
-            print(f"Error decoding JWT: {e}")
+            logging.warning(f"Error decoding JWT: {e}")
             return None
 
     def _extract_from_headers(self, headers: dict, scope: Scope) -> None:
