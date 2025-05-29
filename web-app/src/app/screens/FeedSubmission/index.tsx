@@ -71,11 +71,12 @@ function Component(): React.ReactElement {
                 >
                   Read our FAQ
                 </Button>
+                <br /> <br />
                 Want to submit a GBFS feed to the Mobility Database? Contribute
-                through the
+                through the&#20;
                 <Button
                   variant='text'
-                  className='inline'
+                  className='line-start inline'
                   sx={{ fontWeight: 700 }}
                   href={
                     'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'

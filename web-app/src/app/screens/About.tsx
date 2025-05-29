@@ -51,7 +51,7 @@ export default function About(): React.ReactElement {
           integrate with it such as&#20;
           <Button
             variant='text'
-            className='inline'
+            className='line-start inline'
             href={'https://gtfs-validator.mobilitydata.org/'}
             rel='noreferrer'
             target='_blank'
@@ -59,10 +59,10 @@ export default function About(): React.ReactElement {
           >
             the Canonical GTFS Schedule Validator
           </Button>
-          and
+          and&#20;
           <Button
             variant='text'
-            className='inline'
+            className='line-start inline'
             href={'https://gbfs-validator.mobilitydata.org/'}
             rel='noreferrer'
             target='_blank'
@@ -83,7 +83,7 @@ export default function About(): React.ReactElement {
             <li>
               <Button
                 variant='text'
-                className='inline'
+                className='line-start inline'
                 href={'/contribute'}
                 rel='noreferrer'
                 target='_blank'

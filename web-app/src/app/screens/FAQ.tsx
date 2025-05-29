@@ -47,22 +47,30 @@ export default function FAQ(): React.ReactElement {
           Who can use the Mobility Database?
         </Typography>
         <Typography className='answer'>
-          Everyone has free access to the Mobility Database. However, to
-          <Button variant='text' className='inline' href={'/contribute'}>
-            add a feed
-          </Button>
-          or
+          Everyone has free access to the Mobility Database. However, to&#20;
           <Button
             variant='text'
-            className='inline'
+            className='line-start inline'
+            href={'/contribute'}
+          >
+            add a feed
+          </Button>
+          or&#20;
+          <Button
+            variant='text'
+            className='line-start inline'
             href={
               'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html'
             }
           >
             use our API
           </Button>
-          you’ll need to
-          <Button variant='text' className='inline' href={'/sign-up'}>
+          you’ll need to&#20;
+          <Button
+            variant='text'
+            className='line-start inline'
+            href={'/sign-up'}
+          >
             create an account
           </Button>
           .
@@ -151,8 +159,7 @@ export default function FAQ(): React.ReactElement {
           >
             Swagger
           </Button>
-          .
-          In addition to searching the database or using our API to pull data,
+          . In addition to searching the database or using our API to pull data,
           you’re able to&#20;
           <Button
             variant='text'
