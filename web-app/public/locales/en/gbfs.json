@@ -7,7 +7,7 @@
     "openAutoDiscoveryUrl": "Open Auto-Discovery URL",
     "autoDiscoveryUrl": "Auto-Discovery URL",
     "autoDiscoveryVersion": "Auto-Discovery",
-    "autoDiscoveryTooltip": "This URL is from the systems.csv catalog",
+    "feedVersionTooltip": "This URL is from gbfs_versions.json",
     "features": {
         "gbfs": "GBFS",
         "system_regions": "System Regions",

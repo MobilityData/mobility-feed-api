@@ -135,13 +135,10 @@ export default function GbfsVersions({
                     }}
                   >
                     v{item.version}
-                    {item.source === 'autodiscovery' && (
-                      <Tooltip
-                        title={t('autoDiscoveryTooltip')}
-                        placement='top'
-                      >
+                    {item.source === 'gbfs_versions' && (
+                      <Tooltip title={t('feedVersionTooltip')} placement='top'>
                         <Chip
-                          label={t('autoDiscoveryVersion')}
+                          label={'gbfs_versions.json'}
                           sx={{
                             backgroundColor: theme.palette.primary.dark,
                             color: theme.palette.primary.contrastText,

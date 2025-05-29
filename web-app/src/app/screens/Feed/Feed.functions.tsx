@@ -104,17 +104,19 @@ export const sortGbfsVersions = (
   a: GBFSVersionType,
   b: GBFSVersionType,
 ): number => {
-  const isAAutodiscovery = a.source === 'autodiscovery';
-  const isBAutodiscovery = b.source === 'autodiscovery';
-  if (isAAutodiscovery) {
-    return isBAutodiscovery ? 0 : -1;
-  }
   const na = parseFloat(String(a.version ?? '0').replace(/[^0-9.]/g, ''));
   const nb = parseFloat(String(b.version ?? '0').replace(/[^0-9.]/g, ''));
+
   if (Number.isNaN(na) || Number.isNaN(nb)) {
     return -1;
   }
-  return nb - na;
+
+  if (na !== nb) {
+    return nb - na;
+  }
+
+  if (a.source === b.source) return 0;
+  return a.source === 'autodiscovery' ? -1 : 1;
 };
 
 // Could be temporary function

@@ -175,8 +175,21 @@ describe('sortGbfsVersions used with Array.sort()', () => {
       { version: '2.0', source: 'autodiscovery' },
       { version: '2.0', source: 'gbfs_versions' },
     ];
+
     versionsStable.sort(sortGbfsVersions);
     expect(versionsStable).toEqual([
+      { version: '2.0', source: 'autodiscovery' },
+      { version: '2.0', source: 'gbfs_versions' },
+    ]);
+
+    const versionsAutoPriority: GBFSVersionType[] = [
+      { version: '2.0', source: 'gbfs_versions' },
+      { version: '3.0', source: 'gbfs_versions' },
+      { version: '2.0', source: 'autodiscovery' },
+    ];
+    versionsAutoPriority.sort(sortGbfsVersions);
+    expect(versionsAutoPriority).toEqual([
+      { version: '3.0', source: 'gbfs_versions' },
       { version: '2.0', source: 'autodiscovery' },
       { version: '2.0', source: 'gbfs_versions' },
     ]);
