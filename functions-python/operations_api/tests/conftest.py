@@ -13,6 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import os
+
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
@@ -94,6 +96,7 @@ def pytest_configure(config):
     This hook is called for every plugin and initial conftest
     file after command line options have been parsed.
     """
+    os.environ["DB_POOL_SIZE"] = "100"
 
 
 def pytest_sessionstart(session):

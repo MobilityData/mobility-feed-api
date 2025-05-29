@@ -15,7 +15,7 @@
 #
 
 # Builder Stage
-FROM --platform=$BUILDPLATFORM python:3.11 AS builder
+FROM --platform=$TARGETPLATFORM python:3.11 AS builder
 
 WORKDIR /usr/src/app
 

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException
 
 from shared.common.error_handling import InternalHTTPException
@@ -21,10 +23,12 @@ def raise_http_error(status_code: int, error: str):
         "detail": "Invalid date format for 'field_name'. Expected ISO 8601 format, example: '2021-01-01T00:00:00Z'"
     }
     """
-    raise HTTPException(
+    exception = HTTPException(
         status_code=status_code,
         detail=error,
     )
+    logging.error(exception)
+    raise exception
 
 
 def raise_http_validation_error(error: str):
