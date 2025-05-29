@@ -6,6 +6,7 @@ import {
   Chip,
   Link,
   Snackbar,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -81,6 +82,8 @@ export default function GbfsVersions({
     return `https://github.com/MobilityData/gbfs/blob/v${version}/gbfs.md#${feature}json`;
   };
 
+  const sortedVersions = [...(feed?.versions ?? [])].sort(sortGbfsVersions);
+
   return (
     <>
       <Typography
@@ -101,203 +104,211 @@ export default function GbfsVersions({
           (feed.versions.length === 0 && (
             <WarningContentBox>{t('unableToDetectVersions')}</WarningContentBox>
           ))}
-        {[...(feed?.versions ?? [])]
-          .sort((a, b) => sortGbfsVersions(a, b))
-          .map((item, index) => {
-            const autoDiscoveryUrl = item.endpoints?.find(
-              (endpoint) => endpoint.name === 'gbfs',
-            )?.url;
-            return (
-              <ContentBox
-                key={index}
-                title={``}
-                outlineColor={theme.palette.secondary.main}
-                padding={2}
-                sx={{
-                  my: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
-                width={{ xs: '100%' }}
-              >
+        {sortedVersions.map((item, index) => {
+          const autoDiscoveryUrl = item.endpoints?.find(
+            (endpoint) => endpoint.name === 'gbfs',
+          )?.url;
+          return (
+            <ContentBox
+              key={index}
+              title={``}
+              outlineColor={theme.palette.secondary.main}
+              padding={2}
+              sx={{
+                my: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+              width={{ xs: '100%' }}
+            >
+              <Box>
                 <Box>
-                  <Box>
-                    <Typography
-                      variant='h5'
-                      sx={{
-                        mb: 1,
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center',
+                  <Typography
+                    variant='h5'
+                    sx={{
+                      mb: 1,
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                    }}
+                  >
+                    v{item.version}
+                    {item.source === 'gbfs_versions' && (
+                      <Tooltip title={t('feedVersionTooltip')} placement='top'>
+                        <Chip
+                          label={t('gbfsVersionsJson')}
+                          sx={{
+                            backgroundColor: theme.palette.primary.dark,
+                            color: theme.palette.primary.contrastText,
+                          }}
+                          variant='filled'
+                        ></Chip>
+                      </Tooltip>
+                    )}
+                    <Chip
+                      icon={
+                        item.latest_validation_report?.total_error === 0 ? (
+                          <CheckCircleIcon />
+                        ) : (
+                          <ErrorIcon />
+                        )
+                      }
+                      label={
+                        item.latest_validation_report?.total_error != null &&
+                        item.latest_validation_report?.total_error > 0
+                          ? `${item.latest_validation_report?.total_error} ${t(
+                              'common:feedback.errors',
+                            )}`
+                          : t('common:feedback.noErrors')
+                      }
+                      variant='outlined'
+                      color={
+                        item.latest_validation_report?.total_error != null &&
+                        item.latest_validation_report?.total_error > 0
+                          ? 'error'
+                          : 'success'
+                      }
+                      clickable
+                      component={Link}
+                      href={item.latest_validation_report?.report_summary_url}
+                      target='_blank'
+                      rel='noreferrer'
+                    />
+                  </Typography>
+                  <Typography
+                    variant='caption'
+                    component={'div'}
+                    sx={{ mt: '-2px', mb: 2 }}
+                  >
+                    {t('feeds:qualityReportUpdated')}
+                    {': '}
+                    {displayFormattedDate(
+                      item.latest_validation_report?.validated_at ?? '',
+                    )}
+                  </Typography>
+                  <Typography variant='h6' sx={{ fontSize: '1.1rem' }}>
+                    {t('feedUrl')}
+                  </Typography>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      mb: 2,
+                    }}
+                  >
+                    {autoDiscoveryUrl != null && (
+                      <>
+                        <Link
+                          sx={{
+                            wordWrap: 'break-word',
+                            wordBreak: 'break-all',
+                          }}
+                          href={autoDiscoveryUrl}
+                          target='_blank'
+                          rel='noreferrer'
+                        >
+                          {autoDiscoveryUrl}
+                        </Link>
+                        <ContentCopyIcon
+                          titleAccess={t('feedUrlCopied')}
+                          sx={{ cursor: 'pointer', ml: 1 }}
+                          onClick={() => {
+                            if (feed?.source_info?.producer_url !== undefined) {
+                              setSnackbarOpen(true);
+                              void navigator.clipboard
+                                .writeText(autoDiscoveryUrl)
+                                .then((value) => {});
+                            }
+                          }}
+                        ></ContentCopyIcon>
+                      </>
+                    )}
+                    <Snackbar
+                      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                      open={snackbarOpen}
+                      autoHideDuration={5000}
+                      onClose={() => {
+                        setSnackbarOpen(false);
                       }}
-                    >
-                      v{item.version}
-                      <Chip
-                        icon={
-                          item.latest_validation_report?.total_error === 0 ? (
-                            <CheckCircleIcon />
-                          ) : (
-                            <ErrorIcon />
-                          )
-                        }
-                        label={
-                          item.latest_validation_report?.total_error != null &&
-                          item.latest_validation_report?.total_error > 0
-                            ? `${item.latest_validation_report
-                                ?.total_error} ${t('common:feedback.errors')}`
-                            : t('common:feedback.noErrors')
-                        }
-                        variant='outlined'
-                        color={
-                          item.latest_validation_report?.total_error != null &&
-                          item.latest_validation_report?.total_error > 0
-                            ? 'error'
-                            : 'success'
-                        }
-                        sx={{ ml: 2 }}
-                        clickable
-                        component={Link}
-                        href={item.latest_validation_report?.report_summary_url}
-                        target='_blank'
-                        rel='noreferrer'
-                      />
-                    </Typography>
-                    <Typography
-                      variant='caption'
-                      component={'div'}
-                      sx={{ mt: '-2px', mb: 2 }}
-                    >
-                      {t('feeds:qualityReportUpdated')}
-                      {': '}
-                      {displayFormattedDate(
-                        item.latest_validation_report?.validated_at ?? '',
-                      )}
-                    </Typography>
-                    <Typography variant='h6' sx={{ fontSize: '1.1rem' }}>
-                      {t('feedUrl')}
+                      message={t('feedUrlCopied')}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant='h6' sx={{ mt: 1, fontSize: '1.1rem' }}>
+                      {t('feeds:features')}
                     </Typography>
                     <Box
                       sx={{
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                        mb: 2,
+                        flexWrap: 'wrap',
+                        gap: 1,
+                        mt: 1,
                       }}
                     >
-                      {autoDiscoveryUrl != null && (
-                        <>
-                          <Link
-                            sx={{
-                              wordWrap: 'break-word',
-                              wordBreak: 'break-all',
-                            }}
-                            href={autoDiscoveryUrl}
-                            target='_blank'
-                            rel='noreferrer'
-                          >
-                            {autoDiscoveryUrl}
-                          </Link>
-                          <ContentCopyIcon
-                            titleAccess={t('feedUrlCopied')}
-                            sx={{ cursor: 'pointer', ml: 1 }}
-                            onClick={() => {
-                              if (
-                                feed?.source_info?.producer_url !== undefined
-                              ) {
-                                setSnackbarOpen(true);
-                                void navigator.clipboard
-                                  .writeText(autoDiscoveryUrl)
-                                  .then((value) => {});
-                              }
-                            }}
-                          ></ContentCopyIcon>
-                        </>
-                      )}
-                      <Snackbar
-                        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-                        open={snackbarOpen}
-                        autoHideDuration={5000}
-                        onClose={() => {
-                          setSnackbarOpen(false);
-                        }}
-                        message={t('feedUrlCopied')}
-                      />
-                    </Box>
-                    <Box>
-                      <Typography
-                        variant='h6'
-                        sx={{ mt: 1, fontSize: '1.1rem' }}
-                      >
-                        {t('feeds:features')}
-                      </Typography>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: 1,
-                          mt: 1,
-                        }}
-                      >
-                        {getGbfsFeatures(item).map((endpoint, index) => (
-                          <Box key={index}>
-                            {endpoint.name != null && item.version != null && (
-                              <Chip
-                                component={Link}
-                                label={t('features.' + endpoint.name)}
-                                color='info'
-                                variant='filled'
-                                sx={featureChipsStyle}
-                                clickable
-                                target='_blank'
-                                rel='noreferrer'
-                                href={getGbfsVersionUrl(
-                                  item.version,
-                                  endpoint.name,
-                                )}
-                              />
-                            )}
-                          </Box>
-                        ))}
-                      </Box>
+                      {getGbfsFeatures(item).map((endpoint, index) => (
+                        <Box key={index}>
+                          {endpoint.name != null && item.version != null && (
+                            <Chip
+                              component={Link}
+                              label={t('features.' + endpoint.name)}
+                              color='info'
+                              variant='filled'
+                              sx={featureChipsStyle}
+                              clickable
+                              target='_blank'
+                              rel='noreferrer'
+                              href={getGbfsVersionUrl(
+                                item.version,
+                                endpoint.name,
+                              )}
+                            />
+                          )}
+                        </Box>
+                      ))}
                     </Box>
                   </Box>
                 </Box>
-                {autoDiscoveryUrl != null && (
-                  <Box
-                    sx={{
-                      width: '100%',
-                      display: 'flex',
-                      justifyContent: 'flex-end',
-                      gap: 2,
-                      mt: 3,
-                    }}
+              </Box>
+              {autoDiscoveryUrl != null && (
+                <Box
+                  sx={{
+                    width: '100%',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 2,
+                    mt: 3,
+                  }}
+                >
+                  <Button
+                    variant='text'
+                    color='primary'
+                    href={`https://gbfs-validator.mobilitydata.org/validator?url=${autoDiscoveryUrl}`}
+                    target='_blank'
+                    rel='noreferrer'
+                    endIcon={<OpenInNewIcon></OpenInNewIcon>}
                   >
-                    <Button
-                      variant='text'
-                      color='primary'
-                      href={`https://gbfs-validator.mobilitydata.org/validator?url=${autoDiscoveryUrl}`}
-                      target='_blank'
-                      rel='noreferrer'
-                      endIcon={<OpenInNewIcon></OpenInNewIcon>}
-                    >
-                      {t('runValidationReport')}
-                    </Button>
-                    <Button
-                      variant='contained'
-                      color='primary'
-                      href={autoDiscoveryUrl}
-                      target='_blank'
-                      rel='noreferrer'
-                      endIcon={<OpenInNewIcon></OpenInNewIcon>}
-                    >
-                      {t('openFeedUrl')}
-                    </Button>
-                  </Box>
-                )}
-              </ContentBox>
-            );
-          })}
+                    {t('runValidationReport')}
+                  </Button>
+                  <Button
+                    variant='contained'
+                    color='primary'
+                    href={autoDiscoveryUrl}
+                    target='_blank'
+                    rel='noreferrer'
+                    endIcon={<OpenInNewIcon></OpenInNewIcon>}
+                  >
+                    {item.source === 'autodiscovery'
+                      ? t('openAutoDiscoveryUrl')
+                      : t('openFeedUrl')}
+                  </Button>
+                </Box>
+              )}
+            </ContentBox>
+          );
+        })}
       </Box>
     </>
   );
