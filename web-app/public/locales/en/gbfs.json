@@ -4,6 +4,11 @@
     "feedUrlCopied": "Feed URL Copied",
     "runValidationReport": "Run Validation Report",
     "openFeedUrl": "Open Feed URL",
+    "openAutoDiscoveryUrl": "Open Auto-Discovery URL",
+    "autoDiscoveryUrl": "Auto-Discovery URL",
+    "autoDiscoveryVersion": "Auto-Discovery",
+    "gbfsVersionsJson": "From gbfs_versions.json",
+    "feedVersionTooltip": "This URL is from gbfs_versions.json",
     "features": {
         "gbfs": "GBFS",
         "system_regions": "System Regions",

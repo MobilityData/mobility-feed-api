@@ -36,12 +36,14 @@ const renderGTFSDetails = (
   selectedFeatures: string[],
 ): React.ReactElement => {
   const theme = useTheme();
+  const feedFeatures =
+    gtfsFeed?.latest_dataset?.validation_report?.features ?? [];
   return (
     <>
       {gtfsFeed?.feed_name != null && (
         <Typography
           variant='body1'
-          sx={selectedFeatures.length > 0 ? { mb: 1 } : { mb: 0 }}
+          sx={feedFeatures.length > 0 ? { mb: 1 } : { mb: 0 }}
         >
           {gtfsFeed.feed_name}
         </Typography>

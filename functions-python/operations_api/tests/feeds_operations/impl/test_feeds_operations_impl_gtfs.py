@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 from fastapi import HTTPException
 from starlette.responses import Response
@@ -49,9 +47,8 @@ def db_session():
         yield session
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_no_changes(_, update_request_gtfs_feed):
+async def test_update_gtfs_feed_no_changes(update_request_gtfs_feed):
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
     assert response.status_code == 200
@@ -79,10 +76,9 @@ async def test_update_gtfs_feed_field_change(update_request_gtfs_feed, db_sessio
     assert db_feed.feed_name == "New feed name"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
-async def test_update_gtfs_feed_set_wip(_, update_request_gtfs_feed, db_session):
+async def test_update_gtfs_feed_set_wip(update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.operational_status_action = "wip"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
@@ -96,12 +92,9 @@ async def test_update_gtfs_feed_set_wip(_, update_request_gtfs_feed, db_session)
     assert db_feed.operational_status == "wip"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
-async def test_update_gtfs_feed_set_wip_nochange(
-    _, update_request_gtfs_feed, db_session
-):
+async def test_update_gtfs_feed_set_wip_nochange(update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.operational_status_action = "no_change"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
@@ -115,10 +108,9 @@ async def test_update_gtfs_feed_set_wip_nochange(
     assert db_feed.operational_status == "wip"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
-async def test_update_gtfs_feed_set_published(_, update_request_gtfs_feed, db_session):
+async def test_update_gtfs_feed_set_published(update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.operational_status_action = "published"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
@@ -132,12 +124,9 @@ async def test_update_gtfs_feed_set_published(_, update_request_gtfs_feed, db_se
     assert db_feed.operational_status == "published"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_feed", "db_session")
-async def test_update_gtfs_feed_set_unpublished(
-    _, update_request_gtfs_feed, db_session
-):
+async def test_update_gtfs_feed_set_unpublished(update_request_gtfs_feed, db_session):
     update_request_gtfs_feed.operational_status_action = "unpublished"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_feed(update_request_gtfs_feed)
@@ -151,9 +140,8 @@ async def test_update_gtfs_feed_set_unpublished(
     assert db_feed.operational_status == "unpublished"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_invalid_feed(_, update_request_gtfs_feed):
+async def test_update_gtfs_feed_invalid_feed(update_request_gtfs_feed):
     update_request_gtfs_feed.id = "invalid"
     api = OperationsApiImpl()
     with pytest.raises(HTTPException) as exc_info:
@@ -162,9 +150,8 @@ async def test_update_gtfs_feed_invalid_feed(_, update_request_gtfs_feed):
     assert exc_info.value.detail == "Feed ID not found: invalid"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
-async def test_update_gtfs_feed_official_field(_, update_request_gtfs_feed, db_session):
+async def test_update_gtfs_feed_official_field(update_request_gtfs_feed, db_session):
     """Test updating the official field of a GTFS feed."""
     update_request_gtfs_feed.official = True
     api = OperationsApiImpl()

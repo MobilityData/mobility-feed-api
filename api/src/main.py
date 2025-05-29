@@ -15,7 +15,6 @@
 #
 # This files allows to add extra application decorators aside from the generated code.
 # The app created here is intended to replace the generated feeds_gen.main:app variable.
-import logging
 import os
 
 import uvicorn
@@ -31,7 +30,8 @@ from feeds_gen.apis.search_api import router as SearchApiRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from middleware.request_context_middleware import RequestContextMiddleware
-from utils.logger import API_ACCESS_LOG, GCPLogHandler
+from utils.logger import global_logging_setup
+
 
 app = FastAPI(
     title="Mobility Data Catalog API",
@@ -58,11 +58,7 @@ app.include_router(SearchApiRouter)
 
 @app.on_event("startup")
 async def startup_event():
-    # Add the GCP log handler to the logger.
-    # This is required to log the API access logs to the GCP logging service.
-    logger = logging.getLogger(API_ACCESS_LOG)
-    handler = GCPLogHandler()
-    logger.handlers.append(handler)
+    global_logging_setup()
 
 
 if __name__ == "__main__":

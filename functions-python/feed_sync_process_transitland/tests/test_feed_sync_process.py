@@ -10,11 +10,7 @@ from sqlalchemy.orm import Session as DBSession
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
 from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 
-with mock.patch("shared.helpers.logger.Logger.init_logger") as mock_init_logger:
-    from main import (
-        FeedProcessor,
-        process_feed_event,
-    )
+from main import FeedProcessor, process_feed_event
 
 
 @pytest.fixture

@@ -9,15 +9,18 @@ import LinkIcon from '@mui/icons-material/Link';
 import DatasetIcon from '@mui/icons-material/Dataset';
 import Locations from '../../../components/Locations';
 import SettingsIcon from '@mui/icons-material/Settings';
+import StoreIcon from '@mui/icons-material/Store';
 import FeedAuthenticationSummaryInfo from './FeedAuthenticationSummaryInfo';
 import { boxElementStyle, StyledTitleContainer } from '../Feed.styles';
 
 export interface GbfsFeedInfoProps {
   feed: GBFSFeedType;
+  autoDiscoveryUrl?: string;
 }
 
 export default function GbfsFeedInfo({
   feed,
+  autoDiscoveryUrl,
 }: GbfsFeedInfoProps): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
@@ -40,9 +43,9 @@ export default function GbfsFeedInfo({
         </Box>
       </Box>
 
-      <Box sx={boxElementStyle}>
-        <StyledTitleContainer>
-          <LinkIcon></LinkIcon>
+      <Box sx={{ ...boxElementStyle, mt: 0 }}>
+        <StyledTitleContainer sx={{ mt: 0 }}>
+          <StoreIcon></StoreIcon>
           <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
             {t('producer')}
           </Typography>
@@ -56,6 +59,25 @@ export default function GbfsFeedInfo({
           {feed?.provider}
         </Link>
       </Box>
+
+      {autoDiscoveryUrl != undefined && (
+        <Box sx={boxElementStyle}>
+          <StyledTitleContainer>
+            <LinkIcon></LinkIcon>
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              {t('gbfs:autoDiscoveryUrl')}
+            </Typography>
+          </StyledTitleContainer>
+          <Link
+            href={autoDiscoveryUrl}
+            variant='body1'
+            target='_blank'
+            rel='noreferrer'
+          >
+            {autoDiscoveryUrl}
+          </Link>
+        </Box>
+      )}
 
       <Box sx={boxElementStyle}>
         <StyledTitleContainer>

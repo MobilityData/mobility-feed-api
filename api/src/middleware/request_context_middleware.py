@@ -38,17 +38,21 @@ class RequestContextMiddleware:
         """
         request_method = scope["method"]
         request_path = scope["path"]
+        query_string = scope.get("query_string", b"").decode("utf-8")
+        full_path = f"{request_path}?{query_string}" if query_string else request_path
+
         protocol = scope["scheme"].upper() + "/" + str(scope["http_version"])
+
         return HttpRequest(
             requestMethod=request_method,
-            requestUrl=f"{request_context.protocol}://{request_context.host}{request_path}",
+            requestUrl=f"{request_context.protocol}://{request_context.host}{full_path}",
             remoteIp=request_context.client_host,
             protocol=protocol,
             status=status_code,
             responseSize=content_length,
             userAgent=request_context.client_user_agent,
             serverIp=request_context.server_ip,
-            latency=latency,
+            latency=f"{latency:.9f}s",
         )
 
     def log_api_access(
