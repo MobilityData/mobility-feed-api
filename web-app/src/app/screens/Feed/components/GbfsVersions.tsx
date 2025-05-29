@@ -138,7 +138,7 @@ export default function GbfsVersions({
                     {item.source === 'gbfs_versions' && (
                       <Tooltip title={t('feedVersionTooltip')} placement='top'>
                         <Chip
-                          label={'gbfs_versions.json'}
+                          label={t('gbfsVersionsJson')}
                           sx={{
                             backgroundColor: theme.palette.primary.dark,
                             color: theme.palette.primary.contrastText,
