@@ -71,9 +71,8 @@ export default function FAQ(): React.ReactElement {
             className='line-start inline'
             href={'/sign-up'}
           >
-            create an account
+            create an account.
           </Button>
-          .
         </Typography>
         <Typography
           variant='h5'
@@ -157,9 +156,9 @@ export default function FAQ(): React.ReactElement {
             target='_blank'
             endIcon={<OpenInNewIcon />}
           >
-            Swagger
+            Swagger.
           </Button>
-          . In addition to searching the database or using our API to pull data,
+          In addition to searching the database or using our API to pull data,
           you’re able to&#20;
           <Button
             variant='text'
@@ -169,9 +168,8 @@ export default function FAQ(): React.ReactElement {
             target='_blank'
             endIcon={<OpenInNewIcon />}
           >
-            download the database as a spreadsheet
+            download the database as a spreadsheet.
           </Button>
-          , allowing for your own methods of engaging with the catalog.
         </Typography>
       </ColoredContainer>
     </Container>
