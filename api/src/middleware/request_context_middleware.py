@@ -1,4 +1,3 @@
-import logging
 import time
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -63,13 +62,17 @@ class RequestContextMiddleware:
         """
         latency = time.time() - start_time
         request = self.create_http_request(scope, request_context, status_code, content_length, latency)
-        headers = {
-            k.decode().lower(): v.decode()
-            for k, v in scope.get("headers", [])
+        headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+        headers_to_log = {
+            k: headers.get(k, "")
+            for k in [
+                "origin",
+                "referer",
+            ]
+            if headers.get(k)
         }
         self.logger.info(
-            { "user_id": request_context.user_id if request_context.user_id else "NO_AUTH",
-              "headers": headers },
+            {"user_id": request_context.user_id if request_context.user_id else "", "headers": headers_to_log},
             extra={
                 "context": {
                     "http_request": request,
