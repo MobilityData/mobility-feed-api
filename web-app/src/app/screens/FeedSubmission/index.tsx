@@ -71,6 +71,21 @@ function Component(): React.ReactElement {
                 >
                   Read our FAQ
                 </Button>
+                <br /> <br />
+                Want to submit a GBFS feed to the Mobility Database? Contribute
+                through the&#20;
+                <Button
+                  variant='text'
+                  className='line-start inline'
+                  sx={{ fontWeight: 700 }}
+                  href={
+                    'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+                  }
+                  rel='noreferrer'
+                  target='_blank'
+                >
+                  GBFS systems catalog
+                </Button>
               </Typography>
             </ColoredContainer>
             <Container maxWidth='md'>

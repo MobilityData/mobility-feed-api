@@ -116,14 +116,14 @@ function Component(): React.ReactElement {
             component='span'
             sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
           >
-            3000
+            4000
           </Box>
-          transit data feeds from
+          transportation data feeds from over
           <Box
             component='span'
             sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
           >
-            70
+            75
           </Box>
           countries.
         </Typography>
@@ -244,14 +244,15 @@ function Component(): React.ReactElement {
             mt: 5,
           }}
         >
-          The Mobility Database is an international catalog of public transit
-          data for transit agencies, rider-facing apps, technology vendors,
-          researchers, and others to use. It features over 3,000 GTFS and GTFS
-          Realtime feeds, including 500+ feeds unavailable on the old
-          TransitFeeds website.
+          The Mobility Database is an open data catalog including over 4000
+          GTFS, GTFS Realtime, and GBFS feeds in over 75 countries. Whether
+          you’re a transportation operator, a researcher studying public transit
+          and shared mobility trends, or a maps app needing reliable data to use
+          with your application, the Mobility Database has everything you need
+          in one central location.
           <br />
           <br />
-          It offers data quality reports from
+          Our database integrates with
           <Button
             variant='text'
             className='inline'
@@ -262,8 +263,18 @@ function Component(): React.ReactElement {
           >
             the Canonical GTFS Schedule Validator
           </Button>
-          aiming to improve data transparency and quality. The platform aspires
-          to become a sustainable, central hub for global mobility data.
+          and
+          <Button
+            variant='text'
+            className='inline'
+            href='https://gbfs-validator.mobilitydata.org/'
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
+            the GBFS Validator
+          </Button>
+          to provide detailed data quality reports on every feed.
         </Box>
       </Box>
     </Container>
