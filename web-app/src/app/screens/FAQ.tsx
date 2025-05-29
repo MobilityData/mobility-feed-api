@@ -15,7 +15,7 @@ export default function FAQ(): React.ReactElement {
           color='primary'
           sx={{ fontWeight: 700, mb: 1 }}
         >
-          Why use the Mobility Database?
+          What is the Mobility Database?
         </Typography>
         <Typography className='answer'>
           The Mobility Database is an open database containing over 4000+
@@ -63,7 +63,7 @@ export default function FAQ(): React.ReactElement {
           </Button>
           you’ll need to
           <Button variant='text' className='inline' href={'/sign-up'}>
-            create an account.
+            create an account
           </Button>
           .
         </Typography>
@@ -138,7 +138,7 @@ export default function FAQ(): React.ReactElement {
           expires.
           <br /> <br />
           Detailed instructions for installing and implementing our API can be
-          found on
+          found on&#20;
           <Button
             variant='text'
             className='inline line-start'
@@ -149,8 +149,9 @@ export default function FAQ(): React.ReactElement {
             target='_blank'
             endIcon={<OpenInNewIcon />}
           >
-            Swagger.
+            Swagger
           </Button>
+          .
           In addition to searching the database or using our API to pull data,
           you’re able to&#20;
           <Button
@@ -161,9 +162,9 @@ export default function FAQ(): React.ReactElement {
             target='_blank'
             endIcon={<OpenInNewIcon />}
           >
-            download the database as a spreadsheet,
+            download the database as a spreadsheet
           </Button>
-          allowing for your own methods of engaging with the catalog.
+          , allowing for your own methods of engaging with the catalog.
         </Typography>
       </ColoredContainer>
     </Container>
