@@ -25,12 +25,11 @@ export default function About(): React.ReactElement {
           <Button
             component={'a'}
             variant='contained'
-            sx={{ mt: 5 }}
+            sx={{ mt: 3 }}
             endIcon={<OpenInNew />}
             href='https://mobilitydata.org/'
             rel='noreferrer'
             target='_blank'
-            className='btn-link-component'
           >
             Learn more about MobilityData
           </Button>
