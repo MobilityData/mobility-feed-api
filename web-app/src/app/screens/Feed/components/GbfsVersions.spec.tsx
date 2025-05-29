@@ -159,4 +159,26 @@ describe('sortGbfsVersions used with Array.sort()', () => {
       { version: '2.0' },
     ]);
   });
+
+  it('prioritizes autodiscovery versions', () => {
+    const versions: GBFSVersionType[] = [
+      { version: '2.0', source: 'gbfs_versions' },
+      { version: '2.0', source: 'autodiscovery' },
+    ];
+    versions.sort(sortGbfsVersions);
+    expect(versions).toEqual([
+      { version: '2.0', source: 'autodiscovery' },
+      { version: '2.0', source: 'gbfs_versions' },
+    ]);
+
+    const versionsStable: GBFSVersionType[] = [
+      { version: '2.0', source: 'autodiscovery' },
+      { version: '2.0', source: 'gbfs_versions' },
+    ];
+    versionsStable.sort(sortGbfsVersions);
+    expect(versionsStable).toEqual([
+      { version: '2.0', source: 'autodiscovery' },
+      { version: '2.0', source: 'gbfs_versions' },
+    ]);
+  });
 });

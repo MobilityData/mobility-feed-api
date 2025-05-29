@@ -24,9 +24,9 @@ import {
 import {
   selectFeedData,
   selectFeedLoadingStatus,
-  selectAutodiscoveryGbfsVersion,
   selectRelatedFeedsData,
   selectRelatedGtfsRTFeedsData,
+  selectAutoDiscoveryUrl,
 } from '../../store/feed-selectors';
 import { clearDataset, loadingDataset } from '../../store/dataset-reducer';
 import {
@@ -132,9 +132,9 @@ export default function Feed(): React.ReactElement {
   const datasets = useSelector(selectDatasetsData);
   const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
-  const latestGbfsVersion = useSelector(selectAutodiscoveryGbfsVersion);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
   const feed = useSelector(selectFeedData);
+  const gbfsAutodiscoveryUrl = useSelector(selectAutoDiscoveryUrl);
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
@@ -283,13 +283,8 @@ export default function Feed(): React.ReactElement {
       ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
 
-  const gbfsOpenFeedUrlElement = (
-    gbfsFeed: GBFSFeedType,
-  ): React.JSX.Element => {
-    const latestAutodiscoveryUrl = latestGbfsVersion?.endpoints?.find(
-      (endpoint) => endpoint.name === 'gbfs',
-    )?.url;
-    if (latestGbfsVersion == undefined || latestAutodiscoveryUrl == undefined) {
+  const gbfsOpenFeedUrlElement = (): React.JSX.Element => {
+    if (gbfsAutodiscoveryUrl == undefined) {
       return <></>;
     }
     return (
@@ -297,13 +292,12 @@ export default function Feed(): React.ReactElement {
         disableElevation
         variant='contained'
         sx={{ marginRight: 2 }}
-        href={latestAutodiscoveryUrl}
+        href={gbfsAutodiscoveryUrl}
         target='_blank'
         rel='noreferrer'
         endIcon={<OpenInNewIcon></OpenInNewIcon>}
       >
-        {t('gbfs:openFeedUrl')} (v
-        {latestGbfsVersion.version})
+        {t('gbfs:openAutoDiscoveryUrl')}
       </Button>
     );
   };
@@ -494,9 +488,7 @@ export default function Feed(): React.ReactElement {
             {t('openFullQualityReport')}
           </Button>
         )}
-        {feed?.data_type === 'gbfs' && (
-          <>{gbfsOpenFeedUrlElement(feed as GBFSFeedType)}</>
-        )}
+        {feed?.data_type === 'gbfs' && <>{gbfsOpenFeedUrlElement()}</>}
         {feed?.source_info?.license_url != undefined &&
           feed?.source_info?.license_url !== '' && (
             <Button
@@ -529,7 +521,10 @@ export default function Feed(): React.ReactElement {
 
           <Box sx={{ width: { xs: '100%', md: '60%' } }}>
             {feed.data_type === 'gbfs' ? (
-              <GbfsFeedInfo feed={feed as GTFSFeedType}></GbfsFeedInfo>
+              <GbfsFeedInfo
+                feed={feed as GTFSFeedType}
+                autoDiscoveryUrl={gbfsAutodiscoveryUrl}
+              ></GbfsFeedInfo>
             ) : (
               <FeedSummary
                 feed={feed}
