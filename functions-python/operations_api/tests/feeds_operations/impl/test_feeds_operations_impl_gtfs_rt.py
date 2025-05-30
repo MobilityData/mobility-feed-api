@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 from starlette.responses import Response
 
@@ -51,12 +49,9 @@ def db_session():
         yield session
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
-async def test_update_gtfs_feed_field_change(
-    _, update_request_gtfs_rt_feed, db_session
-):
+async def test_update_gtfs_feed_field_change(update_request_gtfs_rt_feed, db_session):
     update_request_gtfs_rt_feed.feed_name = "New feed name"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
@@ -70,12 +65,9 @@ async def test_update_gtfs_feed_field_change(
     assert db_feed.feed_name == "New feed name"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
-async def test_update_gtfs_feed_static_change(
-    _, update_request_gtfs_rt_feed, db_session
-):
+async def test_update_gtfs_feed_static_change(update_request_gtfs_rt_feed, db_session):
     update_request_gtfs_rt_feed.feed_references = ["mdb-400"]
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
@@ -93,10 +85,9 @@ async def test_update_gtfs_feed_static_change(
     assert feed is not None, "Feed with stable ID 'mdb-400' not found"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
-async def test_update_gtfs_rt_feed_set_wip(_, update_request_gtfs_rt_feed, db_session):
+async def test_update_gtfs_rt_feed_set_wip(update_request_gtfs_rt_feed, db_session):
     update_request_gtfs_rt_feed.operational_status_action = "wip"
     api = OperationsApiImpl()
     response: Response = await api.update_gtfs_rt_feed(update_request_gtfs_rt_feed)
@@ -110,11 +101,10 @@ async def test_update_gtfs_rt_feed_set_wip(_, update_request_gtfs_rt_feed, db_se
     assert db_feed.operational_status == "wip"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
 async def test_update_gtfs_rt_feed_set_published(
-    _, update_request_gtfs_rt_feed, db_session
+    update_request_gtfs_rt_feed, db_session
 ):
     update_request_gtfs_rt_feed.operational_status_action = "published"
     api = OperationsApiImpl()
@@ -129,11 +119,10 @@ async def test_update_gtfs_rt_feed_set_published(
     assert db_feed.operational_status == "published"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("update_request_gtfs_rt_feed", "db_session")
 async def test_update_gtfs_rt_feed_set_unpublished(
-    _, update_request_gtfs_rt_feed, db_session
+    update_request_gtfs_rt_feed, db_session
 ):
     update_request_gtfs_rt_feed.operational_status_action = "unpublished"
     api = OperationsApiImpl()
@@ -148,10 +137,9 @@ async def test_update_gtfs_rt_feed_set_unpublished(
     assert db_feed.operational_status == "unpublished"
 
 
-@patch("shared.helpers.logger.Logger")
 @pytest.mark.asyncio
 async def test_update_gtfs_rt_feed_official_field(
-    _, update_request_gtfs_rt_feed, db_session
+    update_request_gtfs_rt_feed, db_session
 ):
     """Test updating the official field of a GTFS-RT feed."""
     update_request_gtfs_rt_feed.official = True

@@ -7,7 +7,6 @@ from unittest.mock import patch
 import pytest
 import urllib3_mock
 
-from logger import Logger
 from utils import create_bucket, download_and_get_hash, download_url_content
 
 responses = urllib3_mock.Responses("requests.packages.urllib3")
@@ -176,15 +175,6 @@ class TestHelpers(unittest.TestCase):
 
         if os.path.exists(file_path):
             os.remove(file_path)
-
-    @patch("google.cloud.logging.Client")
-    def test_logger_initialization(self, mock_client):
-        mock_client.return_value.logger.return_value = MagicMock()
-
-        logger = Logger("test_logger")
-        mock_client.assert_called()
-        mock_client.return_value.logger.assert_called_with("test_logger")
-        self.assertIsNotNone(logger.get_logger())
 
     @patch("requests.Session.get")
     def test_download_url_content_success(self, mock_get):

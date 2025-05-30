@@ -49,6 +49,20 @@ export const selectAutodiscoveryGbfsVersion = (
   return undefined;
 };
 
+export const selectAutoDiscoveryUrl = (
+  state: RootState,
+): string | undefined => {
+  if (state.feedProfile.data?.data_type === 'gbfs') {
+    const gbfsFeed: GBFSFeedType = state.feedProfile.data;
+    return (
+      gbfsFeed?.versions
+        ?.find((v) => v.source === 'autodiscovery')
+        ?.endpoints?.find((e) => e.name === 'gbfs')?.url ??
+      gbfsFeed?.source_info?.producer_url
+    );
+  }
+};
+
 export const selectRelatedFeedsData = (state: RootState): AllFeedType[] => {
   return state.feedProfile.relatedFeedsData.gtfs;
 };
