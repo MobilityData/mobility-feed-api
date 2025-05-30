@@ -179,7 +179,7 @@ def extract_location_aggregate(
             osms=geopolygons,
         )
         db_session.add(group)
-        db_session.flush() # Ensure the group is added before using it
+        db_session.flush()  # Ensure the group is added before using it
     stop = (
         db_session.query(Feedlocationgrouppoint)
         .filter(
