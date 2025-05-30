@@ -368,6 +368,9 @@ class GBFSDataProcessor:
         validation_report_url = validation_report_data.get("report_summary_url")
         validation_report_json = validation_report_data.get("json_report_summary")
         validation_time = validation_report_data.get("validation_time")
+        if not validation_report_url:
+            self.logger.error("Validation report doesn't exist")
+            return None
 
         validator_version = validation_report_json.get("summary", {}).get(
             "validatorVersion", None
