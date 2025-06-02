@@ -1,9 +1,8 @@
-import logging
 import time
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from middleware.request_context import RequestContext, _request_context
-from utils.logger import HttpRequest, API_ACCESS_LOG
+from utils.logger import HttpRequest, API_ACCESS_LOG, get_logger
 
 
 class RequestContextMiddleware:
@@ -12,7 +11,7 @@ class RequestContextMiddleware:
     """
 
     def __init__(self, app: ASGIApp) -> None:
-        self.logger = logging.getLogger(API_ACCESS_LOG)
+        self.logger = get_logger(API_ACCESS_LOG)
         self.app = app
 
     @staticmethod
@@ -63,8 +62,17 @@ class RequestContextMiddleware:
         """
         latency = time.time() - start_time
         request = self.create_http_request(scope, request_context, status_code, content_length, latency)
+        headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
+        headers_to_log = {
+            k: headers.get(k, "")
+            for k in [
+                "origin",
+                "referer",
+            ]
+            if headers.get(k)
+        }
         self.logger.info(
-            "API Access Log",
+            {"user_id": request_context.user_id if request_context.user_id else "", "headers": headers_to_log},
             extra={
                 "context": {
                     "http_request": request,
