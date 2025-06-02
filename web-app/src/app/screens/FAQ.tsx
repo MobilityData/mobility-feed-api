@@ -170,7 +170,6 @@ export default function FAQ(): React.ReactElement {
             }
             rel='noreferrer'
             target='_blank'
-            endIcon={<OpenInNewIcon />}
           >
             Swagger.
           </Button>
@@ -184,7 +183,21 @@ export default function FAQ(): React.ReactElement {
             target='_blank'
             endIcon={<OpenInNewIcon />}
           >
-            download the database as a spreadsheet.
+            download GTFS and GTFS Realtime feeds via the spreadsheet here
+          </Button>
+          <br /> <br />
+          GBFS feeds can be downloaded via a spreadsheet with the&#20;
+          <Button
+            variant='text'
+            className='line-start inline'
+            href={
+              'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+            }
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
+            systems catalog
           </Button>
         </Typography>
       </ColoredContainer>
