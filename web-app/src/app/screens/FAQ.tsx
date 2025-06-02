@@ -21,7 +21,8 @@ export default function FAQ(): React.ReactElement {
           The Mobility Database is an open database containing over 4000+
           transit and shared mobility feeds in GTFS, GTFS Realtime, and GBFS
           formats. In addition to our database, we also offer an API, and
-          data-quality reports using the Canonical GTFS Validator and the GBFS Validator.
+          data-quality reports using the Canonical GTFS Validator and the GBFS
+          Validator.
           <br /> <br />
           This database is hosted and maintained by MobilityData, the global
           non-profit organization dedicated to the advancement of open
@@ -107,7 +108,22 @@ export default function FAQ(): React.ReactElement {
         <Typography className='answer'>
           Every day at midnight UTC, the Mobility Database checks for feed
           updates using the URL provided by the producer upon uploading. If we
-          detect a change, we store the new feed version automatically.
+          detect a change, we add the new feed version automatically.
+          <br /> <br />
+          For GBFS feeds, we do an additional sync any time a change to the&#20;
+          <Button
+            variant='text'
+            className='line-start inline'
+            href={
+              'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+            }
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
+            systems catalog
+          </Button>
+          is merged.
         </Typography>
         <Typography
           variant='h5'
