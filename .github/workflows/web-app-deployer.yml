@@ -327,6 +327,7 @@ jobs:
         working-directory: web-app
         # We override the robots.txt to not penalize the SEO score
         # Important that this step stays after the deploy
+        # Local server over preview url to avoid SEO penalties
         run: |
           echo -e "User-agent: *\nAllow: /" > build/robots.txt
           npx serve -s build -l 55300 --single &
@@ -363,11 +364,11 @@ jobs:
                 Object.keys(result).forEach(key => result[key] = formatResult(result[key]))
 
                 const score = res => res >= 90 ? '🟢' : res >= 50 ? '🟠' : '🔴'
-                const link = Object.keys(links)[index]
-
-                comment.concat([
-                    `*Lighthouse ran on ${link}* (Desktop)`
-                    `⚡️ HTML Report [Lighthouse report](${links[Object.keys(links)[index]]}) for the changes in this PR:`,
+                const link = Object.keys(links)[index] ?? 'Unknown URL';
+                const linkUrl = links[link] ?? '#';
+                comment = comment.concat(...[
+                    `*Lighthouse ran on ${link} * (Desktop)`,
+                    `⚡️ HTML Report [Lighthouse report](${linkUrl}) for the changes in this PR:`,
                     '| Performance | Accessibility | Best Practices | SEO |',
                     '| --- | --- | --- | --- |',
                     `| ${score(result.performance)} ${result.performance} | ${score(result.accessibility)} ${result.accessibility} | ${score(result['best-practices'])} ${result['best-practices']} | ${score(result.seo)} ${result.seo} |`,
@@ -376,6 +377,7 @@ jobs:
                 ])
             })
             const finalComment = comment.join('\n')
+            
             core.setOutput("comment", finalComment); 
 
             
