@@ -356,14 +356,17 @@ jobs:
             results.forEach((resultData, index) => {
                 const result = resultData.summary;
                 const links = ${{ steps.lighthouse-check.outputs.links }}
+                console.log("index", index)
+                console.log(result, links)
 
                 const formatResult = (res) => Math.round((res * 100))
                 Object.keys(result).forEach(key => result[key] = formatResult(result[key]))
 
                 const score = res => res >= 90 ? '🟢' : res >= 50 ? '🟠' : '🔴'
+                const link = Object.keys(links)[index]
 
                 comment.concat([
-                    `*Lighthouse ran on ${Object.keys(links)[index]}* (Desktop)`
+                    `*Lighthouse ran on ${link}* (Desktop)`
                     `⚡️ HTML Report [Lighthouse report](${links[Object.keys(links)[index]]}) for the changes in this PR:`,
                     '| Performance | Accessibility | Best Practices | SEO |',
                     '| --- | --- | --- | --- |',
