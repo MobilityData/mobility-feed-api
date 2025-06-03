@@ -1,4 +1,4 @@
-const previewBaseUrl = '';
+let previewBaseUrl = '';
 try {
   const previewUrlBase64 = process.env.LHCI_PREVIEW_URL_BASE64;
   if (previewUrlBase64) {
