@@ -345,7 +345,7 @@ jobs:
           configPath: ./.github/lighthouserc.js
           temporaryPublicStorage: true
         env:
-          LHCI_PREVIEW_URL: ${{ steps.deploy-preview.outputs.hosting_url }}
+          LHCI_PREVIEW_URL_BASE64: ${{ steps.deploy-preview.outputs.hosting_url }}
           
       
       - name: Format lighthouse score
