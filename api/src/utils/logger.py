@@ -118,6 +118,7 @@ def is_local_env():
 def global_logging_setup():
     if is_local_env():
         logging.basicConfig(level=get_env_logging_level())
+        logging.info("Setting none-cloud up logging completed")
         return
 
     # Send warnings through logging
