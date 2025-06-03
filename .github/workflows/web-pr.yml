@@ -55,4 +55,4 @@ jobs:
           # Output is baseb4 encoded due to a false positive secret detection
           # More info https://github.com/orgs/community/discussions/37942
           HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
-      
+
