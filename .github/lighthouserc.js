@@ -1,6 +1,7 @@
 let previewBaseUrl = '';
 try {
   const previewUrlBase64 = process.env.LHCI_PREVIEW_URL_BASE64;
+  console.log("environemtnt variable LHCI_PREVIEW_URL:", previewUrlBase64);
   if (previewUrlBase64) {
     const decodedUrl = Buffer.from(previewUrlBase64, 'base64').toString('utf-8');
     console.log("Decoded preview URL:", decodedUrl);
@@ -11,8 +12,6 @@ try {
 } catch (error) {
   console.error("Error decoding LHCI_PREVIEW_URL_BASE64:", error);
 }
-
-console.log("environemtnt variable LHCI_PREVIEW_URL:", previewUrlBase64);
 
 module.exports = {
   ci: {
