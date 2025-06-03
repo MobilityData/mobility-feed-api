@@ -1,4 +1,6 @@
-const previewBaseUrl = process.env.LHCI_PREVIEW_URL || '';
+const previewBaseUrl = process.env.LHCI_PREVIEW_URL || 'https://mobility-feeds-dev--pr-1203-nlp6ow3m.web.app';
+
+console.log("environemtnt variable LHCI_PREVIEW_URL:", process.env.LHCI_PREVIEW_URL);
 
 module.exports = {
   ci: {
@@ -13,6 +15,7 @@ module.exports = {
       numberOfRuns: 2,
       settings: {
         formFactor: 'desktop',
+        throttlingMethod: 'provided',
         skipAudits: ['robots-txt'],
         screenEmulation: {
           mobile: false,
