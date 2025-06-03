@@ -92,7 +92,7 @@ class RequestContextMiddleware:
             _request_context.set(request_context.__dict__)
 
             async def http_send(message):
-                self.logger.debug("HTTP message type: %s", message[type])
+                self.logger.debug("HTTP message type: %s", message["type"])
                 if message["type"] == "http.response.start":
                     self.logger.debug("HTTP response started")
                     content_type, content_length = self.extract_response_info(message["headers"])
