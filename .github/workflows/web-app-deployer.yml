@@ -342,8 +342,10 @@ jobs:
         uses: treosh/lighthouse-ci-action@v12
         # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
         with:
-          configPath: ./.github/lighthouserc.json
+          configPath: ./.github/lighthouserc.js
           temporaryPublicStorage: true
+        env:
+          LHCI_PREVIEW_URL: ${{ inputs.PREVIEW_HOST_NAME }}
           
       
       - name: Format lighthouse score
@@ -353,12 +355,12 @@ jobs:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const results = ${{ steps.lighthouse-check.outputs.manifest }}
+            const links = ${{ steps.lighthouse-check.outputs.links }}
+            console.log("$$$$", results)
+            console.log("######", links)
             let comment = []
             results.forEach((resultData, index) => {
                 const result = resultData.summary;
-                const links = ${{ steps.lighthouse-check.outputs.links }}
-                console.log("index", index)
-                console.log(result, links)
 
                 const formatResult = (res) => Math.round((res * 100))
                 Object.keys(result).forEach(key => result[key] = formatResult(result[key]))
