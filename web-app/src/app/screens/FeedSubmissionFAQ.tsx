@@ -70,7 +70,7 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
                 target='_blank'
                 endIcon={<OpenInNewIcon />}
               >
-                the GBFS systems catalog.
+                the GBFS systems.csv catalog.
               </Button>
               The Mobility Database automatically syncs with systems.csv.
             </Typography>
