@@ -35,7 +35,6 @@ from shared.common.error_handling import (
     InternalHTTPException,
     gbfs_feed_not_found,
 )
-from shared.common.logging_utils import Logger
 from shared.database.database import Database, with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed as FeedOrm,
@@ -50,6 +49,7 @@ from shared.feed_filters.gtfs_dataset_filter import GtfsDatasetFilter
 from shared.feed_filters.gtfs_feed_filter import LocationFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from utils.date_utils import valid_iso_date
+from utils.logger import get_logger
 
 T = TypeVar("T", bound="Feed")
 
@@ -64,7 +64,7 @@ class FeedsApiImpl(BaseFeedsApi):
     APIFeedType = Union[FeedOrm, GtfsFeed, GtfsRTFeed]
 
     def __init__(self) -> None:
-        self.logger = Logger("FeedsApiImpl").get_logger()
+        self.logger = get_logger("FeedsApiImpl")
 
     @with_db_session
     def get_feed(self, id: str, db_session: Session) -> Feed:

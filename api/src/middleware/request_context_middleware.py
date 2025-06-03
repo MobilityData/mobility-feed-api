@@ -1,3 +1,4 @@
+import logging
 import time
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -85,6 +86,8 @@ class RequestContextMiddleware:
         """
         Middleware to set the request context and log the API access logs.
         """
+        self.logger.debug("Processing request scope: %s", scope)
+        logging.debug("Processing request with scope: %s", scope)
         if scope["type"] == "http":
             start_time = time.time()
             self.logger.debug("Registering starting request time: %s", start_time)

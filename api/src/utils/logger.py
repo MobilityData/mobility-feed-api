@@ -116,6 +116,7 @@ def is_local_env():
 
 
 def global_logging_setup():
+    logging.info("Setting up logging")
     if is_local_env():
         logging.basicConfig(level=get_env_logging_level())
         logging.info("Setting none-cloud up logging completed")
@@ -150,6 +151,7 @@ def global_logging_setup():
         "sqlalchemy.exc",
         "feed-api",
         "sqlalchemy.engine",
+        API_ACCESS_LOG,
     ]:
         get_logger(name)
 
