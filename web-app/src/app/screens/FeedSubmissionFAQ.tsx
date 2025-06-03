@@ -53,6 +53,36 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
             expandIcon={<ExpandMoreIcon />}
           >
             <Typography sx={{ fontWeight: 'bold' }}>
+              Can I contribute GBFS feeds?
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography>
+              If you want to add GBFS feeds to the Mobility Database, please
+              contribute to
+              <Button
+                variant='text'
+                className='inline'
+                href={
+                  'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+                }
+                rel='noreferrer'
+                target='_blank'
+                endIcon={<OpenInNewIcon />}
+              >
+                the GBFS systems.csv catalog.
+              </Button>
+              The Mobility Database automatically syncs with systems.csv.
+            </Typography>
+          </AccordionDetails>
+        </Accordion>
+        <Accordion sx={accordionStyle}>
+          <AccordionSummary
+            aria-controls='panel1-content'
+            id='panel1-header'
+            expandIcon={<ExpandMoreIcon />}
+          >
+            <Typography sx={{ fontWeight: 'bold' }}>
               What is a GTFS feed?
             </Typography>
           </AccordionSummary>
