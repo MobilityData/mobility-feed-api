@@ -123,7 +123,6 @@
     "firebase-tools": "^12.5.4",
     "openapi-typescript": "^6.7.5",
     "prettier": "^3.0.3",
-    "serve": "^14.2.4",
     "ts-loader": "^9.4.4",
     "typescript": "^5.2.2",
     "wait-on": "^7.0.1"

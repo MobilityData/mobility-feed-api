@@ -56,5 +56,3 @@ jobs:
           # More info https://github.com/orgs/community/discussions/37942
           HOSTING_URL_64: ${{ needs.deploy-web-app.outputs.hosting_url }}
       
-
-

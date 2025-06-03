@@ -322,20 +322,6 @@ jobs:
           echo "hosting_url=$HOSTING_URL" >> "$GITHUB_OUTPUT"
           echo "hosting_expiration_date=$HOSTING_EXPIRATION_DATE" >> "$GITHUB_OUTPUT"
       
-      - name: Set Lighthouse CI env
-        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
-        working-directory: web-app
-        # We override the robots.txt to not penalize the SEO score
-        # Important that this step stays after the deploy
-        # Local server over preview url to avoid SEO penalties
-        run: |
-          echo -e "User-agent: *\nAllow: /" > build/robots.txt
-          npx serve -s build -l 55300 --single &
-
-      - name: Wait for server to be ready
-        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
-        run: npx wait-on http://localhost:55300
-      
       - name: Lighthouse Check
         id: lighthouse-check
         if: ${{ inputs.PREVIEW_DEPLOYMENT }}
@@ -356,8 +342,6 @@ jobs:
           script: |
             const results = ${{ steps.lighthouse-check.outputs.manifest }}
             const links = ${{ steps.lighthouse-check.outputs.links }}
-            console.log("$$$$", results)
-            console.log("######", links)
             let comment = []
             results.forEach((resultData, index) => {
                 const result = resultData.summary;
@@ -379,11 +363,8 @@ jobs:
                 ])
             })
             const finalComment = comment.join('\n')
-            
             core.setOutput("comment", finalComment); 
 
-            
-      
       - name: Add lighthouse comment to PR
         id: comment_to_pr
         uses: marocchino/sticky-pull-request-comment@v1
@@ -393,22 +374,4 @@ jobs:
           header: lighthouse
           message: |
             ${{ steps.format_lighthouse_score.outputs.comment }}
-      
-
-      # - name: Lighthouse Check
-      #   if: ${{ inputs.PREVIEW_DEPLOYMENT }}
-      #   uses: foo-software/lighthouse-check-action@master
-      #   # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
-      #   with:
-      #     urls: 'http://localhost:55300,http://localhost:55300/feeds,http://localhost:55300/feeds/gtfs/mdb-2126,http://localhost:55300/feeds/gtfs_rt/mdb-2585,http://localhost:55300/gbfs/gbfs-flamingo_porirua'
-      #     prCommentEnabled: true
-      #     prCommentSaveOld: false
-      #     maxRetries: 3
-      #     gitHubAccessToken: ${{ secrets.GITHUB_TOKEN }}
-      #     device: 'desktop'
-      
-      - name: Cleanup server
-        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
-        run: |
-          pkill -f "serve -s build"
 
