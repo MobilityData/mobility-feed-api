@@ -121,7 +121,7 @@ export default function FAQ(): React.ReactElement {
             target='_blank'
             endIcon={<OpenInNewIcon />}
           >
-            systems catalog
+            systems.csv catalog
           </Button>
           is merged.
         </Typography>
