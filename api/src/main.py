@@ -55,10 +55,7 @@ app.include_router(FeedsApiRouter)
 app.include_router(MetadataApiRouter)
 app.include_router(SearchApiRouter)
 
-
-@app.on_event("startup")
-async def startup_event():
-    global_logging_setup()
+global_logging_setup()
 
 
 if __name__ == "__main__":

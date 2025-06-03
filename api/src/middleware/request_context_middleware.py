@@ -60,6 +60,7 @@ class RequestContextMiddleware:
         """
         Log the API access logs.
         """
+        self.logger.debug("logging log api access")
         latency = time.time() - start_time
         request = self.create_http_request(scope, request_context, status_code, content_length, latency)
         headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
@@ -86,11 +87,14 @@ class RequestContextMiddleware:
         """
         if scope["type"] == "http":
             start_time = time.time()
+            self.logger.debug("Registering starting request time: %s", start_time)
             request_context = RequestContext(scope=scope)
             _request_context.set(request_context.__dict__)
 
             async def http_send(message):
+                self.logger.debug("HTTP message type: %s", message[type])
                 if message["type"] == "http.response.start":
+                    self.logger.debug("HTTP response started")
                     content_type, content_length = self.extract_response_info(message["headers"])
                     status_code = message["status"]
                     self.log_api_access(scope, request_context, status_code, content_length, start_time)
