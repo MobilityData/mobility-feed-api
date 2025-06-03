@@ -115,7 +115,7 @@ export default function FAQ(): React.ReactElement {
             variant='text'
             className='line-start inline'
             href={
-              'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+              'https://github.com/MobilityData/gbfs/blob/master/systems.csv'
             }
             rel='noreferrer'
             target='_blank'
