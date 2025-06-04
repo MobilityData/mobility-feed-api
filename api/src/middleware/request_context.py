@@ -3,7 +3,6 @@ from contextvars import ContextVar
 
 import requests
 from google.auth import jwt
-from requests.exceptions import RequestException
 from starlette.datastructures import Headers
 from starlette.types import Scope
 
