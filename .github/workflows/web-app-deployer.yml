@@ -336,6 +336,7 @@ jobs:
       
       - name: Format lighthouse score
         id: format_lighthouse_score
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         uses: actions/github-script@v3
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
@@ -367,6 +368,7 @@ jobs:
 
       - name: Add lighthouse comment to PR
         id: comment_to_pr
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
         uses: marocchino/sticky-pull-request-comment@v1
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
