@@ -116,10 +116,12 @@ def is_local_env():
 
 
 def global_logging_setup():
+    logging.critical("Starting cloud up logging")
     if is_local_env():
+        logging.critical("Setting local up logging")
         logging.basicConfig(level=get_env_logging_level())
         return
-
+    logging.critical("Setting cloud up logging")
     # Send warnings through logging
     logging.captureWarnings(True)
     # Replace sys.stderr
@@ -127,7 +129,7 @@ def global_logging_setup():
     try:
         client = google.cloud.logging.Client()
         handler = CloudLoggingHandler(client, structured=True)
-        handler.setLevel(get_env_logging_level())
+        handler.setLevel(logging.DEBUG)
         handler.addFilter(GoogleCloudLogFilter(project=client.project))
     except Exception as e:
         logging.error("Error initializing cloud logging: %s", e)
@@ -136,7 +138,7 @@ def global_logging_setup():
 
     # Configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(get_env_logging_level())
+    root_logger.setLevel(logging.DEBUG)
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
 

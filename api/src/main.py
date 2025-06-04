@@ -15,6 +15,7 @@
 #
 # This files allows to add extra application decorators aside from the generated code.
 # The app created here is intended to replace the generated feeds_gen.main:app variable.
+import logging
 import os
 
 import uvicorn
@@ -58,7 +59,9 @@ app.include_router(SearchApiRouter)
 
 @app.on_event("startup")
 async def startup_event():
+    print("print: TEST_LOG_FROM_MAIN_PY_INIT_QA_PROD")
     global_logging_setup()
+    logging.critical("TEST_LOG_FROM_MAIN_PY_INIT_QA_PROD")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ class RequestContextMiddleware:
 
     def __init__(self, app: ASGIApp) -> None:
         self.logger = get_logger(API_ACCESS_LOG)
+        self.logger.critical("MIDDLEWARE_INIT_TEST_QA_PROD")
         self.app = app
 
     @staticmethod
@@ -60,6 +61,10 @@ class RequestContextMiddleware:
         """
         Log the API access logs.
         """
+        self.logger.critical(
+            f"MIDDLEWARE_USER_ID_CHECK_QA_PROD_CRITICAL: "
+            f"{request_context.user_id if request_context.user_id else 'USER_ID_IS_EMPTY_OR_NONE'}"
+        )
         latency = time.time() - start_time
         request = self.create_http_request(scope, request_context, status_code, content_length, latency)
         headers = {k.decode().lower(): v.decode() for k, v in scope.get("headers", [])}
