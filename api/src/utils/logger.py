@@ -62,23 +62,26 @@ class GoogleCloudLogFilter(CloudLoggingFilter):
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        request_context = get_request_context()
-        http_request = get_http_request(record)
-        if http_request:
-            record.http_request = asdict(http_request)
-        span_id = request_context.get("span_id")
-        trace = get_trace(request_context)
-        record.trace = trace
-        record.span_id = span_id
+        try:
+            request_context = get_request_context()
+            http_request = get_http_request(record)
+            if http_request:
+                record.http_request = asdict(http_request)
+            span_id = request_context.get("span_id")
+            trace = get_trace(request_context)
+            record.trace = trace
+            record.span_id = span_id
 
-        record._log_fields = {
-            "logging.googleapis.com/trace": trace,
-            "logging.googleapis.com/spanId": span_id,
-            "logging.googleapis.com/httpRequest": asdict(http_request) if http_request else None,
-            "logging.googleapis.com/trace_sampled": True,
-        }
-        super().filter(record)
-
+            record._log_fields = {
+                "logging.googleapis.com/trace": trace,
+                "logging.googleapis.com/spanId": span_id,
+                "logging.googleapis.com/httpRequest": asdict(http_request) if http_request else None,
+                "logging.googleapis.com/trace_sampled": True,
+            }
+            super().filter(record)
+        except Exception as e:
+            # Using print to avoid a recursive call the log filter
+            print(f"Error in GoogleCloudLogFilter: {e}")
         return True
 
 
@@ -116,12 +119,12 @@ def is_local_env():
 
 
 def global_logging_setup():
-    logging.critical("Starting cloud up logging")
+    logging.debug("Starting cloud up logging")
     if is_local_env():
-        logging.critical("Setting local up logging")
+        logging.debug("Setting local up logging")
         logging.basicConfig(level=get_env_logging_level())
         return
-    logging.critical("Setting cloud up logging")
+    logging.debug("Setting cloud up logging")
     # Send warnings through logging
     logging.captureWarnings(True)
     # Replace sys.stderr
@@ -154,4 +157,4 @@ def global_logging_setup():
     ]:
         get_logger(name)
 
-    logging.info("Setting cloud up logging completed")
+    logging.debug("Setting cloud up logging completed")
