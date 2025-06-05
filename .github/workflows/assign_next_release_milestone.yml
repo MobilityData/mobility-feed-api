@@ -16,13 +16,23 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+
+      - name: Load secrets from 1Password
+        id: onepw_secrets
+        uses: 1password/load-secrets-action@v2.0.0
+        with:
+            export-env: true # Export loaded secrets as environment variables
+        env:
+            OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+            GH_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GitHub generic action token for all repos/credential"
+     
       - name: Checkout repository
         uses: actions/checkout@v4
         
       - name: Assign milestone to merged issues
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ env.GH_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
             
