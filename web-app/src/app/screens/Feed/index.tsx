@@ -65,12 +65,14 @@ import {
 import DownloadIcon from '@mui/icons-material/Download';
 import GbfsFeedInfo from './components/GbfsFeedInfo';
 import GbfsVersions from './components/GbfsVersions';
+import generateFeedStructuredData from './StructuredData.functions';
 
 const wrapComponent = (
   feedLoadingStatus: string,
   descriptionMeta: string | undefined,
   feedDataType: string | undefined,
   feedId: string | undefined,
+  structuredData: Record<string, unknown> | undefined,
   child: React.ReactElement,
 ): React.ReactElement => {
   const { t } = useTranslation('feeds');
@@ -89,9 +91,14 @@ const wrapComponent = (
           <link
             rel='canonical'
             href={
-              window.location.origin + 'feeds/' + feedDataType + '/' + feedId
+              window.location.origin + '/feeds/' + feedDataType + '/' + feedId
             }
           />
+        )}
+        {structuredData != undefined && (
+          <script type='application/ld+json'>
+            {JSON.stringify(structuredData)}
+          </script>
         )}
       </Helmet>
 
@@ -140,6 +147,24 @@ export default function Feed(): React.ReactElement {
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
   const sortedProviders = formatProvidersSorted(feed?.provider ?? '');
   const DATASET_CALL_LIMIT = 10;
+  const [structuredData, setStructuredData] = React.useState<
+    Record<string, unknown> | undefined
+  >();
+
+  React.useMemo(() => {
+    const structuredData = generateFeedStructuredData(
+      feed,
+      generateDescriptionMetaTag(
+        t,
+        sortedProviders,
+        feed?.data_type,
+        feed?.feed_name,
+      ),
+      relatedFeeds,
+      relatedGtfsRtFeeds,
+    );
+    setStructuredData(structuredData);
+  }, [feed, relatedFeeds, relatedGtfsRtFeeds]);
 
   const loadDatasets = (offset: number): void => {
     if (feedId != undefined && hasLoadedAllDatasets === false) {
@@ -209,6 +234,7 @@ export default function Feed(): React.ReactElement {
       undefined,
       feedType,
       feedId,
+      structuredData,
       <Box>
         <Skeleton
           animation='wave'
@@ -312,6 +338,7 @@ export default function Feed(): React.ReactElement {
     ),
     feedType,
     feedId,
+    structuredData,
     <Box sx={{ position: 'relative' }}>
       <Grid container item xs={12} spacing={3} alignItems={'center'}>
         <Grid
