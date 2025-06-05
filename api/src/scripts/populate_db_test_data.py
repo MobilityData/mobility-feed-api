@@ -20,8 +20,9 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsfeed,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
-from shared.common.logging_utils import Logger
 from typing import TYPE_CHECKING
+
+from utils.logger import get_logger
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -38,7 +39,7 @@ class DatabasePopulateTestDataHelper:
         Specify a list of files to load the json data from.
         Can also be a single string with a file name.
         """
-        self.logger = Logger(self.__class__.__module__).get_logger()
+        self.logger = get_logger(self.__class__.__module__)
 
         if not isinstance(filepaths, list):
             self.filepaths = [filepaths]

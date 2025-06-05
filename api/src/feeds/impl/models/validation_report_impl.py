@@ -1,6 +1,6 @@
 from shared.database_gen.sqlacodegen_models import Validationreport
 from feeds_gen.models.validation_report import ValidationReport
-from shared.common.logging_utils import Logger
+from utils.logger import get_logger
 
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -18,7 +18,7 @@ class ValidationReportImpl(ValidationReport):
 
     @classmethod
     def _get_logger(cls):
-        return Logger(ValidationReportImpl.__class__.__module__).get_logger()
+        return get_logger(ValidationReportImpl.__class__.__module__)
 
     @classmethod
     def from_orm(cls, validation_report: Validationreport | None) -> ValidationReport | None:
