@@ -1,9 +1,15 @@
 name: Assign `Next Release` Milestone
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.github/**'
 
 jobs:
   assign-milestone:
