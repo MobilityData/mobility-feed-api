@@ -1,7 +1,6 @@
 name: Assign `Next Release` Milestone
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
@@ -10,6 +9,13 @@ on:
       - 'LICENSE'
       - '.gitignore'
       - '.github/**'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in test mode (no changes made)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   assign-milestone:
@@ -36,81 +42,91 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             
+            const isDryRun = '${{ github.event.inputs.dry_run }}' === 'true';
+            
+            if (isDryRun) {
+                console.log('🧪 RUNNING IN DRY RUN MODE - No changes will be made');
+            }
+            
             // Get the "next release" milestone
             const milestones = await github.rest.issues.listMilestones({
-              owner,
-              repo,
-              state: 'open'
+                owner,
+                repo,
+                state: 'open'
             });
             
             const nextReleaseMilestone = milestones.data.find(
-              milestone => milestone.title.toLowerCase() === 'Next Release'
+                milestone => milestone.title.toLowerCase() === 'next release'
             );
             
             if (!nextReleaseMilestone) {
-              console.log('❌ Next Release milestone not found');
-              return;
+                console.log('❌ "next release" milestone not found');
+                return;
             }
             
             console.log(`Found milestone: ${nextReleaseMilestone.title} (ID: ${nextReleaseMilestone.number})`);
             
             // Get all closed issues
             const issues = await github.rest.issues.listForRepo({
-              owner,
-              repo,
-              state: 'closed',
-              per_page: 100
+                owner,
+                repo,
+                state: 'closed',
+                per_page: 100
             });
             
             console.log(`Found ${issues.data.length} closed issues`);
             
             // Process each issue
             for (const issue of issues.data) {
-              // Skip pull requests (they appear in issues API but have pull_request property)
-              if (issue.pull_request) {
-                continue;
-              }
-              
-              // Skip if already has the next release milestone
-              if (issue.milestone && issue.milestone.number === nextReleaseMilestone.number) {
-                console.log(`Issue #${issue.number} already has Next Release milestone`);
-                continue;
-              }
-              
-              // Check if issue was closed by a merged PR
-              const timelineEvents = await github.rest.issues.listEventsForTimeline({
-                owner,
-                repo,
-                issue_number: issue.number
-              });
-              
-              const wasMergedToMain = timelineEvents.data.some(event => {
-                return event.event === 'closed' && 
-                       event.commit_id && 
-                       event.source && 
-                       event.source.issue && 
-                       event.source.issue.pull_request &&
-                       event.source.issue.pull_request.merged_at;
-              });
-              
-              if (wasMergedToMain) {
-                console.log(`Assigning milestone to issue #${issue.number}: ${issue.title}`);
-                
-                try {
-                  await github.rest.issues.update({
+                // Skip pull requests (they appear in issues API but have pull_request property)
+                if (issue.pull_request) {
+                    continue;
+                }
+            
+                // Skip if already has the next release milestone
+                if (issue.milestone && issue.milestone.number === nextReleaseMilestone.number) {
+                    console.log(`Issue #${issue.number} already has next release milestone`);
+                    continue;
+                }
+            
+                // Check if issue was closed by a merged PR
+                const timelineEvents = await github.rest.issues.listEventsForTimeline({
                     owner,
                     repo,
-                    issue_number: issue.number,
-                    milestone: nextReleaseMilestone.number
-                  });
-                  
-                  console.log(`✅ Successfully assigned milestone to issue #${issue.number}`);
-                } catch (error) {
-                  console.error(`❌ Failed to assign milestone to issue #${issue.number}:`, error.message);
+                    issue_number: issue.number
+                });
+            
+                const wasMergedToMain = timelineEvents.data.some(event => {
+                    return event.event === 'closed' &&
+                        event.commit_id &&
+                        event.source &&
+                        event.source.issue &&
+                        event.source.issue.pull_request &&
+                        event.source.issue.pull_request.merged_at;
+                });
+            
+                if (wasMergedToMain) {
+                    console.log(`${isDryRun ? '🧪 [DRY RUN] Would assign' : 'Assigning'} milestone to issue #${issue.number}: ${issue.title}`);
+            
+                    if (!isDryRun) {
+                        try {
+                            await github.rest.issues.update({
+                                owner,
+                                repo,
+                                issue_number: issue.number,
+                                milestone: nextReleaseMilestone.number
+                            });
+            
+                            console.log(`✅ Successfully assigned milestone to issue #${issue.number}`);
+                        } catch (error) {
+                            console.error(`❌ Failed to assign milestone to issue #${issue.number}:`, error.message);
+                        }
+                    } else {
+                        console.log(`🧪 [DRY RUN] Skipped actual assignment for issue #${issue.number}`);
+                    }
+                } else {
+                    console.log(`Issue #${issue.number} was not merged to main, skipping`);
                 }
-              } else {
-                console.log(`Issue #${issue.number} was not merged to main, skipping`);
-              }
             }
             
-            console.log('Milestone assignment complete!');
+            console.log(`${isDryRun ? '🧪 [DRY RUN] Test complete!' : 'Milestone assignment complete!'}`);
