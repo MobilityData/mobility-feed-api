@@ -9,13 +9,13 @@ import pandas
 from dotenv import load_dotenv
 from sqlalchemy import text
 
-from shared.common.logging_utils import Logger
 from shared.database.database import Database
 from shared.database.database import configure_polymorphic_mappers
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsrealtimefeed, Gtfsfeed, Gbfsfeed
 from shared.database_gen.sqlacodegen_models import (
     t_feedsearch,
 )
+from utils.logger import get_logger
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -50,7 +50,7 @@ class DatabasePopulateHelper:
         Specify a list of files to load the csv data from.
         Can also be a single string with a file name.
         """
-        self.logger = Logger(self.__class__.__name__).get_logger()
+        self.logger = get_logger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
         self.db = Database(echo_sql=False)
         self.df = pandas.DataFrame()

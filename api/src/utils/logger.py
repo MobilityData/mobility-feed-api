@@ -132,7 +132,7 @@ def global_logging_setup():
     try:
         client = google.cloud.logging.Client()
         handler = CloudLoggingHandler(client, structured=True)
-        handler.setLevel(logging.DEBUG)
+        handler.setLevel(get_env_logging_level())
         handler.addFilter(GoogleCloudLogFilter(project=client.project))
     except Exception as e:
         logging.error("Error initializing cloud logging: %s", e)
@@ -141,7 +141,7 @@ def global_logging_setup():
 
     # Configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.DEBUG)
+    root_logger.setLevel(get_env_logging_level())
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
 
