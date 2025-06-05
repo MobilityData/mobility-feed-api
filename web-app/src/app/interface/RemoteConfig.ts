@@ -58,7 +58,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableFeatureFilterSearch: false,
   enableIsOfficialFilterSearch: false,
   enableFeedStatusBadge: false,
-  enableGbfsInSearchPage: false,
+  enableGbfsInSearchPage: true,
   gbfsVersions: JSON.stringify(gbfsVersionsDefault),
 };
 
