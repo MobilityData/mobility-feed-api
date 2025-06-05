@@ -46,7 +46,7 @@ locals {
     for role in local.service_account_roles :
     "${role}" => {
       role    = role
-      project = role == "roles/vpcaccess.user" ? local.vpc_connector_project : var.project_id
+      project = var.project_id
     }
   }
 }
