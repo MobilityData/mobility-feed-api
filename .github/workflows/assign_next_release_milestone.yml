@@ -47,4 +47,4 @@ jobs:
           GITHUB_TOKEN: ${{ env.GH_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
-        run: node .github/scripts/assign-next-release-milestone.js
+        run: node scripts/assign-next-release-milestone.js
