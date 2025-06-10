@@ -439,7 +439,7 @@ export default function Feed(): React.ReactElement {
             ).toDateString()}`}
           </Typography>
         )}
-        {feed.external_ids?.some((eId) => eId.source === 'tld') && (
+        {feed.external_ids?.some((eId) => eId.source === 'tld') === true && (
           <Typography
             data-testid='transitland-attribution'
             variant={'caption'}
@@ -456,7 +456,7 @@ export default function Feed(): React.ReactElement {
             </a>
           </Typography>
         )}
-        {feed.external_ids?.some((eId) => eId.source === 'ntd') && (
+        {feed.external_ids?.some((eId) => eId.source === 'ntd') === true && (
           <Typography
             data-testid='fta-attribution'
             variant={'caption'}
