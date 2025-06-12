@@ -6,7 +6,8 @@
   "timeout": 20,
   "memory": "128Mi",
   "trigger_http": true,
-  "include_folders": [],
+  "include_folders": ["helpers"],
+  "include_api_folders": ["common"],
   "environment_variables": [],
   "secret_environment_variables": [
     {

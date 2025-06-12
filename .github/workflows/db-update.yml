@@ -185,39 +185,57 @@ jobs:
     - name: Install requirements and generate db model
       run: scripts/db-gen.sh
 
+    - name: Determine update type
+      id: update-type
+      run: |
+        if [[ "${{ github.event.action }}" == "gbfs-systems-updated" ]]; then
+          echo "UPDATE_TYPE=gbfs" >> $GITHUB_ENV
+        elif [[ "${{ github.event.action }}" == "catalog-sources-updated" ]]; then
+          echo "UPDATE_TYPE=gtfs" >> $GITHUB_ENV
+        else
+          echo "UPDATE_TYPE=manual" >> $GITHUB_ENV  # fallback for workflow_dispatch
+        fi      
+
     - name: Download csv version of the database
+      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
       run: wget -O sources.csv https://bit.ly/catalogs-csv
 
     - name: Get full path of sources.csv
+      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
       id: getpath
       run: echo "PATH=$(realpath sources.csv)" >> $GITHUB_OUTPUT
 
-    - name: Download systems.csv
-      run: wget -O systems.csv https://raw.githubusercontent.com/MobilityData/gbfs/master/systems.csv
-
-    - name: Get full path of systems.csv
-      id: getsyspath
-      run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
-
     - name: GTFS - Update Database Content
+      if: ${{ env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual' }}
       run: scripts/populate-db.sh ${{ steps.getpath.outputs.PATH }} > populate.log
 
-    - name: GBFS - Update Database Content
-      run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
-
     - name: GTFS - Upload log file for verification
-      if: ${{ always() }}
+      if: ${{ always() && (env.UPDATE_TYPE == 'gtfs' || env.UPDATE_TYPE == 'manual') }}
       uses: actions/upload-artifact@v4
       with:
         name: populate-${{ inputs.ENVIRONMENT }}.log
         path: populate.log
 
+    - name: Download systems.csv
+      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
+      run: wget -O systems.csv https://raw.githubusercontent.com/MobilityData/gbfs/master/systems.csv
+
+    - name: Get full path of systems.csv
+      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
+      id: getsyspath
+      run: echo "PATH=$(realpath systems.csv)" >> $GITHUB_OUTPUT
+
+    - name: GBFS - Update Database Content
+      if: ${{ env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual' }}
+      run: scripts/populate-db.sh ${{ steps.getsyspath.outputs.PATH }} gbfs >> populate-gbfs.log
+
     - name: GBFS - Upload log file for verification
-      if: ${{ always() }}
+      if: ${{ always() && (env.UPDATE_TYPE == 'gbfs' || env.UPDATE_TYPE == 'manual') }}
       uses: actions/upload-artifact@v4
       with:
-          name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
-          path: populate-gbfs.log
+        name: populate-gbfs-${{ inputs.ENVIRONMENT }}.log
+        path: populate-gbfs.log
+
 
   update-gcp-secret:
     name: Update GCP Secrets

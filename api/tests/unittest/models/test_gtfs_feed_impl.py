@@ -1,6 +1,7 @@
 import copy
 import unittest
-from datetime import datetime, date
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from geoalchemy2 import WKTElement
 
@@ -87,8 +88,9 @@ gtfs_feed_orm = Gtfsfeed(
             note="note",
             downloaded_at=datetime(year=2022, month=12, day=31, hour=13, minute=45, second=56),
             hash="hash",
-            service_date_range_start=date(2024, 1, 1),
-            service_date_range_end=date(2025, 1, 1),
+            service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            agency_timezone="Canada/Atlantic",
             bounding_box=WKTElement(POLYGON, srid=4326),
             latest=True,
             validation_reports=[
@@ -170,9 +172,11 @@ expected_gtfs_feed_result = GtfsFeedImpl(
             unique_error_count=3,
             unique_warning_count=4,
             unique_info_count=2,
+            features=["feature"],
         ),
-        service_date_range_start="2024-01-01",
-        service_date_range_end="2025-01-01",
+        service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+        service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+        agency_timezone="Canada/Atlantic",
     ),
 )
 
@@ -182,7 +186,14 @@ class TestGtfsFeedImpl(unittest.TestCase):
 
     def test_from_orm_all_fields(self):
         """Test the `from_orm` method with all fields."""
-        result = GtfsFeedImpl.from_orm(gtfs_feed_orm, {})
+        # Update the validation report in gtfs_feed_orm to include precomputed counters
+        gtfs_feed_orm.gtfsdatasets[0].validation_reports[0].total_error = 27
+        gtfs_feed_orm.gtfsdatasets[0].validation_reports[0].total_warning = 64
+        gtfs_feed_orm.gtfsdatasets[0].validation_reports[0].total_info = 4
+        gtfs_feed_orm.gtfsdatasets[0].validation_reports[0].unique_error_count = 3
+        gtfs_feed_orm.gtfsdatasets[0].validation_reports[0].unique_warning_count = 4
+        gtfs_feed_orm.gtfsdatasets[0].validation_reports[0].unique_info_count = 2
+        result = GtfsFeedImpl.from_orm(gtfs_feed_orm)
         assert result == expected_gtfs_feed_result
 
     def test_from_orm_empty_fields(self):

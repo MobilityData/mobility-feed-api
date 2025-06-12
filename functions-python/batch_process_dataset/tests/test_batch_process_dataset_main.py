@@ -11,8 +11,9 @@ from main import (
     DatasetFile,
     process_dataset,
 )
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsfeed
-from test_shared.test_utils.database_utils import get_testing_session, default_db_url
+from test_shared.test_utils.database_utils import default_db_url
 from cloudevents.http import CloudEvent
 
 public_url = (
@@ -214,9 +215,9 @@ class TestDatasetProcessor(unittest.TestCase):
     @patch.dict(
         os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}
     )
-    def test_process(self):
-        session = get_testing_session()
-        feeds = session.query(Gtfsfeed).all()
+    @with_db_session(db_url=default_db_url)
+    def test_process(self, db_session):
+        feeds = db_session.query(Gtfsfeed).all()
         feed_id = feeds[0].id
 
         producer_url = "https://testproducer.com/data"
@@ -259,9 +260,9 @@ class TestDatasetProcessor(unittest.TestCase):
         os.environ,
         {"FEEDS_CREDENTIALS": '{"not_what_u_r_looking_4": "test_credentials"}'},
     )
-    def test_fails_authenticated_feed_not_creds(self):
-        session = get_testing_session()
-        feeds = session.query(Gtfsfeed).all()
+    @with_db_session(db_url=default_db_url)
+    def test_fails_authenticated_feed_not_creds(self, db_session):
+        feeds = db_session.query(Gtfsfeed).all()
         feed_id = feeds[0].id
 
         producer_url = "https://testproducer.com/data"
@@ -293,9 +294,9 @@ class TestDatasetProcessor(unittest.TestCase):
         os.environ,
         {"FEEDS_CREDENTIALS": "not a JSON string"},
     )
-    def test_fails_authenticated_feed_creds_invalid(self):
-        session = get_testing_session()
-        feeds = session.query(Gtfsfeed).all()
+    @with_db_session(db_url=default_db_url)
+    def test_fails_authenticated_feed_creds_invalid(self, db_session):
+        feeds = db_session.query(Gtfsfeed).all()
         feed_id = feeds[0].id
 
         producer_url = "https://testproducer.com/data"
@@ -355,11 +356,10 @@ class TestDatasetProcessor(unittest.TestCase):
         self.assertIsNone(result)
         processor.create_dataset.assert_not_called()
 
-    @patch("main.Logger")
     @patch("main.DatasetTraceService")
     @patch("main.DatasetProcessor")
     def test_process_dataset_normal_execution(
-        self, mock_dataset_processor, mock_dataset_trace, _
+        self, mock_dataset_processor, mock_dataset_trace
     ):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
@@ -391,11 +391,12 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_dataset_processor.assert_called_once()
         mock_dataset_processor_instance.process.assert_called_once()
 
-    @patch("main.Logger")
     @patch("main.DatasetTraceService")
     @patch("main.DatasetProcessor")
     def test_process_dataset_exception_caught(
-        self, mock_dataset_processor, mock_dataset_trace, _
+        self,
+        mock_dataset_processor,
+        mock_dataset_trace,
     ):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
@@ -415,9 +416,8 @@ class TestDatasetProcessor(unittest.TestCase):
         # Call the function
         process_dataset(cloud_event)
 
-    @patch("main.Logger")
     @patch("main.DatasetTraceService")
-    def test_process_dataset_missing_stable_id(self, mock_dataset_trace, _):
+    def test_process_dataset_missing_stable_id(self, mock_dataset_trace):
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
 

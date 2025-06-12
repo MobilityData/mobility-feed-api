@@ -21,3 +21,10 @@ shapely
 google-cloud-storage
 functions-framework==3.*
 google-cloud-logging
+
+# Configuration
+python-dotenv==1.0.0
+
+# Other dependencies
+natsort
+

@@ -19,7 +19,7 @@ extend-exclude = '''
     | build
     | dist
     | src/feeds_gen/*
-    | src/database_gen/*
+    | src/shared/database_gen/*
   )/
 )
 '''

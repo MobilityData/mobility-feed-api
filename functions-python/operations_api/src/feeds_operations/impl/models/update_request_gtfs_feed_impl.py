@@ -14,11 +14,11 @@
 #  limitations under the License.
 #
 
-from shared.database_gen.sqlacodegen_models import Gtfsfeed
 from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
 from feeds_operations.impl.models.redirect_impl import RedirectImpl
 from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed
 
 
 class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
@@ -64,6 +64,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
                 [ExternalIdImpl.from_orm(item) for item in obj.externalids],
                 key=lambda x: x.external_id,
             ),
+            official=obj.official,
         )
 
     @classmethod
@@ -78,6 +79,7 @@ class UpdateRequestGtfsFeedImpl(UpdateRequestGtfsFeed):
         entity.feed_name = update_request.feed_name
         entity.note = update_request.note
         entity.feed_contact_email = update_request.feed_contact_email
+        entity.official = update_request.official
         entity.producer_url = (
             None
             if (

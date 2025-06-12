@@ -19,9 +19,14 @@ def check_url_status(url: str) -> bool:
     """Check if a URL is reachable."""
     try:
         response = requests.head(url, timeout=10)
-        return response.status_code < 400 or response.status_code == 403
+        result = response.status_code < 400 or response.status_code == 403
+        if not result:
+            logging.error(
+                "Url [%s] replied with status code: [%s]", url, response.status_code
+            )
+        return result
     except requests.RequestException:
-        logging.warning(f"Failed to reach URL: {url}")
+        logging.warning("Failed to reach URL: %s", url)
         return False
 
 
@@ -61,7 +66,7 @@ def create_new_feed(session: Session, stable_id: str, payload: FeedPayload) -> F
         api_key_parameter_name=payload.auth_param_name,
         status="active",
         provider=payload.operator_name,
-        operational_status="wip",
+        operational_status="wip",  # Default to of wip
         created_at=datetime.now(),
     )
 
@@ -92,10 +97,10 @@ def create_new_feed(session: Session, stable_id: str, payload: FeedPayload) -> F
     )
     if location:
         new_feed.locations = [location]
-        logging.debug(f"Added location for feed {new_feed.id}")
+        logging.debug("Added location for feed %s", new_feed.id)
 
     # Persist the new feed
     session.add(new_feed)
     session.flush()
-    logging.info(f"Created new feed with ID: {new_feed.id}")
+    logging.info("Created new feed with ID: %s", new_feed.id)
     return new_feed

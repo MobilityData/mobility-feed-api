@@ -1,22 +1,20 @@
 import os
-from typing import TYPE_CHECKING
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import pycountry
 import pytz
-from sqlalchemy import text
 
-from shared.database.database import generate_unique_id, configure_polymorphic_mappers
+from scripts.load_dataset_on_create import publish_all
+from scripts.populate_db import DatabasePopulateHelper, set_up_configs
+from shared.database.database import generate_unique_id
 from shared.database_gen.sqlacodegen_models import (
     Entitytype,
     Externalid,
     Gtfsrealtimefeed,
     Location,
     Redirectingid,
-    t_feedsearch,
 )
-from scripts.populate_db import DatabasePopulateHelper, set_up_configs
-from scripts.load_dataset_on_create import publish_all
 from utils.data_utils import set_up_defaults
 
 if TYPE_CHECKING:
@@ -60,9 +58,11 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
         return f'mdb-{self.get_safe_value(row, "mdb_source_id", "")}'
 
     def get_country(self, country_code):
+        country = None
         if country_code:
-            return pycountry.countries.get(alpha_2=country_code).name
-        return None
+            country = pycountry.countries.get(alpha_2=country_code)
+            country = country.name if country else None
+        return country
 
     def populate_location(self, session, feed, row, stable_id):
         """
@@ -87,7 +87,10 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 if location
                 else Location(
                     id=location_id,
-                    country_code=country_code,
+                    # Country code should be short.
+                    # If too long it might be an error
+                    # (like it could be the country name instead of code).
+                    country_code=country_code if country_code and len(country_code) <= 3 else None,
                     subdivision_name=subdivision_name,
                     municipality=municipality,
                     country=country,
@@ -126,8 +129,14 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             gtfs_rt_feed = self.query_feed_by_stable_id(session, stable_id, "gtfs_rt")
             static_reference = self.get_safe_value(row, "static_reference", "")
             if static_reference:
-                gtfs_stable_id = f"mdb-{int(float(static_reference))}"
+                try:
+                    gtfs_stable_id = f"mdb-{int(float(static_reference))}"
+                except ValueError:
+                    gtfs_stable_id = static_reference
                 gtfs_feed = self.query_feed_by_stable_id(session, gtfs_stable_id, "gtfs")
+                if not gtfs_feed:
+                    self.logger.warning(f"Could not find static reference feed {gtfs_stable_id} for feed {stable_id}")
+                    continue
                 already_referenced_ids = {ref.id for ref in gtfs_feed.gtfs_rt_feeds}
                 if gtfs_feed and gtfs_rt_feed.id not in already_referenced_ids:
                     gtfs_feed.gtfs_rt_feeds.append(gtfs_rt_feed)
@@ -150,8 +159,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             comments = raw_comments.split("|") if raw_comments is not None else []
             if len(redirects_ids) != len(comments) and len(comments) > 0:
                 self.logger.warning(f"Number of redirect ids and redirect comments differ for feed {stable_id}")
-            for mdb_source_id in redirects_ids:
-                if len(mdb_source_id) == 0:
+            for redirect_id in redirects_ids:
+                redirect_id = redirect_id.strip() if redirect_id else ""
+                if len(redirect_id) == 0:
                     # since there is a 1:1 correspondence between redirect ids and comments, skip also the comment
                     comments = comments[1:]
                     continue
@@ -160,9 +170,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 else:
                     comment = ""
                 try:
-                    target_stable_id = f"mdb-{int(float(mdb_source_id.strip()))}"
+                    target_stable_id = f"mdb-{int(float(redirect_id))}"
                 except ValueError:
-                    target_stable_id = mdb_source_id.strip()
+                    target_stable_id = redirect_id
                 target_feed = self.query_feed_by_stable_id(session, target_stable_id, None)
                 if not target_feed:
                     self.logger.warning(f"Could not find redirect target feed {target_stable_id} for feed {stable_id}")
@@ -178,7 +188,7 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         # Flush to avoid FK violation
                         session.flush()
 
-    def populate_db(self, session: "Session"):
+    def populate_db(self, session: "Session", fetch_url: bool = True):
         """
         Populate the database with the sources.csv data
         """
@@ -188,9 +198,14 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             # Create or update the GTFS feed
             data_type = self.get_data_type(row)
             stable_id = self.get_stable_id(row)
+            is_official_from_csv = self.get_safe_boolean_value(row, "is_official", None)
             feed = self.query_feed_by_stable_id(session, stable_id, data_type)
             if feed:
                 self.logger.debug(f"Updating {feed.__class__.__name__}: {stable_id}")
+                # Always set the deprecated status if found in the csv
+                csv_status = self.get_safe_value(row, "status", "active")
+                if csv_status.lower() == "deprecated":
+                    feed.status = "deprecated"
             else:
                 feed = self.get_model(data_type)(
                     id=generate_unique_id(),
@@ -198,7 +213,9 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                     stable_id=stable_id,
                     # Current timestamp with UTC timezone
                     created_at=datetime.now(pytz.utc),
+                    operational_status="published",
                 )
+                feed.status = self.get_safe_value(row, "status", "active")
                 self.logger.info(f"Creating {feed.__class__.__name__}: {stable_id}")
                 session.add(feed)
                 if data_type == "gtfs":
@@ -210,6 +227,12 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                         source="mdb",
                     )
                 ]
+            # If the is_official field from the CSV is empty, the value here will be None and we don't touch the DB
+            if is_official_from_csv is not None:
+                if feed.official != is_official_from_csv:
+                    feed.official = is_official_from_csv
+                    feed.official_updated_at = datetime.now(pytz.utc)
+
             # Populate common fields from Feed
             feed.feed_name = self.get_safe_value(row, "name", "")
             feed.note = self.get_safe_value(row, "note", "")
@@ -218,7 +241,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
             feed.authentication_info_url = self.get_safe_value(row, "urls.authentication_info", "")
             feed.api_key_parameter_name = self.get_safe_value(row, "urls.api_key_parameter_name", "")
             feed.license_url = self.get_safe_value(row, "urls.license", "")
-            feed.status = self.get_safe_value(row, "status", "active")
             feed.feed_contact_email = self.get_safe_value(row, "feed_contact_email", "")
             feed.provider = self.get_safe_value(row, "provider", "")
 
@@ -263,25 +285,6 @@ class GTFSDatabasePopulateHelper(DatabasePopulateHelper):
                 set_country_count += 1
         session.commit()
         self.logger.info(f"Had to set the country for {set_country_count} locations")
-
-    # Extracted the following code from main, so it can be executed as a library function
-    def initialize(self, trigger_downstream_tasks: bool = True):
-        try:
-            configure_polymorphic_mappers()
-            with self.db.start_db_session() as session:
-                self.populate_db(session)
-                session.commit()
-
-                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Started")
-                session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
-                self.logger.info("Refreshing MATERIALIZED FEED SEARCH VIEW - Completed")
-                session.commit()
-                self.logger.info("\n----- Database populated with sources.csv data. -----")
-                if trigger_downstream_tasks:
-                    self.trigger_downstream_tasks()
-        except Exception as e:
-            self.logger.error(f"\n------ Failed to populate the database with sources.csv: {e} -----\n")
-            exit(1)
 
 
 if __name__ == "__main__":

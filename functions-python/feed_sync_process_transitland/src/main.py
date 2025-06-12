@@ -24,8 +24,8 @@ from google.cloud import pubsub_v1
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from shared.helpers.database import Database, configure_polymorphic_mappers
-from shared.helpers.logger import Logger
+from shared.database.database import with_db_session
+from shared.helpers.logger import init_logger
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 from feed_processor_utils import check_url_status, create_new_feed
@@ -34,6 +34,8 @@ from feed_processor_utils import check_url_status, create_new_feed
 PROJECT_ID = os.getenv("PROJECT_ID")
 DATASET_BATCH_TOPIC = os.getenv("DATASET_BATCH_TOPIC_NAME")
 FEEDS_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
+
+init_logger()
 
 
 class FeedProcessor:
@@ -46,10 +48,12 @@ class FeedProcessor:
         """Process a feed based on its database state."""
         try:
             logging.info(
-                f"Processing feed: external_id={payload.external_id}, feed_id={payload.feed_id}"
+                "Processing feed: external_id=%s, feed_id=%s",
+                payload.external_id,
+                payload.feed_id,
             )
             if not check_url_status(payload.feed_url):
-                logging.error(f"Feed URL not reachable: {payload.feed_url}. Skipping.")
+                logging.error("Feed URL not reachable: %s. Skipping.", payload.feed_url)
                 return
 
             self.feed_stable_id = f"{payload.source}-{payload.stable_id}".lower()
@@ -70,9 +74,9 @@ class FeedProcessor:
     def _process_new_feed_or_skip(self, payload: FeedPayload) -> Optional[Feed]:
         """Process a new feed or skip if the URL already exists."""
         if self._check_feed_url_exists(payload.feed_url):
-            logging.error(f"Feed URL already exists: {payload.feed_url}. Skipping.")
+            logging.error("Feed URL already exists: %s. Skipping.", payload.feed_url)
             return
-        logging.info(f"Creating new feed for external_id: {payload.external_id}")
+        logging.info("Creating new feed for external_id: %s", payload.external_id)
         return create_new_feed(self.session, self.feed_stable_id, payload)
 
     def _process_existing_feed_refs(
@@ -83,7 +87,9 @@ class FeedProcessor:
             f for f in current_feeds if f.producer_url == payload.feed_url
         ]
         if matching_feeds:
-            logging.info(f"Feed with URL already exists: {payload.feed_url}. Skipping.")
+            logging.info(
+                "Feed with URL already exists: %s. Skipping.", payload.feed_url
+            )
             return
 
         stable_id_matches = [
@@ -92,12 +98,12 @@ class FeedProcessor:
         reference_count = len(stable_id_matches)
         active_match = [f for f in stable_id_matches if f.status == "active"]
         if reference_count > 0:
-            logging.info(f"Updating feed for stable_id: {self.feed_stable_id}")
+            logging.info("Updating feed for stable_id: %s", self.feed_stable_id)
             self.feed_stable_id = f"{self.feed_stable_id}_{reference_count}".lower()
             new_feed = self._deprecate_old_feed(payload, active_match[0].id)
         else:
             logging.info(
-                f"No matching stable_id. Creating new feed for {payload.external_id}."
+                "No matching stable_id. Creating new feed for %s.", payload.external_id
             )
             new_feed = create_new_feed(self.session, self.feed_stable_id, payload)
         return new_feed
@@ -125,7 +131,7 @@ class FeedProcessor:
             old_feed = self.session.get(Feed, old_feed_id)
             if old_feed:
                 old_feed.status = "deprecated"
-                logging.info(f"Deprecated old feed: {old_feed.id}")
+                logging.info("Deprecated old feed: %s", old_feed.id)
         return create_new_feed(self.session, self.feed_stable_id, payload)
 
     def _publish_to_batch_topic_if_needed(
@@ -164,13 +170,13 @@ class FeedProcessor:
             )
             future.add_done_callback(
                 lambda _: logging.info(
-                    f"Published feed {feed.stable_id} to dataset batch topic"
+                    "Published feed %s to dataset batch topic", feed.stable_id
                 )
             )
             future.result()
-            logging.info(f"Message published for feed {feed.stable_id}")
+            logging.info("Message published for feed %s", feed.stable_id)
         except Exception as e:
-            logging.error(f"Error publishing to dataset batch topic: {str(e)}")
+            logging.error("Error publishing to dataset batch topic: %s", str(e))
             raise
 
     def _rollback_transaction(self, message: str) -> None:
@@ -179,17 +185,19 @@ class FeedProcessor:
         self.session.rollback()
 
 
+@with_db_session
 @functions_framework.cloud_event
-def process_feed_event(cloud_event) -> None:
+def process_feed_event(cloud_event, db_session: Session) -> str:
     """Cloud Function entry point for feed processing."""
-    Logger.init_logger()
-    configure_polymorphic_mappers()
     try:
         message_data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
         payload = FeedPayload(**json.loads(message_data))
-        db = Database(FEEDS_DATABASE_URL)
-        with db.start_db_session() as db_session:
-            processor = FeedProcessor(db_session)
-            processor.process_feed(payload)
+        processor = FeedProcessor(db_session)
+        processor.process_feed(payload)
+        result = "Feed processing completed successfully."
+        logging.info(result)
+        return result
     except Exception as e:
-        logging.error(f"Error processing feed event: {str(e)}")
+        result = f"Error processing feed event: {str(e)}"
+        logging.error(result)
+        return result

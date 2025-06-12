@@ -13,6 +13,8 @@ import {
   Skeleton,
   TableContainer,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -27,10 +29,6 @@ import {
 import { useSearchParams } from 'react-router-dom';
 import SearchTable from './SearchTable';
 import { Trans, useTranslation } from 'react-i18next';
-import { groupFeaturesByComponent } from '../../utils/consts';
-import NestedCheckboxList, {
-  type CheckboxStructure,
-} from '../../components/NestedCheckboxList';
 import {
   getDataTypeParamFromSelectedFeedTypes,
   getInitialSelectedFeedTypes,
@@ -38,12 +36,15 @@ import {
 import {
   chipHolderStyles,
   searchBarStyles,
-  SearchHeader,
   stickyHeaderStyles,
 } from './Feeds.styles';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import { MainPageHeader } from '../../styles/PageHeader.style';
 import { ColoredContainer } from '../../styles/PageLayout.style';
+import AdvancedSearchTable from './AdvancedSearchTable';
+import ViewHeadlineIcon from '@mui/icons-material/ViewHeadline';
+import GridViewIcon from '@mui/icons-material/GridView';
+import { SearchFilters } from './SearchFilters';
 
 export default function Feed(): React.ReactElement {
   const theme = useTheme();
@@ -60,22 +61,40 @@ export default function Feed(): React.ReactElement {
     Boolean(searchParams.get('official')) ?? false,
   );
   const [searchQuery, setSearchQuery] = useState(activeSearch);
-  const [expandedElements, setExpandedElements] = useState<
-    Record<string, boolean>
-  >(setInitialExpandGroup());
+
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
     searchParams.get('features')?.split(',') ?? [],
   );
-  const [featureCheckboxData, setFeatureCheckboxData] = useState<
-    CheckboxStructure[]
-  >([]);
+  const [selectGbfsVersions, setSelectGbfsVersions] = useState<string[]>(
+    searchParams.get('gbfs_versions')?.split(',') ?? [],
+  );
   const [activePagination, setActivePagination] = useState(
     searchParams.get('o') !== null ? Number(searchParams.get('o')) : 1,
+  );
+  const [searchView, setSearchView] = useState<'simple' | 'advanced'>(
+    'advanced',
   );
   const user = useSelector(selectUserProfile);
   const dispatch = useAppDispatch();
   const feedsData = useSelector(selectFeedsData);
   const feedStatus = useSelector(selectFeedsStatus);
+
+  // features i/o
+  const areNoDataTypesSelected =
+    !selectedFeedTypes.gtfs &&
+    !selectedFeedTypes.gtfs_rt &&
+    !selectedFeedTypes.gbfs;
+  const isOfficialTagFilterEnabled =
+    selectedFeedTypes.gtfs ||
+    selectedFeedTypes.gtfs_rt ||
+    areNoDataTypesSelected;
+  const areFeatureFiltersEnabled =
+    (!selectedFeedTypes.gtfs_rt && !selectedFeedTypes.gbfs) ||
+    selectedFeedTypes.gtfs;
+  const areGBFSFiltersEnabled =
+    selectedFeedTypes.gbfs &&
+    !selectedFeedTypes.gtfs_rt &&
+    !selectedFeedTypes.gtfs;
 
   const getPaginationOffset = (activePagination?: number): number => {
     const paginationParam =
@@ -96,11 +115,20 @@ export default function Feed(): React.ReactElement {
             limit: searchLimit,
             offset: paginationOffset,
             search_query: activeSearch,
-            data_type: getDataTypeParamFromSelectedFeedTypes(selectedFeedTypes),
-            is_official: isOfficialFeedSearch,
+            data_type: getDataTypeParamFromSelectedFeedTypes(
+              selectedFeedTypes,
+              config.enableGbfsInSearchPage,
+            ),
+            is_official: isOfficialTagFilterEnabled
+              ? isOfficialFeedSearch || undefined
+              : undefined,
             // Fixed status values for now, until a status filter is implemented
             // Filtering out deprecated feeds
-            status: ['active', 'inactive', 'development'],
+            status: ['active', 'inactive', 'development', 'future'],
+            feature: areFeatureFiltersEnabled ? selectedFeatures : undefined,
+            version: areGBFSFiltersEnabled
+              ? selectGbfsVersions.join(',').replaceAll('v', '')
+              : undefined,
           },
         },
       }),
@@ -113,6 +141,7 @@ export default function Feed(): React.ReactElement {
     searchLimit,
     isOfficialFeedSearch,
     selectedFeatures,
+    selectGbfsVersions,
   ]);
 
   useEffect(() => {
@@ -130,8 +159,14 @@ export default function Feed(): React.ReactElement {
     if (selectedFeedTypes.gtfs_rt) {
       newSearchParams.set('gtfs_rt', 'true');
     }
+    if (selectedFeedTypes.gbfs && config.enableGbfsInSearchPage) {
+      newSearchParams.set('gbfs', 'true');
+    }
     if (selectedFeatures.length > 0) {
       newSearchParams.set('features', selectedFeatures.join(','));
+    }
+    if (selectGbfsVersions.length > 0) {
+      newSearchParams.set('gbfs_versions', selectGbfsVersions.join(','));
     }
     if (isOfficialFeedSearch) {
       newSearchParams.set('official', 'true');
@@ -144,6 +179,7 @@ export default function Feed(): React.ReactElement {
     activePagination,
     selectedFeedTypes,
     selectedFeatures,
+    selectGbfsVersions,
     isOfficialFeedSearch,
   ]);
 
@@ -166,6 +202,11 @@ export default function Feed(): React.ReactElement {
       setSelectedFeatures([...newFeatures]);
     }
 
+    const newGbfsVersions = searchParams.get('gbfs_versions')?.split(',') ?? [];
+    if (newGbfsVersions.join(',') !== selectGbfsVersions.join(',')) {
+      setSelectGbfsVersions([...newGbfsVersions]);
+    }
+
     const newSearchOfficial = Boolean(searchParams.get('official')) ?? false;
     if (newSearchOfficial !== isOfficialFeedSearch) {
       setIsOfficialFeedSearch(newSearchOfficial);
@@ -185,6 +226,13 @@ export default function Feed(): React.ReactElement {
         gtfs_rt: newFeedTypes.gtfs_rt,
       });
     }
+
+    if (newFeedTypes.gbfs !== selectedFeedTypes.gbfs) {
+      setSelectedFeedTypes({
+        ...selectedFeedTypes,
+        gbfs: newFeedTypes.gbfs,
+      });
+    }
   }, [searchParams]);
 
   const getSearchResultNumbers = (): string => {
@@ -201,51 +249,17 @@ export default function Feed(): React.ReactElement {
     }
   };
 
-  function setInitialExpandGroup(): Record<string, boolean> {
-    const expandGroup: Record<string, boolean> = {};
-    Object.keys(groupFeaturesByComponent()).forEach((featureGroup) => {
-      expandGroup[featureGroup] = false;
-    });
-    return expandGroup;
-  }
-
-  function generateCheckboxStructure(): CheckboxStructure[] {
-    const groupedFeatures = groupFeaturesByComponent();
-    return Object.entries(groupedFeatures)
-      .filter(([parent]) => parent !== 'Other')
-      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-      .map(([parent, features]) => ({
-        title: parent,
-        checked: features.every((feature) =>
-          selectedFeatures.includes(feature.feature),
-        ),
-        seeChildren: expandedElements[parent],
-        type: 'checkbox',
-        children: features.map((feature) => {
-          return {
-            title: feature.feature,
-            type: 'checkbox',
-            checked: selectedFeatures.some(
-              (selectedFeature) => selectedFeature === feature.feature,
-            ),
-          };
-        }),
-      }));
-  }
-
   function clearAllFilters(): void {
     setActivePagination(1);
     setSelectedFeedTypes({
       gtfs: false,
       gtfs_rt: false,
+      gbfs: false,
     });
     setSelectedFeatures([]);
+    setSelectGbfsVersions([]);
     setIsOfficialFeedSearch(false);
   }
-
-  React.useEffect(() => {
-    setFeatureCheckboxData(generateCheckboxStructure());
-  }, [selectedFeatures]);
 
   const containerRef = React.useRef(null);
   useEffect(() => {
@@ -265,8 +279,23 @@ export default function Feed(): React.ReactElement {
     };
   }, []);
 
+  const handleViewChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newSearchView: 'simple' | 'advanced' | null,
+  ): void => {
+    if (newSearchView != null) {
+      setSearchView(newSearchView);
+    }
+  };
+
   return (
-    <Container component='main' maxWidth={false}>
+    <Container
+      component='main'
+      maxWidth={false}
+      sx={{
+        overflowX: 'initial',
+      }}
+    >
       <CssBaseline />
       <Box
         sx={{
@@ -296,7 +325,7 @@ export default function Feed(): React.ReactElement {
             onSubmit={(event) => {
               event.preventDefault();
               setActivePagination(1);
-              setActiveSearch(searchQuery);
+              setActiveSearch(searchQuery.trim());
             }}
             sx={searchBarStyles}
           >
@@ -317,7 +346,7 @@ export default function Feed(): React.ReactElement {
                     }}
                     onClick={() => {
                       setActivePagination(1);
-                      setActiveSearch(searchQuery);
+                      setActiveSearch(searchQuery.trim());
                     }}
                     position='start'
                   >
@@ -355,89 +384,39 @@ export default function Feed(): React.ReactElement {
                 pr: 2,
               }}
             >
-              <SearchHeader variant='h6'>{t('dataType')}</SearchHeader>
-              <NestedCheckboxList
-                checkboxData={[
-                  {
-                    title: t('common:gtfsSchedule'),
-                    checked: selectedFeedTypes.gtfs,
-                    type: 'checkbox',
-                  },
-                  {
-                    title: t('common:gtfsRealtime'),
-                    checked: selectedFeedTypes.gtfs_rt,
-                    type: 'checkbox',
-                  },
-                ]}
-                onCheckboxChange={(checkboxData) => {
+              <SearchFilters
+                selectedFeedTypes={selectedFeedTypes}
+                isOfficialFeedSearch={isOfficialFeedSearch}
+                selectedFeatures={selectedFeatures}
+                selectedGbfsVersions={selectGbfsVersions}
+                setSelectedFeedTypes={(feedTypes) => {
                   setActivePagination(1);
-                  setSelectedFeedTypes({
-                    ...selectedFeedTypes,
-                    gtfs: checkboxData[0].checked,
-                    gtfs_rt: checkboxData[1].checked,
-                  });
+                  setSelectedFeedTypes(feedTypes);
                 }}
-              ></NestedCheckboxList>
-              {config.enableIsOfficialFilterSearch && (
-                <>
-                  <SearchHeader variant='h6'>Tags</SearchHeader>
-                  <NestedCheckboxList
-                    checkboxData={[
-                      {
-                        title: 'Official Feeds',
-                        checked: isOfficialFeedSearch,
-                        type: 'checkbox',
-                      },
-                    ]}
-                    onCheckboxChange={(checkboxData) => {
-                      setActivePagination(1);
-                      setIsOfficialFeedSearch(checkboxData[0].checked);
-                    }}
-                  ></NestedCheckboxList>
-                </>
-              )}
-
-              {config.enableFeatureFilterSearch && (
-                <>
-                  <SearchHeader variant='h6'>Features</SearchHeader>
-                  <NestedCheckboxList
-                    checkboxData={featureCheckboxData}
-                    onExpandGroupChange={(checkboxData) => {
-                      const newExpandGroup: Record<string, boolean> = {};
-                      checkboxData.forEach((cd) => {
-                        if (cd.seeChildren !== undefined) {
-                          newExpandGroup[cd.title] = cd.seeChildren;
-                        }
-                      });
-                      setExpandedElements({
-                        ...expandedElements,
-                        ...newExpandGroup,
-                      });
-                    }}
-                    onCheckboxChange={(checkboxData) => {
-                      const selelectedFeatures: string[] = [];
-                      checkboxData.forEach((checkbox) => {
-                        if (checkbox.children !== undefined) {
-                          checkbox.children.forEach((child) => {
-                            if (child.checked) {
-                              selelectedFeatures.push(child.title);
-                            }
-                          });
-                        }
-                      });
-                      setActivePagination(1);
-                      setSelectedFeatures([...selelectedFeatures]);
-                    }}
-                  />
-                </>
-              )}
+                setIsOfficialFeedSearch={(isOfficial) => {
+                  setActivePagination(1);
+                  setIsOfficialFeedSearch(isOfficial);
+                }}
+                setSelectedFeatures={(features) => {
+                  setActivePagination(1);
+                  setSelectedFeatures(features);
+                }}
+                setSelectedGbfsVerions={(versions) => {
+                  setSelectGbfsVersions(versions);
+                  setActivePagination(1);
+                }}
+                isOfficialTagFilterEnabled={isOfficialTagFilterEnabled}
+                areFeatureFiltersEnabled={areFeatureFiltersEnabled}
+                areGBFSFiltersEnabled={areGBFSFiltersEnabled}
+              ></SearchFilters>
             </Grid>
 
             <Grid item xs={12} md={10}>
               <Box sx={chipHolderStyles}>
                 {selectedFeedTypes.gtfs && (
                   <Chip
-                    color='secondary'
+                    color='primary'
+                    variant='outlined'
                     size='small'
                     label={t('common:gtfsSchedule')}
                     onDelete={() => {
@@ -451,7 +430,8 @@ export default function Feed(): React.ReactElement {
                 )}
                 {selectedFeedTypes.gtfs_rt && (
                   <Chip
-                    color='secondary'
+                    color='primary'
+                    variant='outlined'
                     size='small'
                     label={t('common:gtfsRealtime')}
                     onDelete={() => {
@@ -463,9 +443,25 @@ export default function Feed(): React.ReactElement {
                     }}
                   />
                 )}
-                {isOfficialFeedSearch && (
+                {selectedFeedTypes.gbfs && (
                   <Chip
-                    color='secondary'
+                    color='primary'
+                    variant='outlined'
+                    size='small'
+                    label={t('common:gbfs')}
+                    onDelete={() => {
+                      setActivePagination(1);
+                      setSelectedFeedTypes({
+                        ...selectedFeedTypes,
+                        gbfs: false,
+                      });
+                    }}
+                  />
+                )}
+                {isOfficialFeedSearch && isOfficialTagFilterEnabled && (
+                  <Chip
+                    color='primary'
+                    variant='outlined'
                     size='small'
                     label={'Official Feeds'}
                     onDelete={() => {
@@ -474,28 +470,51 @@ export default function Feed(): React.ReactElement {
                     }}
                   />
                 )}
-                {selectedFeatures.map((feature) => (
-                  <Chip
-                    color='secondary'
-                    size='small'
-                    label={feature}
-                    key={feature}
-                    onDelete={() => {
-                      setSelectedFeatures([
-                        ...selectedFeatures.filter((sf) => sf !== feature),
-                      ]);
-                    }}
-                  />
-                ))}
+                {areFeatureFiltersEnabled &&
+                  selectedFeatures.map((feature) => (
+                    <Chip
+                      color='primary'
+                      variant='outlined'
+                      size='small'
+                      label={feature}
+                      key={feature}
+                      onDelete={() => {
+                        setSelectedFeatures([
+                          ...selectedFeatures.filter((sf) => sf !== feature),
+                        ]);
+                      }}
+                    />
+                  ))}
+
+                {areGBFSFiltersEnabled &&
+                  selectGbfsVersions.map((gbfsVersion) => (
+                    <Chip
+                      color='primary'
+                      variant='outlined'
+                      size='small'
+                      label={gbfsVersion}
+                      key={gbfsVersion}
+                      onDelete={() => {
+                        setSelectGbfsVersions([
+                          ...selectGbfsVersions.filter(
+                            (sv) => sv !== gbfsVersion,
+                          ),
+                        ]);
+                      }}
+                    />
+                  ))}
+
                 {(selectedFeatures.length > 0 ||
+                  selectGbfsVersions.length > 0 ||
                   isOfficialFeedSearch ||
                   selectedFeedTypes.gtfs_rt ||
-                  selectedFeedTypes.gtfs) && (
+                  selectedFeedTypes.gtfs ||
+                  selectedFeedTypes.gbfs) && (
                   <Button
                     variant={'text'}
                     onClick={clearAllFilters}
                     size={'small'}
-                    color={'secondary'}
+                    color={'primary'}
                   >
                     Clear All
                   </Button>
@@ -577,8 +596,16 @@ export default function Feed(): React.ReactElement {
                   {feedsData?.results !== undefined &&
                     feedsData?.results !== null &&
                     feedsData?.results?.length > 0 && (
-                      <TableContainer>
-                        <Grid item xs={12}>
+                      <TableContainer sx={{ overflowX: 'initial' }}>
+                        <Grid
+                          item
+                          xs={12}
+                          sx={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'self-end',
+                          }}
+                        >
                           <Typography
                             variant='subtitle2'
                             sx={{ fontWeight: 'bold' }}
@@ -586,8 +613,37 @@ export default function Feed(): React.ReactElement {
                           >
                             {getSearchResultNumbers()}
                           </Typography>
+                          <ToggleButtonGroup
+                            color='primary'
+                            value={searchView}
+                            exclusive
+                            onChange={handleViewChange}
+                            aria-label='Platform'
+                          >
+                            <ToggleButton
+                              value='simple'
+                              aria-label='Simple Search View'
+                            >
+                              <ViewHeadlineIcon></ViewHeadlineIcon>
+                            </ToggleButton>
+                            <ToggleButton
+                              value='advanced'
+                              aria-label='Advanced Search View'
+                            >
+                              <GridViewIcon></GridViewIcon>
+                            </ToggleButton>
+                          </ToggleButtonGroup>
                         </Grid>
-                        <SearchTable feedsData={feedsData} />
+                        {searchView === 'simple' ? (
+                          <SearchTable feedsData={feedsData} />
+                        ) : (
+                          <AdvancedSearchTable
+                            feedsData={feedsData}
+                            selectedFeatures={selectedFeatures}
+                            selectedGbfsVersions={selectGbfsVersions}
+                          />
+                        )}
+
                         <Pagination
                           sx={{
                             mt: 2,

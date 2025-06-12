@@ -15,10 +15,14 @@ from shared.database_gen.sqlacodegen_models import (
     t_feedsearch,
     Location,
     Officialstatushistory,
+    Gbfsversion,
+    Gbfsendpoint,
+    Gbfsfeed,
 )
 from scripts.populate_db import set_up_configs, DatabasePopulateHelper
-from utils.logger import Logger
 from typing import TYPE_CHECKING
+
+from utils.logger import get_logger
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -35,7 +39,7 @@ class DatabasePopulateTestDataHelper:
         Specify a list of files to load the json data from.
         Can also be a single string with a file name.
         """
-        self.logger = Logger(self.__class__.__module__).get_logger()
+        self.logger = get_logger(self.__class__.__module__)
 
         if not isinstance(filepaths, list):
             self.filepaths = [filepaths]
@@ -124,6 +128,25 @@ class DatabasePopulateTestDataHelper:
                     db_session.query(Feature).filter(Feature.name == report_features["feature_name"]).first()
                 )
 
+        # GBFS version
+        if "gbfs_versions" in data:
+            for version in data["gbfs_versions"]:
+                gbfs_feed = db_session.query(Gbfsfeed).filter(Gbfsfeed.stable_id == version["feed_id"]).one_or_none()
+                if not gbfs_feed:
+                    self.logger.error(f"No feed found with stable_id: {version['feed_id']}")
+                    continue
+                gbfs_version = Gbfsversion(id=version["id"], version=version["version"], url=version["url"])
+                if version.get("endpoints"):
+                    for endpoint in version["endpoints"]:
+                        gbfs_endpoint = Gbfsendpoint(
+                            id=endpoint["id"],
+                            url=endpoint["url"],
+                            language=endpoint.get("language"),
+                            name=endpoint["name"],
+                        )
+                        gbfs_version.gbfsendpoints.append(gbfs_endpoint)
+                gbfs_feed.gbfsversions.append(gbfs_version)
+
         db_session.commit()
         db_session.execute(text(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {t_feedsearch.name}"))
 
@@ -158,6 +181,7 @@ class DatabasePopulateTestDataHelper:
                 license_url=None,
                 feed_contact_email=feed_data["feed_contact_email"],
                 producer_url=feed_data["source_info"]["producer_url"],
+                operational_status="published",
             )
             locations = []
             for location_data in feed_data["locations"]:

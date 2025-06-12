@@ -4,6 +4,7 @@
   "transitProvider": "Transit Provider",
   "transitProviderName": "Transit Provider Name",
   "location": "Location",
+  "locations": "Locations",
   "feedDescription": "Description",
   "searchFor": "Search For",
   "resultsFor": "{{startResult}}-{{endResult}} of {{totalResults}} results",
@@ -44,12 +45,14 @@
   },
   "seeFullList": "See full list",
   "hideFullList": "Hide full list",
+  "producer": "Producer",
   "producerDownloadUrl": "Producer download URL",
   "copyDownloadUrl": "Copy download URL",
   "producerUrlCopied": "Producer url copied to clipboard",
   "linkToLicense": "Link to feed license",
   "authenticationType": "Authentication type",
   "selectAuthenticationType": "Please select an authentication type",
+  "authenticationRequired": "This feed requires authentication",
   "registerToDownloadFeed": "Register to download feed",
   "feedContactEmail": "Feed contact email",
   "copyFeedContactEmail": "Copy feed contact email",
@@ -58,8 +61,13 @@
   "feedHasBeenReplaced": "This feed has been replaced with a different producer URL.{' '}<1> Go to the new feed here</1>.",
   "downloadLatest": "Download Latest",
   "seeLicense": "See License",
-  "boundingBoxTitle": "Bounding box from stops.txt",
-  "unableToGenerateBoundingBox": "Unable to generate bounding box.",
+  "coveredAreaTitle": "Covered Area",
+  "boundingBoxView": "Bounding Box",
+  "boundingBoxViewTooltip": "View the bounding box of the feed",
+  "detailedCoveredAreaView": "Detailed",
+  "detailedCoveredAreaViewTooltip": "View the detailed covered area of the feed",
+  "unableToGenerateBoundingBox": "Unable to generate bounding box from the feed's stops.txt file.",
+  "unableToGetGbfsMap": "Error fetching GBFS Map",
   "areYouOfficialProducer": "Are you the official producer or transit agency responsible for this data ?",
   "isOfficialSource": "Is this an official data source?",
   "isOfficialSourceDetails": "Select \"Yes\" if the inputted feed is the official source of information by the transit provider and should be used to display to riders.",
@@ -96,7 +104,12 @@
   "qualityReportUpdated": "Quality report updated",
   "officialFeedUpdated": "Official verification updated",
   "serviceDateRange": "Service Date Range",
-  "serviceDateRangeTooltip": "Dates are relative to local timezone",
+  "serviceDateRangeTooltip": "Dates are relative to the specified timezone. If no timezone is specified, the dates are in UTC.",
+  "heatmapIntensity": "Stop Density",
+  "heatmapExplanationTitle": "What does this mean?",
+  "heatmapExplanationContent": "This color scale shows the percentage of stops from <code>stops.txt</code> that are located within each geographic area. Darker colors indicate areas where a higher percentage of stops are covered.",
+  "heatmapLower": "Less Stops",
+  "heatmapHigher": "More Stops",
   "feedStatus": {
     "active": {
       "label": "Active",
@@ -118,5 +131,19 @@
       "toolTip": "Future Feed",
       "toolTipLong": "This feed is not yet active but will be used in the future."
     }
-  }
+  },
+  "datasetHistory": "Dataset History",
+  "datasetHistoryDescription": "The Mobility Database fetches and stores new datasets once a day at midnight UTC.",
+  "allDatasetsLoaded": "All datasets loaded",
+  "datasets": "Datasets",
+  "validationReportNotAvailable": "Validation report not available",
+  "runValidationReportYourself": "Run Validator Yourself",
+  "datasetHistoryTooltip": {
+    "serviceDateRange": "Service date range of when this dataset is active",
+    "downloadReport": "Download the dataset for this feed",
+    "viewReport": "View Validation Report",
+    "viewJsonReport": "View Validation Report in JSON format"
+  },
+  "viewRealtimeVisualization": "View real-time visualization",
+  "versions": "Versions"
 }

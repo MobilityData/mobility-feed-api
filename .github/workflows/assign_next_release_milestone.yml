@@ -1,0 +1,50 @@
+name: Assign `Next Release` Milestone
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'To run in test mode (no changes made), set to true'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  assign-milestone:
+    runs-on: ubuntu-22.04
+    
+    steps:
+
+      - name: Load secrets from 1Password
+        id: onepw_secrets
+        uses: 1password/load-secrets-action@v2.0.0
+        with:
+            export-env: true
+        env:
+            OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+            GH_TOKEN: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GitHub generic action token for all repos/credential"
+     
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: 22
+          
+      - name: Install dependencies
+        run: npm install @octokit/rest
+        
+      - name: Run milestone assignment
+        env:
+          GITHUB_TOKEN: ${{ env.GH_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: node scripts/assign-next-release-milestone.js

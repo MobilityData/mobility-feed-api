@@ -3,11 +3,12 @@ import { Box, Typography, useTheme, type SxProps } from '@mui/material';
 
 export interface ContentBoxProps {
   title: string;
-  width: Record<string, string>;
+  width?: Record<string, string>;
   outlineColor: string;
   padding?: Partial<SxProps>;
   margin?: string | number;
   sx?: SxProps;
+  action?: React.ReactNode;
 }
 
 export const ContentBox = (
@@ -16,7 +17,7 @@ export const ContentBox = (
   const theme = useTheme();
   return (
     <Box
-      width={props.width}
+      width={props.width ?? { xs: '100%', sm: '100%', md: '100%' }}
       sx={{
         background: theme.palette.background.default,
         color: theme.palette.text.primary,
@@ -30,9 +31,19 @@ export const ContentBox = (
         ...props.sx,
       }}
     >
-      {props.title.trim() !== '' && (
-        <Typography variant='h5' sx={{ flexShrink: 0, mb: 1 }}>
-          {props.title}
+      {(props.title.trim() !== '' || props.action != null) && (
+        <Typography
+          variant='h5'
+          sx={{
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 1,
+          }}
+        >
+          <span>{props.title}</span>
+          {props.action != null && props.action}
         </Typography>
       )}
       {props.children}

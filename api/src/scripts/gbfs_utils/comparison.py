@@ -29,6 +29,9 @@ def generate_system_csv_from_db(df, db_session):
                 "Supported Versions": " ; ".join(supported_versions),
             }
         )
+    if not data:
+        # Return an empty DataFrame with the same columns
+        return pd.DataFrame(columns=df.columns)
     return pd.DataFrame(data)
 
 
@@ -37,6 +40,9 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
     df_from_csv = df_from_csv[df_from_db.columns]
     df_from_db = df_from_db.fillna("")
     df_from_csv = df_from_csv.fillna("")
+
+    df_from_db = df_from_db.drop(columns=["Supported Versions"])
+    df_from_csv = df_from_csv.drop(columns=["Supported Versions"])
 
     if df_from_db.empty:
         logger.info("No data found in the database.")
@@ -63,7 +69,7 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
     df_db_common = df_from_db.loc[common_ids]
     df_csv_common = df_from_csv.loc[common_ids]
     differences = df_db_common != df_csv_common
-    differing_rows = df_db_common[differences.any(axis=1)]
+    differing_rows = df_csv_common[differences.any(axis=1)]
 
     if not differing_rows.empty:
         logger.info("Rows with differences:")

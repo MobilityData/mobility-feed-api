@@ -43,6 +43,7 @@ class GTFSAnalyticsProcessor(BaseAnalyticsProcessor):
                 ),
             )
             .where(Gtfsfeed.status != "deprecated")
+            .where(Gtfsfeed.operational_status == "published")
             .options(
                 joinedload(Gtfsfeed.locations),
                 joinedload(Gtfsdataset.validation_reports).joinedload(

@@ -17,6 +17,7 @@
 import json
 import os
 import jwt
+import logging
 import requests
 import flask
 import functions_framework
@@ -25,12 +26,16 @@ from typing import Final
 from datetime import datetime
 from datetime import timezone
 from werkzeug.exceptions import UnsupportedMediaType, BadRequest
+from shared.helpers.logger import init_logger
 
 IDP_TOKEN_URL: Final[str] = "https://securetoken.googleapis.com/v1/token"
 HEADERS: Final[dict[str, str]] = {
     "Content-Type": "application/json",
     "user-agent": "MobilityDataCatalog",
 }
+
+
+init_logger()
 
 
 class TokenPostResponse:
@@ -117,7 +122,7 @@ def extract_refresh_token(request):
     except UnsupportedMediaType as e:
         raise e
     except Exception as e:
-        print(f"Error extracting refresh token : {e}")
+        logging.error("Error extracting refresh token : %s", e)
         raise BadRequest()
 
 
@@ -154,7 +159,7 @@ def tokens_post(request: flask.Request) -> Response:
         idp_response = get_idp_response(request.get_json().get("refresh_token"))
 
         if idp_response.status_code != 200:
-            print(f"Error retrieving refresh token : {idp_response.json()}")
+            logging.error("Error retrieving refresh token : %s", idp_response.json())
             return Response(
                 status=500,
                 mimetype="application/json",
@@ -166,7 +171,7 @@ def tokens_post(request: flask.Request) -> Response:
 
         return create_response_from_idp(idp_response)
     except UnsupportedMediaType as e:
-        print(f"Error creating response from idp : {e}")
+        logging.error("Error creating response from idp : %s", e)
         return Response(
             status=e.code,
             mimetype="application/json",
@@ -183,7 +188,7 @@ def tokens_post(request: flask.Request) -> Response:
             response=json.dumps(TokenPostResponseError("Bad Request.").__dict__),
         )
     except Exception as e:
-        print(f"Error creating response from idp : {e}")
+        logging.error("Error creating response from idp : %s", e)
         return Response(
             status=500,
             mimetype="application/json",

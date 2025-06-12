@@ -1,0 +1,8 @@
+# File contains the configuration used by api-deploy-dev.sh
+# Rename this file to: .deploy-env-dev
+PROJECT_ID=
+ENVIRONMENT=
+SERVICE_ACCOUNT_EMAIL=
+VPC_CONNECTOR=
+SECRETS=
+REGION=northamerica-northeast1

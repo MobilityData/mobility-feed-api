@@ -6,6 +6,7 @@ main:
           args:
               text: ${event}
               severity: INFO
+    # Initializing variables
       - extractDataFromEvent:
           assign:
           - data: ${event.data.protoPayload}
@@ -62,6 +63,7 @@ main:
           args:
               text: '${"feedID: " + feedID + ", datasetID: " + datasetID + ", url: " + url}'
               severity: INFO
+    # Retrieve the current validator's version
       - getValidatorVersion:
           steps:
             - httpCall:
@@ -77,6 +79,90 @@ main:
                 args:
                   text: '${"GTFS Validator version: " + validatorVersion}'
                   severity: INFO
+    # Setting the file name of the target files. mdb-1826/mdb-1826-202404010643/report_5.0.1.html
+      - assignTargetFileNames:
+            assign:
+                - targetSystemErrorsFileName: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
+                - targetHtmlReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".html"}
+                - targetJsonReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".json"}
+
+    # Checking if the target file names exist in the bucket. If exists, the validator execution will be skipped and the workflow jumps to: shouldUpdateDb
+      - checkTargetFilesExistence:
+            steps:
+            - checkSystemErrorsFile:
+                try:
+                    steps:
+                    - tryGetSystemErrorsFile:
+                        call: googleapis.storage.v1.objects.get
+                        args:
+                            bucket: ${datasetsBucket}
+                            object: ${targetSystemErrorsFileName}
+                        result: systemErrorsFileResponse
+                    - assignSystemErrorsFileExistsTrue:
+                        assign:
+                            - systemErrorsFileExists: true
+                        next: checkHtmlReportFile
+                except:
+                    steps:
+                    - assignSystemErrorsFileExistsFalse:
+                        assign:
+                            - systemErrorsFileExists: false
+                        next: checkHtmlReportFile
+
+            - checkHtmlReportFile:
+                try:
+                    steps:
+                    - tryGetHtmlReportFile:
+                        call: googleapis.storage.v1.objects.get
+                        args:
+                            bucket: ${datasetsBucket}
+                            object: ${targetHtmlReportFileName}
+                        result: htmlReportFileResponse
+                    - assignHtmlReportFileExistsTrue:
+                        assign:
+                            - htmlReportFileExists: true
+                        next: checkJsonReportFile
+                except:
+                    steps:
+                    - assignHtmlReportFileExistsFalse:
+                        assign:
+                            - htmlReportFileExists: false
+                        next: checkJsonReportFile
+
+            - checkJsonReportFile:
+                try:
+                    steps:
+                    - tryGetJsonReportFile:
+                        call: googleapis.storage.v1.objects.get
+                        args:
+                            bucket: ${datasetsBucket}
+                            object: ${targetJsonReportFileName}
+                        result: jsonReportFileResponse
+                    - assignJsonReportFileExistsTrue:
+                        assign:
+                            - jsonReportFileExists: true
+                        next: evaluateFileExistence
+                except:
+                    steps:
+                    - assignJsonReportFileExistsFalse:
+                        assign:
+                            - jsonReportFileExists: false
+                        next: evaluateFileExistence
+
+            - evaluateFileExistence:
+                switch:
+                    - condition: ${systemErrorsFileExists and htmlReportFileExists and jsonReportFileExists}
+                      next: logSkipValidationMessage
+                next: createJob
+
+            - logSkipValidationMessage:
+                call: sys.log
+                args:
+                    text: 'Skipping GTFS Validator as files exist in the target bucket'
+                    severity: INFO
+                next: shouldUpdateDb
+
+    # Executes the validation call
       - createJob:
           call: http.post
           args:
@@ -116,13 +202,13 @@ main:
                         result: executionResultResponse
                     - validateStatus:
                         next: logExecutionResult
-                # Retrying 120 times with a delay of 10 seconds each time gives 20 minutes wait time.
+                # Retrying 120 times with a delay of 30 seconds each time gives 60 minutes wait time.
                 retry:
                   predicate: ${retry_predicate}
                   max_retries: 120
                   backoff:
-                    initial_delay: 10
-                    max_delay: 10
+                    initial_delay: 30
+                    max_delay: 30
                     multiplier: 1
       - logExecutionResult:
           steps:
@@ -136,12 +222,13 @@ main:
               args:
                   text: ${executionResultResponse}
                   severity: INFO
+    # Determines if the validation was successful analysing the system errors file
       - systemErrors:
             try:
                 call: googleapis.storage.v1.objects.copy
                 args:
                     destinationBucket: ${datasetsBucket}
-                    destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
+                    destinationObject: ${targetSystemErrorsFileName}
                     sourceBucket: ${reportsBucket}
                     sourceObject: ${jobID + "%2Fsystem_errors.json"}
                     destinationPredefinedAcl: publicRead
@@ -200,7 +287,7 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".html"}
+            destinationObject: ${targetHtmlReportFileName}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.html"}
             destinationPredefinedAcl: publicRead
@@ -213,7 +300,7 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".json"}
+            destinationObject: ${targetJsonReportFileName}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.json"}
             destinationPredefinedAcl: publicRead
@@ -222,6 +309,7 @@ main:
           args:
               text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report_" + validatorVersion + ".json"}
               severity: INFO
+    #   Skips the update DB if needed, otherwise will create a task to update the DB
       - shouldUpdateDb:
             switch:
                 - condition: ${byPassDbUpdate}
@@ -253,56 +341,6 @@ main:
           args:
             text: ${"Created task for feed " + feedID + " Task ID:" + taskResponse.name}
             severity: INFO
-      # The waitForTaskCompletion will wait for HTTP error status 404 from google API.
-      # The cloud tasks API doesn't return a status field and when the task success it HTTP returns 404(tasks not found).
-      - waitForTaskCompletion:
-          try:
-            steps:
-              - getTaskStatus:
-                  call: googleapis.cloudtasks.v2beta3.projects.locations.queues.tasks.get
-                  args:
-                    name: ${taskResponse.name}
-                  result: taskStatus
-              - printTaskStatus:
-                  call: sys.log
-                  args:
-                    text: ${taskStatus}
-                    severity: INFO
-                  next: retryTaskStatus
-          except:
-            as: error
-            steps:
-              - printExceptTaskStatus:
-                  call: sys.log
-                  args:
-                    text: ${"HTTP error raised while calling get tasks endpoint:" + error.message}
-                    severity: INFO
-              - handle404:
-                  switch:
-                    - condition: ${error.code == 404}
-                      next: logTaskCompletion
-                    - condition: ${error.code != 404}
-                      raise: ${error}
-      - retryTaskStatus:
-          call: sys.sleep
-          args:
-            seconds: 30
-          next: waitForTaskCompletion
-      - logTaskCompletion:
-          call: sys.log
-          args:
-            text: ${"Completed task for feed " + feedID + " Task ID:" + taskResponse.name}
-            severity: INFO
-          next: successfulExecution
-      - fileExistenceTimeout:
-          steps:
-            - logFileExistenceTimeout:
-                call: sys.log
-                args:
-                    text: ${"File not found after 20 minutes for datasetID " + datasetID }
-                    severity: ERROR
-            - returnFileNotFound:
-                return:  ${"File not found after 20 minutes for datasetID " + datasetID }
       - successfulExecution:
           steps:
             - logSuccessfulExecution:

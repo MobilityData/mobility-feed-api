@@ -9,6 +9,7 @@ interface DatasetFeature {
   componentSubgroup?: string;
   fileName: string;
   linkToInfo: string;
+  deprecated?: boolean;
 }
 
 type DatasetFeatures = Record<string, DatasetFeature>;
@@ -24,14 +25,23 @@ export interface DatasetComponentFeature extends DatasetFeature {
   feature: string;
 }
 
+interface ComprehensiveDatasetFeature extends DatasetFeature {
+  color: string;
+  icon: JSX.Element;
+}
+
 export function groupFeaturesByComponent(
   features: string[] = Object.keys(DATASET_FEATURES),
+  removeDeprecated = false,
 ): Record<string, DatasetComponentFeature[]> {
   const groupedFeatures: Record<string, DatasetComponentFeature[]> = {};
 
   features.forEach((feature) => {
     const featureData = DATASET_FEATURES[feature];
     if (featureData !== undefined) {
+      if (removeDeprecated && featureData.deprecated === true) {
+        return;
+      }
       const component =
         featureData.component !== '' ? featureData.component : 'Other';
       if (groupedFeatures[component] === undefined) {
@@ -41,6 +51,19 @@ export function groupFeaturesByComponent(
     }
   });
   return groupedFeatures;
+}
+
+/**
+ *
+ * @param feature The gtfs schedule feature
+ * @returns Gets the feature data as well as the associated component data
+ */
+export function getFeatureComponentDecorators(
+  feature: string,
+): ComprehensiveDatasetFeature {
+  const featureData = DATASET_FEATURES[feature] ?? {};
+  const component = DATASET_FEATURES[feature]?.component ?? 'Overview';
+  return { ...getComponentDecorators(component), ...featureData };
 }
 
 export function getComponentDecorators(component: string): {
@@ -73,7 +96,7 @@ export const DATASET_FEATURES: DatasetFeatures = {
     fileName: '',
     linkToInfo: 'https://gtfs.org/getting-started/features/overview/',
   },
-  'Text-To-Speech': {
+  'Text-to-Speech': {
     component: 'Accessibility',
     fileName: 'stops.txt',
     linkToInfo:
@@ -127,6 +150,13 @@ export const DATASET_FEATURES: DatasetFeatures = {
     componentSubgroup: 'Fares v2',
     fileName: 'fare_media.txt',
     linkToInfo: 'https://gtfs.org/getting-started/features/fares/#fare-media',
+  },
+  'Rider Categories': {
+    component: 'Fares',
+    componentSubgroup: 'Fares v2',
+    fileName: 'rider_categories.txt',
+    linkToInfo:
+      'https://gtfs.org/getting-started/features/fares/#rider-categories',
   },
   'Route-Based Fares': {
     component: 'Fares',
@@ -262,7 +292,10 @@ export const DATASET_FEATURES: DatasetFeatures = {
   },
 };
 // SPELLING CORRECTIONS
-DATASET_FEATURES['Text-to-Speech'] = DATASET_FEATURES['Text-To-Speech'];
+DATASET_FEATURES['Text-To-Speech'] = {
+  ...DATASET_FEATURES['Text-to-Speech'],
+  deprecated: true,
+};
 
 // DEPRECATED FEATURES
 DATASET_FEATURES['Wheelchair Accessibility'] = {
@@ -270,16 +303,32 @@ DATASET_FEATURES['Wheelchair Accessibility'] = {
   component: 'Accessibility',
   fileName: 'trips.txt',
   linkToInfo: 'https://gtfs.org/getting-started/features/accessibility',
+  deprecated: true,
 };
-DATASET_FEATURES['Bikes Allowance'] = DATASET_FEATURES['Bike Allowed'];
-DATASET_FEATURES['Transfer Fares'] = DATASET_FEATURES['Fare Transfers']; // as of 6.0
-DATASET_FEATURES['Pathways (basic)'] = DATASET_FEATURES['Pathway Connections']; // as of 6.0
-DATASET_FEATURES['Pathways (extra)'] = DATASET_FEATURES['Pathway Details']; // as of 6.0
-DATASET_FEATURES['Traversal Time'] =
-  DATASET_FEATURES['In-station Traversal Time'];
+DATASET_FEATURES['Bikes Allowance'] = {
+  ...DATASET_FEATURES['Bike Allowed'],
+  deprecated: true,
+};
+DATASET_FEATURES['Transfer Fares'] = {
+  ...DATASET_FEATURES['Fare Transfers'],
+  deprecated: true,
+}; // as of 6.0
+DATASET_FEATURES['Pathways (basic)'] = {
+  ...DATASET_FEATURES['Pathway Connections'],
+  deprecated: true,
+}; // as of 6.0
+DATASET_FEATURES['Pathways (extra)'] = {
+  ...DATASET_FEATURES['Pathway Details'],
+  deprecated: true,
+}; // as of 6.0
+DATASET_FEATURES['Traversal Time'] = {
+  ...DATASET_FEATURES['In-station Traversal Time'],
+  deprecated: true,
+};
 DATASET_FEATURES['Pathways Directions'] = {
   // as of 6.0
   component: 'Pathways',
   fileName: 'pathways.txt',
   linkToInfo: 'https://gtfs.org/schedule/reference/#pathwaystxt',
+  deprecated: true,
 };

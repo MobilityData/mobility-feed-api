@@ -26,12 +26,13 @@ import requests
 from google.cloud.pubsub_v1.futures import Future
 from requests.exceptions import RequestException, HTTPError
 from sqlalchemy.orm import Session
+from shared.database.database import with_db_session
 
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.feed_sync.feed_sync_common import FeedSyncProcessor, FeedSyncPayload
 from shared.helpers.feed_sync.feed_sync_dispatcher import feed_sync_dispatcher
 from shared.helpers.feed_sync.models import TransitFeedSyncPayload
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from shared.helpers.pub_sub import get_pubsub_client, get_execution_id
 from typing import Tuple, List
 from collections import defaultdict
@@ -40,13 +41,13 @@ from collections import defaultdict
 # Environment variables
 PUBSUB_TOPIC_NAME = os.getenv("PUBSUB_TOPIC_NAME")
 PROJECT_ID = os.getenv("PROJECT_ID")
-FEEDS_DATABASE_URL = os.getenv("FEEDS_DATABASE_URL")
 TRANSITLAND_API_KEY = os.getenv("TRANSITLAND_API_KEY")
 TRANSITLAND_OPERATOR_URL = os.getenv("TRANSITLAND_OPERATOR_URL")
 TRANSITLAND_FEED_URL = os.getenv("TRANSITLAND_FEED_URL")
 
 # session instance to reuse connections
 session = requests.Session()
+init_logger()
 
 
 def process_feed_urls(feed: dict, urls_in_db: List[str]) -> Tuple[List[str], List[str]]:
@@ -82,8 +83,9 @@ def process_feed_urls(feed: dict, urls_in_db: List[str]) -> Tuple[List[str], Lis
 
 
 class TransitFeedSyncProcessor(FeedSyncProcessor):
+    @with_db_session
     def process_sync(
-        self, db_session: Session, execution_id: Optional[str] = None
+        self, execution_id: Optional[str], db_session: Session
     ) -> List[FeedSyncPayload]:
         """
         Process data synchronously to fetch, extract, combine, filter and prepare payloads for publishing
@@ -387,7 +389,6 @@ def feed_sync_dispatcher_transitland(request):
     """
     HTTP Function entry point queries the transitland API and publishes events to a Pub/Sub topic to be processed.
     """
-    Logger.init_logger()
     publisher = get_pubsub_client()
     topic_path = publisher.topic_path(PROJECT_ID, PUBSUB_TOPIC_NAME)
     transit_land_feed_sync_processor = TransitFeedSyncProcessor()

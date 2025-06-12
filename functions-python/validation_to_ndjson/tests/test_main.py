@@ -9,11 +9,10 @@ from main import (
 
 
 class TestReportConversionFunctions(unittest.TestCase):
-    @patch("main.Logger.init_logger")
     @patch("main.ValidationReportConverter.get_converter")
     @patch("main.parse_resource_data")
     def test_convert_reports_to_ndjson(
-        self, mock_parse_resource_data, mock_get_converter, mock_init_logger
+        self, mock_parse_resource_data, mock_get_converter
     ):
         # Setup mocks
         mock_converter_class = MagicMock()
@@ -42,7 +41,6 @@ class TestReportConversionFunctions(unittest.TestCase):
         result = convert_reports_to_ndjson(cloud_event)
 
         # Assertions
-        mock_init_logger.assert_called_once()
         mock_parse_resource_data.assert_called_once_with(cloud_event.data)
         mock_get_converter.assert_called_once()
         mock_converter_class.assert_called_once_with(
@@ -51,11 +49,10 @@ class TestReportConversionFunctions(unittest.TestCase):
         mock_converter_instance.process.assert_called_once()
         self.assertEqual(result, ("stable_id", "dataset_id", "url"))
 
-    @patch("main.Logger.init_logger")
     @patch("main.storage.Client")
     @patch("main.convert_reports_to_ndjson")
     def test_batch_convert_reports_to_ndjson(
-        self, mock_convert_reports_to_ndjson, mock_storage_client, mock_init_logger
+        self, mock_convert_reports_to_ndjson, mock_storage_client
     ):
         # Setup mocks
         mock_blob1 = MagicMock()
@@ -70,7 +67,6 @@ class TestReportConversionFunctions(unittest.TestCase):
         result = batch_convert_reports_to_ndjson(None)
 
         # Assertions
-        mock_init_logger.assert_called_once()
         mock_storage_client().list_blobs.assert_called_once()
         self.assertEqual(mock_convert_reports_to_ndjson.call_count, 2)
         self.assertEqual(result, "Success converting reports to NDJSON")

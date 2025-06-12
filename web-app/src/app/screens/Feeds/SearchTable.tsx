@@ -14,19 +14,16 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  type GTFSFeedType,
-  type GTFSRTFeedType,
   type AllFeedsType,
   getLocationName,
+  getCountryLocationSummaries,
 } from '../../services/feeds/utils';
-import BusAlertIcon from '@mui/icons-material/BusAlert';
-import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useTranslation } from 'react-i18next';
 import GtfsRtEntities from './GtfsRtEntities';
 import { Link } from 'react-router-dom';
-import VerifiedIcon from '@mui/icons-material/Verified';
-import { verificationBadgeStyle } from '../../styles/VerificationBadge.styles';
+import { getEmojiFlag, type TCountryCode } from 'countries-list';
+import OfficialChip from '../../components/OfficialChip';
+import ProviderTitle from './ProviderTitle';
 
 export interface SearchTableProps {
   feedsData: AllFeedsType | undefined;
@@ -39,7 +36,7 @@ const HeaderTableCell = styled(TableCell)(() => ({
 }));
 
 export const getDataTypeElement = (
-  dataType: 'gtfs' | 'gtfs_rt',
+  dataType: 'gtfs' | 'gtfs_rt' | 'gbfs',
 ): JSX.Element => {
   const { t } = useTranslation('feeds');
   const DataTypeHolder = ({
@@ -60,19 +57,11 @@ export const getDataTypeElement = (
     );
   };
   if (dataType === 'gtfs') {
-    return (
-      <DataTypeHolder>
-        <DirectionsBusIcon sx={{ m: 1, ml: 0 }}></DirectionsBusIcon>
-        {t('common:gtfsSchedule')}
-      </DataTypeHolder>
-    );
+    return <DataTypeHolder>{t('common:gtfsSchedule')}</DataTypeHolder>;
+  } else if (dataType === 'gtfs_rt') {
+    return <DataTypeHolder>{t('common:gtfsRealtime')}</DataTypeHolder>;
   } else {
-    return (
-      <DataTypeHolder>
-        <BusAlertIcon sx={{ m: 1, ml: 0 }}></BusAlertIcon>
-        {t('common:gtfsRealtime')}
-      </DataTypeHolder>
-    );
+    return <DataTypeHolder>{t('common:gbfs')}</DataTypeHolder>;
   }
 };
 
@@ -87,59 +76,7 @@ export default function SearchTable({
   const { t } = useTranslation('feeds');
   if (feedsData === undefined) return <></>;
 
-  const getProviderElement = (
-    feed: GTFSFeedType | GTFSRTFeedType,
-  ): JSX.Element => {
-    const providers =
-      feed?.provider
-        ?.split(',')
-        .filter((x) => x)
-        .sort() ?? [];
-    const displayName = providers[0];
-    let manyProviders: JSX.Element | undefined;
-    if (providers.length > 1) {
-      manyProviders = (
-        <span
-          style={{
-            fontStyle: 'italic',
-            fontSize: '14px',
-            fontWeight: 'bold',
-            color: theme.palette.primary.main,
-            padding: 2,
-          }}
-          onMouseEnter={(event) => {
-            setProvidersPopoverData(providers);
-            setAnchorEl(event.currentTarget);
-          }}
-          onMouseLeave={() => {
-            setProvidersPopoverData(undefined);
-            setAnchorEl(null);
-          }}
-        >
-          +&nbsp;{providers.length - 1}
-        </span>
-      );
-    }
-    return (
-      <>
-        {displayName} {manyProviders}
-        {feed?.status === 'deprecated' && (
-          <Box sx={{ mt: '5px' }}>
-            <Chip
-              label={t('deprecated')}
-              icon={<ErrorOutlineIcon />}
-              color='error'
-              size='small'
-              variant='outlined'
-            />
-          </Box>
-        )}
-      </>
-    );
-  };
-
   // Reason for all component overrite is for SEO purposes.
-  // TODO: This code is stretching the limits using <Table> to refactor out of table
   return (
     <Table
       component={Box}
@@ -160,7 +97,7 @@ export default function SearchTable({
           <HeaderTableCell component={'h6'}>
             {t('transitProvider')}
           </HeaderTableCell>
-          <HeaderTableCell component={'h6'}>{t('location')}</HeaderTableCell>
+          <HeaderTableCell component={'h6'}>{t('locations')}</HeaderTableCell>
           <HeaderTableCell component={'h6'}>
             {t('feedDescription')}
           </HeaderTableCell>
@@ -193,7 +130,7 @@ export default function SearchTable({
           },
           '.feed-row .feed-column:last-child': {
             borderRight: `1px solid ${theme.palette.divider}`,
-            minWidth: '210px',
+            minWidth: '180px',
           },
         }}
       >
@@ -224,33 +161,67 @@ export default function SearchTable({
                   justifyContent: 'space-between',
                 }}
               >
-                {getProviderElement(feed)}
+                <ProviderTitle
+                  feed={feed}
+                  setPopoverData={(popoverData) => {
+                    setProvidersPopoverData(popoverData);
+                  }}
+                  setAnchorEl={(el) => {
+                    setAnchorEl(el);
+                  }}
+                ></ProviderTitle>
                 {feed.official === true && (
-                  <Tooltip
-                    title={t('officialFeedTooltipShort')}
-                    placement='top'
-                  >
-                    <VerifiedIcon
-                      sx={(theme) => ({
-                        display: 'block',
-                        borderRadius: '50%',
-                        padding: '0.1rem',
-                        ml: 1,
-                        ...verificationBadgeStyle(theme),
-                      })}
-                    ></VerifiedIcon>
-                  </Tooltip>
+                  <OfficialChip isLongDisplay={false}></OfficialChip>
                 )}
               </Box>
             </TableCell>
             <TableCell className='feed-column' component={Box}>
-              {getLocationName(feed.locations)}
+              {feed.locations != null && feed.locations.length > 1 ? (
+                <>
+                  {getCountryLocationSummaries(feed.locations).map(
+                    (summary) => {
+                      const tooltipText = `${summary.subdivisions.size} subdivisions and ${summary.municipalities.size} municipalities within ${summary.country}.`;
+
+                      return (
+                        <Tooltip
+                          key={summary.country_code}
+                          title={tooltipText}
+                          arrow
+                        >
+                          <Chip
+                            label={`${getEmojiFlag(
+                              summary.country_code as TCountryCode,
+                            )} ${summary.country}`}
+                            size='medium'
+                            sx={{ mr: 1, mt: 1 }}
+                          />
+                        </Tooltip>
+                      );
+                    },
+                  )}
+                </>
+              ) : (
+                <>
+                  {feed.locations?.[0] != null && (
+                    <Chip
+                      key={
+                        feed.locations?.[0] != null
+                          ? feed.locations[0].country_code
+                          : 'cc-key'
+                      }
+                      label={getLocationName(feed.locations)}
+                      size='medium'
+                      sx={{ mr: 1 }}
+                    />
+                  )}
+                </>
+              )}
             </TableCell>
             <TableCell className='feed-column' component={Box}>
               {feed.feed_name}
             </TableCell>
             <TableCell className='feed-column' component={Box}>
-              <Box sx={{ display: 'flex' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 {getDataTypeElement(feed.data_type)}
                 {feed.data_type === 'gtfs_rt' && (
                   <GtfsRtEntities entities={feed.entity_types}></GtfsRtEntities>
@@ -268,7 +239,7 @@ export default function SearchTable({
           placement='top'
           sx={{
             backgroundColor: theme.palette.background.paper,
-            boxShadow: '0px 1px 4px 2px rgba(0,0,0,0.2)',
+            boxShadow: theme.palette.boxShadow,
             zIndex: 1000,
           }}
         >

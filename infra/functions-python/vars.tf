@@ -62,7 +62,7 @@ variable "gbfs_bucket_name" {
 variable "gbfs_scheduler_schedule" {
     type        = string
     description = "Schedule for the GBFS scheduler job"
-    default     = "0 0 1 * *" # every month on the first day at 00:00
+    default     = "0 0 * * *" # At 00:00 every day
 }
 
 variable "transitland_scraping_schedule" {
@@ -85,4 +85,10 @@ variable "export_csv_schedule" {
     type        = string
     description = "Schedule the export_csv function"
     default = "0 4 * * 2,5" # At 4am every Tuesday and Friday.
+}
+
+variable "update_feed_status_schedule" {
+    type        = string
+    description = "Schedule the update_feed_status function"
+    default     = "0 4 * * *" # At 4am every day.
 }

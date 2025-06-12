@@ -22,7 +22,7 @@ import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import functions_framework
 from cloudevents.http import CloudEvent
@@ -31,14 +31,14 @@ from sqlalchemy import func
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.helpers.database import Database, refresh_materialized_view, with_db_session
+from shared.database.database import with_db_session, refresh_materialized_view
 import logging
 
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import download_and_get_hash
+from sqlalchemy.orm import Session
 
-if TYPE_CHECKING:
-    from sqlalchemy.orm import Session
+init_logger()
 
 
 @dataclass
@@ -65,6 +65,7 @@ class DatasetProcessor:
         api_key_parameter_name,
         public_hosted_datasets_url,
     ):
+        self.logger = get_logger(DatasetProcessor.__name__, feed_stable_id)
         self.producer_url = producer_url
         self.bucket_name = bucket_name
         self.latest_hash = latest_hash
@@ -75,7 +76,7 @@ class DatasetProcessor:
         self.api_key_parameter_name = api_key_parameter_name
         self.date = datetime.now().strftime("%Y%m%d%H%M")
         if self.authentication_type != 0:
-            logging.info(f"Getting feed credentials for feed {self.feed_stable_id}")
+            self.logger.info(f"Getting feed credentials for feed {self.feed_stable_id}")
             self.feed_credentials = self.get_feed_credentials(self.feed_stable_id)
             if self.feed_credentials is None:
                 raise Exception(
@@ -97,7 +98,9 @@ class DatasetProcessor:
             feeds_credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
             return feeds_credentials.get(feed_stable_id, None)
         except Exception as e:
-            logging.error(f"Error getting feed credentials: {e}")
+            get_logger(DatasetProcessor.__name__, feed_stable_id).error(
+                f"Error getting feed credentials: {e}"
+            )
             return None
 
     @staticmethod
@@ -120,6 +123,7 @@ class DatasetProcessor:
             authentication_type=self.authentication_type,
             api_key_parameter_name=self.api_key_parameter_name,
             credentials=self.feed_credentials,
+            logger=self.logger,
         )
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
@@ -143,23 +147,25 @@ class DatasetProcessor:
         :return: the file hash and the hosted url as a tuple or None if no upload is required
         """
         try:
-            logging.info(f"[{self.feed_stable_id}] - Accessing URL {self.producer_url}")
+            self.logger.info("Accessing URL %s", self.producer_url)
             temp_file_path = self.generate_temp_filename()
             file_sha256_hash, is_zip = self.download_content(temp_file_path)
             if not is_zip:
-                logging.error(
+                self.logger.error(
                     f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
                 )
                 return None
 
-            logging.info(f"[{self.feed_stable_id}] File hash is {file_sha256_hash}.")
+            self.logger.info(
+                f"[{self.feed_stable_id}] File hash is {file_sha256_hash}."
+            )
 
             if self.latest_hash != file_sha256_hash:
-                logging.info(
+                self.logger.info(
                     f"[{self.feed_stable_id}] Dataset has changed (hash {self.latest_hash}"
                     f"-> {file_sha256_hash}). Uploading new version."
                 )
-                logging.info(
+                self.logger.info(
                     f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}"
                 )
                 self.upload_file_to_storage(
@@ -172,7 +178,7 @@ class DatasetProcessor:
                 dataset_full_path = (
                     f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
                 )
-                logging.info(
+                self.logger.info(
                     f"Creating file: {dataset_full_path}"
                     f" in bucket {self.bucket_name}"
                 )
@@ -187,7 +193,7 @@ class DatasetProcessor:
                     hosted_url=f"{self.public_hosted_datasets_url}/{dataset_full_path}",
                 )
 
-            logging.info(
+            self.logger.info(
                 f"[{self.feed_stable_id}] Datasets hash has not changed (hash {self.latest_hash} "
                 f"-> {file_sha256_hash}). Not uploading it."
             )
@@ -206,7 +212,7 @@ class DatasetProcessor:
         return temporary_file_path
 
     @with_db_session
-    def create_dataset(self, dataset_file: DatasetFile, db_session: "Session"):
+    def create_dataset(self, dataset_file: DatasetFile, db_session: Session):
         """
         Creates a new dataset in the database
         """
@@ -218,11 +224,11 @@ class DatasetProcessor:
                 .one_or_none()
             )
             if not latest_dataset:
-                logging.info(
+                self.logger.info(
                     f"[{self.feed_stable_id}] No latest dataset found for feed."
                 )
 
-            logging.info(
+            self.logger.info(
                 f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
             )
             new_dataset = Gtfsdataset(
@@ -240,10 +246,13 @@ class DatasetProcessor:
                 latest_dataset.latest = False
                 db_session.add(latest_dataset)
             db_session.add(new_dataset)
+            db_session.commit()
+            self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
             refresh_materialized_view(db_session, t_feedsearch.name)
-            db_session.commit()
-            logging.info(f"[{self.feed_stable_id}] Dataset created successfully.")
+            self.logger.info(
+                f"[{self.feed_stable_id}] Materialized view refresh event triggered successfully."
+            )
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
@@ -255,7 +264,7 @@ class DatasetProcessor:
         dataset_file = self.upload_dataset()
 
         if dataset_file is None:
-            logging.info(f"[{self.feed_stable_id}] No database update required.")
+            self.logger.info(f"[{self.feed_stable_id}] No database update required.")
             return None
         self.create_dataset(dataset_file)
         return dataset_file
@@ -267,8 +276,8 @@ def record_trace(
     """
     Record the trace in the datastore
     """
-    logging.info(
-        f"[{stable_id}] Recording trace in execution: [{execution_id}] with status: [{status}]"
+    get_logger("record_trace", stable_id if stable_id else "UNKNOWN").info(
+        f"Recording trace in execution: [{execution_id}] with status: [{status}]"
     )
     trace = DatasetTrace(
         trace_id=None,
@@ -305,7 +314,6 @@ def process_dataset(cloud_event: CloudEvent):
         }
     }
     """
-    Logger.init_logger()
     logging.info("Function Started")
     stable_id = "UNKNOWN"
     bucket_name = os.getenv("DATASETS_BUCKET_NAME")
@@ -326,60 +334,59 @@ def process_dataset(cloud_event: CloudEvent):
         logging.error(f"Function completed with error:{error_message}")
         return
 
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session():
-            maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 1)
-            public_hosted_datasets_url = os.getenv("PUBLIC_HOSTED_DATASETS_URL")
-            trace_service = None
-            dataset_file: DatasetFile = None
-            error_message = None
-            #  Extract  data from message
-            data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
-            json_payload = json.loads(data)
-            logging.info(
-                f"[{json_payload['feed_stable_id']}] JSON Payload: {json.dumps(json_payload)}"
-            )
-            stable_id = json_payload["feed_stable_id"]
-            execution_id = json_payload["execution_id"]
-            trace_service = DatasetTraceService()
-            trace = trace_service.get_by_execution_and_stable_ids(
-                execution_id, stable_id
-            )
-            logging.info(f"[{stable_id}] Dataset trace: {trace}")
-            executions = len(trace) if trace else 0
-            logging.info(
-                f"[{stable_id}] Dataset executed times={executions}/{maximum_executions} "
-                f"in execution=[{execution_id}] "
-            )
+        maximum_executions = os.getenv("MAXIMUM_EXECUTIONS", 1)
+        public_hosted_datasets_url = os.getenv("PUBLIC_HOSTED_DATASETS_URL")
+        trace_service = None
+        dataset_file: DatasetFile = None
+        error_message = None
+        #  Extract  data from message
+        data = base64.b64decode(cloud_event.data["message"]["data"]).decode()
+        json_payload = json.loads(data)
+        stable_id = json_payload["feed_stable_id"]
+        logger = get_logger("process_dataset", stable_id)
+        logger.info(f"JSON Payload: {json.dumps(json_payload)}")
 
-            if executions > 0:
-                if executions >= maximum_executions:
-                    error_message = (
-                        f"[{stable_id}] Function already executed maximum times "
-                        f"in execution: [{execution_id}]"
-                    )
-                    logging.error(error_message)
-                    return error_message
+        execution_id = json_payload["execution_id"]
+        trace_service = DatasetTraceService()
+        trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
+        logger.info(f"Dataset trace: {trace}")
+        executions = len(trace) if trace else 0
+        logger.info(
+            f"Dataset executed times={executions}/{maximum_executions} "
+            f"in execution=[{execution_id}] "
+        )
 
-            processor = DatasetProcessor(
-                json_payload["producer_url"],
-                json_payload["feed_id"],
-                stable_id,
-                execution_id,
-                json_payload["dataset_hash"],
-                bucket_name,
-                int(json_payload["authentication_type"]),
-                json_payload["api_key_parameter_name"],
-                public_hosted_datasets_url,
-            )
-            dataset_file = processor.process()
+        if executions > 0:
+            if executions >= maximum_executions:
+                error_message = (
+                    f"Function already executed maximum times "
+                    f"in execution: [{execution_id}]"
+                )
+                logger.error(error_message)
+                return error_message
+
+        processor = DatasetProcessor(
+            json_payload["producer_url"],
+            json_payload["feed_id"],
+            stable_id,
+            execution_id,
+            json_payload["dataset_hash"],
+            bucket_name,
+            int(json_payload["authentication_type"]),
+            json_payload["api_key_parameter_name"],
+            public_hosted_datasets_url,
+        )
+        dataset_file = processor.process()
     except Exception as e:
-        logging.error(e)
-        error_message = f"[{stable_id}] Error execution: [{execution_id}] error: [{e}]"
-        logging.error(error_message)
-        logging.error(f"Function completed with error:{error_message}")
+        # This makes sure the logger is initialized
+        logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")
+        logger.error(e)
+        error_message = f"Error execution: [{execution_id}] error: [{e}]"
+        logger.error(error_message)
+        logger.error(f"Function completed with error:{error_message}")
     finally:
+        logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")
         if stable_id and execution_id:
             status = (
                 Status.PUBLISHED if dataset_file is not None else Status.NOT_PUBLISHED
@@ -395,12 +402,12 @@ def process_dataset(cloud_event: CloudEvent):
                 trace_service,
             )
         else:
-            logging.error(
+            logger.error(
                 f"Function completed with errors, missing stable={stable_id} or execution_id={execution_id}"
             )
             return f"Function completed with errors, missing stable={stable_id} or execution_id={execution_id}"
-    logging.info(
-        f"[{stable_id}] Function %s in execution: [{execution_id}]",
+    logger.info(
+        f"Function %s in execution: [{execution_id}]",
         "successfully completed" if not error_message else "Failed",
     )
     return "Completed." if error_message is None else error_message

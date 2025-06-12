@@ -14,41 +14,41 @@
 #  limitations under the License.
 #
 
-from faker import Faker
 from datetime import datetime
 
+from faker import Faker
 from geoalchemy2 import WKTElement
 
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Validationreport,
     Feature,
     Redirectingid,
-)
-from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
     Gtfsdataset,
     Location,
     Entitytype,
+    Feedosmlocationgroup,
+    Osmlocationgroup,
+    Geopolygon,
 )
-from test_shared.test_utils.database_utils import clean_testing_db, get_testing_session
+from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
 
-def populate_database():
+@with_db_session(db_url=default_db_url)
+def populate_database(db_session):
     """
     Populates the database with fake data with the following distribution:
     - 5 GTFS feeds
         - 2 active
         - 1 inactive
         - 2 deprecated
-    - 5 GTFS Realtime feeds
-    - 4 3TFS rt datasets, with 1 of them inactive
+    - 3 GTFS datasets
+    - 4 GTFS Realtime feeds, with 1 of them inactive
     """
-    clean_testing_db()
-    session = get_testing_session()
     fake = Faker()
 
-    feed_reference = None
     feeds = []
     # We create 3 feeds. The first one is active. The third one is inactive and redirected to the first one.
     # The second one is active but not redirected.
@@ -65,9 +65,9 @@ def populate_database():
             stable_id=f"gtfs-{i}",
             feed_contact_email=f"gtfs-{i}_some_fake_email@fake.com",
             provider=f"gtfs-{i} Some fake company",
+            operational_status="published",
+            official=True,
         )
-        if i == 0:
-            feed_reference = feed
         feeds.append(feed)
 
     # Then fill the specific parameters for each feed
@@ -95,8 +95,8 @@ def populate_database():
     ]
 
     for feed in feeds:
-        session.add(feed)
-
+        db_session.add(feed)
+    db_session.flush()
     for i in range(2):
         feed = Gtfsfeed(
             id=fake.uuid4(),
@@ -112,8 +112,10 @@ def populate_database():
             status="deprecated",
             feed_contact_email=f"gtfs-deprecated-{i}_some_fake_email@fake.com",
             provider=f"gtfs-deprecated-{i} Some fake company",
+            operational_status="published",
+            official=True,
         )
-        session.add(feed)
+        db_session.add(feed)
 
     location_entity = Location(id="CA-quebec-montreal")
 
@@ -121,23 +123,24 @@ def populate_database():
     location_entity.country_code = "CA"
     location_entity.subdivision_name = "Quebec"
     location_entity.municipality = "Montreal"
-    session.add(location_entity)
+    db_session.add(location_entity)
     locations = [location_entity]
 
     feature1 = Feature(name="Shapes")
-    session.add(feature1)
+    db_session.add(feature1)
     feature2 = Feature(name="Route Colors")
-    session.add(feature2)
+    db_session.add(feature2)
 
     # GTFS datasets leaving one active feed without a dataset
     active_gtfs_feeds = (
-        session.query(Gtfsfeed)
+        db_session.query(Gtfsfeed)
         .filter(Gtfsfeed.status == "active")
         .order_by(Gtfsfeed.stable_id)
         .all()
     )
 
-    # the first 2 datasets are for the first feed
+    db_session.flush()
+    # the first 2 datasets are for the first active feed, one dataset is for the second active feed
     for i in range(1, 4):
         feed_index = 0 if i in [1, 2] else 1
         wkt_polygon = "POLYGON((-18 -9, -18 9, 18 9, 18 -9, -18 -9))"
@@ -166,7 +169,7 @@ def populate_database():
         validation_report.features.append(feature1)
         validation_report.features.append(feature2)
 
-        session.add(validation_report)
+        db_session.add(validation_report)
         gtfs_dataset.validation_reports.append(validation_report)
 
         gtfs_dataset.locations = locations
@@ -175,60 +178,118 @@ def populate_database():
     active_gtfs_feeds[0].locations = locations
     active_gtfs_feeds[1].locations = locations
 
-    # active_gtfs_feeds[0].gtfsdatasets.append() = gtfs_datasets
-
-    vp_entitytype = session.query(Entitytype).filter_by(name="vp").first()
-    if not vp_entitytype:
-        vp_entitytype = Entitytype(name="vp")
-        session.add(vp_entitytype)
-    tu_entitytype = session.query(Entitytype).filter_by(name="tu").first()
-    if not tu_entitytype:
-        tu_entitytype = Entitytype(name="tu")
-        session.add(tu_entitytype)
-
-    # GTFS Realtime feeds
-    rt_feeds = []
-    for i in range(3):
-        rt_feeds.append(
-            Gtfsrealtimefeed(
-                id=fake.uuid4(),
-                data_type="gtfs_rt",
-                feed_name=f"gtfs-rt-{i} Some fake name",
-                note=f"gtfs-rt-{i} Some fake note",
-                producer_url=f"https://gtfs-rt-{i}_some_fake_producer_url",
-                authentication_type=str(i),
-                authentication_info_url=f"https://gtfs-rt-{i}_some_fake_authentication_info_url",
-                api_key_parameter_name=f"gtfs-rt-{i}_fake_api_key_parameter_name",
-                license_url=f"https://gtfs-rt-{i}_some_fake_license_url",
-                stable_id=f"gtfs-rt-{i}",
-                status="inactive" if i == 1 else "active",
-                feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
-                provider=f"gtfs-rt-{i} Some fake company",
-                entitytypes=[vp_entitytype, tu_entitytype]
-                if i == 0
-                else [vp_entitytype],
-                gtfs_feeds=[feed_reference] if i == 0 else [],
-            )
-        )
-    # rt_feeds[1] is inactive and redirected to rt_feeds[0] and rt_feee[2]
-    rt_feeds[1].redirectingids = [
-        Redirectingid(
-            source_id=rt_feeds[1].id,
-            target_id=rt_feeds[0].id,
-            redirect_comment="comment 1",
-            target=rt_feeds[0],
+    # Add extracted locations to a feed
+    geopolygons = [
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=2,
+            name="Canada",
+            iso_3166_1_code="CA",
         ),
-        Redirectingid(
-            source_id=rt_feeds[1].id,
-            target_id=rt_feeds[2].id,
-            redirect_comment="comment 2",
-            target=rt_feeds[2],
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=4,
+            name="Quebec",
+            iso_3166_2_code="QC",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=6,
+            name="Montreal",
+            iso_3166_2_code="QC",
+        ),
+        Geopolygon(
+            osm_id=fake.random_int(),
+            admin_level=8,
+            name="Laval",
+            iso_3166_2_code="QC",
+        ),
+    ]
+    first_feed = active_gtfs_feeds[0]
+    first_feed.feedosmlocationgroups = [
+        # Location in Montreal, Quebec, Canada with fewer stops
+        Feedosmlocationgroup(
+            feed_id=first_feed.id,
+            stops_count=10,
+            group=Osmlocationgroup(
+                group_id=".".join(
+                    [str(geopolygon.osm_id) for geopolygon in geopolygons[0:3]]
+                ),
+                group_name="Canada, Quebec, Montreal",
+                osms=geopolygons[0:3],
+            ),
+        ),
+        # Location in Laval, Quebec, Canada with the most stops
+        Feedosmlocationgroup(
+            feed_id=first_feed.id,
+            stops_count=100,
+            group=Osmlocationgroup(
+                group_id=".".join(
+                    [
+                        str(geopolygon.osm_id)
+                        for geopolygon in geopolygons[0:2] + [geopolygons[3]]
+                    ]
+                ),
+                group_name="Canada, Quebec, Laval",
+                osms=geopolygons[0:2] + [geopolygons[3]],
+            ),
         ),
     ]
 
-    session.add_all(rt_feeds)
+    vp_entitytype = db_session.query(Entitytype).filter_by(name="vp").first()
 
-    session.commit()
+    if not vp_entitytype:
+        vp_entitytype = Entitytype(name="vp")
+        db_session.add(vp_entitytype)
+    tu_entitytype = db_session.query(Entitytype).filter_by(name="tu").first()
+    if not tu_entitytype:
+        tu_entitytype = Entitytype(name="tu")
+        db_session.add(tu_entitytype)
+
+    db_session.flush()
+    # GTFS Realtime feeds
+    gtfs_rt_feeds = []
+    for i in range(3):
+        feed = Gtfsrealtimefeed(
+            id=fake.uuid4(),
+            data_type="gtfs_rt",
+            feed_name=f"gtfs-rt-{i} Some fake name",
+            note=f"gtfs-rt-{i} Some fake note",
+            producer_url=f"https://gtfs-rt-{i}_some_fake_producer_url",
+            authentication_type=str(i),
+            authentication_info_url=f"https://gtfs-rt-{i}_some_fake_authentication_info_url",
+            api_key_parameter_name=f"gtfs-rt-{i}_fake_api_key_parameter_name",
+            license_url=f"https://gtfs-rt-{i}_some_fake_license_url",
+            stable_id=f"gtfs-rt-{i}",
+            status="inactive" if i == 1 else "active",
+            feed_contact_email=f"gtfs-rt-{i}_some_fake_email@fake.com",
+            provider=f"gtfs-rt-{i} Some fake company",
+            entitytypes=[vp_entitytype, tu_entitytype] if i == 0 else [vp_entitytype],
+            operational_status="published",
+            official=True,
+            gtfs_feeds=[active_gtfs_feeds[0]] if i == 0 else [],
+        )
+        gtfs_rt_feeds.append(feed)
+
+    # Add redirecting IDs (from main branch logic)
+    gtfs_rt_feeds[1].redirectingids = [
+        Redirectingid(
+            source_id=gtfs_rt_feeds[1].id,
+            target_id=gtfs_rt_feeds[0].id,
+            redirect_comment="comment 1",
+            target=gtfs_rt_feeds[0],
+        ),
+        Redirectingid(
+            source_id=gtfs_rt_feeds[1].id,
+            target_id=gtfs_rt_feeds[2].id,
+            redirect_comment="comment 2",
+            target=gtfs_rt_feeds[2],
+        ),
+    ]
+
+    db_session.add_all(gtfs_rt_feeds)
+
+    db_session.commit()
 
 
 def pytest_configure(config):

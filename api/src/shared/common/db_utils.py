@@ -1,12 +1,13 @@
-from typing import Iterator
+from typing import Iterator, List, Dict, Optional
 
 from geoalchemy2 import WKTElement
 from sqlalchemy import or_
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload, Session
+from sqlalchemy.orm import joinedload, Session, contains_eager, load_only
 from sqlalchemy.orm.query import Query
 from sqlalchemy.orm.strategy_options import _AbstractLoad
-
+from sqlalchemy import func
+from sqlalchemy.sql import and_
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Gtfsdataset,
@@ -16,96 +17,187 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsrealtimefeed,
     Entitytype,
     Redirectingid,
+    Feedosmlocationgroup,
+    Geopolygon,
+    Gbfsfeed,
+    Gbfsversion,
+    Gbfsvalidationreport,
 )
 from shared.feed_filters.gtfs_feed_filter import GtfsFeedFilter, LocationFilter
 from shared.feed_filters.gtfs_rt_feed_filter import GtfsRtFeedFilter, EntityTypeFilter
 from .entity_type_enum import EntityType
 from .error_handling import raise_internal_http_validation_error, invalid_bounding_coordinates, invalid_bounding_method
 from .iter_utils import batched
+from ..feed_filters.gbfs_feed_filter import GbfsFeedFilter, GbfsVersionFilter
 
 
 def get_gtfs_feeds_query(
-    limit: int | None,
-    offset: int | None,
-    provider: str | None,
-    producer_url: str | None,
-    country_code: str | None,
-    subdivision_name: str | None,
-    municipality: str | None,
-    dataset_latitudes: str | None,
-    dataset_longitudes: str | None,
-    bounding_filter_method: str | None,
-    is_official: bool = False,
-    include_wip: bool = False,
-    db_session: Session = None,
+    db_session: Session,
+    stable_id: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    provider: str | None = None,
+    producer_url: str | None = None,
+    country_code: str | None = None,
+    subdivision_name: str | None = None,
+    municipality: str | None = None,
+    dataset_latitudes: str | None = None,
+    dataset_longitudes: str | None = None,
+    bounding_filter_method: str | None = None,
+    is_official: bool | None = None,
+    published_only: bool = True,
+    include_options_for_joinedload: bool = True,
 ) -> Query[any]:
     """Get the DB query to use to retrieve the GTFS feeds.."""
     gtfs_feed_filter = GtfsFeedFilter(
-        stable_id=None,
+        stable_id=stable_id,
         provider__ilike=provider,
         producer_url__ilike=producer_url,
-        location=LocationFilter(
-            country_code=country_code,
-            subdivision_name__ilike=subdivision_name,
-            municipality__ilike=municipality,
-        ),
+        location=None,
     )
 
-    subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id).join(Location, Gtfsfeed.locations))
+    subquery = gtfs_feed_filter.filter(select(Gtfsfeed.id))
     subquery = apply_bounding_filtering(
         subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
     ).subquery()
+    feed_query = (
+        db_session.query(Gtfsfeed)
+        .outerjoin(Gtfsfeed.gtfsdatasets)
+        .filter(Gtfsfeed.id.in_(subquery))
+        .filter(or_(Gtfsdataset.latest, Gtfsdataset.id == None))  # noqa: E711
+    )
 
-    feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
-    if not include_wip:
-        feed_query = feed_query.filter(
-            or_(Gtfsfeed.operational_status == None, Gtfsfeed.operational_status != "wip")  # noqa: E711
+    if country_code or subdivision_name or municipality:
+        location_filter = LocationFilter(
+            country_code=country_code,
+            subdivision_name__ilike=subdivision_name,
+            municipality__ilike=municipality,
         )
+        location_subquery = location_filter.filter(select(Location.id))
+        feed_query = feed_query.filter(Gtfsfeed.locations.any(Location.id.in_(location_subquery)))
 
-    feed_query = feed_query.options(
-        joinedload(Gtfsfeed.gtfsdatasets)
-        .joinedload(Gtfsdataset.validation_reports)
-        .joinedload(Validationreport.notices),
-        *get_joinedload_options(),
-    ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
-    if is_official:
-        feed_query = feed_query.filter(Feed.official)
+    if published_only:
+        feed_query = feed_query.filter(Gtfsfeed.operational_status == "published")
+
+    feed_query = add_official_filter(feed_query, is_official)
+
+    if include_options_for_joinedload:
+        feed_query = feed_query.options(
+            contains_eager(Gtfsfeed.gtfsdatasets)
+            .joinedload(Gtfsdataset.validation_reports)
+            .joinedload(Validationreport.features),
+            *get_joinedload_options(),
+        ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
+
     feed_query = feed_query.limit(limit).offset(offset)
     return feed_query
 
 
+def apply_most_common_location_filter(query: Query, db_session: Session) -> Query:
+    """
+    Apply the most common location filter to the query.
+    :param query: The query to apply the filter to.
+    :param db_session: The database session.
+
+    :return: The query with the most common location filter applied.
+    """
+    most_common_location_subquery = (
+        db_session.query(
+            Feedosmlocationgroup.feed_id, func.max(Feedosmlocationgroup.stops_count).label("max_stops_count")
+        )
+        .group_by(Feedosmlocationgroup.feed_id)
+        .subquery()
+    )
+    return query.outerjoin(Feed.feedosmlocationgroups).filter(
+        Feedosmlocationgroup.stops_count == most_common_location_subquery.c.max_stops_count,
+        Feedosmlocationgroup.feed_id == most_common_location_subquery.c.feed_id,
+    )
+
+
+def get_geopolygons(db_session: Session, feeds: List[Feed], include_geometry: bool = False) -> Dict[str, Geopolygon]:
+    """
+    Get the geolocations for the given feeds.
+    :param db_session: The database session.
+    :param feeds: The feeds to get the geolocations for.
+    :param include_geometry: Whether to include the geometry in the result.
+
+    :return: The geolocations for the given location groups.
+    """
+    location_groups = [feed.feedosmlocationgroups for feed in feeds]
+    location_groups = [item for sublist in location_groups for item in sublist]
+
+    if not location_groups:
+        return dict()
+    geo_polygons_osm_ids = []
+    for location_group in location_groups:
+        split_ids = location_group.group_id.split(".")
+        if not split_ids:
+            continue
+        geo_polygons_osm_ids += [int(split_id) for split_id in split_ids if split_id.isdigit()]
+    if not geo_polygons_osm_ids:
+        return dict()
+    geo_polygons_osm_ids = list(set(geo_polygons_osm_ids))
+    query = db_session.query(Geopolygon).filter(Geopolygon.osm_id.in_(geo_polygons_osm_ids))
+    if not include_geometry:
+        query = query.options(
+            load_only(Geopolygon.osm_id, Geopolygon.name, Geopolygon.iso_3166_2_code, Geopolygon.iso_3166_1_code)
+        )
+    query = query.order_by(Geopolygon.admin_level)
+    geopolygons = query.all()
+    geopolygon_map = {str(geopolygon.osm_id): geopolygon for geopolygon in geopolygons}
+    return geopolygon_map
+
+
 def get_all_gtfs_feeds(
     db_session: Session,
-    include_wip: bool = False,
+    published_only: bool = True,
     batch_size: int = 250,
+    w_extracted_locations_only: bool = False,
 ) -> Iterator[Gtfsfeed]:
     """
     Fetch all GTFS feeds.
 
-    @param db_session: The database session.
-    @param include_wip: Whether to include or exclude WIP feeds.
-    @param batch_size: The number of feeds to fetch from the database at a time.
+    :param db_session: The database session.
+    :param published_only: Include only the published feeds.
+    :param batch_size: The number of feeds to fetch from the database at a time.
         A lower value means less memory but more queries.
+    :param w_extracted_locations_only: Whether to include only feeds with extracted locations.
 
-    @return: The GTFS feeds in an iterator.
+    :return: The GTFS feeds in an iterator.
     """
-    feed_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
-    if not include_wip:
-        feed_query = feed_query.filter(Gtfsfeed.operational_status.is_distinct_from("wip"))
+    batch_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
+    if published_only:
+        batch_query = batch_query.filter(Gtfsfeed.operational_status == "published")
 
-    for batch in batched(feed_query, batch_size):
+    for batch in batched(batch_query, batch_size):
         stable_ids = (f.stable_id for f in batch)
-        yield from (
-            db_session.query(Gtfsfeed)
-            .filter(Gtfsfeed.stable_id.in_(stable_ids))
-            .options(
-                joinedload(Gtfsfeed.gtfsdatasets)
-                .joinedload(Gtfsdataset.validation_reports)
-                .joinedload(Validationreport.features),
-                *get_joinedload_options(),
+        if w_extracted_locations_only:
+            feed_query = apply_most_common_location_filter(
+                db_session.query(Gtfsfeed).outerjoin(Gtfsfeed.gtfsdatasets), db_session
             )
-            .order_by(Gtfsfeed.stable_id)
-        )
+            yield from (
+                feed_query.filter(Gtfsfeed.stable_id.in_(stable_ids))
+                .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
+                .options(
+                    contains_eager(Gtfsfeed.gtfsdatasets)
+                    .joinedload(Gtfsdataset.validation_reports)
+                    .joinedload(Validationreport.features),
+                    *get_joinedload_options(include_extracted_location_entities=True),
+                )
+            )
+        else:
+            yield from (
+                db_session.query(Gtfsfeed)
+                .outerjoin(Gtfsfeed.gtfsdatasets)
+                .filter(Gtfsfeed.stable_id.in_(stable_ids))
+                .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
+                .options(
+                    contains_eager(Gtfsfeed.gtfsdatasets)
+                    .joinedload(Gtfsdataset.validation_reports)
+                    .joinedload(Validationreport.features),
+                    *get_joinedload_options(include_extracted_location_entities=False),
+                )
+            )
 
 
 def get_gtfs_rt_feeds_query(
@@ -118,7 +210,7 @@ def get_gtfs_rt_feeds_query(
     subdivision_name: str | None,
     municipality: str | None,
     is_official: bool | None,
-    include_wip: bool = False,
+    published_only: bool = True,
     db_session: Session = None,
 ) -> Query:
     """Get some (or all) GTFS Realtime feeds from the Mobility Database."""
@@ -152,56 +244,78 @@ def get_gtfs_rt_feeds_query(
     ).subquery()
     feed_query = db_session.query(Gtfsrealtimefeed).filter(Gtfsrealtimefeed.id.in_(subquery))
 
-    if not include_wip:
-        feed_query = feed_query.filter(
-            or_(
-                Gtfsrealtimefeed.operational_status == None,  # noqa: E711
-                Gtfsrealtimefeed.operational_status != "wip",
-            )
-        )
+    if published_only:
+        feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
     feed_query = feed_query.options(
         joinedload(Gtfsrealtimefeed.entitytypes),
         joinedload(Gtfsrealtimefeed.gtfs_feeds),
         *get_joinedload_options(),
     )
-    if is_official:
-        feed_query = feed_query.filter(Feed.official)
+    feed_query = add_official_filter(feed_query, is_official)
+
     feed_query = feed_query.limit(limit).offset(offset)
     return feed_query
 
 
+def add_official_filter(query: Query, is_official: bool | None) -> Query:
+    """
+    Add the is_official filter to the query if necessary
+    """
+    if is_official is not None:
+        if is_official:
+            query = query.filter(Feed.official.is_(True))
+        else:
+            query = query.filter(or_(Feed.official.is_(False), Feed.official.is_(None)))
+    return query
+
+
 def get_all_gtfs_rt_feeds(
     db_session: Session,
-    include_wip: bool = False,
+    published_only: bool = True,
     batch_size: int = 250,
+    w_extracted_locations_only: bool = False,
 ) -> Iterator[Gtfsrealtimefeed]:
     """
     Fetch all GTFS realtime feeds.
 
-    @param db_session: The database session.
-    @param include_wip: Whether to include or exclude WIP feeds.
-    @param batch_size: The number of feeds to fetch from the database at a time.
+    :param db_session: The database session.
+    :param published_only: Include only the published feeds.
+    :param batch_size: The number of feeds to fetch from the database at a time.
         A lower value means less memory but more queries.
+    :param w_extracted_locations_only: Whether to include only feeds with extracted locations.
 
-    @return: The GTFS realtime feeds in an iterator.
+    :return: The GTFS realtime feeds in an iterator.
     """
-    feed_query = db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id).yield_per(batch_size)
-    if not include_wip:
-        feed_query = feed_query.filter(Gtfsrealtimefeed.operational_status.is_distinct_from("wip"))
+    batched_query = (
+        db_session.query(Gtfsrealtimefeed.stable_id).order_by(Gtfsrealtimefeed.stable_id).yield_per(batch_size)
+    )
+    if published_only:
+        batched_query = batched_query.filter(Gtfsrealtimefeed.operational_status == "published")
 
-    for batch in batched(feed_query, batch_size):
+    for batch in batched(batched_query, batch_size):
         stable_ids = (f.stable_id for f in batch)
-        yield from (
-            db_session.query(Gtfsrealtimefeed)
-            .filter(Gtfsrealtimefeed.stable_id.in_(stable_ids))
-            .options(
-                joinedload(Gtfsrealtimefeed.entitytypes),
-                joinedload(Gtfsrealtimefeed.gtfs_feeds),
-                *get_joinedload_options(),
+        if w_extracted_locations_only:
+            feed_query = apply_most_common_location_filter(db_session.query(Gtfsrealtimefeed), db_session)
+            yield from (
+                feed_query.filter(Gtfsrealtimefeed.stable_id.in_(stable_ids))
+                .options(
+                    joinedload(Gtfsrealtimefeed.entitytypes),
+                    joinedload(Gtfsrealtimefeed.gtfs_feeds),
+                    *get_joinedload_options(include_extracted_location_entities=True),
+                )
+                .order_by(Gtfsfeed.stable_id)
             )
-            .order_by(Gtfsfeed.stable_id)
-        )
+        else:
+            yield from (
+                db_session.query(Gtfsrealtimefeed)
+                .filter(Gtfsrealtimefeed.stable_id.in_(stable_ids))
+                .options(
+                    joinedload(Gtfsrealtimefeed.entitytypes),
+                    joinedload(Gtfsrealtimefeed.gtfs_feeds),
+                    *get_joinedload_options(include_extracted_location_entities=False),
+                )
+            )
 
 
 def apply_bounding_filtering(
@@ -261,11 +375,82 @@ def apply_bounding_filtering(
         raise_internal_http_validation_error(invalid_bounding_method.format(bounding_filter_method))
 
 
-def get_joinedload_options() -> [_AbstractLoad]:
-    """Returns common joinedload options for feeds queries."""
-    return [
+def get_joinedload_options(include_extracted_location_entities: bool = False) -> [_AbstractLoad]:
+    """
+    Returns common joinedload options for feeds queries.
+    :param include_extracted_location_entities: Whether to include extracted location entities.
+
+    :return: A list of joinedload options.
+    """
+    joinedload_options = []
+    if include_extracted_location_entities:
+        joinedload_options = [contains_eager(Feed.feedosmlocationgroups).joinedload(Feedosmlocationgroup.group)]
+    return joinedload_options + [
         joinedload(Feed.locations),
         joinedload(Feed.externalids),
         joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         joinedload(Feed.officialstatushistories),
     ]
+
+
+def get_gbfs_feeds_query(
+    db_session: Session,
+    stable_id: Optional[str] = None,
+    provider: Optional[str] = None,
+    producer_url: Optional[str] = None,
+    country_code: Optional[str] = None,
+    subdivision_name: Optional[str] = None,
+    municipality: Optional[str] = None,
+    system_id: Optional[str] = None,
+    version: Optional[str] = None,
+) -> Query:
+    gbfs_feed_filter = GbfsFeedFilter(
+        stable_id=stable_id,
+        provider__ilike=provider,
+        producer_url__ilike=producer_url,
+        system_id=system_id,
+        location=LocationFilter(
+            country_code=country_code,
+            subdivision_name__ilike=subdivision_name,
+            municipality__ilike=municipality,
+        )
+        if country_code or subdivision_name or municipality
+        else None,
+        version=GbfsVersionFilter(
+            version=version,
+        )
+        if version
+        else None,
+    )
+    # Subquery: latest report per version
+    latest_report_subq = (
+        db_session.query(
+            Gbfsvalidationreport.gbfs_version_id.label("gbfs_version_id"),
+            func.max(Gbfsvalidationreport.validated_at).label("latest_validated_at"),
+        )
+        .group_by(Gbfsvalidationreport.gbfs_version_id)
+        .subquery()
+    )
+
+    # Join validation reports filtered by latest `validated_at`
+    query = gbfs_feed_filter.filter(
+        db_session.query(Gbfsfeed)
+        .outerjoin(Location, Gbfsfeed.locations)
+        .outerjoin(Gbfsfeed.gbfsversions)
+        .outerjoin(latest_report_subq, Gbfsversion.id == latest_report_subq.c.gbfs_version_id)
+        .outerjoin(
+            Gbfsvalidationreport,
+            and_(
+                Gbfsversion.id == Gbfsvalidationreport.gbfs_version_id,
+                Gbfsvalidationreport.validated_at == latest_report_subq.c.latest_validated_at,
+            ),
+        )
+        .options(
+            contains_eager(Gbfsfeed.gbfsversions).contains_eager(Gbfsversion.gbfsvalidationreports),
+            contains_eager(Gbfsfeed.gbfsversions).joinedload(Gbfsversion.gbfsendpoints),
+            joinedload(Feed.locations),
+            joinedload(Feed.externalids),
+            joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
+        )
+    )
+    return query

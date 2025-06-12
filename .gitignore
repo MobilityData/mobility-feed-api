@@ -58,9 +58,10 @@ secrets-*.env
 vars.envx
 vars-*.env
 
-config/.env.dev
+config/.env.*
 venv
 cypress.env.json
+.deploy-env-dev
 
 __pycache__
 /functions-python/*/.env.local

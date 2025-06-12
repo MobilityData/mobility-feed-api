@@ -20,4 +20,12 @@ google-cloud-pubsub
 google-api-core
 google-cloud-firestore
 google-cloud-datastore
+google-cloud-tasks
 cloudevents~=1.10.1
+
+# Configuration
+python-dotenv==1.0.0
+
+# Additional packages for the function
+jsonpath-ng
+language-tags

@@ -6,12 +6,12 @@ import flask
 import functions_framework
 from flask import Response
 
-from shared.helpers.logger import Logger
+from shared.helpers.logger import init_logger
 from processors.base_analytics_processor import NoFeedDataException
 from processors.gbfs_analytics_processor import GBFSAnalyticsProcessor
 from processors.gtfs_analytics_processor import GTFSAnalyticsProcessor
 
-logging.basicConfig(level=logging.INFO)
+init_logger()
 
 
 def get_compute_date(request: flask.Request) -> datetime:
@@ -33,29 +33,29 @@ def preprocess_analytics(request: flask.Request, processor_class) -> Response:
     """
     Common logic to process analytics using the given processor class.
     """
-    Logger.init_logger()
-    logging.info(f"{processor_class.__name__} Function triggered")
+    logging.info("Function triggered: %s", processor_class.__name__)
     compute_date = get_compute_date(request)
-    logging.info(f"Compute date: {compute_date}")
+    logging.info("Compute date: %s", compute_date)
     try:
         processor = processor_class(compute_date)
         processor.run()
     except NoFeedDataException as e:
-        logging.warning(f"No feed data found for date {compute_date}: {e}")
+        logging.warning("No feed data found for date %s: %s", compute_date, e)
         return Response(f"No feed data found for date {compute_date}: {e}", status=404)
     except Exception as e:
         # Extracting the traceback details
         tb = traceback.format_exc()
+        logging.error("Error processing %s analytics: %s", processor_class.__name__, e)
         logging.error(
-            f"Error processing {processor_class.__name__} analytics: {e}\nTraceback:\n{tb}"
+            "Error trace processing %s analytics: %s", processor_class.__name__, tb
         )
         return Response(
             f"Error processing analytics for date {compute_date}: {e}", status=500
         )
 
-    return Response(
-        f"Successfully processed analytics for date: {compute_date}", status=200
-    )
+    message = f"Successfully processed analytics for date: {compute_date}"
+    logging.info(message)
+    return Response(message, status=200)
 
 
 @functions_framework.http

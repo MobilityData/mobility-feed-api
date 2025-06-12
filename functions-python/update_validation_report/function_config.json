@@ -6,7 +6,7 @@
   "memory": "256Mi",
   "trigger_http": true,
   "include_folders": ["helpers"],
-  "include_api_folders": ["database_gen"],
+  "include_api_folders": ["database_gen", "database", "common"],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"
@@ -14,7 +14,7 @@
   ],
   "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
   "max_instance_request_concurrency": 1,
-  "max_instance_count": 5,
+  "max_instance_count": 1,
   "min_instance_count": 0,
   "available_cpu": 1
 }

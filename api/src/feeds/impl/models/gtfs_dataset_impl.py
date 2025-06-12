@@ -51,4 +51,5 @@ class GtfsDatasetImpl(GtfsDataset):
             validation_report=cls.from_orm_latest_validation_report(gtfs_dataset.validation_reports),
             service_date_range_start=gtfs_dataset.service_date_range_start,
             service_date_range_end=gtfs_dataset.service_date_range_end,
+            agency_timezone=gtfs_dataset.agency_timezone,
         )

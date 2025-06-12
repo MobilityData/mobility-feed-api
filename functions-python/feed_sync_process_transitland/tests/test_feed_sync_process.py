@@ -1,6 +1,5 @@
 import base64
 import json
-import logging
 from unittest import mock
 from unittest.mock import patch, Mock, MagicMock
 
@@ -11,14 +10,7 @@ from sqlalchemy.orm import Session as DBSession
 from shared.database_gen.sqlacodegen_models import Feed, Gtfsfeed
 from shared.helpers.feed_sync.models import TransitFeedSyncPayload as FeedPayload
 
-with mock.patch("shared.helpers.logger.Logger.init_logger") as mock_init_logger:
-    from main import (
-        FeedProcessor,
-        process_feed_event,
-    )
-
-# Environment variables for tests
-TEST_DB_URL = "postgresql://test:test@localhost:54320/test"
+from main import FeedProcessor, process_feed_event
 
 
 @pytest.fixture
@@ -40,45 +32,8 @@ def mock_location():
 
 
 @pytest.fixture
-def mock_db():
-    with patch("main.Database") as mock_db:
-        yield mock_db
-
-
-class MockLogger:
-    """Mock logger for testing"""
-
-    @staticmethod
-    def init_logger():
-        return MagicMock()
-
-    def __init__(self, name):
-        self.name = name
-        self._logger = logging.getLogger(name)
-
-    def get_logger(self):
-        mock_logger = MagicMock()
-        # Add all required logging methods
-        mock_logger.info = MagicMock()
-        mock_logger.error = MagicMock()
-        mock_logger.warning = MagicMock()
-        mock_logger.debug = MagicMock()
-        mock_logger.addFilter = MagicMock()
-        return mock_logger
-
-
-@pytest.fixture(autouse=True)
-def mock_logging():
-    """Mock both local and GCP logging."""
-    with patch("main.logging") as mock_log, patch("main.Logger", MockLogger):
-        for logger in [mock_log]:
-            logger.info = MagicMock()
-            logger.error = MagicMock()
-            logger.warning = MagicMock()
-            logger.debug = MagicMock()
-            logger.addFilter = MagicMock()
-
-        yield mock_log
+def mock_db_session():
+    return Mock()
 
 
 @pytest.fixture
@@ -106,7 +61,6 @@ def feed_payload():
 @mock.patch.dict(
     "os.environ",
     {
-        "FEEDS_DATABASE_URL": TEST_DB_URL,
         "GOOGLE_APPLICATION_CREDENTIALS": "dummy-credentials.json",
     },
 )
@@ -155,7 +109,7 @@ class TestFeedProcessor:
             "payload_type": feed_payload.payload_type,
         }
 
-    def test_get_current_feed_info(self, processor, feed_payload, mock_logging):
+    def test_get_current_feed_info(self, processor, feed_payload):
         """Test retrieving current feed information."""
         # Mock database query
         processor.session.query.return_value.filter.return_value.all.return_value = [
@@ -184,7 +138,7 @@ class TestFeedProcessor:
         )
         assert len(feeds) == 0
 
-    def test_check_feed_url_exists_comprehensive(self, processor, mock_logging):
+    def test_check_feed_url_exists_comprehensive(self, processor):
         """Test comprehensive feed URL existence checks."""
         test_url = "https://example.com/feed"
 
@@ -196,7 +150,7 @@ class TestFeedProcessor:
         result = processor._check_feed_url_exists(test_url)
         assert result is True
 
-    def test_database_error_handling(self, processor, feed_payload, mock_logging):
+    def test_database_error_handling(self, processor, feed_payload):
         """Test database error handling in different scenarios."""
 
         # Test case 1: General database error during feed processing
@@ -206,9 +160,7 @@ class TestFeedProcessor:
 
         processor._rollback_transaction.assert_called_once()
 
-    def test_publish_to_batch_topic_comprehensive(
-        self, processor, feed_payload, mock_logging
-    ):
+    def test_publish_to_batch_topic_comprehensive(self, processor, feed_payload):
         """Test publishing to batch topic including success, error, and message format validation."""
 
         # Test case 1: Successful publish with message format validation
@@ -232,7 +184,7 @@ class TestFeedProcessor:
         assert "feed_stable_id" in json.loads(message_arg["data"])
         assert "tld-feed1" == json.loads(message_arg["data"])["feed_stable_id"]
 
-    def test_process_feed_event_validation(self, mock_logging):
+    def test_process_feed_event_validation(self):
         """Test feed event processing with various invalid payloads."""
 
         # Test case 1: Empty payload
@@ -259,26 +211,8 @@ class TestFeedProcessor:
 
         process_feed_event(cloud_event)
 
-    def test_process_feed_event_database_connection_error(
-        self, processor, feed_payload, mock_logging, mock_db
-    ):
-        """Test feed event processing with database connection error."""
-        # Create cloud event with valid payload
-        payload_dict = self._create_payload_dict(feed_payload)
-        payload_data = base64.b64encode(
-            json.dumps(payload_dict).encode("utf-8")
-        ).decode()
-        cloud_event = Mock()
-        cloud_event.data = {"message": {"data": payload_data}}
-
-        # Mock database session to raise error
-        mock_db.return_value.start_db_session.side_effect = SQLAlchemyError(
-            "Database connection error"
-        )
-        process_feed_event(cloud_event)
-
     def test_process_feed_event_pubsub_error(
-        self, processor, feed_payload, mock_logging, mock_db
+        self, processor, feed_payload, mock_db_session
     ):
         """Test feed event processing handles missing credentials error."""
         # Create cloud event with valid payload
@@ -294,13 +228,10 @@ class TestFeedProcessor:
         # Mock database session with minimal setup
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.all.return_value = []
-        mock_db.return_value.start_db_session.return_value.__enter__.return_value = (
-            mock_session
-        )
 
-        process_feed_event(cloud_event)
+        process_feed_event(cloud_event, db_session=mock_session)
 
-    def test_process_feed_event_malformed_cloud_event(self, mock_logging):
+    def test_process_feed_event_malformed_cloud_event(self):
         """Test feed event processing with malformed cloud event."""
         # Test case 1: Missing message data
         cloud_event = Mock()
@@ -313,7 +244,7 @@ class TestFeedProcessor:
 
         process_feed_event(cloud_event)
 
-    def test_process_feed_event_invalid_json(self, mock_logging):
+    def test_process_feed_event_invalid_json(self):
         """Test handling of invalid JSON in cloud event"""
         # Create invalid base64 encoded JSON
         invalid_json = base64.b64encode(b'{"invalid": "json"').decode()
@@ -322,14 +253,14 @@ class TestFeedProcessor:
         cloud_event.data = {"message": {"data": invalid_json}}
 
         # Process the event
-        process_feed_event(cloud_event)
+        result = process_feed_event(cloud_event)
 
         # Verify error handling
-        mock_logging.error.assert_called()
+        assert result.startswith("Error processing feed event")
 
     @patch("main.create_new_feed")
     def test_process_new_feed_or_skip(
-        self, create_new_feed_mock, processor, feed_payload, mock_logging
+        self, create_new_feed_mock, processor, feed_payload
     ):
         """Test processing new feed or skipping existing feed."""
         processor._check_feed_url_exists = MagicMock()
@@ -339,9 +270,7 @@ class TestFeedProcessor:
         create_new_feed_mock.assert_called_once()
 
     @patch("main.create_new_feed")
-    def test_process_new_feed_skip(
-        self, create_new_feed_mock, processor, feed_payload, mock_logging
-    ):
+    def test_process_new_feed_skip(self, create_new_feed_mock, processor, feed_payload):
         """Test processing new feed or skipping existing feed."""
         processor._check_feed_url_exists = MagicMock()
         # Test case 2: Existing feed
@@ -351,7 +280,7 @@ class TestFeedProcessor:
 
     @patch("main.create_new_feed")
     def test_process_existing_feed_refs(
-        self, create_new_feed_mock, processor, feed_payload, mock_logging
+        self, create_new_feed_mock, processor, feed_payload
     ):
         """Test processing existing feed references."""
         # 1. Existing feed with same url

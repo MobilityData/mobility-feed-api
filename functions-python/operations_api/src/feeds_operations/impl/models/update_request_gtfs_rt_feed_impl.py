@@ -14,7 +14,6 @@
 #  limitations under the License.
 #
 
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 from feeds_operations.impl.models.entity_type_impl import EntityTypeImpl
 from feeds_operations.impl.models.external_id_impl import ExternalIdImpl
 from feeds_operations.impl.models.redirect_impl import RedirectImpl
@@ -22,6 +21,7 @@ from feeds_operations_gen.models.source_info import SourceInfo
 from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsrealtimefeed
 
 
 class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
@@ -71,6 +71,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
                 [EntityTypeImpl.from_orm(item) for item in obj.entitytypes]
             ),
             feed_references=sorted([item.stable_id for item in obj.gtfs_feeds]),
+            official=obj.official,
         )
 
     @classmethod
@@ -85,6 +86,7 @@ class UpdateRequestGtfsRtFeedImpl(UpdateRequestGtfsRtFeed):
         entity.feed_name = update_request.feed_name
         entity.note = update_request.note
         entity.feed_contact_email = update_request.feed_contact_email
+        entity.official = update_request.official
         entity.producer_url = (
             None
             if (

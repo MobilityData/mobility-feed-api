@@ -15,6 +15,7 @@
 #
 
 import json
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -25,10 +26,13 @@ from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 from shared.dataset_service.main import BatchExecutionService, BatchExecution
-from shared.helpers.database import Database
+from shared.database.database import with_db_session
+from shared.helpers.logger import init_logger
 
+init_logger()
 pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME")
 project_id = os.getenv("PROJECT_ID")
 
@@ -46,11 +50,11 @@ def publish_callback(future: Future, stable_id: str, topic_path: str):
     This function logs the result of the publishing operation.
     """
     if future.exception():
-        print(
+        logging.error(
             f"Error publishing feed {stable_id} to Pub/Sub topic {topic_path}: {future.exception()}"
         )
     else:
-        print(f"Published stable_id={stable_id}.")
+        logging.info(f"Published stable_id={stable_id}.")
 
 
 def publish(publisher: PublisherClient, topic_path: str, data_bytes: bytes) -> Future:
@@ -88,13 +92,12 @@ def get_non_deprecated_feeds(session: Session):
         limit = os.getenv("FEEDS_LIMIT")
         query = query.limit(10 if limit is None else int(limit))
     results = query.all()
-    print(f"Retrieved {len(results)} feeds.")
-
     return results
 
 
+@with_db_session
 @functions_framework.http
-def batch_datasets(request):
+def batch_datasets(request, db_session: Session):
     """
     HTTP Function entry point queries the datasets and publishes them to a Pub/Sub topic to be processed.
     This function requires the following environment variables to be set:
@@ -102,19 +105,18 @@ def batch_datasets(request):
         FEEDS_DATABASE_URL: database URL
         PROJECT_ID: GCP project ID
     :param request: HTTP request object
+    :param db_session: database session object
     :return: HTTP response object
     """
-    db = Database(database_url=os.getenv("FEEDS_DATABASE_URL"))
     try:
-        with db.start_db_session() as session:
-            feeds = get_non_deprecated_feeds(session)
+        feeds = get_non_deprecated_feeds(db_session)
     except Exception as error:
-        print(f"Error retrieving feeds: {error}")
+        logging.error(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
     finally:
         pass
 
-    print(f"Retrieved {len(feeds)} feeds.")
+    logging.info(f"Retrieved {len(feeds)} feeds.")
     publisher = get_pubsub_client()
     topic_path = publisher.topic_path(project_id, pubsub_topic_name)
     trace_id = request.headers.get("X-Cloud-Trace-Context")
@@ -135,7 +137,7 @@ def batch_datasets(request):
             "api_key_parameter_name": feed.api_key_parameter_name,
         }
         data_str = json.dumps(payload)
-        print(f"Publishing {data_str} to {topic_path}.")
+        logging.debug(f"Publishing {data_str} to {topic_path}.")
         future = publish(publisher, topic_path, data_str.encode("utf-8"))
         future.add_done_callback(
             lambda _: publish_callback(future, feed.stable_id, topic_path)
@@ -147,4 +149,6 @@ def batch_datasets(request):
             timestamp=timestamp,
         )
     )
-    return f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
+    message = f"Publish completed. Published {len(feeds)} feeds to {pubsub_topic_name}."
+    logging.info(message)
+    return message

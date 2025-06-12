@@ -13,14 +13,23 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import os
+import logging
+import threading
 
 import google.cloud.logging
-from google.cloud.logging_v2 import Client
-import logging
+
+from shared.common.logging_utils import get_env_logging_level
+
+
+def is_local_env():
+    return os.getenv("K_SERVICE") is None
 
 
 class StableIdFilter(logging.Filter):
-    """Add a stable_id to the log record"""
+    """
+    Add a stable_id to the log record with format: [stable_id] log_message
+    """
 
     def __init__(self, stable_id=None):
         super().__init__()
@@ -32,29 +41,41 @@ class StableIdFilter(logging.Filter):
         return True
 
 
-class Logger:
+lock = threading.Lock()
+_logging_initialized = False
+
+
+def init_logger():
     """
-    Util class for logging information, errors or warnings.
-    This class uses the Google Cloud Logging API enhancing the logs with extra request information.
+    Initializes the logger with level INFO if not set in the environment.
+    On cloud environment it will also initialize the GCP logger.
     """
+    logging.basicConfig(level=get_env_logging_level())
+    global _logging_initialized
+    if not is_local_env() and not _logging_initialized:
+        # Avoids initializing the logs multiple times due to performance concerns
+        with lock:
+            if _logging_initialized:
+                return
+            try:
+                client = google.cloud.logging.Client()
+                client.setup_logging()
+            except Exception as error:
+                # This might happen when the GCP authorization credentials are not available.
+                # Example, when running the tests locally
+                logging.error(f"Error initializing the logger: {error}")
+            _logging_initialized = True
 
-    def __init__(self, name):
-        self.init_logger()
-        self.logger = self.init_logger().logger(name)
 
-    @staticmethod
-    def init_logger() -> Client:
-        """
-        Initializes the logger
-        """
-        client = google.cloud.logging.Client()
-        client.get_default_handler()
-        client.setup_logging()
-        return client
-
-    def get_logger(self) -> Client:
-        """
-        Get the GCP logger instance
-        :return: the logger instance
-        """
-        return self.logger
+def get_logger(name: str, stable_id: str = None):
+    """
+    Get the logger instance for the specified name.
+    If stable_id is provided, the StableIdFilter is added.
+    This method can be called multiple times for the same logger name without creating a side effect.
+    """
+    logger = logging.getLogger(name)
+    if stable_id and not any(
+        isinstance(log_filter, StableIdFilter) for log_filter in logger.filters
+    ):
+        logger.addFilter(StableIdFilter(stable_id))
+    return logger
