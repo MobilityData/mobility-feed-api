@@ -463,13 +463,14 @@ export default function Feed(): React.ReactElement {
             width={'100%'}
             component={'div'}
           >
-            {t('dataAattribution')}{' '}
+            {t('dataAattribution')}
+            {' the United States '}
             <a
               rel='noreferrer'
               target='_blank'
               href='https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks'
             >
-              Federal Transit Administration
+              National Transit Database
             </a>
           </Typography>
         )}
