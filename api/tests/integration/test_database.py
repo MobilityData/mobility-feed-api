@@ -38,9 +38,7 @@ def test_bounding_box_dateset_exists(test_database):
 def assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database):
     with test_database.start_db_session() as session:
         query = apply_bounding_filtering(BASE_QUERY, latitudes, longitudes, method)
-        assert query is not None, "apply_bounding_filtering returned None!"
-        print(type(query))
-        print(test_database.select)
+        assert query is not None, "apply_bounding_filtering returned None"
         result = session.execute(query).all()
         assert (len(result) > 0) is expected_found
 
