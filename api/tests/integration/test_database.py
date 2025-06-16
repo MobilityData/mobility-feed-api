@@ -2,15 +2,14 @@ from datetime import datetime, timezone
 from typing import Final
 
 import pytest
+from faker import Faker
 from sqlalchemy.orm import Query
 
-from shared.common.db_utils import apply_bounding_filtering
-from shared.database.database import Database, generate_unique_id
-from shared.database_gen.sqlacodegen_models import Feature, Gtfsdataset
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.feeds_api_impl import FeedsApiImpl
-from faker import Faker
-
+from shared.common.db_utils import apply_bounding_filtering
+from shared.database.database import Database, generate_unique_id
+from shared.database_gen.sqlacodegen_models import Feature, Gtfsfeed
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_DATASET_STABLE_IDS
 
 VALIDATION_ERROR_NOTICES = 7
@@ -23,9 +22,7 @@ VALIDATION_WARNING_NOTICES = 4
 VALIDATION_ERROR_COUNT_PER_NOTICE = 2
 
 
-BASE_QUERY = Query([Gtfsdataset, Gtfsdataset.bounding_box.ST_AsGeoJSON()]).filter(
-    Gtfsdataset.stable_id == TEST_DATASET_STABLE_IDS[0]
-)
+BASE_QUERY = Query([Gtfsfeed])
 fake = Faker()
 
 
@@ -41,7 +38,10 @@ def test_bounding_box_dateset_exists(test_database):
 def assert_bounding_box_found(latitudes, longitudes, method, expected_found, test_database):
     with test_database.start_db_session() as session:
         query = apply_bounding_filtering(BASE_QUERY, latitudes, longitudes, method)
-        result = test_database.select(session, query=query)
+        assert query is not None, "apply_bounding_filtering returned None!"
+        print(type(query))
+        print(test_database.select)
+        result = session.execute(query).all()
         assert (len(result) > 0) is expected_found
 
 
