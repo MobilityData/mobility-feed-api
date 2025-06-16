@@ -42,6 +42,10 @@ tasks = {
         "description": "Rebuilds missing validation reports for GTFS datasets.",
         "handler": rebuild_missing_validation_reports_handler,
     },
+    "identify_missing_bounding_boxes": {
+        "description": "Rebuilds missing bounding boxes for GTFS datasets that contain valid stops.txt files.",
+        "handler": identify_missing_bounding_boxes_handler,
+    },
 }
 
 
