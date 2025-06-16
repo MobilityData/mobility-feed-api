@@ -9,6 +9,8 @@ import { type LatLngExpression } from 'leaflet';
 import type { FeatureCollection } from 'geojson';
 import { MapElement } from './MapElement';
 import { Box, useTheme } from '@mui/material';
+import sampleRoutes from './sample-route-output.json';
+import RouteSelector from './RouteSelector';
 
 export interface MapProps {
   polygon: LatLngExpression[];
@@ -19,6 +21,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
   const [hoverData, setHoverData] = useState<string>('');
   const [mapElement, setMapElement] = useState<MapElement[]>([]);
+  const [filteredRoutes, setFilteredRoutes] = useState<string[]>([]);
   const mapRef = useRef<MapRef>(null);
 
   const handleMouseMove = (event: maplibregl.MapLayerMouseEvent): void => {
@@ -70,7 +73,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
       }
     }
   };
-  ///
+
 
   useEffect(() => {
     // Will be called on add statup only once
@@ -123,10 +126,10 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
     ],
   };
 
-  console.log();
-
   return (
     <MapProvider>
+      <Box sx={{display: 'flex', height: '100%'}}>
+      <RouteSelector routes={sampleRoutes} onSelectionChange={val => setFilteredRoutes(val)}></RouteSelector>
       <Box
         sx={{
           width: '100%',
@@ -147,6 +150,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
           interactiveLayerIds={['stops', 'routes', 'routes-white']}
           scrollZoom={true}
           dragPan={true}
+          // https://pmtiles.io/ Good tool for debugging PMTiles
           mapStyle={{
             version: 8,
             sources: {
@@ -161,11 +165,11 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
               },
               sample: {
                 type: 'vector',
-                url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops.pmtiles', // Google Storage Bucket (CORS enabled)
+                url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-v2.pmtiles', // Google Storage Bucket (CORS enabled)
               },
               routes: {
                 type: 'vector',
-                url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes.pmtiles', // Google Storage Bucket (CORS enabled)
+                url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-v2.pmtiles', // Google Storage Bucket (CORS enabled)
               },
               // boundingBox: {
               //   type: 'geojson',
@@ -185,7 +189,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
               {
                 id: 'routes-white',
                 source: 'routes',
-                'source-layer': 'output', // Name in the
+                'source-layer': 'routesoutput', // Name of the geojson file when converting to pmtile. route-output.geojson -> routesoutput
                 type: 'line',
                 paint: {
                   // style and color of the stops
@@ -204,7 +208,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
               {
                 id: 'routes',
                 source: 'routes',
-                'source-layer': 'output', // Name in the
+                'source-layer': 'routesoutput', // Name of the geojson file when converting to pmtile. route-output.geojson -> routesoutput
                 type: 'line',
                 paint: {
                   // style and color of the stops
@@ -244,7 +248,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
               {
                 id: 'stops',
                 source: 'sample',
-                'source-layer': 'stops', // Name in the
+                'source-layer': 'stopsoutput', // Name of the geojson file when converting to pmtile. stops-output.geojson -> stopssoutput
                 type: 'circle',
                 paint: {
                   // style and color of the stops
@@ -257,7 +261,7 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
               {
                 id: 'routes-highlight',
                 source: 'routes',
-                'source-layer': 'output', // Name in the
+                'source-layer': 'routesoutput', // Name of the geojson file when converting to pmtile. stops-output.geojson -> stopssoutput
                 type: 'line',
                 paint: {
                   // style and color of the stops
@@ -274,24 +278,52 @@ export const Map2 = (props: React.PropsWithChildren<MapProps>): JSX.Element => {
                 },
                 minzoom: 10,
                 maxzoom: 22,
-                filter: ['in', ['get', 'route_id'], ['literal', hoverInfo]],
+                filter: [
+                  'any',
+                  ['in', ['get', 'route_id'], ['literal', hoverInfo]],
+                  ['in', ['get', 'route_id'], ['literal', filteredRoutes]]
+                ],
               },
               {
                 id: 'stops-highlight',
                 source: 'sample',
-                'source-layer': 'stops',
+                'source-layer': 'stopsoutput', // Name of the geojson file when converting to pmtile. stops-output.geojson -> stopssoutput
                 type: 'circle',
                 paint: {
-                  'circle-radius': 10,
-                  'circle-color': '#ff0000', // Red highlight
+                  'circle-radius': 6,
+                  'circle-color':  ['concat', '#', ['at', 0, ['get', 'route_colors']]], // Red highlight
                   'circle-opacity': 0.8,
                 },
-                filter: ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
+                filter: [
+                  'any',
+                  ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
+                  //['in', 2, ['get', 'route_ids']]
+                  [
+                    'any',
+                    ['in', '141', ['get', 'route_ids']],
+                    ...filteredRoutes.map(id => {
+                      const a = ['in', Number(id), ['get', 'route_ids']];
+                      return a as any;
+                    })
+                  ],
+                  [
+                    'any',
+                    ['in', '141', ['get', 'route_ids']],
+                    ...hoverInfo.map(id => {
+                      const a = ['in', Number(id), ['get', 'route_ids']];
+                      return a as any;
+                    })
+                  ]
+                ]
+
+                
               },
             ],
           }}
         ></Map>
       </Box>
+      </Box>
+
     </MapProvider>
   );
 };
