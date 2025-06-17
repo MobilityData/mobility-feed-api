@@ -6,18 +6,18 @@ import { Protocol } from 'pmtiles';
 import { type LatLngExpression } from 'leaflet';
 import type { FeatureCollection } from 'geojson';
 import { Box, useTheme } from '@mui/material';
-import sampleRoutes from './sample-route-output.json';
 import { MapElement } from './MapElement';
-import RouteSelector from './RouteSelector';
 
 export interface GtfsVisualizationMapProps {
   polygon: LatLngExpression[];
   filteredRoutes?: string[];
+  filteredRouteTypes?: string[];
 }
 
 export const GtfsVisualizationMap = ({
   polygon,
   filteredRoutes = [],
+  filteredRouteTypes = [],
 }: GtfsVisualizationMapProps): JSX.Element => {
   const theme = useTheme();
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
@@ -85,7 +85,7 @@ export const GtfsVisualizationMap = ({
   }, []);
 
   const getBoundsFromCoordinates = (
-    coordinates: [number, number][],
+    coordinates: Array<[number, number]>,
   ): LngLatBoundsLike => {
     let minLng = Number.POSITIVE_INFINITY;
     let minLat = Number.POSITIVE_INFINITY;
@@ -103,7 +103,7 @@ export const GtfsVisualizationMap = ({
   };
 
   const bounds: LngLatBoundsLike = getBoundsFromCoordinates(
-    polygon as [number, number][],
+    polygon as Array<[number, number]>,
   );
 
   // in polygon: IMPORTANT - the coordinates are in the format [lat, lng] (not [lng, lat])
@@ -135,7 +135,7 @@ export const GtfsVisualizationMap = ({
             width: '100%',
             height: '100%',
             position: 'relative',
-            //border: '2px solid',
+            // border: '2px solid',
             borderColor: theme.palette.primary.main,
             borderRadius: '5px',
           }}
@@ -144,7 +144,9 @@ export const GtfsVisualizationMap = ({
           <Map
             onClick={handleMouseMove}
             ref={mapRef}
-            onMouseMove={(event) => handleMouseMove(event)}
+            onMouseMove={(event) => {
+              handleMouseMove(event);
+            }}
             style={{ width: '100%', height: '100%' }}
             initialViewState={{ bounds }}
             interactiveLayerIds={['stops', 'routes', 'routes-white']}
@@ -177,6 +179,7 @@ export const GtfsVisualizationMap = ({
                 // },
               },
               // Order matters: the last layer will be on top
+              // Layers control all the logic in the map -> lots of duplicated for the sake of effects
               layers: [
                 {
                   id: 'simple-tiles',
@@ -187,7 +190,7 @@ export const GtfsVisualizationMap = ({
                 },
 
                 {
-                  id: 'routes-white',
+                  id: 'routes-white', // white padding on the route lines
                   source: 'routes',
                   'source-layer': 'routesoutput', // Name of the geojson file when converting to pmtile. route-output.geojson -> routesoutput
                   type: 'line',
@@ -214,6 +217,7 @@ export const GtfsVisualizationMap = ({
                     // style and color of the stops
                     'line-color': ['concat', '#', ['get', 'route_color']],
                     'line-width': [
+                      // line with thickness based on route type (thicker for metro, thinner for bus)
                       'match',
                       ['get', 'route_type'], // Property from the vector tile
                       '3',
@@ -301,7 +305,7 @@ export const GtfsVisualizationMap = ({
                   filter: [
                     'any',
                     ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
-                    //['in', 2, ['get', 'route_ids']]
+                    // ['in', 2, ['get', 'route_ids']]
                     [
                       'any',
                       ['in', '141', ['get', 'route_ids']],
