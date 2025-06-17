@@ -20,7 +20,6 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
         """Filter out rows with Authentication Info and duplicate System IDs"""
         self.df = self.df[pd.isna(self.df["Authentication Info URL"])]
         self.df = self.df[~self.df.duplicated(subset="System ID", keep=False)]
-        # self.df = self.df.set_index(subset="System ID", inplace=True)
         self.logger.info(f"Data = {self.df}")
 
     @staticmethod
