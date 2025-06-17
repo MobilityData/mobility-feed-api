@@ -40,6 +40,7 @@ import {
   ResponsiveListItem,
   boxElementStyleProducerURL,
   featureChipsStyle,
+  StyledListItem,
 } from '../Feed.styles';
 import FeedAuthenticationSummaryInfo from './FeedAuthenticationSummaryInfo';
 
@@ -104,9 +105,15 @@ export default function FeedSummary({
               listStyle: providersToDisplay.length <= 1 ? 'none' : undefined,
             }}
           >
-            {providersToDisplay.map((provider) => (
-              <ResponsiveListItem key={provider}>{provider}</ResponsiveListItem>
-            ))}
+            {providersToDisplay.map((provider) =>
+              providersToDisplay.length <= 1 ? (
+                <StyledListItem key={provider}>{provider}</StyledListItem>
+              ) : (
+                <ResponsiveListItem key={provider}>
+                  {provider}
+                </ResponsiveListItem>
+              ),
+            )}
           </ul>
 
           {!showAllProviders && sortedProviders.length > 4 && (
@@ -132,6 +139,21 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
+      {feed?.data_type === 'gtfs' && (
+        <Box sx={boxElementStyle}>
+          <StyledTitleContainer>
+            {/* TODO: get back to this */}
+            <AccessTimeIcon></AccessTimeIcon>
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              Number of Routes
+            </Typography>
+          </StyledTitleContainer>
+          <Typography variant='body1'>
+            500
+            <Button>Find Routes On Map </Button>
+          </Typography>
+        </Box>
+      )}
       {latestDataset?.agency_timezone != undefined && (
         <Box sx={boxElementStyle}>
           <StyledTitleContainer>
