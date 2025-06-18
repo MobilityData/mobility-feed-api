@@ -42,7 +42,7 @@ export const ContentBox = (
             mb: 1,
           }}
         >
-          <span>{props.title}</span>
+          {props.title.trim() !== '' && <span>{props.title}</span>}
           {props.action != null && props.action}
         </Typography>
       )}

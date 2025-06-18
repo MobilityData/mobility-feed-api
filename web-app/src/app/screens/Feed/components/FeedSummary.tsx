@@ -43,6 +43,9 @@ import {
   StyledListItem,
 } from '../Feed.styles';
 import FeedAuthenticationSummaryInfo from './FeedAuthenticationSummaryInfo';
+import CommuteIcon from '@mui/icons-material/Commute';
+import { Link as RouterLink } from 'react-router-dom';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -150,7 +153,44 @@ export default function FeedSummary({
           </StyledTitleContainer>
           <Typography variant='body1'>
             500
-            <Button>Find Routes On Map </Button>
+            <Tooltip title='Find Routes On Map' placement='top' sx={{ ml: 1 }}>
+              <IconButton
+                size='small'
+                component={RouterLink}
+                to='./map'
+                color={'primary'}
+              >
+                <TravelExploreIcon></TravelExploreIcon>
+              </IconButton>
+            </Tooltip>
+          </Typography>
+        </Box>
+      )}
+      {feed?.data_type === 'gtfs' && (
+        <Box sx={boxElementStyle}>
+          <StyledTitleContainer>
+            {/* TODO: get back to this */}
+            <CommuteIcon></CommuteIcon>
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              Type of Routes
+            </Typography>
+          </StyledTitleContainer>
+          <Typography variant='body1'>
+            Bus, Subway
+            <Tooltip
+              title='View Routes Types On Map'
+              placement='top'
+              sx={{ ml: 1 }}
+            >
+              <IconButton
+                size='small'
+                component={RouterLink}
+                to='./map'
+                color={'primary'}
+              >
+                <TravelExploreIcon></TravelExploreIcon>
+              </IconButton>
+            </Tooltip>
           </Typography>
         </Box>
       )}

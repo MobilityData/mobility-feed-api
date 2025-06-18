@@ -1,29 +1,28 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Drawer,
   TextField,
   List,
-  ListItem,
   Checkbox,
   ListItemText,
   ListItemIcon,
   Typography,
   Box,
+  ListItemButton,
 } from '@mui/material';
 
 interface RouteSelectorProps {
   routes: Array<any>; // Replace 'any' with a more specific type if available
+  selectedRouteIds?: string[];
   onSelectionChange?: (selectedRoutes: string[]) => void;
-  open?: boolean;
 }
 
 export default function RouteSelector({
   routes,
+  selectedRouteIds = [],
   onSelectionChange,
-  open = true,
 }: RouteSelectorProps) {
   const [search, setSearch] = useState('');
-  const [selectedRoutes, setSelectedRoutes] = useState<string[]>([]);
+  const [selectedRoutes, setSelectedRoutes] = useState<string[]>(selectedRouteIds);
 
   const filteredRoutes = useMemo(() => {
     const searchLower = search.toLowerCase();
@@ -33,6 +32,10 @@ export default function RouteSelector({
         route.routeId.includes(searchLower),
     );
   }, [search, routes]);
+
+  useEffect(() => {
+    setSelectedRoutes([...selectedRouteIds]);
+  }, [selectedRouteIds]);
 
   const handleToggle = (routeId: string) => {
     setSelectedRoutes((prev) => {
@@ -46,11 +49,7 @@ export default function RouteSelector({
   };
 
   return (
-    <Box sx={{ p: 2, width: 300 }}>
-      <Typography variant='h6' gutterBottom>
-        {' '}
-        Select Routes{' '}
-      </Typography>
+    <Box>
       <TextField
         fullWidth
         variant='outlined'
@@ -58,16 +57,16 @@ export default function RouteSelector({
         placeholder='Search routes...'
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        sx={{ mb: 2 }}
       />
-      <List dense sx={{ maxHeight: '80vh', overflow: 'auto' }}>
-        {filteredRoutes.map((route) => (
-          <ListItem
+      <List dense sx={{ maxHeight: '400px', overflow: 'auto' }}>
+        {filteredRoutes.sort((a,b) => (a.routeId - b.routeId)).map((route) => (
+          <ListItemButton
             key={route.routeId}
-            button
+            sx={{pl: 0}}
             onClick={() => handleToggle(route.routeId)}
+            dense={true}
           >
-            <ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 34 }}>
               <Checkbox
                 edge='start'
                 checked={selectedRoutes.includes(route.routeId)}
@@ -88,11 +87,12 @@ export default function RouteSelector({
                       border: '1px solid #999',
                     }}
                   />
-                  {route.routeName}
+                  <Typography variant={'inherit'} sx={{flex: 1}}>{route.routeId} - {route.routeName}</Typography>
+                  
                 </Box>
               }
             />
-          </ListItem>
+          </ListItemButton>
         ))}
       </List>
     </Box>

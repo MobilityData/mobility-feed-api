@@ -129,7 +129,6 @@ export const GtfsVisualizationMap = ({
   return (
     <MapProvider>
       <Box sx={{ display: 'flex', height: '100%' }}>
-        {/* <RouteSelector routes={sampleRoutes} onSelectionChange={val => setFilteredRoutes(val)}></RouteSelector> */}
         <Box
           sx={{
             width: '100%',
@@ -226,6 +225,7 @@ export const GtfsVisualizationMap = ({
                       4, // 1 = metro
                       3, // Default width
                     ],
+                    'line-opacity': 0.4, // Opacity of the route lines
                   },
                   layout: {
                     'line-sort-key': [
@@ -258,6 +258,7 @@ export const GtfsVisualizationMap = ({
                     // style and color of the stops
                     'circle-radius': 3,
                     'circle-color': '#000000',
+                    'circle-opacity': 0.4,
                   },
                   minzoom: 12,
                   maxzoom: 22,
@@ -270,6 +271,7 @@ export const GtfsVisualizationMap = ({
                   paint: {
                     // style and color of the stops
                     'line-color': ['concat', '#', ['get', 'route_color']],
+                    'line-opacity': 1,
                     'line-width': [
                       'match',
                       ['get', 'route_type'], // Property from the vector tile
@@ -280,8 +282,7 @@ export const GtfsVisualizationMap = ({
                       3, // Default width
                     ],
                   },
-                  minzoom: 10,
-                  maxzoom: 22,
+                
                   filter: [
                     'any',
                     ['in', ['get', 'route_id'], ['literal', hoverInfo]],
@@ -295,31 +296,28 @@ export const GtfsVisualizationMap = ({
                   type: 'circle',
                   paint: {
                     'circle-radius': 6,
-                    'circle-color': [
-                      'concat',
-                      '#',
-                      ['at', 0, ['get', 'route_colors']],
-                    ], // Red highlight
+                    // 'circle-color': [
+                    //   'concat',
+                    //   '#',
+                    //   ['at', 0, ['get', 'route_colors']],
+                    // ], // Red highlight
+                    'circle-color': '#0095E6',
                     'circle-opacity': 0.8,
                   },
-                  filter: [
+                  filter: 
+                  [
                     'any',
                     ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
-                    // ['in', 2, ['get', 'route_ids']]
                     [
                       'any',
-                      ['in', '141', ['get', 'route_ids']],
                       ...filteredRoutes.map((id) => {
-                        const a = ['in', Number(id), ['get', 'route_ids']];
-                        return a as any;
+                        return ['in', `\"${id}\"`, ['get', 'route_ids']] as any; // VERY IMPORTANT: during the conversion to PMTiles, the route_ids are stored as strings with quotes NOT arrays. [1,2,3] -> "["1","2","3"]"
                       }),
                     ],
                     [
                       'any',
-                      ['in', '141', ['get', 'route_ids']],
                       ...hoverInfo.map((id) => {
-                        const a = ['in', Number(id), ['get', 'route_ids']];
-                        return a as any;
+                        return ['in', `\"${id}\"`, ['get', 'route_ids']] as any;
                       }),
                     ],
                   ],

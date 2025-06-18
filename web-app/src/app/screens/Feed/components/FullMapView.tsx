@@ -1,4 +1,4 @@
-import { Box, Fab } from '@mui/material';
+import { Box, Fab, Typography, Button, Chip, useTheme } from '@mui/material';
 import RouteSelector from '../../../components/RouteSelector';
 import sampleRoutes from './sample-route-output.json';
 import React, { useState } from 'react';
@@ -8,12 +8,22 @@ import NestedCheckboxList, {
   type CheckboxStructure,
 } from '../../../components/NestedCheckboxList';
 import { routeTypesMapping } from '../../../constants/RouteTypes';
+import { ChevronLeft } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
+import { SearchHeader } from '../../../styles/Filters.styles';
 
 export interface FullMapViewProps {}
 
 export default function FullMapView({}: FullMapViewProps): React.ReactElement {
+  const { t } = useTranslation('feeds');
+  const theme = useTheme();
   const [filteredRoutes, setFilteredRoutes] = useState<string[]>([]);
   const [filteredRouteTypes, setFilteredRouteTypes] = useState<string[]>([]);
+
+  const clearAllFilters = () => {
+    setFilteredRoutes([]);
+    setFilteredRouteTypes([]);
+  };
 
   const getUniqueRouteTypesCheckboxData = (
     routes: Array<{ routeType: string }>,
@@ -47,19 +57,55 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
         height: '100%',
         position: 'relative',
         display: 'flex',
+        pt: 1,
+        minHeight: 'calc(100vh - 64px - 36px)', // Adjusts for the height of the header and any additional padding
+        mt: { xs: -2, md: -4 }, // Adjusts for the margin of the header
       }}
     >
-      <Fab
-        size='small'
-        aria-label='add'
-        sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}
-        onClick={() => {
-          window.history.back();
-        }}
-      >
-        <CloseIcon />
-      </Fab>
-      <Box display={'flex'} flexDirection={'row'} flexWrap={'wrap'}>
+      <Box id='map-controls' sx={{ width: '300px', padding: 2, pt: 0 }}>
+        <Box width={'100%'}>
+          <Button
+            size='large'
+            startIcon={<ChevronLeft />}
+            color={'inherit'}
+            sx={{ pl: 0 }}
+            onClick={() => {
+              window.history.back();
+            }}
+          >
+            {t('common:back')}
+          </Button>
+        </Box>
+
+        <SearchHeader variant='h6' className='no-collapse'>
+          Route Types
+        </SearchHeader>
+        <NestedCheckboxList
+          checkboxData={getUniqueRouteTypesCheckboxData(sampleRoutes)}
+          onCheckboxChange={(checkboxData: CheckboxStructure[]) => {
+            setFilteredRouteTypes(
+              checkboxData
+                .map((item) => {
+                  return item.checked ? item?.props?.routeTypeId ?? '' : '';
+                })
+                .filter((item) => item !== ''),
+            );
+          }}
+        />
+
+        <SearchHeader variant='h6' className='no-collapse'>
+          Routes
+        </SearchHeader>
+        <RouteSelector
+          routes={sampleRoutes}
+          selectedRouteIds={filteredRoutes}
+          onSelectionChange={(val) => {
+            setFilteredRoutes(val);
+          }}
+        ></RouteSelector>
+        <SearchHeader variant='h6' className='no-collapse'>
+          Visibility
+        </SearchHeader>
         <NestedCheckboxList
           checkboxData={[
             {
@@ -72,34 +118,70 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
             console.log(checkboxData);
           }}
         />
-        {/* Route type selector */}
-        <Box sx={{ width: '300px', padding: 2 }}>
-          <NestedCheckboxList
-            checkboxData={getUniqueRouteTypesCheckboxData(sampleRoutes)}
-            onCheckboxChange={(checkboxData: CheckboxStructure[]) => {
-              setFilteredRouteTypes(
-                checkboxData
-                  .map((item) => {
-                    return item.checked ? item?.props?.routeTypeId ?? '' : '';
-                  })
-                  .filter((item) => item !== ''),
-              );
-            }}
-          />
-        </Box>
-        <RouteSelector
-          routes={sampleRoutes}
-          onSelectionChange={(val) => {
-            setFilteredRoutes(val);
-          }}
-        ></RouteSelector>
       </Box>
-      <Box sx={{ width: '100%', height: '90vh', position: 'relative' }}>
-        <GtfsVisualizationMap
-          polygon={bb as any}
-          filteredRouteTypes={filteredRouteTypes}
-          filteredRoutes={filteredRoutes}
-        ></GtfsVisualizationMap>
+      <Box sx={{ width: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        <Box
+          id='map-filters'
+          display={'flex'}
+          flexWrap={'wrap'}
+          alignItems={'center'}
+          gap={1}
+          sx={{ p: 1, minHeight: '50px' }}
+        >
+          {filteredRoutes.map((routeId) => (
+            <Chip
+              color='primary'
+              variant='outlined'
+              size='small'
+              key={routeId}
+              label={routeId}
+              onDelete={() => {
+                setFilteredRoutes((prev) =>
+                  prev.filter((id) => id !== routeId),
+                );
+              }}
+              sx={{ cursor: 'pointer' }}
+            ></Chip>
+          ))}
+          {filteredRoutes.length > 0 && (
+            <Button
+              variant={'text'}
+              onClick={clearAllFilters}
+              size={'small'}
+              color={'primary'}
+            >
+              Clear All
+            </Button>
+          )}
+        </Box>
+        <Box
+          id='map-container'
+          position={'relative'}
+          sx={{
+            
+            mr: 2,
+            borderRadius: '6px',
+            border: `2px solid ${theme.palette.primary.main}`,
+            overflow: 'hidden',
+            flex: 1,
+          }}
+        >
+          <Fab
+            size='small'
+            aria-label='add'
+            sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}
+            onClick={() => {
+              window.history.back();
+            }}
+          >
+            <CloseIcon />
+          </Fab>
+          <GtfsVisualizationMap
+            polygon={bb as any}
+            filteredRouteTypes={filteredRouteTypes}
+            filteredRoutes={filteredRoutes}
+          ></GtfsVisualizationMap>
+        </Box>
       </Box>
     </Box>
   );

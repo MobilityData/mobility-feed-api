@@ -32,7 +32,7 @@ import { useSelector } from 'react-redux';
 import { selectAutodiscoveryGbfsVersion } from '../store/feed-selectors';
 import ModeOfTravelIcon from '@mui/icons-material/ModeOfTravel';
 import { GtfsVisualizationMap } from './GtfsVisualizationMap';
-import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
@@ -158,13 +158,17 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (displayGtfsVisualizationView) {
       return (
         <>
-        <Fab size='small' sx={{ position: 'absolute', top: 16, right: 16 }} component={Link} to='./map'>
-          <OpenInFullIcon></OpenInFullIcon>
-
-        </Fab>
-        <GtfsVisualizationMap polygon={boundingBox ?? []} />
+          <Fab
+            size='small'
+            sx={{ position: 'absolute', top: 16, right: 16 }}
+            component={Link}
+            to='./map'
+          >
+            <ZoomOutMapIcon></ZoomOutMapIcon>
+          </Fab>
+          <GtfsVisualizationMap polygon={boundingBox ?? []} />
         </>
-      )
+      );
     }
 
     return (
@@ -192,80 +196,87 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         },
         minHeight: '50vh',
       }}
-      title={mapDisplayError ? '' : t('coveredAreaTitle') + ' - ' + t(view)}
+      title={''}
       width={{ xs: '100%' }}
       outlineColor={theme.palette.primary.dark}
       padding={2}
-      action={
-        <>
-        {view === 'gtfsVisualizationView' && (
-          <Button component={Link} to='./map'>Open Full Map with Filters</Button>
-        )}
-          {feed?.data_type === 'gbfs' ? (
-            <Box sx={{ textAlign: 'right' }}>
-              {latestAutodiscoveryUrl != undefined && (
-                <Button
-                  href={latestAutodiscoveryUrl}
-                  target='_blank'
-                  rel='noreferrer'
-                  endIcon={<OpenInNew />}
-                >
-                  {t('viewRealtimeVisualization')}
-                </Button>
-              )}
-              {(geoJsonData as GeoJSONDataGBFS)?.extracted_at != undefined && (
-                <Typography
-                  variant='caption'
-                  color='text.secondary'
-                  sx={{ display: 'block', px: 1 }}
-                >
-                  {t('common:updated')}:{' '}
-                  {displayFormattedDate(
-                    (geoJsonData as GeoJSONDataGBFS).extracted_at,
-                  )}
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            <ToggleButtonGroup
-              value={view}
-              color='primary'
-              exclusive
-              aria-label='map view selection'
-              onChange={handleViewChange}
-            >
-              <Tooltip title={'gtfs visualization'}>
-                <ToggleButton
-                  value='gtfsVisualizationView'
-                  aria-label='Bounding Box View'
-                >
-                  <ModeOfTravelIcon />
-                </ToggleButton>
-              </Tooltip>
-              <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
-                <ToggleButton
-                  value='detailedCoveredAreaView'
-                  disabled={
-                    geoJsonLoading || geoJsonError || boundingBox === undefined
-                  }
-                  aria-label='Detailed Covered Area View'
-                >
-                  <TravelExploreIcon />
-                </ToggleButton>
-              </Tooltip>
-              <Tooltip title={t('boundingBoxViewTooltip')}>
-                <ToggleButton
-                  value='boundingBoxView'
-                  aria-label='Bounding Box View'
-                >
-                  <MapIcon />
-                </ToggleButton>
-              </Tooltip>
-            </ToggleButtonGroup>
-          )}
-        </>
-      }
     >
+      <Box
+        display={'flex'}
+        justifyContent={
+          view === 'gtfsVisualizationView' ? 'space-between' : 'flex-end'
+        }
+        mb={1}
+        alignItems={'center'}
+      >
+        {view === 'gtfsVisualizationView' && (
+          <Button component={Link} to='./map'>
+            Open Full Map with Filters
+          </Button>
+        )}
+        {feed?.data_type === 'gbfs' ? (
+          <Box sx={{ textAlign: 'right' }}>
+            {latestAutodiscoveryUrl != undefined && (
+              <Button
+                href={latestAutodiscoveryUrl}
+                target='_blank'
+                rel='noreferrer'
+                endIcon={<OpenInNew />}
+              >
+                {t('viewRealtimeVisualization')}
+              </Button>
+            )}
+            {(geoJsonData as GeoJSONDataGBFS)?.extracted_at != undefined && (
+              <Typography
+                variant='caption'
+                color='text.secondary'
+                sx={{ display: 'block', px: 1 }}
+              >
+                {t('common:updated')}:{' '}
+                {displayFormattedDate(
+                  (geoJsonData as GeoJSONDataGBFS).extracted_at,
+                )}
+              </Typography>
+            )}
+          </Box>
+        ) : (
+          <ToggleButtonGroup
+            value={view}
+            color='primary'
+            exclusive
+            aria-label='map view selection'
+            onChange={handleViewChange}
+          >
+            <Tooltip title={'gtfs visualization'}>
+              <ToggleButton
+                value='gtfsVisualizationView'
+                aria-label='Bounding Box View'
+              >
+                <ModeOfTravelIcon />
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
+              <ToggleButton
+                value='detailedCoveredAreaView'
+                disabled={
+                  geoJsonLoading || geoJsonError || boundingBox === undefined
+                }
+                aria-label='Detailed Covered Area View'
+              >
+                <TravelExploreIcon />
+              </ToggleButton>
+            </Tooltip>
+            <Tooltip title={t('boundingBoxViewTooltip')}>
+              <ToggleButton
+                value='boundingBoxView'
+                aria-label='Bounding Box View'
+              >
+                <MapIcon />
+              </ToggleButton>
+            </Tooltip>
+          </ToggleButtonGroup>
+        )}
+      </Box>
       {feed?.data_type === 'gtfs' &&
         boundingBox === undefined &&
         view === 'boundingBoxView' && (
