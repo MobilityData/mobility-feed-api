@@ -121,16 +121,12 @@ async function main() {
         issue_number: issue.number
       });
 
-      const wasMergedToMain = timelineEvents.data.some(event => {
-        return event.event === 'closed' && 
-               event.commit_id && 
-               event.source && 
-               event.source.issue && 
-               event.source.issue.pull_request &&
-               event.source.issue.pull_request.merged_at;
-      });
+      const wasClosedByMergedPR = timelineEvents.data.some(event => 
+        event.event === 'closed' &&
+        event.commit_id
+      );
 
-      if (wasMergedToMain) {
+      if (wasClosedByMergedPR) {
         console.log(`${isDryRun ? '[DRY RUN] Would assign' : 'Assigning'} milestone to issue #${issue.number}: ${issue.title}`);
 
         if (!isDryRun) {
@@ -152,7 +148,7 @@ async function main() {
           assignedCount++;
         }
       } else {
-        console.log(`Issue #${issue.number} was not merged to main, skipping`);
+        console.log(`Issue #${issue.number} does not have a closing commit, skipping`);
       }
     }
 
