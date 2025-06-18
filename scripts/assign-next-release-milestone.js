@@ -84,22 +84,23 @@ async function main() {
 
     console.log(`Found milestone: ${nextReleaseMilestone.title} (ID: ${nextReleaseMilestone.number})`);
 
-    // Get all closed issues
+    // Get all closed issues using search API
     console.log('Fetching closed issues...');
-    const issues = await octokit.rest.issues.listForRepo({
-      owner,
-      repo,
-      state: 'closed',
-      per_page: 100
+    const issuesResponse = await octokit.rest.search.issuesAndPullRequests({
+      q: `repo:${owner}/${repo} is:issue is:closed reason:completed`,
+      per_page: 100,
+      sort: 'updated',
+      order: 'desc',
     });
+    const issues = issuesResponse.data.items;
 
-    console.log(`Found ${issues.data.length} closed issues`);
+    console.log(`Found ${issues.length} closed issues`);
 
     let processedCount = 0;
     let assignedCount = 0;
 
     // Process each issue
-    for (const issue of issues.data) {
+    for (const issue of issues) {
       // Skip pull requests (they appear in issues API but have pull_request property)
       if (issue.pull_request) {
         continue;
