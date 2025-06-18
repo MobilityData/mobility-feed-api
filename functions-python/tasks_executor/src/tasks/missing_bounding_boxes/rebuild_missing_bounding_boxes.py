@@ -7,6 +7,7 @@ from shared.database.database import with_db_session
 from shared.helpers.pub_sub import publish_messages
 from shared.helpers.query_helper import get_feeds_with_missing_bounding_boxes_query
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
+from datetime import datetime
 
 
 def rebuild_missing_bounding_boxes_handler(payload) -> dict:

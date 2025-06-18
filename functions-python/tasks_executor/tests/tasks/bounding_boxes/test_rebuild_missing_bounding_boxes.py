@@ -1,7 +1,5 @@
 import unittest
 
-from pytest import Session
-from shared.database.database import with_db_session
 from tasks.bounding_boxes.test_rebuild_missing_bounding_boxes import (
     get_parameters,
 )
