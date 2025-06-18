@@ -84,10 +84,16 @@ async function main() {
 
     console.log(`Found milestone: ${nextReleaseMilestone.title} (ID: ${nextReleaseMilestone.number})`);
 
-    // Get all closed issues using search API
+    // Get all closed issues using search API, filtered to last 45 days
     console.log('Fetching closed issues...');
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 45);
+    const cutoffISO = cutoffDate.toISOString().split('T')[0];
+
+    const query = `repo:${owner}/${repo} is:issue is:closed reason:completed closed:>=${cutoffISO}`;
+
     const issuesResponse = await octokit.rest.search.issuesAndPullRequests({
-      q: `repo:${owner}/${repo} is:issue is:closed reason:completed`,
+      q: query,
       per_page: 100,
       sort: 'updated',
       order: 'desc',
@@ -98,6 +104,7 @@ async function main() {
 
     let processedCount = 0;
     let assignedCount = 0;
+    const assignedIssueNumbers = [];
 
     // Process each issue
     for (const issue of issues) {
@@ -122,11 +129,14 @@ async function main() {
         issue_number: issue.number
       });
 
-      const wasClosedByMergedPR = timelineEvents.data.some(event => 
-        event.event === 'closed' &&
-        event.source?.issue?.pull_request &&
-        event.source.issue.pull_request.merged_at &&
-        event.source.issue.pull_request.base?.ref === 'main'
+      // Debug log: print all timeline events for this issue
+      console.log(`Timeline events for issue #${issue.number}:`);
+      timelineEvents.data.forEach(event => {
+        console.log(`- event: ${event.event}, actor: ${event.actor?.login || 'N/A'}, commit_id: ${event.commit_id || 'N/A'}, source type: ${event.source?.issue?.pull_request ? 'PR' : 'Other'}`);
+      });
+
+      const wasClosedByMergedPR = timelineEvents.data.some(event =>
+        event.event === 'closed'
       );
 
       if (wasClosedByMergedPR) {
@@ -143,15 +153,17 @@ async function main() {
 
             console.log(`✅ Successfully assigned milestone to issue #${issue.number}`);
             assignedCount++;
+            assignedIssueNumbers.push(issue.number);
           } catch (error) {
             console.error(`❌ Failed to assign milestone to issue #${issue.number}:`, error.message);
           }
         } else {
           console.log(`[DRY RUN] Skipped actual assignment for issue #${issue.number}`);
           assignedCount++;
+          assignedIssueNumbers.push(issue.number);
         }
       } else {
-        console.log(`Issue #${issue.number} was not closed by a merged PR to main, skipping`);
+        console.log(`Issue #${issue.number} was not detected as closed, skipping`);
       }
     }
 
@@ -159,6 +171,10 @@ async function main() {
     console.log(`- Processed ${processedCount} issues`);
     console.log(`- ${isDryRun ? 'Would assign' : 'Assigned'} milestone to ${assignedCount} issues`);
     console.log(`${isDryRun ? '[DRY RUN] Test complete!' : '✅ Milestone assignment complete!'}`);
+
+    if (assignedIssueNumbers.length > 0) {
+      console.log(`\nIssues ${isDryRun ? 'to be' : ''} assigned milestone: ${assignedIssueNumbers.join(', ')}`);
+    }
 
   } catch (error) {
     console.error('❌ Script failed:', error.message);
