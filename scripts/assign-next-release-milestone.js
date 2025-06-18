@@ -123,7 +123,9 @@ async function main() {
 
       const wasClosedByMergedPR = timelineEvents.data.some(event => 
         event.event === 'closed' &&
-        event.commit_id
+        event.source?.issue?.pull_request &&
+        event.source.issue.pull_request.merged_at &&
+        event.source.issue.pull_request.base?.ref === 'main'
       );
 
       if (wasClosedByMergedPR) {
@@ -148,7 +150,7 @@ async function main() {
           assignedCount++;
         }
       } else {
-        console.log(`Issue #${issue.number} does not have a closing commit, skipping`);
+        console.log(`Issue #${issue.number} was not closed by a merged PR to main, skipping`);
       }
     }
 
