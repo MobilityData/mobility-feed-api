@@ -454,4 +454,6 @@ def get_gbfs_feeds_query(
             joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         )
     )
+    # Filter by status, only return published feeds
+    query = query.filter(Gbfsfeed.status == "published")
     return query

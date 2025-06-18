@@ -944,3 +944,139 @@ def test_gbfs_feed_id_get(client: TestClient, values):
     if values["response_code"] != 200:
         return
     assert response.json()["id"] == test_id
+
+
+def test_get_gbfs_feeds_excludes_deprecated(client: TestClient, test_database):
+    """
+    Tests that GBFS feeds marked with status='deprecated' are not returned by the
+    GET /feeds/gbfs and GET /feeds/gbfs/{id} endpoints.
+    """
+    from shared.database_gen.sqlacodegen_models import Gbfsfeed, Externalid, Location, Gbfsversion, Gbfsendpoint
+    from shared.database.database import generate_unique_id
+    from datetime import datetime, timezone
+
+    db_session = next(test_database.start_db_session())
+
+    try:
+        # Common attributes
+        common_feed_attrs = {
+            "data_type": "gbfs",
+            "operator": "Test Operator",
+            "operator_url": "http://example.com/operator",
+            "created_at": datetime.now(timezone.utc),
+        }
+        common_version_attrs = {
+            "version": "2.3",
+            "source": "Test Source",
+            "created_at": datetime.now(timezone.utc),
+        }
+
+        # Feed Alpha (Published)
+        feed_alpha_id = generate_unique_id()
+        feed_alpha_stable_id = "gbfs-alpha"
+        feed_alpha_system_id = "alpha-system"
+
+        loc_alpha = Location(
+            id=generate_unique_id(),
+            country_code="US",
+            subdivision_name="California",
+            municipality="San Francisco",
+        )
+        ext_id_alpha = Externalid(
+            id=generate_unique_id(), associated_id=feed_alpha_system_id, source="gbfs", feed_id=feed_alpha_id
+        )
+        gbfs_version_alpha = Gbfsversion(
+            id=generate_unique_id(),
+            feed_id=feed_alpha_id,
+            **common_version_attrs,
+            gbfsendpoints=[Gbfsendpoint(id=generate_unique_id(), endpoint_type="system_information", url="http://alpha.com/system_information.json")]
+        )
+        feed_alpha = Gbfsfeed(
+            id=feed_alpha_id,
+            stable_id=feed_alpha_stable_id,
+            system_id=feed_alpha_system_id,
+            status="published",
+            provider="Test Provider Alpha",
+            **common_feed_attrs,
+            locations=[loc_alpha],
+            externalids=[ext_id_alpha],
+            gbfsversions=[gbfs_version_alpha],
+        )
+        db_session.add_all([loc_alpha, ext_id_alpha, gbfs_version_alpha, feed_alpha])
+
+        # Feed Beta (Deprecated)
+        feed_beta_id = generate_unique_id()
+        feed_beta_stable_id = "gbfs-beta"
+        feed_beta_system_id = "beta-system"
+
+        loc_beta = Location(
+            id=generate_unique_id(),
+            country_code="CA",
+            subdivision_name="Ontario",
+            municipality="Toronto",
+        )
+        ext_id_beta = Externalid(
+            id=generate_unique_id(), associated_id=feed_beta_system_id, source="gbfs", feed_id=feed_beta_id
+        )
+        gbfs_version_beta = Gbfsversion(
+            id=generate_unique_id(),
+            feed_id=feed_beta_id,
+            **common_version_attrs,
+            gbfsendpoints=[Gbfsendpoint(id=generate_unique_id(), endpoint_type="system_information", url="http://beta.com/system_information.json")]
+        )
+        feed_beta = Gbfsfeed(
+            id=feed_beta_id,
+            stable_id=feed_beta_stable_id,
+            system_id=feed_beta_system_id,
+            status="deprecated",
+            provider="Test Provider Beta",
+            **common_feed_attrs,
+            locations=[loc_beta],
+            externalids=[ext_id_beta],
+            gbfsversions=[gbfs_version_beta],
+        )
+        db_session.add_all([loc_beta, ext_id_beta, gbfs_version_beta, feed_beta])
+        db_session.commit()
+
+        # Test /feeds/gbfs/{id} endpoint
+        response_alpha_detail = client.get(f"/v1/gbfs_feeds/{feed_alpha_stable_id}", headers=authHeaders)
+        assert response_alpha_detail.status_code == 200
+        assert response_alpha_detail.json()["id"] == feed_alpha_stable_id
+
+        response_beta_detail = client.get(f"/v1/gbfs_feeds/{feed_beta_stable_id}", headers=authHeaders)
+        assert response_beta_detail.status_code == 404
+
+        # Test /feeds/gbfs endpoint (list)
+        response_list = client.get("/v1/gbfs_feeds", headers=authHeaders)
+        assert response_list.status_code == 200
+
+        returned_feeds = response_list.json()
+        returned_stable_ids = [feed["id"] for feed in returned_feeds]
+
+        assert feed_alpha_stable_id in returned_stable_ids
+        assert feed_beta_stable_id not in returned_stable_ids
+
+        # Also check the generic /feeds endpoint
+        response_generic_list = client.get("/v1/feeds", headers=authHeaders, params={"data_type": "gbfs"})
+        assert response_generic_list.status_code == 200
+
+        returned_generic_feeds = response_generic_list.json()
+        returned_generic_stable_ids = [feed["id"] for feed in returned_generic_feeds]
+
+        assert feed_alpha_stable_id in returned_generic_stable_ids
+        assert feed_beta_stable_id not in returned_generic_stable_ids
+
+    finally:
+        # Clean up created objects to avoid interference with other tests,
+        # as test_database fixture is package-scoped.
+        db_session.delete(feed_alpha)
+        db_session.delete(ext_id_alpha)
+        db_session.delete(gbfs_version_alpha) # endpoints will be cascade deleted
+        db_session.delete(loc_alpha)
+
+        db_session.delete(feed_beta)
+        db_session.delete(ext_id_beta)
+        db_session.delete(gbfs_version_beta) # endpoints will be cascade deleted
+        db_session.delete(loc_beta)
+        db_session.commit()
+        db_session.close()

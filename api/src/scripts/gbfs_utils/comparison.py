@@ -5,9 +5,8 @@ from shared.database_gen.sqlacodegen_models import Gbfsfeed
 
 def generate_system_csv_from_db(df, db_session):
     """Generate a DataFrame from the database with the same columns as the CSV file."""
-    stable_ids = "gbfs-" + df["System ID"]
     query = db_session.query(Gbfsfeed)
-    query = query.filter(Gbfsfeed.stable_id.in_(stable_ids.to_list()))
+    # Query all feeds, do not filter by input CSV
     query = query.options(
         joinedload(Gbfsfeed.locations), joinedload(Gbfsfeed.gbfsversions), joinedload(Gbfsfeed.externalids)
     )
@@ -15,23 +14,29 @@ def generate_system_csv_from_db(df, db_session):
     data = []
     for feed in feeds:
         system_id = feed.externalids[0].associated_id
+        # Handle cases where relationships might be missing
+        country_code = feed.locations[0].country_code if feed.locations else None
+        location = feed.locations[0].municipality if feed.locations else None
         auto_discovery_url = feed.auto_discovery_url
-        feed.gbfsversions.sort(key=lambda x: x.version, reverse=False)
-        supported_versions = [version.version for version in feed.gbfsversions]
+        supported_versions = []
+        if feed.gbfsversions:
+            feed.gbfsversions.sort(key=lambda x: x.version, reverse=False)
+            supported_versions = [version.version for version in feed.gbfsversions]
+
         data.append(
             {
                 "System ID": system_id,
                 "Name": feed.operator,
                 "URL": feed.operator_url,
-                "Country Code": feed.locations[0].country_code,
-                "Location": feed.locations[0].municipality,
+                "Country Code": country_code,
+                "Location": location,
                 "Auto-Discovery URL": auto_discovery_url,
                 "Supported Versions": " ; ".join(supported_versions),
             }
         )
     if not data:
         # Return an empty DataFrame with the same columns
-        return pd.DataFrame(columns=df.columns)
+        return pd.DataFrame(columns=df.columns if df is not None and not df.empty else ["System ID", "Name", "URL", "Country Code", "Location", "Auto-Discovery URL", "Supported Versions"])
     return pd.DataFrame(data)
 
 
