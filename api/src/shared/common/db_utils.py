@@ -359,6 +359,7 @@ def apply_bounding_filtering(
         wkt_polygon,
         srid=Gtfsdataset.bounding_box.type.srid,
     )
+    query = query.join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
 
     if bounding_filter_method == "partially_enclosed":
         return query.filter(

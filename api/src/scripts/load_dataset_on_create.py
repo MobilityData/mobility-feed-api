@@ -10,13 +10,13 @@ from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1.futures import Future
 
 from shared.database_gen.sqlacodegen_models import Feed
-from shared.common.logging_utils import Logger
+from utils.logger import get_logger
 
 # Lazy create so we won't try to connect to google cloud when the file is imported.
 pubsub_client = None
 
 lock = threading.Lock()
-logger = Logger("load_dataset_on_create").get_logger()
+logger = get_logger("load_dataset_on_create")
 
 
 def get_pubsub_client():

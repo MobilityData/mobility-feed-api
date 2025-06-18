@@ -321,4 +321,59 @@ jobs:
           HOSTING_EXPIRATION_DATE=$(npx firebase hosting:channel:list | grep ${{ inputs.PREVIEW_HOST_NAME }} | awk '{printf "%s %s\n",$9,$10;}')
           echo "hosting_url=$HOSTING_URL" >> "$GITHUB_OUTPUT"
           echo "hosting_expiration_date=$HOSTING_EXPIRATION_DATE" >> "$GITHUB_OUTPUT"
+      
+      - name: Lighthouse Check
+        id: lighthouse-check
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
+        uses: treosh/lighthouse-ci-action@v12
+        # Runs on: Homepage, Search page, GTFS page, GTFS-RT page, and GBFS page
+        with:
+          configPath: ./.github/lighthouserc.js
+          temporaryPublicStorage: true
+        env:
+          LHCI_PREVIEW_URL_BASE64: ${{ steps.deploy-preview.outputs.hosting_url }}
+          
+      
+      - name: Format lighthouse score
+        id: format_lighthouse_score
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const results = ${{ steps.lighthouse-check.outputs.manifest }}
+            const links = ${{ steps.lighthouse-check.outputs.links }}
+            let comment = []
+            results.forEach((resultData, index) => {
+                const result = resultData.summary;
+
+                const formatResult = (res) => Math.round((res * 100))
+                Object.keys(result).forEach(key => result[key] = formatResult(result[key]))
+
+                const score = res => res >= 90 ? '🟢' : res >= 50 ? '🟠' : '🔴'
+                const link = Object.keys(links)[index] ?? 'Unknown URL';
+                const linkUrl = links[link] ?? '#';
+                comment = comment.concat(...[
+                    `*Lighthouse ran on ${link} * (Desktop)`,
+                    `⚡️ HTML Report [Lighthouse report](${linkUrl}) for the changes in this PR:`,
+                    '| Performance | Accessibility | Best Practices | SEO |',
+                    '| --- | --- | --- | --- |',
+                    `| ${score(result.performance)} ${result.performance} | ${score(result.accessibility)} ${result.accessibility} | ${score(result['best-practices'])} ${result['best-practices']} | ${score(result.seo)} ${result.seo} |`,
+                    ' ',
+                    ' ',
+                ])
+            })
+            const finalComment = comment.join('\n')
+            core.setOutput("comment", finalComment); 
+
+      - name: Add lighthouse comment to PR
+        id: comment_to_pr
+        if: ${{ inputs.PREVIEW_DEPLOYMENT }}
+        uses: marocchino/sticky-pull-request-comment@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ github.event.issue.number }}
+          header: lighthouse
+          message: |
+            ${{ steps.format_lighthouse_score.outputs.comment }}
 

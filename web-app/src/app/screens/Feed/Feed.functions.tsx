@@ -40,8 +40,14 @@ export function generateDescriptionMetaTag(
   ) {
     return '';
   }
-  const dataTypeVerbose =
-    dataType === 'gtfs' ? t('common:gtfsSchedule') : t('common:gtfsRealtime');
+  let dataTypeVerbose = '';
+  if (dataType === 'gtfs') {
+    dataTypeVerbose = t('common:gtfsSchedule');
+  } else if (dataType === 'gtfs_rt') {
+    dataTypeVerbose = t('common:gtfsRealtime');
+  } else if (dataType === 'gbfs') {
+    dataTypeVerbose = t('common:gbfs');
+  }
   return t('detailPageDescription', { formattedName, dataTypeVerbose });
 }
 
