@@ -72,7 +72,6 @@ def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool]:
     return country_codes, include_only_unprocessed
 
 
-# mimic reverse_geolocation_batch function, format the data for the pub/sub message, add a different topic name
 def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
     """Batch function to trigger reverse geolocation for feeds."""
     try:

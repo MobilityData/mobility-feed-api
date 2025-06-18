@@ -196,6 +196,9 @@ def get_feeds_with_missing_bounding_boxes_query(
         .select_from(Gtfsfeed)
         .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
         .filter(Gtfsdataset.bounding_box.is_(None))
+        .filter(
+            ~Gtfsfeed.feedlocationgrouppoints.any()
+        )  # Only feeds with no location group points
         .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
         .order_by(Gtfsdataset.stable_id, Gtfsfeed.stable_id)
     )

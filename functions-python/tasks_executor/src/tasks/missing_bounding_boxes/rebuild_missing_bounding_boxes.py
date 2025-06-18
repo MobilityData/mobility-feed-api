@@ -6,36 +6,57 @@ from sqlalchemy.orm import Session
 from shared.database.database import with_db_session
 from shared.helpers.pub_sub import publish_messages
 from shared.helpers.query_helper import get_feeds_with_missing_bounding_boxes_query
-from shared.database_gen.sqlacodegen_models import Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
 
 
 def rebuild_missing_bounding_boxes_handler(payload) -> dict:
-    (
-        dry_run,
-        prod_env,
-    ) = get_parameters(payload)
+    (dry_run,) = get_parameters(payload)
 
     return rebuild_missing_bounding_boxes(
         dry_run=dry_run,
-        prod_env=prod_env,
     )
 
 
 @with_db_session
 def rebuild_missing_bounding_boxes(
     dry_run: bool = True,
-    prod_env: bool = False,
+    after_date: str = None,
     db_session: Session | None = None,
 ) -> dict:
+    """
+    Find GTFS feeds/datasets missing bounding boxes and either log or publish them for processing.
+
+    Args:
+        dry_run (bool): If True, only logs the number of feeds found (no publishing).
+        after_date (str, optional): ISO date string (YYYY-MM-DD). Only datasets downloaded after this date are included.
+        db_session (Session, optional): SQLAlchemy session, injected by @with_db_session.
+
+    Returns:
+        dict: Summary message and count of processed feeds.
+    """
+    filter_after = None
+    if after_date:
+        try:
+            filter_after = datetime.fromisoformat(after_date)
+        except Exception:
+            logging.warning(
+                "Invalid after_date format, expected ISO format (YYYY-MM-DD)"
+            )
     query = get_feeds_with_missing_bounding_boxes_query(db_session)
-    logging.info("Filtering for unprocessed feeds.")
-    query = query.filter(~Gtfsfeed.feedlocationgrouppoints.any())
+    if filter_after:
+        query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
     feeds = query.all()
 
     if dry_run:
         total_processed = len(feeds)
+        logging.info(
+            "Dry run mode: %s feeds with missing bounding boxes found, filtered after %s.",
+            total_processed,
+            after_date,
+        )
         return {
-            "message": f"Dry run: {total_processed} feeds with missing bounding boxes found.",
+            "message": f"Dry run: {total_processed} feeds with missing bounding boxes found."
+            + (f" Filtered after: {filter_after}" if filter_after else ""),
             "total_processed": total_processed,
         }
     else:
@@ -47,39 +68,17 @@ def rebuild_missing_bounding_boxes(
         publish_messages(prepare_feeds_data(feeds), project_id, pubsub_topic_name)
 
         total_processed = len(feeds)
+        logging.info(
+            "Published %s feeds with missing bounding boxes to Pub/Sub topic: %s, filtered after %s.",
+            total_processed,
+            pubsub_topic_name,
+            after_date,
+        )
         return {
-            "message": f"Successfully published {total_processed} feeds with missing bounding boxes.",
+            "message": f"Successfully published {total_processed} feeds with missing bounding boxes."
+            + (f" Filtered after: {filter_after}" if filter_after else ""),
             "total_processed": total_processed,
         }
-
-
-@with_db_session
-def extract_country_codes_from_feeds(
-    feeds: List[Gtfsfeed], db_session: Session = None
-) -> List[str]:
-    """
-    Extract unique country codes from a list of feeds.
-
-    Args:
-        feeds: List of Gtfsfeed objects
-        db_session: SQLAlchemy database session
-
-    Returns:
-        List of unique country codes
-    """
-    country_codes = set()
-
-    for feed in feeds:
-        # Check if locations are already loaded, if not load them
-        if not feed.locations:
-            db_session.refresh(feed, ["locations"])
-
-        # Extract country codes from the feed's locations
-        for location in feed.locations:
-            if location.country_code:
-                country_codes.add(location.country_code)
-
-    return list(country_codes)
 
 
 def prepare_feeds_data(feeds: List[Gtfsfeed]) -> List[Dict]:
@@ -119,9 +118,9 @@ def get_parameters(payload):
     Args:
         payload (dict): dictionary containing the payload data.
     Returns:
-        dict: dict with: dry_run, prod_env parameters
+        tuple: (dry_run, after_date)
     """
-    prod_env = os.getenv("ENV", "").lower() == "prod"
     dry_run = payload.get("dry_run", True)
     dry_run = dry_run if isinstance(dry_run, bool) else str(dry_run).lower() == "true"
-    return dry_run, prod_env
+    after_date = payload.get("after_date", None)
+    return dry_run, after_date
