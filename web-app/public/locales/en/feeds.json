@@ -145,5 +145,6 @@
     "viewJsonReport": "View Validation Report in JSON format"
   },
   "viewRealtimeVisualization": "View real-time visualization",
-  "versions": "Versions"
+  "versions": "Versions",
+  "dataAattribution": "Transit data provided by"
 }
