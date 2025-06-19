@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import Map, { type MapRef, MapProvider } from 'react-map-gl/maplibre';
+import Map, {
+  type MapRef,
+  MapProvider,
+  NavigationControl,
+  ScaleControl,
+} from 'react-map-gl/maplibre';
 import maplibregl, {
   ExpressionSpecification,
   type LngLatBoundsLike,
@@ -347,7 +352,22 @@ export const GtfsVisualizationMap = ({
                 },
               ],
             }}
-          ></Map>
+          >
+            {/* TODO: Idea only display the compass and scale on advanced map view */}
+            <ScaleControl position='bottom-left' unit='metric' />
+            <NavigationControl
+              position='top-right'
+              showCompass={true}
+              showZoom={true}
+              style={{
+                backgroundColor: 'white',
+                marginTop: '72px',
+                marginRight: '15px',
+                boxShadow:
+                  'rgba(0, 0, 0, 0.2) 0px 3px 5px -1px, rgba(0, 0, 0, 0.14) 0px 6px 10px 0px, rgba(0, 0, 0, 0.12) 0px 1px 18px 0px',
+              }}
+            />
+          </Map>
         </Box>
       </Box>
     </MapProvider>
