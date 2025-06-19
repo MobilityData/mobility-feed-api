@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Map, { type MapRef, MapProvider } from 'react-map-gl/maplibre';
-import maplibregl, { type LngLatBoundsLike } from 'maplibre-gl';
+import maplibregl, {
+  ExpressionSpecification,
+  type LngLatBoundsLike,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { type LatLngExpression } from 'leaflet';
@@ -125,6 +128,26 @@ export const GtfsVisualizationMap = ({
       },
     ],
   };
+
+  // TODO: Get the route color data from the route selector
+  const testSelectedRouteColors = ['00B300', '009EE0']; // Test colors: green line and bus line (blue)
+
+  // The Types for these types of expressions are not well defined in the maplibre-gl types, so we use 'any' here
+  // Should revisit the typing situation in the future
+  function generateColorMatchExpression(
+    colors: string[],
+    propertyName = 'route_colors',
+    fallback = '#888888',
+  ) {
+    const expression: any[] = ['case'];
+
+    colors.forEach((color) => {
+      expression.push(['in', `"${color}"`, ['get', propertyName]], `#${color}`);
+    });
+
+    expression.push(fallback); // Default color if none match
+    return expression;
+  }
 
   return (
     <MapProvider>
@@ -282,7 +305,7 @@ export const GtfsVisualizationMap = ({
                       3, // Default width
                     ],
                   },
-                
+
                   filter: [
                     'any',
                     ['in', ['get', 'route_id'], ['literal', hoverInfo]],
@@ -295,17 +318,17 @@ export const GtfsVisualizationMap = ({
                   'source-layer': 'stopsoutput', // Name of the geojson file when converting to pmtile. stops-output.geojson -> stopssoutput
                   type: 'circle',
                   paint: {
-                    'circle-radius': 6,
-                    // 'circle-color': [
-                    //   'concat',
-                    //   '#',
-                    //   ['at', 0, ['get', 'route_colors']],
-                    // ], // Red highlight
-                    'circle-color': '#0095E6',
+                    'circle-radius': 8,
+                    'circle-color': generateColorMatchExpression(
+                      testSelectedRouteColors,
+                      'route_colors',
+                      '#000000',
+                    ) as unknown as ExpressionSpecification, // VERY IMPORTANT: during the conversion to PMTiles, the route_colors are stored as strings with quotes NOT arrays. [1,2,3] -> "["1","2","3"]"
                     'circle-opacity': 0.8,
                   },
-                  filter: 
-                  [
+                  minzoom: 10,
+                  maxzoom: 22,
+                  filter: [
                     'any',
                     ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
                     [
