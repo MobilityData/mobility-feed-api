@@ -61,9 +61,19 @@ class TestTasksExecutor(unittest.TestCase):
         "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.get_feeds_with_missing_bounding_boxes_query"
     )
     def test_rebuild_missing_bounding_boxes_publish(self, mock_query, mock_publish):
+        # Mock Gtfsdataset and Gtfsfeed objects
+        mock_dataset = MagicMock()
+        mock_dataset.latest = True
+        mock_dataset.stable_id = "dataset1"
+        mock_dataset.hosted_url = "http://example.com/dataset1"
+        mock_feed = MagicMock()
+        mock_feed.stable_id = "feed1"
+        mock_feed.gtfsdatasets = [mock_dataset]
+
         mock_query.return_value.filter.return_value = mock_query.return_value
-        mock_query.return_value.all.return_value = [("feed1", "dataset1")]
+        mock_query.return_value.all.return_value = [mock_feed]
         mock_publish.return_value = None
+
         result = rebuild_missing_bounding_boxes(
             dry_run=False, after_date=None, db_session=MagicMock()
         )
