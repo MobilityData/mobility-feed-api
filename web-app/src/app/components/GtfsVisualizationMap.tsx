@@ -4,6 +4,7 @@ import Map, {
   MapProvider,
   NavigationControl,
   ScaleControl,
+  Popup,
 } from 'react-map-gl/maplibre';
 import maplibregl, {
   ExpressionSpecification,
@@ -13,7 +14,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { type LatLngExpression } from 'leaflet';
 import type { FeatureCollection } from 'geojson';
-import { Box, useTheme } from '@mui/material';
+import { Box, Popover, useTheme } from '@mui/material';
 import { MapElement } from './MapElement';
 
 export interface GtfsVisualizationMapProps {
@@ -31,7 +32,42 @@ export const GtfsVisualizationMap = ({
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
   const [hoverData, setHoverData] = useState<string>('');
   const [mapElement, setMapElement] = useState<MapElement[]>([]);
+  const [mapClickData, setMapClickData] = useState<
+    Record<string, string | number>
+  >({});
+  const [anchorPosition, setAnchorPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
   const mapRef = useRef<MapRef>(null);
+
+  const handleMouseClick = (event: maplibregl.MapLayerMouseEvent): void => {
+    const map = mapRef.current?.getMap();
+    if (map != undefined) {
+      // Get the features under the mouse pointer
+      const { offsetLeft, offsetTop } = mapRef.current!.getContainer();
+      const features = map.queryRenderedFeatures(event.point, {
+        layers: ['stops', 'routes'], // Change this to your actual layer ID
+      });
+      setMapClickData({
+        ...(features[0]?.properties || {}),
+        longitude: event.lngLat.lng,
+        latitude: event.lngLat.lat,
+      }); // Example properties, adjust as needed
+      console.log('Mouse clicked on map:', features);
+      setAnchorPosition({
+        left: event.point.x + offsetLeft,
+        top: event.point.y + offsetTop,
+      });
+    }
+  };
+
+  const handleClose = () => {
+    setMapClickData({});
+    setAnchorPosition(null);
+  };
+
+  console.log('this is it mapClickData', mapClickData);
 
   const handleMouseMove = (event: maplibregl.MapLayerMouseEvent): void => {
     // Ensure that the mapRef is not null before trying to access the map
@@ -169,7 +205,9 @@ export const GtfsVisualizationMap = ({
         >
           <MapElement mapElements={mapElement}></MapElement>
           <Map
-            onClick={handleMouseMove}
+            onClick={(event) => {
+              handleMouseClick(event);
+            }}
             ref={mapRef}
             onMouseMove={(event) => {
               handleMouseMove(event);
@@ -367,6 +405,29 @@ export const GtfsVisualizationMap = ({
                   'rgba(0, 0, 0, 0.2) 0px 3px 5px -1px, rgba(0, 0, 0, 0.14) 0px 6px 10px 0px, rgba(0, 0, 0, 0.12) 0px 1px 18px 0px',
               }}
             />
+
+            {Object.keys(mapClickData).length > 0 && (
+              <Popup
+                longitude={Number(mapClickData.longitude)}
+                latitude={Number(mapClickData.latitude)}
+                anchor='top'
+                onClose={() => setMapClickData({})}
+                closeOnClick={false}
+              >
+                <div>
+                  <strong>Clicked at:</strong>
+                  <br />
+                  {Number(mapClickData.latitude).toFixed(5)},{' '}
+                  {Number(mapClickData.longitude).toFixed(5)}
+                  <br />
+                  {Object.entries(mapClickData).map(([key, value]) => (
+                    <p>
+                      {key} - {value}
+                    </p>
+                  ))}
+                </div>
+              </Popup>
+            )}
           </Map>
         </Box>
       </Box>
