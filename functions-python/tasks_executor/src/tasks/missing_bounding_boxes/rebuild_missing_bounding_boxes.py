@@ -11,10 +11,11 @@ from datetime import datetime
 
 
 def rebuild_missing_bounding_boxes_handler(payload) -> dict:
-    (dry_run,) = get_parameters(payload)
+    (dry_run, after_date) = get_parameters(payload)
 
     return rebuild_missing_bounding_boxes(
         dry_run=dry_run,
+        after_date=after_date,
     )
 
 
