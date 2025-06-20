@@ -16,6 +16,7 @@ geoalchemy2==0.14.7
 
 # Google specific packages for this function
 google-cloud-workflows
+google-cloud-pubsub
 flask
 
 # Configuration

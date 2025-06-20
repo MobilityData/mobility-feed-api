@@ -22,6 +22,9 @@ from shared.helpers.logger import init_logger
 from tasks.validation_reports.rebuild_missing_validation_reports import (
     rebuild_missing_validation_reports_handler,
 )
+from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
+    rebuild_missing_bounding_boxes_handler,
+)
 
 
 init_logger()
@@ -41,6 +44,10 @@ tasks = {
     "rebuild_missing_validation_reports": {
         "description": "Rebuilds missing validation reports for GTFS datasets.",
         "handler": rebuild_missing_validation_reports_handler,
+    },
+    "rebuild_missing_bounding_boxes": {
+        "description": "Rebuilds missing bounding boxes for GTFS datasets that contain valid stops.txt files.",
+        "handler": rebuild_missing_bounding_boxes_handler,
     },
 }
 
