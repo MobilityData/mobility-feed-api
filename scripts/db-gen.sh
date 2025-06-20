@@ -19,6 +19,15 @@ OUT_FILE=$SCRIPT_PATH/../$FILENAME
 ENV_PATH=$SCRIPT_PATH/../config/.env.local
 source "$ENV_PATH"
 
+# Export the variables to ensure they are available to sqlacodegen
+export POSTGRES_USER
+export POSTGRES_PASSWORD
+export POSTGRES_DB
+export POSTGRES_TEST_DB
+export POSTGRES_PORT
+export POSTGRES_TEST_PORT
+export POSTGRES_HOST
+
 rm -rf "$SCRIPT_PATH/../api/src/shared/database_gen/"
 mkdir "$SCRIPT_PATH/../api/src/shared/database_gen/"
 pip3 install -r "${SCRIPT_PATH}/../api/requirements.txt" > /dev/null

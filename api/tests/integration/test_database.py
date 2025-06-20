@@ -179,7 +179,6 @@ def test_cascade_delete_basic_feed(test_database):
     db = test_database
     feed_id = generate_unique_id()
     location_id = generate_unique_id()
-    provider_id = generate_unique_id()
     dataset_id = generate_unique_id()
 
     with db.start_db_session() as session:
@@ -188,9 +187,6 @@ def test_cascade_delete_basic_feed(test_database):
         session.add(feed)
 
         # Create related entities
-        feed_log = FeedLog(id=feed_id, historical_record_time=datetime.now(timezone.utc), data_type="gtfs")
-        session.add(feed_log)
-
         location = Location(id=location_id, country_code="US", subdivision_name="CA", municipality="Testville")
         session.add(location)
         location_feed = LocationFeed(location_id=location_id, feed_id=feed_id)
@@ -198,19 +194,12 @@ def test_cascade_delete_basic_feed(test_database):
 
         gtfs_dataset = Gtfsdataset(id=dataset_id, feed_id=feed_id, stable_id=dataset_id, downloaded_at=datetime.now(timezone.utc))
         session.add(gtfs_dataset)
-
-        provider = Provider(id=provider_id, short_name="TestProv", long_name="Test Provider")
-        session.add(provider)
-        provider_feed = ProviderFeed(provider_id=provider_id, feed_id=feed_id)
-        session.add(provider_feed)
         session.commit()
 
         # Verify creation
         assert session.get(Feed, feed_id) is not None
-        assert session.get(FeedLog, (feed_id, feed_log.historical_record_time)) is not None
         assert session.get(LocationFeed, (location_id, feed_id)) is not None
         assert session.get(Gtfsdataset, dataset_id) is not None
-        assert session.get(ProviderFeed, (provider_id, feed_id)) is not None
 
     # Delete Feed
     with db.start_db_session() as session:
@@ -221,13 +210,10 @@ def test_cascade_delete_basic_feed(test_database):
     # Verify deletion
     with db.start_db_session() as session:
         assert session.get(Feed, feed_id) is None
-        assert session.execute(sql_select(FeedLog).where(FeedLog.id == feed_id)).first() is None
         assert session.get(LocationFeed, (location_id, feed_id)) is None
         assert session.get(Gtfsdataset, dataset_id) is None
-        assert session.get(ProviderFeed, (provider_id, feed_id)) is None
         # Location and Provider should not be deleted as they are not directly dependent
         assert session.get(Location, location_id) is not None
-        assert session.get(Provider, provider_id) is not None
 
 
 def test_cascade_delete_gtfs_feed(test_database):

@@ -1,11 +1,5 @@
 -- liquibase formatted sql
 
--- changeset mobilitydata:1268-feedlog
-ALTER TABLE FeedLog DROP CONSTRAINT IF EXISTS feedlog_id_fkey;
-ALTER TABLE FeedLog
-ADD CONSTRAINT feedlog_id_fkey
-FOREIGN KEY (id) REFERENCES Feed(id) ON DELETE CASCADE;
-
 -- changeset mobilitydata:1268-gtfsrealtimefeed
 ALTER TABLE GTFSRealtimeFeed DROP CONSTRAINT IF EXISTS gtfsrealtimefeed_id_fkey;
 ALTER TABLE GTFSRealtimeFeed
@@ -41,12 +35,6 @@ ALTER TABLE RedirectingID DROP CONSTRAINT IF EXISTS redirectingid_target_id_fkey
 ALTER TABLE RedirectingID
 ADD CONSTRAINT redirectingid_target_id_fkey
 FOREIGN KEY (target_id) REFERENCES Feed(id) ON DELETE CASCADE;
-
--- changeset mobilitydata:1268-providerfeed
-ALTER TABLE ProviderFeed DROP CONSTRAINT IF EXISTS providerfeed_feed_id_fkey;
-ALTER TABLE ProviderFeed
-ADD CONSTRAINT providerfeed_feed_id_fkey
-FOREIGN KEY (feed_id) REFERENCES Feed(id) ON DELETE CASCADE;
 
 -- changeset mobilitydata:1268-entitytypefeed
 ALTER TABLE EntityTypeFeed DROP CONSTRAINT IF EXISTS entitytypefeed_feed_id_fkey;
