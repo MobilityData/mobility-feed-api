@@ -27,7 +27,7 @@ export default function FullMapView(): React.ReactElement {
 
   const getRouteDisplayName = (routeId: string): string => {
     const route = sampleRoutes.find((r) => r.routeId === routeId);
-    return route != null ? `${route.routeName} [${route.routeId}]` : routeId;
+    return route != null ? `${route.routeId} - ${route.routeName}` : routeId;
   };
 
   const getUniqueRouteTypesCheckboxData = (

@@ -316,7 +316,12 @@ export const GtfsVisualizationMap = ({
                       4, // 1 = metro
                       3, // Default width
                     ],
-                    'line-opacity': 0.4, // Opacity of the route lines
+                    'line-opacity': [ // Opacity based on whether the route is selected or not
+                      'case',
+                      ['any', ['==', filteredRoutes.length, 0], ['in', ['get', 'route_id'], ['literal', filteredRoutes]]],
+                      0.4, // default opacity if selected or no filter
+                      0.1, // faded if NOT in filteredRoutes
+                    ]
                   },
                   // If routeTypesFilter includes a value -> show that
                   // If routeTypesFilter is empty -> show all
