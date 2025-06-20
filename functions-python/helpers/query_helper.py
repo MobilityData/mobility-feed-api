@@ -175,37 +175,6 @@ def get_datasets_with_missing_reports_query(
     return query
 
 
-# def get_feeds_ids_with_missing_bounding_boxes_query(
-#     db_session: Session,
-# ) -> Query:
-#     """
-#     Get GTFS feeds ids where the dataset is missing a bounding box.
-
-#     Args:
-#         db_session: SQLAlchemy session
-
-#     Returns:
-#         A SQLAlchemy query object for GTFS feeds with datasets missing bounding boxes
-#         ordered by dataset and feed stable id.
-#     """
-#     query = (
-#         db_session.query(
-#             Gtfsfeed.stable_id,
-#             Gtfsdataset.stable_id,
-#         )
-#         .select_from(Gtfsfeed)
-#         .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
-#         .filter(Gtfsdataset.bounding_box.is_(None))
-#         .filter(
-#             ~Gtfsfeed.feedlocationgrouppoints.any()
-#         )  # Only feeds with no location group points
-#         .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
-#         .order_by(Gtfsdataset.stable_id, Gtfsfeed.stable_id)
-#     )
-
-#     return query
-
-
 def get_feeds_with_missing_bounding_boxes_query(
     db_session: Session,
 ) -> Query:
@@ -222,6 +191,7 @@ def get_feeds_with_missing_bounding_boxes_query(
     query = (
         db_session.query(Gtfsfeed)
         .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
+        .filter(Gtfsdataset.latest.is_(True))
         .filter(Gtfsdataset.bounding_box.is_(None))
         .filter(~Gtfsfeed.feedlocationgrouppoints.any())
         .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
