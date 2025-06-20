@@ -12,12 +12,6 @@ ALTER TABLE GTFSFeed
 ADD CONSTRAINT gtfsfeed_id_fkey
 FOREIGN KEY (id) REFERENCES Feed(id) ON DELETE CASCADE;
 
--- changeset mobilitydata:1268-locationfeed
-ALTER TABLE LocationFeed DROP CONSTRAINT IF EXISTS locationfeed_feed_id_fkey;
-ALTER TABLE LocationFeed
-ADD CONSTRAINT locationfeed_feed_id_fkey
-FOREIGN KEY (feed_id) REFERENCES Feed(id) ON DELETE CASCADE;
-
 -- changeset mobilitydata:1268-gtfsdataset
 ALTER TABLE GTFSDataset DROP CONSTRAINT IF EXISTS gtfsdataset_feed_id_fkey;
 ALTER TABLE GTFSDataset
