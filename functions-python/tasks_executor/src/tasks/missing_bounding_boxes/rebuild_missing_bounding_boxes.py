@@ -5,8 +5,11 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.helpers.pub_sub import publish_messages
-from shared.helpers.query_helper import get_feeds_with_missing_bounding_boxes_query
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
+from shared.helpers.query_helper import (
+    get_feeds_ids_with_missing_bounding_boxes_query,
+    get_feeds_with_missing_bounding_boxes_query,
+)
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from datetime import datetime
 
 
@@ -44,7 +47,7 @@ def rebuild_missing_bounding_boxes(
             logging.warning(
                 "Invalid after_date format, expected ISO format (YYYY-MM-DD)"
             )
-    query = get_feeds_with_missing_bounding_boxes_query(db_session)
+    query = get_feeds_ids_with_missing_bounding_boxes_query(db_session)
     if filter_after:
         query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
     feeds = query.all()
@@ -63,11 +66,11 @@ def rebuild_missing_bounding_boxes(
         }
     else:
         # publish a message to a Pub/Sub topic for each feed
-        pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)  # todo: set new name
+        pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
         project_id = os.getenv("PROJECT_ID")
 
         logging.info("Publishing to topic: %s", pubsub_topic_name)
-        publish_messages(prepare_feeds_data(feeds), project_id, pubsub_topic_name)
+        publish_messages(prepare_feeds_data(db_session), project_id, pubsub_topic_name)
 
         total_processed = len(feeds)
         logging.info(
@@ -83,7 +86,7 @@ def rebuild_missing_bounding_boxes(
         }
 
 
-def prepare_feeds_data(feeds: List[Gtfsfeed]) -> List[Dict]:
+def prepare_feeds_data(db_session: Session | None = None) -> List[Dict]:
     """
     Format feeds data for Pub/Sub messages.
 
@@ -94,6 +97,8 @@ def prepare_feeds_data(feeds: List[Gtfsfeed]) -> List[Dict]:
         List of dictionaries with feed data
     """
     data = []
+    query = get_feeds_with_missing_bounding_boxes_query(db_session)
+    feeds = query.all()
 
     for feed in feeds:
         # Get the latest dataset
