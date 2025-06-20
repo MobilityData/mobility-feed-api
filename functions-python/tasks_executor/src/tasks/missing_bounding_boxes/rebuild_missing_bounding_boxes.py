@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from shared.database.database import with_db_session
 from shared.helpers.pub_sub import publish_messages
 from shared.helpers.query_helper import (
-    get_feeds_ids_with_missing_bounding_boxes_query,
     get_feeds_with_missing_bounding_boxes_query,
 )
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
@@ -47,7 +46,7 @@ def rebuild_missing_bounding_boxes(
             logging.warning(
                 "Invalid after_date format, expected ISO format (YYYY-MM-DD)"
             )
-    query = get_feeds_ids_with_missing_bounding_boxes_query(db_session)
+    query = get_feeds_with_missing_bounding_boxes_query(db_session)
     if filter_after:
         query = query.filter(Gtfsdataset.downloaded_at >= filter_after)
     feeds = query.all()
@@ -70,9 +69,10 @@ def rebuild_missing_bounding_boxes(
         project_id = os.getenv("PROJECT_ID")
 
         logging.info("Publishing to topic: %s", pubsub_topic_name)
-        publish_messages(prepare_feeds_data(db_session), project_id, pubsub_topic_name)
+        feeds_data = prepare_feeds_data(db_session)
+        publish_messages(feeds_data, project_id, pubsub_topic_name)
 
-        total_processed = len(feeds)
+        total_processed = len(feeds_data)
         logging.info(
             "Published %s feeds with missing bounding boxes to Pub/Sub topic: %s, filtered after %s.",
             total_processed,
