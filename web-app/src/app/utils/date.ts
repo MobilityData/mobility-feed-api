@@ -1,7 +1,7 @@
 import { utcToZonedTime } from 'date-fns-tz';
 import { intervalToDuration, isFuture } from 'date-fns';
 
-export const displayFormattedDate = (stringDate: string): string => {
+export const displayFormattedDate = (stringDate?: string): string => {
   if (stringDate == null) {
     return '';
   }
