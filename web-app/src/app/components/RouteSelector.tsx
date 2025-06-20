@@ -22,7 +22,8 @@ export default function RouteSelector({
   onSelectionChange,
 }: RouteSelectorProps) {
   const [search, setSearch] = useState('');
-  const [selectedRoutes, setSelectedRoutes] = useState<string[]>(selectedRouteIds);
+  const [selectedRoutes, setSelectedRoutes] =
+    useState<string[]>(selectedRouteIds);
 
   const filteredRoutes = useMemo(() => {
     const searchLower = search.toLowerCase();
@@ -49,7 +50,16 @@ export default function RouteSelector({
   };
 
   return (
-    <Box>
+    <Box
+      sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        minHeight: '200px',
+        overflowY: 'auto',
+      }}
+    >
       <TextField
         fullWidth
         variant='outlined'
@@ -58,42 +68,45 @@ export default function RouteSelector({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <List dense sx={{ maxHeight: '400px', overflow: 'auto' }}>
-        {filteredRoutes.sort((a,b) => (a.routeId - b.routeId)).map((route) => (
-          <ListItemButton
-            key={route.routeId}
-            sx={{pl: 0}}
-            onClick={() => handleToggle(route.routeId)}
-            dense={true}
-          >
-            <ListItemIcon sx={{ minWidth: 34 }}>
-              <Checkbox
-                edge='start'
-                checked={selectedRoutes.includes(route.routeId)}
-                tabIndex={-1}
-                disableRipple
+      <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1 }}>
+        {filteredRoutes
+          .sort((a, b) => a.routeId - b.routeId)
+          .map((route) => (
+            <ListItemButton
+              key={route.routeId}
+              sx={{ pl: 0 }}
+              onClick={() => handleToggle(route.routeId)}
+              dense={true}
+            >
+              <ListItemIcon sx={{ minWidth: 34 }}>
+                <Checkbox
+                  edge='start'
+                  checked={selectedRoutes.includes(route.routeId)}
+                  tabIndex={-1}
+                  disableRipple
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box
+                      sx={{
+                        width: 16,
+                        height: 16,
+                        backgroundColor: route.color || '#000',
+                        borderRadius: '4px',
+                        mr: 1,
+                        border: '1px solid #999',
+                      }}
+                    />
+                    <Typography variant={'inherit'} sx={{ flex: 1 }}>
+                      {route.routeId} - {route.routeName}
+                    </Typography>
+                  </Box>
+                }
               />
-            </ListItemIcon>
-            <ListItemText
-              primary={
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box
-                    sx={{
-                      width: 16,
-                      height: 16,
-                      backgroundColor: route.color || '#000',
-                      borderRadius: '4px',
-                      mr: 1,
-                      border: '1px solid #999',
-                    }}
-                  />
-                  <Typography variant={'inherit'} sx={{flex: 1}}>{route.routeId} - {route.routeName}</Typography>
-                  
-                </Box>
-              }
-            />
-          </ListItemButton>
-        ))}
+            </ListItemButton>
+          ))}
       </List>
     </Box>
   );

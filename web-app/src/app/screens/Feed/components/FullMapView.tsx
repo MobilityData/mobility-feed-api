@@ -1,6 +1,7 @@
 import { Box, Fab, Button, Chip, useTheme } from '@mui/material';
 import RouteSelector from '../../../components/RouteSelector';
-import sampleRoutes from './sample-route-output.json';
+import sampleRoutes from './sample-route-output.json'; // STM
+//import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
 import React, { useState } from 'react';
 import { GtfsVisualizationMap } from '../../../components/GtfsVisualizationMap';
 import CloseIcon from '@mui/icons-material/Close';
@@ -49,26 +50,63 @@ export default function FullMapView(): React.ReactElement {
     })) as CheckboxStructure[];
   };
 
-  // TODO: this is hardcoded for Montreal, should be dynamic
+  // // TODO: this is hardcoded for Montreal, should be dynamic
   const bb = [
     [45.402668, -73.956204],
     [45.402668, -73.480581],
     [45.701116, -73.480581],
     [45.701116, -73.956204],
   ];
+
+  //   const bb = [ // Big France
+  //     [
+  //         42.751541,
+  //         -1.79019
+  //     ],
+  //     [
+  //         42.751541,
+  //         7.734793
+  //     ],
+  //     [
+  //         50.6394,
+  //         7.734793
+  //     ],
+  //     [
+  //         50.6394,
+  //         -1.79019
+  //     ]
+  // ]
+
+  // const bb = [
+  //   // bordeaux
+  //   [42.751541, -1.79019],
+  //   [42.751541, 7.734793],
+  //   [50.6394, 7.734793],
+  //   [50.6394, -1.79019],
+  // ];
+
   return (
     <Box
       sx={{
         width: '100%',
-        height: '100%',
         position: 'relative',
         display: 'flex',
         pt: 1,
-        minHeight: 'calc(100vh - 64px - 36px)', // Adjusts for the height of the header and any additional padding
+        height: 'calc(100vh - 64px - 36px)', // Adjusts for the height of the header and any additional padding
         mt: { xs: -2, md: -4 }, // Adjusts for the margin of the header
       }}
     >
-      <Box id='map-controls' sx={{ width: '300px', padding: 2, pt: 0 }}>
+      <Box
+        id='map-controls'
+        sx={{
+          width: '300px',
+          padding: 2,
+          pt: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          flexWrap: 'nowrap',
+        }}
+      >
         <Box width={'100%'}>
           <Button
             size='large'
@@ -98,17 +136,6 @@ export default function FullMapView(): React.ReactElement {
             );
           }}
         />
-
-        <SearchHeader variant='h6' className='no-collapse'>
-          Routes
-        </SearchHeader>
-        <RouteSelector
-          routes={sampleRoutes}
-          selectedRouteIds={filteredRoutes}
-          onSelectionChange={(val) => {
-            setFilteredRoutes(val);
-          }}
-        ></RouteSelector>
         <SearchHeader variant='h6' className='no-collapse'>
           Visibility
         </SearchHeader>
@@ -124,6 +151,17 @@ export default function FullMapView(): React.ReactElement {
             setHideStops(checkboxData[0].checked);
           }}
         />
+
+        <SearchHeader variant='h6' className='no-collapse'>
+          Routes
+        </SearchHeader>
+        <RouteSelector
+          routes={sampleRoutes}
+          selectedRouteIds={filteredRoutes}
+          onSelectionChange={(val) => {
+            setFilteredRoutes(val);
+          }}
+        ></RouteSelector>
       </Box>
       <Box
         sx={{
