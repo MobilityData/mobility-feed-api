@@ -39,60 +39,60 @@ class TestTasksExecutor(unittest.TestCase):
         self.assertIsNone(after_date)
 
     @patch(
-    "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.get_feeds_with_missing_bounding_boxes_query"
-)
-def test_rebuild_missing_bounding_boxes_dry_run(self, mock_query):
-    # Mock Gtfsdataset and Gtfsfeed objects
-    mock_dataset1 = MagicMock()
-    mock_dataset1.latest = True
-    mock_dataset1.stable_id = "dataset1"
-    mock_dataset1.hosted_url = "http://example.com/dataset1"
-    mock_feed1 = MagicMock()
-    mock_feed1.stable_id = "feed1"
-    mock_feed1.gtfsdatasets = [mock_dataset1]
-
-    mock_dataset2 = MagicMock()
-    mock_dataset2.latest = True
-    mock_dataset2.stable_id = "dataset2"
-    mock_dataset2.hosted_url = "http://example.com/dataset2"
-    mock_feed2 = MagicMock()
-    mock_feed2.stable_id = "feed2"
-    mock_feed2.gtfsdatasets = [mock_dataset2]
-
-    mock_query.return_value.filter.return_value = mock_query.return_value
-    mock_query.return_value.all.return_value = [mock_feed1, mock_feed2]
-
-    result = rebuild_missing_bounding_boxes(
-        dry_run=True, after_date=None, db_session=MagicMock()
+        "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.get_feeds_with_missing_bounding_boxes_query"
     )
-    self.assertIn("Dry run", result["message"])
-    self.assertEqual(result["total_processed"], 2)
+    def test_rebuild_missing_bounding_boxes_dry_run(self, mock_query):
+        # Mock Gtfsdataset and Gtfsfeed objects
+        mock_dataset1 = MagicMock()
+        mock_dataset1.latest = True
+        mock_dataset1.stable_id = "dataset1"
+        mock_dataset1.hosted_url = "http://example.com/dataset1"
+        mock_feed1 = MagicMock()
+        mock_feed1.stable_id = "feed1"
+        mock_feed1.gtfsdatasets = [mock_dataset1]
 
-@patch(
-    "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.publish_messages"
-)
-@patch(
-    "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.get_feeds_with_missing_bounding_boxes_query"
-)
-def test_rebuild_missing_bounding_boxes_publish(self, mock_query, mock_publish):
-    # Mock Gtfsdataset and Gtfsfeed objects
-    mock_dataset = MagicMock()
-    mock_dataset.latest = True
-    mock_dataset.stable_id = "dataset1"
-    mock_dataset.hosted_url = "http://example.com/dataset1"
-    mock_feed = MagicMock()
-    mock_feed.stable_id = "feed1"
-    mock_feed.gtfsdatasets = [mock_dataset]
+        mock_dataset2 = MagicMock()
+        mock_dataset2.latest = True
+        mock_dataset2.stable_id = "dataset2"
+        mock_dataset2.hosted_url = "http://example.com/dataset2"
+        mock_feed2 = MagicMock()
+        mock_feed2.stable_id = "feed2"
+        mock_feed2.gtfsdatasets = [mock_dataset2]
 
-    mock_query.return_value.filter.return_value = mock_query.return_value
-    mock_query.return_value.all.return_value = [mock_feed]
-    mock_publish.return_value = None
+        mock_query.return_value.filter.return_value = mock_query.return_value
+        mock_query.return_value.all.return_value = [mock_feed1, mock_feed2]
 
-    result = rebuild_missing_bounding_boxes(
-        dry_run=False, after_date=None, db_session=MagicMock()
+        result = rebuild_missing_bounding_boxes(
+            dry_run=True, after_date=None, db_session=MagicMock()
+        )
+        self.assertIn("Dry run", result["message"])
+        self.assertEqual(result["total_processed"], 2)
+
+    @patch(
+        "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.publish_messages"
     )
-    self.assertIn("Successfully published", result["message"])
-    self.assertEqual(result["total_processed"], 1)
+    @patch(
+        "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.get_feeds_with_missing_bounding_boxes_query"
+    )
+    def test_rebuild_missing_bounding_boxes_publish(self, mock_query, mock_publish):
+        # Mock Gtfsdataset and Gtfsfeed objects
+        mock_dataset = MagicMock()
+        mock_dataset.latest = True
+        mock_dataset.stable_id = "dataset1"
+        mock_dataset.hosted_url = "http://example.com/dataset1"
+        mock_feed = MagicMock()
+        mock_feed.stable_id = "feed1"
+        mock_feed.gtfsdatasets = [mock_dataset]
+
+        mock_query.return_value.filter.return_value = mock_query.return_value
+        mock_query.return_value.all.return_value = [mock_feed]
+        mock_publish.return_value = None
+
+        result = rebuild_missing_bounding_boxes(
+            dry_run=False, after_date=None, db_session=MagicMock()
+        )
+        self.assertIn("Successfully published", result["message"])
+        self.assertEqual(result["total_processed"], 1)
 
     @patch(
         "tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes.get_feeds_with_missing_bounding_boxes_query"
