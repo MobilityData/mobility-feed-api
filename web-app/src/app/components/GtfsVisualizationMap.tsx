@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 import { useEffect, useRef, useState } from 'react';
 import Map, {
   type MapRef,
@@ -7,26 +9,29 @@ import Map, {
   Popup,
 } from 'react-map-gl/maplibre';
 import maplibregl, {
-  ExpressionSpecification,
+  type ExpressionSpecification,
   type LngLatBoundsLike,
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { type LatLngExpression } from 'leaflet';
 import type { FeatureCollection } from 'geojson';
-import { Box, Popover, useTheme } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import { MapElement } from './MapElement';
+import { routeTypesMapping } from "../constants/RouteTypes";
 
 export interface GtfsVisualizationMapProps {
   polygon: LatLngExpression[];
   filteredRoutes?: string[];
   filteredRouteTypes?: string[];
+  hideStops?: boolean;
 }
 
 export const GtfsVisualizationMap = ({
   polygon,
   filteredRoutes = [],
   filteredRouteTypes = [],
+  hideStops = false,
 }: GtfsVisualizationMapProps): JSX.Element => {
   const theme = useTheme();
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
@@ -40,6 +45,45 @@ export const GtfsVisualizationMap = ({
     top: number;
   } | null>(null);
   const mapRef = useRef<MapRef>(null);
+
+  const reversedRouteTypesMapping = Object.fromEntries(
+    Object.entries(routeTypesMapping).map(([k, v]) => [v, k])
+  );
+  const filteredRouteTypesIds = filteredRouteTypes.map(d => reversedRouteTypesMapping[d]);
+
+  // Create a map to store routeId to routeColor mapping
+  const routeIdToColorMap: Record<string, string> = {};
+  mapElement.forEach((el) => {
+    if (!el.isStop && el.routeId && el.routeColor) {
+      routeIdToColorMap[el.routeId] = el.routeColor;
+    }
+  });
+  function generateStopColorExpression(
+    routeIdToColor: Record<string, string>,
+    fallback = '#888'
+  ): ExpressionSpecification {
+    const expression: any[] = ['case'];
+
+    Object.entries(routeIdToColor).forEach(([routeId, color]) => {
+      expression.push(
+        ['in', `"${routeId}"`, ['get', 'route_ids']],
+        `#${color}`
+      );
+    });
+
+    // If no conditions added, just return a fallback color directly
+    if (expression.length === 1) {
+      return fallback as unknown as ExpressionSpecification;
+    }
+
+    expression.push(fallback); // Add fallback color
+    return expression as ExpressionSpecification;
+  }
+
+  const routeTypeFilter: ExpressionSpecification | boolean =
+    filteredRouteTypes.length > 0
+      ? ['in', ['get', 'route_type'], ['literal', filteredRouteTypesIds]]
+      : true; // if no filter applied, show all
 
   const handleMouseClick = (event: maplibregl.MapLayerMouseEvent): void => {
     const map = mapRef.current?.getMap();
@@ -170,26 +214,6 @@ export const GtfsVisualizationMap = ({
     ],
   };
 
-  // TODO: Get the route color data from the route selector
-  const testSelectedRouteColors = ['00B300', '009EE0']; // Test colors: green line and bus line (blue)
-
-  // The Types for these types of expressions are not well defined in the maplibre-gl types, so we use 'any' here
-  // Should revisit the typing situation in the future
-  function generateColorMatchExpression(
-    colors: string[],
-    propertyName = 'route_colors',
-    fallback = '#888888',
-  ) {
-    const expression: any[] = ['case'];
-
-    colors.forEach((color) => {
-      expression.push(['in', `"${color}"`, ['get', propertyName]], `#${color}`);
-    });
-
-    expression.push(fallback); // Default color if none match
-    return expression;
-  }
-
   return (
     <MapProvider>
       <Box sx={{ display: 'flex', height: '100%' }}>
@@ -253,10 +277,10 @@ export const GtfsVisualizationMap = ({
                   minzoom: 0,
                   maxzoom: 22,
                 },
-
                 {
                   id: 'routes-white', // white padding on the route lines
                   source: 'routes',
+                  filter: routeTypeFilter,
                   'source-layer': 'routesoutput', // Name of the geojson file when converting to pmtile. route-output.geojson -> routesoutput
                   type: 'line',
                   paint: {
@@ -275,6 +299,7 @@ export const GtfsVisualizationMap = ({
                 },
                 {
                   id: 'routes',
+                  filter: routeTypeFilter,
                   source: 'routes',
                   'source-layer': 'routesoutput', // Name of the geojson file when converting to pmtile. route-output.geojson -> routesoutput
                   type: 'line',
@@ -293,6 +318,8 @@ export const GtfsVisualizationMap = ({
                     ],
                     'line-opacity': 0.4, // Opacity of the route lines
                   },
+                  // If routeTypesFilter includes a value -> show that
+                  // If routeTypesFilter is empty -> show all
                   layout: {
                     'line-sort-key': [
                       'match',
@@ -317,6 +344,7 @@ export const GtfsVisualizationMap = ({
                 // },
                 {
                   id: 'stops',
+                  filter: !hideStops, // Hide stops if hideStops is true
                   source: 'sample',
                   'source-layer': 'stopsoutput', // Name of the geojson file when converting to pmtile. stops-output.geojson -> stopssoutput
                   type: 'circle',
@@ -361,17 +389,13 @@ export const GtfsVisualizationMap = ({
                   'source-layer': 'stopsoutput', // Name of the geojson file when converting to pmtile. stops-output.geojson -> stopssoutput
                   type: 'circle',
                   paint: {
-                    'circle-radius': 8,
-                    'circle-color': generateColorMatchExpression(
-                      testSelectedRouteColors,
-                      'route_colors',
-                      '#000000',
-                    ) as unknown as ExpressionSpecification, // VERY IMPORTANT: during the conversion to PMTiles, the route_colors are stored as strings with quotes NOT arrays. [1,2,3] -> "["1","2","3"]"
+                    'circle-radius': 6,
+                    'circle-color': generateStopColorExpression(routeIdToColorMap) as ExpressionSpecification, // VERY IMPORTANT: during the conversion to PMTiles, the route_colors are stored as strings with quotes NOT arrays. [1,2,3] -> "["1","2","3"]"
                     'circle-opacity': 0.8,
                   },
                   minzoom: 10,
                   maxzoom: 22,
-                  filter: [
+                  filter: hideStops ? !hideStops : [
                     'any',
                     ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
                     [
@@ -388,6 +412,33 @@ export const GtfsVisualizationMap = ({
                     ],
                   ],
                 },
+                {
+                  id: 'stops-highlight-outer',
+                  source: 'sample',
+                  'source-layer': 'stopsoutput',
+                  type: 'circle',
+                  paint: {
+                    'circle-radius': 3,
+                    'circle-color': '#ffffff',
+                    'circle-opacity': 1,
+                  },
+                  filter: hideStops ? !hideStops : [
+                    'any',
+                    ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
+                    [
+                      'any',
+                      ...filteredRoutes.map((id) => {
+                        return ['in', `\"${id}\"`, ['get', 'route_ids']] as any; // VERY IMPORTANT: during the conversion to PMTiles, the route_ids are stored as strings with quotes NOT arrays. [1,2,3] -> "["1","2","3"]"
+                      }),
+                    ],
+                    [
+                      'any',
+                      ...hoverInfo.map((id) => {
+                        return ['in', `\"${id}\"`, ['get', 'route_ids']] as any;
+                      }),
+                    ],
+                  ],
+                }
               ],
             }}
           >
@@ -406,6 +457,7 @@ export const GtfsVisualizationMap = ({
               }}
             />
 
+            {/*TODO: could be own component*/}
             {Object.keys(mapClickData).length > 0 && (
               <Popup
                 longitude={Number(mapClickData.longitude)}

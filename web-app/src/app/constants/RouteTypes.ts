@@ -11,3 +11,7 @@ export const routeTypesMapping: Record<string, string> = {
   '12': 'High Speed Train',
   '13': 'Airplane',
 };
+
+export const reversedRouteTypesMapping = Object.fromEntries(
+  Object.entries(routeTypesMapping).map(([k, v]) => [v, k]),
+);

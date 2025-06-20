@@ -1,4 +1,4 @@
-import { Box, Fab, Typography, Button, Chip, useTheme } from '@mui/material';
+import { Box, Fab, Button, Chip, useTheme } from '@mui/material';
 import RouteSelector from '../../../components/RouteSelector';
 import sampleRoutes from './sample-route-output.json';
 import React, { useState } from 'react';
@@ -12,17 +12,22 @@ import { ChevronLeft } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { SearchHeader } from '../../../styles/Filters.styles';
 
-export interface FullMapViewProps {}
-
-export default function FullMapView({}: FullMapViewProps): React.ReactElement {
+export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
   const [filteredRoutes, setFilteredRoutes] = useState<string[]>([]);
   const [filteredRouteTypes, setFilteredRouteTypes] = useState<string[]>([]);
+  const [hideStops, setHideStops] = useState<boolean>(false);
 
-  const clearAllFilters = () => {
+  const clearAllFilters = (): void => {
     setFilteredRoutes([]);
     setFilteredRouteTypes([]);
+    setHideStops(false);
+  };
+
+  const getRouteDisplayName = (routeId: string): string => {
+    const route = sampleRoutes.find((r) => r.routeId === routeId);
+    return route != null ? `${route.routeName} [${route.routeId}]` : routeId;
   };
 
   const getUniqueRouteTypesCheckboxData = (
@@ -36,7 +41,7 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
     });
     return Array.from(uniqueTypes).map((type) => ({
       title: routeTypesMapping[type],
-      checked: true,
+      checked: filteredRouteTypes.includes(routeTypesMapping[type]),
       props: {
         routeTypeId: type,
       },
@@ -44,6 +49,7 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
     })) as CheckboxStructure[];
   };
 
+  // TODO: this is hardcoded for Montreal, should be dynamic
   const bb = [
     [45.402668, -73.956204],
     [45.402668, -73.480581],
@@ -86,7 +92,7 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
             setFilteredRouteTypes(
               checkboxData
                 .map((item) => {
-                  return item.checked ? item?.props?.routeTypeId ?? '' : '';
+                  return item.checked ? item?.title ?? '' : '';
                 })
                 .filter((item) => item !== ''),
             );
@@ -110,16 +116,23 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
           checkboxData={[
             {
               title: 'Hide Stops',
-              checked: false,
+              checked: hideStops,
               type: 'checkbox',
             },
           ]}
           onCheckboxChange={(checkboxData: CheckboxStructure[]) => {
-            console.log(checkboxData);
+            setHideStops(checkboxData[0].checked);
           }}
         />
       </Box>
-      <Box sx={{ width: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+      <Box
+        sx={{
+          width: '100%',
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         <Box
           id='map-filters'
           display={'flex'}
@@ -128,13 +141,40 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
           gap={1}
           sx={{ p: 1, minHeight: '50px' }}
         >
+          {hideStops && (
+            <Chip
+              color='primary'
+              variant='outlined'
+              size='small'
+              label='Hide Stops'
+              onDelete={() => {
+                setHideStops(false);
+              }}
+              sx={{ cursor: 'pointer' }}
+            ></Chip>
+          )}
+          {filteredRouteTypes.map((routeType) => (
+            <Chip
+              color='primary'
+              variant='outlined'
+              size='small'
+              key={routeType}
+              label={routeType}
+              onDelete={() => {
+                setFilteredRouteTypes((prev) =>
+                  prev.filter((type) => type !== routeType),
+                );
+              }}
+              sx={{ cursor: 'pointer' }}
+            ></Chip>
+          ))}
           {filteredRoutes.map((routeId) => (
             <Chip
               color='primary'
               variant='outlined'
               size='small'
               key={routeId}
-              label={routeId}
+              label={getRouteDisplayName(routeId)}
               onDelete={() => {
                 setFilteredRoutes((prev) =>
                   prev.filter((id) => id !== routeId),
@@ -143,7 +183,10 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
               sx={{ cursor: 'pointer' }}
             ></Chip>
           ))}
-          {filteredRoutes.length > 0 && (
+
+          {(filteredRoutes.length > 0 ||
+            filteredRouteTypes.length > 0 ||
+            hideStops) && (
             <Button
               variant={'text'}
               onClick={clearAllFilters}
@@ -158,7 +201,6 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
           id='map-container'
           position={'relative'}
           sx={{
-            
             mr: 2,
             borderRadius: '6px',
             border: `2px solid ${theme.palette.primary.main}`,
@@ -180,6 +222,7 @@ export default function FullMapView({}: FullMapViewProps): React.ReactElement {
             polygon={bb as any}
             filteredRouteTypes={filteredRouteTypes}
             filteredRoutes={filteredRoutes}
+            hideStops={hideStops}
           ></GtfsVisualizationMap>
         </Box>
       </Box>
