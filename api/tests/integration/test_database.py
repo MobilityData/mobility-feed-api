@@ -160,14 +160,11 @@ def test_insert_and_select():
 
 from shared.database_gen.sqlacodegen_models import (
     Feed,
-    FeedLog,
     Gtfsfeed,
     Gtfsrealtimefeed,
     Location,
     LocationFeed,
     Gtfsdataset,
-    Provider,
-    ProviderFeed,
     EntityType,
     EntityTypeFeed,
     FeedReference,
