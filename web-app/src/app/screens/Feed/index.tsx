@@ -340,12 +340,12 @@ export default function Feed(): React.ReactElement {
     feedId,
     structuredData,
     <Box sx={{ position: 'relative' }}>
-      <Grid container item xs={12} spacing={3} alignItems={'center'}>
-        <Grid
-          item
-          sx={{
-            cursor: 'pointer',
-          }}
+      <Grid container item xs={12} spacing={3} alignItems={'end'}>
+        <Button
+          sx={{py: 0}}
+          size='large'
+          startIcon={<ChevronLeft />}
+          color={'inherit'}
           onClick={() => {
             if (history.length === 1) {
               window.location.href = '/feeds';
@@ -354,11 +354,9 @@ export default function Feed(): React.ReactElement {
             }
           }}
         >
-          <Grid container alignItems={'center'}>
-            <ChevronLeft fontSize='small' sx={{ ml: '-20px' }} />{' '}
-            <Typography>{t('common:back')}</Typography>
-          </Grid>
-        </Grid>
+          {t('common:back')}
+        </Button>
+
         <Grid item>
           <Typography
             sx={{
