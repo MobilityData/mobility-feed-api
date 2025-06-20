@@ -157,3 +157,224 @@ def test_insert_and_select():
         results_after_session_closed = db.select(new_session, Feature, conditions=[Feature.name == feature_name])
         assert len(results_after_session_closed) == 1
         assert results_after_session_closed[0][0].name == feature_name
+
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    FeedLog,
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+    Location,
+    LocationFeed,
+    Gtfsdataset,
+    Provider,
+    ProviderFeed,
+    EntityType,
+    EntityTypeFeed,
+    FeedReference,
+    Redirectingid,
+)
+from sqlalchemy import select as sql_select
+
+def test_cascade_delete_basic_feed(test_database):
+    db = test_database
+    feed_id = generate_unique_id()
+    location_id = generate_unique_id()
+    provider_id = generate_unique_id()
+    dataset_id = generate_unique_id()
+
+    with db.start_db_session() as session:
+        # Create Feed
+        feed = Feed(id=feed_id, stable_id=feed_id, data_type="gtfs", feed_name="Test Feed for Cascade Delete")
+        session.add(feed)
+
+        # Create related entities
+        feed_log = FeedLog(id=feed_id, historical_record_time=datetime.now(timezone.utc), data_type="gtfs")
+        session.add(feed_log)
+
+        location = Location(id=location_id, country_code="US", subdivision_name="CA", municipality="Testville")
+        session.add(location)
+        location_feed = LocationFeed(location_id=location_id, feed_id=feed_id)
+        session.add(location_feed)
+
+        gtfs_dataset = Gtfsdataset(id=dataset_id, feed_id=feed_id, stable_id=dataset_id, downloaded_at=datetime.now(timezone.utc))
+        session.add(gtfs_dataset)
+
+        provider = Provider(id=provider_id, short_name="TestProv", long_name="Test Provider")
+        session.add(provider)
+        provider_feed = ProviderFeed(provider_id=provider_id, feed_id=feed_id)
+        session.add(provider_feed)
+        session.commit()
+
+        # Verify creation
+        assert session.get(Feed, feed_id) is not None
+        assert session.get(FeedLog, (feed_id, feed_log.historical_record_time)) is not None
+        assert session.get(LocationFeed, (location_id, feed_id)) is not None
+        assert session.get(Gtfsdataset, dataset_id) is not None
+        assert session.get(ProviderFeed, (provider_id, feed_id)) is not None
+
+    # Delete Feed
+    with db.start_db_session() as session:
+        feed_to_delete = session.get(Feed, feed_id)
+        session.delete(feed_to_delete)
+        session.commit()
+
+    # Verify deletion
+    with db.start_db_session() as session:
+        assert session.get(Feed, feed_id) is None
+        assert session.execute(sql_select(FeedLog).where(FeedLog.id == feed_id)).first() is None
+        assert session.get(LocationFeed, (location_id, feed_id)) is None
+        assert session.get(Gtfsdataset, dataset_id) is None
+        assert session.get(ProviderFeed, (provider_id, feed_id)) is None
+        # Location and Provider should not be deleted as they are not directly dependent
+        assert session.get(Location, location_id) is not None
+        assert session.get(Provider, provider_id) is not None
+
+
+def test_cascade_delete_gtfs_feed(test_database):
+    db = test_database
+    gtfs_feed_id = generate_unique_id()
+    related_gtfs_rt_feed_id = generate_unique_id() # For FeedReference
+
+    with db.start_db_session() as session:
+        # Create GTFSFeed (also creates a base Feed)
+        gtfs_feed = Gtfsfeed(id=gtfs_feed_id, stable_id=gtfs_feed_id, feed_name="Test GTFS Feed")
+        session.add(gtfs_feed)
+
+        # Create a GTFS RT Feed for the reference
+        gtfs_rt_feed = Gtfsrealtimefeed(id=related_gtfs_rt_feed_id, stable_id=related_gtfs_rt_feed_id, feed_name="Test GTFS RT Feed for Ref")
+        session.add(gtfs_rt_feed)
+        session.flush() # Ensure IDs are available for FeedReference
+
+        # Create FeedReference
+        feed_reference = FeedReference(gtfs_rt_feed_id=related_gtfs_rt_feed_id, gtfs_feed_id=gtfs_feed_id)
+        session.add(feed_reference)
+        session.commit()
+
+        # Verify creation
+        assert session.get(Gtfsfeed, gtfs_feed_id) is not None
+        assert session.get(Feed, gtfs_feed_id) is not None # Base feed
+        assert session.get(FeedReference, (related_gtfs_rt_feed_id, gtfs_feed_id)) is not None
+
+    # Delete GTFSFeed
+    with db.start_db_session() as session:
+        feed_to_delete = session.get(Gtfsfeed, gtfs_feed_id)
+        session.delete(feed_to_delete)
+        session.commit()
+
+    # Verify deletion
+    with db.start_db_session() as session:
+        assert session.get(Gtfsfeed, gtfs_feed_id) is None
+        assert session.get(Feed, gtfs_feed_id) is None # Base feed should also be deleted
+        assert session.get(FeedReference, (related_gtfs_rt_feed_id, gtfs_feed_id)) is None
+        assert session.get(Gtfsrealtimefeed, related_gtfs_rt_feed_id) is not None # The other feed should still exist
+
+
+def test_cascade_delete_gtfs_realtime_feed(test_database):
+    db = test_database
+    gtfs_rt_feed_id = generate_unique_id()
+    related_gtfs_feed_id = generate_unique_id() # For FeedReference
+    entity_type_name = "vehicle_positions"
+
+
+    with db.start_db_session() as session:
+        # Create GTFSRealtimeFeed (also creates a base Feed)
+        gtfs_rt_feed = Gtfsrealtimefeed(id=gtfs_rt_feed_id, stable_id=gtfs_rt_feed_id, feed_name="Test GTFS RT Feed")
+        session.add(gtfs_rt_feed)
+
+        # Create EntityType if it doesn't exist
+        entity_type = session.get(EntityType, entity_type_name)
+        if not entity_type:
+            entity_type = EntityType(name=entity_type_name)
+            session.add(entity_type)
+        session.flush()
+
+
+        # Create EntityTypeFeed
+        entity_type_feed = EntityTypeFeed(entity_name=entity_type_name, feed_id=gtfs_rt_feed_id)
+        session.add(entity_type_feed)
+
+        # Create a GTFS Feed for the reference
+        gtfs_feed = Gtfsfeed(id=related_gtfs_feed_id, stable_id=related_gtfs_feed_id, feed_name="Test GTFS Feed for Ref")
+        session.add(gtfs_feed)
+        session.flush() # Ensure IDs are available for FeedReference
+
+        # Create FeedReference
+        feed_reference = FeedReference(gtfs_rt_feed_id=gtfs_rt_feed_id, gtfs_feed_id=related_gtfs_feed_id)
+        session.add(feed_reference)
+        session.commit()
+
+        # Verify creation
+        assert session.get(Gtfsrealtimefeed, gtfs_rt_feed_id) is not None
+        assert session.get(Feed, gtfs_rt_feed_id) is not None # Base feed
+        assert session.get(EntityTypeFeed, (entity_type_name, gtfs_rt_feed_id)) is not None
+        assert session.get(FeedReference, (gtfs_rt_feed_id, related_gtfs_feed_id)) is not None
+
+
+    # Delete GTFSRealtimeFeed
+    with db.start_db_session() as session:
+        feed_to_delete = session.get(Gtfsrealtimefeed, gtfs_rt_feed_id)
+        session.delete(feed_to_delete)
+        session.commit()
+
+    # Verify deletion
+    with db.start_db_session() as session:
+        assert session.get(Gtfsrealtimefeed, gtfs_rt_feed_id) is None
+        assert session.get(Feed, gtfs_rt_feed_id) is None # Base feed should also be deleted
+        assert session.get(EntityTypeFeed, (entity_type_name, gtfs_rt_feed_id)) is None
+        assert session.get(FeedReference, (gtfs_rt_feed_id, related_gtfs_feed_id)) is None
+        assert session.get(Gtfsfeed, related_gtfs_feed_id) is not None # The other feed should still exist
+        assert session.get(EntityType, entity_type_name) is not None # EntityType itself should not be deleted
+
+
+def test_cascade_delete_redirecting_id(test_database):
+    db = test_database
+    feed_a_id = generate_unique_id()
+    feed_b_id = generate_unique_id()
+
+    with db.start_db_session() as session:
+        feed_a = Feed(id=feed_a_id, stable_id=feed_a_id, data_type="gtfs", feed_name="Feed A")
+        feed_b = Feed(id=feed_b_id, stable_id=feed_b_id, data_type="gtfs", feed_name="Feed B")
+        session.add_all([feed_a, feed_b])
+        session.flush()
+
+        redirect_ab = Redirectingid(source_id=feed_a_id, target_id=feed_b_id, redirect_comment="A to B")
+        session.add(redirect_ab)
+        session.commit()
+
+        # Verify creation
+        assert session.get(Redirectingid, (feed_a_id, feed_b_id)) is not None
+
+    # Delete Feed A (source)
+    with db.start_db_session() as session:
+        feed_to_delete = session.get(Feed, feed_a_id)
+        session.delete(feed_to_delete)
+        session.commit()
+
+    # Verify RedirectingID is deleted
+    with db.start_db_session() as session:
+        assert session.get(Redirectingid, (feed_a_id, feed_b_id)) is None
+        assert session.get(Feed, feed_a_id) is None
+        assert session.get(Feed, feed_b_id) is not None # Feed B should still exist
+
+    # Recreate Feed A and a new redirect where Feed B is the source
+    feed_a_id_new = generate_unique_id()
+    with db.start_db_session() as session:
+        feed_a_new = Feed(id=feed_a_id_new, stable_id=feed_a_id_new, data_type="gtfs", feed_name="Feed A New")
+        session.add(feed_a_new)
+        session.flush()
+        redirect_ba = Redirectingid(source_id=feed_b_id, target_id=feed_a_id_new, redirect_comment="B to A New")
+        session.add(redirect_ba)
+        session.commit()
+        assert session.get(Redirectingid, (feed_b_id, feed_a_id_new)) is not None
+
+    # Delete Feed B (source in redirect_ba)
+    with db.start_db_session() as session:
+        feed_to_delete = session.get(Feed, feed_b_id)
+        session.delete(feed_to_delete)
+        session.commit()
+
+    # Verify RedirectingID is deleted
+    with db.start_db_session() as session:
+        assert session.get(Redirectingid, (feed_b_id, feed_a_id_new)) is None
+        assert session.get(Feed, feed_b_id) is None
+        assert session.get(Feed, feed_a_id_new) is not None # New Feed A should still exist
