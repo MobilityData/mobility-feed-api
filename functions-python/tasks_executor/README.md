@@ -3,7 +3,9 @@
 This directory contains Google Cloud Functions used as a single point of access to multiple _tasks_.
 
 ## Usage
+
 The function receive the following payload:
+
 ```
 {
    "task": "string", # [required] Name of the task to execute
@@ -12,6 +14,7 @@ The function receive the following payload:
 ```
 
 Example:
+
 ```json
 {
    "task": "rebuild_missing_validation_reports",
@@ -21,11 +24,22 @@ Example:
     "filter_statuses": ["active", "inactive", "future"]
   }
 }
+{
+   "task": "rebuild_missing_bounding_boxes",
+   "payload": {
+    "dry_run": true,
+    "after_date": "2025-06-01"
+  }
+}
 ```
+
 To get the list of supported tasks use:
 ``
 {
-  "name": "list_tasks",
-  "payload": {}
+"name": "list_tasks",
+"payload": {}
 }
-`````
+
+```
+
+```
