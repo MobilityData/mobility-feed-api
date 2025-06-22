@@ -1,0 +1,42 @@
+{
+   "feeds": "Feeds",
+   "dataType": "Tipo de dados",
+   "transitProvider": "Provedor de trânsito",
+   "location": "Localização",
+   "feedDescription": "Descrição do feed",
+   "searchFor": "Pesquisar por",
+   "resultsFor": "{{startResult}}-{{endResult}} de {{totalResults}} resultados",
+   "deprecated": "Obsoleto",
+   "searchPlaceholder": "Provedor de trânsito, nome do feed ou local",
+   "noResults": "Lamentamos, mas não encontramos resultados de pesquisa para “{{activeSearch}}”.",
+   "searchSuggestions": "Sugestões de pesquisa: ",
+   "searchTips": {
+      "twoDigit": "Use um código de dois dígitos para pesquisar por país, por exemplo, \"FR\" para França",
+      "fullName": "Inclua o nome completo para provedor de trânsito, por exemplo, “Toronto Transit Commission” em vez de \"TTC\"",
+      "checkSpelling": "Verifique a ortografia"
+   },
+   "errorAndContact": "Verifique sua conexão de internet e tente novamente. Se o problema persistir <1>entre em contato conosco</1> para obter mais assistência.",
+   "errorLoadingFeed": "Ocorreu um erro ao carregar o feed.",
+   "form": {
+      "addOrUpdateFeed": "Adicionar ou atualizar um feed",
+      "signUp": "Cadastre-se para uma conta do Mobility Database ou faça login para adicionar ou atualizar um feed GTFS.",
+      "signUpAction": "Cadastre-se para uma conta",
+      "loginSuccess": "Você fez login com sucesso, agora pode adicionar ou atualizar um feed."
+   },
+   "seeFullList": "Ver lista completa",
+   "hideFullList": "Ocultar lista completa",
+   "producerDownloadUrl": "URL de download do produtor",
+   "copyDownloadUrl": "Copiar URL de download",
+   "producerUrlCopied": "URL do produtor copiada para a área de transferência",
+   "authenticationType": "Tipo de autenticação",
+   "registerToDownloadFeed": "Registre-se para baixar o feed",
+   "feedContactEmail": "E-mail de contato do feed",
+   "copyFeedContactEmail": "Copiar e-mail de contato do feed",
+   "features": "Recursos",
+   "unableToDownloadFeed": "Não foi possível baixar este feed. Se houver uma URL mais recente para este feed, <1>envie-a aqui</1> ",
+   "feedHasBeenReplaced": "Este feed foi substituído por uma URL de produtor diferente.{' '}<1> Vá para o novo feed aqui</1> .",
+   "downloadLatest": "Baixar o mais recente",
+   "seeLicense": "Ver licença",
+   "boundingBoxTitle": "Caixa delimitadora de stops.txt",
+   "unableToGenerateBoundingBox": "Não é possível gerar caixa delimitadora."
+}

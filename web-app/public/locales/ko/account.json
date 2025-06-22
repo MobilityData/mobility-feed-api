@@ -1,0 +1,47 @@
+{
+    "title": "귀하의 API 계정",
+    "userDetails": "사용자 세부 정보",
+    "description": "Mobility Database API는 OAuth2 인증을 사용합니다. 성공적인 API 요청을 시작하려면 액세스 토큰을 HTTP 헤더에 베어러 토큰으로 포함해야 합니다. 액세스 토큰은 1시간 동안 유효합니다. 액세스 토큰을 얻으려면 먼저 장기적이고 만료되지 않는 새로 고침 토큰이 필요합니다.",
+    "support": "재발급된 새로 고침 토큰이 필요하거나 계정을 제거하려면 다음 주소로 이메일을 보내주세요.",
+    "registerApiAnnouncements": "API Announcements에 등록됨",
+    "refreshToken": {
+       "title": "새로 고침 토큰",
+       "description": "새로 고침 토큰을 사용하여 앱에서 API에 연결하세요.",
+       "placeholder": "새로 고침 토큰이 숨겨져 있습니다.",
+       "yourToken": "새로 고침 Token",
+       "toggleVisibility": "새로 고침 토큰 표시 여부 전환",
+       "copy": "새로 고침 토큰 복사",
+       "copyToClipboard": "새로 고침 토큰을 클립보드에 복사"
+    },
+    "accessToken": {
+       "title": "앱에서 액세스 토큰을 생성하는 방법",
+       "description": {
+          "pt1": "팔로우",
+          "cta": "OpenAPI 문서",
+          "pt2": "새로 고침 토큰으로 계정을 인증합니다."
+       },
+       "generate": "액세스 토큰 생성",
+       "copyToken": "액세스 토큰 복사",
+       "copyTokenToClipboard": "액세스 토큰을 클립보드에 복사",
+       "copy": "액세스 토큰을 생성하는 CLI 명령어를 복사합니다.",
+       "yourToken": "귀하의 액세스 토큰",
+       "refreshing": "액세스 토큰을 새로 고치는 중...",
+       "refresh": "액세스 토큰 새로 고침",
+       "refreshSuccess": "귀하의 액세스 토큰이 성공적으로 새로 고쳐졌습니다!",
+       "testing": {
+            "title": "테스트용 액세스 토큰",
+            "description": {
+                "pt1": "빠른 테스트를 원하시나요? 아래의 액세스 토큰을 복사하여 저희의",
+                "cta": "OpenAPI 설명서",
+                "pt2": ". 액세스 토큰은 1시간 동안 유효합니다."
+            },
+               "api": "API 테스트",
+            "copyCli": "CLI 명령을 복사하여 API에 대한 액세스를 테스트합니다."
+       },
+       "toggleVisibility": "액세스 토큰 표시 토글",
+       "expired": "토큰이 만료되었습니다",
+       "willExpireIn": "토큰이 {{timeLeftForTokenExpiration}} 후에 만료됩니다",
+       "hidden": "액세스 토큰이 숨겨졌습니다",
+       "unavailable": "토큰을 사용할 수 없습니다"
+    }
+}

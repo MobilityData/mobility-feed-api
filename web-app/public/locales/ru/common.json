@@ -1,0 +1,27 @@
+{
+   "copyToClipboard": "Копировать в буфер обмена",
+   "copied": "Скопировано!",
+   "name": "Имя",
+   "email": "Электронная почта",
+   "organization": "Организация",
+   "signOut": "Выйти",
+   "unknown": "Неизвестно",
+   "search": "Поиск",
+   "feeds": "Ленты",
+   "gtfsSchedule": "GTFS Schedule",
+   "gtfsRealtime": "GTFS Realtime",
+   "gtfsRealtimeEntities": {
+      "tripUpdates": "Обновления поездки",
+      "vehiclePositions": "Положения транспортного средства",
+      "serviceAlerts": "Оповещения службы"
+   },
+   "loading": "Загрузка...",
+   "errors": {
+      "generic": "В данный момент мы не можем выполнить ваш запрос."
+   },
+   "others": "другие",
+   "apiKey": "Ключ API",
+   "httpHeader": "Заголовок HTTP",
+   "back": "Назад",
+   "and": "и"
+}
