@@ -1253,7 +1253,7 @@ resource "google_pubsub_topic" "rebuild_missing_bounding_boxes" {
 
 # Grant the Cloud Functions service account permission to publish messages to the rebuild-bounding-boxes-topic Pub/Sub topic
 resource "google_pubsub_topic_iam_member" "rebuild_missing_bounding_boxes_publisher" {
-  topic  = google_pubsub_topic.rebuild_bounding_boxes.name
+  topic  = google_pubsub_topic.rebuild_missing_bounding_boxes.name
   role   = "roles/pubsub.publisher"
   member = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
