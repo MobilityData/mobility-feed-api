@@ -152,7 +152,7 @@ export default function FeedSummary({
             </Typography>
           </StyledTitleContainer>
           <Typography variant='body1'>
-            500
+            130
             <Tooltip title='Find Routes On Map' placement='top' sx={{ ml: 1 }}>
               <IconButton
                 size='small'
@@ -176,7 +176,7 @@ export default function FeedSummary({
             </Typography>
           </StyledTitleContainer>
           <Typography variant='body1'>
-            Bus, Subway
+            Bus, Ferry, Tram
             <Tooltip
               title='View Routes Types On Map'
               placement='top'

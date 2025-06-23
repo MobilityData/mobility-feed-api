@@ -60,6 +60,9 @@ export default function RouteSelector({
         overflowY: 'auto',
       }}
     >
+      <Typography variant='subtitle2' sx={{ m: 0 }}>
+        {filteredRoutes.length} route{filteredRoutes.length !== 1 ? 's' : ''}
+      </Typography>
       <TextField
         fullWidth
         variant='outlined'
@@ -68,6 +71,7 @@ export default function RouteSelector({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
+
       <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1 }}>
         {filteredRoutes
           .sort((a, b) => a.routeId - b.routeId)

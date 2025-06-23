@@ -1,7 +1,7 @@
 import { Box, Fab, Button, Chip, useTheme } from '@mui/material';
 import RouteSelector from '../../../components/RouteSelector';
-import sampleRoutes from './sample-route-output.json'; // STM
-//import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
+//import sampleRoutes from './sample-route-output.json'; // STM
+import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
 import React, { useState } from 'react';
 import { GtfsVisualizationMap } from '../../../components/GtfsVisualizationMap';
 import CloseIcon from '@mui/icons-material/Close';
@@ -51,12 +51,12 @@ export default function FullMapView(): React.ReactElement {
   };
 
   // // TODO: this is hardcoded for Montreal, should be dynamic
-  const bb = [
-    [45.402668, -73.956204],
-    [45.402668, -73.480581],
-    [45.701116, -73.480581],
-    [45.701116, -73.956204],
-  ];
+  // const bb = [
+  //   [45.402668, -73.956204],
+  //   [45.402668, -73.480581],
+  //   [45.701116, -73.480581],
+  //   [45.701116, -73.956204],
+  // ];
 
   //   const bb = [ // Big France
   //     [
@@ -77,13 +77,14 @@ export default function FullMapView(): React.ReactElement {
   //     ]
   // ]
 
-  // const bb = [
-  //   // bordeaux
-  //   [42.751541, -1.79019],
-  //   [42.751541, 7.734793],
-  //   [50.6394, 7.734793],
-  //   [50.6394, -1.79019],
-  // ];
+  const bb = [
+    // bordeaux
+
+    [44.754866, -0.79898],
+    [44.754866, -0.464777],
+    [45.025554, -0.464777],
+    [45.025554, -0.79898],
+  ];
 
   return (
     <Box

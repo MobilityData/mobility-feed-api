@@ -111,7 +111,7 @@ export const GtfsVisualizationMap = ({
     setAnchorPosition(null);
   };
 
-  console.log('this is it mapClickData', mapClickData);
+  //console.log('this is it mapClickData', mapClickData);
 
   const handleMouseMove = (event: maplibregl.MapLayerMouseEvent): void => {
     // Ensure that the mapRef is not null before trying to access the map
@@ -256,13 +256,13 @@ export const GtfsVisualizationMap = ({
                 },
                 sample: {
                   type: 'vector',
-                  url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-v2.pmtiles', // Google Storage Bucket (CORS enabled)
-                  //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-bordeaux.pmtiles', // bordeaux
+                  //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-v2.pmtiles', // Google Storage Bucket (CORS enabled)
+                  url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-bordeaux.pmtiles', // bordeaux
                 },
                 routes: {
                   type: 'vector',
-                  url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-v2.pmtiles', // (STM) Google Storage Bucket (CORS enabled)
-                  //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-bordeaux.pmtiles', // bordeaux
+                  //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-v2.pmtiles', // (STM) Google Storage Bucket (CORS enabled)
+                  url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-bordeaux.pmtiles', // bordeaux
                 },
                 // boundingBox: {
                 //   type: 'geojson',
