@@ -1,7 +1,7 @@
 #Testing
 pytest>=3.2.3
 flake8==6.0.0
-black==22.3.0
+black==24.3.0
 pytest-mock
 pre-commit==3.4.0
 faker
