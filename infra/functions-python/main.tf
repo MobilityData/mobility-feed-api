@@ -1221,6 +1221,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
     environment_variables = {
       PROJECT_ID  = var.project_id
       ENV = var.environment
+      PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
@@ -1243,6 +1244,18 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       }
     }
   }
+}
+
+# Create the Pub/Sub topic used for publishing messages about rebuilding missing bounding boxes
+resource "google_pubsub_topic" "rebuild_missing_bounding_boxes" {
+  name = "rebuild-bounding-boxes-topic"
+}
+
+# Grant the Cloud Functions service account permission to publish messages to the rebuild-bounding-boxes-topic Pub/Sub topic
+resource "google_pubsub_topic_iam_member" "rebuild_missing_bounding_boxes_publisher" {
+  topic  = google_pubsub_topic.rebuild_missing_bounding_boxes.name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # IAM entry for all users to invoke the function
