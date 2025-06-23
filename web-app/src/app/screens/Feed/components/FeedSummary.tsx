@@ -189,7 +189,7 @@ export default function FeedSummary({
                 className='inline line-start'
                 href={feed?.source_info?.producer_url}
                 target='_blank'
-                rel='noopener noreferrer'
+                rel='noopener noreferrer nofollow'
               >
                 {feed?.source_info?.producer_url}
               </Button>

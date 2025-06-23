@@ -448,7 +448,7 @@ export default function Feed(): React.ReactElement {
           >
             {t('dataAattribution')}{' '}
             <a
-              rel='noreferrer'
+              rel='noreferrer nofollow'
               target='_blank'
               href='https://www.transit.land/terms'
             >
@@ -466,7 +466,7 @@ export default function Feed(): React.ReactElement {
             {t('dataAattribution')}
             {' the United States '}
             <a
-              rel='noreferrer'
+              rel='noreferrer nofollow'
               target='_blank'
               href='https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks'
             >
