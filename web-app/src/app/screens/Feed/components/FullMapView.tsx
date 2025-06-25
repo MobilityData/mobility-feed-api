@@ -12,6 +12,11 @@ import { routeTypesMapping } from '../../../constants/RouteTypes';
 import { ChevronLeft } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { SearchHeader } from '../../../styles/Filters.styles';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import {
+  StyledChipFilterContainer,
+  StyledMapControlPanel,
+} from '../Map.styles';
 
 export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -19,6 +24,8 @@ export default function FullMapView(): React.ReactElement {
   const [filteredRoutes, setFilteredRoutes] = useState<string[]>([]);
   const [filteredRouteTypes, setFilteredRouteTypes] = useState<string[]>([]);
   const [hideStops, setHideStops] = useState<boolean>(false);
+  const [showMapControlMobile, setShowMapControlMobile] =
+    useState<boolean>(false);
 
   const clearAllFilters = (): void => {
     setFilteredRoutes([]);
@@ -86,6 +93,65 @@ export default function FullMapView(): React.ReactElement {
     [45.025554, -0.79898],
   ];
 
+  const renderFilterChips = (): React.ReactElement => {
+    return (
+      <StyledChipFilterContainer id='map-filters'>
+        {(filteredRoutes.length > 0 ||
+          filteredRouteTypes.length > 0 ||
+          hideStops) && (
+          <Button
+            variant={'text'}
+            onClick={clearAllFilters}
+            size={'small'}
+            color={'primary'}
+          >
+            Clear All
+          </Button>
+        )}
+        {hideStops && (
+          <Chip
+            color='primary'
+            variant='outlined'
+            size='small'
+            label='Hide Stops'
+            onDelete={() => {
+              setHideStops(false);
+            }}
+            sx={{ cursor: 'pointer' }}
+          ></Chip>
+        )}
+        {filteredRouteTypes.map((routeType) => (
+          <Chip
+            color='primary'
+            variant='outlined'
+            size='small'
+            key={routeType}
+            label={routeType}
+            onDelete={() => {
+              setFilteredRouteTypes((prev) =>
+                prev.filter((type) => type !== routeType),
+              );
+            }}
+            sx={{ cursor: 'pointer' }}
+          ></Chip>
+        ))}
+        {filteredRoutes.map((routeId) => (
+          <Chip
+            color='primary'
+            variant='outlined'
+            size='small'
+            key={routeId}
+            label={getRouteDisplayName(routeId)}
+            onDelete={() => {
+              setFilteredRoutes((prev) => prev.filter((id) => id !== routeId));
+            }}
+            sx={{ cursor: 'pointer' }}
+          ></Chip>
+        ))}
+      </StyledChipFilterContainer>
+    );
+  };
+
   return (
     <Box
       sx={{
@@ -97,29 +163,45 @@ export default function FullMapView(): React.ReactElement {
         mt: { xs: -2, md: -4 }, // Adjusts for the margin of the header
       }}
     >
-      <Box
+      <StyledMapControlPanel
+        showMapControlMobile={showMapControlMobile}
         id='map-controls'
-        sx={{
-          width: '300px',
-          padding: 2,
-          pt: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          flexWrap: 'nowrap',
-        }}
       >
-        <Box width={'100%'}>
+        <Box
+          width={'100%'}
+          sx={{
+            backgroundColor: theme.palette.background.default,
+            zIndex: 1,
+            top: 0,
+            left: 0,
+            position: { xs: 'fixed', md: 'relative' },
+            p: { xs: 1, md: 0 },
+          }}
+        >
           <Button
             size='large'
             startIcon={<ChevronLeft />}
             color={'inherit'}
-            sx={{ pl: 0 }}
+            sx={{ pl: 0, display: { xs: 'none', md: 'inline-flex' } }}
             onClick={() => {
               window.history.back();
             }}
           >
             {t('common:back')}
           </Button>
+          <Button
+            size='large'
+            color={'inherit'}
+            sx={{ pl: 0, display: { xs: 'block', md: 'none' } }}
+            onClick={() => {
+              setShowMapControlMobile(!showMapControlMobile);
+            }}
+          >
+            Close
+          </Button>
+          <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+            {renderFilterChips()}
+          </Box>
         </Box>
 
         <SearchHeader variant='h6' className='no-collapse'>
@@ -163,7 +245,23 @@ export default function FullMapView(): React.ReactElement {
             setFilteredRoutes(val);
           }}
         ></RouteSelector>
-      </Box>
+        <Box
+          id='mobile-control-action'
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            position: 'sticky',
+            bottom: '10px',
+          }}
+        >
+          <Button
+            variant='contained'
+            fullWidth
+            onClick={() => setShowMapControlMobile(!showMapControlMobile)}
+          >
+            Back To Map
+          </Button>
+        </Box>
+      </StyledMapControlPanel>
       <Box
         sx={{
           width: '100%',
@@ -172,70 +270,7 @@ export default function FullMapView(): React.ReactElement {
           flexDirection: 'column',
         }}
       >
-        <Box
-          id='map-filters'
-          display={'flex'}
-          flexWrap={'wrap'}
-          alignItems={'center'}
-          gap={1}
-          sx={{ p: 1, minHeight: '50px' }}
-        >
-          {hideStops && (
-            <Chip
-              color='primary'
-              variant='outlined'
-              size='small'
-              label='Hide Stops'
-              onDelete={() => {
-                setHideStops(false);
-              }}
-              sx={{ cursor: 'pointer' }}
-            ></Chip>
-          )}
-          {filteredRouteTypes.map((routeType) => (
-            <Chip
-              color='primary'
-              variant='outlined'
-              size='small'
-              key={routeType}
-              label={routeType}
-              onDelete={() => {
-                setFilteredRouteTypes((prev) =>
-                  prev.filter((type) => type !== routeType),
-                );
-              }}
-              sx={{ cursor: 'pointer' }}
-            ></Chip>
-          ))}
-          {filteredRoutes.map((routeId) => (
-            <Chip
-              color='primary'
-              variant='outlined'
-              size='small'
-              key={routeId}
-              label={getRouteDisplayName(routeId)}
-              onDelete={() => {
-                setFilteredRoutes((prev) =>
-                  prev.filter((id) => id !== routeId),
-                );
-              }}
-              sx={{ cursor: 'pointer' }}
-            ></Chip>
-          ))}
-
-          {(filteredRoutes.length > 0 ||
-            filteredRouteTypes.length > 0 ||
-            hideStops) && (
-            <Button
-              variant={'text'}
-              onClick={clearAllFilters}
-              size={'small'}
-              color={'primary'}
-            >
-              Clear All
-            </Button>
-          )}
-        </Box>
+        {renderFilterChips()}
         <Box
           id='map-container'
           position={'relative'}
@@ -245,17 +280,32 @@ export default function FullMapView(): React.ReactElement {
             border: `2px solid ${theme.palette.primary.main}`,
             overflow: 'hidden',
             flex: 1,
+            ml: { xs: 2, md: 0 },
           }}
         >
           <Fab
             size='small'
-            aria-label='add'
+            aria-label='close'
             sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}
             onClick={() => {
               window.history.back();
             }}
           >
             <CloseIcon />
+          </Fab>
+          <Fab
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 70,
+              zIndex: 1000,
+              display: { xs: 'block', md: 'none' },
+            }}
+            size='small'
+            aria-label='filter'
+            onClick={() => setShowMapControlMobile(!showMapControlMobile)}
+          >
+            <FilterAltIcon />
           </Fab>
           <GtfsVisualizationMap
             polygon={bb as any}

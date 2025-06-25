@@ -56,7 +56,7 @@ export default function RouteSelector({
         display: 'flex',
         flexDirection: 'column',
         gap: 1,
-        minHeight: '200px',
+        minHeight: '300px',
         overflowY: 'auto',
       }}
     >
@@ -72,7 +72,7 @@ export default function RouteSelector({
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1 }}>
+      <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1}}>
         {filteredRoutes
           .sort((a, b) => a.routeId - b.routeId)
           .map((route) => (
