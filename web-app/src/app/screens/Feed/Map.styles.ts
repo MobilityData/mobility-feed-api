@@ -8,7 +8,7 @@ export const StyledMapControlPanel = styled(Box, {
   shouldForwardProp: (prop) => prop !== 'showMapControlMobile',
 })<StyledMapControlPanelProps>(({ theme, showMapControlMobile }) => ({
   padding: theme.spacing(2),
-  paddingTop: '100px', // to account for the fixed header
+  paddingTop: '100px', // to account for the fixed header on mobile
   flexDirection: 'column',
   flexWrap: 'nowrap',
   backgroundColor: theme.palette.background.default,

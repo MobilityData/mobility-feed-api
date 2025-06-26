@@ -299,7 +299,7 @@ export default function FullMapView(): React.ReactElement {
               top: 10,
               right: 70,
               zIndex: 1000,
-              display: { xs: 'block', md: 'none' },
+              display: { xs: 'inline-flex', md: 'none' },
             }}
             size='small'
             aria-label='filter'
