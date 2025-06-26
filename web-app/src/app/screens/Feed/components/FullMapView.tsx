@@ -1,7 +1,7 @@
 import { Box, Fab, Button, Chip, useTheme } from '@mui/material';
 import RouteSelector from '../../../components/RouteSelector';
-//import sampleRoutes from './sample-route-output.json'; // STM
-import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
+import sampleRoutes from './sample-route-output.json'; // STM
+//import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
 import React, { useState } from 'react';
 import { GtfsVisualizationMap } from '../../../components/GtfsVisualizationMap';
 import CloseIcon from '@mui/icons-material/Close';
@@ -48,8 +48,8 @@ export default function FullMapView(): React.ReactElement {
       }
     });
     return Array.from(uniqueTypes).map((type) => ({
-      title: routeTypesMapping[type],
-      checked: filteredRouteTypes.includes(routeTypesMapping[type]),
+      title: routeTypesMapping[type].name,
+      checked: filteredRouteTypes.includes(routeTypesMapping[type].name),
       props: {
         routeTypeId: type,
       },
@@ -58,12 +58,12 @@ export default function FullMapView(): React.ReactElement {
   };
 
   // // TODO: this is hardcoded for Montreal, should be dynamic
-  // const bb = [
-  //   [45.402668, -73.956204],
-  //   [45.402668, -73.480581],
-  //   [45.701116, -73.480581],
-  //   [45.701116, -73.956204],
-  // ];
+  const bb = [
+    [45.402668, -73.956204],
+    [45.402668, -73.480581],
+    [45.701116, -73.480581],
+    [45.701116, -73.956204],
+  ];
 
   //   const bb = [ // Big France
   //     [
@@ -84,14 +84,14 @@ export default function FullMapView(): React.ReactElement {
   //     ]
   // ]
 
-  const bb = [
-    // bordeaux
+  // const bb = [
+  //   // bordeaux
 
-    [44.754866, -0.79898],
-    [44.754866, -0.464777],
-    [45.025554, -0.464777],
-    [45.025554, -0.79898],
-  ];
+  //   [44.754866, -0.79898],
+  //   [44.754866, -0.464777],
+  //   [45.025554, -0.464777],
+  //   [45.025554, -0.79898],
+  // ];
 
   const renderFilterChips = (): React.ReactElement => {
     return (
@@ -170,7 +170,7 @@ export default function FullMapView(): React.ReactElement {
         <Box
           width={'100%'}
           sx={{
-            backgroundColor: theme.palette.background.default,
+            backgroundColor: theme.palette.background.paper,
             zIndex: 1,
             top: 0,
             left: 0,

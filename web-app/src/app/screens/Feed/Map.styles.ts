@@ -1,4 +1,4 @@
-import { Box, styled} from "@mui/material";
+import { Box, styled } from '@mui/material';
 
 interface StyledMapControlPanelProps {
   showMapControlMobile: boolean;
@@ -11,7 +11,7 @@ export const StyledMapControlPanel = styled(Box, {
   paddingTop: '100px', // to account for the fixed header on mobile
   flexDirection: 'column',
   flexWrap: 'nowrap',
-  backgroundColor: theme.palette.background.default,
+  backgroundColor: theme.palette.background.paper,
   zIndex: 10000,
   display: showMapControlMobile ? 'flex' : 'none',
   width: '100%',
@@ -19,13 +19,16 @@ export const StyledMapControlPanel = styled(Box, {
   top: 0,
   height: '100%',
   overflowY: 'auto',
+  margin: 0,
+  borderRadius: theme.shape.borderRadius,
 
   [theme.breakpoints.up('md')]: {
     display: 'flex',
     width: '300px',
     position: 'relative',
     top: 'unset',
-    paddingTop: 0
+    paddingTop: 0,
+    margin: theme.spacing(2),
   },
 }));
 
@@ -43,4 +46,3 @@ export const StyledChipFilterContainer = styled(Box)(({ theme }) => ({
     overflowX: 'hidden',
   },
 }));
-
