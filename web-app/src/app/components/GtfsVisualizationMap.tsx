@@ -19,9 +19,9 @@ import { Box, useTheme } from '@mui/material';
 import { MapElement, MapRouteElement, MapStopElement } from './MapElement';
 import {
   reversedRouteTypesMapping,
-  RouteTypeMetadata,
 } from '../constants/RouteTypes';
 import { MapDataPopup } from './Map/MapDataPopup';
+import { useTheme as themeProvider } from '../context/ThemeProvider';
 
 export interface GtfsVisualizationMapProps {
   polygon: LatLngExpression[];
@@ -266,33 +266,6 @@ export const GtfsVisualizationMap = ({
     ],
   };
 
-  const renderRouteTypeIcon = (
-    routeTypeMetadata: RouteTypeMetadata,
-    routeColorText: string,
-  ): JSX.Element => {
-    const { icon: Icon } = routeTypeMetadata;
-    return <Icon style={{ color: '#' + routeColorText }} />;
-  };
-
-  function getGradientBorder(colorString: string): string {
-    try {
-      const colors: string[] = JSON.parse(colorString);
-
-      if (!Array.isArray(colors) || colors.length === 0) {
-        return 'none';
-      }
-
-      const gradient = `linear-gradient(to right, ${colors
-        .map((c) => `#${c}`)
-        .join(', ')})`;
-
-      // Using border-image for gradient border
-      return `3px solid transparent; border-image: ${gradient} 1;`;
-    } catch {
-      return 'none';
-    }
-  }
-
   return (
     <MapProvider>
       <Box sx={{ display: 'flex', height: '100%' }}>
@@ -331,9 +304,7 @@ export const GtfsVisualizationMap = ({
               sources: {
                 'raster-tiles': {
                   type: 'raster',
-                  tiles: [
-                    'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-                  ],
+                  tiles: [theme.map.basemapTileUrl],
                   tileSize: 256,
                   attribution:
                     '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -371,7 +342,7 @@ export const GtfsVisualizationMap = ({
                   type: 'line',
                   paint: {
                     // style and color of the stops
-                    'line-color': '#ffffff',
+                    'line-color': theme.palette.background.paper,
                     'line-width': [
                       'match',
                       ['get', 'route_type'], // Property from the vector tile
@@ -498,7 +469,7 @@ export const GtfsVisualizationMap = ({
                     'circle-color': generateStopColorExpression(
                       routeIdToColorMap,
                     ) as ExpressionSpecification, // VERY IMPORTANT: during the conversion to PMTiles, the route_colors are stored as strings with quotes NOT arrays. [1,2,3] -> "["1","2","3"]"
-                    'circle-opacity': 0.8,
+                    'circle-opacity': 1,
                   },
                   minzoom: 10,
                   maxzoom: 22,
@@ -507,6 +478,11 @@ export const GtfsVisualizationMap = ({
                     : [
                         'any',
                         ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
+                        [
+                          'in',
+                          ['get', 'stop_id'],
+                          ['literal', mapClickStopData?.stop_id ?? ''],
+                        ],
                         [
                           'any',
                           ...filteredRoutes.map((id) => {
@@ -536,7 +512,7 @@ export const GtfsVisualizationMap = ({
                   type: 'circle',
                   paint: {
                     'circle-radius': 3,
-                    'circle-color': '#ffffff',
+                    'circle-color': theme.palette.background.paper,
                     'circle-opacity': 1,
                   },
                   filter: hideStops

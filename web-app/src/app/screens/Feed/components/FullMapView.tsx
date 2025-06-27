@@ -17,15 +17,29 @@ import {
   StyledChipFilterContainer,
   StyledMapControlPanel,
 } from '../Map.styles';
+import {
+  selectBoundingBoxFromLatestDataset,
+  selectDatasetsLoadingStatus,
+  selectLatestDatasetsData,
+} from '../../../store/selectors';
+import { useSelector } from 'react-redux';
+import { useParams } from 'react-router-dom';
+import { loadingDataset } from '../../../store/dataset-reducer';
+import { useAppDispatch } from '../../../hooks';
 
 export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const { feedId, feedDataType } = useParams();
   const theme = useTheme();
   const [filteredRoutes, setFilteredRoutes] = useState<string[]>([]);
   const [filteredRouteTypes, setFilteredRouteTypes] = useState<string[]>([]);
   const [hideStops, setHideStops] = useState<boolean>(false);
   const [showMapControlMobile, setShowMapControlMobile] =
     useState<boolean>(false);
+  const latestDataset = useSelector(selectLatestDatasetsData);
+  const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
+  const datasetLoadingStatus = useSelector(selectDatasetsLoadingStatus);
+  const dispatch = useAppDispatch();
 
   const clearAllFilters = (): void => {
     setFilteredRoutes([]);
@@ -57,41 +71,24 @@ export default function FullMapView(): React.ReactElement {
     })) as CheckboxStructure[];
   };
 
-  // // TODO: this is hardcoded for Montreal, should be dynamic
-  const bb = [
-    [45.402668, -73.956204],
-    [45.402668, -73.480581],
-    [45.701116, -73.480581],
-    [45.701116, -73.956204],
-  ];
-
-  //   const bb = [ // Big France
-  //     [
-  //         42.751541,
-  //         -1.79019
-  //     ],
-  //     [
-  //         42.751541,
-  //         7.734793
-  //     ],
-  //     [
-  //         50.6394,
-  //         7.734793
-  //     ],
-  //     [
-  //         50.6394,
-  //         -1.79019
-  //     ]
-  // ]
-
-  // const bb = [
-  //   // bordeaux
-
-  //   [44.754866, -0.79898],
-  //   [44.754866, -0.464777],
-  //   [45.025554, -0.464777],
-  //   [45.025554, -0.79898],
-  // ];
+  // since this is a page on it's own, we can check if the bounding box is set in state, if not we have no choice but to fetch it
+  // console.log(
+  //   'boundingBox from state',
+  //   boundingBox,
+  //   latestDataset,
+  //   datasetLoadingStatus,
+  //   feedId,
+  // );
+  if (boundingBox == undefined && latestDataset == undefined) {
+    if (feedId != undefined) {
+      dispatch(
+        loadingDataset({
+          feedId,
+          limit: 1,
+        }),
+      );
+    }
+  }
 
   const renderFilterChips = (): React.ReactElement => {
     return (
@@ -307,12 +304,14 @@ export default function FullMapView(): React.ReactElement {
           >
             <FilterAltIcon />
           </Fab>
-          <GtfsVisualizationMap
-            polygon={bb as any}
-            filteredRouteTypes={filteredRouteTypes}
-            filteredRoutes={filteredRoutes}
-            hideStops={hideStops}
-          ></GtfsVisualizationMap>
+          {boundingBox != undefined && (
+            <GtfsVisualizationMap
+              polygon={boundingBox}
+              filteredRouteTypes={filteredRouteTypes}
+              filteredRoutes={filteredRoutes}
+              hideStops={hideStops}
+            ></GtfsVisualizationMap>
+          )}
         </Box>
       </Box>
     </Box>

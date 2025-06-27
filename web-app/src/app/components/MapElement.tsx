@@ -50,7 +50,7 @@ export const MapElement = (
     routeColorText: string,
   ): JSX.Element => {
     const { icon: Icon } = routeTypeMetadata;
-    return <Icon style={{ color: '#' + routeColorText, fontSize: 20 }} />;
+    return <Icon style={{ color:  routeColorText, fontSize: 20 }} />;
   };
 
   const renderRouteMapElement = (element: MapRouteElement): JSX.Element => {
@@ -68,10 +68,9 @@ export const MapElement = (
           borderRadius: '5px',
         }}
       >
-        {/* Render the route type icon */}
         {renderRouteTypeIcon(
           routeTypesMapping[element.routeType?.toString() || '0'],
-          element.routeTextColor || '000000',
+          element.routeTextColor ? ('#' + element.routeTextColor) : '#000000',
         )}
 
         <Typography gutterBottom sx={{ color: 'inherit', fontSize: 14, m: 0 }}>
@@ -81,7 +80,7 @@ export const MapElement = (
     );
   };
 
-  const renderStopMapElement = (element: MapStopElement): JSX.Element => {
+  const renderStopMapElement = (element: MapStopElement, iconColor: string): JSX.Element => {
     return (
       <Box
         sx={{
@@ -92,10 +91,9 @@ export const MapElement = (
           borderRadius: '5px',
         }}
       >
-        {/* Render the route type icon */}
         {renderRouteTypeIcon(
           locationTypesMapping[element.locationType?.toString() || '0'],
-          '000000',
+          iconColor,
         )}
 
         <Typography gutterBottom sx={{ color: 'inherit', fontSize: 14, m: 0 }}>
@@ -132,7 +130,7 @@ export const MapElement = (
               {element.isStop ? 'Stop' : 'Route'}
             </Typography>
             {element.isStop ? (
-              <>{renderStopMapElement(element as MapStopElement)}</>
+              <>{renderStopMapElement(element as MapStopElement, theme.palette.text.primary)}</>
             ) : (
               <>{renderRouteMapElement(element as MapRouteElement)}</>
             )}

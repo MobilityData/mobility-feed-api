@@ -56,7 +56,7 @@ export const MapDataPopup = (
           onClose={onPopupClose}
           closeOnClick={true}
           style={{
-            minWidth: '200px'
+            minWidth: '200px',
           }}
         >
           <Box
@@ -102,6 +102,8 @@ export const MapDataPopup = (
             sx={{
               p: 1,
               border: getGradientBorder(mapClickStopData.route_colors),
+              backgroundColor: theme.palette.background.paper,
+              color: theme.palette.text.primary,
             }}
           >
             <Box
@@ -113,7 +115,7 @@ export const MapDataPopup = (
               <Box display={'flex'} alignItems={'flex-end'} gap={1}>
                 {renderRouteTypeIcon(
                   locationTypesMapping[mapClickStopData.location_type],
-                  '000000',
+                  theme.palette.text.primary,
                 )}
                 <Typography component={'p'} variant={'body2'}>
                   {locationTypesMapping[mapClickStopData.location_type].name}{' '}
@@ -123,11 +125,23 @@ export const MapDataPopup = (
                 </Typography>
               </Box>
               {mapClickStopData.wheelchair_boarding === '1' && (
-                <AccessibleIcon></AccessibleIcon>
+                <AccessibleIcon
+                  sx={{
+                    backgroundColor: '#163c83',
+                    color: 'white',
+                    borderRadius: '3px',
+                    p: '2px',
+                  }}
+                ></AccessibleIcon>
               )}
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Typography component={'h3'} variant={'body1'} fontWeight={600}>
+              <Typography
+                component={'h3'}
+                variant={'body1'}
+                fontWeight={600}
+                sx={{ mb: 1 }}
+              >
                 {mapClickStopData.stop_name}
               </Typography>
 
@@ -155,7 +169,7 @@ export const MapDataPopup = (
                   target='_blank'
                   rel='noreferrer'
                   variant={'body2'}
-                  sx={{mt:1}}
+                  sx={{ mt: 1 }}
                 >
                   View Stop Info
                 </Link>
