@@ -1,0 +1,27 @@
+{
+   "copyToClipboard": "Salin ke clipboard",
+   "copied": "Disalin!",
+   "name": "Nama",
+   "email": "Email",
+   "organization": "Organisasi",
+   "signOut": "Keluar",
+   "unknown": "Tidak diketahui",
+   "search": "Cari",
+   "feeds": "Umpan",
+   "gtfsSchedule": "GTFS Schedule",
+   "gtfsRealtime": "GTFS Realtime",
+   "gtfsRealtimeEntities": {
+      "tripUpdates": "Pembaruan Perjalanan",
+      "vehiclePositions": "Posisi Kendaraan",
+      "serviceAlerts": "Peringatan Layanan"
+   },
+   "loading": "Memuat...",
+   "errors": {
+      "generic": "Kami tidak dapat menyelesaikan permintaan Anda saat ini."
+   },
+   "others": "others",
+   "apiKey": "Kunci API",
+   "httpHeader": "Header HTTP",
+   "back": "Kembali",
+   "and": "dan"
+}

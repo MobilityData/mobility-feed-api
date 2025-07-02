@@ -1,0 +1,47 @@
+{
+    "title": "Akun API Anda",
+    "userDetails": "Detail Pengguna",
+    "description": "API Basis Data Mobilitas menggunakan autentikasi OAuth2. Untuk memulai permintaan API yang berhasil, token akses harus disertakan sebagai token pembawa di header HTTP. Token akses berlaku selama satu jam. Untuk mendapatkan token akses, pertama-tama Anda memerlukan token penyegaran, yang berlaku lama dan tidak kedaluwarsa.",
+    "support": "Jika Anda memerlukan token penyegaran yang diterbitkan ulang atau ingin akun Anda dihapus, kirimkan email kepada kami di",
+    "registerApiAnnouncements": "Terdaftar di Pengumuman API",
+    "refreshToken": {
+       "title": "Token Penyegaran",
+       "description": "Gunakan token penyegaran Anda untuk terhubung ke API di aplikasi Anda.",
+       "placeholder": "Token penyegaran Anda hidden",
+       "yourToken": "Token Penyegaran Anda",
+       "toggleVisibility": "Alihkan Visibilitas Token Penyegaran",
+       "copy": "Salin Token Penyegaran",
+       "copyToClipboard": "Salin token penyegaran ke clipboard"
+    },
+    "accessToken": {
+       "title": "Cara Membuat Token Akses di Aplikasi Anda",
+       "description": {
+          "pt1": "Ikuti",
+          "cta": "dokumentasi OpenAPI kami",
+          "pt2": "untuk mengautentikasi akun Anda dengan token penyegaran."
+       },
+       "generate": "Buat Token Akses",
+       "copyToken": "Salin Token Akses",
+       "copyTokenToClipboard": "Salin token akses ke clipboard",
+       "copy": "Salin perintah CLI untuk membuat token akses.",
+       "yourToken": "Token Akses Anda",
+       "refreshing": "Menyegarkan token akses...",
+       "refresh": "Menyegarkan Token Akses",
+       "refreshSuccess": "Token akses Anda telah berhasil disegarkan!",
+       "testing": {
+            "title": "Token Akses untuk Pengujian",
+            "description": {
+                "pt1": "Ingin pengujian cepat? Salin token akses di bawah ini untuk menguji titik akhir di",
+                "cta": "Dokumentasi OpenAPI",
+                "pt2": ". Token akses berlaku selama satu jam."
+            },
+            "api": "Uji API",
+            "copyCli": "Salin perintah CLI untuk menguji akses Anda ke API."
+       },
+       "toggleVisibility": "Alihkan Visibilitas Token Akses",
+       "expired": "Token kedaluwarsa",
+       "willExpireIn": "Token Anda akan kedaluwarsa dalam {{timeLeftForTokenExpiration}}",
+       "hidden": "Token akses Anda disembunyikan",
+       "unavailable": "Token Anda tidak tersedia"
+    }
+}
