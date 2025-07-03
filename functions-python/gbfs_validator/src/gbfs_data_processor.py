@@ -405,8 +405,18 @@ class GBFSDataProcessor:
         ]
         return validation_report
 
+    def validate_gbfs_endpoint_url(self, endpoint_url: str) -> bool:
+        """Checks if a gbfs endpoint exists across all versions with the specified URL."""
+        for version in self.gbfs_versions:
+            version_id = f"{self.stable_id}_{version.version}_{version.extracted_from}"
+            endpoints = self.gbfs_endpoints.get(version_id, [])
+            if any(endpoint.url == endpoint_url for endpoint in endpoints):
+                return True
+        return False
+
     def extract_endpoints_for_all_versions(self):
         """Extract endpoints for all versions of the GBFS feed."""
+        version_delete_list = []
         for version in self.gbfs_versions:
             version_id = f"{self.stable_id}_{version.version}_{version.extracted_from}"
             if version_id in self.gbfs_endpoints:
@@ -417,9 +427,32 @@ class GBFSDataProcessor:
                 version.url, "gbfs_versions", latency=False
             )
             if endpoints:
+                # Check if the gbfs endpoint is already present in another version
+                gbfs_endpoint_url = next(
+                    (ep.url for ep in endpoints if ep.name == "gbfs"), None
+                )
+                if (
+                    gbfs_endpoint_url
+                    and version.extracted_from == "gbfs_versions"
+                    and self.validate_gbfs_endpoint_url(gbfs_endpoint_url)
+                ):
+                    self.logger.warning(
+                        "The 'gbfs' endpoint URL %s is already present in another version.",
+                        gbfs_endpoint_url,
+                    )
+                    version_delete_list.append(version)
+                    continue
+
                 self.gbfs_endpoints[version_id] = endpoints
             else:
                 self.logger.error("No endpoints found for version %s.", version.version)
+        # Remove versions that had no endpoints extracted
+        for version in version_delete_list:
+            version_id = f"{self.stable_id}_{version.version}_{version.extracted_from}"
+            self.logger.warning(
+                "Removing version %s due to duplicated 'gbfs' endpoint.", version_id
+            )
+            self.gbfs_versions.remove(version)
 
     def trigger_location_extraction(self):
         """Trigger the location extraction process."""
