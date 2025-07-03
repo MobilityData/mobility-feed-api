@@ -15,6 +15,13 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsversion,
     Gbfsfeed,
     Gbfsvalidationreport,
+    Osmlocationgroup,
+    Validationreport,
+    Gbfsendpoint,
+    Httpaccesslog,
+    Feature,
+    Location,
+    Gtfsdataset,
 )
 from sqlalchemy.orm import sessionmaker
 import logging
@@ -52,12 +59,73 @@ def configure_polymorphic_mappers():
     gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
 
 
+# Entities for which we do a passive_deletes = True, which enables passive deletion for the relationship.
+# See set_cascade function below for more details.
+# This means that when a parent entity is deleted, SQLAlchemy will not issue explicit DELETE statements for the
+# related child entities. Instead, it relies on the database's ON DELETE CASCADE constraint to handle the deletion
+# How to read this: e.g. the first one means that if a Feature is deleted, then the entry in the featurevalidationreport
+# association table must also be deleted.
 cascade_entities = {
-    Gtfsfeed: [Gtfsfeed.redirectingids, Gtfsfeed.redirectingids_, Gtfsfeed.externalids],
-    Gbfsversion: [Gbfsversion.gbfsendpoints, Gbfsversion.gbfsvalidationreports],
-    Gbfsfeed: [Gbfsfeed.gbfsversions],
-    Gbfsvalidationreport: [Gbfsvalidationreport.gbfsnotices],
-    Feed: [Feed.feedosmlocationgroups],
+    Feature: [
+        Feature.validations,  # featurevalidationreport_validation_id_fkey
+    ],
+    Feed: [
+        Feed.externalids,  # externalid_feed_id_fkey
+        Feed.feedlocationgrouppoints,
+        Feed.feedosmlocationgroups,  # feedosmlocation_feed_id_fkey
+        Feed.gtfsdatasets,  # gtfsdataset_feed_id_fkey
+        Feed.locations,  # locationfeed_feed_id_fkey
+        Feed.officialstatushistories,  # officialstatushistory_feed_id_fkey
+        Feed.redirectingids,  # redirectingid_source_id_fkey
+        Feed.redirectingids_,  # redirectingid_target_id_fkey
+    ],
+    Gbfsendpoint: [
+        Gbfsendpoint.httpaccesslogs,  # gbfsendpointhttpaccesslog_gbfs_endpoint_id_fkey
+    ],
+    Gbfsfeed: [
+        Gbfsfeed.gbfsversions,  # gbfsversion_feed_id_fkey
+        Gbfsfeed.httpaccesslogs,  # gbfsfeedhttpaccesslog_gbfs_feed_id_fkey
+    ],
+    Gbfsvalidationreport: [
+        Gbfsvalidationreport.gbfsnotices,  # gbfsnotice_validation_report_id_fkey
+    ],
+    Gbfsversion: [
+        Gbfsversion.gbfsendpoints,  # gbfsendpoint_gbfs_version_id_fkey
+        Gbfsversion.gbfsvalidationreports,  # gbfsvalidationreport_gbfs_version_id_fkey
+    ],
+    Gtfsdataset: [
+        Gtfsdataset.locations,  # location_gtfsdataset_gtfsdataset_id_fkey
+        # Gtfsdataset.notices,  # Notices will be deleted via the validationreport notice_dataset_id_fkey
+        # Gtfsdataset.validation_reports,  # DONE validationreportgtfsdataset_dataset_id_fkey
+    ],
+    Gtfsfeed: [
+        Gtfsfeed.gtfs_rt_feeds,  # feedreference_gtfs_feed_id_fkey
+    ],
+    Gtfsrealtimefeed: [
+        Gtfsrealtimefeed.entitytypes,  # DONE
+        Gtfsrealtimefeed.gtfs_feeds,  # DONE entitytypefeed_feed_id_fkey, feedreference_gtfs_rt_feed_id_fkey
+    ],
+    Httpaccesslog: [
+        Httpaccesslog.gbfs_endpoints,  # DONE gbfsendpointhttpaccesslog_http_access_log_fkey
+        Httpaccesslog.gbfs_feeds,  # DONE gbfsfeedhttpaccesslog_http_access_log_fkey
+    ],
+    Location: [
+        Location.feeds,  # DONE locationfeed_location_id_fkey
+        Location.gtfsdatasets,  # DONE location_gtfsdataset_location_id_fkey
+    ],
+    # Officialstatushistory: [
+    #     Officialstatushistory.feed,  # DONE officialstatushistory_feed_id_fkey
+    # ],
+    Osmlocationgroup: [
+        Osmlocationgroup.feedlocationgrouppoints,  # DONE
+        Osmlocationgroup.feedosmlocationgroups,  # DONE feedosmlocation_group_id_fkey
+        Osmlocationgroup.osms,  # DONE osmlocationgroupgeopolygon_group_id_fkey
+    ],
+    Validationreport: [
+        Validationreport.datasets,  # DONE validationreportgtfsdataset_validation_report_id_fkey
+        Validationreport.features,  # DONE featurevalidationreport_validation_id_fkey
+        Validationreport.notices,  # DONE notice_validation_report_id_fkey
+    ],
 }
 
 
@@ -71,7 +139,7 @@ def set_cascade(mapper, class_):
         relationship_keys = {rel.prop.key for rel in cascade_entities[class_]}
         for rel in class_.__mapper__.relationships:
             if rel.key in relationship_keys:
-                rel.cascade = "all, delete-orphan"
+                rel.cascade = "all"
                 rel.passive_deletes = True
 
 
