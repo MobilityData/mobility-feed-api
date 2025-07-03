@@ -74,8 +74,6 @@ def _populate_db_phase(db: Database, data_dirs: List[str]):
     if csv_filepaths:
         gtfs_db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
         gtfs_db_helper.initialize(trigger_downstream_tasks=False)
-    else:
-        print("No sources_test.csv file found in test_data directories")
 
     # GBFS
     gbfs_csv_filepaths = [
@@ -85,8 +83,6 @@ def _populate_db_phase(db: Database, data_dirs: List[str]):
     ]
     if gbfs_csv_filepaths:
         GBFSDatabasePopulateHelper(gbfs_csv_filepaths).initialize(trigger_downstream_tasks=False, fetch_url=False)
-    else:
-        print("No systems_test.csv file found in test_data directories")
 
     # Extra test data
     json_filepaths = [
@@ -97,5 +93,3 @@ def _populate_db_phase(db: Database, data_dirs: List[str]):
     if json_filepaths:
         db_helper = DatabasePopulateTestDataHelper(json_filepaths)
         db_helper.populate()
-    else:
-        print("No extra_test_data.json file found in test_data directories")

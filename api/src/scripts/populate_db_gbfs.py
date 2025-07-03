@@ -36,14 +36,15 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
             self.logger.info("No feeds to deprecate.")
             return
 
-        self.logger.info(f"Deprecating {len(deprecated_feeds)} feed(s).")
+        self.logger.info(f"Deleting {len(deprecated_feeds)} feed(s).")
         with self.db.start_db_session() as session:
             for index, row in deprecated_feeds.iterrows():
                 stable_id = self.get_stable_id(row)
                 gbfs_feed = self.query_feed_by_stable_id(session, stable_id, "gbfs")
                 if gbfs_feed:
-                    self.logger.info(f"Deprecating feed with stable_id={stable_id}")
-                    gbfs_feed.status = "deprecated"
+                    self.logger.info(f"Deleting feed with stable_id={stable_id}")
+                    session.delete(gbfs_feed)
+                    session.flush()
 
     def populate_db(self, session, fetch_url=True):
         """Populate the database with the GBFS feeds"""

@@ -24,7 +24,7 @@
 # The function config must be defined in the file `functions-python/<function_name>/function_config.json`.
 
 # Usage:
-#   function-python-setup.sh --function_name <function name> --all
+#   function-python-setup.sh --function_name <function name> --all --clean
 # Examples:
 #   function-python-setup.sh --function_name batch_datasets
 #   function-python-setup.sh --all
