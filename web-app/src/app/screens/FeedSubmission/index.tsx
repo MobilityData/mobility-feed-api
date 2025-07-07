@@ -22,7 +22,7 @@ function Component(): React.ReactElement {
   const [showLoginSuccess, setShowLoginSuccess] = React.useState(
     location.state?.from === 'registration',
   );
-  const isAuthenticated = true;
+  const isAuthenticated = useSelector(selectIsAuthenticated);
 
   return (
     <Container component='main' sx={{ my: 0, mx: 'auto' }}>
