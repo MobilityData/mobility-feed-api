@@ -47,6 +47,7 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
         return None, None
 
     # Align both DataFrames by "System ID"
+    # Keep the System ID column because it's used later in the code
     df_from_db.set_index("System ID", inplace=True, drop=False)
     df_from_csv.set_index("System ID", inplace=True, drop=False)
 
@@ -85,6 +86,7 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
             logger.info(80 * "-")
 
     # Merge differing rows with missing_in_db to capture all new or updated feeds
+    # Drop the index because we have it as the System ID column.
     all_differing_or_new_rows = pd.concat([differing_rows, missing_in_db]).reset_index(drop=True)
 
     return all_differing_or_new_rows, missing_in_csv

@@ -42,6 +42,11 @@ class GBFSDatabasePopulateHelper(DatabasePopulateHelper):
                 stable_id = self.get_stable_id(row)
                 gbfs_feed = self.query_feed_by_stable_id(session, stable_id, "gbfs")
                 if gbfs_feed:
+                    # A note about the deletion done here:
+                    # Some other tables have a foreign key pointing to the feed, and these cannot be null
+                    # (e.g. gbfsversion). So the delete will fail, unless we cascade the deletion of the
+                    # gbfs_feed to the deletion of the entry in gbfsversion, which is done in the DB
+                    # schema. It's also the case for other tables and other foreign keys.
                     self.logger.info(f"Deleting feed with stable_id={stable_id}")
                     session.delete(gbfs_feed)
                     session.flush()
