@@ -89,6 +89,8 @@ export enum SheetCol {
   ToolsAndSupport = "What tools and support do you use to create your GTFS data?",
   LinkToAssociatedGTFS = "Link to associated GTFS Schedule feed",
   LogoPermission = "Do we have permission to share your logo on https://mobilitydatabase.org/contribute?",
+  UnofficialDesc = "Why was this feed created?",
+  UpdateFreq = "How often is this feed updated?",
 }
 
 /**
@@ -195,6 +197,8 @@ export function buildFeedRow(
     [SheetCol.ToolsAndSupport]: formData.whatToolsUsedText ?? "",
     [SheetCol.LinkToAssociatedGTFS]: formData.gtfsRelatedScheduleLink ?? "",
     [SheetCol.LogoPermission]: formData.hasLogoPermission,
+    [SheetCol.UnofficialDesc]: formData.unofficialDesc ?? "",
+    [SheetCol.UpdateFreq]: formData.updateFreq ?? "",
   };
 }
 

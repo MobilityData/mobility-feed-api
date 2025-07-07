@@ -124,4 +124,20 @@ describe('Add Feed Form', () => {
       cy.assetMuiError('[data-cy=vehiclePositionLabel]');
     });
   });
+
+  it('should display and submit unofficialDesc and updateFreq fields when not official feed', () => {
+    cy.get('[data-cy=isOfficialProducerNo]').click();
+    cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'no');
+    // Check that the new fields appear
+    cy.get('[data-cy=unofficialDesc]').should('exist');
+    cy.get('[data-cy=updateFreq]').should('exist');
+    // Fill in the new fields
+    cy.get('[data-cy=unofficialDesc] textarea').type('For research purposes', { force: true });
+    cy.get('[data-cy=updateFreq] input').type('every month', { force: true });
+    // Continue with the rest of the form
+    cy.muiDropdownSelect('[data-cy=dataType]', 'gtfs');
+    cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
+    cy.get('[data-cy=submitFirstStep]').click();
+    cy.url().should('include', '/contribute?step=2');
+  });
 });
