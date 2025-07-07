@@ -63,12 +63,6 @@ export default function FormFourthStep({
     control,
     name: 'isInterestedInQualityAudit',
   });
-  // Remove unused variables and fix strict boolean expressions
-  // const isOfficialProducer = initialValues.isOfficialProducer === 'yes';
-  // const noLicenseProvided = !initialValues.licensePath;
-
-  // Only define if actually used below, otherwise remove
-  // If you need to use these, handle nullish/empty cases explicitly as in ThirdStep.tsx
 
   return (
     <>
