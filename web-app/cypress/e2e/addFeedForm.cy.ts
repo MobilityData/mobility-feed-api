@@ -37,9 +37,9 @@ describe('Add Feed Form', () => {
           cy.get('li').then($lis => {
             const texts = $lis.map((i, el) => el.textContent).get();
             cy.log('Dropdown options:', texts.join(', '));
-            expect(texts).to.include('Unsure');
+            expect(texts).to.include('Not sure');
           });
-          cy.contains('li', 'Unsure').click();
+          cy.contains('li', 'Not sure').click();
         }
       });
       cy.get('[data-cy=thirdStepSubmit]').click();
@@ -104,9 +104,9 @@ describe('Add Feed Form', () => {
           cy.get('li').then($lis => {
             const texts = $lis.map((i, el) => el.textContent).get();
             cy.log('Dropdown options:', texts.join(', '));
-            expect(texts).to.include('Unsure');
+            expect(texts).to.include('Not sure');
           });
-          cy.contains('li', 'Unsure').click();
+          cy.contains('li', 'Not sure').click();
         }
       });
       cy.get('[data-cy=thirdStepSubmit]').click();
@@ -169,9 +169,9 @@ describe('Add Feed Form', () => {
       const texts = $lis.map((i, el) => el.textContent).get();
       // Debug output
       cy.log('Dropdown options:', texts.join(', '));
-      expect(texts).to.include('Unsure');
+      expect(texts).to.include('Not sure');
     });
-    cy.contains('li', 'Unsure').click();
+    cy.contains('li', 'Not sure').click();
     cy.get('[data-cy="thirdStepSubmit"]').click();
     cy.url().should('include', '/contribute?step=4');
   });
