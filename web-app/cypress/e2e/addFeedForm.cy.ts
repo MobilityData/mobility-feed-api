@@ -32,7 +32,8 @@ describe('Add Feed Form', () => {
       // step 3: fill required emptyLicenseUsage if present
       cy.get('body').then($body => {
         if ($body.find('[data-cy="emptyLicenseUsage"]').length) {
-          cy.get('[data-cy="emptyLicenseUsage"]').select('Unsure');
+          cy.get('[data-cy="emptyLicenseUsage"]').click();
+          cy.contains('li', 'Unsure').click();
         }
       });
       cy.get('[data-cy=thirdStepSubmit]').click();
@@ -92,7 +93,8 @@ describe('Add Feed Form', () => {
       // Step 3: fill required emptyLicenseUsage if present
       cy.get('body').then($body => {
         if ($body.find('[data-cy="emptyLicenseUsage"]').length) {
-          cy.get('[data-cy="emptyLicenseUsage"]').select('Unsure');
+          cy.get('[data-cy="emptyLicenseUsage"]').click();
+          cy.contains('li', 'Unsure').click();
         }
       });
       cy.get('[data-cy=thirdStepSubmit]').click();
@@ -148,17 +150,18 @@ describe('Add Feed Form', () => {
     // step 3: should see emptyLicenseUsage select
     cy.get('[data-cy="emptyLicenseUsage"]').should('exist');
     cy.get('[data-cy="emptyLicenseUsageLabel"]').should('contain', 'available for trip planners and other third parties to use');
-    cy.get('[data-cy="emptyLicenseUsage"]').within(() => {
-      cy.get('option').should('have.length', 3);
-      cy.get('option').eq(0).should('contain', 'Yes');
-      cy.get('option').eq(1).should('contain', 'No');
-      cy.get('option').eq(2).should('contain', 'Unsure');
-    });
+    // Open dropdown and check options
+    cy.get('[data-cy="emptyLicenseUsage"]').click();
+    cy.get('li').should('contain', 'Yes');
+    cy.get('li').should('contain', 'No');
+    cy.get('li').should('contain', 'Unsure');
+    cy.get('body').type('{esc}'); // close dropdown
     // Try submitting without selecting
     cy.get('[data-cy="thirdStepSubmit"]').click();
     cy.get('[data-cy="emptyLicenseUsageLabel"]').should('have.css', 'color').and('match', /rgb\(.*\)/);
     // Select Unsure and submit
-    cy.get('[data-cy="emptyLicenseUsage"]').select('Unsure');
+    cy.get('[data-cy="emptyLicenseUsage"]').click();
+    cy.contains('li', 'Unsure').click();
     cy.get('[data-cy="thirdStepSubmit"]').click();
     cy.url().should('include', '/contribute?step=4');
   });
