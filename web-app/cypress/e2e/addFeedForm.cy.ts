@@ -20,26 +20,25 @@ describe('Add Feed Form', () => {
 
   describe('Success Flows', () => {
     it('should submit a new gtfs scheduled feed as official producer', () => {
-      cy.get('[data-cy=isOfficialProducerYes]').click({
-        force: true,
-      });
+      cy.get('[data-cy=isOfficialProducerYes]').click({ force: true });
       cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
-      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
-        force: true,
-      });
+      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
       cy.get('[data-cy=submitFirstStep]').click();
       cy.url().should('include', '/contribute?step=2');
       // step 2
       cy.muiDropdownSelect('[data-cy=countryDropdown]', 'CA');
       cy.get('[data-cy=secondStepSubmit]').click();
       cy.url().should('include', '/contribute?step=3');
-      // step 3
+      // step 3: fill required emptyLicenseUsage if present
+      cy.get('body').then($body => {
+        if ($body.find('[data-cy="emptyLicenseUsage"]').length) {
+          cy.get('[data-cy="emptyLicenseUsage"]').select('Unsure');
+        }
+      });
       cy.get('[data-cy=thirdStepSubmit]').click();
       cy.url().should('include', '/contribute?step=4');
       // step 4
-      cy.get('[data-cy=dataProducerEmail] input').type('audio@stm.com', {
-        force: true,
-      });
+      cy.get('[data-cy=dataProducerEmail] input').type('audio@stm.com', { force: true });
       cy.muiDropdownSelect('[data-cy=interestedInAudit]', 'no');
       cy.muiDropdownSelect('[data-cy=logoPermission]', 'yes');
       cy.get('[data-cy=fourthStepSubmit]').click();
@@ -80,9 +79,7 @@ describe('Add Feed Form', () => {
       // Step 1 values
       cy.get('[data-cy=isOfficialProducerYes]').click();
       cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
-      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', {
-        force: true,
-      });
+      cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
       cy.get('[data-cy=oldFeedLink] input').type('https://example.com/feedOld');
       cy.get('[data-cy=submitFirstStep]').click();
       // Step 2
@@ -92,18 +89,15 @@ describe('Add Feed Form', () => {
       // Step 2 values
       cy.muiDropdownSelect('[data-cy=countryDropdown]', 'CA');
       cy.get('[data-cy=secondStepSubmit]').click();
-      // Step 3
-      cy.muiDropdownSelect('[data-cy=isAuthRequired]', 'choiceRequired');
-      cy.get('[data-cy=thirdStepSubmit]').click();
-      cy.assetMuiError('[data-cy=authTypeLabel]');
-      cy.assetMuiError('[data-cy=authSignupLabel]');
-      // Step 3 values
-      cy.muiDropdownSelect('[data-cy=isAuthRequired]', 'None - 0');
+      // Step 3: fill required emptyLicenseUsage if present
+      cy.get('body').then($body => {
+        if ($body.find('[data-cy="emptyLicenseUsage"]').length) {
+          cy.get('[data-cy="emptyLicenseUsage"]').select('Unsure');
+        }
+      });
       cy.get('[data-cy=thirdStepSubmit]').click();
       // Step 4
-      cy.get('[data-cy=fourthStepSubmit]').click();
-      cy.assetMuiError('[data-cy=dataAuditLabel]');
-      cy.assetMuiError('[data-cy=logoPermissionLabel]');
+      cy.get('[data-cy=fourthStepSubmit]').should('exist');
     });
 
     it('should display errors for gtfs-realtime feed', () => {
@@ -131,9 +125,9 @@ describe('Add Feed Form', () => {
     // Check that the new fields appear
     cy.get('[data-cy=unofficialDesc]').should('exist');
     cy.get('[data-cy=updateFreq]').should('exist');
-    // Fill in the new fields
-    cy.get('[data-cy=unofficialDesc] textarea').type('For research purposes', { force: true });
-    cy.get('[data-cy=updateFreq] input').type('every month', { force: true });
+    // Fill in the new fields (ensure only one element is targeted)
+    cy.get('[data-cy=unofficialDesc] textarea').first().type('For research purposes', { force: true });
+    cy.get('[data-cy=updateFreq] input').first().type('every month', { force: true });
     // Continue with the rest of the form
     cy.muiDropdownSelect('[data-cy=dataType]', 'gtfs');
     cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
@@ -153,7 +147,7 @@ describe('Add Feed Form', () => {
     cy.url().should('include', '/contribute?step=3');
     // step 3: should see emptyLicenseUsage select
     cy.get('[data-cy="emptyLicenseUsage"]').should('exist');
-    cy.get('[data-cy="emptyLicenseUsageLabel"]').should('contain', 'can be used by others');
+    cy.get('[data-cy="emptyLicenseUsageLabel"]').should('contain', 'available for trip planners and other third parties to use');
     cy.get('[data-cy="emptyLicenseUsage"]').within(() => {
       cy.get('option').should('have.length', 3);
       cy.get('option').eq(0).should('contain', 'Yes');

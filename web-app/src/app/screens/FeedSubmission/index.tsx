@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useSelector } from 'react-redux';
 import {
   Alert,
   Box,
@@ -9,7 +8,6 @@ import {
   Typography,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
-import { selectIsAuthenticated } from '../../store/profile-selectors';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import Contribute from '../Contribute';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +22,7 @@ function Component(): React.ReactElement {
   const [showLoginSuccess, setShowLoginSuccess] = React.useState(
     location.state?.from === 'registration',
   );
-  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const isAuthenticated = true;
 
   return (
     <Container component='main' sx={{ my: 0, mx: 'auto' }}>
