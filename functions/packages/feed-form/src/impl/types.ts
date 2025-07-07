@@ -35,4 +35,5 @@ export interface FeedSubmissionFormRequestBody {
   hasLogoPermission: YesNoFormInput;
   unofficialDesc?: string;
   updateFreq?: string;
+  emptyLicenseUsage?: string;
 }

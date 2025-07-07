@@ -150,5 +150,13 @@
   },
   "viewRealtimeVisualization": "View real-time visualization",
   "versions": "Versions",
-  "dataAattribution": "Transit data provided by"
+  "dataAattribution": "Transit data provided by",
+  "emptyLicenseUsage": "If you are the official producer and did not provide a license, please confirm if the feed can be used by others:",
+  "common": {
+    "form": {
+      "yes": "Yes",
+      "no": "No",
+      "notSure": "Unsure"
+    }
+  }
 }

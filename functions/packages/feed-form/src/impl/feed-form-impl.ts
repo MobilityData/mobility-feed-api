@@ -91,6 +91,7 @@ export enum SheetCol {
   LogoPermission = "Do we have permission to share your logo on https://mobilitydatabase.org/contribute?",
   UnofficialDesc = "Why was this feed created?",
   UpdateFreq = "How often is this feed updated?",
+  EmptyLicenseUsage = "Feed intended for trip planners/third parties?",
 }
 
 /**
@@ -199,6 +200,7 @@ export function buildFeedRow(
     [SheetCol.LogoPermission]: formData.hasLogoPermission,
     [SheetCol.UnofficialDesc]: formData.unofficialDesc ?? "",
     [SheetCol.UpdateFreq]: formData.updateFreq ?? "",
+    [SheetCol.EmptyLicenseUsage]: formData.emptyLicenseUsage ?? "",
   };
 }
 

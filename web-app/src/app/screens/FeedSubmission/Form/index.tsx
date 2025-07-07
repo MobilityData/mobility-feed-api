@@ -53,6 +53,7 @@ export interface FeedSubmissionFormFormInput {
   hasLogoPermission: YesNoFormInput;
   unofficialDesc?: string; // Why was this feed created?
   updateFreq?: string; // How often is this feed updated?
+  emptyLicenseUsage?: string; // Confirm usage if no license and official
 }
 
 const defaultFormValues: FeedSubmissionFormFormInput = {
@@ -85,6 +86,7 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
   hasLogoPermission: '',
   unofficialDesc: '',
   updateFreq: '',
+  emptyLicenseUsage: '',
 };
 
 export default function FeedSubmissionForm(): React.ReactElement {

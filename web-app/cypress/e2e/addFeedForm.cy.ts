@@ -140,4 +140,32 @@ describe('Add Feed Form', () => {
     cy.get('[data-cy=submitFirstStep]').click();
     cy.url().should('include', '/contribute?step=2');
   });
+
+  it('should show and require emptyLicenseUsage with Unsure option if official producer and no license', () => {
+    cy.get('[data-cy=isOfficialProducerYes]').click();
+    cy.muiDropdownSelect('[data-cy=isOfficialFeed]', 'yes');
+    cy.get('[data-cy=feedLink] input').type('https://example.com/feed', { force: true });
+    cy.get('[data-cy=submitFirstStep]').click();
+    cy.url().should('include', '/contribute?step=2');
+    // step 2: leave license blank
+    cy.muiDropdownSelect('[data-cy=countryDropdown]', 'CA');
+    cy.get('[data-cy=secondStepSubmit]').click();
+    cy.url().should('include', '/contribute?step=3');
+    // step 3: should see emptyLicenseUsage select
+    cy.get('[data-cy="emptyLicenseUsage"]').should('exist');
+    cy.get('[data-cy="emptyLicenseUsageLabel"]').should('contain', 'can be used by others');
+    cy.get('[data-cy="emptyLicenseUsage"]').within(() => {
+      cy.get('option').should('have.length', 3);
+      cy.get('option').eq(0).should('contain', 'Yes');
+      cy.get('option').eq(1).should('contain', 'No');
+      cy.get('option').eq(2).should('contain', 'Unsure');
+    });
+    // Try submitting without selecting
+    cy.get('[data-cy="thirdStepSubmit"]').click();
+    cy.get('[data-cy="emptyLicenseUsageLabel"]').should('have.css', 'color').and('match', /rgb\(.*\)/);
+    // Select Unsure and submit
+    cy.get('[data-cy="emptyLicenseUsage"]').select('Unsure');
+    cy.get('[data-cy="thirdStepSubmit"]').click();
+    cy.url().should('include', '/contribute?step=4');
+  });
 });

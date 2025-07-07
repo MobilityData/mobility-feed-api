@@ -20,10 +20,10 @@ import { isValidFeedLink } from '../../../services/feeds/utils';
 import FormLabelDescription from './components/FormLabelDescription';
 
 export interface FeedSubmissionFormInputThirdStep {
-  licensePath?: string;
   authType: AuthTypes;
   authSignupLink?: string;
   authParameterName?: string;
+  emptyLicenseUsage?: string;
 }
 
 interface FormThirdStepProps {
@@ -46,7 +46,6 @@ export default function FormThirdStep({
     setValue,
   } = useForm<FeedSubmissionFormInputThirdStep>({
     defaultValues: {
-      licensePath: initialValues.licensePath,
       authType: initialValues.authType,
       authSignupLink: initialValues.authSignupLink,
       authParameterName: initialValues.authParameterName,
@@ -64,38 +63,55 @@ export default function FormThirdStep({
     submitFormData(data);
   };
 
+  // Remove unused variables and fix strict boolean expressions
+  const isOfficialProducer = initialValues.isOfficialProducer === 'yes';
+  // Fix strict boolean expression for noLicenseProvided in conditional rendering
+  const noLicenseProvided =
+    initialValues.licensePath === null ||
+    initialValues.licensePath === undefined ||
+    initialValues.licensePath === '';
+
   return (
     <>
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
-          <Grid item>
-            <FormControl
-              component='fieldset'
-              fullWidth
-              error={errors.licensePath !== undefined}
-            >
-              <FormLabel component='legend'>{t('linkToLicense')}</FormLabel>
-              <Controller
-                rules={{
-                  validate: (value) => {
-                    if (value === '' || value === undefined) return true;
-                    return isValidFeedLink(value) || t('form.errorUrl');
-                  },
-                }}
-                control={control}
-                name='licensePath'
-                render={({ field }) => (
-                  <TextField
-                    className='md-small-input'
-                    {...field}
-                    helperText={errors.licensePath?.message ?? ''}
-                    error={errors.licensePath !== undefined}
-                  />
-                )}
-              />
-            </FormControl>
-          </Grid>
+          {/* Show required emptyLicenseUsage if official producer and no license provided */}
+          {isOfficialProducer && noLicenseProvided && (
+            <Grid item>
+              <FormControl
+                component='fieldset'
+                fullWidth
+                error={errors.emptyLicenseUsage !== undefined}
+              >
+                <FormLabel required data-cy='emptyLicenseUsageLabel'>
+                  Can you confirm that this feed is available for trip planners
+                  and other third parties to use?
+                </FormLabel>
+                <Controller
+                  control={control}
+                  name='emptyLicenseUsage'
+                  rules={{ required: t('common:form.required') }}
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      sx={{ width: '200px' }}
+                      data-cy='emptyLicenseUsage'
+                    >
+                      <MenuItem value='yes'>{t('common:form.yes')}</MenuItem>
+                      <MenuItem value='no'>{t('common:form.no')}</MenuItem>
+                      <MenuItem value='unsure'>
+                        {t('common:form.notSure')}
+                      </MenuItem>
+                    </Select>
+                  )}
+                />
+                <FormHelperText>
+                  {errors.emptyLicenseUsage?.message ?? ''}
+                </FormHelperText>
+              </FormControl>
+            </Grid>
+          )}
           <Grid item>
             <FormControl component='fieldset'>
               <FormLabel>{t('isAuthRequired')}</FormLabel>
@@ -111,7 +127,7 @@ export default function FormThirdStep({
                 data-cy='isAuthRequired'
               >
                 <MenuItem value='choiceRequired'>
-                  {t('common:form:yes')}
+                  {t('common:form.yes')}
                 </MenuItem>
                 <MenuItem value='None - 0'>{t('common:form:no')}</MenuItem>
               </Select>
