@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSelector } from 'react-redux';
 import {
   Alert,
   Box,
@@ -8,6 +9,7 @@ import {
   Typography,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
+import { selectIsAuthenticated } from '../../store/profile-selectors';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import Contribute from '../Contribute';
 import { useTranslation } from 'react-i18next';
