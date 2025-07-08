@@ -155,9 +155,7 @@ class DatasetProcessor:
                 blob.upload_from_file(file)
             blob.make_public()
 
-        extracted_files_path = os.path.dirname(
-            os.path.join(source_file_path.split(".")[0], "extracted")
-        )
+        extracted_files_path = os.path.join(source_file_path.split(".")[0], "extracted")
         extracted_files: List[Gtfsfile] = []
         if not os.path.exists(extracted_files_path):
             self.logger.warning(
