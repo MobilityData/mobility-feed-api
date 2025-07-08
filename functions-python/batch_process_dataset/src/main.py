@@ -148,6 +148,7 @@ class DatasetProcessor:
             f"{self.feed_stable_id}/latest.zip",
             f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
         ]
+        blob = None
         for target_path in target_paths:
             blob = bucket.blob(target_path)
             with open(source_file_path, "rb") as file:
@@ -158,6 +159,11 @@ class DatasetProcessor:
             os.path.join(source_file_path.split(".")[0], "extracted")
         )
         extracted_files: List[Gtfsfile] = []
+        if not os.path.exists(extracted_files_path):
+            self.logger.warning(
+                f"Extracted files path {extracted_files_path} does not exist."
+            )
+            return blob, extracted_files
         for file_name in os.listdir(extracted_files_path):
             file_path = os.path.join(extracted_files_path, file_name)
             if os.path.isfile(file_path):
@@ -176,7 +182,7 @@ class DatasetProcessor:
                         file_size=os.path.getsize(file_path),
                     )
                 )
-        return extracted_files
+        return blob, extracted_files
 
     def upload_dataset(self) -> DatasetFile or None:
         """
@@ -218,7 +224,7 @@ class DatasetProcessor:
                     f"Creating file: {dataset_full_path}"
                     f" in bucket {self.bucket_name}"
                 )
-                extracted_files = self.upload_file_to_storage(
+                _, extracted_files = self.upload_file_to_storage(
                     temp_file_path, dataset_stable_id
                 )
 
@@ -227,7 +233,9 @@ class DatasetProcessor:
                     file_sha256_hash=file_sha256_hash,
                     hosted_url=f"{self.public_hosted_datasets_url}/{dataset_full_path}",
                     extracted_files=extracted_files,
-                    zipped_size=os.path.getsize(temp_file_path),
+                    zipped_size=os.path.getsize(temp_file_path)
+                    if os.path.exists(temp_file_path)
+                    else None,
                 )
 
             self.logger.info(
@@ -278,11 +286,13 @@ class DatasetProcessor:
                 hash=dataset_file.file_sha256_hash,
                 downloaded_at=func.now(),
                 hosted_url=dataset_file.hosted_url,
-                gtfsfiles=dataset_file.extracted_files,
+                gtfsfiles=dataset_file.extracted_files
+                if dataset_file.extracted_files
+                else [],
                 zipped_size=dataset_file.zipped_size,
-                unzipped_size=sum(
-                    [ex.file_size for ex in dataset_file.extracted_files]
-                ),
+                unzipped_size=sum([ex.file_size for ex in dataset_file.extracted_files])
+                if dataset_file.extracted_files
+                else None,
             )
             if latest_dataset:
                 latest_dataset.latest = False
