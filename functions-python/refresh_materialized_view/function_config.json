@@ -1,0 +1,20 @@
+{
+  "name": "refresh-materialized-view",
+  "description": "Refreshes a materialized view using the CONCURRENTLY command to avoid table locks",
+  "entry_point": "refresh_materialized_view_function",
+  "timeout": 1800,
+  "memory": "512Mi",
+  "trigger_http": true,
+  "include_folders": ["helpers"],
+  "include_api_folders": ["database_gen", "database", "common"],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_DATABASE_URL"
+    }
+  ],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 3,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}

@@ -68,6 +68,9 @@ locals {
 
   function_tasks_executor_config = jsondecode(file("${path.module}/../../functions-python/tasks_executor/function_config.json"))
   function_tasks_executor_zip = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
+
+  function_refresh_materialized_view_config = jsondecode(file("${path.module}/../../functions-python/refresh_materialized_view/function_config.json"))
+  function_refresh_materialized_view_zip = "${path.module}/../../functions-python/refresh_materialized_view/.dist/refresh_materialized_view.zip"
 }
 
 locals {
@@ -81,7 +84,8 @@ locals {
     [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
     [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
     [for x in local.function_export_csv_config.secret_environment_variables : x.key],
-    [for x in local.function_tasks_executor_config.secret_environment_variables : x.key]
+    [for x in local.function_tasks_executor_config.secret_environment_variables : x.key],
+    [for x in local.function_refresh_materialized_view_config.secret_environment_variables : x.key]
   )
 
   # Convert the list to a set to ensure uniqueness
@@ -225,6 +229,13 @@ resource "google_storage_bucket_object" "tasks_executor_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "task-executor-${substr(filebase64sha256(local.function_tasks_executor_zip), 0, 10)}.zip"
   source = local.function_tasks_executor_zip
+}
+
+# 15. Refresh Materialized View
+resource "google_storage_bucket_object" "refresh_materialized_view_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "refresh-materialized-view-${substr(filebase64sha256(local.function_refresh_materialized_view_zip), 0, 10)}.zip"
+  source = local.function_refresh_materialized_view_zip
 }
 
 # Secrets access
@@ -1465,6 +1476,14 @@ resource "google_cloudfunctions2_function_iam_member" "update_feed_status_invoke
   project        = var.project_id
   location       = var.gcp_region
   cloud_function = google_cloudfunctions2_function.update_feed_status.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+resource "google_cloudfunctions2_function_iam_member" "refresh_materialized_view_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.refresh_materialized_view.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
