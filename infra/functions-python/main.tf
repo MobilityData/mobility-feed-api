@@ -1501,3 +1501,45 @@ resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
   role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
+
+resource "google_cloudfunctions2_function" "refresh_materialized_view" {
+  name        = local.function_refresh_materialized_view_config.name
+  description = local.function_refresh_materialized_view_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+  project     = var.project_id
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = local.function_refresh_materialized_view_config.entry_point
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.refresh_materialized_view_zip.name
+      }
+    }
+  }
+
+  service_config {
+    available_memory                 = local.function_refresh_materialized_view_config.memory
+    timeout_seconds                  = local.function_refresh_materialized_view_config.timeout
+    available_cpu                    = local.function_refresh_materialized_view_config.available_cpu
+    max_instance_request_concurrency = local.function_refresh_materialized_view_config.max_instance_request_concurrency
+    max_instance_count               = local.function_refresh_materialized_view_config.max_instance_count
+    min_instance_count               = local.function_refresh_materialized_view_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = local.function_refresh_materialized_view_config.ingress_settings
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_refresh_materialized_view_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        version    = "latest"
+      }
+    }
+  }
+}
