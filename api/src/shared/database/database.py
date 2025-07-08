@@ -81,11 +81,11 @@ cascade_entities = {
         Gbfsversion.gbfsvalidationreports,  # gbfsvalidationreport_gbfs_version_id_fkey
     ],
     Osmlocationgroup: [
-        Osmlocationgroup.feedlocationgrouppoints,  # DONE
-        Osmlocationgroup.feedosmlocationgroups,  # DONE feedosmlocation_group_id_fkey
+        Osmlocationgroup.feedlocationgrouppoints,
+        Osmlocationgroup.feedosmlocationgroups,  # feedosmlocation_group_id_fkey
     ],
     Validationreport: [
-        Validationreport.notices,  # DONE notice_validation_report_id_fkey
+        Validationreport.notices,  # notice_validation_report_id_fkey
     ],
 }
 
