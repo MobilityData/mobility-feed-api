@@ -1,4 +1,3 @@
-# coding: utf-8
 import datetime
 import uuid
 from sqlalchemy.orm import Session
@@ -63,8 +62,7 @@ def test_delete_feature_cascadeto_featurevalidationreport(test_database):
         )
 
 
-# Direct one-to-many: child table has a foreign key to the parent table.
-def test__delete_feed_cascadeto_externalids(test_database):
+def test_delete_feed_cascadeto_externalids(test_database):
 
     with test_database.start_db_session() as session:
         feed = Feed(id="f1")
@@ -79,7 +77,6 @@ def test__delete_feed_cascadeto_externalids(test_database):
         )
 
 
-# Association object pattern: parent table links to an association table, which references the child table
 def test_delete_feed_cascadeto_feedlocationgrouppoint(test_database):
     with test_database.start_db_session() as session:
 
