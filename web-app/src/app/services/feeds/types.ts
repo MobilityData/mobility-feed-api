@@ -427,6 +427,16 @@ export interface components {
        * @example America/Los_Angeles
        */
       agency_timezone?: string;
+      /**
+       * @description The size of the zipped folder in MB.
+       * @example 100.2
+       */
+      zipped_folder_size?: number;
+      /**
+       * @description The size of the unzipped folder in MB.
+       * @example 200.5
+       */
+      unzipped_folder_size?: number;
       validation_report?: {
         /**
          * @description List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
@@ -578,6 +588,16 @@ export interface components {
        * @example America/Los_Angeles
        */
       agency_timezone?: string;
+      /**
+       * @description The size of the zipped folder in MB.
+       * @example 100.2
+       */
+      zipped_folder_size?: number;
+      /**
+       * @description The size of the unzipped folder in MB.
+       * @example 200.5
+       */
+      unzipped_folder_size?: number;
     };
     /** @description Bounding box of the dataset when it was first added to the catalog. */
     BoundingBox: {
