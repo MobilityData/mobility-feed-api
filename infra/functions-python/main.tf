@@ -1543,3 +1543,22 @@ resource "google_cloudfunctions2_function" "refresh_materialized_view" {
     }
   }
 }
+
+15. functions/refresh_materialized_view
+# Task queue to invoke refresh_materialized_view function
+resource "google_cloud_tasks_queue" "refresh_materialized_view_queue" {
+  name     = "refresh-materialized-view-queue-${var.environment}"
+  location = var.gcp_region
+
+  rate_limits {
+    max_concurrent_dispatches = 10
+    max_dispatches_per_second = 5
+  }
+
+  retry_config {
+    max_attempts  = 5
+    min_backoff   = "10s"
+    max_backoff   = "60s"
+    max_doublings = 2
+  }
+}
