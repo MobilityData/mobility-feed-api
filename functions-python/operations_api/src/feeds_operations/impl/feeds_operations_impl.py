@@ -182,7 +182,7 @@ class OperationsApiImpl(BaseOperationsApi):
         Update the specified feed in the Mobility Database
         """
         try:
-            feed = await OperationsApiImpl.fetch_feed(
+            feed_from_db = await OperationsApiImpl.fetch_feed(
                 data_type, db_session, update_request_feed
             )
 
@@ -196,13 +196,13 @@ class OperationsApiImpl(BaseOperationsApi):
                 if data_type == DataType.GTFS
                 else UpdateRequestGtfsRtFeedImpl
             )
-            diff = self.detect_changes(feed, update_request_feed, impl_class)
+            diff = self.detect_changes(feed_from_db, update_request_feed, impl_class)
             if len(diff.affected_paths) > 0 or (
                 update_request_feed.operational_status_action is not None
                 and update_request_feed.operational_status_action != "no_change"
             ):
                 await OperationsApiImpl._populate_feed_values(
-                    feed, impl_class, db_session, update_request_feed
+                    feed_from_db, impl_class, db_session, update_request_feed
                 )
                 db_session.flush()
                 refreshed = refresh_materialized_view(db_session, t_feedsearch.name)
