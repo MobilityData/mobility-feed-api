@@ -1,9 +1,9 @@
 import logging
 import os
-import functions_framework
-from flask import Request, jsonify
+import json
 from google.cloud import tasks_v2
 from datetime import datetime
+import functions_framework
 from shared.helpers.logger import init_logger
 from shared.database.database import with_db_session
 
@@ -11,19 +11,20 @@ init_logger()
 
 
 @functions_framework.http
-def refresh_materialized_view_function(request: Request):
+def refresh_materialized_view_function(request):
     """
-    Enqueues a Cloud Task to refresh a materialized view asynchronously.
+    Enqueues a Cloud Task to asynchronously refresh a materialized view.
+    Ensures deduplication by generating a unique task name.
 
     Returns:
-        tuple: (response_message, status_code)
+        dict: Response message and status code.
     """
     try:
         logging.info("Starting materialized view refresh function.")
 
         # Generate deduplication key based on current timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
-        task_name = f"refresh-feed-search-{timestamp}"
+        task_name = f"refresh-materialized-view-{timestamp}"
 
         # Cloud Tasks client setup
         client = tasks_v2.CloudTasksClient()
@@ -43,7 +44,7 @@ def refresh_materialized_view_function(request: Request):
                 "http_method": tasks_v2.HttpMethod.POST,
                 "url": url,
                 "headers": {"Content-Type": "application/json"},
-                "body": jsonify(payload).data,
+                "body": json.dumps(payload).encode(),
             },
         }
 
@@ -60,19 +61,18 @@ def refresh_materialized_view_function(request: Request):
 
 
 @with_db_session
-@functions_framework.http
-def refresh_materialized_view_task(request: Request, db_session):
+def refresh_materialized_view_task(request, db_session):
     """
     Refreshes a materialized view using the CONCURRENTLY command to avoid
     table locks. This function is triggered by a Cloud Task.
 
     Returns:
-        tuple: (response_message, status_code)
+        dict: Response message and status code.
     """
     try:
         logging.info("Starting materialized view refresh task.")
 
-        data = request.get_json()
+        data = request.json()
         view_name = data.get("view_name")
         deduplication_key = data.get("deduplication_key")
 
@@ -111,7 +111,7 @@ def refresh_materialized_view(db_session, view_name):
         bool: True if refresh was successful, False otherwise.
     """
     try:
-        db_session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name};")
+        db_session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}")
         db_session.commit()
         return True
     except Exception as error:

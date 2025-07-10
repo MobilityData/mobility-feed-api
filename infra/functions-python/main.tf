@@ -1503,16 +1503,16 @@ resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
 }
 
 # 15. functions/refresh_materialized_view
+# Cloud Function for refresh_materialized_view
 resource "google_cloudfunctions2_function" "refresh_materialized_view" {
-  name        = local.function_refresh_materialized_view_config.name
-  description = local.function_refresh_materialized_view_config.description
+  name        = "refresh-materialized-view-${var.environment}"
+  description = "Function to refresh materialized views asynchronously."
   location    = var.gcp_region
   depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
-  project     = var.project_id
 
   build_config {
     runtime     = var.python_runtime
-    entry_point = local.function_refresh_materialized_view_config.entry_point
+    entry_point = "refresh_materialized_view_function"
     source {
       storage_source {
         bucket = google_storage_bucket.functions_bucket.name
@@ -1522,27 +1522,32 @@ resource "google_cloudfunctions2_function" "refresh_materialized_view" {
   }
 
   service_config {
-    available_memory                 = local.function_refresh_materialized_view_config.memory
-    timeout_seconds                  = local.function_refresh_materialized_view_config.timeout
-    available_cpu                    = local.function_refresh_materialized_view_config.available_cpu
-    max_instance_request_concurrency = local.function_refresh_materialized_view_config.max_instance_request_concurrency
-    max_instance_count               = local.function_refresh_materialized_view_config.max_instance_count
-    min_instance_count               = local.function_refresh_materialized_view_config.min_instance_count
+    environment_variables = {
+      PROJECT_ID  = var.project_id
+      QUEUE_NAME  = google_cloud_tasks_queue.refresh_materialized_view_queue.name
+      LOCATION    = var.gcp_region
+      FUNCTION_URL = "https://${google_cloudfunctions2_function.refresh_materialized_view.name}.cloudfunctions.net"
+    }
+    available_memory                 = "512Mi"
+    timeout_seconds                  = 60
+    available_cpu                    = 1
+    max_instance_request_concurrency = 10
+    max_instance_count               = 5
+    min_instance_count               = 0
     service_account_email            = google_service_account.functions_service_account.email
-    ingress_settings                 = local.function_refresh_materialized_view_config.ingress_settings
+    ingress_settings                 = "ALLOW_ALL"
     vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
     vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
-
-    dynamic "secret_environment_variables" {
-      for_each = local.function_refresh_materialized_view_config.secret_environment_variables
-      content {
-        key        = secret_environment_variables.value["key"]
-        project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
-        version    = "latest"
-      }
-    }
   }
+}
+
+# IAM entry for invoking the refresh_materialized_view function
+resource "google_cloudfunctions2_function_iam_member" "refresh_materialized_view_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.refresh_materialized_view.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
 # Task queue to invoke refresh_materialized_view function
