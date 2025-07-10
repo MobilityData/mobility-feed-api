@@ -1480,14 +1480,6 @@ resource "google_cloudfunctions2_function_iam_member" "update_feed_status_invoke
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
-resource "google_cloudfunctions2_function_iam_member" "refresh_materialized_view_invoker" {
-  project        = var.project_id
-  location       = var.gcp_region
-  cloud_function = google_cloudfunctions2_function.refresh_materialized_view.name
-  role           = "roles/cloudfunctions.invoker"
-  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
-}
-
 # Grant permissions to the service account to create bigquery jobs
 resource "google_project_iam_member" "bigquery_job_user" {
   project = var.project_id
