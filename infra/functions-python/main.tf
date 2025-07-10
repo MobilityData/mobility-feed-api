@@ -1502,6 +1502,7 @@ resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+15. functions/refresh_materialized_view
 resource "google_cloudfunctions2_function" "refresh_materialized_view" {
   name        = local.function_refresh_materialized_view_config.name
   description = local.function_refresh_materialized_view_config.description
@@ -1544,7 +1545,6 @@ resource "google_cloudfunctions2_function" "refresh_materialized_view" {
   }
 }
 
-15. functions/refresh_materialized_view
 # Task queue to invoke refresh_materialized_view function
 resource "google_cloud_tasks_queue" "refresh_materialized_view_queue" {
   name     = "refresh-materialized-view-queue-${var.environment}"
