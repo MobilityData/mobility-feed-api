@@ -2,8 +2,9 @@ import logging
 import os
 import json
 from google.cloud import tasks_v2
-from datetime import datetime
+from datetime import datetime, timedelta
 import functions_framework
+from shared.helpers import timezone
 from shared.helpers.logger import init_logger
 from shared.database.database import with_db_session
 
@@ -21,9 +22,16 @@ def refresh_materialized_view_function(request):
     """
     try:
         logging.info("Starting materialized view refresh function.")
+        now = datetime.now(timezone.utc)
+        delay_minutes = 5
+        # Round up to the next 5-minute mark (bounce window)
+        delay_target = now + timedelta(minutes=delay_minutes)
+        bucket_time = delay_target.replace(
+            minute=(delay_target.minute // 5) * 5, second=0, microsecond=0
+        )
 
         # Generate deduplication key based on current timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M")
+        timestamp = bucket_time.strftime("%Y-%m-%d-%H-%M")
         task_name = f"refresh-materialized-view-{timestamp}"
 
         # Cloud Tasks client setup
@@ -46,6 +54,7 @@ def refresh_materialized_view_function(request):
                 "headers": {"Content-Type": "application/json"},
                 "body": json.dumps(payload).encode(),
             },
+            "schedule_time": timestamp,
         }
 
         # Enqueue the task
@@ -70,7 +79,7 @@ def refresh_materialized_view_task(request, db_session):
         dict: Response message and status code.
     """
     try:
-        logging.info("Starting materialized view refresh task.")
+        logging.info("Materialized view refresh task initiated.")
 
         data = request.json()
         view_name = data.get("view_name")
@@ -81,7 +90,6 @@ def refresh_materialized_view_task(request, db_session):
             f"{view_name} with key: {deduplication_key}"
         )
 
-        # Call the refresh function
         success = refresh_materialized_view(db_session, view_name)
 
         if success:
