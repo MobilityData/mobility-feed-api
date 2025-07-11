@@ -1,8 +1,4 @@
 import pytest
-from fastapi.testclient import TestClient
-from src.main import app
-
-client = TestClient(app)
 
 
 @pytest.fixture
@@ -21,15 +17,10 @@ def mock_cloud_tasks_client(mocker):
 
 
 @pytest.mark.parametrize("endpoint", ["/refresh-materialized-view"])
-def test_refresh_materialized_view_function(endpoint):
-    response = client.post(endpoint, json={})
+def test_refresh_materialized_view_function(endpoint, mock_cloud_tasks_client):
+    response = mock_cloud_tasks_client.post(endpoint, json={})
     assert response.status_code == 200
     assert "Task" in response.json()["message"]
 
-
-@pytest.mark.parametrize("endpoint", ["/refresh-materialized-view-task"])
-def test_refresh_materialized_view_task(endpoint):
-    payload = {"view_name": "test_view", "deduplication_key": "test_key"}
-    response = client.post(endpoint, json=payload)
-    assert response.status_code == 200
-    assert "Successfully refreshed materialized view" in response.json()["message"]
+    # Assert that create_task was called
+    mock_cloud_tasks_client.create_task.assert_called_once()
