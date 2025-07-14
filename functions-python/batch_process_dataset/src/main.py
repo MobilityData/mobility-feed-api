@@ -178,7 +178,7 @@ class DatasetProcessor:
                     Gtfsfile(
                         id=str(uuid.uuid4()),
                         file_name=file_name,
-                        file_size=os.path.getsize(file_path),
+                        file_size_bytes=os.path.getsize(file_path),
                     )
                 )
         return blob, extracted_files
@@ -288,8 +288,10 @@ class DatasetProcessor:
                 gtfsfiles=dataset_file.extracted_files
                 if dataset_file.extracted_files
                 else [],
-                zipped_size=dataset_file.zipped_size,
-                unzipped_size=sum([ex.file_size for ex in dataset_file.extracted_files])
+                zipped_size_bytes=dataset_file.zipped_size,
+                unzipped_size_bytes=sum(
+                    [ex.file_size_bytes for ex in dataset_file.extracted_files]
+                )
                 if dataset_file.extracted_files
                 else None,
             )
