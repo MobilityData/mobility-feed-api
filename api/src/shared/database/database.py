@@ -15,6 +15,8 @@ from shared.database_gen.sqlacodegen_models import (
     Gbfsversion,
     Gbfsfeed,
     Gbfsvalidationreport,
+    Osmlocationgroup,
+    Validationreport,
 )
 from sqlalchemy.orm import sessionmaker
 import logging
@@ -52,12 +54,39 @@ def configure_polymorphic_mappers():
     gbfsfeed_mapper.polymorphic_identity = Gbfsfeed.__tablename__.lower()
 
 
+# The `cascade_entities` dictionary maps SQLAlchemy models to lists of their relationship attributes
+# that should have cascading delete-orphan behavior. When a parent entity (such as `Feed`, `Gbfsfeed`, etc.)
+# is deleted, any related child entities listed here will also be deleted if they become orphans.
+# The `set_cascade` function applies this configuration by setting the `cascade` property to "all, delete-orphan"
+# and enabling `passive_deletes` for each specified relationship. This leverages the database's ON DELETE CASCADE
+# constraints and ensures that related records are cleaned up automatically when a parent is removed.
 cascade_entities = {
-    Gtfsfeed: [Gtfsfeed.redirectingids, Gtfsfeed.redirectingids_, Gtfsfeed.externalids],
-    Gbfsversion: [Gbfsversion.gbfsendpoints, Gbfsversion.gbfsvalidationreports],
-    Gbfsfeed: [Gbfsfeed.gbfsversions],
-    Gbfsvalidationreport: [Gbfsvalidationreport.gbfsnotices],
-    Feed: [Feed.feedosmlocationgroups],
+    Feed: [
+        Feed.externalids,  # externalid_feed_id_fkey
+        Feed.feedlocationgrouppoints,
+        Feed.feedosmlocationgroups,  # feedosmlocation_feed_id_fkey
+        Feed.gtfsdatasets,  # gtfsdataset_feed_id_fkey
+        Feed.officialstatushistories,  # officialstatushistory_feed_id_fkey
+        Feed.redirectingids,  # redirectingid_source_id_fkey
+        Feed.redirectingids_,  # redirectingid_target_id_fkey
+    ],
+    Gbfsfeed: [
+        Gbfsfeed.gbfsversions,  # gbfsversion_feed_id_fkey
+    ],
+    Gbfsvalidationreport: [
+        Gbfsvalidationreport.gbfsnotices,  # gbfsnotice_validation_report_id_fkey
+    ],
+    Gbfsversion: [
+        Gbfsversion.gbfsendpoints,  # gbfsendpoint_gbfs_version_id_fkey
+        Gbfsversion.gbfsvalidationreports,  # gbfsvalidationreport_gbfs_version_id_fkey
+    ],
+    Osmlocationgroup: [
+        Osmlocationgroup.feedlocationgrouppoints,
+        Osmlocationgroup.feedosmlocationgroups,  # feedosmlocation_group_id_fkey
+    ],
+    Validationreport: [
+        Validationreport.notices,  # notice_validation_report_id_fkey
+    ],
 }
 
 
