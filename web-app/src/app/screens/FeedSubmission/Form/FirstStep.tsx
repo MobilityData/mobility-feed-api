@@ -32,6 +32,8 @@ export interface FeedSubmissionFormFormInputFirstStep {
   feedLink?: string;
   oldFeedLink?: string;
   isUpdatingFeed: YesNoFormInput;
+  unofficialDesc?: string;
+  updateFreq?: string;
 }
 
 interface FormFirstStepProps {
@@ -59,6 +61,8 @@ export default function FormFirstStep({
       feedLink: initialValues.feedLink,
       oldFeedLink: initialValues.oldFeedLink,
       isUpdatingFeed: initialValues.isUpdatingFeed,
+      unofficialDesc: initialValues.unofficialDesc,
+      updateFreq: initialValues.updateFreq,
     },
   });
 
@@ -89,6 +93,11 @@ export default function FormFirstStep({
   const isOfficialProducer = useWatch({
     control,
     name: 'isOfficialProducer',
+  });
+
+  const isOfficialFeed = useWatch({
+    control,
+    name: 'isOfficialFeed',
   });
 
   useEffect(() => {
@@ -172,6 +181,48 @@ export default function FormFirstStep({
               />
             </FormControl>
           </Grid>
+
+          {/* New fields for unofficial feeds, moved right after isOfficialFeed */}
+          {isOfficialFeed === 'no' && (
+            <>
+              <Grid item>
+                <FormControl component='fieldset' fullWidth>
+                  <FormLabel>{t('form.unofficialDesc')}</FormLabel>
+                  <Controller
+                    control={control}
+                    name='unofficialDesc'
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        className='md-small-input'
+                        multiline
+                        minRows={2}
+                        placeholder={t('form.unofficialDescPlaceholder')}
+                        data-cy='unofficialDesc'
+                      />
+                    )}
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item>
+                <FormControl component='fieldset' fullWidth>
+                  <FormLabel>{t('form.updateFreq')}</FormLabel>
+                  <Controller
+                    control={control}
+                    name='updateFreq'
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        className='md-small-input'
+                        placeholder={t('form.updateFreqPlaceholder')}
+                        data-cy='updateFreq'
+                      />
+                    )}
+                  />
+                </FormControl>
+              </Grid>
+            </>
+          )}
           <Grid item>
             <FormControl component='fieldset'>
               <FormLabel required>{t('dataType')}</FormLabel>

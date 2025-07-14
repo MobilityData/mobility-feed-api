@@ -30,7 +30,7 @@ mock_feed = Feed(
     status="active",
     provider="test_provider",
     feed_name="test_feed_name",
-    created_at=datetime.fromisoformat("2023-07-10T22:06:00Z"),
+    created_at=datetime.fromisoformat("2023-07-10T22:06:00+00:00"),
     note="test_note",
     feed_contact_email="test_feed_contact_email",
     producer_url="test_producer_url",
@@ -340,5 +340,5 @@ def assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed):
     )
     assert (
         response_gtfs_rt_feed["feed_references"][0] == gtfs_rt_feed.gtfs_feeds[0].stable_id
-    ), f'Response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'
+    ), f'response feed feed reference was {response_gtfs_rt_feed["feed_references"][0]} instead of test_feed_reference'
     assert response_gtfs_rt_feed["created_at"] is not None, "Response feed created_at was None"
