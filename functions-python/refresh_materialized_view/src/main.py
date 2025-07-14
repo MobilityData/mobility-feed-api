@@ -1,9 +1,10 @@
 import logging
 import os
-import json
 from google.cloud import tasks_v2
 from datetime import datetime, timedelta
 import functions_framework
+from google.protobuf import timestamp_pb2
+
 from shared.helpers import timezone
 from shared.helpers.logger import init_logger
 from shared.database.database import with_db_session
@@ -43,8 +44,9 @@ def refresh_materialized_view_function(request):
 
         parent = client.queue_path(project_id, location, queue)
 
-        # Task payload
-        payload = {"view_name": "feedsearch"}
+        # Schedule time fix
+        schedule_time_pb = timestamp_pb2.Timestamp()
+        schedule_time_pb.FromDatetime(bucket_time)
 
         task = {
             "name": client.task_path(project_id, location, queue, task_name),
@@ -52,9 +54,9 @@ def refresh_materialized_view_function(request):
                 "http_method": tasks_v2.HttpMethod.POST,
                 "url": url,
                 "headers": {"Content-Type": "application/json"},
-                "body": json.dumps(payload).encode(),
+                "body": b"",  # Empty body for this task
             },
-            "schedule_time": timestamp,
+            "schedule_time": schedule_time_pb,
         }
 
         # Enqueue the task
@@ -81,15 +83,7 @@ def refresh_materialized_view_task(request, db_session):
     try:
         logging.info("Materialized view refresh task initiated.")
 
-        data = request.json()
-        view_name = data.get("view_name")
-        deduplication_key = data.get("deduplication_key")
-
-        logging.info(
-            "Refreshing materialized view: "
-            f"{view_name} with key: {deduplication_key}"
-        )
-
+        view_name = "feedsearch"
         success = refresh_materialized_view(db_session, view_name)
 
         if success:
@@ -120,7 +114,6 @@ def refresh_materialized_view(db_session, view_name):
     """
     try:
         db_session.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}")
-        db_session.commit()
         return True
     except Exception as error:
         logging.error("Error refreshing materialized view " f"{view_name}: {error}")
