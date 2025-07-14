@@ -22,14 +22,14 @@ import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch, Gtfsfile
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
 from shared.database.database import with_db_session, refresh_materialized_view
 import logging
@@ -48,8 +48,10 @@ class DatasetFile:
     """
 
     stable_id: str
+    extracted_files: List[Gtfsfile] = None
     file_sha256_hash: Optional[str] = None
     hosted_url: Optional[str] = None
+    zipped_size: Optional[int] = None
 
 
 class DatasetProcessor:
@@ -126,18 +128,60 @@ class DatasetProcessor:
             logger=self.logger,
         )
         is_zip = zipfile.is_zipfile(temporary_file_path)
+        if is_zip:
+            extracted_file_path = os.path.join(
+                temporary_file_path.split(".")[0], "extracted"
+            )
+            with zipfile.ZipFile(temporary_file_path, "r") as zip_ref:
+                zip_ref.extractall(os.path.dirname(extracted_file_path))
+            # List all files in the extracted directory
+            extracted_files = os.listdir(os.path.dirname(extracted_file_path))
+            self.logger.info(f"Extracted files: {extracted_files}")
         return file_hash, is_zip
 
-    def upload_file_to_storage(self, source_file_path, target_path):
+    def upload_file_to_storage(self, source_file_path, dataset_stable_id):
         """
         Uploads a file to the GCP bucket
         """
         bucket = storage.Client().get_bucket(self.bucket_name)
-        blob = bucket.blob(target_path)
-        with open(source_file_path, "rb") as file:
-            blob.upload_from_file(file)
-        blob.make_public()
-        return blob
+        target_paths = [
+            f"{self.feed_stable_id}/latest.zip",
+            f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip",
+        ]
+        blob = None
+        for target_path in target_paths:
+            blob = bucket.blob(target_path)
+            with open(source_file_path, "rb") as file:
+                blob.upload_from_file(file)
+            blob.make_public()
+
+        base_path, _ = os.path.splitext(source_file_path)
+        extracted_files_path = os.path.join(base_path, "extracted")
+        extracted_files: List[Gtfsfile] = []
+        if not os.path.exists(extracted_files_path):
+            self.logger.warning(
+                f"Extracted files path {extracted_files_path} does not exist."
+            )
+            return blob, extracted_files
+        for file_name in os.listdir(extracted_files_path):
+            file_path = os.path.join(extracted_files_path, file_name)
+            if os.path.isfile(file_path):
+                file_blob = bucket.blob(
+                    f"{self.feed_stable_id}/{dataset_stable_id}/extracted/{file_name}"
+                )
+                file_blob.upload_from_filename(file_path)
+                file_blob.make_public()
+                self.logger.info(
+                    f"Uploaded extracted file {file_name} to {file_blob.public_url}"
+                )
+                extracted_files.append(
+                    Gtfsfile(
+                        id=str(uuid.uuid4()),
+                        file_name=file_name,
+                        file_size_bytes=os.path.getsize(file_path),
+                    )
+                )
+        return blob, extracted_files
 
     def upload_dataset(self) -> DatasetFile or None:
         """
@@ -168,9 +212,6 @@ class DatasetProcessor:
                 self.logger.info(
                     f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}"
                 )
-                self.upload_file_to_storage(
-                    temp_file_path, f"{self.feed_stable_id}/latest.zip"
-                )
 
                 dataset_stable_id = self.create_dataset_stable_id(
                     self.feed_stable_id, self.date
@@ -182,15 +223,18 @@ class DatasetProcessor:
                     f"Creating file: {dataset_full_path}"
                     f" in bucket {self.bucket_name}"
                 )
-                self.upload_file_to_storage(
-                    temp_file_path,
-                    f"{dataset_full_path}",
+                _, extracted_files = self.upload_file_to_storage(
+                    temp_file_path, dataset_stable_id
                 )
 
                 return DatasetFile(
                     stable_id=dataset_stable_id,
                     file_sha256_hash=file_sha256_hash,
                     hosted_url=f"{self.public_hosted_datasets_url}/{dataset_full_path}",
+                    extracted_files=extracted_files,
+                    zipped_size=os.path.getsize(temp_file_path)
+                    if os.path.exists(temp_file_path)
+                    else None,
                 )
 
             self.logger.info(
@@ -241,6 +285,15 @@ class DatasetProcessor:
                 hash=dataset_file.file_sha256_hash,
                 downloaded_at=func.now(),
                 hosted_url=dataset_file.hosted_url,
+                gtfsfiles=dataset_file.extracted_files
+                if dataset_file.extracted_files
+                else [],
+                zipped_size_bytes=dataset_file.zipped_size,
+                unzipped_size_bytes=sum(
+                    [ex.file_size_bytes for ex in dataset_file.extracted_files]
+                )
+                if dataset_file.extracted_files
+                else None,
             )
             if latest_dataset:
                 latest_dataset.latest = False
