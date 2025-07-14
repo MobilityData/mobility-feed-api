@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS GtfsFile;
 CREATE TABLE GtfsFile
 (
     id VARCHAR(255) PRIMARY KEY,
@@ -6,6 +7,11 @@ CREATE TABLE GtfsFile
     file_size BIGINT NOT NULL -- Size of the file in bytes
 );
 
+ALTER TABLE GtfsDataset DROP COLUMN IF EXISTS zipped_size;
+ALTER TABLE GtfsDataset DROP COLUMN IF EXISTS unzipped_size;
+ALTER TABLE GtfsDataset DROP COLUMN IF EXISTS zipped_size_bytes;
+ALTER TABLE GtfsDataset DROP COLUMN IF EXISTS unzipped_size_bytes;
 ALTER TABLE GtfsDataset
-ADD COLUMN zipped_size BIGINT,
-ADD COLUMN unzipped_size BIGINT;
+ADD COLUMN zipped_size_bytes BIGINT,
+ADD COLUMN unzipped_size_bytes BIGINT;
+

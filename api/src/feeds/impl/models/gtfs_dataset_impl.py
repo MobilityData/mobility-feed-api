@@ -52,8 +52,10 @@ class GtfsDatasetImpl(GtfsDataset):
             service_date_range_start=gtfs_dataset.service_date_range_start,
             service_date_range_end=gtfs_dataset.service_date_range_end,
             agency_timezone=gtfs_dataset.agency_timezone,
-            unzipped_folder_size=round(gtfs_dataset.unzipped_size / 1024**2, 2)
-            if gtfs_dataset.unzipped_size
+            unzipped_folder_size_mb=round(gtfs_dataset.unzipped_size_bytes / 1024**2, 2)
+            if gtfs_dataset.unzipped_size_bytes
             else None,
-            zipped_folder_size=round(gtfs_dataset.zipped_size / 1024**2, 2) if gtfs_dataset.zipped_size else None,
+            zipped_folder_size_mb=round(gtfs_dataset.zipped_size_bytes / 1024**2, 2)
+            if gtfs_dataset.zipped_size_bytes
+            else None,
         )

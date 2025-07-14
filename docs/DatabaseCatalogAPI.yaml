@@ -810,11 +810,11 @@ components:
           description: The timezone of the agency.
           type: string
           example: America/Los_Angeles
-        zipped_folder_size:
+        zipped_folder_size_mb:
           description: The size of the zipped folder in MB.
           type: number
           example: 100.2
-        unzipped_folder_size:
+        unzipped_folder_size_mb:
           description: The size of the unzipped folder in MB.
           type: number
           example: 200.5
@@ -1028,11 +1028,11 @@ components:
               description: The timezone of the agency.
               type: string
               example: America/Los_Angeles
-            zipped_folder_size:
+            zipped_folder_size_mb:
               description: The size of the zipped folder in MB.
               type: number
               example: 100.2
-            unzipped_folder_size:
+            unzipped_folder_size_mb:
               description: The size of the unzipped folder in MB.
               type: number
               example: 200.5
