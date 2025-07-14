@@ -48,7 +48,12 @@ export const MapElement = (
   const renderRouteTypeIcon = (
     routeTypeMetadata: RouteTypeMetadata,
     routeColorText: string,
-  ): JSX.Element => {
+  ): JSX.Element | null => {
+    // The route type could be out of specs (e.g. google route types), so we may not have an icon.
+    if (!routeTypeMetadata || !routeTypeMetadata.icon) {
+       // Optionally render a default icon or return null
+       return null;
+    }
     const { icon: Icon } = routeTypeMetadata;
     return <Icon style={{ color:  routeColorText, fontSize: 20 }} />;
   };
