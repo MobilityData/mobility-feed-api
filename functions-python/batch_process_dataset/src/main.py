@@ -23,7 +23,7 @@ import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional
 
 import functions_framework
 from cloudevents.http import CloudEvent
@@ -140,7 +140,7 @@ class DatasetProcessor:
         blob.make_public()
         return blob
 
-    def upload_dataset(self) -> Union[DatasetFile, None]:
+    def upload_dataset(self) -> DatasetFile or None:
         """
         Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
@@ -266,7 +266,7 @@ class DatasetProcessor:
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
-    def process(self) -> Union[DatasetFile, None]:
+    def process(self) -> DatasetFile or None:
         """
         Process the dataset and store new version in GCP bucket if any changes are detected
         :return: the file hash and the hosted url as a tuple or None if no upload is required
