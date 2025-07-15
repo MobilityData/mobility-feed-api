@@ -23,47 +23,61 @@ def refresh_materialized_view_function(request):
     """
     try:
         logging.info("Starting materialized view refresh function.")
-        now = datetime.now(timezone.utc)
-        delay_minutes = 5
-        # Round up to the next 5-minute mark (bounce window)
-        delay_target = now + timedelta(minutes=delay_minutes)
-        bucket_time = delay_target.replace(
-            minute=(delay_target.minute // 5) * 5, second=0, microsecond=0
-        )
+        now = datetime.now()
 
-        # Generate deduplication key based on current timestamp
-        timestamp = bucket_time.strftime("%Y-%m-%d-%H-%M")
-        task_name = f"refresh-materialized-view-{timestamp}"
+        # BOUNCE WINDOW: next :00 or :30
+        minute = now.minute
+        if minute < 30:
+            bucket_time = now.replace(minute=30, second=0, microsecond=0)
+        else:
+            bucket_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(
+                hours=1
+            )
 
-        # Cloud Tasks client setup
+        timestamp_str = bucket_time.strftime("%Y-%m-%d-%H-%M")
+        task_name = f"refresh-materialized-view-{timestamp_str}"
+
+        # Cloud Tasks setup
         client = tasks_v2.CloudTasksClient()
-        project_id = os.getenv("PROJECT_ID")
-        queue = os.getenv("QUEUE_NAME")
+        project = os.getenv("PROJECT_ID")
         location = os.getenv("LOCATION")
-        url = os.getenv("FUNCTION_URL")
+        queue = os.getenv("QUEUE_NAME")
+        url = os.getenv("FUNCTION_URL_REFRESH_MV")
 
-        parent = client.queue_path(project_id, location, queue)
+        parent = client.queue_path(project, location, queue)
+        task_name = client.task_path(project, location, queue, task_name)
 
-        # Schedule time fix
-        schedule_time_pb = timestamp_pb2.Timestamp()
-        schedule_time_pb.FromDatetime(bucket_time)
+        # Convert to protobuf timestamp
+        proto_time = timestamp_pb2.Timestamp()
+        proto_time.FromDatetime(bucket_time)
 
         task = {
-            "name": client.task_path(project_id, location, queue, task_name),
+            "name": task_name,
             "http_request": {
-                "http_method": tasks_v2.HttpMethod.POST,
+                "http_method": tasks_v2.HttpMethod.GET,
                 "url": url,
                 "headers": {"Content-Type": "application/json"},
-                "body": b"",  # Empty body for this task
             },
-            "schedule_time": schedule_time_pb,
+            "schedule_time": proto_time,
         }
 
         # Enqueue the task
-        response = client.create_task(request={"parent": parent, "task": task})
-        logging.info(f"Task {response.name} enqueued successfully.")
-
-        return {"message": f"Task {response.name} enqueued successfully."}, 200
+        try:
+            client.create_task(request={"parent": parent, "task": task})
+            logging.info(
+                f"Scheduled refresh materialized view task for {timestamp_str}"
+            )
+            return {
+                "message": f"Scheduled materialized view task for {timestamp_str}"
+            }, 200
+        except Exception as e:
+            if "ALREADY_EXISTS" in str(e):
+                logging.info(f"Task already exists for {timestamp_str}, skipping.")
+                return {
+                    "message": f"Task already exists for {timestamp_str}, skipping."
+                }, 200
+            else:
+                raise
 
     except Exception as error:
         error_msg = f"Error enqueuing task: {error}"
@@ -74,7 +88,7 @@ def refresh_materialized_view_function(request):
 @with_db_session
 def refresh_materialized_view_task(request, db_session):
     """
-    Refreshes a materialized view using the CONCURRENTLY command to avoid
+    Refreshes the materialized view using the CONCURRENTLY command to avoid
     table locks. This function is triggered by a Cloud Task.
 
     Returns:
