@@ -18,11 +18,12 @@ import base64
 import json
 import os
 import random
+import requests
 import uuid
 import zipfile
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import functions_framework
 from cloudevents.http import CloudEvent
@@ -31,7 +32,7 @@ from sqlalchemy import func
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.database.database import with_db_session, refresh_materialized_view
+from shared.database.database import with_db_session
 import logging
 
 from shared.helpers.logger import init_logger, get_logger
@@ -139,7 +140,7 @@ class DatasetProcessor:
         blob.make_public()
         return blob
 
-    def upload_dataset(self) -> DatasetFile or None:
+    def upload_dataset(self) -> Union[DatasetFile, None]:
         """
         Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
@@ -249,14 +250,23 @@ class DatasetProcessor:
             db_session.commit()
             self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
-            refresh_materialized_view(db_session, t_feedsearch.name)
+            # Replace direct call to refresh_materialized_view with HTTP request to GCP function
+            function_url = os.getenv("FUNCTION_URL_REFRESH_MV")
+            if not function_url:
+                raise ValueError(
+                    "FUNCTION_URL_REFRESH_MV environment variable is not set"
+                )
+
+            response = requests.get(f"{function_url}/refresh-materialized-view")
+            response.raise_for_status()
             self.logger.info(
-                f"[{self.feed_stable_id}] Materialized view refresh event triggered successfully."
+                f"[{self.feed_stable_id}] Materialized view refresh event triggered "
+                "successfully."
             )
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
-    def process(self) -> DatasetFile or None:
+    def process(self) -> Union[DatasetFile, None]:
         """
         Process the dataset and store new version in GCP bucket if any changes are detected
         :return: the file hash and the hosted url as a tuple or None if no upload is required
