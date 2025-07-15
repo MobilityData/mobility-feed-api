@@ -7,6 +7,7 @@ from typing import Dict, Tuple, Optional, List
 
 import flask
 import pandas as pd
+import requests
 import shapely.geometry
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
@@ -375,7 +376,15 @@ def extract_location_aggregates(
 
     # Commit the changes to the database before refreshing the materialized view
     db_session.commit()
-    refresh_materialized_view(db_session, t_feedsearch.name)
+
+    # Replace direct call to refresh_materialized_view with HTTP request to GCP function
+    function_url = os.getenv("FUNCTION_URL_REFRESH_MV")
+    if not function_url:
+        raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")
+
+    response = requests.get(f"{function_url}/refresh-materialized-view")
+    response.raise_for_status()
+    logger.info("Materialized view refresh event triggered successfully.")
 
 
 @with_db_session
