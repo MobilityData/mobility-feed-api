@@ -1507,7 +1507,7 @@ resource "google_cloudfunctions2_function" "refresh_materialized_view" {
     runtime     = var.python_runtime
     entry_point = "refresh_materialized_view_function"
     environment_variables = {
-      FUNCTION_SIGNATURE_TYPE = "http" # or "event"
+      FUNCTION_SIGNATURE_TYPE = "http"
     }
     source {
       storage_source {
