@@ -1543,6 +1543,15 @@ resource "google_cloudfunctions2_function_iam_member" "refresh_materialized_view
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# Ensure the service account has the required IAM permissions to invoke the refresh_materialized_view function
+resource "google_cloudfunctions2_function_iam_member" "refresh_materialized_view_invoker" {
+  project        = var.project_id
+  location       = "northamerica-northeast1"  # Ensure the correct region is specified
+  cloud_function = google_cloudfunctions2_function.refresh_materialized_view.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 # Task queue to invoke refresh_materialized_view function
 resource "google_cloud_tasks_queue" "refresh_materialized_view_queue" {
   name     = "refresh-materialized-view-queue-${var.environment}"
