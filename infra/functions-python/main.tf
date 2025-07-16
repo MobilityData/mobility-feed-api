@@ -1498,8 +1498,8 @@ resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
 # 15. functions/refresh_materialized_view
 # Cloud Function for refresh_materialized_view
 resource "google_cloudfunctions2_function" "refresh_materialized_view" {
-  name        = "refresh-materialized-view-${var.environment}"
-  description = "Function to refresh materialized views asynchronously."
+  name        = "refresh-materialized-view"
+  description = "Function to refresh materialized view asynchronously."
   location    = var.gcp_region
   depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
 
@@ -1538,15 +1538,6 @@ resource "google_cloudfunctions2_function" "refresh_materialized_view" {
 resource "google_cloudfunctions2_function_iam_member" "refresh_materialized_view_invoker" {
   project        = var.project_id
   location       = var.gcp_region
-  cloud_function = google_cloudfunctions2_function.refresh_materialized_view.name
-  role           = "roles/cloudfunctions.invoker"
-  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
-}
-
-# Ensure the service account has the required IAM permissions to invoke the refresh_materialized_view function
-resource "google_cloudfunctions2_function_iam_member" "refresh_materialized_view_invoker" {
-  project        = var.project_id
-  location       = "northamerica-northeast1"  # Ensure the correct region is specified
   cloud_function = google_cloudfunctions2_function.refresh_materialized_view.name
   role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${google_service_account.functions_service_account.email}"
