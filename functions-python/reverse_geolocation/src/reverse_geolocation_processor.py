@@ -382,7 +382,7 @@ def extract_location_aggregates(
     if not function_url:
         raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")
 
-    response = requests.get(f"{function_url}/refresh-materialized-view")
+    response = requests.get(f"{function_url}")
     response.raise_for_status()
     logger.info("Materialized view refresh event triggered successfully.")
 

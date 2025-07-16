@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import functions_framework
 from google.protobuf import timestamp_pb2
 
-from shared.helpers import timezone
 from shared.helpers.logger import init_logger
 from shared.database.database import with_db_session
 

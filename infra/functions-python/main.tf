@@ -1008,6 +1008,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
       PYTHONNODEBUGRANGES = 0
       DATASETS_BUCKET_NAME_GTFS = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
+      FUNCTION_URL_REFRESH_MV = "https://${var.gcp_region}-${var.project_id}.cloudfunctions.net/refresh_materialized_view"
     }
     available_memory = local.function_reverse_geolocation_config.available_memory
     timeout_seconds = 3600
