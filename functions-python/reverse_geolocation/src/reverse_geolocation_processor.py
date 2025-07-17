@@ -38,8 +38,8 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.helpers.logger import get_logger
 
-import google.auth
-import google.auth.transport.requests
+from google.auth.transport import requests
+from google.auth import id_token
 
 
 @with_db_session
@@ -386,15 +386,13 @@ def extract_location_aggregates(
         raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")
 
     # Create an authorized request
-    auth_req = google.auth.transport.requests.Request()
+    auth_req = requests.Request()
 
     # Get an identity token for the target URL
-    id_token = google.auth.id_token.fetch_id_token(auth_req, refresh_url)
+    token = id_token.fetch_id_token(auth_req, refresh_url)
 
     # Make the HTTP request with the ID token
-    response = requests.get(
-        refresh_url, headers={"Authorization": f"Bearer {id_token}"}
-    )
+    response = requests.get(refresh_url, headers={"Authorization": f"Bearer {token}"})
 
     response.raise_for_status()
     logger.info("Materialized view refresh event triggered successfully.")
