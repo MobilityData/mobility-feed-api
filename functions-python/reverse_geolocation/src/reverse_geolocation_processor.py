@@ -39,7 +39,6 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.logger import get_logger
 
 import google.auth
-from google.auth.transport.requests import Request
 import google.auth.transport.requests
 
 
@@ -386,22 +385,15 @@ def extract_location_aggregates(
     if not refresh_url:
         raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")
 
-    # Fetch default credentials
-    credentials, _ = google.auth.default()
+    # Create an authorized request
+    auth_req = google.auth.transport.requests.Request()
 
-    # Get an ID token for the function
-    id_token_credentials = (
-        google.auth.transport.requests.IDTokenCredentials.from_credentials(
-            credentials, target_audience=refresh_url
-        )
-    )
+    # Get an identity token for the target URL
+    id_token = google.auth.id_token.fetch_id_token(auth_req, refresh_url)
 
-    # Refresh the token
-    id_token_credentials.refresh(Request())
-
-    # Make the authenticated request
+    # Make the HTTP request with the ID token
     response = requests.get(
-        refresh_url, headers={"Authorization": f"Bearer {id_token_credentials.token}"}
+        refresh_url, headers={"Authorization": f"Bearer {id_token}"}
     )
 
     response.raise_for_status()
