@@ -24,7 +24,7 @@ from location_group_utils import (
     geopolygons_as_string,
 )
 from parse_request import parse_request_parameters
-from shared.database.database import with_db_session, refresh_materialized_view
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Feed,
@@ -37,6 +37,10 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
 )
 from shared.helpers.logger import get_logger
+
+import google.auth
+from google.auth.transport.requests import Request
+import google.auth.transport.requests
 
 
 @with_db_session
@@ -378,11 +382,28 @@ def extract_location_aggregates(
     db_session.commit()
 
     # Replace direct call to refresh_materialized_view with HTTP request to GCP function
-    function_url = os.getenv("FUNCTION_URL_REFRESH_MV")
-    if not function_url:
+    refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
+    if not refresh_url:
         raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")
 
-    response = requests.get(f"{function_url}")
+    # Fetch default credentials
+    credentials, _ = google.auth.default()
+
+    # Get an ID token for the function
+    id_token_credentials = (
+        google.auth.transport.requests.IDTokenCredentials.from_credentials(
+            credentials, target_audience=refresh_url
+        )
+    )
+
+    # Refresh the token
+    id_token_credentials.refresh(Request())
+
+    # Make the authenticated request
+    response = requests.get(
+        refresh_url, headers={"Authorization": f"Bearer {id_token_credentials.token}"}
+    )
+
     response.raise_for_status()
     logger.info("Materialized view refresh event triggered successfully.")
 
