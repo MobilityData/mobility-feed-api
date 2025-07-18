@@ -7,7 +7,7 @@ from typing import Dict, Tuple, Optional, List
 
 import flask
 import pandas as pd
-import requests
+import requests as http_requests
 import shapely.geometry
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
@@ -39,7 +39,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.logger import get_logger
 
 from google.auth.transport import requests
-from google.auth import id_token
+from google.oauth2 import id_token
 
 
 @with_db_session
@@ -392,7 +392,8 @@ def extract_location_aggregates(
     token = id_token.fetch_id_token(auth_req, refresh_url)
 
     # Make the HTTP request with the ID token
-    response = requests.get(refresh_url, headers={"Authorization": f"Bearer {token}"})
+    headers = {"Authorization": f"Bearer {token}"}
+    response = http_requests.get(refresh_url, headers=headers)
 
     response.raise_for_status()
     logger.info("Materialized view refresh event triggered successfully.")
@@ -494,13 +495,15 @@ def reverse_geolocation_process(
         overall_duration = (datetime.now() - overall_start).total_seconds()
         logger.info(f"Total time taken for the process: {overall_duration:.2f} seconds")
         logger.info(
-            "COMPLETED. Processed %s stops for stable ID %s. Retrieved %s locations.",
+            "COMPLETED. Processed %s stops for stable ID %s. "
+            "Retrieved %s locations.",
             total_stops,
             stable_id,
             len(location_groups),
         )
         return (
-            f"Processed {total_stops} stops for stable ID {stable_id}. Retrieved {len(location_groups)} locations.",
+            f"Processed {total_stops} stops for stable ID {stable_id}. "
+            f"Retrieved {len(location_groups)} locations.",
             200,
         )
 
