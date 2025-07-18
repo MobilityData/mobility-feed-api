@@ -4,6 +4,8 @@ from google.cloud import tasks_v2
 from datetime import datetime, timedelta
 import functions_framework
 from google.protobuf import timestamp_pb2
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
 
 from shared.helpers.logger import init_logger
 from shared.database.database import with_db_session
@@ -50,12 +52,19 @@ def refresh_materialized_view_function(request):
         proto_time = timestamp_pb2.Timestamp()
         proto_time.FromDatetime(bucket_time)
 
+        # Fetch an identity token for the target URL
+        auth_req = Request()
+        token = id_token.fetch_id_token(auth_req, url)
+
         task = {
             "name": task_name,
             "http_request": {
                 "http_method": tasks_v2.HttpMethod.GET,
                 "url": url,
-                "headers": {"Content-Type": "application/json"},
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
             },
             "schedule_time": proto_time,
         }
@@ -66,9 +75,7 @@ def refresh_materialized_view_function(request):
             logging.info(
                 f"Scheduled refresh materialized view task for {timestamp_str}"
             )
-            return {
-                "message": f"Scheduled materialized view task for {timestamp_str}"
-            }, 200
+            return {"message": f"Refresh task for {timestamp_str} scheduled."}, 200
         except Exception as e:
             if "ALREADY_EXISTS" in str(e):
                 logging.info(f"Task already exists for {timestamp_str}, skipping.")
