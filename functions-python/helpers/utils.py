@@ -107,8 +107,11 @@ def download_and_get_hash(
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/126.0.0.0 Mobile Safari/537.36"
         }
+        # Careful, some URLs may already contain a query string
+        # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
         if authentication_type == 1 and api_key_parameter_name and credentials:
-            url += f"?{api_key_parameter_name}={credentials}"
+            separator = "&" if "?" in url else "?"
+            url += f"{separator}{api_key_parameter_name}={credentials}"
 
         # authentication_type == 2 -> the credentials are passed in the header
         if authentication_type == 2 and api_key_parameter_name and credentials:
