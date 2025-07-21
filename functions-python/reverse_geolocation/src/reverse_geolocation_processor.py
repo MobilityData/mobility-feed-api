@@ -32,7 +32,6 @@ from shared.database_gen.sqlacodegen_models import (
     Osmlocationgroup,
     Feedosmlocationgroup,
     Location,
-    t_feedsearch,
     Gtfsdataset,
     Gtfsfeed,
 )
@@ -380,7 +379,7 @@ def extract_location_aggregates(
     # Commit the changes to the database before refreshing the materialized view
     db_session.commit()
 
-    # Replace direct call to refresh_materialized_view with HTTP request to GCP function
+    # Replace direct call to refresh_materialized_view with HTTP request to the refresh function
     refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
     if not refresh_url:
         raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")

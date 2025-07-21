@@ -18,7 +18,7 @@ import base64
 import json
 import os
 import random
-import requests
+import requests as http_requests
 import uuid
 import zipfile
 from dataclasses import dataclass
@@ -30,7 +30,7 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch
+from shared.database_gen.sqlacodegen_models import Gtfsdatasets
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
 from shared.database.database import with_db_session
 import logging
@@ -38,6 +38,10 @@ import logging
 from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import download_and_get_hash
 from sqlalchemy.orm import Session
+
+from google.auth.transport import requests
+from google.oauth2 import id_token
+
 
 init_logger()
 
@@ -250,19 +254,25 @@ class DatasetProcessor:
             db_session.commit()
             self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
-            # Replace direct call to refresh_materialized_view with HTTP request to GCP function
-            function_url = os.getenv("FUNCTION_URL_REFRESH_MV")
-            if not function_url:
+            # Replace direct call to refresh_materialized_view with HTTP request to the refresh function
+            refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
+            if not refresh_url:
                 raise ValueError(
                     "FUNCTION_URL_REFRESH_MV environment variable is not set"
                 )
 
-            response = requests.get(f"{function_url}/refresh-materialized-view")
+            # Create an authorized request
+            auth_req = requests.Request()
+
+            # Get an identity token for the target URL
+            token = id_token.fetch_id_token(auth_req, refresh_url)
+
+            # Make the HTTP request with the ID token
+            headers = {"Authorization": f"Bearer {token}"}
+            response = http_requests.get(refresh_url, headers=headers)
+
             response.raise_for_status()
-            self.logger.info(
-                f"[{self.feed_stable_id}] Materialized view refresh event triggered "
-                "successfully."
-            )
+            self.logger.info("Materialized view refresh event triggered successfully.")
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 

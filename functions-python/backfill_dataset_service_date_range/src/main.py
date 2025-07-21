@@ -4,7 +4,7 @@ import functions_framework
 
 from shared.helpers.logger import init_logger
 
-from shared.database.database import with_db_session, refresh_materialized_view
+from shared.database.database import with_db_session
 
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import or_, func
@@ -17,13 +17,14 @@ from shared.helpers.timezone import (
 from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Validationreport,
-    t_feedsearch,
 )
 
-import requests
+import requests as http_requests
 import json
 
 from google.cloud import storage
+from google.auth.transport import requests
+from google.oauth2 import id_token
 
 env = os.getenv("ENV", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
@@ -146,7 +147,27 @@ def backfill_datasets(session: "Session"):
                 try:
                     changes_count = 0
                     session.commit()
-                    refresh_materialized_view(session, t_feedsearch.name)
+                    # Replace direct call to refresh_materialized_view with HTTP request to the refresh function
+                    refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
+                    if not refresh_url:
+                        raise ValueError(
+                            "FUNCTION_URL_REFRESH_MV environment variable is not set"
+                        )
+
+                    # Create an authorized request
+                    auth_req = requests.Request()
+
+                    # Get an identity token for the target URL
+                    token = id_token.fetch_id_token(auth_req, refresh_url)
+
+                    # Make the HTTP request with the ID token
+                    headers = {"Authorization": f"Bearer {token}"}
+                    response = http_requests.get(refresh_url, headers=headers)
+
+                    response.raise_for_status()
+                    logging.info(
+                        "Materialized view refresh event triggered successfully."
+                    )
                     logging.info(f"{changes_count} elements committed.")
                 except Exception as e:
                     logging.error("Error committing changes:", e)
