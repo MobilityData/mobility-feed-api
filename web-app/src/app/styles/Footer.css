@@ -1,11 +1,19 @@
 .footer {
     width: 100%;
     text-align: center;
-    padding: 10px;
+    padding: 40px 8px;
     font-size: 13px;
+    box-sizing: border-box;
+    min-height: 210px;
+    position: absolute;
+    bottom: 0;
 }
 
 .link-button:hover {
     color: white !important;
     background-color: #3959fa !important;
+}
+
+.link-button:hover svg path {
+    fill: white;
 }

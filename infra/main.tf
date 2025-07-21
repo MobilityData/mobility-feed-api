@@ -99,12 +99,16 @@ module "feed-api" {
   source = "./feed-api"
 }
 
+
 module "functions-python" {
   source = "./functions-python"
   project_id  = var.project_id
   gcp_region  = var.gcp_region
   environment = var.environment
-
+  
+  transitland_api_key = var.transitland_api_key
+  operations_oauth2_client_id = var.operations_oauth2_client_id
+  validator_endpoint = var.validator_endpoint
 }
 
 module "workflows" {
@@ -113,6 +117,7 @@ module "workflows" {
   gcp_region         = var.gcp_region
   environment        = var.environment
   validator_endpoint = var.validator_endpoint
+  processing_report_cloud_task_name = module.functions-python.processing_report_cloud_task_name
 }
 
 module "feed-api-load-balancer" {
@@ -129,4 +134,12 @@ module "feed-api-load-balancer" {
   function_tokens_name = module.functions-python.function_tokens_name
 
   source = "./load-balancer"
+}
+
+module "metrics" {
+  source = "./metrics"
+  depends_on = [module.functions-python]
+  project_id  = var.project_id
+  gcp_region  = var.gcp_region
+  environment = var.environment
 }

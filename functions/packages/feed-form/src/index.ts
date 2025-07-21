@@ -1,10 +1,11 @@
 import {initializeApp} from "firebase-admin/app";
-import {onRequest} from "firebase-functions/v2/https";
+import {CallableRequest, onCall} from "firebase-functions/v2/https";
 import * as feedAPI from "./impl/feed-form-impl";
+import {type FeedSubmissionFormRequestBody} from "./impl/types";
 
 initializeApp();
 
-export const writeToSheet = onRequest(
+export const writeToSheet = onCall(
   {
     minInstances: 0,
     maxInstances: 100,
@@ -12,7 +13,7 @@ export const writeToSheet = onRequest(
     cors: "*",
     region: "northamerica-northeast1",
   },
-  async (request, response) => {
-    await feedAPI.writeToSheet(request, response);
+  async (request: CallableRequest<FeedSubmissionFormRequestBody>) => {
+    return await feedAPI.writeToSheet(request);
   }
 );

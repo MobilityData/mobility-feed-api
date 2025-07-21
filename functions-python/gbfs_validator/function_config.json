@@ -1,0 +1,21 @@
+{
+  "name": "gbfs-validator",
+  "description": "Validate GBFS feeds",
+  "entry_point": "gbfs_validator",
+  "timeout": 540,
+  "memory": "2Gi",
+  "trigger_http": false,
+  "include_folders": ["helpers", "dataset_service"],
+  "include_api_folders": ["database_gen", "database", "common"],
+  "environment_variables": [],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_DATABASE_URL"
+    }
+  ],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 5,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}

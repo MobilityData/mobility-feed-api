@@ -1,0 +1,53 @@
+# Deploys all the resources to QA environment
+name: QA Release
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Supports manual deployment
+
+jobs:
+  bd-deployment:
+    name: Database Deployment
+    uses: ./.github/workflows/db-qa.yml
+    secrets: inherit
+  bd-update:
+    name: Database Update
+    needs: bd-deployment
+    uses: ./.github/workflows/db-update-qa.yml
+    secrets: inherit
+  batch-deployment:
+    name: Batch Processes Deployment
+    needs: bd-update
+    uses: ./.github/workflows/datasets-batch-deployer-qa.yml
+    secrets: inherit
+  api-deployment:
+    name: API Deployment
+    needs: batch-deployment
+    uses: ./.github/workflows/api-qa.yml
+    secrets: inherit
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    needs: api-deployment
+    with:
+      API_URL: "https://api-qa.mobilitydatabase.org"
+      ENVIRONMENT: 'qa'
+    secrets:
+      REFRESH_TOKEN: ${{ secrets.QA_API_TEST_REFRESH_TOKEN }}
+  web-deployment:
+    name: Web Deployment
+    needs: batch-deployment
+    uses: ./.github/workflows/web-qa.yml
+    secrets: inherit
+  notify-slack-on-failure:
+    needs: [ web-deployment, integration-tests ]
+    if: failure() && (github.event_name != 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack
+        with:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          PRIORITY: "high"

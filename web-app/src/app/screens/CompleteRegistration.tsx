@@ -38,23 +38,29 @@ export default function CompleteRegistration(): React.ReactElement {
 
   const termsAndConditionsElement = (
     <span>
-      I have read and I agree to the{' '}
-      <a href={'/terms-and-conditions'} target={'_blank'} rel={'noreferrer'}>
+      I have read and I agree to the
+      <Button
+        variant='text'
+        href={'/terms-and-conditions'}
+        target={'_blank'}
+        rel={'noreferrer'}
+      >
         terms and conditions
-      </a>
+      </Button>
     </span>
   );
 
   const privacyPolicyElement = (
     <span>
-      I have read and I agree to the{' '}
-      <a
+      I have read and I agree to the
+      <Button
+        variant='text'
         href={'https://mobilitydata.org/privacy-policy/'}
         target={'_blank'}
         rel={'noreferrer'}
       >
-        privacy policy
-      </a>
+        Privacy Policy
+      </Button>
     </span>
   );
 
@@ -109,7 +115,6 @@ export default function CompleteRegistration(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}

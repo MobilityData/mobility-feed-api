@@ -32,7 +32,7 @@ variable "environment" {
 variable "python_runtime" {
   type = string
   description = "Python runtime version"
-  default = "python310"
+  default = "python311"
 }
 
 variable "datasets_bucket_name" {
@@ -47,8 +47,48 @@ variable "public_hosted_datasets_dns" {
   default = "files.mobilitydatabase.org"
 }
 
-variable "web_validator_url" {
+variable "validator_endpoint" {
   type = string
   description = "URL of the web validator"
   default = "https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app"
+}
+
+variable "gbfs_bucket_name" {
+    type        = string
+    description = "Name of the bucket where the GBFS feeds are stored"
+    default     = "mobilitydata-gbfs-snapshots"
+}
+
+variable "gbfs_scheduler_schedule" {
+    type        = string
+    description = "Schedule for the GBFS scheduler job"
+    default     = "0 0 * * *" # At 00:00 every day
+}
+
+variable "transitland_scraping_schedule" {
+    type        = string
+    description = "Schedule Transitland scraping job"
+    default     = "0 0 3 * *" # every month on the 3rd day at 00:00
+}
+
+variable "transitland_api_key" {
+    type        = string
+    description = "Transitland API key"
+}
+
+variable "operations_oauth2_client_id" {
+  type = string
+  description = "value of the OAuth2 client id for the Operations API"
+}
+
+variable "export_csv_schedule" {
+    type        = string
+    description = "Schedule the export_csv function"
+    default = "0 4 * * 2,5" # At 4am every Tuesday and Friday.
+}
+
+variable "update_feed_status_schedule" {
+    type        = string
+    description = "Schedule the update_feed_status function"
+    default     = "0 4 * * *" # At 4am every day.
 }

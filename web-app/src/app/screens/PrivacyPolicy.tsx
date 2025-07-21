@@ -1,22 +1,21 @@
 import React from 'react';
-import { Box, Container, Typography } from '@mui/material';
-import CssBaseline from '@mui/material/CssBaseline';
-export default function TermsAndConditions(): React.ReactElement {
+import { Box, Container, Typography, useTheme } from '@mui/material';
+export default function PrivacyPolicy(): React.ReactElement {
+  const theme = useTheme();
   return (
-    <Container component='main' sx={{ width: '100vw', m: 0 }}>
-      <CssBaseline />
+    <Container component='main' sx={{ width: '100%', m: 'auto' }}>
       <Box
         sx={{
-          mt: 12,
           p: 10,
           pt: 2,
           display: 'flex',
           flexDirection: 'column',
-          width: '100vw',
-          background: '#F8F5F5',
+          width: '100%',
+          background: theme.palette.background.paper,
         }}
       >
         <Typography
+          component='h1'
           variant='h4'
           color='primary'
           sx={{ fontWeight: 700, pb: 4 }}

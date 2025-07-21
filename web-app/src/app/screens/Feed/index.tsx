@@ -9,12 +9,11 @@ import {
   Typography,
   Button,
   Grid,
-  colors,
+  Skeleton,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { ChevronLeft } from '@mui/icons-material';
-import '../../styles/SignUp.css';
-import '../../styles/FAQ.css';
-import { ContentBox } from '../../components/ContentBox';
+
 import { useAppDispatch } from '../../hooks';
 import { loadingFeed, loadingRelatedFeeds } from '../../store/feed-reducer';
 import {
@@ -25,108 +24,96 @@ import {
 import {
   selectFeedData,
   selectFeedLoadingStatus,
-  selectGTFSFeedData,
-  selectGTFSRTFeedData,
   selectRelatedFeedsData,
   selectRelatedGtfsRTFeedsData,
+  selectAutoDiscoveryUrl,
 } from '../../store/feed-selectors';
 import { clearDataset, loadingDataset } from '../../store/dataset-reducer';
 import {
   selectBoundingBoxFromLatestDataset,
   selectDatasetsData,
   selectDatasetsLoadingStatus,
+  selectHasLoadedAllDatasets,
   selectLatestDatasetsData,
 } from '../../store/dataset-selectors';
-import { Map } from '../../components/Map';
-import PreviousDatasets from './PreviousDatasets';
-import FeedSummary from './FeedSummary';
-import DataQualitySummary from './DataQualitySummary';
-import AssociatedFeeds from './AssociatedFeeds';
+import PreviousDatasets from './components/PreviousDatasets';
+import FeedSummary from './components/FeedSummary';
+import DataQualitySummary from './components/DataQualitySummary';
+import AssociatedFeeds from './components/AssociatedFeeds';
 import { WarningContentBox } from '../../components/WarningContentBox';
+import { Trans, useTranslation } from 'react-i18next';
+import { Helmet } from 'react-helmet-async';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import {
+  ctaContainerStyle,
+  feedDetailContentContainerStyle,
+} from './Feed.styles';
+import CoveredAreaMap from '../../components/CoveredAreaMap';
+
+import {
+  formatProvidersSorted,
+  generatePageTitle,
+  generateDescriptionMetaTag,
+} from './Feed.functions';
+import FeedTitle from './components/FeedTitle';
+import OfficialChip from '../../components/OfficialChip';
+import {
+  type GBFSFeedType,
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
-import { Trans, useTranslation } from 'react-i18next';
-import { type TFunction } from 'i18next';
-
-export function formatProvidersSorted(provider: string): string[] {
-  const providers = provider.split(',').filter((n) => n);
-  const providersTrimmed = providers.map((p) => p.trim());
-  const providersSorted = providersTrimmed.sort();
-  return providersSorted;
-}
-
-export function getFeedTitleElement(
-  sortedProviders: string[],
-  feed: GTFSFeedType | GTFSRTFeedType,
-  translationFunction: TFunction<'feeds', undefined>,
-): JSX.Element {
-  const mainProvider = sortedProviders[0];
-  let extraProviders: string | undefined;
-  let realtimeFeedName: string | undefined;
-  if (sortedProviders.length > 1) {
-    extraProviders =
-      '+' +
-      (sortedProviders.length - 1) +
-      ' ' +
-      translationFunction('common:others');
-  }
-  if (
-    feed?.data_type === 'gtfs_rt' &&
-    feed?.feed_name !== undefined &&
-    feed?.feed_name !== ''
-  ) {
-    realtimeFeedName = ` - ${feed?.feed_name}`;
-  }
-  return (
-    <Typography
-      sx={{
-        color: colors.blue.A700,
-        fontWeight: 'bold',
-        fontSize: { xs: 24, sm: 36 },
-        lineHeight: 'normal',
-      }}
-      data-testid='feed-provider'
-    >
-      {mainProvider + (realtimeFeedName ?? '')}
-      {extraProviders !== undefined && (
-        <Typography
-          component={'span'}
-          sx={{
-            fontSize: { xs: 16, sm: 24 },
-            ml: 1,
-          }}
-        >
-          {extraProviders}
-        </Typography>
-      )}
-    </Typography>
-  );
-}
+import DownloadIcon from '@mui/icons-material/Download';
+import GbfsFeedInfo from './components/GbfsFeedInfo';
+import GbfsVersions from './components/GbfsVersions';
+import generateFeedStructuredData from './StructuredData.functions';
 
 const wrapComponent = (
   feedLoadingStatus: string,
+  descriptionMeta: string | undefined,
+  feedDataType: string | undefined,
+  feedId: string | undefined,
+  structuredData: Record<string, unknown> | undefined,
   child: React.ReactElement,
 ): React.ReactElement => {
   const { t } = useTranslation('feeds');
+  const theme = useTheme();
   return (
-    <Container component='main' sx={{ width: '100%', m: 'auto' }} maxWidth='xl'>
+    <Container
+      component='main'
+      sx={{ width: '100%', m: 'auto', px: 0 }}
+      maxWidth='xl'
+    >
+      <Helmet>
+        {descriptionMeta != undefined && (
+          <meta name='description' content={descriptionMeta} />
+        )}
+        {feedDataType != undefined && (
+          <link
+            rel='canonical'
+            href={
+              window.location.origin + '/feeds/' + feedDataType + '/' + feedId
+            }
+          />
+        )}
+        {structuredData != undefined && (
+          <script type='application/ld+json'>
+            {JSON.stringify(structuredData)}
+          </script>
+        )}
+      </Helmet>
+
       <CssBaseline />
-      <Box
-        sx={{ mt: 12, display: 'flex', flexDirection: 'column' }}
-        margin={{ xs: '20px' }}
-      >
+      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         <Box
           sx={{
             width: '100%',
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
-            p: 5,
-            color: 'black',
+            p: 3,
+            color: theme.palette.text.primary,
             fontSize: '18px',
             fontWeight: 700,
-            mt: 4,
+            position: 'relative',
           }}
         >
           {feedLoadingStatus === 'error' && <>{t('errorLoadingFeed')}</>}
@@ -139,30 +126,65 @@ const wrapComponent = (
 
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const theme = useTheme();
   const dispatch = useAppDispatch();
-  const { feedId } = useParams();
+  const { feedId, feedDataType } = useParams();
   const user = useSelector(selectUserProfile);
   const feedLoadingStatus = useSelector(selectFeedLoadingStatus);
   const datasetLoadingStatus = useSelector(selectDatasetsLoadingStatus);
-  const feedType = useSelector(selectFeedData)?.data_type;
+  const dataTypeSelector = useSelector(selectFeedData)?.data_type;
+  const feedType = feedDataType ?? dataTypeSelector;
   const relatedFeeds = useSelector(selectRelatedFeedsData);
   const relatedGtfsRtFeeds = useSelector(selectRelatedGtfsRTFeedsData);
   const datasets = useSelector(selectDatasetsData);
+  const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
-  const feed =
-    feedType === 'gtfs'
-      ? useSelector(selectGTFSFeedData)
-      : useSelector(selectGTFSRTFeedData);
+  const feed = useSelector(selectFeedData);
+  const gbfsAutodiscoveryUrl = useSelector(selectAutoDiscoveryUrl);
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
   const sortedProviders = formatProvidersSorted(feed?.provider ?? '');
+  const DATASET_CALL_LIMIT = 10;
+  const [structuredData, setStructuredData] = React.useState<
+    Record<string, unknown> | undefined
+  >();
+
+  React.useMemo(() => {
+    const structuredData = generateFeedStructuredData(
+      feed,
+      generateDescriptionMetaTag(
+        t,
+        sortedProviders,
+        feed?.data_type,
+        feed?.feed_name,
+      ),
+      relatedFeeds,
+      relatedGtfsRtFeeds,
+    );
+    setStructuredData(structuredData);
+  }, [feed, relatedFeeds, relatedGtfsRtFeeds]);
+
+  const loadDatasets = (offset: number): void => {
+    if (feedId != undefined && hasLoadedAllDatasets === false) {
+      dispatch(
+        loadingDataset({
+          feedId,
+          offset,
+          limit: DATASET_CALL_LIMIT,
+        }),
+      );
+    }
+  };
 
   useEffect(() => {
-    if (user !== undefined && feedId !== undefined && needsToLoadFeed) {
+    if (user != undefined && feedId != undefined && needsToLoadFeed) {
       dispatch(clearDataset());
-      dispatch(loadingFeed({ feedId }));
+      dispatch(loadingFeed({ feedId, feedDataType }));
+      if (feedDataType === 'gtfs') {
+        loadDatasets(0);
+      }
     }
   }, [isAuthenticatedOrAnonymous, needsToLoadFeed]);
 
@@ -170,31 +192,29 @@ export default function Feed(): React.ReactElement {
     if (needsToLoadFeed) {
       return;
     }
-    let newDocTitle = 'Mobility Database';
-    if (sortedProviders[0] !== undefined) {
-      newDocTitle += ` | ${sortedProviders[0]}`;
-    }
-    if (feed?.feed_name !== undefined) {
-      newDocTitle += ` | ${feed?.feed_name}`;
-    }
-    document.title = newDocTitle;
+    document.title = generatePageTitle(
+      sortedProviders,
+      feed.data_type,
+      feed?.feed_name,
+    );
     if (
       feed?.data_type === 'gtfs_rt' &&
       feedLoadingStatus === 'loaded' &&
-      feed.feed_references !== undefined
+      (feed as GTFSRTFeedType)?.feed_references != undefined
     ) {
       dispatch(
         loadingRelatedFeeds({
-          feedIds: feed.feed_references,
+          feedIds: (feed as GTFSRTFeedType)?.feed_references ?? [],
         }),
       );
     }
     if (
-      feedId !== undefined &&
+      feedId != undefined &&
       feed?.data_type === 'gtfs' &&
-      feedLoadingStatus === 'loaded'
+      feedLoadingStatus === 'loaded' &&
+      datasets == undefined
     ) {
-      dispatch(loadingDataset({ feedId }));
+      loadDatasets(0);
     }
     return () => {
       document.title = 'Mobility Database';
@@ -202,20 +222,124 @@ export default function Feed(): React.ReactElement {
   }, [feed, needsToLoadFeed]);
 
   // The feedId parameter doesn't match the feedId in the store, so we need to load the feed and only render the loading message.
-  if (needsToLoadFeed) {
-    return wrapComponent(feedLoadingStatus, <span>{t('common:loading')}</span>);
+  const areDatasetsLoading =
+    feed?.data_type === 'gtfs' &&
+    datasetLoadingStatus === 'loading' &&
+    datasets == undefined;
+  const isCurrenltyLoadingFeed =
+    feedLoadingStatus === 'loading' || areDatasetsLoading;
+  if (needsToLoadFeed || isCurrenltyLoadingFeed) {
+    return wrapComponent(
+      feedLoadingStatus,
+      undefined,
+      feedType,
+      feedId,
+      structuredData,
+      <Box>
+        <Skeleton
+          animation='wave'
+          variant='text'
+          sx={{ fontSize: '2rem', width: '300px' }}
+        />
+        <Skeleton
+          animation='wave'
+          variant='text'
+          sx={{ fontSize: '3rem', width: { xs: '100%', sm: '500px' } }}
+        />
+        <Skeleton
+          animation='wave'
+          variant='rounded'
+          height={'30px'}
+          width={'300px'}
+        />
+        <Box
+          sx={{
+            background: 'rgba(0,0,0,0.2)',
+            height: '1px',
+            width: '100%',
+            mb: 3,
+            mt: 2,
+          }}
+        ></Box>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            width={'162px'}
+            height={'40px'}
+          />
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            width={'162px'}
+            height={'40px'}
+          />
+        </Box>
+        <Box
+          sx={{
+            mt: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 3,
+            flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          }}
+        >
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            sx={{ width: { xs: '100%', sm: '100%' }, height: '630px' }}
+          />
+          <Skeleton
+            animation='wave'
+            variant='rectangular'
+            sx={{
+              width: { xs: '100%', sm: '100%' },
+              height: '630px',
+            }}
+          />
+        </Box>
+      </Box>,
+    );
   }
-  const hasDatasets = datasets !== undefined && datasets.length > 0;
+  const hasDatasets = datasets != undefined && datasets.length > 0;
   const hasFeedRedirect =
-    feed?.redirects !== undefined && feed?.redirects.length > 0;
+    feed?.redirects != undefined && feed?.redirects.length > 0;
   const downloadLatestUrl =
     feed?.data_type === 'gtfs'
-      ? feed?.latest_dataset?.hosted_url
+      ? (feed as GTFSFeedType)?.latest_dataset?.hosted_url
       : feed?.source_info?.producer_url;
+
+  const gbfsOpenFeedUrlElement = (): React.JSX.Element => {
+    if (gbfsAutodiscoveryUrl == undefined) {
+      return <></>;
+    }
+    return (
+      <Button
+        disableElevation
+        variant='contained'
+        sx={{ marginRight: 2 }}
+        href={gbfsAutodiscoveryUrl}
+        target='_blank'
+        rel='noreferrer'
+        endIcon={<OpenInNewIcon></OpenInNewIcon>}
+      >
+        {t('gbfs:openAutoDiscoveryUrl')}
+      </Button>
+    );
+  };
 
   return wrapComponent(
     feedLoadingStatus,
-    <Grid container spacing={2}>
+    generateDescriptionMetaTag(
+      t,
+      sortedProviders,
+      feed.data_type,
+      feed?.feed_name,
+    ),
+    feedType,
+    feedId,
+    structuredData,
+    <Box sx={{ position: 'relative' }}>
       <Grid container item xs={12} spacing={3} alignItems={'center'}>
         <Grid
           item
@@ -243,172 +367,261 @@ export default function Feed(): React.ReactElement {
               },
             }}
           >
-            <a href='/feeds'>{t('common:feeds')}</a> /{' '}
-            <a href={`/feeds?${feed?.data_type}=true`}>
-              {feed?.data_type === 'gtfs'
-                ? t('common:gtfsSchedule')
-                : t('common:gtfsRealtime')}
-            </a>{' '}
-            / {feed?.id}
+            <Button variant='text' href='/feeds' className='inline'>
+              {t('common:feeds')}
+            </Button>
+            /
+            <Button
+              variant='text'
+              href={`/feeds?${feed?.data_type}=true`}
+              className='inline'
+            >
+              {t(`common:${feed?.data_type}`)}
+            </Button>
+            /{' '}
+            {feed.data_type === 'gbfs'
+              ? feed?.id?.replace('gbfs-', '')
+              : feed?.id}
           </Typography>
         </Grid>
       </Grid>
-      <Grid item xs={12}>
-        {getFeedTitleElement(sortedProviders, feed, t)}
-      </Grid>
-      {feed !== undefined &&
-        feed.feed_name !== '' &&
-        feed?.data_type === 'gtfs' && (
-          <Grid item xs={12}>
-            <Typography
-              sx={{
-                fontWeight: 'bold',
-                fontSize: { xs: 18, sm: 24 },
-              }}
-              data-testid='feed-name'
+      <Box sx={{ mt: 2 }}>
+        <FeedTitle sortedProviders={sortedProviders} feed={feed} />
+      </Box>
+      {feed?.feed_name !== '' && feed?.data_type === 'gtfs' && (
+        <Grid item xs={12}>
+          <Typography
+            sx={{
+              fontWeight: 'bold',
+              fontSize: { xs: 18, sm: 24 },
+            }}
+            data-testid='feed-name'
+          >
+            {feed?.feed_name}
+          </Typography>
+        </Grid>
+      )}
+
+      {feed?.data_type === 'gtfs' && (
+        <DataQualitySummary
+          feedStatus={feed?.status}
+          isOfficialFeed={feed.official === true}
+          latestDataset={latestDataset}
+        />
+      )}
+      {feed?.data_type === 'gtfs_rt' && feed.official === true && (
+        <Box sx={{ my: 1 }}>
+          <OfficialChip></OfficialChip>
+        </Box>
+      )}
+      <Box>
+        {latestDataset?.validation_report?.validated_at != undefined && (
+          <Typography
+            data-testid='last-updated'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {`${t('qualityReportUpdated')}: ${new Date(
+              latestDataset.validation_report.validated_at,
+            ).toDateString()}`}
+          </Typography>
+        )}
+        {feed?.official_updated_at != undefined && (
+          <Typography
+            data-testid='last-updated'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {`${t('officialFeedUpdated')}: ${new Date(
+              feed?.official_updated_at,
+            ).toDateString()}`}
+          </Typography>
+        )}
+        {feed.external_ids?.some((eId) => eId.source === 'tld') === true && (
+          <Typography
+            data-testid='transitland-attribution'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {t('dataAattribution')}{' '}
+            <a
+              rel='noreferrer nofollow'
+              target='_blank'
+              href='https://www.transit.land/terms'
             >
-              {feed?.feed_name}
+              Transitland
+            </a>
+          </Typography>
+        )}
+        {feed.external_ids?.some((eId) => eId.source === 'ntd') === true && (
+          <Typography
+            data-testid='fta-attribution'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {t('dataAattribution')}
+            {' the United States '}
+            <a
+              rel='noreferrer nofollow'
+              target='_blank'
+              href='https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks'
+            >
+              National Transit Database
+            </a>
+          </Typography>
+        )}
+      </Box>
+
+      {feed?.data_type === 'gtfs_rt' &&
+        (feed as GTFSRTFeedType)?.entity_types != undefined && (
+          <Grid item xs={12}>
+            <Typography variant='h5'>
+              {' '}
+              {((feed as GTFSRTFeedType)?.entity_types ?? [])
+                .map(
+                  (entityType) =>
+                    ({
+                      tu: t('common:gtfsRealtimeEntities.tripUpdates'),
+                      vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
+                      sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
+                    })[entityType],
+                )
+                .join(' ' + t('common:and') + ' ')}
             </Typography>
           </Grid>
         )}
-      {latestDataset?.downloaded_at !== undefined && (
-        <Grid item xs={12}>
-          <Typography data-testid='last-updated'>
-            {`Last updated on ${new Date(
-              latestDataset.downloaded_at,
-            ).toDateString()}`}
-          </Typography>
-        </Grid>
-      )}
-      {feed?.data_type === 'gtfs_rt' && feed.entity_types !== undefined && (
-        <Grid item xs={12}>
-          <Typography variant='h5'>
-            {' '}
-            {feed.entity_types
-              .map(
-                (entityType) =>
-                  ({
-                    tu: t('common:gtfsRealtimeEntities.tripUpdates'),
-                    vp: t('common:gtfsRealtimeEntities.vehiclePositions'),
-                    sa: t('common:gtfsRealtimeEntities.serviceAlerts'),
-                  })[entityType],
-              )
-              .join(' ' + t('common:and') + ' ')}
-          </Typography>
-        </Grid>
-      )}
       {feedType === 'gtfs' &&
         datasetLoadingStatus === 'loaded' &&
         !hasDatasets &&
         !hasFeedRedirect && (
-          <Grid item xs={12}>
-            <WarningContentBox>
-              <Trans i18nKey='unableToDownloadFeed'>
-                Unable to download this feed. If there is a more recent URL for
-                this feed, <a href='/contribute'>please submit it here</a>
-              </Trans>
-            </WarningContentBox>
-          </Grid>
+          <WarningContentBox>
+            <Trans i18nKey='unableToDownloadFeed'>
+              Unable to download this feed. If there is a more recent URL for
+              this feed,{' '}
+              <Button variant='text' className='inline' href='/contribute'>
+                please submit it here
+              </Button>
+            </Trans>
+          </WarningContentBox>
         )}
       {hasFeedRedirect && (
         <Grid item xs={12}>
           <WarningContentBox>
             <Trans i18nKey='feedHasBeenReplaced'>
-              This feed has been replaced with a different producer URL.{' '}
-              <a href={`/feeds/${feed?.redirects?.[0]?.target_id}`}>
+              This feed has been replaced with a different producer URL.
+              <Button
+                variant='text'
+                className='inline'
+                href={`/feeds/${feed?.redirects?.[0]?.target_id}`}
+              >
                 Go to the new feed here
-              </a>
-              .
+              </Button>
             </Trans>
           </WarningContentBox>
         </Grid>
       )}
-      <Grid item xs={12} marginBottom={2}>
-        {feedType === 'gtfs' && downloadLatestUrl !== undefined && (
-          <Button disableElevation variant='contained' sx={{ marginRight: 2 }}>
-            <a
-              href={downloadLatestUrl}
-              target='_blank'
-              className='btn-link'
-              rel='noreferrer'
-              id='download-latest-button'
-            >
-              {t('downloadLatest')}
-            </a>
+      <Box sx={ctaContainerStyle}>
+        {feedType === 'gtfs' && downloadLatestUrl != undefined && (
+          <Button
+            disableElevation
+            variant='contained'
+            href={downloadLatestUrl}
+            target='_blank'
+            rel='noreferrer nofollow'
+            id='download-latest-button'
+            endIcon={<DownloadIcon></DownloadIcon>}
+          >
+            {t('downloadLatest')}
           </Button>
         )}
-        {feed?.source_info?.license_url !== undefined &&
+        {latestDataset?.validation_report?.url_html != undefined && (
+          <Button
+            variant='contained'
+            disableElevation
+            href={`${latestDataset?.validation_report?.url_html}`}
+            target='_blank'
+            rel='noreferrer nofollow'
+            endIcon={<OpenInNewIcon></OpenInNewIcon>}
+          >
+            {t('openFullQualityReport')}
+          </Button>
+        )}
+        {feed?.data_type === 'gbfs' && <>{gbfsOpenFeedUrlElement()}</>}
+        {feed?.source_info?.license_url != undefined &&
           feed?.source_info?.license_url !== '' && (
             <Button
               disableElevation
               variant='contained'
               sx={{ marginRight: 2 }}
+              href={feed?.source_info?.license_url}
+              target='_blank'
+              rel='noreferrer'
+              endIcon={<OpenInNewIcon></OpenInNewIcon>}
             >
-              <a
-                href={feed?.source_info?.license_url}
-                target='_blank'
-                className='btn-link'
-                rel='noreferrer'
-              >
-                {t('seeLicense')}
-              </a>
+              {t('seeLicense')}
             </Button>
           )}
-      </Grid>
+      </Box>
       <Grid item xs={12}>
-        <Grid item xs={12} container rowSpacing={2}>
-          <Grid
-            container
-            direction={{
-              xs: feed?.data_type === 'gtfs' ? 'column-reverse' : 'column',
-              md: 'row',
-            }}
-            sx={{ gap: '10px' }}
-            justifyContent={'space-between'}
-          >
-            {feed?.data_type === 'gtfs' && (
-              <ContentBox
-                title={t('boundingBoxTitle')}
-                width={{ xs: '100%', md: '42%' }}
-                outlineColor={colors.blue[900]}
-                padding={2}
-              >
-                {boundingBox === undefined && (
-                  <WarningContentBox>
-                    {t('unableToGenerateBoundingBox')}
-                  </WarningContentBox>
-                )}
-                {boundingBox !== undefined && (
-                  <Box width={{ xs: '100%' }} sx={{ mt: 2, mb: 2 }}>
-                    <Map polygon={boundingBox} />
-                  </Box>
-                )}
-                <DataQualitySummary latestDataset={latestDataset} />
-              </ContentBox>
-            )}
-            <FeedSummary
-              feed={feed}
-              sortedProviders={sortedProviders}
+        <Box
+          sx={feedDetailContentContainerStyle({
+            theme,
+            isGtfsRT: feed?.data_type === 'gtfs_rt',
+          })}
+        >
+          {(feed?.data_type === 'gtfs' || feed.data_type === 'gbfs') && (
+            <CoveredAreaMap
+              boundingBox={boundingBox}
               latestDataset={latestDataset}
-              width={{ xs: '100%', md: '55%' }}
+              feed={feed}
             />
+          )}
 
-            {feed?.data_type === 'gtfs_rt' && relatedFeeds !== undefined && (
-              <AssociatedFeeds
-                feeds={relatedFeeds.filter((f) => f?.id !== feed.id)}
-                gtfsRtFeeds={relatedGtfsRtFeeds.filter(
-                  (f) => f?.id !== feed.id,
-                )}
+          <Box sx={{ width: { xs: '100%', md: '60%' } }}>
+            {feed.data_type === 'gbfs' ? (
+              <GbfsFeedInfo
+                feed={feed as GTFSFeedType}
+                autoDiscoveryUrl={gbfsAutodiscoveryUrl}
+              ></GbfsFeedInfo>
+            ) : (
+              <FeedSummary
+                feed={feed}
+                sortedProviders={sortedProviders}
+                latestDataset={latestDataset}
+                width={{ xs: '100%' }}
               />
             )}
-          </Grid>
-        </Grid>
+          </Box>
+
+          {feed?.data_type === 'gtfs_rt' && relatedFeeds != undefined && (
+            <AssociatedFeeds
+              feeds={relatedFeeds.filter((f) => f?.id !== feed.id)}
+              gtfsRtFeeds={relatedGtfsRtFeeds.filter((f) => f?.id !== feed.id)}
+            />
+          )}
+        </Box>
       </Grid>
+
+      {feed?.data_type === 'gbfs' && (
+        <GbfsVersions feed={feed as GBFSFeedType}></GbfsVersions>
+      )}
+
       {feed?.data_type === 'gtfs' && hasDatasets && (
         <Grid item xs={12}>
-          <PreviousDatasets datasets={datasets} />
+          <PreviousDatasets
+            datasets={datasets}
+            isLoadingDatasets={datasetLoadingStatus === 'loading'}
+            hasloadedAllDatasets={hasLoadedAllDatasets ?? false}
+            loadMoreDatasets={(offset: number) => {
+              loadDatasets(offset);
+            }}
+          />
         </Grid>
       )}
-    </Grid>,
+    </Box>,
   );
 }

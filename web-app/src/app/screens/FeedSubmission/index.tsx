@@ -7,15 +7,16 @@ import {
   Container,
   CssBaseline,
   Typography,
-  colors,
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import { selectIsAuthenticated } from '../../store/profile-selectors';
-import FeedSubmissionStepper from './FeedSubmissionStepper';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import Contribute from '../Contribute';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
+import FeedSubmissionForm from './Form';
+import { MainPageHeader } from '../../styles/PageHeader.style';
+import { ColoredContainer } from '../../styles/PageLayout.style';
 
 function Component(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -30,25 +31,15 @@ function Component(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           mx: 'auto',
-          maxWidth: '85%',
         }}
       >
         {!isAuthenticated && (
           <>
-            <Typography
-              variant='h5'
-              color='primary'
-              sx={{ fontWeight: 'bold' }}
-            >
-              {t('form.addOrUpdateFeed')}
-            </Typography>
+            <MainPageHeader>{t('form.addOrUpdateFeed')}</MainPageHeader>
             <Typography sx={{ my: 2 }}>{t('form.signUp')}</Typography>
-            <Button variant='contained'>
-              <a href='/sign-up?add_feed=true' className='btn-link'>
-                {t('form.signUpAction')}
-              </a>
+            <Button variant='contained' href='/sign-up?add_feed=true'>
+              {t('form.signUpAction')}
             </Button>
           </>
         )}
@@ -67,41 +58,42 @@ function Component(): React.ReactElement {
               </Alert>
             )}
 
-            <Box
-              sx={{
-                p: 3,
-                background: colors.grey[100],
-              }}
-            >
+            <ColoredContainer>
               <Typography>
-                Do you have any questions about how to submit a feed?{' '}
-                <a href='/contribute-faq' style={{ fontWeight: 'bold' }}>
+                Do you have any questions about how to submit a feed?
+                <Button
+                  variant='text'
+                  className='inline'
+                  sx={{ fontWeight: 700 }}
+                  href={'/contribute-faq'}
+                  rel='noreferrer'
+                  target='_blank'
+                >
                   Read our FAQ
-                </a>
+                </Button>
+                <br /> <br />
+                Want to submit a GBFS feed to the Mobility Database? Contribute
+                through the&#20;
+                <Button
+                  variant='text'
+                  className='line-start inline'
+                  sx={{ fontWeight: 700 }}
+                  href={
+                    'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+                  }
+                  rel='noreferrer'
+                  target='_blank'
+                >
+                  GBFS systems catalog
+                </Button>
               </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                mx: 'auto',
-                mb: '80px',
-                maxWidth: '750px',
-              }}
-            >
-              <Typography
-                variant='h4'
-                sx={{
-                  color: colors.blue.A700,
-                  fontWeight: 'bold',
-                  my: 3,
-                  ml: 5,
-                }}
-              >
+            </ColoredContainer>
+            <Container maxWidth='md'>
+              <MainPageHeader sx={{ my: 3 }}>
                 Add or update a feed
-              </Typography>
-              <FeedSubmissionStepper />
-            </Box>
+              </MainPageHeader>
+              <FeedSubmissionForm />
+            </Container>
           </>
         )}
       </Box>

@@ -31,6 +31,7 @@ const sagaMiddleware = createSagaMiddleware();
 
 export const store = configureStore({
   reducer: persistedReducer,
+  devTools: process.env.NODE_ENV !== 'production',
   middleware: (getDefaultMiddleware) => [
     ...getDefaultMiddleware({
       serializableCheck: {
@@ -40,6 +41,13 @@ export const store = configureStore({
     sagaMiddleware,
   ],
 });
+
+// Expose store to Cypress e2e tests
+/* eslint-disable */
+if (window.Cypress) {
+  (window as any).store = store;
+}
+/* eslint-enable */
 
 sagaMiddleware.run(rootSaga);
 

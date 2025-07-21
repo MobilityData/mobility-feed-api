@@ -11,17 +11,16 @@
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
 
 # Default filename for OUT_FILE
-DEFAULT_FILENAME="api/src/database_gen/sqlacodegen_models.py"
+DEFAULT_FILENAME="api/src/shared/database_gen/sqlacodegen_models.py"
 # Use the first argument as the filename for OUT_FILE; if not provided, use the default filename
 FILENAME=${1:-$DEFAULT_FILENAME}
 OUT_FILE=$SCRIPT_PATH/../$FILENAME
-COPY_TO_PATH=$SCRIPT_PATH/../functions-python/database_gen/
 
 ENV_PATH=$SCRIPT_PATH/../config/.env.local
 source "$ENV_PATH"
 
-rm -rf "$SCRIPT_PATH/../api/src/database_gen/"
-mkdir "$SCRIPT_PATH/../api/src/database_gen/"
+rm -rf "$SCRIPT_PATH/../api/src/shared/database_gen/"
+mkdir "$SCRIPT_PATH/../api/src/shared/database_gen/"
 pip3 install -r "${SCRIPT_PATH}/../api/requirements.txt" > /dev/null
 
 # removing sqlacodegen.log file
@@ -46,10 +45,6 @@ echo "Completed SQLAlchemy models generation"
 printf "/n--- Generated models ---/n"
 cat ${OUT_FILE}
 echo "/n---End of generated models ---/n"
-
-rm -rf "${COPY_TO_PATH}"
-mkdir -p "${COPY_TO_PATH}"
-cp "${OUT_FILE}" "${COPY_TO_PATH}"
 
 print_logs (){
   if [ -s ${SCRIPT_PATH}/sqlacodegen.log ]

@@ -130,11 +130,7 @@ def test_search_feeds_provider_one_feed(client: TestClient, search_query: str):
 
 @pytest.mark.parametrize(
     "data_type, expected_results_total",
-    [
-        ("gtfs", 7),
-        ("not_valid_gtfs", 0),
-        ("gtfs_rt", 2),
-    ],
+    [("gtfs", 10), ("not_valid_gtfs", 0), ("gtfs_rt", 3), ("gtfs,gtfs_rt", 13)],
 )
 def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expected_results_total: int):
     """
@@ -168,16 +164,16 @@ def test_search_feeds_filter_data_type(client: TestClient, data_type: str, expec
     assert len(response_body.results) == expected_results_total
     if expected_results_total > 1:
         for result in response_body.results:
-            assert result.data_type == data_type
+            assert result.data_type in data_type.split(",")
 
 
 @pytest.mark.parametrize(
     "status, expected_results_total",
     [
-        ("active", 6),
+        ("active", 12),
         ("not_valid_status", 0),
-        ("inactive", 1),
-        ("active,inactive", 7),
+        ("inactive", 2),
+        ("active,inactive", 14),
     ],
 )
 def test_search_feeds_filter_status(client: TestClient, status: str, expected_results_total: int):
@@ -388,3 +384,140 @@ def test_search_feeds_filter_accents(client: TestClient, values: dict):
     assert len(response_body.results) == len(values["expected_ids"])
     assert response_body.total == len(values["expected_ids"])
     assert all(result.id in values["expected_ids"] for result in response_body.results)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"official": True, "expected_count": 2},
+        {"official": False, "expected_count": 14},
+        {"official": None, "expected_count": 16},
+    ],
+    ids=[
+        "Official",
+        "Not official",
+        "Not specified",
+    ],
+)
+def test_search_filter_by_official_status(client: TestClient, values: dict):
+    """
+    Retrieve feeds with the official status.
+    """
+    params = None
+    if values["official"] is not None:
+        params = [
+            ("is_official", str(values["official"]).lower()),
+        ]
+
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds for official={values['official']}"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"versions": "1.0", "expected_count": 0},
+        {"versions": "2.3,3.0", "expected_count": 2},
+        {"versions": "3.0", "expected_count": 1},
+        {"versions": "2.3", "expected_count": 2},
+        {"versions": None, "expected_count": 16},
+    ],
+    ids=[
+        "Version 1.0",
+        "Versions 2.3 and 3.0",
+        "Version 3.0",
+        "Version 2.3",
+        "No version specified",
+    ],
+)
+def test_search_filter_by_versions(client: TestClient, values: dict):
+    """
+    Retrieve feeds with the version.
+    """
+    params = None
+    if values["versions"] is not None:
+        params = [
+            ("version", values["versions"]),
+        ]
+
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.parse_obj(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds for versions={values['versions']}"
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"feature": "", "expected_count": 16},
+        {"feature": "Bike Allowed", "expected_count": 2},
+        {"feature": "Stops Wheelchair Accessibility", "expected_count": 0},
+    ],
+    ids=[
+        "All",
+        "Bike Allowed",
+        "Stops Wheelchair Accessibility",
+    ],
+)
+def test_search_filter_by_feature(client: TestClient, values: dict):
+    """
+    Retrieve feeds that contain specific features.
+    """
+    params = None
+    if values["feature"] is not None:
+        params = [
+            ("feature", values["feature"]),
+        ]
+
+    headers = {
+        "Authentication": "special-key",
+    }
+    response = client.request(
+        "GET",
+        "/v1/search",
+        headers=headers,
+        params=params,
+    )
+    # Assert the status code of the HTTP response
+    assert response.status_code == 200
+
+    # Parse the response body into a Python object
+    response_body = SearchFeeds200Response.model_validate(response.json())
+    expected_count = values["expected_count"]
+    assert (
+        response_body.total == expected_count
+    ), f"There should be {expected_count} feeds with feature={values['feature']}"
+
+    # Verify all returned feeds have at least one of the requested features
+    if values["feature"] and expected_count > 0:
+        requested_features = set(values["feature"].split(","))
+        for result in response_body.results:
+            features = result.latest_dataset.validation_report.features
+            # Check that at least one of the feed's features is in the requested features
+            assert requested_features.intersection(features), (
+                f"Feed {result.id} with features {features} does not match " f"requested features {requested_features}"
+            )

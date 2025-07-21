@@ -18,16 +18,17 @@ import os
 from unittest import mock
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from batch_datasets.src.main import get_non_deprecated_feeds, batch_datasets
-from test_utils.database_utils import get_testing_session, default_db_url
+from main import get_non_deprecated_feeds, batch_datasets
+from shared.database.database import with_db_session
+from test_shared.test_utils.database_utils import default_db_url
 
 
-def test_get_non_deprecated_feeds():
-    with get_testing_session() as session:
-        feeds = get_non_deprecated_feeds(session)
-        assert len(feeds) == 10
-        assert len([feed for feed in feeds if feed.status == "active"]) == 3
-        assert len([feed for feed in feeds if feed.status == "inactive"]) == 7
+@with_db_session(db_url=default_db_url)
+def test_get_non_deprecated_feeds(db_session):
+    feeds = get_non_deprecated_feeds(db_session)
+    assert len(feeds) == 10
+    assert len([feed for feed in feeds if feed.status == "active"]) == 3
+    assert len([feed for feed in feeds if feed.status == "inactive"]) == 7
 
 
 @mock.patch.dict(
@@ -39,36 +40,37 @@ def test_get_non_deprecated_feeds():
         "FEEDS_LIMIT": "5",
     },
 )
-@patch("batch_datasets.src.main.publish")
-@patch("batch_datasets.src.main.get_pubsub_client")
-def test_batch_datasets(mock_client, mock_publish):
+@patch("main.publish")
+@patch("main.get_pubsub_client")
+@with_db_session(db_url=default_db_url)
+def test_batch_datasets(mock_client, mock_publish, db_session):
     mock_client.return_value = MagicMock()
-    with get_testing_session() as session:
-        feeds = get_non_deprecated_feeds(session)
+    feeds = get_non_deprecated_feeds(db_session)
+    with patch(
+        "shared.dataset_service.main.BatchExecutionService.__init__",
+        return_value=None,
+    ):
         with patch(
-            "dataset_service.main.BatchExecutionService.__init__", return_value=None
+            "shared.dataset_service.main.BatchExecutionService.save",
+            return_value=None,
         ):
-            with patch(
-                "dataset_service.main.BatchExecutionService.save", return_value=None
-            ):
-                batch_datasets(Mock())
-                assert mock_publish.call_count == 5
-                # loop over mock_publish.call_args_list and check that the stable_id of the feed is in the list of
-                # active feeds
-                for i in range(3):
-                    message = json.loads(
-                        mock_publish.call_args_list[i][0][2].decode("utf-8")
-                    )
-                    assert message["feed_stable_id"] in [
-                        feed.stable_id for feed in feeds
-                    ]
+            batch_datasets(Mock())
+            assert mock_publish.call_count == 5
+            # loop over mock_publish.call_args_list and check that the stable_id of the feed is in the list of
+            # active feeds
+            for i in range(3):
+                message = json.loads(
+                    mock_publish.call_args_list[i][0][2].decode("utf-8")
+                )
+                assert message["feed_stable_id"] in [feed.stable_id for feed in feeds]
 
 
-@patch("batch_datasets.src.main.start_db_session")
-def test_batch_datasets_exception(start_db_session_mock):
+def test_batch_datasets_exception():
     exception_message = "Failure occurred"
-    start_db_session_mock.side_effect = Exception(exception_message)
+    mock_session = MagicMock()
+    mock_session.side_effect = Exception(exception_message)
+
     with pytest.raises(Exception) as exec_info:
-        batch_datasets(Mock())
+        batch_datasets(Mock(), mock_session)
 
         assert str(exec_info.value) == exception_message

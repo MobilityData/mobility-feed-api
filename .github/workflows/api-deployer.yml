@@ -12,6 +12,9 @@ on:
       OAUTH2_CLIENT_SECRET:
         description: Oauth client secret part of the the Identity Aware Proxy configuration
         required: true
+      OP_SERVICE_ACCOUNT_TOKEN:
+        description: 1Password service account token
+        required: true
     inputs:
       ENVIRONMENT:
         description: API environment. Possible values prod, staging and dev
@@ -53,6 +56,14 @@ on:
         description: Validator endpoint
         required: true
         type: string
+      OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD:
+        description: Oauth client id part of the authorization for the operations API
+        required: true
+        type: string
+      SKIP_TESTS:
+        description: The skip test parameter is useful for DEV environment deployments, not advised for QA and PROD.
+        required: true
+        type: boolean
 
 env:
   python_version: '3.11'
@@ -67,6 +78,8 @@ jobs:
   api-build-test:
     uses: ./.github/workflows/build-test.yml
     name: Build & Test
+    with:
+      SKIP_TESTS: ${{ inputs.SKIP_TESTS }}
 
   create-artifact-repo:
     runs-on: ubuntu-latest
@@ -75,7 +88,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.python_version }}
 
@@ -102,7 +115,7 @@ jobs:
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/artifact-registry/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
           scripts/replace-variables.sh -in_file infra/artifact-registry/vars.tfvars.rename_me -out_file infra/artifact-registry/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,ARTIFACT_REPO_NAME
 
-      - uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.3
           terraform_wrapper: false
@@ -162,7 +175,7 @@ jobs:
           credentials_json: ${{ secrets.GCP_MOBILITY_FEEDS_SA_KEY }}
 
       - name: Login to Google Artifact Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{inputs.REGION}}-docker.pkg.dev
           username: _json_key_base64
@@ -174,7 +187,7 @@ jobs:
           java-version: ${{ env.java_version }}
           distribution: 'temurin'
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.python_version }}
 
@@ -192,11 +205,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: database_gen
-          path: api/src/database_gen/
-
-      - name: Copy to db models to functions directory
-        run: |
-          cp -R api/src/database_gen/ functions-python/database_gen
+          path: api/src/shared/database_gen/
 
       # api schema was generated and uploaded in api-build-test job above.
       - uses: actions/download-artifact@v4
@@ -215,10 +224,10 @@ jobs:
 
       - name: Build & Publish Docker Image
         run: |
-          # We want to generate the image even if it's the same commit that has been tagged. So use the version 
-          # (coming from the tag) in the docker image tag (If the docket tag does not change it's won't be uploaded)
+          # We want to generate the image even if it's the same commit that has been tagged. So use the version
+          # (coming from the tag) in the docker image tag (If the docker tag does not change it won't be uploaded)
           DOCKER_IMAGE_VERSION=$EXTRACTED_VERSION.$FEED_API_IMAGE_VERSION
-          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $DOCKER_IMAGE_VERSION         
+          scripts/docker-build-push.sh -project_id $PROJECT_ID -repo_name feeds-$ENVIRONMENT -service feed-api -region $REGION -version $DOCKER_IMAGE_VERSION
 
   terraform-deploy:
     runs-on: ubuntu-latest
@@ -232,7 +241,7 @@ jobs:
       - name: Extract commit hash and version from git
         run: ./scripts/extract-hash-and-version.sh
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.python_version }}
 
@@ -240,17 +249,18 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: database_gen
-          path: api/src/database_gen/
-
-      - name: Copy to db models to functions directory
-        run: |
-          cp -R api/src/database_gen/ functions-python/database_gen
+          path: api/src/shared/database_gen/
 
       # api schema was generated and uploaded in api-build-test job above.
       - uses: actions/download-artifact@v4
         with:
           name: feeds_gen
           path: api/src/feeds_gen/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: feeds_operations_gen
+          path: functions-python/operations_api/src/feeds_operations_gen/
 
       - name: Build python functions
         run: |
@@ -280,12 +290,21 @@ jobs:
           echo "GLOBAL_RATE_LIMIT_REQ_PER_MINUTE=${{ inputs.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}" >> $GITHUB_ENV
           echo "VALIDATOR_ENDPOINT=${{ inputs.VALIDATOR_ENDPOINT }}" >> $GITHUB_ENV
 
+      - name: Load secret from 1Password
+        uses: 1password/load-secrets-action@v2
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          TRANSITLAND_API_KEY: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/TansitLand API Key/credential"
+          OPERATIONS_OAUTH2_CLIENT_ID: ${{ inputs.OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD }}
+
       - name: Populate Variables
         run: |
           scripts/replace-variables.sh -in_file infra/backend.conf.rename_me -out_file infra/backend.conf -variables BUCKET_NAME,OBJECT_PREFIX
-          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT
+          scripts/replace-variables.sh -in_file infra/vars.tfvars.rename_me -out_file infra/vars.tfvars -variables PROJECT_ID,REGION,ENVIRONMENT,DEPLOYER_SERVICE_ACCOUNT,FEED_API_IMAGE_VERSION,OAUTH2_CLIENT_ID,OAUTH2_CLIENT_SECRET,GLOBAL_RATE_LIMIT_REQ_PER_MINUTE,ARTIFACT_REPO_NAME,VALIDATOR_ENDPOINT,TRANSITLAND_API_KEY,OPERATIONS_OAUTH2_CLIENT_ID
 
-      - uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.3
           terraform_wrapper: false
@@ -305,6 +324,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
 
+      - name: Persist TF plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan.txt
+          path: infra/terraform-plan.txt
+          overwrite: true
+
       - name: Terraform Apply
         if: ${{ inputs.TF_APPLY }}
         run: |
@@ -313,10 +339,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
-
-      - name: Persist TF plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan.txt
-          path: infra/terraform-plan.txt
-          overwrite: true

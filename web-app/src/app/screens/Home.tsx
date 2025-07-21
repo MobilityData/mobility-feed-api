@@ -3,8 +3,13 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
-import '../styles/SignUp.css';
-import { Button, Divider, InputAdornment, TextField } from '@mui/material';
+import {
+  Button,
+  Divider,
+  InputAdornment,
+  TextField,
+  useTheme,
+} from '@mui/material';
 import {
   Search,
   CheckCircleOutlineOutlined,
@@ -12,9 +17,9 @@ import {
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import LegacyHome from './LegacyHome';
-import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import AnimatedNumbers from 'react-animated-numbers';
+import { WEB_VALIDATOR_LINK } from '../constants/Navigation';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import '../styles/TextShimmer.css';
 
 interface ActionBoxProps {
   IconComponent: React.ElementType;
@@ -34,13 +39,14 @@ const ActionBox = ({
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
+      flexGrow: 1,
+      flexBasis: 0,
+      minWidth: 0,
     }}
   >
     <IconComponent sx={{ width: '100%', height: iconHeight }} />
-    <Button variant='contained' sx={{ m: 2, px: 2 }}>
-      <a href={buttonHref} className='btn-link' rel='noreferrer'>
-        {buttonText}
-      </a>
+    <Button variant='contained' href={buttonHref} sx={{ m: 2, px: 2 }}>
+      {buttonText}
     </Button>
   </Box>
 );
@@ -48,9 +54,15 @@ const ActionBox = ({
 function Component(): React.ReactElement {
   const [searchInputValue, setSearchInputValue] = useState('');
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const handleSearch = (): void => {
-    navigate(`/feeds?q=${encodeURIComponent(searchInputValue)}`);
+    const encodedURI = encodeURIComponent(searchInputValue.trim());
+    if (encodedURI.length === 0) {
+      navigate('/feeds');
+    } else {
+      navigate(`/feeds?q=${encodedURI}`);
+    }
   };
 
   const handleKeyDown = (
@@ -62,76 +74,57 @@ function Component(): React.ReactElement {
   };
 
   return (
-    <Container component='main'>
+    <Container component='main' sx={{ px: { xs: 0, md: 3 } }}>
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
+          mt: 6,
           display: 'flex',
           flexDirection: 'column',
         }}
-        margin={{ xs: '80px 20px', m: '80px auto' }}
-        maxWidth={{ xs: '100%', m: '1600px' }}
+        mx={{ xs: '20px', m: 'auto' }}
+        maxWidth={{ xs: '100%', md: '1600px' }}
       >
         <Typography
+          component={'h1'}
           sx={{
             fontSize: {
-              xs: '48px',
-              sm: '60px',
-              md: '72px',
+              xs: '36px',
+              sm: '48px',
             },
             fontStyle: 'normal',
             fontWeight: 700,
             lineHeight: 'normal',
             textAlign: 'center',
           }}
-          color='primary'
           data-testid='home-title'
+          className='shimmer'
         >
-          The Mobility Database
+          Explore and Access Global Transit Data
         </Typography>
         <Typography
-          component='h1'
+          component='h2'
           variant='h5'
           sx={{
             textAlign: 'center',
-            color: 'black',
             fontWeight: 700,
             mt: 4,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 1,
           }}
         >
           Currently serving over
-          <AnimatedNumbers
-            includeComma
-            transitions={() => ({
-              type: 'spring',
-              duration: 2.3,
-              stiffness: 20,
-            })}
-            animateToNumber={2000}
-            fontStyle={{
-              fontSize: 30,
-              color: '#3859FA',
-            }}
-          />
-          transit data feeds from{' '}
-          <AnimatedNumbers
-            includeComma
-            transitions={() => ({
-              type: 'spring',
-              duration: 2.3,
-              stiffness: 20,
-            })}
-            animateToNumber={70}
-            fontStyle={{
-              fontSize: 30,
-              color: '#3859FA',
-            }}
-          />
+          <Box
+            component='span'
+            sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
+          >
+            4000
+          </Box>
+          transportation data feeds from over
+          <Box
+            component='span'
+            sx={{ fontSize: 30, color: theme.palette.primary.main, mx: 1 }}
+          >
+            75
+          </Box>
           countries.
         </Typography>
         <Box
@@ -145,6 +138,9 @@ function Component(): React.ReactElement {
             sx={{
               width: '80%',
               mt: 6,
+              fieldset: {
+                borderColor: theme.palette.primary.main,
+              },
             }}
             value={searchInputValue}
             onChange={(e) => {
@@ -208,7 +204,11 @@ function Component(): React.ReactElement {
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'space-around',
+            justifyContent: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            width: '700px',
+            maxWidth: '100%',
+            margin: 'auto',
           }}
         >
           <ActionBox
@@ -232,27 +232,49 @@ function Component(): React.ReactElement {
         </Box>
         <Box
           sx={{
-            background: '#F8F5F5',
+            background: theme.palette.background.paper,
             borderRadius: '6px 0px 0px 6px',
-            p: 5,
-            color: 'black',
+            p: {
+              xs: 2,
+              sm: 4,
+            },
             fontSize: '18px',
             fontWeight: 700,
             mr: 0,
             mt: 5,
           }}
         >
-          The Mobility Database is a directory of 2000+ mobility feeds across
-          the world. It has over 250 updated feeds previously unavailable on
-          TransitFeeds (OpenMobilityData) and shares data quality reports from{' '}
-          <a href='https://gtfs-validator.mobilitydata.org/'>
+          The Mobility Database is an open data catalog including over 4000
+          GTFS, GTFS Realtime, and GBFS feeds in over 75 countries. Whether
+          you’re a transportation operator, a researcher studying public transit
+          and shared mobility trends, or a maps app needing reliable data to use
+          with your application, the Mobility Database has everything you need
+          in one central location.
+          <br />
+          <br />
+          Our database integrates with
+          <Button
+            variant='text'
+            className='inline'
+            href={WEB_VALIDATOR_LINK}
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
             the Canonical GTFS Schedule Validator
-          </a>
-          .
-          <br />
-          <br />
-          We’re in the first phase of building a sustainable, central hub for
-          mobility data internationally.
+          </Button>
+          and
+          <Button
+            variant='text'
+            className='inline'
+            href='https://gbfs-validator.mobilitydata.org/'
+            rel='noreferrer'
+            target='_blank'
+            endIcon={<OpenInNewIcon />}
+          >
+            the GBFS Validator
+          </Button>
+          to provide detailed data quality reports on every feed.
         </Box>
       </Box>
     </Container>
@@ -260,9 +282,5 @@ function Component(): React.ReactElement {
 }
 
 export default function Home(): React.ReactElement {
-  const { config } = useRemoteConfig();
-  if (config.enableFeedsPage) {
-    return <Component />;
-  }
-  return <LegacyHome />;
+  return <Component />;
 }

@@ -1,10 +1,13 @@
 import {
+  type AllFeedType,
+  type BasicFeedType,
+  type GBFSFeedType,
+  type GBFSVersionType,
   type GTFSFeedType,
   type GTFSRTFeedType,
+  isGbfsFeedType,
   isGtfsFeedType,
   isGtfsRtFeedType,
-  type BasicFeedType,
-  type AllFeedType,
 } from '../services/feeds/utils';
 import { type RootState } from './store';
 
@@ -25,9 +28,39 @@ export const selectGTFSRTFeedData = (state: RootState): GTFSRTFeedType => {
     ? state.feedProfile.data
     : undefined;
 };
+export const selectGBFSFeedData = (state: RootState): GBFSFeedType => {
+  return isGbfsFeedType(state.feedProfile.data)
+    ? state.feedProfile.data
+    : undefined;
+};
 
 export const selectFeedId = (state: RootState): string => {
   return state.feedProfile.feedId ?? 'mdb-1';
+};
+
+export const selectAutodiscoveryGbfsVersion = (
+  state: RootState,
+): GBFSVersionType | undefined => {
+  if (state.feedProfile.data?.data_type === 'gbfs') {
+    return (state.feedProfile.data as GBFSFeedType)?.versions?.find(
+      (v) => v.source === 'autodiscovery',
+    );
+  }
+  return undefined;
+};
+
+export const selectAutoDiscoveryUrl = (
+  state: RootState,
+): string | undefined => {
+  if (state.feedProfile.data?.data_type === 'gbfs') {
+    const gbfsFeed: GBFSFeedType = state.feedProfile.data;
+    return (
+      gbfsFeed?.versions
+        ?.find((v) => v.source === 'autodiscovery')
+        ?.endpoints?.find((e) => e.name === 'gbfs')?.url ??
+      gbfsFeed?.source_info?.producer_url
+    );
+  }
 };
 
 export const selectRelatedFeedsData = (state: RootState): AllFeedType[] => {

@@ -21,11 +21,14 @@ jobs:
       FEED_API_IMAGE_VERSION: ${{ github.sha }}
       GLOBAL_RATE_LIMIT_REQ_PER_MINUTE: ${{ vars.GLOBAL_RATE_LIMIT_REQ_PER_MINUTE }}
       TF_APPLY: true
+      SKIP_TESTS: true
       VALIDATOR_ENDPOINT: https://stg-gtfs-validator-web-mbzoxaljzq-ue.a.run.app
+      OPERATIONS_OAUTH2_CLIENT_ID_1PASSWORD: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/GCP_RETOOL_OAUTH2_CREDS/username"
     secrets:
       GCP_MOBILITY_FEEDS_SA_KEY: ${{ secrets.DEV_GCP_MOBILITY_FEEDS_SA_KEY }}
       OAUTH2_CLIENT_ID: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_ID}}
       OAUTH2_CLIENT_SECRET: ${{ secrets.DEV_MOBILITY_FEEDS_OAUTH2_CLIENT_SECRET}}
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
 
   integration-tests:
     if: ${{ github.event.inputs.run_integration_tests == 'true' }}
@@ -34,6 +37,7 @@ jobs:
       - api-build-deployment
     with:
       API_URL: 'https://api-dev.mobilitydatabase.org'
+      ENVIRONMENT: 'dev'
     secrets:
       REFRESH_TOKEN: ${{ secrets.DEV_API_TEST_REFRESH_TOKEN }}
 

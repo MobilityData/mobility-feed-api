@@ -5,10 +5,17 @@ import json
 
 from fastapi.testclient import TestClient
 
-from database.database import Database
-from database_gen.sqlacodegen_models import Feed, Externalid, Gtfsdataset, Redirectingid, Gtfsfeed, Gtfsrealtimefeed
-from feeds.filters.feed_filter import FeedFilter
-from feeds.impl.models.basic_feed_impl import BaseFeedImpl
+from feeds.impl.models.feed_impl import FeedImpl
+from shared.database.database import Database
+from shared.database_gen.sqlacodegen_models import (
+    Feed,
+    Externalid,
+    Gtfsdataset,
+    Redirectingid,
+    Gtfsfeed,
+    Gtfsrealtimefeed,
+)
+from shared.feed_filters.feed_filter import FeedFilter
 from tests.test_utils.database import TEST_GTFS_FEED_STABLE_IDS, TEST_GTFS_RT_FEED_STABLE_ID
 from tests.test_utils.token import authHeaders
 
@@ -27,7 +34,7 @@ mock_feed = Feed(
     note="test_note",
     feed_contact_email="test_feed_contact_email",
     producer_url="test_producer_url",
-    authentication_type=1,
+    authentication_type="1",
     authentication_info_url="test_authentication_info_url",
     api_key_parameter_name="test_api_key_parameter_name",
     license_url="test_license_url",
@@ -48,7 +55,7 @@ mock_feed = Feed(
 )
 
 expected_feed_response = json.loads(
-    BaseFeedImpl(
+    FeedImpl(
         id="test_id",
         data_type="gtfs",
         created_at="2023-07-10T22:06:00Z",
@@ -80,13 +87,16 @@ def test_feeds_get(client: TestClient, mocker):
     """
     Unit test for get_feeds
     """
+    # Build the chain of calls to mimic what is done in impl.feeds_api_impl.FeedsApiImpl.get_feeds
     mock_filter = mocker.patch.object(FeedFilter, "filter")
+    mock_filter_limit = Mock()
     mock_filter_offset = Mock()
     mock_filter_order_by = Mock()
     mock_options = Mock()
     mock_filter.return_value.filter.return_value.order_by.return_value = mock_filter_order_by
     mock_filter_order_by.options.return_value = mock_options
-    mock_options.offset.return_value = mock_filter_offset
+    mock_options.limit.return_value = mock_filter_limit
+    mock_filter_limit.offset.return_value = mock_filter_offset
     # Target is set to None as deep copy is failing for unknown reasons
     # At the end of the test, the target is set back to the original value
     mock_feed.redirectingids[0].target = None
@@ -148,10 +158,12 @@ def test_gtfs_feeds_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    feed_mdb_10 = Database().get_query_model(Gtfsfeed).filter(Gtfsfeed.stable_id == "mdb-10").first()
-    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_gtfs_feed = response.json()[0]
-    assert_gtfs(feed_mdb_10, response_gtfs_feed)
+    db = Database()
+    with db.start_db_session() as session:
+        feed_mdb_10 = db.get_query_model(session, Gtfsfeed).filter(Gtfsfeed.stable_id == "mdb-10").first()
+        assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+        response_gtfs_feed = response.json()[0]
+        assert_gtfs(feed_mdb_10, response_gtfs_feed)
 
 
 def test_gtfs_feeds_get_no_bounding_box(client: TestClient, mocker):
@@ -196,10 +208,14 @@ def test_gtfs_feed_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    gtfs_feed = Database().get_query_model(Gtfsfeed).filter(Gtfsfeed.stable_id == TEST_GTFS_FEED_STABLE_IDS[0]).first()
-    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_gtfs_feed = response.json()
-    assert_gtfs(gtfs_feed, response_gtfs_feed)
+    db = Database()
+    with db.start_db_session() as session:
+        gtfs_feed = (
+            db.get_query_model(session, Gtfsfeed).filter(Gtfsfeed.stable_id == TEST_GTFS_FEED_STABLE_IDS[0]).first()
+        )
+        assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+        response_gtfs_feed = response.json()
+        assert_gtfs(gtfs_feed, response_gtfs_feed)
 
 
 def test_gtfs_rt_feeds_get(client: TestClient, mocker):
@@ -212,16 +228,17 @@ def test_gtfs_rt_feeds_get(client: TestClient, mocker):
         headers=authHeaders,
     )
 
-    gtfs_rt_feed = (
-        Database()
-        .get_query_model(Gtfsrealtimefeed)
-        .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
-        .first()
-    )
+    db = Database()
+    with db.start_db_session() as session:
+        gtfs_rt_feed = (
+            db.get_query_model(session, Gtfsrealtimefeed)
+            .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
+            .first()
+        )
 
-    assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
-    response_gtfs_rt_feed = response.json()[0]
-    assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
+        assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
+        response_gtfs_rt_feed = response.json()[0]
+        assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
 
 
 def test_gtfs_rt_feed_get(client: TestClient, mocker):
@@ -236,13 +253,14 @@ def test_gtfs_rt_feed_get(client: TestClient, mocker):
 
     assert response.status_code == 200, f"Response status code was {response.status_code} instead of 200"
     response_gtfs_rt_feed = response.json()
-    gtfs_rt_feed = (
-        Database()
-        .get_query_model(Gtfsrealtimefeed)
-        .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
-        .first()
-    )
-    assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
+    db = Database()
+    with db.start_db_session() as session:
+        gtfs_rt_feed = (
+            db.get_query_model(session, Gtfsrealtimefeed)
+            .filter(Gtfsrealtimefeed.stable_id == TEST_GTFS_RT_FEED_STABLE_ID)
+            .first()
+        )
+        assert_gtfs_rt(gtfs_rt_feed, response_gtfs_rt_feed)
 
 
 def assert_gtfs(gtfs_feed, response_gtfs_feed):

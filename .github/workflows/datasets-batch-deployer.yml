@@ -39,6 +39,9 @@ on:
         description: Service account key
         required: true
 
+env:
+  python_version: '3.11'
+
 jobs:
   terraform:
     name: 'Terraform'
@@ -80,6 +83,10 @@ jobs:
           docker compose --env-file ./config/.env.local up -d postgres
         working-directory: ${{ github.workspace }}
 
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.python_version }}
+
       - name: Install Liquibase
         run: |    
           wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
@@ -112,14 +119,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: database_gen
-          path: functions-python/database_gen/
+          path: api/src/shared/database_gen/
 
       - name: Build python functions
         run: |
           scripts/function-python-build.sh --all
 
       - name: Install Terraform
-        uses: hashicorp/setup-terraform@v1
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.3
           terraform_wrapper: false

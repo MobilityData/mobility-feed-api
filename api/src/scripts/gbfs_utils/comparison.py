@@ -1,13 +1,11 @@
 import pandas as pd
 from sqlalchemy.orm import joinedload
-from database_gen.sqlacodegen_models import Gbfsfeed
+from shared.database_gen.sqlacodegen_models import Gbfsfeed
 
 
 def generate_system_csv_from_db(df, db_session):
     """Generate a DataFrame from the database with the same columns as the CSV file."""
-    stable_ids = "gbfs-" + df["System ID"]
     query = db_session.query(Gbfsfeed)
-    query = query.filter(Gbfsfeed.stable_id.in_(stable_ids.to_list()))
     query = query.options(
         joinedload(Gbfsfeed.locations), joinedload(Gbfsfeed.gbfsversions), joinedload(Gbfsfeed.externalids)
     )
@@ -29,6 +27,9 @@ def generate_system_csv_from_db(df, db_session):
                 "Supported Versions": " ; ".join(supported_versions),
             }
         )
+    if not data:
+        # Return an empty DataFrame with the same columns
+        return pd.DataFrame(columns=df.columns)
     return pd.DataFrame(data)
 
 
@@ -38,13 +39,17 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
     df_from_db = df_from_db.fillna("")
     df_from_csv = df_from_csv.fillna("")
 
+    df_from_db = df_from_db.drop(columns=["Supported Versions"])
+    df_from_csv = df_from_csv.drop(columns=["Supported Versions"])
+
     if df_from_db.empty:
         logger.info("No data found in the database.")
         return None, None
 
     # Align both DataFrames by "System ID"
-    df_from_db.set_index("System ID", inplace=True)
-    df_from_csv.set_index("System ID", inplace=True)
+    # Keep the System ID column because it's used later in the code
+    df_from_db.set_index("System ID", inplace=True, drop=False)
+    df_from_csv.set_index("System ID", inplace=True, drop=False)
 
     # Find rows that are in the CSV but not in the DB (new feeds)
     missing_in_db = df_from_csv[~df_from_csv.index.isin(df_from_db.index)]
@@ -62,8 +67,12 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
     common_ids = df_from_db.index.intersection(df_from_csv.index)
     df_db_common = df_from_db.loc[common_ids]
     df_csv_common = df_from_csv.loc[common_ids]
-    differences = df_db_common != df_csv_common
-    differing_rows = df_db_common[differences.any(axis=1)]
+
+    # Exclude 'Location' from comparison because the DB values might have been changed in the
+    # python function that calculates the location.
+    columns_to_compare = [col for col in df_db_common.columns if col != "Location"]
+    differences = df_db_common[columns_to_compare] != df_csv_common[columns_to_compare]
+    differing_rows = df_csv_common[differences.any(axis=1)]
 
     if not differing_rows.empty:
         logger.info("Rows with differences:")
@@ -77,6 +86,7 @@ def compare_db_to_csv(df_from_db, df_from_csv, logger):
             logger.info(80 * "-")
 
     # Merge differing rows with missing_in_db to capture all new or updated feeds
-    all_differing_or_new_rows = pd.concat([differing_rows, missing_in_db]).reset_index()
+    # Drop the index because we have it as the System ID column.
+    all_differing_or_new_rows = pd.concat([differing_rows, missing_in_db]).reset_index(drop=True)
 
     return all_differing_or_new_rows, missing_in_csv

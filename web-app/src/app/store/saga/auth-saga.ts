@@ -124,15 +124,15 @@ function* changePasswordSaga({
   oldPassword: string;
   newPassword: string;
 }>): Generator {
-  const user = app.auth().currentUser;
-  if (user === null) {
-    throw new Error('User not found');
-  }
-  if (user.email === null) {
-    throw new Error('User email not found');
-  }
-  const credential = EmailAuthProvider.credential(user.email, oldPassword);
   try {
+    const user = app.auth().currentUser;
+    if (user === null) {
+      throw new Error('User not found');
+    }
+    if (user.email === null) {
+      throw new Error('User email not found');
+    }
+    const credential = EmailAuthProvider.credential(user.email, oldPassword);
     yield reauthenticateWithCredential(user, credential);
     yield user.updatePassword(newPassword);
     yield put(changePasswordSuccess());
@@ -191,6 +191,7 @@ function* resetPasswordSaga({
 
 function* anonymousLoginSaga(): Generator {
   try {
+    const auth = getAuth();
     // Check if the user is already authenticated
     const isAuthenticated: boolean = (yield select(
       selectIsAuthenticated,
@@ -207,7 +208,6 @@ function* anonymousLoginSaga(): Generator {
     }
 
     // Sign in anonymously
-    const auth = getAuth();
     yield call(async () => {
       await signInAnonymously(auth);
     });
@@ -234,8 +234,9 @@ function* anonymousLoginSaga(): Generator {
       });
       return;
     }
-    const firebaseUser = app.auth().currentUser;
-    if (firebaseUser === null) {
+
+    const firebaseUserPostLogin = app.auth().currentUser;
+    if (firebaseUserPostLogin === null) {
       yield put(
         anonymousLoginFailed({
           code: 'unknown',
@@ -247,7 +248,7 @@ function* anonymousLoginSaga(): Generator {
     }
     const currentUser = {
       ...user,
-      refreshToken: firebaseUser.refreshToken,
+      refreshToken: firebaseUserPostLogin.refreshToken,
     };
     yield put(loginSuccess(currentUser as User));
   } catch (error) {

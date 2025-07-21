@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import SignIn from '../screens/SignIn';
 import SignUp from '../screens/SignUp';
 import Account from '../screens/Account';
@@ -27,6 +27,13 @@ import { logout } from '../store/profile-reducer';
 import FeedSubmission from '../screens/FeedSubmission';
 import FeedSubmissionFAQ from '../screens/FeedSubmissionFAQ';
 import FeedSubmitted from '../screens/FeedSubmitted';
+import GTFSFeedAnalytics from '../screens/Analytics/GTFSFeedAnalytics';
+import GTFSNoticeAnalytics from '../screens/Analytics/GTFSNoticeAnalytics';
+import GTFSFeatureAnalytics from '../screens/Analytics/GTFSFeatureAnalytics';
+import GBFSFeedAnalytics from '../screens/Analytics/GBFSFeedAnalytics';
+import GBFSNoticeAnalytics from '../screens/Analytics/GBFSNoticeAnalytics';
+import GBFSVersionAnalytics from '../screens/Analytics/GBFSVersionAnalytics';
+import ContactUs from '../screens/ContactUs';
 
 export const AppRouter: React.FC = () => {
   const navigateTo = useNavigate();
@@ -82,13 +89,34 @@ export const AppRouter: React.FC = () => {
       <Route path='forgot-password' element={<ForgotPassword />} />
       <Route path='faq' element={<FAQ />} />
       <Route path='about' element={<About />} />
+      <Route path='contact-us' element={<ContactUs />} />
       <Route path='feeds' element={<Feeds />} />
+      <Route
+        path='feeds/gtfs'
+        element={<Navigate to='/feeds?gtfs=true' replace />}
+      />
+      <Route
+        path='feeds/gtfs_rt'
+        element={<Navigate to='/feeds?gtfs_rt=true' replace />}
+      />
       <Route path='feeds/:feedId' element={<Feed />} />
+      <Route path='feeds/:feedDataType/:feedId' element={<Feed />} />
       <Route path='contribute' element={<FeedSubmission />} />
       <Route path='contribute/submitted' element={<FeedSubmitted />} />
       <Route path='contribute-faq' element={<FeedSubmissionFAQ />} />
       <Route path='privacy-policy' element={<PrivacyPolicy />} />
       <Route path='terms-and-conditions' element={<TermsAndConditions />} />
+      <Route path='metrics/gtfs'>
+        <Route index element={<GTFSFeedAnalytics />} />
+        <Route path='feeds/*' element={<GTFSFeedAnalytics />} />
+        <Route path='notices/*' element={<GTFSNoticeAnalytics />} />
+        <Route path='features/*' element={<GTFSFeatureAnalytics />} />
+      </Route>
+      <Route path='metrics/gbfs'>
+        <Route path='feeds/*' element={<GBFSFeedAnalytics />} />
+        <Route path='notices/*' element={<GBFSNoticeAnalytics />} />
+        <Route path='versions/*' element={<GBFSVersionAnalytics />} />
+      </Route>
     </Routes>
   );
 };

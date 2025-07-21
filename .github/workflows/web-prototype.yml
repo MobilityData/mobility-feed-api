@@ -1,0 +1,77 @@
+# This workflow deploys a preview environment to PROD.
+# The pattern of the URL is:
+#   - https://[firebase_project_id]--protoype-[random_suffix].web.app
+# The firebase preview environments creates undeterministics URLs using a random suffix.
+# The URL will be active for 30 days(maximum). After 30 days, Firebase will generare a new URL.
+
+name: Web App - Prototype
+on:
+  workflow_dispatch:
+    inputs:
+      PREVIEW_HOST_NAME:
+        description: Preview host name
+        default: 'prototype'
+        required: false
+      DEPLOYMENT_ENV:
+        description: Environment in which the branch will be deployed. Valid values dev, qa and prod(default).
+        default: 'prod'
+        required: false
+jobs:
+
+  deploy-web-app:
+    uses: ./.github/workflows/web-app-deployer.yml
+    with:
+      FIREBASE_PROJECT: ${{ inputs.DEPLOYMENT_ENV || 'prod' }}
+      PREVIEW_DEPLOYMENT: true
+      DEPLOY_FIREBASE_FUNCTIONS: false
+      FEED_SUBMIT_GOOGLE_SHEET_ID: "1iXwux9hM4p5Li1EGgwx-8hU3sMDnF15yTflqmGjiZqE"
+      OP_SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/wm52iemzzm2cwfaoakwaufthuq/password"
+      PREVIEW_HOST_NAME: ${{ inputs.PREVIEW_HOST_NAME || 'prototype' }}
+      ENABLE_QUALITY_CHECKS: false
+      PREVIEW_EXPIRES_DAYS: 30
+    secrets: inherit
+
+  notify-slack:
+    name: Notify Slack
+    runs-on: ubuntu-latest
+    needs: deploy-web-app
+    steps:
+      - name: Load secrets from 1Password
+        id: onepw_secrets
+        uses: 1password/load-secrets-action@v2.0.0
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          CREDENTIALS: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/ifkeehu5gzi7wy5ub5qvwkaire/credential"
+          SLACK_WEBHOOK_URL: "op://rbiv7rvkkrsdlpcrz3bmv7nmcu/Slack webhook URLs/internal-github-action-alerts/internal-github-action-alerts"
+
+      - name: Process Hosting URL
+        id: process_hosting_url
+        run: |
+          HOSTING_URL_DECODED=$(echo "$HOSTING_URL" | base64 -d | sed 's/__firebase_project__/mobility-feeds-prod/g')
+          echo "hosting_url_decoded=$HOSTING_URL_DECODED" >> "$GITHUB_OUTPUT"
+          echo "hosting_url: $HOSTING_URL"
+          echo "hosting_url_decoded: $HOSTING_URL_DECODED"
+        env:
+          # Output is baseb4 encoded due to a false positive secret detection
+          # More info https://github.com/orgs/community/discussions/37942        
+          HOSTING_URL: ${{ needs.deploy-web-app.outputs.hosting_url }}
+
+      - name: Send Slack Notification
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "Prototype Web App Deployed!\n"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: ":rocket: *Prototype Web App Deployed!* \n - *Prototype URL:* ${{ env.HOSTING_URL_ENCODED }} \n - *Expires on:* ${{ env.HOSTING_EXPIRATION_DATE }}"          
+        env:
+          SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
+          HOSTING_URL_ENCODED: ${{ steps.process_hosting_url.outputs.hosting_url_decoded }}
+          HOSTING_EXPIRATION_DATE: ${{ needs.deploy-web-app.outputs.hosting_expiration_date }}
+

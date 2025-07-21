@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch, Mock
 from faker import Faker
 from google.cloud import storage
 
-from test_utils.database_utils import default_db_url
-from update_validation_report.src.main import (
+from test_shared.test_utils.database_utils import default_db_url
+from main import (
     get_latest_datasets_without_validation_reports,
     get_datasets_for_validation,
     update_validation_report,
@@ -91,19 +91,18 @@ class TestUpdateReportProcessor(unittest.TestCase):
         },
     )
     @patch(
-        "update_validation_report.src.main.get_latest_datasets_without_validation_reports",
+        "main.get_latest_datasets_without_validation_reports",
         autospec=True,
         return_value=[("feed1", "dataset1")],
     )
     @patch(
-        "update_validation_report.src.main.get_datasets_for_validation",
+        "main.get_datasets_for_validation",
         autospec=True,
         return_value=[("feed1", "dataset1")],
     )
     @patch("google.cloud.storage.Blob", autospec=True)
     @patch("requests.get", autospec=True)
     @patch("google.cloud.storage.Client", autospec=True)
-    @patch("update_validation_report.src.main.Logger", autospec=True)
     @patch("google.cloud.workflows_v1.WorkflowsClient", autospec=True)
     @patch("google.cloud.workflows.executions_v1.ExecutionsClient", autospec=True)
     @patch("google.cloud.workflows.executions_v1.Execution", autospec=True)
@@ -112,7 +111,6 @@ class TestUpdateReportProcessor(unittest.TestCase):
         execution_mock,
         executions_client_mock,
         workflows_client_mock,
-        mock_logger,
         mock_client,
         mock_get,
         mock_blob,
@@ -121,7 +119,9 @@ class TestUpdateReportProcessor(unittest.TestCase):
     ):
         """Test update_validation_report function."""
         mock_get.return_value.json.return_value = {"version": "1.0.1"}
-        response = update_validation_report(None)
+        mock_request = MagicMock()
+        mock_request.get_json.return_value = {"validator_url": faker.url()}
+        response = update_validation_report(mock_request)
         self.assertTrue("message" in response[0])
         self.assertTrue("dataset_workflow_triggered" in response[0])
         self.assertEqual(response[1], 200)

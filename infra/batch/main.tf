@@ -73,8 +73,16 @@ resource "google_storage_bucket" "datasets_bucket" {
   name     = var.datasets_bucket_name
   location = var.gcp_region
   uniform_bucket_level_access = false
+  autoclass {
+    enabled = true
+  }
   soft_delete_policy {
     retention_duration_seconds = local.retention_duration_seconds
+  }
+  cors {
+    origin = ["*"]
+    method = ["GET"]
+    response_header = ["*"]
   }
 }
 
@@ -207,6 +215,7 @@ resource "google_datastore_index" "batch_execution_index_execution_id_timestamp"
     name      = "execution_id"
     direction = "ASCENDING"
   }
+
   properties {
     name      = "timestamp"
     direction = "ASCENDING"
@@ -249,7 +258,7 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
-      DATASETS_BUCKET_NANE = google_storage_bucket.datasets_bucket.name
+      DATASETS_BUCKET_NAME = google_storage_bucket.datasets_bucket.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION    = "True"

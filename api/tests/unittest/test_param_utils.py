@@ -1,4 +1,4 @@
-from utils.param_utils import normalize_str_parameter
+from shared.feed_filters.param_utils import normalize_str_parameter
 
 
 def test_normalize_str_parameter():

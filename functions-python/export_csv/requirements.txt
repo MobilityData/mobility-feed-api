@@ -1,0 +1,30 @@
+# Common packages
+psycopg2-binary==2.9.6
+aiohttp~=3.10.5
+asyncio~=3.4.3
+urllib3~=2.2.2
+requests~=2.32.3
+attrs~=23.1.0
+pluggy~=1.3.0
+certifi~=2024.7.4
+pandas~=2.2.3
+python-dotenv==1.0.0
+fastapi-filter[sqlalchemy]==1.0.0
+packaging~=24.2
+
+# SQL Alchemy and Geo Alchemy
+SQLAlchemy==2.0.23
+geoalchemy2==0.14.7
+shapely
+
+# Google
+google-cloud-storage
+functions-framework==3.*
+google-cloud-logging
+
+# Configuration
+python-dotenv==1.0.0
+
+# Other dependencies
+natsort
+

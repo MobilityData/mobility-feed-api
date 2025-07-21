@@ -1,8 +1,8 @@
+import logging
 from contextvars import ContextVar
 
 import requests
 from google.auth import jwt
-from requests.exceptions import RequestException
 from starlette.datastructures import Headers
 from starlette.types import Scope
 
@@ -32,8 +32,10 @@ class RequestContext:
                 )
                 response.raise_for_status()
                 self.google_public_keys = response.json()
-            except RequestException as e:
-                print(f"Error fetching Google's public keys: {e}")
+                if not self.google_public_keys:
+                    logging.error("Fetched Google's public keys, but the result is empty or invalid.")
+            except requests.exceptions.RequestException as e:
+                logging.error(f"Failed to fetch Google's public keys: {e}")
 
     def decode_jwt(self, token: str):
         """
@@ -46,10 +48,11 @@ class RequestContext:
             token = token.replace("Bearer ", "")
             self.resolve_google_public_keys()
             if not self.google_public_keys:
+                logging.error("Cannot decode JWT: Google's public keys are not available.")
                 return None
             return jwt.decode(token, self.google_public_keys, audience=get_config(PROJECT_ID))
         except Exception as e:
-            print(f"Error decoding JWT: {e}")
+            logging.error("Error decoding JWT: %s", e)
             return None
 
     def _extract_from_headers(self, headers: dict, scope: Scope) -> None:
@@ -94,10 +97,25 @@ class RequestContext:
     def __repr__(self) -> str:
         # Omitting sensitive data like email and jwt assertion
         safe_properties = dict(
-            user_id=self.user_id, client_user_agent=self.client_user_agent, client_host=self.client_host
+            user_id=self.user_id,
+            client_user_agent=self.client_user_agent,
+            client_host=self.client_host,
+            email=self.user_email,
         )
         return f"request-context={safe_properties})"
 
 
 def get_request_context():
     return _request_context.get()
+
+
+def is_user_email_restricted() -> bool:
+    """
+    Check if an email's domain is restricted (e.g., for WIP visibility).
+    """
+    request_context = get_request_context()
+    if not request_context:
+        return True
+    email = request_context["user_email"]
+    unrestricted_domains = ["mobilitydata.org"]
+    return not email or not any(email.endswith(f"@{domain}") for domain in unrestricted_domains)

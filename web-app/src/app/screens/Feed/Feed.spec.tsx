@@ -1,10 +1,15 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { formatProvidersSorted, getFeedTitleElement } from '.';
 import {
   type GTFSFeedType,
   type GTFSRTFeedType,
 } from '../../services/feeds/utils';
 import { type TFunction } from 'i18next';
+import {
+  formatProvidersSorted,
+  generatePageTitle,
+  generateDescriptionMetaTag,
+} from './Feed.functions';
+import FeedTitle from './components/FeedTitle';
 
 const mockFeed: GTFSFeedType = {
   id: 'mdb-x',
@@ -83,6 +88,18 @@ const mockFeedRT: GTFSRTFeedType = {
   feed_references: ['mdb-y'],
 };
 
+jest.mock('firebase/compat/app', () => ({
+  initializeApp: jest.fn(),
+  remoteConfig: jest.fn(() => ({
+    settings: { minimumFetchIntervalMillis: 3600000 },
+  })),
+}));
+
+jest.mock('@mui/material/styles', () => ({
+  ...jest.requireActual('@mui/material/styles'),
+  useTheme: () => ({ palette: { primary: { main: '#000000' } } }),
+}));
+
 describe('Feed page', () => {
   afterEach(cleanup);
 
@@ -100,25 +117,27 @@ describe('Feed page', () => {
   });
 
   it('should format the page title correctly when there are more than one and gtfs', () => {
-    const mockT = jest.fn((key) => key) as unknown as TFunction<
-      'feeds',
-      undefined
-    >;
     const formattedProviders = formatProvidersSorted(mockFeed?.provider ?? '');
-    render(getFeedTitleElement(formattedProviders, mockFeed, mockT));
+    render(
+      <FeedTitle
+        sortedProviders={formattedProviders}
+        feed={mockFeed}
+      ></FeedTitle>,
+    );
     expect(screen.getByText('AVL')).toBeTruthy();
     expect(screen.getByText('+6 common:others')).toBeTruthy();
   });
 
   it('should format the page title correctly when there are more than one and gtfs_rt', () => {
-    const mockT = jest.fn((key) => key) as unknown as TFunction<
-      'feeds',
-      undefined
-    >;
     const formattedProviders = formatProvidersSorted(
       mockFeedRT?.provider ?? '',
     );
-    render(getFeedTitleElement(formattedProviders, mockFeedRT, mockT));
+    render(
+      <FeedTitle
+        sortedProviders={formattedProviders}
+        feed={mockFeedRT}
+      ></FeedTitle>,
+    );
     expect(
       screen.getByText('AT Metro - Auckland Transport Developer'),
     ).toBeTruthy();
@@ -126,15 +145,122 @@ describe('Feed page', () => {
   });
 
   it('should format the page title correctly when there is only one provider', () => {
-    const mockT = jest.fn((key) => key) as unknown as TFunction<
-      'feeds',
-      undefined
-    >;
     const formattedProviders = formatProvidersSorted(
       mockFeedOneProvider?.provider ?? '',
     );
-    render(getFeedTitleElement(formattedProviders, mockFeedOneProvider, mockT));
+    render(
+      <FeedTitle
+        sortedProviders={formattedProviders}
+        feed={mockFeedOneProvider}
+      ></FeedTitle>,
+    );
     expect(screen.getByText('AVL')).toBeTruthy();
     expect(screen.queryByText('+')).toBeNull();
+  });
+
+  it('should generate the correct page title', () => {
+    const titleAllInfo = generatePageTitle(
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(titleAllInfo).toEqual(
+      'Department of Transport, Darwin public bus network GTFS Schedule Feed - Mobility Database',
+    );
+
+    const titleNoProviders = generatePageTitle(
+      [],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(titleNoProviders).toEqual(
+      'Darwin public bus network GTFS Schedule Feed - Mobility Database',
+    );
+
+    const titleNoName = generatePageTitle(
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      '',
+    );
+    expect(titleNoName).toEqual(
+      'Department of Transport GTFS Schedule Feed - Mobility Database',
+    );
+
+    const titleAllInfoRT = generatePageTitle(
+      ['Department of Transport', 'Public Transport'],
+      'gtfs_rt',
+      'Darwin public bus network',
+    );
+    expect(titleAllInfoRT).toEqual(
+      'Department of Transport, Darwin public bus network GTFS Realtime Feed - Mobility Database',
+    );
+
+    const titleAllEmpty = generatePageTitle([], 'gtfs', '');
+    expect(titleAllEmpty).toEqual('Mobility Database');
+
+    const gbfsTitle = generatePageTitle(['Flamingo Porirua'], 'gbfs');
+    expect(gbfsTitle).toEqual('Flamingo Porirua GBFS Feed - Mobility Database');
+  });
+
+  it('should generate the correct page description', () => {
+    const mockT = jest.fn((key, params) => {
+      switch (key) {
+        case 'common:gtfsSchedule':
+          return 'GTFS schedule';
+        case 'common:gtfsRealtime':
+          return 'GTFS realtime';
+        case 'detailPageDescription':
+          return `Explore the ${params.formattedName} ${params.dataTypeVerbose} feed details with access to a quality data insights`;
+          break;
+      }
+    }) as unknown as TFunction<'feeds', undefined>;
+
+    const descriptionAllInfo = generateDescriptionMetaTag(
+      mockT,
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(descriptionAllInfo).toEqual(
+      'Explore the Department of Transport, Darwin public bus network GTFS schedule feed details with access to a quality data insights',
+    );
+
+    const descriptionNoProviders = generateDescriptionMetaTag(
+      mockT,
+      [],
+      'gtfs',
+      'Darwin public bus network',
+    );
+    expect(descriptionNoProviders).toEqual(
+      'Explore the Darwin public bus network GTFS schedule feed details with access to a quality data insights',
+    );
+
+    const descriptionNoName = generateDescriptionMetaTag(
+      mockT,
+      ['Department of Transport', 'Public Transport'],
+      'gtfs',
+      '',
+    );
+    expect(descriptionNoName).toEqual(
+      'Explore the Department of Transport GTFS schedule feed details with access to a quality data insights',
+    );
+
+    const descriptionAllInfoRT = generateDescriptionMetaTag(
+      mockT,
+      ['Department of Transport', 'Public Transport'],
+      'gtfs_rt',
+      'Darwin public bus network',
+    );
+    expect(descriptionAllInfoRT).toEqual(
+      'Explore the Department of Transport, Darwin public bus network GTFS realtime feed details with access to a quality data insights',
+    );
+
+    const descriptionAllEmpty = generateDescriptionMetaTag(
+      mockT,
+      [],
+      'gtfs',
+      '',
+    );
+    expect(descriptionAllEmpty).toEqual('');
   });
 });

@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+locals {
+  function_reverse_geolocation_populate_config = jsondecode(file("${path.module}/../../functions-python/reverse_geolocation_populate/function_config.json"))
+}
+
 # Service account to execute the workflow
 resource "google_service_account" "workflows_service_account" {
   account_id   = "workflows-service-account"
@@ -52,9 +56,29 @@ resource "google_project_iam_member" "workflows_invoker" {
   member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
 }
 
+# This permission is added to allow the workflow to act as the service account and generate tokens.
+# This is required for the workflow to call a cloud tasks that generates a token to call the a cloud run service or function.
+resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
+  member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
+}
+
 resource "google_project_iam_member" "cloud_run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
+  member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
+}
+
+resource "google_project_iam_member" "service_account_workflow_cloudtasks_enqueuer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.enqueuer"
+  member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
+}
+
+resource "google_project_iam_member" "service_account_workflow_cloudtasks_viewer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.viewer"
   member  = "serviceAccount:${google_service_account.workflows_service_account.email}"
 }
 
@@ -70,6 +94,7 @@ resource "google_workflows_workflow" "gtfs_validator_execution" {
     reports_bucket_name   = lower(var.environment) == "prod" ? var.reports_bucket_name : "stg-${var.reports_bucket_name}"
     validator_endpoint    = var.validator_endpoint
     environment           = lower(var.environment)
+    processing_report_cloud_task_name       = var.processing_report_cloud_task_name
   }
   source_contents         = file("${path.module}../../../workflows/gtfs_validator_execution.yml")
 }
@@ -95,7 +120,7 @@ resource "google_eventarc_trigger" "gtfs_validator_trigger" {
   }
   matching_criteria {
     attribute = "resourceName"
-    value     = "projects/_/buckets/${var.datasets_bucket_name}-${var.environment}/objects/mdb-*/mdb-*/mdb-*.zip"
+    value     = "projects/_/buckets/${var.datasets_bucket_name}-${var.environment}/objects/*/*/*.zip"
     operator = "match-path-pattern"
   }
 
@@ -106,6 +131,21 @@ resource "google_eventarc_trigger" "gtfs_validator_trigger" {
 
   service_account = google_service_account.workflows_service_account.email
 
+}
+
+
+# Workflow to populate the db with all countries for reverse geocoding
+resource "google_workflows_workflow" "reverse_geocoding_population" {
+  name                    = "reverse_geolocation_populate"
+  region                  = var.gcp_region
+  project                 = var.project_id
+  description             = "Populate the database with all countries for reverse geocoding"
+  service_account         = google_service_account.workflows_service_account.id
+  user_env_vars = {
+    reverse_geolocation_populate_url  = "https://${var.gcp_region}-${var.project_id}.cloudfunctions.net/${local.function_reverse_geolocation_populate_config.name}"
+    batch_size                        = 5
+  }
+  source_contents         = file("${path.module}../../../workflows/reverse_geolocation_populate.yml")
 }
 
 

@@ -1,7 +1,4 @@
-from sqlalchemy.orm import joinedload
-from sqlalchemy.orm.strategy_options import _AbstractLoad
-
-from database_gen.sqlacodegen_models import Feed
+from shared.database_gen.sqlacodegen_models import Feed
 from feeds.impl.models.external_id_impl import ExternalIdImpl
 from feeds.impl.models.redirect_impl import RedirectImpl
 from feeds_gen.models.basic_feed import BasicFeed
@@ -20,20 +17,17 @@ class BaseFeedImpl(BasicFeed):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, feed: Feed | None, _=None) -> BasicFeed | None:
+    def from_orm(cls, feed: Feed | None) -> BasicFeed | None:
         if not feed:
             return None
         return cls(
             id=feed.stable_id,
             data_type=feed.data_type,
-            status=feed.status,
             created_at=feed.created_at,
             external_ids=sorted(
                 [ExternalIdImpl.from_orm(item) for item in feed.externalids], key=lambda x: x.external_id
             ),
             provider=feed.provider,
-            feed_name=feed.feed_name,
-            note=feed.note,
             feed_contact_email=feed.feed_contact_email,
             source_info=SourceInfo(
                 producer_url=feed.producer_url,
@@ -44,11 +38,6 @@ class BaseFeedImpl(BasicFeed):
             ),
             redirects=sorted([RedirectImpl.from_orm(item) for item in feed.redirectingids], key=lambda x: x.target_id),
         )
-
-    @staticmethod
-    def get_joinedload_options() -> [_AbstractLoad]:
-        """Returns common joinedload options for feeds queries."""
-        return [joinedload(Feed.locations), joinedload(Feed.externalids), joinedload(Feed.redirectingids)]
 
 
 class BasicFeedImpl(BaseFeedImpl, BasicFeed):
@@ -61,4 +50,3 @@ class BasicFeedImpl(BaseFeedImpl, BasicFeed):
         Enabling `from_orm` method to create a model instance from a SQLAlchemy row object."""
 
         from_attributes = True
-        orm_mode = True

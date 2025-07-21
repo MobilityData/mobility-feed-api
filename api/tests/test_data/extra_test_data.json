@@ -7,7 +7,10 @@
       "hosted_url": "https://example.com/dataset-1",
       "hash": "hash",
       "downloaded_at": "2024-01-31T00:00:00+00:00",
-      "feed_stable_id": "mdb-1"
+      "feed_stable_id": "mdb-1",
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     },
     {
       "id": "dataset-2",
@@ -16,7 +19,10 @@
       "hosted_url": "https://example.com/dataset-2",
       "hash": "hash",
       "downloaded_at": "2024-02-01T00:00:00+00:00",
-      "feed_stable_id": "mdb-1"
+      "feed_stable_id": "mdb-1",
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     },
     {
       "id": "dataset-3",
@@ -25,7 +31,10 @@
       "hosted_url": "https://example.com/dataset-3",
       "hash": "hash",
       "downloaded_at": "2024-02-02T00:00:00+00:00",
-      "feed_stable_id": "mdb-10"
+      "feed_stable_id": "mdb-10",
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     },
     {
       "id": "dataset-4",
@@ -34,7 +43,10 @@
       "hosted_url": "https://example.com/dataset-4",
       "hash": "hash",
       "downloaded_at": "2024-02-03T00:00:00+00:00",
-      "feed_stable_id": "mdb-10"
+      "feed_stable_id": "mdb-10",
+      "service_date_range_start": "2024-09-29T00:00:00+00:00",
+      "service_date_range_end":"2025-09-29T00:00:00+00:00",
+      "agency_timezone": "Canada/Atlantic"
     }
   ],
   "validation_reports": [
@@ -746,6 +758,72 @@
       "notice_code": "ec7b51c8-0f0d-4e7e-a1f4-e313d0372f80",
       "severity": "ERROR",
       "total_notices": 2
+    }
+  ],
+  "gbfs_versions": [
+    {
+      "feed_id": "gbfs-system_id_1",
+      "id": "gbfs-system_id_1-2.3",
+      "version": "2.3",
+      "url": "https://www.example.com/gbfs_feed_1/2.3/gbfs.json",
+      "endpoints": [
+        {
+          "id": "gbfs-system_id_1-2.3-system_information",
+          "url": "https://www.example.com/gbfs_feed_1/2.3/system_information.json",
+          "language": "en",
+          "name": "system_information",
+          "is_feature": false
+        },
+        {
+          "id": "gbfs-system_id_1-2.3-vehicle_position",
+          "url": "https://www.example.com/gbfs_feed_1/2.3/vehicule_position.json",
+          "language": "en",
+          "name": "vehicle_position",
+          "is_feature": false
+        }
+      ]
+    },
+    {
+      "feed_id": "gbfs-system_id_1",
+      "id": "gbfs-system_id_1-3.0",
+      "version": "3.0",
+      "url": "https://www.example.com/gbfs_feed_1/3.0/gbfs.json",
+      "endpoints": [
+        {
+          "id": "gbfs-system_id_1-3.0-system_information",
+          "url": "https://www.example.com/gbfs_feed_1/3.0/system_information.json",
+          "name": "system_information",
+          "is_feature": false
+        },
+        {
+          "id": "gbfs-system_id_1-3.0-vehicle_position",
+          "url": "https://www.example.com/gbfs_feed_1/3.0/vehicule_position.json",
+          "name": "vehicle_position",
+          "is_feature": false
+        }
+      ]
+    },
+    {
+      "feed_id": "gbfs-system_id_2",
+      "id": "gbfs-system_id_2-2.3",
+      "version": "2.3",
+      "url": "https://www.example.com/gbfs_feed_1/2.3/gbfs.json",
+      "endpoints": [
+        {
+          "id": "gbfs-system_id_2-2.3-system_information",
+          "url": "https://www.example.com/gbfs_feed_2/2.3/system_information.json",
+          "language": "en",
+          "name": "system_information",
+          "is_feature": false
+        },
+        {
+          "id": "gbfs-system_id_2-2.3-vehicle_position",
+          "url": "https://www.example.com/gbfs_feed_2/2.3/vehicule_position.json",
+          "language": "en",
+          "name": "vehicle_position",
+          "is_feature": false
+        }
+      ]
     }
   ]
 }

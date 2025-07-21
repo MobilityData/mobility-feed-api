@@ -56,6 +56,7 @@ export const feedSlice = createSlice({
       state,
       action: PayloadAction<{
         feedId: string;
+        feedDataType?: string;
       }>,
     ) => {
       state.status = 'loading';

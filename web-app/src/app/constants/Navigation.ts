@@ -16,6 +16,46 @@ export const MOBILITY_DATA_LINKS = {
   github: 'https://github.com/MobilityData/mobility-database-catalogs',
 };
 
+export const WEB_VALIDATOR_LINK = 'https://gtfs-validator.mobilitydata.org';
+export const GTFS_ORG_LINK = 'https://gtfs.org';
+export const GBFS_LINK = 'https://github.com/MobilityData/gbfs';
+
+export const gtfsMetricsNavItems: NavigationItem[] = [
+  {
+    title: 'Feeds',
+    target: '/metrics/gtfs/feeds',
+    color: 'inherit',
+  },
+  {
+    title: 'Notices',
+    target: '/metrics/gtfs/notices',
+    color: 'inherit',
+  },
+  {
+    title: 'Features',
+    target: '/metrics/gtfs/features',
+    color: 'inherit',
+  },
+];
+
+export const gbfsMetricsNavItems: NavigationItem[] = [
+  {
+    title: 'Feeds',
+    target: '/metrics/gbfs/feeds',
+    color: 'inherit',
+  },
+  {
+    title: 'Notices',
+    target: '/metrics/gbfs/notices',
+    color: 'inherit',
+  },
+  {
+    title: 'Versions',
+    target: '/metrics/gbfs/versions',
+    color: 'inherit',
+  },
+];
+
 export function buildNavigationItems(
   featureFlags: RemoteConfigValues,
 ): NavigationItem[] {
@@ -27,13 +67,11 @@ export function buildNavigationItems(
     },
   ];
 
-  if (featureFlags.enableFeedsPage) {
-    navigationItems.push({
-      title: 'Feeds',
-      target: 'feeds',
-      color: 'inherit',
-    });
-  }
+  navigationItems.push({
+    title: 'Feeds',
+    target: 'feeds',
+    color: 'inherit',
+  });
 
   navigationItems.push(
     ...[
@@ -48,15 +86,14 @@ export function buildNavigationItems(
         color: 'inherit',
       },
       {
+        title: 'Contact Us',
+        target: 'contact-us',
+        color: 'inherit',
+      },
+      {
         title: 'API Docs',
         target:
           'https://mobilitydata.github.io/mobility-feed-api/SwaggerUI/index.html',
-        color: 'inherit',
-        external: true,
-      },
-      {
-        title: 'Contact Us',
-        target: 'mailto:api@mobilitydata.org',
         color: 'inherit',
         external: true,
       },

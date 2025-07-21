@@ -38,7 +38,7 @@ jobs:
       run: ./scripts/extract-hash-and-version.sh
 
     - name: Set up Python ${{ env.python_version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.python_version }}
 
@@ -48,12 +48,6 @@ jobs:
     - name: Get full path of sources.csv
       id: getpath
       run: echo "FILE_PATH=$(realpath sources.csv)" >> $GITHUB_ENV
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r integration-tests/requirements.txt
-        pip install -r api/requirements.txt
 
     - name: Set up JDK ${{ env.java_version }}
       uses: actions/setup-java@v4
@@ -110,11 +104,6 @@ jobs:
         ./scripts/tunnel-create.sh -project_id ${{ vars.QA_MOBILITY_FEEDS_PROJECT_ID }} -zone ${{ vars.MOBILITY_FEEDS_REGION }}-a -instance ${{ env.GCP_FEED_BASTION_NAME }}-${{ vars.QA_MOBILITY_FEEDS_ENVIRONMENT }} -target_account ${{ env.GCP_FEED_SSH_USER }} -db_instance ${{ secrets.DB_INSTANCE_NAME }} -port 5454
         sleep 10 # Wait for the tunnel to establish
 
-    - name: Test Database Connection Through Tunnel
-      run: |
-        sudo apt-get update && sudo apt-get install -y postgresql-client
-        PGPASSWORD=${{ secrets.QA_POSTGRE_USER_PASSWORD }} psql -h localhost -p 5454 -U ${{ secrets.QA_POSTGRE_USER_NAME }} -d ${{ vars.QA_POSTGRE_SQL_DB_NAME }} -c "SELECT version();"
-
     - name: Update .env.local
       run: |
         echo "FEEDS_DATABASE_URL=postgresql://${{ secrets.QA_POSTGRE_USER_NAME }}:${{ secrets.QA_POSTGRE_USER_PASSWORD }}@localhost:5454/${{ vars.QA_POSTGRE_SQL_DB_NAME }}" >> $GITHUB_ENV
@@ -126,7 +115,7 @@ jobs:
 
     - name: Start API
       run: |
-        scripts/api-start.sh &
+        scripts/api-start.sh > api_logs.txt 2>&1 &  # Redirect stdout and stderr to api_logs.txt
         sleep 10 # Wait for the API to start
 
     - name: Health Check
@@ -150,3 +139,4 @@ jobs:
         path: |
           integration-tests/src/integration_tests_log.html
           integration-tests/src/datasets_validation.csv
+          api_logs.txt

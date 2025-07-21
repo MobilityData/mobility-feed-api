@@ -12,7 +12,12 @@ import AppleIcon from '@mui/icons-material/Apple';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch } from '../hooks';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import { login, loginFail, loginWithProvider } from '../store/profile-reducer';
+import {
+  login,
+  loginFail,
+  loginWithProvider,
+  verifyEmail,
+} from '../store/profile-reducer';
 import {
   OauthProvider,
   type EmailLogin,
@@ -24,12 +29,13 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import {
   Alert,
+  Divider,
   IconButton,
   InputAdornment,
   Snackbar,
   Tooltip,
+  useTheme,
 } from '@mui/material';
-import '../styles/SignUp.css';
 import {
   selectEmailLoginError,
   selectUserProfileStatus,
@@ -47,6 +53,7 @@ import { useEffect } from 'react';
 export default function SignIn(): React.ReactElement {
   const dispatch = useAppDispatch();
   const navigateTo = useNavigate();
+  const theme = useTheme();
   const userProfileStatus = useSelector(selectUserProfileStatus);
   const emailLoginError = useSelector(selectEmailLoginError);
   const [isSubmitted, setIsSubmitted] = React.useState(false);
@@ -110,6 +117,9 @@ export default function SignIn(): React.ReactElement {
     const provider = oathProviders[oauthProvider];
     signInWithPopup(auth, provider)
       .then((userCredential: UserCredential) => {
+        if (!userCredential.user.emailVerified) {
+          dispatch(verifyEmail());
+        }
         if (userCredential.user.email == null) {
           setShowNoEmailSnackbar(true);
         } else {
@@ -149,7 +159,6 @@ export default function SignIn(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -192,6 +201,7 @@ export default function SignIn(): React.ReactElement {
             onChange={formik.handleChange}
             value={formik.values.email}
             error={formik.errors.email != null}
+            data-cy='signInEmailInput'
           />
           {formik.errors.email != null ? (
             <Alert severity='error'>{formik.errors.email}</Alert>
@@ -208,6 +218,7 @@ export default function SignIn(): React.ReactElement {
             onChange={formik.handleChange}
             value={formik.values.password}
             error={formik.errors.password != null}
+            data-cy='signInPasswordInput'
             InputProps={{
               endAdornment: (
                 <InputAdornment position='end'>
@@ -266,18 +277,25 @@ export default function SignIn(): React.ReactElement {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            mb: 1,
+            mb: 2,
           }}
         >
-          <p className='hr-text'>
-            <span>OR</span>
-          </p>
+          <Typography
+            component='h5'
+            sx={{
+              zIndex: 1,
+              backgroundColor: theme.palette.background.default,
+              px: 2,
+            }}
+          >
+            OR
+          </Typography>
+          <Divider sx={{ width: '100%', mb: 2, mt: '-12px' }} />
         </Box>
 
         <Button
           variant='outlined'
           color='primary'
-          className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
           onClick={() => {
@@ -289,7 +307,6 @@ export default function SignIn(): React.ReactElement {
         <Button
           variant='outlined'
           color='primary'
-          className='sso-button'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
           onClick={() => {
@@ -304,7 +321,6 @@ export default function SignIn(): React.ReactElement {
             color='primary'
             sx={{ mb: 2 }}
             startIcon={<AppleIcon />}
-            className='sso-button'
             onClick={() => {
               signInWithProvider(OauthProvider.Apple);
             }}

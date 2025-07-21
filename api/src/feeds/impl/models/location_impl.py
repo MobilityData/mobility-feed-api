@@ -1,5 +1,6 @@
 from feeds_gen.models.location import Location
-from database_gen.sqlacodegen_models import Location as LocationOrm
+import pycountry
+from shared.database_gen.sqlacodegen_models import Location as LocationOrm
 
 
 class LocationImpl(Location):
@@ -14,9 +15,15 @@ class LocationImpl(Location):
         """Create a model instance from a SQLAlchemy a Location row object."""
         if not location:
             return None
+        country_name = location.country
+        if not country_name:
+            try:
+                country_name = pycountry.countries.get(alpha_2=location.country_code).name
+            except AttributeError:
+                pass
         return cls(
             country_code=location.country_code,
-            country=location.country,
+            country=country_name,
             subdivision_name=location.subdivision_name,
             municipality=location.municipality,
         )

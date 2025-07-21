@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
-from dataset_service.main import (
+from main import (
     DatasetTrace,
     DatasetTraceService,
     Status,
@@ -19,6 +19,27 @@ class TestDatasetService(unittest.TestCase):
             stable_id="123", status=Status.PUBLISHED, timestamp=datetime.now()
         )
         service.save(dataset_trace)
+        mock_datastore_client.put.assert_called_once()
+
+    @patch("google.cloud.datastore.Client")
+    def test_validate_and_save_exception(self, mock_datastore_client):
+        service = DatasetTraceService(mock_datastore_client)
+        dataset_trace = DatasetTrace(
+            stable_id="123", status=Status.PUBLISHED, timestamp=datetime.now()
+        )
+        with self.assertRaises(ValueError):
+            service.validate_and_save(dataset_trace, 1)
+
+    @patch("google.cloud.datastore.Client")
+    def test_validate_and_save(self, mock_datastore_client):
+        service = DatasetTraceService(mock_datastore_client)
+        dataset_trace = DatasetTrace(
+            stable_id="123",
+            execution_id="123",
+            status=Status.PUBLISHED,
+            timestamp=datetime.now(),
+        )
+        service.validate_and_save(dataset_trace, 1)
         mock_datastore_client.put.assert_called_once()
 
     @patch("google.cloud.datastore.Client")
@@ -53,7 +74,7 @@ class TestDatasetService(unittest.TestCase):
         mock_datastore_client.key.assert_called_once_with("batch_execution", "123")
 
     @patch("google.cloud.datastore.Client")
-    @patch("dataset_service.main.DatasetTraceService._entity_to_dataset_trace")
+    @patch("main.DatasetTraceService._entity_to_dataset_trace")
     def test_get_by_execution_and_stable_ids(
         self, mock_entity_to_dataset_trace, mock_datastore_client
     ):

@@ -51,7 +51,7 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 
 resource "google_sql_database_instance" "db" {
   name             = var.postgresql_instance_name
-  database_version = "POSTGRES_12"
+  database_version = "POSTGRES_13"
   region           = var.gcp_region
   # This property protects the DB from deletion only for terraform commands
   # settings.deletion_protection_enabled protects the DB from deletion in the GCP console and GCP API
@@ -106,7 +106,7 @@ resource "google_secret_manager_secret" "secret_db_url" {
 
 resource "google_secret_manager_secret_version" "secret_version" {
   secret = google_secret_manager_secret.secret_db_url.id
-  secret_data = "postgresql://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
+  secret_data = "postgresql+psycopg2://${var.postgresql_user_name}:${var.postgresql_user_password}@${google_sql_database_instance.db.private_ip_address}/${var.postgresql_database_name}"
 }
 
 output "instance_address" {

@@ -5,48 +5,77 @@ import {
   AccordionSummary,
   type SxProps,
   Typography,
-  colors,
   Box,
   Container,
   CssBaseline,
+  useTheme,
+  Button,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-
-const accordionStyle: SxProps = {
-  boxShadow: 'none',
-  background: 'transparent',
-  borderBottom: '2px solid #13151A',
-  '&:before': { display: 'none' },
-  svg: { color: '#13151A' },
-};
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 export default function FeedSubmissionFAQ(): React.ReactElement {
+  const theme = useTheme();
+
+  const accordionStyle: SxProps = {
+    boxShadow: 'none',
+    background: 'transparent',
+    borderBottom: '2px solid',
+    borderColor: theme.palette.divider,
+    '&:before': { display: 'none' },
+    svg: { color: theme.palette.divider },
+  };
+
   return (
     <Container component='main' sx={{ my: 0, mx: 'auto' }}>
       <CssBaseline />
+      <Typography
+        component='h1'
+        variant='h4'
+        color='primary'
+        sx={{ fontWeight: 700 }}
+      >
+        Frequently Asked Questions about Adding Feeds
+      </Typography>
       <Box
         sx={{
-          width: '100%',
-          background: '#F8F5F5',
-          borderRadius: '6px 0px 0px 6px',
-          p: 5,
-          color: 'black',
-          fontSize: '18px',
-          fontWeight: 700,
-          mr: 0,
-          mt: 8,
+          background: theme.palette.background.paper,
+          mt: 2,
+          p: 2,
+          borderRadius: '6px 6px 0px 0px',
         }}
       >
-        <Typography
-          sx={{
-            color: colors.blue.A700,
-            fontWeight: 'bold',
-            fontSize: { xs: 18, sm: 24 },
-            mb: 2,
-          }}
-        >
-          Frequently Asked Questions about Adding Feeds
-        </Typography>
+        <Accordion sx={accordionStyle}>
+          <AccordionSummary
+            aria-controls='panel1-content'
+            id='panel1-header'
+            expandIcon={<ExpandMoreIcon />}
+          >
+            <Typography sx={{ fontWeight: 'bold' }}>
+              Can I contribute GBFS feeds?
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography>
+              If you want to add GBFS feeds to the Mobility Database, please
+              contribute to
+              <Button
+                variant='text'
+                className='inline'
+                href={
+                  'https://github.com/MobilityData/gbfs?tab=readme-ov-file#systems-catalog---systems-implementing-gbfs'
+                }
+                rel='noreferrer'
+                target='_blank'
+                endIcon={<OpenInNewIcon />}
+              >
+                the GBFS systems.csv catalog.
+              </Button>
+              The Mobility Database automatically syncs with systems.csv.
+            </Typography>
+          </AccordionDetails>
+        </Accordion>
         <Accordion sx={accordionStyle}>
           <AccordionSummary
             aria-controls='panel1-content'
@@ -59,19 +88,33 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
           </AccordionSummary>
           <AccordionDetails>
             <Typography>
-              A GTFS feed is a downloadable set of files that adhere to the{' '}
-              <a href='https://gtfs.org/' target='_blank' rel='noreferrer'>
+              A GTFS feed is a downloadable set of files that adhere to the
+              <Button
+                variant='text'
+                className='inline'
+                href={'https://gtfs.org/'}
+                rel='noreferrer'
+                target='_blank'
+                endIcon={<OpenInNewIcon />}
+              >
                 General Transit Feed Specification
-              </a>
+              </Button>
               .
               <br />
               <br />A GTFS Schedule feed that includes static information about
               a transit service is a collection of text (.txt) files that are
               contained in a single ZIP file. A GTFS Realtime feed that provides
-              realtime updates to riders is formatted as{' '}
-              <a href='https://protobuf.dev/' target='_blank' rel='noreferrer'>
+              realtime updates to riders is formatted as
+              <Button
+                variant='text'
+                className='inline'
+                href={'https://protobuf.dev/'}
+                rel='noreferrer'
+                target='_blank'
+                endIcon={<OpenInNewIcon />}
+              >
                 Protocol Buffer data
-              </a>{' '}
+              </Button>
               and shared as a proto file. A GTFS Realtime feed can include a mix
               of Trip Updates, Vehicle Positions, and Service Alerts or there
               can be separate feeds for each type of realtime information.
@@ -79,41 +122,49 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
               <br />
               Each direct download URL for a GTFS feed has to open a file. For
               example, a URL that points to an agency&apos;s GTFS explainer page
-              such as{' '}
-              <a
-                href='https://www.bctransit.com/open-data'
-                target='_blank'
+              such as
+              <Button
+                variant='text'
+                className='inline'
+                href={'https://www.bctransit.com/open-data'}
                 rel='noreferrer'
+                target='_blank'
               >
                 https://www.bctransit.com/open-data
-              </a>{' '}
-              is not a valid GTFS feed URL. However,{' '}
-              <a
-                href='https://www.bctransit.com/data/gtfs/powell-river.zip'
-                target='_blank'
+              </Button>
+              is not a valid GTFS feed URL. However,
+              <Button
+                variant='text'
+                className='inline'
+                href={'https://www.bctransit.com/data/gtfs/powell-river.zip'}
                 rel='noreferrer'
+                target='_blank'
               >
                 https://www.bctransit.com/data/gtfs/powell-river.zip
-              </a>{' '}
+              </Button>
               is a valid GTFS feed download link because it directly opens the
               GTFS feed. The same principle is used for GTFS feeds that are
-              accessible via an API: a generic link to the API, such as{' '}
-              <a
-                href='http://api.511.org/transit/datafeeds'
-                target='_blank'
+              accessible via an API: a generic link to the API, such as
+              <Button
+                variant='text'
+                className='inline'
+                href={'http://api.511.org/transit/datafeeds'}
                 rel='noreferrer'
+                target='_blank'
               >
                 http://api.511.org/transit/datafeeds
-              </a>
+              </Button>
               , is invalid. A valid download URL would need to include an API
-              query that returns a GTFS feed, such as{' '}
-              <a
-                href='http://api.511.org/transit/datafeeds?operator_id=3D'
-                target='_blank'
+              query that returns a GTFS feed, such as
+              <Button
+                variant='text'
+                className='inline'
+                href={'http://api.511.org/transit/datafeeds?operator_id=3D'}
                 rel='noreferrer'
+                target='_blank'
               >
                 http://api.511.org/transit/datafeeds?operator_id=3D
-              </a>
+              </Button>
               .
             </Typography>
           </AccordionDetails>
@@ -140,14 +191,15 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
               To ensure that travelers have access to the most up-to-date
               information, transit providers should add a new feed on the
               catalogs when their feed URL changes. Transit providers should
-              review{' '}
-              <a
-                href='https://bit.ly/catalogs-csv'
-                target='_blank'
-                rel='noreferrer'
+              review
+              <Button
+                variant='text'
+                className='inline'
+                href={'https://bit.ly/catalogs-csv'}
+                endIcon={<FileDownloadIcon />}
               >
                 the spreadsheet of feeds already in the Mobility Database
-              </a>{' '}
+              </Button>
               to see if an old URL of their feed is in the Mobility Database and
               request that its status be set to deprecated under Issue Type in
               the form below.
@@ -255,26 +307,33 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
               <span style={{ fontWeight: 700 }}>
                 2. If you want to add feeds directly:
               </span>{' '}
-              you can follow{' '}
-              <a
-                href='https://github.com/MobilityData/mobility-database-catalogs/blob/main/CONTRIBUTING.md'
-                target='_blank'
+              you can follow
+              <Button
+                variant='text'
+                className='inline'
+                href={
+                  'https://github.com/MobilityData/mobility-database-catalogs/blob/main/CONTRIBUTING.md'
+                }
                 rel='noreferrer'
+                target='_blank'
+                endIcon={<OpenInNewIcon />}
               >
                 the CONTRIBUTING.MD file
-              </a>{' '}
+              </Button>
               in GitHub to add sources.
               <br />
               <br />
               If you have any questions or concerns about this process, you can
-              email{' '}
-              <a
-                href='mailto:api@mobilitydata.org'
-                target='_blank'
+              email
+              <Button
+                variant='text'
+                className='inline'
+                href={'mailto:api@mobilitydata.org'}
                 rel='noreferrer'
+                target='_blank'
               >
                 api@mobilitydata.org
-              </a>{' '}
+              </Button>
               for support in getting your feed added.
             </Typography>
           </AccordionDetails>
@@ -375,14 +434,16 @@ export default function FeedSubmissionFAQ(): React.ReactElement {
             </Box>
             <Typography>
               <b>Individuals:</b> <br />
-              If you are listed here and would like to add your organization,{' '}
-              <a
-                href='mailto:api@mobilitydata.org'
-                target='_blank'
+              If you are listed here and would like to add your organization,
+              <Button
+                variant='text'
+                className='inline'
+                href={'mailto:api@mobilitydata.org'}
                 rel='noreferrer'
+                target='_blank'
               >
                 let MobilityData know
-              </a>
+              </Button>
               .
             </Typography>
             <Box component='ul' sx={{ typography: 'body1' }}>

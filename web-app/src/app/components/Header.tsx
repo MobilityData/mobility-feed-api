@@ -2,14 +2,8 @@ import * as React from 'react';
 import {
   AppBar,
   Box,
-  Divider,
-  Avatar,
   Drawer,
   IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
   Toolbar,
   Typography,
   Button,
@@ -17,6 +11,7 @@ import {
   Menu,
   MenuItem,
   Select,
+  useTheme,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -25,132 +20,35 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import {
   navigationAccountItem,
   SIGN_IN_TARGET,
-  ACCOUNT_TARGET,
   buildNavigationItems,
+  gtfsMetricsNavItems,
+  gbfsMetricsNavItems,
 } from '../constants/Navigation';
 import type NavigationItem from '../interface/Navigation';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated } from '../store/selectors';
+import { selectIsAuthenticated, selectUserEmail } from '../store/selectors';
 import LogoutConfirmModal from './LogoutConfirmModal';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { TreeView } from '@mui/x-tree-view/TreeView';
-import { TreeItem } from '@mui/x-tree-view/TreeItem';
-import { OpenInNew } from '@mui/icons-material';
-import '../styles/Header.css';
+import { BikeScooterOutlined, OpenInNew } from '@mui/icons-material';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import i18n from '../../i18n';
-
-const drawerWidth = 240;
-const websiteTile = 'Mobility Database';
-const DrawerContent: React.FC<{
-  onLogoutClick: React.MouseEventHandler;
-  onNavigationClick: (target: NavigationItem | string) => void;
-  navigationItems: NavigationItem[];
-}> = ({ onLogoutClick, onNavigationClick, navigationItems }) => {
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const navigateTo = useNavigate();
-  return (
-    <Box>
-      <Box
-        sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-        onClick={() => {
-          navigateTo('/');
-        }}
-      >
-        <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
-        <Typography
-          variant='h6'
-          sx={{ my: 2, cursor: 'pointer' }}
-          data-testid='websiteTile'
-        >
-          {websiteTile}
-        </Typography>
-      </Box>
-      <Divider />
-      <List>
-        {navigationItems.map((item) => (
-          <ListItem
-            key={item.title}
-            disablePadding
-            onClick={() => {
-              onNavigationClick(item);
-            }}
-          >
-            <ListItemButton
-              sx={{
-                textAlign: 'left',
-                p: 0,
-                pl: '16px',
-              }}
-            >
-              <ListItemText>
-                {item.title}{' '}
-                {item.external === true ? (
-                  <OpenInNew sx={{ verticalAlign: 'middle' }} />
-                ) : null}
-              </ListItemText>
-            </ListItemButton>
-          </ListItem>
-        ))}
-        <Divider sx={{ mt: 2, mb: 2 }} />
-        {isAuthenticated ? (
-          <TreeView
-            defaultCollapseIcon={<ExpandMoreIcon />}
-            defaultExpandIcon={<ChevronRightIcon />}
-            sx={{ textAlign: 'left' }}
-          >
-            <TreeItem nodeId='1' label='Account' sx={{ color: '#3959fa' }}>
-              <TreeItem
-                nodeId='2'
-                label='Account Details'
-                sx={{ color: '#7c7c7c', cursor: 'pointer' }}
-                onClick={() => {
-                  onNavigationClick(ACCOUNT_TARGET);
-                }}
-                icon={<AccountCircleIcon fontSize='small' />}
-              />
-              <TreeItem
-                nodeId='4'
-                label='Sign Out'
-                sx={{ color: '#7c7c7c' }}
-                onClick={onLogoutClick}
-                icon={<LogoutIcon fontSize='small' />}
-              />
-            </TreeItem>
-          </TreeView>
-        ) : (
-          <ListItem
-            sx={{ color: '#3959fa' }}
-            onClick={() => {
-              onNavigationClick(SIGN_IN_TARGET);
-            }}
-            key={'Login'}
-            disablePadding
-          >
-            <ListItemButton
-              sx={{
-                textAlign: 'left',
-                p: 0,
-                pl: '16px',
-              }}
-            >
-              <ListItemText>Login</ListItemText>
-            </ListItemButton>
-          </ListItem>
-        )}
-      </List>
-    </Box>
-  );
-};
+import { NestedMenuItem } from 'mui-nested-menu';
+import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import { fontFamily } from '../Theme';
+import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
+import { animatedButtonStyling } from './Header.style';
+import DrawerContent from './HeaderMobileDrawer';
+import ThemeToggle from './ThemeToggle';
 
 export default function DrawerAppBar(): React.ReactElement {
+  const theme = useTheme();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [openDialog, setOpenDialog] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('');
   const [navigationItems, setNavigationItems] = React.useState<
     NavigationItem[]
-  >([]);
+  >(buildNavigationItems(defaultRemoteConfigValues));
   const [currentLanguage, setCurrentLanguage] = React.useState<
     string | undefined
   >(i18n.language);
@@ -161,11 +59,16 @@ export default function DrawerAppBar(): React.ReactElement {
   });
 
   React.useEffect(() => {
+    setActiveTab(location.pathname);
+  }, [location.pathname]);
+
+  React.useEffect(() => {
     setNavigationItems(buildNavigationItems(config));
   }, [config]);
 
   const navigateTo = useNavigate();
   const isAuthenticated = useSelector(selectIsAuthenticated);
+  const userEmail = useSelector(selectUserEmail);
 
   const handleDrawerToggle = (): void => {
     setMobileOpen((prevState) => !prevState);
@@ -199,18 +102,32 @@ export default function DrawerAppBar(): React.ReactElement {
     setAnchorEl(null);
   };
 
-  const handleMenuItemClick = (item: NavigationItem): void => {
+  const handleMenuItemClick = (item: NavigationItem | string): void => {
     handleMenuClose();
     handleNavigation(item);
   };
 
+  const metricsOptionsEnabled =
+    config.enableMetrics || userEmail?.endsWith('mobilitydata.org') === true;
+
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        height: '64px',
+        mb: { xs: 2, md: 4 },
+      }}
+    >
       <AppBar
         component='nav'
         color='inherit'
         elevation={0}
-        sx={{ background: 'white' }}
+        sx={{
+          background: theme.palette.background.paper,
+          fontFamily: fontFamily.secondary,
+          borderBottom: '1px solid',
+          borderColor: theme.palette.divider,
+        }}
       >
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -228,20 +145,37 @@ export default function DrawerAppBar(): React.ReactElement {
               style={{
                 textDecoration: 'none',
                 display: 'flex',
+                alignItems: 'center',
               }}
               className='btn-link'
             >
-              <Avatar src='/assets/MOBILTYDATA_logo_purple_M.png'></Avatar>
+              <picture style={{ display: 'flex' }}>
+                <source
+                  media='(min-width: 50px)'
+                  srcSet='/assets/MOBILTYDATA_logo_purple_M.webp'
+                  width='50'
+                  height='50'
+                />
+                <source
+                  src='/assets/MOBILTYDATA_logo_purple_M.png'
+                  type='image/png'
+                />
+                <img
+                  alt='MobilityData logo'
+                  src='/assets/MOBILTYDATA_logo_purple_M.png'
+                />
+              </picture>
               <Typography
                 variant='h5'
-                component='div'
-                className='website-title'
+                component='h1'
+                color={'primary'}
                 sx={{
-                  flexGrow: 1,
+                  ml: 1,
+                  fontWeight: 700,
                   display: { xs: 'none', md: 'block' },
                 }}
               >
-                {websiteTile}
+                Mobility Database
               </Typography>
             </a>
           </Box>
@@ -249,17 +183,86 @@ export default function DrawerAppBar(): React.ReactElement {
           <Box sx={{ display: { xs: 'none', md: 'block' } }}>
             {navigationItems.map((item) => (
               <Button
+                sx={(theme) => ({
+                  ...animatedButtonStyling(theme),
+                  color: theme.palette.text.primary,
+                })}
+                href={item.external === true ? item.target : '/' + item.target}
                 key={item.title}
-                sx={{ color: item.color, minWidth: 'fit-content' }}
-                onClick={() => {
-                  handleNavigation(item);
-                }}
+                target={item.external === true ? '_blank' : '_self'}
+                rel={item.external === true ? 'noopener noreferrer' : ''}
                 variant={'text'}
                 endIcon={item.external === true ? <OpenInNew /> : null}
+                className={
+                  activeTab.includes('/' + item.target) ? 'active' : ''
+                }
               >
                 {item.title}
               </Button>
             ))}
+            {/* Allow users with mobilitydata.org email to access metrics */}
+            {metricsOptionsEnabled && (
+              <>
+                <Button
+                  aria-controls='analytics-menu'
+                  aria-haspopup='true'
+                  endIcon={<ArrowDropDownIcon />}
+                  onClick={handleMenuOpen}
+                  sx={(theme) => ({
+                    ...animatedButtonStyling(theme),
+                    color: theme.palette.text.primary,
+                  })}
+                  id='analytics-button-menu'
+                  className={
+                    activeTab.includes('metrics') ? 'active short' : ''
+                  }
+                >
+                  Metrics
+                </Button>
+                <Menu
+                  id='analytics-menu'
+                  anchorEl={anchorEl}
+                  open={
+                    anchorEl !== null && anchorEl.id === 'analytics-button-menu'
+                  }
+                  onClose={handleMenuClose}
+                >
+                  <NestedMenuItem
+                    label='GTFS'
+                    parentMenuOpen={Boolean(anchorEl)}
+                    leftIcon={<DirectionsBusIcon />}
+                  >
+                    {gtfsMetricsNavItems.map((item) => (
+                      <MenuItem
+                        key={item.title}
+                        onClick={() => {
+                          handleMenuItemClick(item.target);
+                        }}
+                      >
+                        {item.title}
+                      </MenuItem>
+                    ))}
+                  </NestedMenuItem>
+                  <NestedMenuItem
+                    label='GBFS'
+                    parentMenuOpen={Boolean(anchorEl)}
+                    leftIcon={<BikeScooterOutlined />}
+                  >
+                    {gbfsMetricsNavItems.map((item) => (
+                      <MenuItem
+                        key={item.title}
+                        onClick={() => {
+                          handleMenuItemClick(item.target);
+                        }}
+                      >
+                        {item.title}
+                      </MenuItem>
+                    ))}
+                  </NestedMenuItem>
+                </Menu>
+              </>
+            )}
+
             {isAuthenticated ? (
               <>
                 <Button
@@ -267,13 +270,19 @@ export default function DrawerAppBar(): React.ReactElement {
                   aria-haspopup='true'
                   onClick={handleMenuOpen}
                   endIcon={<ArrowDropDownIcon />}
+                  id='account-button-menu'
+                  sx={animatedButtonStyling}
+                  className={activeTab === '/account' ? 'active short' : ''}
+                  data-cy='accountHeader'
                 >
                   Account
                 </Button>
                 <Menu
                   id='account-menu'
                   anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
+                  open={
+                    anchorEl !== null && anchorEl.id === 'account-button-menu'
+                  }
                   onClose={handleMenuClose}
                 >
                   <MenuItem
@@ -282,21 +291,33 @@ export default function DrawerAppBar(): React.ReactElement {
                     }}
                   >
                     <ListItemIcon>
-                      <AccountCircleIcon fontSize='small' />
+                      <AccountCircleIcon
+                        fontSize='small'
+                        sx={{ color: theme.palette.text.primary }}
+                      />
                     </ListItemIcon>
                     Account Details
                   </MenuItem>
                   <MenuItem onClick={handleLogoutClick}>
                     <ListItemIcon>
-                      <LogoutIcon fontSize='small' />
+                      <LogoutIcon
+                        fontSize='small'
+                        sx={{ color: theme.palette.text.primary }}
+                      />
                     </ListItemIcon>
                     Sign Out
                   </MenuItem>
                 </Menu>
               </>
             ) : (
-              <Button href={SIGN_IN_TARGET}>Login</Button>
+              <Button
+                sx={{ fontFamily: fontFamily.secondary }}
+                href={SIGN_IN_TARGET}
+              >
+                Login
+              </Button>
             )}
+            <ThemeToggle></ThemeToggle>
             {/* Testing language tool */}
             {config.enableLanguageToggle && currentLanguage !== undefined && (
               <Select
@@ -304,6 +325,7 @@ export default function DrawerAppBar(): React.ReactElement {
                 onChange={(lang) => {
                   void i18n.changeLanguage(lang.target.value);
                 }}
+                variant='standard'
               >
                 <MenuItem value={'en'}>EN</MenuItem>
                 <MenuItem value={'fr'}>FR</MenuItem>
@@ -323,14 +345,14 @@ export default function DrawerAppBar(): React.ReactElement {
             display: { xs: 'block', md: 'none' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: drawerWidth,
+              width: '240px',
             },
           }}
         >
           <DrawerContent
             onLogoutClick={handleLogoutClick}
-            onNavigationClick={handleNavigation}
             navigationItems={navigationItems}
+            metricsOptionsEnabled={metricsOptionsEnabled}
           />
         </Drawer>
       </nav>

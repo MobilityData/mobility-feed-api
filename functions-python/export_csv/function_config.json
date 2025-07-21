@@ -1,0 +1,20 @@
+{
+  "name": "export-csv",
+  "description": "Export the DB feed data as a csv file",
+  "entry_point": "export_and_upload_csv",
+  "timeout": 600,
+  "memory": "2Gi",
+  "trigger_http": true,
+  "include_folders": ["helpers", "dataset_service"],
+  "include_api_folders": ["utils", "database", "feed_filters", "common", "database_gen"],
+  "secret_environment_variables": [
+    {
+      "key": "FEEDS_DATABASE_URL"
+    }
+  ],
+  "ingress_settings": "ALLOW_INTERNAL_AND_GCLB",
+  "max_instance_request_concurrency": 1,
+  "max_instance_count": 1,
+  "min_instance_count": 0,
+  "available_cpu": 1
+}

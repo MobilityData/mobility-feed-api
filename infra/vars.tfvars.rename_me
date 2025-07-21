@@ -17,3 +17,6 @@ oauth2_client_secret = {{OAUTH2_CLIENT_SECRET}}
 global_rate_limit_req_per_minute = {{GLOBAL_RATE_LIMIT_REQ_PER_MINUTE}}
 
 validator_endpoint = {{VALIDATOR_ENDPOINT}}
+transitland_api_key = {{TRANSITLAND_API_KEY}}
+
+operations_oauth2_client_id = {{OPERATIONS_OAUTH2_CLIENT_ID}}

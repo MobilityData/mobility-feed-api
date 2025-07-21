@@ -6,6 +6,7 @@ main:
           args:
               text: ${event}
               severity: INFO
+    # Initializing variables
       - extractDataFromEvent:
           assign:
           - data: ${event.data.protoPayload}
@@ -14,32 +15,55 @@ main:
           assign:
             - datasetsBucket: ${sys.get_env("datasets_bucket_name")}
             - reportsBucket: ${sys.get_env("reports_bucket_name")}
-            - validatorEndpoint: ${sys.get_env("validator_endpoint")}
             # Resource name format: projects/_/buckets/<datasetBucketName>/objects/<feedID>/<datasetID>/<datasetID>.zip
             - feedID: ${text.split(data.resourceName, "/")[5]}
             - datasetID: ${text.split(data.resourceName, "/")[6]}
             - region: ${resource.labels.location}
             - projectID: ${resource.labels.project_id}
+            - environment: ${sys.get_env("environment")}
+            # The cloud tasks are sensitive to deletion.
+            # This is why we need to have this as a parameter set at deploying time.
+            - cloudTaskName: ${sys.get_env("processing_report_cloud_task_name")}
+            - serviceAccountEmail: ${"workflows-service-account@mobility-feeds-" + environment + ".iam.gserviceaccount.com"}
             - url: ${"https://storage.googleapis.com/" + datasetsBucket + "/" + feedID + "/" + datasetID + "/" + datasetID + ".zip"}
             - headers:
                   Content-Type: application/json
             - jobID: "undefined"
-      - assignResultsEndpoint:
-          switch:
-            - condition: ${sys.get_env("environment") == "prod"}
-              next: assignResultsEndpointProd
-          next: assignResultsEndpointDev
-      - assignResultsEndpointProd:
-          assign:
-            - resultsEndpoint: "https://gtfs-validator-results.mobilitydata.org/"
-      - assignResultsEndpointDev:
-          assign:
-            - resultsEndpoint: "https://staging-gtfs-validator-results.mobilitydata.org/"
+          next: assignValidatorEndpoint
+      - assignValidatorEndpoint:
+            try:
+                assign:
+                    - validatorEndpoint: ${event.data.validator_endpoint}
+            except:
+                steps:
+                    - assignValidatorEndpointFromEnvVariable:
+                        assign:
+                            - validatorEndpoint: ${sys.get_env("validator_endpoint")}
+      - assignByPassDbUpdate:
+            try:
+                assign:
+                    - byPassDbUpdate: ${event.data.bypass_db_update == true}
+            except:
+                steps:
+                    - assignByPassDbUpdateFalse:
+                        assign:
+                            - byPassDbUpdate: ${false}
+
+      - assignReportsBucket:
+            try:
+                assign:
+                    - reportsBucket: ${event.data.reports_bucket_name}
+            except:
+                steps:
+                    - assignReportsBucketFromEnvVariable:
+                        assign:
+                            - reportsBucket: ${sys.get_env("reports_bucket_name")}
       - logInit:
           call: sys.log
           args:
               text: '${"feedID: " + feedID + ", datasetID: " + datasetID + ", url: " + url}'
               severity: INFO
+    # Retrieve the current validator's version
       - getValidatorVersion:
           steps:
             - httpCall:
@@ -55,6 +79,90 @@ main:
                 args:
                   text: '${"GTFS Validator version: " + validatorVersion}'
                   severity: INFO
+    # Setting the file name of the target files. mdb-1826/mdb-1826-202404010643/report_5.0.1.html
+      - assignTargetFileNames:
+            assign:
+                - targetSystemErrorsFileName: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
+                - targetHtmlReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".html"}
+                - targetJsonReportFileName: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".json"}
+
+    # Checking if the target file names exist in the bucket. If exists, the validator execution will be skipped and the workflow jumps to: shouldUpdateDb
+      - checkTargetFilesExistence:
+            steps:
+            - checkSystemErrorsFile:
+                try:
+                    steps:
+                    - tryGetSystemErrorsFile:
+                        call: googleapis.storage.v1.objects.get
+                        args:
+                            bucket: ${datasetsBucket}
+                            object: ${targetSystemErrorsFileName}
+                        result: systemErrorsFileResponse
+                    - assignSystemErrorsFileExistsTrue:
+                        assign:
+                            - systemErrorsFileExists: true
+                        next: checkHtmlReportFile
+                except:
+                    steps:
+                    - assignSystemErrorsFileExistsFalse:
+                        assign:
+                            - systemErrorsFileExists: false
+                        next: checkHtmlReportFile
+
+            - checkHtmlReportFile:
+                try:
+                    steps:
+                    - tryGetHtmlReportFile:
+                        call: googleapis.storage.v1.objects.get
+                        args:
+                            bucket: ${datasetsBucket}
+                            object: ${targetHtmlReportFileName}
+                        result: htmlReportFileResponse
+                    - assignHtmlReportFileExistsTrue:
+                        assign:
+                            - htmlReportFileExists: true
+                        next: checkJsonReportFile
+                except:
+                    steps:
+                    - assignHtmlReportFileExistsFalse:
+                        assign:
+                            - htmlReportFileExists: false
+                        next: checkJsonReportFile
+
+            - checkJsonReportFile:
+                try:
+                    steps:
+                    - tryGetJsonReportFile:
+                        call: googleapis.storage.v1.objects.get
+                        args:
+                            bucket: ${datasetsBucket}
+                            object: ${targetJsonReportFileName}
+                        result: jsonReportFileResponse
+                    - assignJsonReportFileExistsTrue:
+                        assign:
+                            - jsonReportFileExists: true
+                        next: evaluateFileExistence
+                except:
+                    steps:
+                    - assignJsonReportFileExistsFalse:
+                        assign:
+                            - jsonReportFileExists: false
+                        next: evaluateFileExistence
+
+            - evaluateFileExistence:
+                switch:
+                    - condition: ${systemErrorsFileExists and htmlReportFileExists and jsonReportFileExists}
+                      next: logSkipValidationMessage
+                next: createJob
+
+            - logSkipValidationMessage:
+                call: sys.log
+                args:
+                    text: 'Skipping GTFS Validator as files exist in the target bucket'
+                    severity: INFO
+                next: shouldUpdateDb
+
+    # Executes the validation call
       - createJob:
           call: http.post
           args:
@@ -94,13 +202,13 @@ main:
                         result: executionResultResponse
                     - validateStatus:
                         next: logExecutionResult
-                # Retrying 120 times with a delay of 10 seconds each time gives 20 minutes wait time.
+                # Retrying 120 times with a delay of 30 seconds each time gives 60 minutes wait time.
                 retry:
                   predicate: ${retry_predicate}
                   max_retries: 120
                   backoff:
-                    initial_delay: 10
-                    max_delay: 10
+                    initial_delay: 30
+                    max_delay: 30
                     multiplier: 1
       - logExecutionResult:
           steps:
@@ -114,12 +222,13 @@ main:
               args:
                   text: ${executionResultResponse}
                   severity: INFO
+    # Determines if the validation was successful analysing the system errors file
       - systemErrors:
             try:
                 call: googleapis.storage.v1.objects.copy
                 args:
                     destinationBucket: ${datasetsBucket}
-                    destinationObject: ${feedID + "%2F" + datasetID + "%2Fsystem_errors_" + validatorVersion + ".json"}
+                    destinationObject: ${targetSystemErrorsFileName}
                     sourceBucket: ${reportsBucket}
                     sourceObject: ${jobID + "%2Fsystem_errors.json"}
                     destinationPredefinedAcl: publicRead
@@ -178,7 +287,7 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".html"}
+            destinationObject: ${targetHtmlReportFileName}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.html"}
             destinationPredefinedAcl: publicRead
@@ -191,7 +300,7 @@ main:
           call: googleapis.storage.v1.objects.copy
           args:
             destinationBucket: ${datasetsBucket}
-            destinationObject: ${feedID + "%2F" + datasetID + "%2Freport_" + validatorVersion + ".json"}
+            destinationObject: ${targetJsonReportFileName}
             sourceBucket: ${reportsBucket}
             sourceObject: ${jobID + "%2Freport.json"}
             destinationPredefinedAcl: publicRead
@@ -200,33 +309,38 @@ main:
           args:
               text: ${"JSON report copied to " + datasetsBucket + "/" + feedID + "/" + datasetID + "/report_" + validatorVersion + ".json"}
               severity: INFO
-      - updateDatabase:
-          call: http.post
-          args:
-            url: ${"https://" + region + "-" + projectID + ".cloudfunctions.net/process-validation-report"}
-            auth:
-              type: OIDC
-            body:
+    #   Skips the update DB if needed, otherwise will create a task to update the DB
+      - shouldUpdateDb:
+            switch:
+                - condition: ${byPassDbUpdate}
+                  next: successfulExecution
+      - createPayload:
+          assign:
+            - payloadTask:
                 feed_id: ${feedID}
                 dataset_id: ${datasetID}
                 validator_version: ${validatorVersion}
-            headers: ${headers}
-          result: updateDatabaseResponse
-      - logUpdateDatabaseResponse:
+            - payloadTaskBase64: '${base64.encode(json.encode(payloadTask))}'
+      - enqueueTask:
+          call: googleapis.cloudtasks.v2beta3.projects.locations.queues.tasks.create
+          args:
+            parent: ${"projects/" + projectID + "/locations/" + region + "/queues/" + cloudTaskName}
+            body:
+              task:
+                httpRequest:
+                  url: ${"https://" + region + "-" + projectID + ".cloudfunctions.net/process-validation-report"}
+                  httpMethod: POST
+                  oidcToken:
+                    serviceAccountEmail: ${serviceAccountEmail}
+                  body: ${payloadTaskBase64}
+                  headers:
+                    Content-Type: application/json
+          result: taskResponse
+      - logTaskCreation:
           call: sys.log
           args:
-              text: ${updateDatabaseResponse}
-              severity: INFO
-          next: successfulExecution
-      - fileExistenceTimeout:
-          steps:
-            - logFileExistenceTimeout:
-                call: sys.log
-                args:
-                    text: ${"File not found after 20 minutes for datasetID " + datasetID }
-                    severity: ERROR
-            - returnFileNotFound:
-                return:  ${"File not found after 20 minutes for datasetID " + datasetID }
+            text: ${"Created task for feed " + feedID + " Task ID:" + taskResponse.name}
+            severity: INFO
       - successfulExecution:
           steps:
             - logSuccessfulExecution:

@@ -1,12 +1,16 @@
-import asyncio
-import json
 import logging
-from dataclasses import dataclass
+import os
+import sys
+from dataclasses import dataclass, asdict
 from typing import Final, Optional
 
 from middleware.request_context import RequestContext, get_request_context
+from shared.common.logging_utils import get_env_logging_level
 from utils.config import get_config, PROJECT_ID
 from utils.dict_utils import get_safe_value
+
+import google.cloud.logging
+from google.cloud.logging_v2.handlers import CloudLoggingFilter, CloudLoggingHandler
 
 API_ACCESS_LOG: Final[str] = "api-access-log"
 CLOUD_RUN_SERVICE_ID: Final[str] = "K_SERVICE"
@@ -27,127 +31,130 @@ class HttpRequest:
     userAgent: str
     remoteIp: str
     serverIp: str
-    latency: float
+    latency: str
     protocol: str
 
 
-@dataclass
-class LogRecord:
+def get_trace(request_context: RequestContext):
     """
-    Data class for Log Record
+    Get the trace id from the log record
     """
-
-    user_id: str
-    httpRequest: dict
-    trace: str
-    spanId: str
-    traceSampled: bool
-    textPayload: Optional[str]
-    jsonPayload: Optional[dict]
+    trace = ""
+    trace_id = get_safe_value(request_context, "trace_id")
+    if trace_id:
+        trace = f"projects/{get_config(PROJECT_ID, '')}/traces/{trace_id}"
+    return trace
 
 
-class AsyncStreamHandler(logging.StreamHandler):
+def get_http_request(record) -> HttpRequest | None:
     """
-    Async Stream Handler
+    Get the http request from the log record
+    If the http request is not found, return None
     """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.loop = asyncio.get_event_loop()
-
-    def emit(self, record):
-        """
-        Emit the log record
-        """
-        asyncio.ensure_future(self.async_emit(record))
-
-    async def async_emit(self, record):
-        """
-        Async emit the log record
-        """
-        msg = self.format(record)
-        stream = self.stream
-        await self.loop.run_in_executor(None, stream.write, msg)
-        await self.loop.run_in_executor(None, stream.flush)
+    context = record.__getattribute__("context") if hasattr(record, "context") else None
+    return context.get("http_request") if context else {}
 
 
-class GCPLogHandler(AsyncStreamHandler):
+class GoogleCloudLogFilter(CloudLoggingFilter):
     """
-    GCP Log Handler
+    Log filter for Google Cloud Logging.
+    This filter adds the trace, span and http_request fields to the log record.
     """
 
-    def __init__(self):
-        console_handler = logging.StreamHandler()
-        self.logger = logging.getLogger()
-        self.logger.addHandler(console_handler)
-        self.logger.setLevel(logging.DEBUG)
-        super().__init__()
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            request_context = get_request_context()
+            http_request = get_http_request(record)
+            if http_request:
+                record.http_request = asdict(http_request)
+            span_id = request_context.get("span_id")
+            trace = get_trace(request_context)
+            record.trace = trace
+            record.span_id = span_id
 
-    @staticmethod
-    def get_trace(request_context: RequestContext):
-        """
-        Get the trace id from the log record
-        """
-        trace = ""
-        trace_id = get_safe_value(request_context, "trace_id")
-        if trace_id:
-            trace = f"projects/{get_config(PROJECT_ID, '')}/traces/{trace_id}"
-        return trace
+            record._log_fields = {
+                "logging.googleapis.com/trace": trace,
+                "logging.googleapis.com/spanId": span_id,
+                "logging.googleapis.com/httpRequest": asdict(http_request) if http_request else None,
+                "logging.googleapis.com/trace_sampled": True,
+            }
+            super().filter(record)
+        except Exception as e:
+            # Using print to avoid a recursive call the log filter
+            print(f"Error in GoogleCloudLogFilter: {e}")
+        return True
 
-    @staticmethod
-    def get_http_request(record) -> HttpRequest:
-        context = record.__getattribute__("context") if hasattr(record, "context") else None
-        return context.get("http_request") if context else {}
 
-    async def async_emit(self, record):
-        """
-        Emit the GCP log record
-        """
-        http_request = self.get_http_request(record)
-        request_context = get_request_context()
-        text_payload = None
-        json_payload = None
-        message = record.msg if hasattr(record, "msg") else None
-        message = record.getMessage() if message is None and hasattr(record, "getMessage") else message
+class StderrToLog:
+    """
+    Redirect stderr to log
+    """
+
+    def __init__(self, logger):
+        self.logger = logger
+
+    def write(self, message):
+        message = message.strip()
         if message:
-            if type(message) is dict:
-                json_payload = message
-            else:
-                text_payload = str(message)
+            self.logger.error(message)
 
-        log_record: LogRecord = LogRecord(
-            httpRequest=http_request.__dict__ if not isinstance(http_request, dict) else {},
-            trace=self.get_trace(request_context),
-            spanId=request_context.get("span_id"),
-            traceSampled=request_context.get("trace_sampled"),
-            user_id=request_context.get("user_id"),
-            textPayload=text_payload,
-            jsonPayload=json_payload,
-        )
-        self.logger.info(json.dumps(log_record.__dict__))
+    def flush(self):
+        pass
 
 
-class Logger:
+def get_logger(name: Optional[str]):
     """
-    Util class for logging information, errors or warnings
+    Returns a logger with the name making sure the propagate flag is set to True.
     """
+    logger = logging.getLogger(name)
+    logger.propagate = True
+    return logger
 
-    def __init__(self, name):
-        """
-        Initialize the logger
-        """
-        formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
+def is_local_env():
+    """
+    Returns: True if the environment is local, False otherwise
+    """
+    return os.getenv("K_SERVICE") is None
 
-        self.logger = logging.getLogger(name)
-        self.logger.addHandler(console_handler)
-        self.logger.setLevel(logging.DEBUG)
 
-    def get_logger(self):
-        """
-        Get the logger instance
-        :return: the logger instance
-        """
-        return self.logger
+def global_logging_setup():
+    logging.debug("Starting cloud up logging")
+    if is_local_env():
+        logging.debug("Setting local up logging")
+        logging.basicConfig(level=get_env_logging_level())
+        return
+    logging.debug("Setting cloud up logging")
+    # Send warnings through logging
+    logging.captureWarnings(True)
+    # Replace sys.stderr
+    sys.stderr = StderrToLog(logging.getLogger("stderr"))
+    try:
+        client = google.cloud.logging.Client()
+        handler = CloudLoggingHandler(client, structured=True)
+        handler.setLevel(get_env_logging_level())
+        handler.addFilter(GoogleCloudLogFilter(project=client.project))
+    except Exception as e:
+        logging.error("Error initializing cloud logging: %s", e)
+        logging.basicConfig(level=get_env_logging_level())
+        return
+
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(get_env_logging_level())
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+
+    # This overrides individual logs essential for debugging purposes.
+    for name in [
+        "sqlalchemy",
+        "uvicorn",
+        "uvicorn.error",
+        "uvicorn.access",
+        "sqlalchemy.exc",
+        "feed-api",
+        "sqlalchemy.engine",
+    ]:
+        get_logger(name)
+
+    logging.debug("Setting cloud up logging completed")

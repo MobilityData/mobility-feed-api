@@ -1,5 +1,4 @@
 #
-#
 #  MobilityData 2023
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,20 +15,22 @@
 #
 #
 
-# Build a python function compressing the source code and its dependencies exluding the libs in requirements.txt.
+# Build a python function compressing the source code and its dependencies excluding the libs in requirements.txt.
 # The script receives the name of the function as parameter.
 # The function must be located in the folder `functions-python/<function_name>`.
 # The function config must be defined in the file `functions-python/<function_name>/function_config.json`.
 
 # Usage:
-#   python-function-build.sh --function_name <function name> --all
+#   function-python-build.sh --function_name <function name> --all
 # Examples:
-#   python-function-build.sh --function_name tokens
-#   python-function-build.sh --all
+#   function-python-build.sh --function_name tokens
+#   function-python-build.sh --all
 
 # relative path
 SCRIPT_PATH="$(dirname -- "${BASH_SOURCE[0]}")"
-FUNCTIONS_PATH="$SCRIPT_PATH/../functions-python"
+ROOT_PATH="$SCRIPT_PATH/.."
+FUNCTIONS_PATH="$ROOT_PATH/functions-python"
+API_SRC_PATH="$ROOT_PATH/api/src/shared"
 
 # function printing usage
 display_usage() {
@@ -77,7 +78,7 @@ fi
 
 build_function() {
   function_name=$1
-  printf "\nBuilding function $function_name"
+  printf "\nBuilding function $function_name "
   # verify if the function's folder exists
   if [ ! -d "$FUNCTIONS_PATH/$function_name" ]; then
     printf "\nERROR: function's folder does not exist"
@@ -89,39 +90,89 @@ build_function() {
   FX_SOURCE_PATH="$FUNCTIONS_PATH/$function_name/src"
   FX_DIST_PATH="$FX_PATH/.dist"
   FX_DIST_BUILD="$FX_DIST_PATH/build"
+  FX_CONFIG_FILE="$FX_PATH/function_config.json"
 
-  rm -rf "$FX_DIST_PATH"
-  mkdir "$FX_DIST_PATH"
+  # verify if the function's folder exists
+  if [ ! -d "$FX_PATH" ]; then
+    printf "\nERROR: function's folder \"$FX_PATH\" does not exist"
+    display_usage
+    exit 1
+  fi
 
-  cp -R "$FX_SOURCE_PATH" "$FX_DIST_BUILD"
-  cp "$FX_PATH/requirements.txt" "$FX_DIST_BUILD"
+  # verify that the function config file exists
+   if [ ! -f "$FX_CONFIG_FILE" ]; then
+    printf "\nERROR: function's config file \"$FX_CONFIG_FILE\" does not exist"
+    display_usage
+    exit 1
+  fi
 
   # include folders that are in the src function_config file as a json property called "include_folders"
-  include_folders=$(cat "$FX_PATH/function_config.json" | jq -r '.include_folders[]')
-  if [ -z "$include_folders" ]; then
-    printf "\nINFO: function_config.json file does not contain a property called include_folders"
-  else
-    printf "\nINFO: function_config.json file contains a property called include_folders"
-  fi
-  for folder in $include_folders; do
-    printf "\nINFO: Including .py files from folder $FX_PATH/../$folder, excluding 'tests' directories\n"
-    # Find all .py files, excluding those in 'tests' directories
-    find "$FX_PATH/../$folder" -type d -name "tests" -prune -o -name "*.py" -print | while read file; do
-        if [ -d "$file" ]; then continue; fi
-        relative_path="${file#$FX_PATH/../}"
-        dest_path="$FX_DIST_BUILD/$relative_path"
+  include_folders=$(jq -r .include_folders[] $FX_CONFIG_FILE 2> /dev/null)
+  # And include_api_folders (if any). These will be taken from api/src
+  include_api_folders=$(jq -r '.include_api_folders[]' $FX_CONFIG_FILE 2> /dev/null)
 
+  # We'll assume that we build only if there is an entry_point defined.
+  if jq -e '.entry_point' "$FX_CONFIG_FILE" > /dev/null; then
+    rm -rf "$FX_DIST_PATH"
+    mkdir "$FX_DIST_PATH"
+
+    # Run pre_build script if specified
+    pre_build_script=$(jq -r '.build_settings.pre_build_script // empty' "$FX_PATH/function_config.json")
+    if [ -n "$pre_build_script" ]; then
+      printf "\nRunning pre_build script: $pre_build_script\n"
+      (cd "$FX_PATH" && eval "$pre_build_script")
+      printf "\nCompleted running pre_build script\n"
+    fi
+
+     # Use rsync instead of cp -R to exclude some directories that are not useful for deployment
+     rsync -av --quiet --exclude 'shared' --exclude 'test_shared' "$FX_SOURCE_PATH/" "$FX_DIST_BUILD/"
+     cp "$FX_PATH/requirements.txt" "$FX_DIST_BUILD"
+
+     copy_folders_to_build $FUNCTIONS_PATH "$include_folders" "include_folders"
+     copy_folders_to_build $API_SRC_PATH "$include_api_folders" "include_api_folders"
+
+     (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
+  fi
+
+  printf "\nCompleted building function $function_name\n"
+}
+
+copy_folders_to_build() {
+  root_folder=$1
+  folders=$2
+  property=$3
+  if [ -z "$folders" ]; then
+    printf "\nINFO: function_config.json file does not contain a property called $property\n"
+  else
+    printf "\nINFO: function_config.json file contains a property called $property\n"
+  fi
+  for folder in $folders; do
+
+    printf "\nINFO: Including .py and .json files from folder $root_folder/$folder, excluding 'tests' and 'venv' directories\n"
+    # Find all .py and .json files, excluding those in 'tests' or 'venv' directories
+    if [ ! -e $root_folder/$folder ]; then
+      echo "ERROR ---> Folder $root_folder/$folder does not exist"
+      continue
+    fi
+    (
+      cd "$root_folder" &&
+        find "$folder" \
+          \( -type d \( -name "tests" -o -name "venv" -o -name "shared" -o -name "test_shared" \) \) -prune -o \
+          \( -name "*.py" -o -name "*.json" \) -print
+    ) | while read file; do
+
+        if [ -d "$root_folder/$file" ]; then continue; fi
+        dest_path="$FX_DIST_BUILD/shared/$file"
         # Create the directory structure for the current file in the destination
         mkdir -p "$(dirname "$dest_path")"
 
         # Copy the file to the destination
-        cp "$file" "$dest_path"
+        cp "$root_folder/$file" "$dest_path"
     done
-  done
 
-  (cd "$FX_DIST_BUILD" && zip -r -X "../$function_name.zip" . >/dev/null)
-  printf "\nCompleted building function $function_name\n"
+  done
 }
+
 
 if [ "$ALL" = "true" ]; then
   # get all the functions in the functions-python folder that contain a function_config.json file

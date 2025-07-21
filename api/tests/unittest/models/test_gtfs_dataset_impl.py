@@ -1,9 +1,10 @@
 import unittest
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from geoalchemy2 import WKTElement
 
-from database_gen.sqlacodegen_models import Validationreport, Gtfsdataset, Feed
+from shared.database_gen.sqlacodegen_models import Validationreport, Gtfsdataset, Feed
 from feeds.impl.models.gtfs_dataset_impl import GtfsDatasetImpl
 
 POLYGON = "POLYGON ((3.0 1.0, 4.0 1.0, 4.0 2.0, 3.0 2.0, 3.0 1.0))"
@@ -42,6 +43,9 @@ class TestGtfsDatasetImpl(unittest.TestCase):
                 Validationreport(validator_version="0.2.0"),
                 Validationreport(validator_version="1.1.1"),
             ],
+            service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            agency_timezone="Canada/Atlantic",
         )
         result = GtfsDatasetImpl.from_orm(orm)
         assert result.id == "stable_id"
@@ -56,5 +60,8 @@ class TestGtfsDatasetImpl(unittest.TestCase):
         assert result.bounding_box.minimum_longitude == 3.0
         assert result.bounding_box.maximum_longitude == 4.0
         assert result.validation_report.validator_version == "1.1.1"
+        assert result.service_date_range_start == datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic"))
+        assert result.service_date_range_end == datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic"))
+        assert result.agency_timezone == "Canada/Atlantic"
 
         assert GtfsDatasetImpl.from_orm(None) is None

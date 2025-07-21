@@ -10,12 +10,17 @@
     "feeds": "Feeds",
     "gtfsSchedule": "GTFS Schedule",
     "gtfsRealtime": "GTFS Realtime",
+    "gtfs": "GTFS Schedule",
+    "gtfs_rt": "GTFS Realtime",
+    "gbfs": "GBFS",
     "gtfsRealtimeEntities": {
         "tripUpdates": "Trip Updates",
         "vehiclePositions": "Vehicle Positions",
         "serviceAlerts": "Service Alerts"
     },
     "loading": "Loading...",
+    "download": "Download",
+    "updated": "Updated",
     "errors": {
         "generic": "We are unable to complete your request at the moment."
     },
@@ -23,5 +28,25 @@
     "apiKey": "API Key",
     "httpHeader": "HTTP Header",
     "back": "Back",
-    "and": "and"
+    "and": "and",
+    "next": "Next",
+    "form": {
+        "yes": "Yes",
+        "no": "No",
+        "required": "This field is required",
+        "submit": "Submit",
+        "select": "Select",
+        "notSure": "Not sure"
+    },
+    "country": "Country",
+    "chooseCountry": "Choose a country",
+    "region": "Region",
+    "municipality": "Municipality",
+    "feedback": {
+        "errors": "errors",
+        "noErrors": "No errors",
+        "noWarnings": "No warnings",
+        "warnings": "warnings",
+        "infoNotices": "info notices"
+    }
 }

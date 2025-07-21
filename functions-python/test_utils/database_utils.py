@@ -14,16 +14,13 @@
 #  limitations under the License.
 #
 
-import contextlib
-import os
 from typing import Final
 
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from database_gen.sqlacodegen_models import Base
-from helpers.database import get_db_engine
+from shared.database_gen.sqlacodegen_models import Base
+from shared.database.database import Database, with_db_session
 import logging
 
 logging.basicConfig()
@@ -41,48 +38,30 @@ excluded_tables: Final[list[str]] = [
     "spatial_ref_sys",
     # Excluding the views
     "feedsearch",
-    "location_with_translations_en",
 ]
 
 
-def get_testing_engine() -> Engine:
-    """Returns a SQLAlchemy engine for the test db."""
-    return get_db_engine(
-        os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url), echo=False
-    )
-
-
-def get_testing_session() -> Session:
-    """Returns a SQLAlchemy session for the test db."""
-    engine = get_testing_engine()
-    return Session(bind=engine)
-
-
-def clean_testing_db():
+@with_db_session(db_url=default_db_url)
+def clean_testing_db(db_session: Session):
     """Deletes all rows from all tables in the test db, excluding those in excluded_tables."""
-    engine = get_testing_engine()
-    with contextlib.closing(engine.connect()) as con:
-        trans = con.begin()
-        try:
-            tables_to_delete = [
-                table.name
-                for table in reversed(Base.metadata.sorted_tables)
-                if table.name not in excluded_tables
-            ]
-            # Disable triggers for each table
-            for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} DISABLE TRIGGER ALL;"))
+    try:
+        tables_to_delete = [
+            table.name
+            for table in reversed(Base.metadata.sorted_tables)
+            if table.name not in excluded_tables
+        ]
 
-            # Delete all rows from each table
-            for table_name in tables_to_delete:
-                delete_query = f"DELETE FROM {table_name};"
-                con.execute(text(delete_query))
+        # Delete all rows from each table
+        for table_name in tables_to_delete:
+            delete_query = f"DELETE FROM {table_name};"
+            db_session.execute(text(delete_query))
+        db_session.commit()
+    except Exception as error:
+        print(f"Error while cleaning the test db: {error}")
+        logging.error(f"Error while deleting from test db: {error}")
 
-            # Re-enable triggers for each table
-            for table_name in tables_to_delete:
-                con.execute(text(f"ALTER TABLE {table_name} ENABLE TRIGGER ALL;"))
 
-            trans.commit()
-        except Exception as error:
-            trans.rollback()
-            logging.error(f"Error while deleting from test db: {error}")
+def reset_database_class():
+    """Resets the Database class to its initial state."""
+    Database.instance = None
+    Database.initialized = False

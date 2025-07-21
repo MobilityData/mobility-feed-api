@@ -1,12 +1,13 @@
 import contextlib
 from datetime import datetime, timedelta
 from distutils.util import strtobool
-from typing import Final
+from typing import Final, List
 
 from sqlalchemy.engine.url import make_url
 
+from scripts.populate_db_gbfs import GBFSDatabasePopulateHelper
 from tests.test_utils.db_utils import dump_database, is_test_db, dump_raw_database, empty_database
-from database.database import Database
+from shared.database.database import Database
 
 from scripts.populate_db_gtfs import GTFSDatabasePopulateHelper
 from scripts.populate_db_test_data import DatabasePopulateTestDataHelper
@@ -24,10 +25,13 @@ datasets_download_first_date: Final[datetime] = datetime.strptime(date_string, d
 
 
 @contextlib.contextmanager
-def populate_database(db: Database, data_dirs: str):
+def populate_database(db: Database, data_dirs: List[str], second_phase_data_dirs: List[str] = None):
+    """
+    Populate the database in two phases before yielding for tests.
+    - First phase: populate with data_dirs.
+    - Second phase: populate with more data to see the effect of adding to a DB that is not empty.
+    """
     try:
-
-        # Check if connected to localhost
         url = make_url(db.engine.url)
         if not is_test_db(url):
             raise Exception("Not connected to MobilityDatabaseTest, aborting operation")
@@ -38,42 +42,54 @@ def populate_database(db: Database, data_dirs: str):
         ):
             empty_database(db, url)
 
-        # Make a list of all the sources_test.csv in test_data and keep only if the file exists
-        csv_filepaths = [
-            filepath
-            for dir in data_dirs
-            if (filepath := os.path.join(dir, "sources_test.csv")) and os.path.isfile(filepath)
-        ]
+        # --- Phase 1 population ---
+        _populate_db_phase(db, data_dirs)
 
-        if len(csv_filepaths) == 0:
-            raise Exception("No sources_test.csv file found in test_data directories")
+        # --- Phase 2 population (only if provided) ---
+        if second_phase_data_dirs is not None:
+            _populate_db_phase(db, second_phase_data_dirs)
 
-        db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
-        db_helper.initialize(trigger_downstream_tasks=False)
-
-        # Make a list of all the extra_test_data.json files in the test_data directories and load the data
-        # Make a list of all the sources_test.csv in test_data and keep only if the file exists
-        json_filepaths = []
-        for dir in data_dirs:
-
-            if (filepath := os.path.join(dir, "extra_test_data.json")) and os.path.isfile(filepath):
-
-                json_filepaths.append(filepath)
-
-        if len(json_filepaths) == 0:
-            print("No extra_test_data.json file found in test_data directories")
-        else:
-            db_helper = DatabasePopulateTestDataHelper(json_filepaths)
-            db_helper.populate()
-            db.flush()
         yield db
-        # Dump the DB data if requested by providing a file name for the dump
+
+        # Optionally dump the database after tests
         if (test_db_dump_filename := os.getenv("TEST_DB_DUMP_FILENAME")) is not None:
             dump_database(db, test_db_dump_filename)
         if (test_raw_db_dump_filename := os.getenv("TEST_RAW_DB_DUMP_FILENAME")) is not None:
             dump_raw_database(db, test_raw_db_dump_filename)
-        # Note that the DB is cleaned before the test, if requested, not after so the DB can be manually examined
-        # if the tests fail.
     except Exception as e:
         print(e)
         raise e
+
+
+def _populate_db_phase(db: Database, data_dirs: List[str]):
+    """
+    Populate the DB with files located in a set of directories.
+    Populates GTFS, GBFS, and extra test data, if available.
+    """
+    csv_filepaths = [
+        filepath
+        for directory in data_dirs
+        if (filepath := os.path.join(directory, "sources_test.csv")) and os.path.isfile(filepath)
+    ]
+    if csv_filepaths:
+        gtfs_db_helper = GTFSDatabasePopulateHelper(csv_filepaths)
+        gtfs_db_helper.initialize(trigger_downstream_tasks=False)
+
+    # GBFS
+    gbfs_csv_filepaths = [
+        filepath
+        for directory in data_dirs
+        if (filepath := os.path.join(directory, "systems_test.csv")) and os.path.isfile(filepath)
+    ]
+    if gbfs_csv_filepaths:
+        GBFSDatabasePopulateHelper(gbfs_csv_filepaths).initialize(trigger_downstream_tasks=False, fetch_url=False)
+
+    # Extra test data
+    json_filepaths = [
+        filepath
+        for dir in data_dirs
+        if (filepath := os.path.join(dir, "extra_test_data.json")) and os.path.isfile(filepath)
+    ]
+    if json_filepaths:
+        db_helper = DatabasePopulateTestDataHelper(json_filepaths)
+        db_helper.populate()

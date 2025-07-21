@@ -13,8 +13,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
 import hashlib
+import logging
 import os
 
 import requests
@@ -34,9 +34,9 @@ def create_bucket(bucket_name):
     bucket = storage_client.lookup_bucket(bucket_name)
     if bucket is None:
         bucket = storage_client.create_bucket(bucket_name)
-        print(f"Bucket {bucket} created.")
+        logging.info(f"Bucket {bucket} created.")
     else:
-        print(f"Bucket {bucket_name} already exists.")
+        logging.info(f"Bucket {bucket_name} already exists.")
 
 
 def download_url_content(url, with_retry=False):
@@ -86,10 +86,12 @@ def download_and_get_hash(
     authentication_type=0,
     api_key_parameter_name=None,
     credentials=None,
+    logger=None,
 ):
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
+    logger = logger or logging.getLogger(__name__)
     try:
         hash_object = hashlib.new(hash_algorithm)
 
@@ -99,34 +101,70 @@ def download_and_get_hash(
         ctx.load_default_certs()
         ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
 
-        # authentication_type == 1 -> the credentials are passed in the header
+        # authentication_type == 1 -> the credentials are passed in the url
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/126.0.0.0 Mobile Safari/537.36"
         }
+        # Careful, some URLs may already contain a query string
+        # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
         if authentication_type == 1 and api_key_parameter_name and credentials:
-            headers[api_key_parameter_name] = credentials
+            separator = "&" if "?" in url else "?"
+            url += f"{separator}{api_key_parameter_name}={credentials}"
 
-        # authentication_type == 2 -> the credentials are passed in the url
+        # authentication_type == 2 -> the credentials are passed in the header
         if authentication_type == 2 and api_key_parameter_name and credentials:
-            url += f"?{api_key_parameter_name}={credentials}"
+            headers[api_key_parameter_name] = credentials
 
         with urllib3.PoolManager(ssl_context=ctx) as http:
             with http.request(
-                "GET", url, preload_content=False, headers=headers
+                "GET", url, preload_content=False, headers=headers, redirect=True
             ) as r, open(file_path, "wb") as out_file:
-                while True:
-                    data = r.read(chunk_size)
-                    if not data:
-                        break
-                    hash_object.update(data)
-                    out_file.write(data)
-                r.release_conn()
+                if 200 <= r.status < 300:
+                    logger.info(f"HTTP response code: [{r.status}]")
+                    while True:
+                        data = r.read(chunk_size)
+                        if not data:
+                            break
+                        hash_object.update(data)
+                        out_file.write(data)
+                    r.release_conn()
+                else:
+                    raise ValueError(f"Invalid HTTP response code: [{r.status}]")
         return hash_object.hexdigest()
     except Exception as e:
-        print(e)
-        # Delete file if it exists
         if os.path.exists(file_path):
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except Exception:
+                logger.error(f"Delete file: [{file_path}]")
+
         raise e
+
+
+def create_http_task(
+    client,  # type: tasks_v2.CloudTasksClient
+    body: bytes,
+    url: str,
+    project_id: str,
+    gcp_region: str,
+    queue_name: str,
+) -> None:
+    """Creates a GCP Cloud Task."""
+    from google.cloud import tasks_v2
+
+    task = tasks_v2.Task(
+        http_request=tasks_v2.HttpRequest(
+            url=url,
+            http_method=tasks_v2.HttpMethod.POST,
+            oidc_token=tasks_v2.OidcToken(
+                service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL")
+            ),
+            body=body,
+            headers={"Content-Type": "application/json"},
+        )
+    )
+    client.create_task(
+        parent=client.queue_path(project_id, gcp_region, queue_name), task=task
+    )

@@ -1,14 +1,11 @@
-from typing import Dict
-
-from database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
-from feeds.impl.models.basic_feed_impl import BaseFeedImpl
+from feeds.impl.models.feed_impl import FeedImpl
+from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 from feeds.impl.models.location_impl import LocationImpl
 from feeds_gen.models.gtfs_feed import GtfsFeed
-from utils.location_translation import LocationTranslation, translate_feed_locations
 
 
-class GtfsFeedImpl(BaseFeedImpl, GtfsFeed):
+class GtfsFeedImpl(FeedImpl, GtfsFeed):
     """Implementation of the `GtfsFeed` model.
     This class converts a SQLAlchemy row DB object to a Pydantic model.
     """
@@ -20,11 +17,7 @@ class GtfsFeedImpl(BaseFeedImpl, GtfsFeed):
         from_attributes = True
 
     @classmethod
-    def from_orm(
-        cls, feed: GtfsfeedOrm | None, location_translations: Dict[str, LocationTranslation] = None
-    ) -> GtfsFeed | None:
-        if location_translations is not None:
-            translate_feed_locations(feed, location_translations)
+    def from_orm(cls, feed: GtfsfeedOrm | None) -> GtfsFeed | None:
         gtfs_feed: GtfsFeed = super().from_orm(feed)
         if not gtfs_feed:
             return None

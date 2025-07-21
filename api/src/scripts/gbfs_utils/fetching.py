@@ -23,7 +23,7 @@ def fetch_data(auto_discovery_url, logger, urls=[], fields=[]):
                 break
             elif not feeds:
                 feeds = lang_feeds
-        logger.info(f"Feeds found from auto-discovery URL {auto_discovery_url}: {feeds}")
+        logger.debug(f"Feeds found from auto-discovery URL {auto_discovery_url}: {feeds}")
         if feeds:
             for url in urls:
                 fetched_data[url] = get_field_url(feeds, url)
@@ -52,30 +52,3 @@ def get_field_url(fields, field_name):
         if field.get("name") == field_name:
             return field.get("url")
     return None
-
-
-def get_gbfs_versions(gbfs_versions_url, auto_discovery_url, auto_discovery_version, logger):
-    """Get the GBFS versions from the gbfs_versions_url."""
-    # Default version info extracted from auto-discovery url
-    version_info = {
-        "version": auto_discovery_version if auto_discovery_version else "1.0",
-        "url": auto_discovery_url,
-    }
-    try:
-        if not gbfs_versions_url:
-            return [version_info]
-        logger.info(f"Fetching GBFS versions from: {gbfs_versions_url}")
-        data = get_data_content(gbfs_versions_url, logger)
-        if not data:
-            logger.warning(f"No data found in the GBFS versions URL -> {gbfs_versions_url}.")
-            return [version_info]
-        gbfs_versions = data.get("versions", [])
-
-        # Append the version info from auto-discovery if it doesn't exist
-        if not any(gv.get("version") == auto_discovery_version for gv in gbfs_versions):
-            gbfs_versions.append(version_info)
-
-        return gbfs_versions
-    except Exception as e:
-        logger.error(f"Error fetching version data: {e}")
-        return [version_info]

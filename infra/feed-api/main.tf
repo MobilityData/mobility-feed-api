@@ -32,6 +32,23 @@ locals {
   #  DEV and QA use the vpc connector
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
+  service_account_roles = [
+    # Cloud Logging: allows writing logs to GCP
+    "roles/logging.logWriter",
+    # Cloud Trace: allows writing trace and span data
+    "roles/cloudtrace.agent",
+    # Cloud Monitoring: allows publishing custom metrics
+    "roles/monitoring.metricWriter",
+    # Serverless VPC Access: required to use a VPC connector
+    "roles/vpcaccess.user"
+  ]
+    service_account_role_bindings = {
+    for role in local.service_account_roles :
+    "${role}" => {
+      role    = role
+      project = var.project_id
+    }
+  }
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -56,7 +73,7 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
     service_account = google_service_account.containers_service_account.email
     vpc_access {
       connector = data.google_vpc_access_connector.vpc_connector.id
-      egress = "PRIVATE_RANGES_ONLY"
+      egress = "ALL_TRAFFIC"
     }
     containers {
       image = "${var.gcp_region}-docker.pkg.dev/${var.project_id}/${var.docker_repository_name}/${var.feed_api_service}:${var.feed_api_image_version}"
@@ -70,12 +87,14 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
         }
       }
       env {
-        name = "SHOULD_CLOSE_DB_SESSION"
-        value = "false"
-      }
-      env {
         name = "PROJECT_ID"
         value = data.google_project.project.project_id
+      }
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "2Gi"
+        }
       }
     }
   }
@@ -104,6 +123,14 @@ resource "google_secret_manager_secret_iam_member" "policy" {
   secret_id = "${upper(var.environment)}_${each.key}"
   role = "roles/secretmanager.secretAccessor"
   member =  "serviceAccount:${google_service_account.containers_service_account.email}"
+}
+
+resource "google_project_iam_member" "containers_service_account_roles" {
+  for_each = local.service_account_role_bindings
+
+  project = each.value.project
+  role    = each.value.role
+  member  = "serviceAccount:${google_service_account.containers_service_account.email}"
 }
 
 output "feed_api_uri" {

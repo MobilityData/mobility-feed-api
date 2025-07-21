@@ -1,22 +1,26 @@
 import * as React from 'react';
-import { Box, Grid } from '@mui/material';
+import { Box, Typography, useTheme, type SxProps } from '@mui/material';
 
 export interface ContentBoxProps {
   title: string;
-  width: Record<string, string>;
+  width?: Record<string, string>;
   outlineColor: string;
-  padding?: string | number;
+  padding?: Partial<SxProps>;
   margin?: string | number;
+  sx?: SxProps;
+  action?: React.ReactNode;
 }
 
 export const ContentBox = (
   props: React.PropsWithChildren<ContentBoxProps>,
 ): JSX.Element => {
+  const theme = useTheme();
   return (
     <Box
-      width={props.width}
+      width={props.width ?? { xs: '100%', sm: '100%', md: '100%' }}
       sx={{
-        background: '#FFFFFF',
+        background: theme.palette.background.default,
+        color: theme.palette.text.primary,
         borderRadius: '6px',
         border: `2px solid ${props.outlineColor}`,
         p: props.padding ?? 5,
@@ -24,19 +28,25 @@ export const ContentBox = (
         fontSize: '18px',
         fontWeight: 700,
         mr: 0,
+        ...props.sx,
       }}
     >
-      <Grid
-        container
-        sx={{
-          width: '100%',
-        }}
-      >
-        <Grid item xs={12} fontSize={24}>
-          {props.title}
-        </Grid>
-        {props.children}
-      </Grid>
+      {(props.title.trim() !== '' || props.action != null) && (
+        <Typography
+          variant='h5'
+          sx={{
+            flexShrink: 0,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 1,
+          }}
+        >
+          <span>{props.title}</span>
+          {props.action != null && props.action}
+        </Typography>
+      )}
+      {props.children}
     </Box>
   );
 };

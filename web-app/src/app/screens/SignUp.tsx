@@ -36,7 +36,6 @@ import {
   POST_REGISTRATION_TARGET,
   SIGN_IN_TARGET,
 } from '../constants/Navigation';
-import '../styles/SignUp.css';
 import { selectSignUpError, selectUserProfileStatus } from '../store/selectors';
 import { ProfileErrorSource, OauthProvider, oathProviders } from '../types';
 import {
@@ -49,6 +48,7 @@ import { getEnvConfig } from '../utils/config';
 import { VisibilityOffOutlined, VisibilityOutlined } from '@mui/icons-material';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import { useEffect } from 'react';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 export default function SignUp(): React.ReactElement {
   const [showPassword, setShowPassword] = React.useState(false);
@@ -154,10 +154,17 @@ export default function SignUp(): React.ReactElement {
 
   const termsAndConditionsElement = (
     <span>
-      I have read and I agree to the{' '}
-      <a href={'/terms-and-conditions'} target={'_blank'} rel={'noreferrer'}>
+      I have read and I agree to the
+      <Button
+        variant='text'
+        className='inline'
+        href={'/terms-and-conditions'}
+        rel='noreferrer'
+        target='_blank'
+        endIcon={<OpenInNewIcon />}
+      >
         terms and conditions
-      </a>
+      </Button>
       .
     </span>
   );
@@ -188,7 +195,6 @@ export default function SignUp(): React.ReactElement {
       <CssBaseline />
       <Box
         sx={{
-          mt: 12,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -395,7 +401,6 @@ export default function SignUp(): React.ReactElement {
           color='primary'
           sx={{ mb: 2 }}
           startIcon={<GoogleIcon />}
-          className='sso-button'
           onClick={() => {
             signInWithProvider(OauthProvider.Google);
           }}
@@ -407,7 +412,6 @@ export default function SignUp(): React.ReactElement {
           color='primary'
           sx={{ mb: 2 }}
           startIcon={<GitHubIcon />}
-          className='sso-button'
           onClick={() => {
             signInWithProvider(OauthProvider.Github);
           }}
@@ -420,7 +424,6 @@ export default function SignUp(): React.ReactElement {
             color='primary'
             sx={{ mb: 2 }}
             startIcon={<AppleIcon />}
-            className='sso-button'
             onClick={() => {
               signInWithProvider(OauthProvider.Apple);
             }}

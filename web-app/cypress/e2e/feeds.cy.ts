@@ -10,7 +10,7 @@ describe('Feed page', () => {
     cy.intercept('GET', `${apiBaseUrl}/v1/gtfs_feeds/test-516`, gtfsFeedJson);
     cy.intercept(
       'GET',
-      `${apiBaseUrl}/v1/gtfs_feeds/test-516/datasets`,
+      `${apiBaseUrl}/v1/gtfs_feeds/test-516/datasets?offset=0&limit=10`,
       datasetsFeedJson,
     );
     cy.visit('feeds/test-516');
@@ -25,7 +25,10 @@ describe('Feed page', () => {
   });
 
   it('should render the last updated date', () => {
-    cy.get('[data-testid="last-updated"]').should('contain', 'Last updated on');
+    cy.get('[data-testid="last-updated"]').should(
+      'contain',
+      'Quality report updated',
+    );
   });
 
   it('should render download button', () => {

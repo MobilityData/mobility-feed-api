@@ -7,8 +7,7 @@ from unittest.mock import patch
 import pytest
 import urllib3_mock
 
-from helpers.logger import Logger
-from helpers.utils import create_bucket, download_and_get_hash, download_url_content
+from utils import create_bucket, download_and_get_hash, download_url_content
 
 responses = urllib3_mock.Responses("requests.packages.urllib3")
 expected_user_agent = (
@@ -53,6 +52,7 @@ class TestHelpers(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.read.side_effect = [mock_binary_data, b""]
+        mock_response.status = 200
         mock_response.__enter__.return_value = mock_response
 
         with patch("urllib3.PoolManager.request", return_value=mock_response):
@@ -65,8 +65,14 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_1(self):
-        mock_binary_data = b"binary data for auth type 1"
+    def test_download_and_get_hash_auth_type_header(self):
+        """
+        Test the download_and_get_hash function for authentication type 2 (headers).
+        This test verifies that the download_and_get_hash function correctly handles authentication type 2,
+        where the credentials are passed in the headers. It mocks the necessary components and checks that
+        the request is made with the appropriate headers.
+        """
+        mock_binary_data = b"binary data for auth type 2"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "test_file.txt"
         url = "https://test.com"
@@ -74,6 +80,7 @@ class TestHelpers(unittest.TestCase):
         credentials = "Bearer token123"
 
         mock_response = MagicMock()
+        mock_response.status = 200
         mock_response.read.side_effect = [mock_binary_data, b""]
         mock_response.__enter__.return_value = mock_response
 
@@ -81,7 +88,7 @@ class TestHelpers(unittest.TestCase):
             "urllib3.PoolManager.request", return_value=mock_response
         ) as mock_request:
             result_hash = download_and_get_hash(
-                url, file_path, "sha256", 8192, 1, api_key_parameter_name, credentials
+                url, file_path, "sha256", 8192, 2, api_key_parameter_name, credentials
             )
 
             self.assertEqual(
@@ -99,34 +106,41 @@ class TestHelpers(unittest.TestCase):
                     "User-Agent": expected_user_agent,
                     api_key_parameter_name: credentials,
                 },
+                redirect=True,
             )
 
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_2(self):
-        mock_binary_data = b"binary data for auth type 2"
+    def test_download_and_get_hash_auth_type_api_key(self):
+        """
+        Test the download_and_get_hash function for authentication type 1 (API key).
+        """
+        mock_binary_data = b"binary data for auth type 1"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "test_file.txt"
         base_url = "https://test.com"
         api_key_parameter_name = "api_key"
         credentials = "key123"
-
         modified_url = f"{base_url}?{api_key_parameter_name}={credentials}"
 
         mock_response = MagicMock()
         mock_response.read.side_effect = [mock_binary_data, b""]
+        mock_response.status = 200
+        mock_response.release_conn = MagicMock()
         mock_response.__enter__.return_value = mock_response
 
-        with patch(
-            "urllib3.PoolManager.request", return_value=mock_response
-        ) as mock_request:
+        mock_http = MagicMock()
+        mock_http.request.return_value = mock_response
+        mock_http.__enter__.return_value = mock_http
+
+        with patch("urllib3.PoolManager", return_value=mock_http):
             result_hash = download_and_get_hash(
                 base_url,
                 file_path,
                 "sha256",
                 8192,
-                2,
+                1,
                 api_key_parameter_name,
                 credentials,
             )
@@ -134,15 +148,15 @@ class TestHelpers(unittest.TestCase):
             self.assertEqual(
                 result_hash,
                 expected_hash,
-                msg=f"Hash mismatch: got {result_hash},"
-                f" but expected {expected_hash}",
+                msg=f"Hash mismatch: got {result_hash}, but expected {expected_hash}",
             )
 
-            mock_request.assert_called_with(
+            mock_http.request.assert_called_with(
                 "GET",
                 modified_url,
                 preload_content=False,
                 headers={"User-Agent": expected_user_agent},
+                redirect=True,
             )
 
         if os.path.exists(file_path):
@@ -161,15 +175,6 @@ class TestHelpers(unittest.TestCase):
 
         if os.path.exists(file_path):
             os.remove(file_path)
-
-    @patch("google.cloud.logging.Client")
-    def test_logger_initialization(self, mock_client):
-        mock_client.return_value.logger.return_value = MagicMock()
-
-        logger = Logger("test_logger")
-        mock_client.assert_called()
-        mock_client.return_value.logger.assert_called_with("test_logger")
-        self.assertIsNotNone(logger.get_logger())
 
     @patch("requests.Session.get")
     def test_download_url_content_success(self, mock_get):
@@ -192,3 +197,18 @@ class TestHelpers(unittest.TestCase):
             "Failed to download",
             "Should raise the correct exception",
         )
+
+    @patch.dict(
+        os.environ,
+        {
+            "GOOGLE_APPLICATION_CREDENTIALS": "test",
+        },
+    )
+    def test_create_http_task(self):
+        from utils import create_http_task
+
+        client = MagicMock()
+        body = b"test"
+        url = "test"
+        create_http_task(client, body, url, "test", "test", "test")
+        client.create_task.assert_called_once()

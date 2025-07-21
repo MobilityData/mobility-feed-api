@@ -1,9 +1,10 @@
 import unittest
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from geoalchemy2 import WKTElement
 
-from database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport, Notice
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport, Feature
 from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
 
@@ -23,18 +24,40 @@ class TestLatestDatasetImpl(unittest.TestCase):
                 downloaded_at=now,
                 hash="hash",
                 bounding_box=WKTElement(POLYGON, srid=4326),
+                service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+                service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+                agency_timezone="Canada/Atlantic",
                 validation_reports=[
-                    Validationreport(validator_version="1.0.0"),
+                    Validationreport(
+                        validator_version="1.0.0",
+                        total_error=0,
+                        total_warning=0,
+                        total_info=0,
+                        unique_error_count=0,
+                        unique_warning_count=0,
+                        unique_info_count=0,
+                        features=[],
+                    ),
                     Validationreport(
                         validator_version="1.2.0",
-                        notices=[
-                            Notice(severity="INFO", total_notices=1),
-                            Notice(severity="ERROR", total_notices=2, notice_code="foreign_key_violation"),
-                            Notice(severity="ERROR", total_notices=1, notice_code="empty_column_name"),
-                            Notice(severity="WARNING", total_notices=3),
-                        ],
+                        total_error=3,
+                        total_warning=3,
+                        total_info=1,
+                        unique_error_count=2,
+                        unique_warning_count=1,
+                        unique_info_count=1,
+                        features=[Feature(name="feature 1.2.0 1"), Feature(name="feature 1.2.0 2")],
                     ),
-                    Validationreport(validator_version="1.1.1"),
+                    Validationreport(
+                        validator_version="1.1.1",
+                        total_error=1,
+                        total_warning=2,
+                        total_info=0,
+                        unique_error_count=1,
+                        unique_warning_count=1,
+                        unique_info_count=0,
+                        features=[Feature(name="feature 1.1.1 1"), Feature(name="feature 1.1.1 2")],
+                    ),
                 ],
             )
         ) == LatestDatasetImpl(
@@ -50,7 +73,11 @@ class TestLatestDatasetImpl(unittest.TestCase):
                 minimum_longitude=3.0,
                 maximum_longitude=4.0,
             ),
+            service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+            agency_timezone="Canada/Atlantic",
             validation_report={
+                "features": ["feature 1.2.0 1", "feature 1.2.0 2"],
                 "validator_version": "1.2.0",
                 "total_error": 3,
                 "total_info": 1,

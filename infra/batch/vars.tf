@@ -27,7 +27,7 @@ variable "job_schedule" {
   type        = string
   description = "Schedule for the scheduler job"
   # default every week on monday at 00:00
-  default = "0 0 * * 1"
+  default = "0 0 * * *"
 }
 
 variable "job_name" {
@@ -45,7 +45,7 @@ variable "job_attempt_deadline" {
 variable "python_runtime" {
   type = string
   description = "Python runtime version"
-  default = "python310"
+  default = "python311"
 }
 
 variable "public_hosted_datasets_dns" {
