@@ -1523,7 +1523,6 @@ resource "google_cloudfunctions2_function" "refresh_materialized_view" {
       PROJECT_ID  = var.project_id
       QUEUE_NAME  = google_cloud_tasks_queue.refresh_materialized_view_queue.name
       LOCATION    = var.gcp_region
-      FUNCTION_URL_REFRESH_MV = "https://${var.gcp_region}-${var.project_id}.cloudfunctions.net/refresh-materialized-view"
     }
     available_memory                 = "512Mi"
     timeout_seconds                  = 60

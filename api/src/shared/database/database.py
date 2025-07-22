@@ -20,6 +20,13 @@ from sqlalchemy.orm import sessionmaker
 import logging
 
 from shared.common.logging_utils import get_env_logging_level
+from google.protobuf import timestamp_pb2
+from google.auth.transport.requests import Request
+from google.auth import id_token
+from google.cloud import tasks_v2
+from datetime import datetime, timedelta
+
+from shared.helpers.pub_sub import publish_messages
 
 
 def generate_unique_id() -> str:
@@ -85,6 +92,81 @@ def mapper_configure_listener(mapper, class_):
 
 # Add the mapper_configure_listener to the mapper_configured event
 event.listen(mapper, "mapper_configured", mapper_configure_listener)
+
+
+def create_refresh_materialized_view_task():
+    """
+    Asynchronously refresh a materialized view.
+    Ensures deduplication by generating a unique task name.
+
+    Returns:
+        dict: Response message and status code.
+    """
+    try:
+        logging.info("Creating materialized view refresh task.")
+        now = datetime.now()
+
+        # BOUNCE WINDOW: next :00 or :30
+        minute = now.minute
+        if minute < 30:
+            bucket_time = now.replace(minute=30, second=0, microsecond=0)
+        else:
+            bucket_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+
+        timestamp_str = bucket_time.strftime("%Y-%m-%d-%H-%M")
+        task_name = f"refresh-materialized-view-{timestamp_str}"
+
+        # Convert to protobuf timestamp
+        proto_time = timestamp_pb2.Timestamp()
+        proto_time.FromDatetime(bucket_time)
+
+        # Cloud Tasks setup
+        client = tasks_v2.CloudTasksClient()
+        project = os.getenv("PROJECT_ID")
+        location = os.getenv("LOCATION")
+        queue = os.getenv("QUEUE_NAME")
+        url = f"https://{os.getenv('GCP_REGION')}-{os.getenv('PROJECT_ID')}.cloudfunctions.net/tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
+
+        parent = client.queue_path(project, location, queue)
+        task_name = client.task_path(project, location, queue, task_name)
+
+        # Convert to protobuf timestamp
+        proto_time = timestamp_pb2.Timestamp()
+        proto_time.FromDatetime(bucket_time)
+
+        # Fetch an identity token for the target URL
+        auth_req = Request()
+        token = id_token.fetch_id_token(auth_req, url)
+
+        task = {
+            "name": task_name,
+            "http_request": {
+                "http_method": tasks_v2.HttpMethod.GET,
+                "url": url,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            },
+            "schedule_time": proto_time,
+        }
+
+        # Enqueue the task
+        try:
+            client.create_task(request={"parent": parent, "task": task})
+            logging.info(f"Scheduled refresh materialized view task for {timestamp_str}")
+            return {"message": f"Refresh task for {timestamp_str} scheduled."}, 200
+        except Exception as e:
+            if "ALREADY_EXISTS" in str(e):
+                logging.info(f"Task already exists for {timestamp_str}, skipping.")
+                return {"message": f"Task already exists for {timestamp_str}, skipping."}, 200
+            else:
+                raise
+
+    except Exception as error:
+        error_msg = f"Error enqueuing task: {error}"
+        logging.error(error_msg)
+        return {"error": error_msg}, 500
 
 
 def refresh_materialized_view(session: "Session", view_name: str) -> bool:

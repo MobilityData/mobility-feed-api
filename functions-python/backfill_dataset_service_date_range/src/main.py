@@ -4,7 +4,10 @@ import functions_framework
 
 from shared.helpers.logger import init_logger
 
-from shared.database.database import with_db_session
+from shared.database.database import (
+    with_db_session,
+    create_refresh_materialized_view_task,
+)
 
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import or_, func
@@ -147,27 +150,7 @@ def backfill_datasets(session: "Session"):
                 try:
                     changes_count = 0
                     session.commit()
-                    # Replace direct call to refresh_materialized_view with HTTP request to the refresh function
-                    refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
-                    if not refresh_url:
-                        raise ValueError(
-                            "FUNCTION_URL_REFRESH_MV environment variable is not set"
-                        )
-
-                    # Create an authorized request
-                    auth_req = requests.Request()
-
-                    # Get an identity token for the target URL
-                    token = id_token.fetch_id_token(auth_req, refresh_url)
-
-                    # Make the HTTP request with the ID token
-                    headers = {"Authorization": f"Bearer {token}"}
-                    response = http_requests.get(refresh_url, headers=headers)
-
-                    response.raise_for_status()
-                    logging.info(
-                        "Materialized view refresh event triggered successfully."
-                    )
+                    create_refresh_materialized_view_task()
                     logging.info(f"{changes_count} elements committed.")
                 except Exception as e:
                     logging.error("Error committing changes:", e)
