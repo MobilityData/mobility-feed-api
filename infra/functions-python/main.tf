@@ -968,6 +968,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION = "True"
+      GOOGLE_FUNCTION_SOURCE = "reverse_geolocation_populate.py"
     }
     available_memory = local.function_reverse_geolocation_populate_config.available_memory
     timeout_seconds = local.function_reverse_geolocation_populate_config.timeout
@@ -1242,6 +1243,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       PROJECT_ID  = var.project_id
       ENV = var.environment
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      GOOGLE_FUNCTION_SOURCE = "src/main.py"
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
