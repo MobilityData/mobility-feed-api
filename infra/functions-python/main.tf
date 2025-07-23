@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/google"
       version = "5.34.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.2"
+    }
   }
 }
 #
@@ -67,7 +71,6 @@ locals {
   function_export_csv_zip = "${path.module}/../../functions-python/export_csv/.dist/export_csv.zip"
 
   function_tasks_executor_config = jsondecode(file("${path.module}/../../functions-python/tasks_executor/function_config.json"))
-  function_tasks_executor_zip = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
 }
 
 locals {
@@ -221,10 +224,26 @@ resource "google_storage_bucket_object" "reverse_geolocation_zip" {
 }
 
 # 14. Task Executor
+# Create zip file from source directory
+data "archive_file" "tasks_executor_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../functions-python/tasks_executor"
+  output_path = "${path.module}/../../functions-python/tasks_executor/tasks_executor.zip"
+  excludes = [
+    "tests/**",
+    "**/__pycache__/**",
+    "**/*.pyc",
+    ".dist/**",
+    "main_local_debug.py",
+    ".coveragerc",
+    "requirements_dev.txt"
+  ]
+}
+
 resource "google_storage_bucket_object" "tasks_executor_zip" {
   bucket = google_storage_bucket.functions_bucket.name
-  name   = "task-executor-${substr(filebase64sha256(local.function_tasks_executor_zip), 0, 10)}.zip"
-  source = local.function_tasks_executor_zip
+  name   = "task-executor-${substr(data.archive_file.tasks_executor_zip.output_base64sha256, 0, 10)}.zip"
+  source = data.archive_file.tasks_executor_zip.output_path
 }
 
 # Secrets access
