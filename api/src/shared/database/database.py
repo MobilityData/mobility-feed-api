@@ -20,11 +20,6 @@ from sqlalchemy.orm import sessionmaker
 import logging
 
 from shared.common.logging_utils import get_env_logging_level
-from google.protobuf import timestamp_pb2
-from google.auth.transport.requests import Request
-from google.oauth2 import id_token
-from google.cloud import tasks_v2
-from datetime import datetime, timedelta
 
 
 def generate_unique_id() -> str:
@@ -100,6 +95,12 @@ def create_refresh_materialized_view_task():
     Returns:
         dict: Response message and status code.
     """
+    from google.auth.transport.requests import Request
+    from google.oauth2 import id_token
+    from google.cloud import tasks_v2
+    from google.protobuf import timestamp_pb2
+    from datetime import datetime, timedelta
+
     try:
         logging.info("Creating materialized view refresh task.")
         now = datetime.now()
