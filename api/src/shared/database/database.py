@@ -22,11 +22,9 @@ import logging
 from shared.common.logging_utils import get_env_logging_level
 from google.protobuf import timestamp_pb2
 from google.auth.transport.requests import Request
-from google.auth import id_token
+from google.oauth2 import id_token
 from google.cloud import tasks_v2
 from datetime import datetime, timedelta
-
-from shared.helpers.pub_sub import publish_messages
 
 
 def generate_unique_id() -> str:
