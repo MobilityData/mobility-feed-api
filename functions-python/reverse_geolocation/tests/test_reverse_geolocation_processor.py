@@ -628,12 +628,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             )
 
     @with_db_session(db_url=default_db_url)
-    @patch("reverse_geolocation_processor.refresh_materialized_view")
+    @patch("reverse_geolocation_processor.create_refresh_materialized_view_task")
     @patch("reverse_geolocation_processor.extract_location_aggregate")
     def test_extract_location_aggregates(
         self,
         mock_extract_location_aggregate,
-        mock_refresh_materialized_view,
+        mock_create_refresh_materialized_view_task,
         db_session,
     ):
         from reverse_geolocation_processor import extract_location_aggregates
@@ -707,7 +707,5 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual(first_aggregate.stop_count, 2)  # Two matched stops
 
         # Verify materialized view was refreshed
-        mock_refresh_materialized_view.assert_called_once_with(
-            db_session, t_feedsearch.name
-        )
+        mock_create_refresh_materialized_view_task.assert_called_once()
         db_session.close_all()
