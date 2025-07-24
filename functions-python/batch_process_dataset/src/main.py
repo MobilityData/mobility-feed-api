@@ -128,18 +128,21 @@ class DatasetProcessor:
             logger=self.logger,
         )
         is_zip = zipfile.is_zipfile(temporary_file_path)
+        extracted_files_path = None
         if is_zip:
-            extracted_file_path = os.path.join(
+            extracted_files_path = os.path.join(
                 temporary_file_path.split(".")[0], "extracted"
             )
             with zipfile.ZipFile(temporary_file_path, "r") as zip_ref:
-                zip_ref.extractall(os.path.dirname(extracted_file_path))
+                zip_ref.extractall(os.path.dirname(extracted_files_path))
             # List all files in the extracted directory
-            extracted_files = os.listdir(os.path.dirname(extracted_file_path))
+            extracted_files = os.listdir(os.path.dirname(extracted_files_path))
             self.logger.info(f"Extracted files: {extracted_files}")
-        return file_hash, is_zip
+        return file_hash, is_zip, extracted_files_path
 
-    def upload_file_to_storage(self, source_file_path, dataset_stable_id):
+    def upload_file_to_storage(
+        self, source_file_path, dataset_stable_id, extracted_files_path
+    ):
         """
         Uploads a file to the GCP bucket
         """
@@ -156,9 +159,8 @@ class DatasetProcessor:
             blob.make_public()
 
         base_path, _ = os.path.splitext(source_file_path)
-        extracted_files_path = os.path.join(base_path, "extracted")
         extracted_files: List[Gtfsfile] = []
-        if not os.path.exists(extracted_files_path):
+        if not extracted_files_path or not os.path.exists(extracted_files_path):
             self.logger.warning(
                 f"Extracted files path {extracted_files_path} does not exist."
             )
@@ -193,7 +195,9 @@ class DatasetProcessor:
         try:
             self.logger.info("Accessing URL %s", self.producer_url)
             temp_file_path = self.generate_temp_filename()
-            file_sha256_hash, is_zip = self.download_content(temp_file_path)
+            file_sha256_hash, is_zip, extracted_files_path = self.download_content(
+                temp_file_path
+            )
             if not is_zip:
                 self.logger.error(
                     f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
@@ -224,7 +228,7 @@ class DatasetProcessor:
                     f" in bucket {self.bucket_name}"
                 )
                 _, extracted_files = self.upload_file_to_storage(
-                    temp_file_path, dataset_stable_id
+                    temp_file_path, dataset_stable_id, extracted_files_path
                 )
 
                 return DatasetFile(

@@ -56,7 +56,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob.public_url = public_url
         mock_blob.path = public_url
         upload_file_to_storage.return_value = mock_blob, []
-        mock_download_url_content.return_value = file_hash, True
+        mock_download_url_content.return_value = file_hash, True, "path/file"
 
         processor = DatasetProcessor(
             public_url,
@@ -94,7 +94,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
         upload_file_to_storage.return_value = mock_blob
-        mock_download_url_content.return_value = file_hash, True
+        mock_download_url_content.return_value = file_hash, True, "path/file"
 
         processor = DatasetProcessor(
             public_url,
@@ -126,7 +126,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
         upload_file_to_storage.return_value = mock_blob
-        mock_download_url_content.return_value = file_hash, False
+        mock_download_url_content.return_value = file_hash, False, "path/file"
 
         processor = DatasetProcessor(
             public_url,
@@ -178,6 +178,7 @@ class TestDatasetProcessor(unittest.TestCase):
     def test_upload_file_to_storage(self):
         bucket_name = "test-bucket"
         source_file_path = "path/to/source/file"
+        extracted_file_path = "path/to/source/file"
 
         mock_blob = Mock()
         mock_blob.public_url = public_url
@@ -204,7 +205,9 @@ class TestDatasetProcessor(unittest.TestCase):
                 test_hosted_public_url,
             )
             dataset_id = faker.Faker().uuid4()
-            result, _ = processor.upload_file_to_storage(source_file_path, dataset_id)
+            result, _ = processor.upload_file_to_storage(
+                source_file_path, dataset_id, extracted_file_path
+            )
             self.assertEqual(result.public_url, public_url)
             mock_client.get_bucket.assert_called_with(bucket_name)
             mock_bucket.blob.assert_called_with(
