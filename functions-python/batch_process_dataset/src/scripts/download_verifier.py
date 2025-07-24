@@ -40,6 +40,4 @@ def verify_download_content(producer_url: str):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     # Example usage: Replace the placeholder URL with the actual producer URL before running.
-    verify_download_content(
-        producer_url="https://example.com/your-dataset.zip"
-    )
+    verify_download_content(producer_url="https://example.com/your-dataset.zip")
