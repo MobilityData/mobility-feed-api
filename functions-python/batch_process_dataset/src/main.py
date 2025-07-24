@@ -18,7 +18,6 @@ import base64
 import json
 import os
 import random
-import requests as http_requests
 import uuid
 import zipfile
 from dataclasses import dataclass
@@ -30,7 +29,7 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch, Gtfsfile
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
 
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
 from shared.database.database import (

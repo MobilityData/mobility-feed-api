@@ -22,12 +22,10 @@ from shared.database_gen.sqlacodegen_models import (
     Validationreport,
 )
 
-import requests as http_requests
 import json
 
 from google.cloud import storage
 from google.auth.transport import requests
-from google.oauth2 import id_token
 
 env = os.getenv("ENV", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"

@@ -14,7 +14,6 @@ from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Location,
     Gtfsdataset,
-    t_feedsearch,
     Gtfsrealtimefeed,
 )
 from shared.database_gen.sqlacodegen_models import (
