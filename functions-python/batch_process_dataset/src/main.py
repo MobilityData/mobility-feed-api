@@ -160,7 +160,7 @@ class DatasetProcessor:
 
         base_path, _ = os.path.splitext(source_file_path)
         extracted_files: List[Gtfsfile] = []
-        if is_zip and (not extracted_files_path or not os.path.exists(extracted_files_path)):
+        if not extracted_files_path or not os.path.exists(extracted_files_path):
             self.logger.warning(
                 f"Extracted files path {extracted_files_path} does not exist."
             )
