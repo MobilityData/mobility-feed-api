@@ -31,9 +31,7 @@ def rebuild_missing_dataset_files_handler(payload) -> dict:
     latest_only = payload.get("latest_only", True)
 
     return rebuild_missing_dataset_files(
-        dry_run=dry_run,
-        after_date=after_date,
-        latest_only=latest_only
+        dry_run=dry_run, after_date=after_date, latest_only=latest_only
     )
 
 

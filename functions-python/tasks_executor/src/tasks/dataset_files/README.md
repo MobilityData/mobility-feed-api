@@ -1,7 +1,7 @@
 # Rebuild Missing Dataset Files
 
 This task rebuilds missing extracted files in GTFS datasets.
-It downloads datasets from their `hosted_url`, extracts all `.txt` files, computes zipped and unzipped sizes, calculates hashes, uploads the files to a GCS bucket, and updates the database.
+It downloads datasets from their `hosted_url`, extracts all files, computes zipped and unzipped sizes, calculates hashes, uploads the files to a GCS bucket, and updates the database.
 
 ---
 
