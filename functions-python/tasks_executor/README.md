@@ -24,6 +24,8 @@ Example:
     "filter_statuses": ["active", "inactive", "future"]
   }
 }
+```
+```json
 {
    "task": "rebuild_missing_bounding_boxes",
    "payload": {
@@ -34,12 +36,9 @@ Example:
 ```
 
 To get the list of supported tasks use:
-``
+```json
 {
 "name": "list_tasks",
 "payload": {}
 }
-
-```
-
 ```

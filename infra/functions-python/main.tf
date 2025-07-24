@@ -1222,6 +1222,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       PROJECT_ID  = var.project_id
       ENV = var.environment
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout

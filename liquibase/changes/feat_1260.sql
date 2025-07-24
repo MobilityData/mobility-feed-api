@@ -1,0 +1,5 @@
+ALTER TABLE GtfsFile DROP COLUMN IF EXISTS hash;
+ALTER TABLE GtfsFile DROP COLUMN IF EXISTS hosted_url;
+ALTER TABLE GtfsFile ADD COLUMN hash varchar(255);
+ALTER TABLE GtfsFile ADD COLUMN hosted_url varchar(255);
+

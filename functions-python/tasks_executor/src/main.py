@@ -19,6 +19,9 @@ from typing import Any, Final
 import flask
 import functions_framework
 from shared.helpers.logger import init_logger
+from tasks.dataset_files.rebuild_missing_dataset_files import (
+    rebuild_missing_dataset_files_handler,
+)
 from tasks.validation_reports.rebuild_missing_validation_reports import (
     rebuild_missing_validation_reports_handler,
 )
@@ -48,6 +51,10 @@ tasks = {
     "rebuild_missing_bounding_boxes": {
         "description": "Rebuilds missing bounding boxes for GTFS datasets that contain valid stops.txt files.",
         "handler": rebuild_missing_bounding_boxes_handler,
+    },
+    "rebuild_missing_dataset_files": {
+        "description": "Rebuilds missing dataset files for GTFS datasets.",
+        "handler": rebuild_missing_dataset_files_handler,
     },
 }
 

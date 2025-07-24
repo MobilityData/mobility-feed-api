@@ -18,6 +18,7 @@ geoalchemy2==0.14.7
 google-cloud-workflows
 google-cloud-pubsub
 flask
+google-cloud-storage
 
 # Configuration
 python-dotenv==1.0.0
