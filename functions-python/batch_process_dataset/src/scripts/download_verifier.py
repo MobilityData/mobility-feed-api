@@ -39,8 +39,7 @@ def verify_download_content(producer_url: str):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # Replace with actual producer URL
+    # Example usage: Replace the placeholder URL with the actual producer URL before running.
     verify_download_content(
-        producer_url="https://files.mobilitydatabase.org"
-        "/mdb-1891/mdb-1891-202507020119/mdb-1891-202507020119.zip"
+        producer_url="https://example.com/your-dataset.zip"
     )
