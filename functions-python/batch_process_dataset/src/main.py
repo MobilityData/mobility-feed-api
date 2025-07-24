@@ -133,10 +133,12 @@ class DatasetProcessor:
             extracted_files_path = os.path.join(
                 temporary_file_path.split(".")[0], "extracted"
             )
+            # Create the directory for extracted files if it does not exist
+            os.makedirs(extracted_files_path, exist_ok=True)
             with zipfile.ZipFile(temporary_file_path, "r") as zip_ref:
-                zip_ref.extractall(os.path.dirname(extracted_files_path))
+                zip_ref.extractall(path=extracted_files_path)
             # List all files in the extracted directory
-            extracted_files = os.listdir(os.path.dirname(extracted_files_path))
+            extracted_files = os.listdir(extracted_files_path)
             self.logger.info(f"Extracted files: {extracted_files}")
         return file_hash, is_zip, extracted_files_path
 
