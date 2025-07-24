@@ -7,7 +7,6 @@ from typing import Dict, Tuple, Optional, List
 
 import flask
 import pandas as pd
-import requests as http_requests
 import shapely.geometry
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
@@ -24,7 +23,11 @@ from location_group_utils import (
     geopolygons_as_string,
 )
 from parse_request import parse_request_parameters
-from shared.database.database import with_db_session
+from shared.database.database import (
+    with_db_session,
+    create_refresh_materialized_view_task,
+)
+
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Feed,
@@ -36,9 +39,6 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
 )
 from shared.helpers.logger import get_logger
-
-from google.auth.transport import requests
-from google.oauth2 import id_token
 
 
 @with_db_session
@@ -379,23 +379,7 @@ def extract_location_aggregates(
     # Commit the changes to the database before refreshing the materialized view
     db_session.commit()
 
-    # Replace direct call to refresh_materialized_view with HTTP request to the refresh function
-    refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
-    if not refresh_url:
-        raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")
-
-    # Create an authorized request
-    auth_req = requests.Request()
-
-    # Get an identity token for the target URL
-    token = id_token.fetch_id_token(auth_req, refresh_url)
-
-    # Make the HTTP request with the ID token
-    headers = {"Authorization": f"Bearer {token}"}
-    response = http_requests.get(refresh_url, headers=headers)
-
-    response.raise_for_status()
-    logger.info("Materialized view refresh event triggered successfully.")
+    create_refresh_materialized_view_task()
 
 
 @with_db_session

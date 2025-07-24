@@ -32,7 +32,10 @@ from sqlalchemy import func
 
 from shared.database_gen.sqlacodegen_models import Gtfsdatasets
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.database.database import with_db_session
+from shared.database.database import (
+    with_db_session,
+    create_refresh_materialized_view_task,
+)
 import logging
 
 from shared.helpers.logger import init_logger, get_logger
@@ -254,25 +257,7 @@ class DatasetProcessor:
             db_session.commit()
             self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
-            # Replace direct call to refresh_materialized_view with HTTP request to the refresh function
-            refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
-            if not refresh_url:
-                raise ValueError(
-                    "FUNCTION_URL_REFRESH_MV environment variable is not set"
-                )
-
-            # Create an authorized request
-            auth_req = requests.Request()
-
-            # Get an identity token for the target URL
-            token = id_token.fetch_id_token(auth_req, refresh_url)
-
-            # Make the HTTP request with the ID token
-            headers = {"Authorization": f"Bearer {token}"}
-            response = http_requests.get(refresh_url, headers=headers)
-
-            response.raise_for_status()
-            self.logger.info("Materialized view refresh event triggered successfully.")
+            create_refresh_materialized_view_task()
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 

@@ -1,16 +1,14 @@
 import logging
 from datetime import datetime, timezone
 from sqlalchemy import text
-import requests as http_requests
-import os
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-from google.auth.transport import requests
-from google.oauth2 import id_token
+from shared.database.database import (
+    create_refresh_materialized_view_task,
+)
 
 
 #  query to update the status of the feeds based on the service date range of the latest dataset
@@ -78,30 +76,10 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
         raise Exception(f"Error updating feed statuses: {e}")
 
     try:
-        session.commit()
-        # Replace direct call to refresh_materialized_view with HTTP request to the refresh function
-        refresh_url = os.getenv("FUNCTION_URL_REFRESH_MV")
-        if not refresh_url:
-            raise ValueError("FUNCTION_URL_REFRESH_MV environment variable is not set")
-
-        # Create an authorized request
-        auth_req = requests.Request()
-
-        # Get an identity token for the target URL
-        token = id_token.fetch_id_token(auth_req, refresh_url)
-
-        # Make the HTTP request with the ID token
-        headers = {"Authorization": f"Bearer {token}"}
-        response = http_requests.get(refresh_url, headers=headers)
-
-        response.raise_for_status()
-        logging.info("Materialized view refresh event triggered successfully.")
+        create_refresh_materialized_view_task()
         logging.info("Feed Database changes for status committed.")
         logging.info("Status Changes: %s", diff_counts)
-        session.close()
         return diff_counts
     except Exception as e:
         logging.error("Error committing changes:", e)
-        session.rollback()
-        session.close()
         raise Exception(f"Error creating dataset: {e}")
