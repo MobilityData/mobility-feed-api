@@ -153,7 +153,11 @@ def create_refresh_materialized_view_task():
         project = os.getenv("PROJECT_ID")
         location = os.getenv("LOCATION")
         queue = os.getenv("QUEUE_NAME")
-        url = f"https://{os.getenv('GCP_REGION')}-{os.getenv('PROJECT_ID')}.cloudfunctions.net/tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
+        url = (
+            f"https://{os.getenv('GCP_REGION')}-"
+            f"{os.getenv('PROJECT_ID')}.cloudfunctions.net/"
+            f"tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
+        )
 
         parent = client.queue_path(project, location, queue)
         task_name = client.task_path(project, location, queue, task_name)

@@ -43,10 +43,6 @@ from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import download_and_get_hash
 from sqlalchemy.orm import Session
 
-from google.auth.transport import requests
-from google.oauth2 import id_token
-
-
 init_logger()
 
 
