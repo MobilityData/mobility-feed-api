@@ -2,6 +2,12 @@ import logging
 import os
 
 from main import DatasetProcessor
+from gcp_storage_emulator.server import create_server
+
+HOST = "localhost"
+PORT = 9023
+BUCKET_NAME = "verifier"
+PRODUCER_URL = "https://example.com/dataset.zip"  # Replace with actual producer URL
 
 
 def verify_download_content(producer_url: str):
@@ -27,17 +33,52 @@ def verify_download_content(producer_url: str):
     )
     tempfile = processor.generate_temp_filename()
     logging.info(f"Temp filename: {tempfile}")
-    file_hash, is_zip, extracted_files_path = processor.download_content(tempfile)
-    are_files_extracted = os.path.exists(extracted_files_path)
+    file_hash, is_zip = processor.download_content(tempfile)
     logging.info(f"File hash: {file_hash}")
-    logging.info(
-        f"File path: {extracted_files_path} "
-        f"- { 'Files extracted' if are_files_extracted else 'Files not extracted'}"
+
+
+def verify_upload_dataset(producer_url: str):
+    """
+    Verifies the upload_dataset is able to upload the dataset to the GCP storage emulator.
+    This is useful to simulate the upload code locally and test issues related with user-agent and uploaded content.
+    This function also tests the DatasetProcessor class methods for generating a temporary filename
+    and uploading the dataset.
+    :param producer_url:
+    :return:
+    """
+    processor = DatasetProcessor(
+        producer_url=producer_url,
+        feed_id="feed_id",
+        feed_stable_id="feed_stable_id",
+        execution_id=None,
+        latest_hash="123",
+        bucket_name=BUCKET_NAME,
+        authentication_type=0,
+        api_key_parameter_name=None,
+        public_hosted_datasets_url=None,
     )
-    logging.info(f"Downloaded file path: {extracted_files_path}")
+    tempfile = processor.generate_temp_filename()
+    logging.info(f"Temp filename: {tempfile}")
+    dataset_file = processor.upload_dataset(public=False)
+    logging.info(f"Dataset File: {dataset_file}")
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    # Example usage: Replace the placeholder URL with the actual producer URL before running.
-    verify_download_content(producer_url="https://example.com/your-dataset.zip")
+    # Replace with actual producer URL
+    try:
+        os.environ["STORAGE_EMULATOR_HOST"] = f"http://{HOST}:{PORT}"
+        server = create_server(
+            host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
+        )
+        server.start()
+
+        verify_download_content(producer_url=PRODUCER_URL)
+        logging.info("Download content verification completed successfully.")
+        verify_upload_dataset(producer_url=PRODUCER_URL)
+        verify_upload_dataset(producer_url=PRODUCER_URL)
+    except Exception as e:
+        logging.error(f"Error verifying download content: {e}")
+    finally:
+        server.stop()
+        logging.info("Verification completed.")

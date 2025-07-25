@@ -131,7 +131,11 @@ class DatasetProcessor:
         return file_hash, is_zip
 
     def upload_file_to_storage(
-        self, source_file_path, dataset_stable_id, extracted_files_path
+        self,
+        source_file_path,
+        dataset_stable_id,
+        extracted_files_path,
+        public=True,
     ):
         """
         Uploads a file to the GCP bucket
@@ -146,7 +150,8 @@ class DatasetProcessor:
             blob = bucket.blob(target_path)
             with open(source_file_path, "rb") as file:
                 blob.upload_from_file(file)
-            blob.make_public()
+            if public:
+                blob.make_public()
 
         base_path, _ = os.path.splitext(source_file_path)
         extracted_files: List[Gtfsfile] = []
@@ -162,7 +167,8 @@ class DatasetProcessor:
                     f"{self.feed_stable_id}/{dataset_stable_id}/extracted/{file_name}"
                 )
                 file_blob.upload_from_filename(file_path)
-                file_blob.make_public()
+                if public:
+                    file_blob.make_public()
                 self.logger.info(
                     f"Uploaded extracted file {file_name} to {file_blob.public_url}"
                 )
@@ -175,7 +181,7 @@ class DatasetProcessor:
                 )
         return blob, extracted_files
 
-    def upload_dataset(self) -> DatasetFile or None:
+    def upload_dataset(self, public=True) -> DatasetFile or None:
         """
         Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
@@ -185,9 +191,7 @@ class DatasetProcessor:
         try:
             self.logger.info("Accessing URL %s", self.producer_url)
             temp_file_path = self.generate_temp_filename()
-            file_sha256_hash, is_zip, extracted_files_path = self.download_content(
-                temp_file_path
-            )
+            file_sha256_hash, is_zip = self.download_content(temp_file_path)
             if not is_zip:
                 self.logger.error(
                     f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
@@ -202,9 +206,7 @@ class DatasetProcessor:
                     f"[{self.feed_stable_id}] Dataset has changed (hash {self.latest_hash}"
                     f"-> {file_sha256_hash}). Uploading new version."
                 )
-                extracted_files_path = self.unzip_files(
-                    extracted_files_path, temp_file_path
-                )
+                extracted_files_path = self.unzip_files(temp_file_path)
                 self.logger.info(
                     f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}"
                 )
@@ -220,7 +222,10 @@ class DatasetProcessor:
                     f" in bucket {self.bucket_name}"
                 )
                 _, extracted_files = self.upload_file_to_storage(
-                    temp_file_path, dataset_stable_id, extracted_files_path
+                    temp_file_path,
+                    dataset_stable_id,
+                    extracted_files_path,
+                    public=public,
                 )
 
                 return DatasetFile(
@@ -242,7 +247,7 @@ class DatasetProcessor:
                 os.remove(temp_file_path)
         return None
 
-    def unzip_files(self, extracted_files_path, temp_file_path):
+    def unzip_files(self, temp_file_path):
         extracted_files_path = os.path.join(temp_file_path.split(".")[0], "extracted")
         self.logger.info(f"Unzipping files to {extracted_files_path}")
         # Create the directory for extracted files if it does not exist

@@ -78,3 +78,6 @@ tf.plan
 
 # CSV generation output files
 functions-python/**/*.csv
+
+# Local emulators
+.cloudstorage

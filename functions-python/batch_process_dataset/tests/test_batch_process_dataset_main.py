@@ -57,7 +57,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob.public_url = public_url
         mock_blob.path = public_url
         upload_file_to_storage.return_value = mock_blob, []
-        mock_download_url_content.return_value = file_hash, True, "path/file"
+        mock_download_url_content.return_value = file_hash, True
         mock_unzip_files.return_value = [mock_blob, mock_blob]
 
         processor = DatasetProcessor(
@@ -96,7 +96,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
         upload_file_to_storage.return_value = mock_blob
-        mock_download_url_content.return_value = file_hash, True, "path/file"
+        mock_download_url_content.return_value = file_hash, True
 
         processor = DatasetProcessor(
             public_url,
@@ -128,7 +128,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
         upload_file_to_storage.return_value = mock_blob
-        mock_download_url_content.return_value = file_hash, False, "path/file"
+        mock_download_url_content.return_value = file_hash, False
 
         processor = DatasetProcessor(
             public_url,
