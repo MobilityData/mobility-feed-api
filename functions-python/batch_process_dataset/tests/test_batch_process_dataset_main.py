@@ -46,8 +46,9 @@ def create_cloud_event(mock_data):
 class TestDatasetProcessor(unittest.TestCase):
     @patch("main.DatasetProcessor.upload_file_to_storage")
     @patch("main.DatasetProcessor.download_content")
+    @patch("main.DatasetProcessor.unzip_files")
     def test_upload_dataset_diff_hash(
-        self, mock_download_url_content, upload_file_to_storage
+        self, mock_unzip_files, mock_download_url_content, upload_file_to_storage
     ):
         """
         Test upload_dataset method of DatasetProcessor class with different hash from the latest one
@@ -57,6 +58,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob.path = public_url
         upload_file_to_storage.return_value = mock_blob, []
         mock_download_url_content.return_value = file_hash, True, "path/file"
+        mock_unzip_files.return_value = [mock_blob, mock_blob]
 
         processor = DatasetProcessor(
             public_url,

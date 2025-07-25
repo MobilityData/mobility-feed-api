@@ -128,19 +128,7 @@ class DatasetProcessor:
             logger=self.logger,
         )
         is_zip = zipfile.is_zipfile(temporary_file_path)
-        extracted_files_path = None
-        if is_zip:
-            extracted_files_path = os.path.join(
-                temporary_file_path.split(".")[0], "extracted"
-            )
-            # Create the directory for extracted files if it does not exist
-            os.makedirs(extracted_files_path, exist_ok=True)
-            with zipfile.ZipFile(temporary_file_path, "r") as zip_ref:
-                zip_ref.extractall(path=extracted_files_path)
-            # List all files in the extracted directory
-            extracted_files = os.listdir(extracted_files_path)
-            self.logger.info(f"Extracted files: {extracted_files}")
-        return file_hash, is_zip, extracted_files_path
+        return file_hash, is_zip
 
     def upload_file_to_storage(
         self, source_file_path, dataset_stable_id, extracted_files_path
@@ -209,11 +197,13 @@ class DatasetProcessor:
             self.logger.info(
                 f"[{self.feed_stable_id}] File hash is {file_sha256_hash}."
             )
-
             if self.latest_hash != file_sha256_hash:
                 self.logger.info(
                     f"[{self.feed_stable_id}] Dataset has changed (hash {self.latest_hash}"
                     f"-> {file_sha256_hash}). Uploading new version."
+                )
+                extracted_files_path = self.unzip_files(
+                    extracted_files_path, temp_file_path
                 )
                 self.logger.info(
                     f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}"
@@ -251,6 +241,18 @@ class DatasetProcessor:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
         return None
+
+    def unzip_files(self, extracted_files_path, temp_file_path):
+        extracted_files_path = os.path.join(temp_file_path.split(".")[0], "extracted")
+        self.logger.info(f"Unzipping files to {extracted_files_path}")
+        # Create the directory for extracted files if it does not exist
+        os.makedirs(extracted_files_path, exist_ok=True)
+        with zipfile.ZipFile(temp_file_path, "r") as zip_ref:
+            zip_ref.extractall(path=extracted_files_path)
+        # List all files in the extracted directory
+        extracted_files = os.listdir(extracted_files_path)
+        self.logger.info(f"Extracted files: {extracted_files}")
+        return extracted_files_path
 
     def generate_temp_filename(self):
         """
