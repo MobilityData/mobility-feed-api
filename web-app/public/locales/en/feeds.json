@@ -151,7 +151,7 @@
   "viewRealtimeVisualization": "View real-time visualization",
   "versions": "Versions",
   "dataAattribution": "Transit data provided by",
-  "emptyLicenseUsage": "If you are the official producer and did not provide a license, please confirm if the feed can be used by others:",
+  "emptyLicenseUsage": "Can this feed be used commercially by trip planners and other third parties:",
   "common": {
     "form": {
       "yes": "Yes",
