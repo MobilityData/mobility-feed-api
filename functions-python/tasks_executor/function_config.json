@@ -4,7 +4,7 @@
   "entry_point": "tasks_executor",
   "timeout": 540,
   "memory": "4Gi",
-  "trigger_http": false,
+  "trigger_http": true,
   "include_folders": ["helpers"],
   "include_api_folders": ["database_gen", "database", "common"],
   "environment_variables": [],
@@ -13,7 +13,7 @@
       "key": "FEEDS_DATABASE_URL"
     }
   ],
-  "ingress_settings": "ALLOW_ALL",
+  "ingress_settings": "all",
   "max_instance_request_concurrency": 1,
   "max_instance_count": 1,
   "min_instance_count": 0,
