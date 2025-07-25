@@ -85,7 +85,8 @@ export default function FormThirdStep({
                 error={errors.emptyLicenseUsage !== undefined}
               >
                 <FormLabel required data-cy='emptyLicenseUsageLabel'>
-                  Can this feed be used commercially by trip planners and other third parties?
+                  Can this feed be used commercially by trip planners and other
+                  third parties?
                 </FormLabel>
                 <Controller
                   control={control}
