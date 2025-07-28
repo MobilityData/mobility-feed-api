@@ -25,6 +25,7 @@ from shared.database_gen.sqlacodegen_models import (
 import json
 
 from google.cloud import storage
+import requests
 
 env = os.getenv("ENV", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
