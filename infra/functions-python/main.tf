@@ -949,7 +949,6 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_populate" {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION = "True"
-      GOOGLE_FUNCTION_SOURCE = "reverse_geolocation_populate.py"
     }
     available_memory = local.function_reverse_geolocation_populate_config.available_memory
     timeout_seconds = local.function_reverse_geolocation_populate_config.timeout
@@ -1409,13 +1408,13 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
   name     = "refresh-materialized-view-task-queue"
 
   rate_limits {
-    max_concurrent_dispatches = 2
+    max_concurrent_dispatches = 1
     max_dispatches_per_second = 0.5
   }
 
   retry_config {
     # This will make the cloud task retry for ~30 minutes
-    max_attempts  = 31
+    max_attempts  = 5
     min_backoff   = "120s"
     max_backoff   = "120s"
     max_doublings = 2

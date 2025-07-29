@@ -191,9 +191,6 @@ def create_refresh_materialized_view_task():
         except Exception as e:
             if "ALREADY_EXISTS" in str(e):
                 logging.info(f"Task already exists for {timestamp_str}, skipping.")
-                return {"message": f"Task already exists for {timestamp_str}, skipping."}, 200
-            else:
-                raise
 
     except Exception as error:
         error_msg = f"Error enqueuing task: {error}"
