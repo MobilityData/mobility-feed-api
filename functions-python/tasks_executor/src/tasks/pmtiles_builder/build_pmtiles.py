@@ -242,7 +242,7 @@ class PmtilesBuilder:
                     count += 1
                     if count % 1000000 == 0:
                         self._log(DEBUG, "Indexed %d lines so far...", count)
-            self._log(DEBUG, "Total indexed lines: %d, count")
+            self._log(DEBUG, "Total indexed lines: %d", count)
             self._log(DEBUG, "Total unique shape_ids: %d", len(index))
             with open(outfile, "wb") as idxf:
                 pickle.dump(index, idxf)
@@ -330,7 +330,7 @@ class PmtilesBuilder:
                 if i % 100 == 0 or i == 1:
                     self._log(
                         DEBUG,
-                        "Processing route %d/%d} (route_id: %s...",
+                        "Processing route %d/%d (route_id: %s)",
                         i,
                         len(routes),
                         route_id,
@@ -482,4 +482,4 @@ class PmtilesBuilder:
 
             self._log(DEBUG, "Converted %d routes to routes.json.", len(routes))
         except Exception as e:
-            raise Exception("Failed to create routes JSON for dataset: {e}") from e
+            raise Exception(f"Failed to create routes JSON for dataset: {e}") from e
