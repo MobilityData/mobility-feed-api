@@ -1223,6 +1223,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       PROJECT_ID  = var.project_id
       ENV = var.environment
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout

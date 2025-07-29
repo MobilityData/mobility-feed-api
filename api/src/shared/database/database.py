@@ -152,7 +152,7 @@ def create_refresh_materialized_view_task():
         client = tasks_v2.CloudTasksClient()
         project = os.getenv("PROJECT_ID")
         location = os.getenv("LOCATION")
-        queue = os.getenv("QUEUE_NAME")
+        queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
         url = (
             f"https://{os.getenv('GCP_REGION')}-"
             f"{os.getenv('PROJECT_ID')}.cloudfunctions.net/"
