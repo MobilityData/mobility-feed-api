@@ -30,16 +30,20 @@ def refresh_materialized_view_task(dry_run, db_session):
         logging.info("Materialized view refresh task initiated.")
 
         view_name = "feedsearch"
-        success = refresh_materialized_view(db_session, view_name)
-
-        if success:
-            success_msg = "Successfully refreshed materialized view: " f"{view_name}"
-            logging.info(success_msg)
-            return {"message": success_msg}, 200
+        if dry_run:
+            msg = f"Dry run: {view_name} not refreshed."
+            logging.info(msg)
+            return {"message": msg, "dry_run": True}, 200
         else:
-            error_msg = f"Failed to refresh materialized view: {view_name}"
-            logging.error(error_msg)
-            return {"error": error_msg}, 500
+            success = refresh_materialized_view(db_session, view_name)
+            if success:
+                success_msg = f"Successfully refreshed materialized view: {view_name}"
+                logging.info(success_msg)
+                return {"message": success_msg}, 200
+            else:
+                error_msg = f"Failed to refresh materialized view: {view_name}"
+                logging.error(error_msg)
+                return {"error": error_msg}, 500
 
     except Exception as error:
         error_msg = f"Error refreshing materialized view: {error}"
