@@ -53,7 +53,7 @@ tasks = {
         "handler": rebuild_missing_bounding_boxes_handler,
     },
     "refresh_materialized_view": {
-        "description": "Refreshes the materialized view for GTFS datasets.",
+        "description": "Refreshes the materialized view.",
         "handler": refresh_materialized_view_handler,
     },
 }
