@@ -166,9 +166,9 @@ class PmtilesBuilder:
             blobs = list(self.bucket.list_blobs(prefix=unzipped_files_path))
             self._log(DEBUG, "Found %d blobs", len(blobs))
             if not blobs:
-                raise {
+                raise Exception(
                     f"Directory '{unzipped_files_path}' does not exist or is empty in bucket '{self.bucket_name}'."
-                }
+                )
 
             if os.path.exists(local_dir):
                 shutil.rmtree(local_dir)
