@@ -2,8 +2,6 @@ from unittest.mock import patch
 from tasks.refresh_feedsearch_view import refresh_materialized_view
 
 
-# Patch shared.database.database functions
-@patch("tasks.refresh_feedsearch_view.with_db_session", lambda f: f)
 def test_refresh_materialized_view_handler_dry_run():
     payload = {"dry_run": True}
     with patch("tasks.refresh_feedsearch_view.get_parameters", return_value=True):
@@ -16,7 +14,6 @@ def test_refresh_materialized_view_handler_dry_run():
 
 
 @patch("tasks.refresh_feedsearch_view.refresh_materialized_view")
-@patch("tasks.refresh_feedsearch_view.with_db_session", lambda f: f)
 def test_refresh_materialized_view_handler_success(mock_refresh):
     payload = {"dry_run": False}
     mock_refresh.return_value = True
