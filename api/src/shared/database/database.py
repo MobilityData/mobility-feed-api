@@ -20,7 +20,6 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from sqlalchemy.orm import sessionmaker
 import logging
-from shared.helpers.utils import create_http_task
 
 from shared.common.logging_utils import get_env_logging_level
 
@@ -125,6 +124,8 @@ def create_refresh_materialized_view_task():
     Returns:
         dict: Response message and status code.
     """
+    from google.auth.transport.requests import Request
+    from google.oauth2 import id_token
     from google.cloud import tasks_v2
     from google.protobuf import timestamp_pb2
     from datetime import datetime, timedelta
@@ -147,22 +148,44 @@ def create_refresh_materialized_view_task():
         proto_time = timestamp_pb2.Timestamp()
         proto_time.FromDatetime(bucket_time)
 
+        # Cloud Tasks setup
+        client = tasks_v2.CloudTasksClient()
+        project = os.getenv("PROJECT_ID")
+        location = os.getenv("LOCATION")
+        queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
+        url = (
+            f"https://{os.getenv('GCP_REGION')}-"
+            f"{os.getenv('PROJECT_ID')}.cloudfunctions.net/"
+            f"tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
+        )
+
+        parent = client.queue_path(project, location, queue)
+        task_name = client.task_path(project, location, queue, task_name)
+
+        # Convert to protobuf timestamp
+        proto_time = timestamp_pb2.Timestamp()
+        proto_time.FromDatetime(bucket_time)
+
+        # Fetch an identity token for the target URL
+        auth_req = Request()
+        token = id_token.fetch_id_token(auth_req, url)
+
+        task = {
+            "name": task_name,
+            "http_request": {
+                "http_method": tasks_v2.HttpMethod.GET,
+                "url": url,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+            },
+            "schedule_time": proto_time,
+        }
+
         # Enqueue the task
         try:
-            create_http_task(
-                client=tasks_v2.CloudTasksClient(),
-                task_name=task_name,
-                url=(
-                    f"https://{os.getenv('GCP_REGION')}-"
-                    f"{os.getenv('PROJECT_ID')}.cloudfunctions.net/"
-                    f"tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
-                ),
-                project_id=os.getenv("PROJECT_ID"),
-                gcp_region=os.getenv("GCP_REGION"),
-                queue_name=os.getenv("MATERIALIZED_VIEW_QUEUE"),
-                schedule_time=proto_time,
-                body={"dry_run": False},
-            )
+            client.create_task(request={"parent": parent, "task": task})
             logging.info(f"Scheduled refresh materialized view task for {timestamp_str}")
             return {"message": f"Refresh task for {timestamp_str} scheduled."}, 200
         except Exception as e:

@@ -168,34 +168,3 @@ def create_http_task(
     client.create_task(
         parent=client.queue_path(project_id, gcp_region, queue_name), task=task
     )
-
-
-def create_http_task_with_deduplication(
-    client,
-    task_name,
-    url: str,
-    project_id: str,
-    gcp_region: str,
-    queue_name: str,
-    schedule_time,
-    body: bytes,
-) -> None:
-    """Creates a GCP Cloud Task."""
-    from google.cloud import tasks_v2
-
-    task = tasks_v2.Task(
-        name=task_name,
-        schedule_time=schedule_time,
-        http_request=tasks_v2.HttpRequest(
-            url=url,
-            http_method=tasks_v2.HttpMethod.POST,
-            oidc_token=tasks_v2.OidcToken(
-                service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL")
-            ),
-            body=body,
-            headers={"Content-Type": "application/json"},
-        ),
-    )
-    client.create_task(
-        parent=client.queue_path(project_id, gcp_region, queue_name), task=task
-    )
