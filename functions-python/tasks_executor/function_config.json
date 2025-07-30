@@ -7,7 +7,11 @@
   "trigger_http": true,
   "include_folders": ["helpers"],
   "include_api_folders": ["database_gen", "database", "common"],
-  "environment_variables": [],
+  "environment_variables": [
+    {
+      "key": "DATASETS_BUCKET_NAME"
+    }
+  ],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"
