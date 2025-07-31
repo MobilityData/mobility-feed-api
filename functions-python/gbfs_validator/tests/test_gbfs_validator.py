@@ -75,7 +75,6 @@ class TestMainFunctions(unittest.TestCase):
     ):
         # Prepare mocks
         mock_session = MagicMock()
-        # mock_database.return_value.start_db_session.return_value = mock_session
 
         mock_publisher = MagicMock()
         mock_publisher_client.return_value = mock_publisher
@@ -187,13 +186,12 @@ class TestMainFunctions(unittest.TestCase):
         },
     )
     @patch("main.pubsub_v1.PublisherClient")
-    @patch("main.fetch_gbfs_feeds_by_ids")
-    def test_gbfs_validator_batch_by_feed_ids(
-        self, mock_fetch_gbfs_feeds_by_ids, mock_publisher_client
+    @patch("main.fetch_gbfs_feeds_by_stable_ids")
+    def test_gbfs_validator_batch_by_feed_stable_ids(
+        self, fetch_gbfs_feeds_by_stable_ids, mock_publisher_client
     ):
         # Prepare mocks
         mock_session = MagicMock()
-        # mock_database.return_value.start_db_session.return_value = mock_session
 
         mock_publisher = MagicMock()
         mock_publisher_client.return_value = mock_publisher
@@ -205,14 +203,16 @@ class TestMainFunctions(unittest.TestCase):
         mock_feed.gbfsversions = [MagicMock(version="1.0")]
         mock_feed_2 = copy.deepcopy(mock_feed)
         mock_feed_2.gbfsversions = []
-        mock_fetch_gbfs_feeds_by_ids.return_value = [mock_feed, mock_feed_2]
+        fetch_gbfs_feeds_by_stable_ids.return_value = [mock_feed, mock_feed_2]
         request = MagicMock()
         request.method = "POST"
         request.is_json = True
-        request.get_json.return_value = {"feed_ids": [mock_feed.id, mock_feed_2.id]}
+        request.get_json.return_value = {
+            "feed_stable_ids": [mock_feed.id, mock_feed_2.id]
+        }
         # Call the function
         result = gbfs_validator_batch(request, db_session=mock_session)
         self.assertEqual(result[1], 200)
 
-        mock_fetch_gbfs_feeds_by_ids.assert_called_once()
+        fetch_gbfs_feeds_by_stable_ids.assert_called_once()
         self.assertEqual(mock_publisher.publish.call_count, 2)
