@@ -24,8 +24,10 @@ import os
 import pickle
 import shutil
 import subprocess
-from logging import DEBUG, WARNING, INFO, ERROR
+from logging import DEBUG
 from google.cloud import storage
+
+from shared.helpers.logger import get_logger
 
 # Files are stored locally to be able to run tippecanoe on them. This is the directory
 local_dir = "./workdir"
@@ -63,13 +65,7 @@ class PmtilesBuilder:
         self.feed_stable_id = feed_stable_id
         self.dataset_stable_id = dataset_stable_id
         self.bucket_name = os.getenv("DATASETS_BUCKET_NAME")
-
-    def _log(self, level, msg, *args):
-        logger = logging.getLogger()
-        if not logger.isEnabledFor(level):
-            return
-        formatted_msg = msg % args if args else msg
-        logger.log(level, "[%s] %s", self.dataset_stable_id, formatted_msg)
+        self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
     @staticmethod
     def _get_parameters(payload):
@@ -98,8 +94,8 @@ class PmtilesBuilder:
                     )
                 }
 
-            self._log(
-                INFO, "Starting PMTiles build for dataset %s", self.dataset_stable_id
+            self.logger.info(
+                "Starting PMTiles build for dataset %s", self.dataset_stable_id
             )
             unzipped_files_path = (
                 f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
@@ -131,10 +127,9 @@ class PmtilesBuilder:
                     file_list = "\n".join(
                         f"{blob.name} ({blob.size} bytes)" for blob in blobs
                     )
-                    self._log(DEBUG, "GCS files in %s:\n%s", gcs_prefix, file_list)
+                    self.logger.debug("GCS files in %s:\n%s", gcs_prefix, file_list)
                 except Exception as e:
-                    self._log(
-                        ERROR,
+                    self.logger.error(
                         "Could not list files in bucket %s for path %s: %s",
                         self.bucket_name,
                         gcs_prefix,
@@ -153,18 +148,19 @@ class PmtilesBuilder:
             }
 
     def _download_files_from_gcs(self, unzipped_files_path):
-        self._log(
-            INFO,
+        self.logger.info(
             "Downloading dataset from GCS bucket %s, directory %s",
             self.bucket_name,
             unzipped_files_path,
         )
         try:
-            self._log(DEBUG, "Initializing storage client")
-            self.bucket = storage.Client().get_bucket(self.bucket_name)
-            self._log(DEBUG, "Getting blobs with prefix: %s", unzipped_files_path)
+            self.logger.debug("Initializing storage client")
+            self.bucket = storage.Client(
+                # client_options={"api_endpoint": "http://localhost:4443"}
+            ).get_bucket(self.bucket_name)
+            self.logger.debug("Getting blobs with prefix: %s", unzipped_files_path)
             blobs = list(self.bucket.list_blobs(prefix=unzipped_files_path))
-            self._log(DEBUG, "Found %d blobs", len(blobs))
+            self.logger.debug("Found %d blobs", len(blobs))
             if not blobs:
                 raise Exception(
                     f"Directory '{unzipped_files_path}' does not exist or is empty in bucket '{self.bucket_name}'."
@@ -185,15 +181,14 @@ class PmtilesBuilder:
                 blob = self.bucket.blob(blob_path)
                 local_path = os.path.join(local_dir, file_name)
                 blob.download_to_filename(local_path)
-                self._log(DEBUG, "Downloaded %s to %s", blob_path, local_path)
+                self.logger.debug("Downloaded %s to %s", blob_path, local_path)
             return
         except Exception as e:
             raise Exception(f"Failed to download files from GCS: {e}") from e
 
     def _upload_files_to_gcs(self, file_to_upload):
         dest_prefix = f"{self.feed_stable_id}/{self.dataset_stable_id}/pmtiles"
-        self._log(
-            INFO,
+        self.logger.info(
             "Uploading files to GCS bucket %s, directory %s",
             self.bucket_name,
             dest_prefix,
@@ -202,17 +197,16 @@ class PmtilesBuilder:
             blobs_to_delete = list(self.bucket.list_blobs(prefix=dest_prefix + "/"))
             for blob in blobs_to_delete:
                 blob.delete()
-                self._log(DEBUG, "Deleted existing blob: %s", blob.name)
+                self.logger.debug("Deleted existing blob: %s", blob.name)
             for file_name in file_to_upload:
                 file_path = os.path.join(local_dir, file_name)
                 if not os.path.exists(file_path):
-                    self._log(WARNING, "File not found: %s", file_path)
+                    self.logger.warning("File not found: %s", file_path)
                     continue
                 blob_path = f"{dest_prefix}/{file_name}"
                 blob = self.bucket.blob(blob_path)
                 blob.upload_from_filename(file_path)
-                self._log(
-                    DEBUG,
+                self.logger.debug(
                     "Uploaded %s to gs://%s/%s",
                     file_path,
                     self.bucket_name,
@@ -222,12 +216,12 @@ class PmtilesBuilder:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
     def _create_shapes_index(self):
-        self._log(INFO, "Creating shapes index")
+        self.logger.info("Creating shapes index")
         try:
             index = {}
             shapes = f"{local_dir}/shapes.txt"
             outfile = f"{local_dir}/shapes_index.pkl"
-            with open(shapes, "r", encoding="utf-8") as f:
+            with open(shapes, "r", encoding="utf-8", newline="") as f:
                 header = f.readline()
                 columns = next(csv.reader([header]))
                 count = 0
@@ -241,9 +235,9 @@ class PmtilesBuilder:
                     index.setdefault(sid, []).append(pos)
                     count += 1
                     if count % 1000000 == 0:
-                        self._log(DEBUG, "Indexed %d lines so far...", count)
-            self._log(DEBUG, "Total indexed lines: %d", count)
-            self._log(DEBUG, "Total unique shape_ids: %d", len(index))
+                        self.logger.debug("Indexed %d lines so far...", count)
+            self.logger.debug("Total indexed lines: %d", count)
+            self.logger.debug("Total unique shape_ids: %d", len(index))
             with open(outfile, "wb") as idxf:
                 pickle.dump(index, idxf)
         except Exception as e:
@@ -251,18 +245,18 @@ class PmtilesBuilder:
 
     def _read_csv(self, filename):
         try:
-            self._log(DEBUG, "Loading %s", filename)
+            self.logger.debug("Loading %s", filename)
             with open(filename, newline="", encoding="utf-8") as f:
                 return list(csv.DictReader(f))
         except Exception as e:
             raise Exception(f"Failed to read CSV file {filename}: {e}") from e
 
     def _get_shape_points(self, shape_id, index):
-        self._log(DEBUG, "Getting shape points for shape_id %s", shape_id)
+        self.logger.debug("Getting shape points for shape_id %s", shape_id)
         try:
             points = []
             shapes_file = f"{local_dir}/shapes.txt"
-            with open(shapes_file, "r", encoding="utf-8") as f:
+            with open(shapes_file, "r", encoding="utf-8", newline="") as f:
                 for pos in index.get(shape_id, []):
                     f.seek(pos)
                     line = f.readline()
@@ -275,15 +269,17 @@ class PmtilesBuilder:
                         )
                     )
             points.sort(key=lambda x: x[2])
-            self._log(DEBUG, "  Found %d points for shape_id %s", len(points), shape_id)
+            self.logger.debug(
+                "  Found %d points for shape_id %s", len(points), shape_id
+            )
             return [pt[:2] for pt in points]
         except Exception as e:
             raise Exception(f"Failed to get shape points for {shape_id}: {e}") from e
 
     def _create_routes_geojson(self):
-        self._log(INFO, "Creating routes geojson")
+        self.logger.info("Creating routes geojson")
         try:
-            self._log(DEBUG, "Loading shapes_index.pkl...")
+            self.logger.debug("Loading shapes_index.pkl...")
             shapes_index_file = f"{local_dir}/shapes_index.pkl"
             shapes_file = f"{local_dir}/shapes.txt"
             trips_file = f"{local_dir}/trips.txt"
@@ -292,28 +288,27 @@ class PmtilesBuilder:
             stop_times_file = f"{local_dir}/stop_times.txt"
             with open(shapes_index_file, "rb") as idxf:
                 shapes_index = pickle.load(idxf)
-            self._log(DEBUG, "Loaded index for %d shape_ids.", len(shapes_index))
+            self.logger.debug("Loaded index for %d shape_ids.", len(shapes_index))
 
-            with open(shapes_file, "r", encoding="utf-8") as f:
+            with open(shapes_file, "r", encoding="utf-8", newline="") as f:
                 header = f.readline()
                 shapes_columns = next(csv.reader([header]))
             shapes_index["columns"] = shapes_columns
 
             routes = {r["route_id"]: r for r in self._read_csv(routes_file)}
-            self._log(DEBUG, "Loaded %d routes.", len(routes))
+            self.logger.debug("Loaded %d routes.", len(routes))
 
             trips = list(self._read_csv(trips_file))
-            self._log(DEBUG, "Loaded %d trips.", len(trips))
+            self.logger.debug("Loaded %d trips.", len(trips))
 
             stops = {
                 s["stop_id"]: (float(s["stop_lon"]), float(s["stop_lat"]))
                 for s in self._read_csv(stops_file)
             }
-            self._log(DEBUG, "Loaded %d stops.", len(stops))
+            self.logger.debug("Loaded %d stops.", len(stops))
 
             stop_times_by_trip = {}
-            self._log(
-                DEBUG,
+            self.logger.debug(
                 "Grouping stop_times by trip_id for dataset %s",
                 self.dataset_stable_id,
             )
@@ -321,15 +316,15 @@ class PmtilesBuilder:
                 reader = csv.DictReader(f)
                 for row in reader:
                     stop_times_by_trip.setdefault(row["trip_id"], []).append(row)
-            self._log(
-                DEBUG, "Grouped stop_times for %d trips.", len(stop_times_by_trip)
+            self.logger.debug(
+                "Grouped stop_times for %d trips.", len(stop_times_by_trip)
             )
 
             features = []
+            missing_coordinates_routes = set()
             for i, (route_id, route) in enumerate(routes.items(), 1):
                 if i % 100 == 0 or i == 1:
-                    self._log(
-                        DEBUG,
+                    self.logger.debug(
                         "Processing route %d/%d (route_id: %s)",
                         i,
                         len(routes),
@@ -337,14 +332,13 @@ class PmtilesBuilder:
                     )
                 trip = next((t for t in trips if t["route_id"] == route_id), None)
                 if not trip:
-                    self._log(
-                        INFO, "  No trip found for route_id %s, skipping.", route_id
+                    self.logger.iunfo(
+                        "  No trip found for route_id %s, skipping.", route_id
                     )
                     continue
                 coordinates = []
                 if "shape_id" in trip and trip["shape_id"]:
-                    self._log(
-                        DEBUG,
+                    self.logger.debug(
                         "  Using shape_id %s for route_id %s",
                         trip["shape_id"],
                         route_id,
@@ -362,18 +356,13 @@ class PmtilesBuilder:
                         for st in trip_stop_times
                         if st["stop_id"] in stops
                     ]
-                    self._log(
-                        DEBUG,
+                    self.logger.debug(
                         "  Used %d stop coordinates for route_id %s",
                         len(coordinates),
                         route_id,
                     )
                 if not coordinates:
-                    self._log(
-                        INFO,
-                        "  No coordinates found for route_id %s, skipping.",
-                        route_id,
-                    )
+                    missing_coordinates_routes.add(route_id)
                     continue
                 features.append(
                     {
@@ -383,8 +372,12 @@ class PmtilesBuilder:
                     }
                 )
 
-            self._log(
-                DEBUG, "Writing %d features to routes-output.geojson...", len(features)
+            if missing_coordinates_routes:
+                self.logger.info(
+                    "Routes without coordinates: %s", list(missing_coordinates_routes)
+                )
+            self.logger.debug(
+                "Writing %d features to routes-output.geojson...", len(features)
             )
             routes_geojson = f"{local_dir}/routes-output.geojson"
             with open(routes_geojson, "w", encoding="utf-8") as f:
@@ -393,7 +386,7 @@ class PmtilesBuilder:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
 
     def _run_tippecanoe(self, input_file, output_file):
-        self._log(INFO, "Running tippecanoe for input file %s", input_file)
+        self.logger.info("Running tippecanoe for input file %s", input_file)
         try:
             cmd = [
                 "tippecanoe",
@@ -404,26 +397,26 @@ class PmtilesBuilder:
                 "-zg",
                 f"{local_dir}/{input_file}",
             ]
-            self._log(DEBUG, "Running command: %s", " ".join(cmd))
+            self.logger.debug("Running command: %s", " ".join(cmd))
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.stdout:
-                self._log(DEBUG, "Tippecanoe output:\n%s", result.stdout)
+                self.logger.debug("Tippecanoe output:\n%s", result.stdout)
             if result.returncode != 0:
-                self._log(ERROR, "Tippecanoe error:\n%s", result.stderr)
+                self.logger.error("Tippecanoe error:\n%s", result.stderr)
                 raise Exception(f"Tippecanoe failed with exit code {result.returncode}")
-            self._log(DEBUG, "Tippecanoe command executed successfully.")
+            self.logger.debug("Tippecanoe command executed successfully.")
         except Exception as e:
             raise Exception(
                 f"Failed to run tippecanoe for output file {output_file}: {e}"
             ) from e
 
     def _create_stops_geojson(self):
-        self._log(INFO, "Creating stops geojson...")
+        self.logger.info("Creating stops geojson...")
         try:
             stops = self._read_csv(f"{local_dir}/stops.txt")
             if isinstance(stops, dict) and "error" in stops:
                 return stops
-            self._log(DEBUG, "Loaded %d stops.", len(stops))
+            self.logger.debug("Loaded %d stops.", len(stops))
 
             features = []
             for i, stop in enumerate(stops, 1):
@@ -431,8 +424,7 @@ class PmtilesBuilder:
                     lon = float(stop["stop_lon"])
                     lat = float(stop["stop_lat"])
                 except (KeyError, ValueError):
-                    self._log(
-                        INFO,
+                    self.logger.info(
                         "Skipping stop %s: invalid coordinates",
                         stop.get("stop_id", ""),
                     )
@@ -448,8 +440,7 @@ class PmtilesBuilder:
             geojson = {"type": "FeatureCollection", "features": features}
             stops_geojson = f"{local_dir}/stops-output.geojson"
 
-            self._log(
-                DEBUG,
+            self.logger.debug(
                 "Writing %d features to stops-output.geojson for dataset %s",
                 len(features),
                 self.dataset_stable_id,
@@ -462,7 +453,7 @@ class PmtilesBuilder:
             ) from e
 
     def _create_routes_json(self):
-        self._log(INFO, "Creating routes json...")
+        self.logger.info("Creating routes json...")
         try:
             routes = []
             with open(f"{local_dir}/routes.txt", newline="", encoding="utf-8") as f:
@@ -480,6 +471,6 @@ class PmtilesBuilder:
             with open(f"{local_dir}/routes.json", "w", encoding="utf-8") as f:
                 json.dump(routes, f, ensure_ascii=False, indent=4)
 
-            self._log(DEBUG, "Converted %d routes to routes.json.", len(routes))
+            self.logger.debug("Converted %d routes to routes.json.", len(routes))
         except Exception as e:
             raise Exception(f"Failed to create routes JSON for dataset: {e}") from e
