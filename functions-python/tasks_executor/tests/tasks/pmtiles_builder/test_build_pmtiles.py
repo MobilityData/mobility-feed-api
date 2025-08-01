@@ -263,7 +263,6 @@ class TestPmtilesBuilder(unittest.TestCase):
         builder.bucket.blob.return_value = MagicMock()
         builder.bucket.list_blobs.return_value = []
 
-        # Ensure the file does not exist
         missing_file = "notfound.pmtiles"
         if os.path.exists(os.path.join(local_dir, missing_file)):
             os.remove(os.path.join(local_dir, missing_file))
@@ -271,12 +270,13 @@ class TestPmtilesBuilder(unittest.TestCase):
         with patch(
             "os.path.exists",
             side_effect=lambda path: False if missing_file in path else True,
-        ), patch.object(builder, "_log") as mock_log:
+        ), self.assertLogs(level="WARNING") as log_cm:
             builder._upload_files_to_gcs([missing_file])
-            mock_log.assert_any_call(
-                logging.WARNING,
-                "File not found: %s",
-                os.path.join(local_dir, missing_file),
+            self.assertTrue(
+                any(
+                    f"File not found: {os.path.join(local_dir, missing_file)}" in msg
+                    for msg in log_cm.output
+                )
             )
 
     def test_create_routes_geojson_fallback_to_stop_coordinates(self):
@@ -335,11 +335,13 @@ class TestPmtilesBuilder(unittest.TestCase):
             f.write("stop1,45.0,-73.0\n")  # valid
             f.write("stop2,not_a_lat,-73.1\n")  # invalid lat
 
-        with patch.object(self.builder, "_log") as mock_log:
+        with self.assertLogs(level="INFO") as log_cm:
             self.builder._create_stops_geojson()
-            # Check that the log was called for the invalid stop
-            mock_log.assert_any_call(
-                logging.INFO, "Skipping stop %s: invalid coordinates", "stop2"
+            self.assertTrue(
+                any(
+                    "Skipping stop stop2: invalid coordinates" in msg
+                    for msg in log_cm.output
+                )
             )
 
         # Assert output file exists and only the valid stop is included
