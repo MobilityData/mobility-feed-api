@@ -115,7 +115,7 @@ class TestRebuildMissingDatasetFiles(unittest.TestCase):
         urlopen_mock.return_value.__enter__.return_value = mock_response
 
         mock_file = MagicMock()
-        mock_file.read.return_value = b"file content"
+        mock_file.read.side_effect = [b"chunk1", b"chunk2", b""]  # ends properly
         open_mock.return_value.__enter__.return_value = mock_file
 
         mock_blob = MagicMock()
@@ -159,7 +159,7 @@ class TestRebuildMissingDatasetFiles(unittest.TestCase):
         urlopen_mock.return_value.__enter__.return_value = mock_response
 
         mock_file = MagicMock()
-        mock_file.read.return_value = b"file content"
+        mock_file.read.side_effect = [b"chunk1", b"chunk2", b""]  # ends properly
         open_mock.return_value.__enter__.return_value = mock_file
 
         mock_blob = MagicMock()

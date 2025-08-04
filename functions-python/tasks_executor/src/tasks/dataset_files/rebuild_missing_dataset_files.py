@@ -1,16 +1,17 @@
 import logging
 import os
-import uuid
-import hashlib
 import shutil
-import tempfile
-import zipfile
-import urllib.request
 import ssl
+import tempfile
+import urllib.request
+import uuid
+import zipfile
 
 from google.cloud import storage
+
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
+from shared.helpers.utils import get_hash_from_file
 
 # Disable SSL verification — trusted internal sources only
 ssl._create_default_https_context = ssl._create_unverified_context
@@ -115,15 +116,12 @@ def process_dataset(dataset: Gtfsdataset):
                     blob.upload_from_filename(file_path)
                     blob.make_public()
 
-                with open(file_path, "rb") as f:
-                    sha256_hash = hashlib.sha256(f.read()).hexdigest()
-
                 gtfs_files.append(
                     Gtfsfile(
                         id=str(uuid.uuid4()),
                         file_name=file_name,
                         file_size_bytes=os.path.getsize(file_path),
-                        hash=sha256_hash,
+                        hash=get_hash_from_file(file_path),
                         hosted_url=blob.public_url if dataset.latest else None,
                     )
                 )

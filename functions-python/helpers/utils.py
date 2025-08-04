@@ -78,6 +78,17 @@ def download_url_content(url, with_retry=False):
         raise e
 
 
+def get_hash_from_file(file_path, hash_algorithm="sha256", chunk_size=8192):
+    """
+    Returns the hash of a file
+    """
+    hash_object = hashlib.new(hash_algorithm)
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            hash_object.update(chunk)
+    return hash_object.hexdigest()
+
+
 def download_and_get_hash(
     url,
     file_path,

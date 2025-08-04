@@ -16,6 +16,7 @@
 
 import base64
 import json
+import logging
 import os
 import random
 import uuid
@@ -28,15 +29,13 @@ import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
+from shared.database.database import with_db_session, refresh_materialized_view
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch, Gtfsfile
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.database.database import with_db_session, refresh_materialized_view
-import logging
-
 from shared.helpers.logger import init_logger, get_logger
-from shared.helpers.utils import download_and_get_hash
-from sqlalchemy.orm import Session
+from shared.helpers.utils import download_and_get_hash, get_hash_from_file
 
 init_logger()
 
@@ -177,6 +176,8 @@ class DatasetProcessor:
                         id=str(uuid.uuid4()),
                         file_name=file_name,
                         file_size_bytes=os.path.getsize(file_path),
+                        hosted_url=file_blob.public_url if public else None,
+                        hash=get_hash_from_file(file_path),
                     )
                 )
         return blob, extracted_files
