@@ -30,7 +30,7 @@ The message published by the batch function to the Pub/Sub topic follows this fo
 
 ### Functionality Details
 
-- **`gbfs-validator-batch`**: Triggered per execution ID, this function iterates over all GBFS feeds, preparing and publishing individual messages to the Pub/Sub topic.
+- **`gbfs-validator-batch`**: Triggered per execution ID, when the request is a POST request with a JSON body containing `feed_stable_ids`, it publishes events related to only those feeds. Otherwise, it publishes avents of all feeds to the Pub/Sub topic.
 - **`gbfs-validator-pubsub`**: Triggered per feed, this function performs the following steps:
   1. **Access the autodiscovery URL and update versions**: The function accesses the autodiscovery URL to update the **GBFSVersions** table.
   2. **Measure latency and validate the feed**: For each version, the function measures the response latency and validates the feed. The validation summary is stored in GCP, and the total error count is extracted and saved in the **GBFSValidationReport**.
@@ -45,6 +45,13 @@ The `gbfs-validator-batch` function requires the following environment variables
 - **`PUBSUB_TOPIC_NAME`**: The name of the Pub/Sub topic where messages will be published.
 - **`PROJECT_ID`**: The Google Cloud Project ID used to construct the full topic path.
 - **`FEEDS_DATABASE_URL`**: The database connection string for accessing the GBFS feeds.
+
+Optional request body parameters for the batch function:
+```json
+{
+    "feed_stable_ids": ["feed_id_1", "feed_id_2"]
+}
+```
 
 ### Pub/Sub Function Environment Variables
 
