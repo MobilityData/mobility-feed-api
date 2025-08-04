@@ -107,10 +107,13 @@ def process_dataset(dataset: Gtfsdataset):
         for root, _, files in os.walk(tmp_dir):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
-                blob_path = f"{'-'.join(stable_id.split('-')[:2])}/{stable_id}/extracted/{file_name}"
-                blob = bucket.blob(blob_path)
-                blob.upload_from_filename(file_path)
-                blob.make_public()
+                # Only store files in GCS for latest datasets
+                if dataset.latest:
+                    logging.info("Storing latest dataset files")
+                    blob_path = f"{'-'.join(stable_id.split('-')[:2])}/{stable_id}/extracted/{file_name}"
+                    blob = bucket.blob(blob_path)
+                    blob.upload_from_filename(file_path)
+                    blob.make_public()
 
                 with open(file_path, "rb") as f:
                     sha256_hash = hashlib.sha256(f.read()).hexdigest()
@@ -121,7 +124,7 @@ def process_dataset(dataset: Gtfsdataset):
                         file_name=file_name,
                         file_size_bytes=os.path.getsize(file_path),
                         hash=sha256_hash,
-                        hosted_url=blob.public_url,
+                        hosted_url=blob.public_url if dataset.latest else None,
                     )
                 )
 
