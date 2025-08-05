@@ -16,6 +16,7 @@
 import hashlib
 import logging
 import os
+import ssl
 
 import requests
 import urllib3
@@ -98,6 +99,7 @@ def download_and_get_hash(
     api_key_parameter_name=None,
     credentials=None,
     logger=None,
+    trusted_certs=False,  # If True, disables SSL verification
 ):
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
@@ -127,6 +129,10 @@ def download_and_get_hash(
         # authentication_type == 2 -> the credentials are passed in the header
         if authentication_type == 2 and api_key_parameter_name and credentials:
             headers[api_key_parameter_name] = credentials
+
+        if trusted_certs:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
 
         with urllib3.PoolManager(ssl_context=ctx) as http:
             with http.request(

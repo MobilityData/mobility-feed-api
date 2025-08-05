@@ -1,20 +1,17 @@
+import json
 import logging
 import os
-import shutil
-import ssl
 import tempfile
-import urllib.request
+import traceback
 import uuid
 import zipfile
 
 from google.cloud import storage
+from sqlalchemy.orm import joinedload
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
-from shared.helpers.utils import get_hash_from_file
-
-# Disable SSL verification — trusted internal sources only
-ssl._create_default_https_context = ssl._create_unverified_context
+from shared.helpers.utils import get_hash_from_file, download_and_get_hash
 
 
 def rebuild_missing_dataset_files_handler(payload) -> dict:
@@ -56,6 +53,7 @@ def get_datasets_with_missing_files_query(db_session, after_date, latest_only):
             | Gtfsdataset.unzipped_size_bytes.is_(None)
             | ~Gtfsdataset.gtfsfiles.any()
         )
+        .options(joinedload(Gtfsdataset.feed))
     )
 
     if after_date:
@@ -67,29 +65,29 @@ def get_datasets_with_missing_files_query(db_session, after_date, latest_only):
     return query
 
 
-def download_to_file(url: str, local_path: str):
-    """
-    Downloads a file from URL and writes it to local disk.
-    """
-    with urllib.request.urlopen(url) as response, open(local_path, "wb") as out_file:
-        shutil.copyfileobj(response, out_file)
-
-
-def process_dataset(dataset: Gtfsdataset):
+def process_dataset(dataset: Gtfsdataset, credentials=None):
     """
     Downloads, extracts, uploads, and indexes files for a GTFS dataset.
 
     Args:
         dataset (Gtfsdataset): The dataset to process.
+        credentials (str): Optional credentials for authentication.
     """
     hosted_url = dataset.hosted_url
     stable_id = dataset.stable_id
     logging.info("Processing dataset %s with URL %s", stable_id, hosted_url)
-    bucket_name = os.environ["DATASETS_BUCKET_NAME"]
+    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         zip_path = os.path.join(tmp_dir, "dataset.zip")
-        download_to_file(hosted_url, zip_path)
+        download_and_get_hash(
+            hosted_url,
+            zip_path,
+            authentication_type=dataset.feed.authentication_type,
+            api_key_parameter_name=dataset.feed.api_key_parameter_name,
+            credentials=credentials,
+            trusted_certs=True,
+        )
         dataset.zipped_size_bytes = os.path.getsize(zip_path)
 
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
@@ -110,7 +108,7 @@ def process_dataset(dataset: Gtfsdataset):
                 file_path = os.path.join(root, file_name)
                 # Only store files in GCS for latest datasets
                 if dataset.latest:
-                    logging.info("Storing latest dataset files")
+                    logging.info("Storing latest dataset file %s", file_name)
                     blob_path = f"{'-'.join(stable_id.split('-')[:2])}/{stable_id}/extracted/{file_name}"
                     blob = bucket.blob(blob_path)
                     blob.upload_from_filename(file_path)
@@ -182,10 +180,18 @@ def rebuild_missing_dataset_files(
     total_processed = 0
     count = 0
     batch_count = 5
+    credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
     logging.info("Starting to process datasets with missing files...")
 
     for dataset in datasets.all():
-        process_dataset(dataset)
+        try:
+            process_dataset(
+                dataset, credentials=credentials.get(dataset.feed.stable_id)
+            )
+        except Exception:
+            logging.error("Error processing dataset %s:", dataset.stable_id)
+            traceback.print_exc()
+            continue
         count += 1
         total_processed += 1
 

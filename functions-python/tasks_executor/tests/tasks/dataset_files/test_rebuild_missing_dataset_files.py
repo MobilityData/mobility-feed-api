@@ -93,14 +93,14 @@ class TestRebuildMissingDatasetFiles(unittest.TestCase):
         self.assertTrue(process_mock.called or response["total_processed"] == 0)
 
     @patch("builtins.open", new_callable=mock_open)
-    @patch("tasks.dataset_files.rebuild_missing_dataset_files.urllib.request.urlopen")
+    @patch("tasks.dataset_files.rebuild_missing_dataset_files.download_and_get_hash")
     @patch("tasks.dataset_files.rebuild_missing_dataset_files.storage.Client")
     @patch("tasks.dataset_files.rebuild_missing_dataset_files.zipfile.ZipFile")
     @patch(
         "tasks.dataset_files.rebuild_missing_dataset_files.tempfile.TemporaryDirectory"
     )
     def test_process_dataset_latest(
-        self, tmpdir_mock, zipfile_mock, storage_mock, urlopen_mock, open_mock
+        self, tmpdir_mock, zipfile_mock, storage_mock, download_mock, open_mock
     ):
         dataset = MagicMock()
         dataset.hosted_url = "http://example.com"
@@ -112,7 +112,7 @@ class TestRebuildMissingDatasetFiles(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.read = MagicMock(side_effect=[b"zip content", b""])
-        urlopen_mock.return_value.__enter__.return_value = mock_response
+        download_mock.return_value.__enter__.return_value = mock_response
 
         mock_file = MagicMock()
         mock_file.read.side_effect = [b"chunk1", b"chunk2", b""]  # ends properly
@@ -137,14 +137,14 @@ class TestRebuildMissingDatasetFiles(unittest.TestCase):
         mock_blob.make_public.assert_called_once()
 
     @patch("builtins.open", new_callable=mock_open)
-    @patch("tasks.dataset_files.rebuild_missing_dataset_files.urllib.request.urlopen")
+    @patch("tasks.dataset_files.rebuild_missing_dataset_files.download_and_get_hash")
     @patch("tasks.dataset_files.rebuild_missing_dataset_files.storage.Client")
     @patch("tasks.dataset_files.rebuild_missing_dataset_files.zipfile.ZipFile")
     @patch(
         "tasks.dataset_files.rebuild_missing_dataset_files.tempfile.TemporaryDirectory"
     )
     def test_process_dataset_not_latest(
-        self, tmpdir_mock, zipfile_mock, storage_mock, urlopen_mock, open_mock
+        self, tmpdir_mock, zipfile_mock, storage_mock, download_mock, open_mock
     ):
         dataset = MagicMock()
         dataset.hosted_url = "http://example.com"
@@ -156,7 +156,7 @@ class TestRebuildMissingDatasetFiles(unittest.TestCase):
 
         mock_response = MagicMock()
         mock_response.read = MagicMock(side_effect=[b"zip content", b""])
-        urlopen_mock.return_value.__enter__.return_value = mock_response
+        download_mock.return_value.__enter__.return_value = mock_response
 
         mock_file = MagicMock()
         mock_file.read.side_effect = [b"chunk1", b"chunk2", b""]  # ends properly
