@@ -1240,7 +1240,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
         version    = "latest"
       }
     }
