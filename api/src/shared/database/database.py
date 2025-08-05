@@ -20,7 +20,6 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from sqlalchemy.orm import sessionmaker
 import logging
-from google.cloud import tasks_v2
 
 from shared.common.logging_utils import get_env_logging_level
 
@@ -127,6 +126,7 @@ def create_refresh_materialized_view_task():
     """
     from google.protobuf import timestamp_pb2
     from datetime import datetime, timedelta
+    from google.cloud import tasks_v2
 
     try:
         logging.info("Creating materialized view refresh task.")
@@ -210,8 +210,10 @@ def create_http_task_with_name(
     queue_name: str,
     task_name: str,
     task_time: str,
-    http_method: tasks_v2.HttpMethod,
+    http_method,
 ):
+    from google.cloud import tasks_v2
+
     """Creates a GCP Cloud Task."""
 
     token = (tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL")),)
