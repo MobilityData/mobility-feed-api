@@ -151,20 +151,13 @@ def create_http_task(
     gcp_region: str,
     queue_name: str,
 ) -> None:
-    """Creates a GCP Cloud Task."""
-    from google.cloud import tasks_v2
+    from shared.database.database import create_http_task_with_name
 
-    task = tasks_v2.Task(
-        http_request=tasks_v2.HttpRequest(
-            url=url,
-            http_method=tasks_v2.HttpMethod.POST,
-            oidc_token=tasks_v2.OidcToken(
-                service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL")
-            ),
-            body=body,
-            headers={"Content-Type": "application/json"},
-        )
-    )
-    client.create_task(
-        parent=client.queue_path(project_id, gcp_region, queue_name), task=task
+    create_http_task_with_name(
+        client=client,
+        body=body,
+        url=url,
+        project_id=project_id,
+        gcp_region=gcp_region,
+        queue_name=queue_name,
     )
