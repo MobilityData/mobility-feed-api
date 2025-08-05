@@ -23,10 +23,8 @@ from location_group_utils import (
     geopolygons_as_string,
 )
 from parse_request import parse_request_parameters
-from shared.database.database import (
-    with_db_session,
-    create_refresh_materialized_view_task,
-)
+from shared.common.gcp_utils import create_refresh_materialized_view_task
+from shared.database.database import with_db_session
 
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,

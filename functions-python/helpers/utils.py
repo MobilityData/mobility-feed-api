@@ -151,7 +151,12 @@ def create_http_task(
     gcp_region: str,
     queue_name: str,
 ) -> None:
-    from shared.database.database import create_http_task_with_name
+    from shared.common.gcp_utils import create_http_task_with_name
+    from google.cloud import tasks_v2
+    from google.protobuf import timestamp_pb2
+
+    proto_time = timestamp_pb2.Timestamp()
+    proto_time.GetCurrentTime()
 
     create_http_task_with_name(
         client=client,
@@ -160,4 +165,7 @@ def create_http_task(
         project_id=project_id,
         gcp_region=gcp_region,
         queue_name=queue_name,
+        task_name="task_name",
+        task_time=proto_time,
+        http_method=tasks_v2.HttpMethod.POST,
     )

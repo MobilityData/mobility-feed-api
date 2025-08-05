@@ -2,12 +2,10 @@ import logging
 import os
 import functions_framework
 
+from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.helpers.logger import init_logger
 
-from shared.database.database import (
-    with_db_session,
-    create_refresh_materialized_view_task,
-)
+from shared.database.database import with_db_session
 
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import or_, func

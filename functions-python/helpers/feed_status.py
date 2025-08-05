@@ -6,9 +6,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-from shared.database.database import (
-    create_refresh_materialized_view_task,
-)
+from shared.common.gcp_utils import create_refresh_materialized_view_task
 
 
 #  query to update the status of the feeds based on the service date range of the latest dataset

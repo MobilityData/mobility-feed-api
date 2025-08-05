@@ -29,13 +29,11 @@ from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
 
+from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
 
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.database.database import (
-    with_db_session,
-    create_refresh_materialized_view_task,
-)
+from shared.database.database import with_db_session
 import logging
 
 from shared.helpers.logger import init_logger, get_logger
