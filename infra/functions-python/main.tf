@@ -70,23 +70,46 @@ locals {
   function_tasks_executor_zip = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
 }
 
+# locals {
+#   # To allow multiple functions to access the same secrets, we need to combine all the keys from the different functions
+#   # Combine all keys into a list
+#   all_secret_keys_list = concat(
+#     [for x in local.function_tokens_config.secret_environment_variables : x.key],
+#     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
+#     [for x in local.function_gbfs_validation_report_config.secret_environment_variables : x.key],
+#     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
+#     [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
+#     [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
+#     [for x in local.function_export_csv_config.secret_environment_variables : x.key],
+#     [for x in local.function_tasks_executor_config.secret_environment_variables : x.key]
+#   )
+#
+#   # Convert the list to a set to ensure uniqueness
+#   unique_secret_keys = toset(local.all_secret_keys_list)
+# }
+
 locals {
-  # To allow multiple functions to access the same secrets, we need to combine all the keys from the different functions
-  # Combine all keys into a list
-  all_secret_keys_list = concat(
-    [for x in local.function_tokens_config.secret_environment_variables : x.key],
-    [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_gbfs_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
-    [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
-    [for x in local.function_export_csv_config.secret_environment_variables : x.key],
-    [for x in local.function_tasks_executor_config.secret_environment_variables : x.key]
+  # Step 1: Flatten all secret_environment_variables lists into one
+  all_secret_dicts = concat(
+    local.function_tokens_config.secret_environment_variables,
+    local.function_process_validation_report_config.secret_environment_variables,
+    local.function_gbfs_validation_report_config.secret_environment_variables,
+    local.function_update_validation_report_config.secret_environment_variables,
+    local.function_backfill_dataset_service_date_range_config.secret_environment_variables,
+    local.function_update_feed_status_config.secret_environment_variables,
+    local.function_export_csv_config.secret_environment_variables,
+    local.function_tasks_executor_config.secret_environment_variables
   )
 
-  # Convert the list to a set to ensure uniqueness
-  unique_secret_keys = toset(local.all_secret_keys_list)
+  # Step 2: Create a map with key = secret.key, value = full secret (to deduplicate by key)
+  unique_secret_dict_map = {
+    for s in local.all_secret_dicts : s.key => s
+  }
+
+  # Step 3: Convert the map back to a list
+  unique_secret_dicts = values(local.unique_secret_dict_map)
 }
+
 
 data "google_vpc_access_connector" "vpc_connector" {
   name    = local.vpc_connector_name
@@ -229,11 +252,11 @@ resource "google_storage_bucket_object" "tasks_executor_zip" {
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
-  for_each = local.unique_secret_keys
+  for_each = local.unique_secret_dicts
 
   project    = var.project_id
   # The secret_id is the current item in the set. Since these are unique keys, we use each.value to access it.
-  secret_id  = "${upper(var.environment)}_${each.value}"
+  secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
   role       = "roles/secretmanager.secretAccessor"
   member     = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
