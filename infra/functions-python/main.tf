@@ -89,7 +89,6 @@ locals {
 # }
 
 locals {
-  # Step 1: Flatten all secret_environment_variables lists into one
   all_secret_dicts = concat(
     local.function_tokens_config.secret_environment_variables,
     local.function_process_validation_report_config.secret_environment_variables,
@@ -101,13 +100,13 @@ locals {
     local.function_tasks_executor_config.secret_environment_variables
   )
 
-  # Step 2: Create a map with key = secret.key, value = full secret (to deduplicate by key)
-  unique_secret_dict_map = {
-    for s in local.all_secret_dicts : s.key => s
-  }
-
-  # Step 3: Convert the map back to a list
-  unique_secret_dicts = values(local.unique_secret_dict_map)
+  # Remove duplicates by key, keeping the first occurrence
+  unique_secret_dicts = [
+    for i, s in local.all_secret_dicts :
+    s if index([
+      for j in local.all_secret_dicts : j.key
+    ], s.key) == i
+  ]
 }
 
 
