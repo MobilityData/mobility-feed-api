@@ -992,6 +992,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
       }
     }
   }
+
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
@@ -1222,6 +1223,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       PROJECT_ID  = var.project_id
       ENV = var.environment
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
@@ -1393,6 +1395,26 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   retry_config {
     # This will make the cloud task retry for ~1 hour
     max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
+}
+
+# Task queue to invoke refresh_materialized_view function
+resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "refresh-materialized-view-task-queue"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 0.5
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~30 minutes
+    max_attempts  = 5
     min_backoff   = "120s"
     max_backoff   = "120s"
     max_doublings = 2
