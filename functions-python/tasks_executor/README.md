@@ -33,6 +33,12 @@ Example:
     "after_date": "2025-06-01"
   }
 }
+{
+   "task": "refresh_materialized_view",
+   "payload": {
+    "dry_run": true
+  }
+}
 ```
 
 To get the list of supported tasks use:

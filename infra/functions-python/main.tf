@@ -70,24 +70,6 @@ locals {
   function_tasks_executor_zip = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
 }
 
-# locals {
-#   # To allow multiple functions to access the same secrets, we need to combine all the keys from the different functions
-#   # Combine all keys into a list
-#   all_secret_keys_list = concat(
-#     [for x in local.function_tokens_config.secret_environment_variables : x.key],
-#     [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
-#     [for x in local.function_gbfs_validation_report_config.secret_environment_variables : x.key],
-#     [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
-#     [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
-#     [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
-#     [for x in local.function_export_csv_config.secret_environment_variables : x.key],
-#     [for x in local.function_tasks_executor_config.secret_environment_variables : x.key]
-#   )
-#
-#   # Convert the list to a set to ensure uniqueness
-#   unique_secret_keys = toset(local.all_secret_keys_list)
-# }
-
 locals {
   all_secret_dicts = concat(
     local.function_tokens_config.secret_environment_variables,
@@ -1249,6 +1231,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       PROJECT_ID  = var.project_id
       ENV = var.environment
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
     }
     available_memory                 = local.function_tasks_executor_config.memory
@@ -1421,6 +1404,26 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
   retry_config {
     # This will make the cloud task retry for ~1 hour
     max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
+}
+
+# Task queue to invoke refresh_materialized_view function
+resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "refresh-materialized-view-task-queue"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 0.5
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~30 minutes
+    max_attempts  = 5
     min_backoff   = "120s"
     max_backoff   = "120s"
     max_doublings = 2
