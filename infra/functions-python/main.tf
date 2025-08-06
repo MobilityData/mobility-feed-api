@@ -107,6 +107,11 @@ locals {
       for j in local.all_secret_dicts : j.key
     ], s.key) == i
   ]
+
+  # Convert to a map for for_each
+  unique_secret_dict_map = {
+    for s in local.unique_secret_dicts : s.key => s
+  }
 }
 
 
@@ -251,7 +256,7 @@ resource "google_storage_bucket_object" "tasks_executor_zip" {
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
-  for_each = local.unique_secret_dicts
+  for_each = local.unique_secret_dict_map
 
   project    = var.project_id
   # The secret_id is the current item in the set. Since these are unique keys, we use each.value to access it.
