@@ -130,18 +130,15 @@ class DatasetProcessor:
             logger=self.logger,
         )
         is_zip = zipfile.is_zipfile(temporary_file_path)
-        if is_zip:
-            extracted_file_path = os.path.join(
-                temporary_file_path.split(".")[0], "extracted"
-            )
-            with zipfile.ZipFile(temporary_file_path, "r") as zip_ref:
-                zip_ref.extractall(os.path.dirname(extracted_file_path))
-            # List all files in the extracted directory
-            extracted_files = os.listdir(os.path.dirname(extracted_file_path))
-            self.logger.info(f"Extracted files: {extracted_files}")
         return file_hash, is_zip
 
-    def upload_file_to_storage(self, source_file_path, dataset_stable_id):
+    def upload_file_to_storage(
+        self,
+        source_file_path,
+        dataset_stable_id,
+        extracted_files_path,
+        public=True,
+    ):
         """
         Uploads a file to the GCP bucket
         """
@@ -155,12 +152,12 @@ class DatasetProcessor:
             blob = bucket.blob(target_path)
             with open(source_file_path, "rb") as file:
                 blob.upload_from_file(file)
-            blob.make_public()
+            if public:
+                blob.make_public()
 
         base_path, _ = os.path.splitext(source_file_path)
-        extracted_files_path = os.path.join(base_path, "extracted")
         extracted_files: List[Gtfsfile] = []
-        if not os.path.exists(extracted_files_path):
+        if not extracted_files_path or not os.path.exists(extracted_files_path):
             self.logger.warning(
                 f"Extracted files path {extracted_files_path} does not exist."
             )
@@ -172,7 +169,8 @@ class DatasetProcessor:
                     f"{self.feed_stable_id}/{dataset_stable_id}/extracted/{file_name}"
                 )
                 file_blob.upload_from_filename(file_path)
-                file_blob.make_public()
+                if public:
+                    file_blob.make_public()
                 self.logger.info(
                     f"Uploaded extracted file {file_name} to {file_blob.public_url}"
                 )
@@ -185,7 +183,7 @@ class DatasetProcessor:
                 )
         return blob, extracted_files
 
-    def upload_dataset(self) -> DatasetFile or None:
+    def upload_dataset(self, public=True) -> DatasetFile or None:
         """
         Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
@@ -205,12 +203,12 @@ class DatasetProcessor:
             self.logger.info(
                 f"[{self.feed_stable_id}] File hash is {file_sha256_hash}."
             )
-
             if self.latest_hash != file_sha256_hash:
                 self.logger.info(
                     f"[{self.feed_stable_id}] Dataset has changed (hash {self.latest_hash}"
                     f"-> {file_sha256_hash}). Uploading new version."
                 )
+                extracted_files_path = self.unzip_files(temp_file_path)
                 self.logger.info(
                     f"Creating file {self.feed_stable_id}/latest.zip in bucket {self.bucket_name}"
                 )
@@ -226,7 +224,10 @@ class DatasetProcessor:
                     f" in bucket {self.bucket_name}"
                 )
                 _, extracted_files = self.upload_file_to_storage(
-                    temp_file_path, dataset_stable_id
+                    temp_file_path,
+                    dataset_stable_id,
+                    extracted_files_path,
+                    public=public,
                 )
 
                 return DatasetFile(
@@ -249,6 +250,18 @@ class DatasetProcessor:
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
         return None
+
+    def unzip_files(self, temp_file_path):
+        extracted_files_path = os.path.join(temp_file_path.split(".")[0], "extracted")
+        self.logger.info(f"Unzipping files to {extracted_files_path}")
+        # Create the directory for extracted files if it does not exist
+        os.makedirs(extracted_files_path, exist_ok=True)
+        with zipfile.ZipFile(temp_file_path, "r") as zip_ref:
+            zip_ref.extractall(path=extracted_files_path)
+        # List all files in the extracted directory
+        extracted_files = os.listdir(extracted_files_path)
+        self.logger.info(f"Extracted files: {extracted_files}")
+        return extracted_files_path
 
     def generate_temp_filename(self):
         """
