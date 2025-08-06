@@ -13,7 +13,6 @@ from typing import Iterator, NamedTuple
 
 import os
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
@@ -30,8 +29,8 @@ def fetch_feeds(session: Session) -> Iterator[PartialFeed]:
     # When adding or removing fields here, `PartialFeed` should be updated to
     # match, for type safety.
     query = session.query(Feed.id, Feed.status).filter(
-        Feed.status != text("'deprecated'::status"),
-        Feed.status != text("'development'::status"),
+        Feed.status != "deprecated",
+        Feed.status != "development",
     )
     for feed in query:
         yield PartialFeed(id=feed.id, status=feed.status)

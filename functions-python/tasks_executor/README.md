@@ -34,6 +34,14 @@ Examples:
    }
 }
 ```
+```json
+{
+   "task": "refresh_materialized_view",
+   "payload": {
+    "dry_run": true
+  }
+}
+```
 
 To get the list of supported tasks use:
 ```json
@@ -42,5 +50,3 @@ To get the list of supported tasks use:
    "payload": {}
 }
 ```
-
-

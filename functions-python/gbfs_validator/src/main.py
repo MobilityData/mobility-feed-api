@@ -101,9 +101,11 @@ def gbfs_validator_pubsub(cloud_event: CloudEvent):
 
 @with_db_session
 @functions_framework.http
-def gbfs_validator_batch(_, db_session: Session):
+def gbfs_validator_batch(request, db_session: Session):
     """
-    HTTP Cloud Function to trigger the GBFS Validator function for multiple datasets.
+    HTTP Cloud  Function to trigger the GBFS Validator function for multiple datasets.
+    When the request is a POST request with a JSON body containing `feed_stable_ids`,
+    it processes only those feeds. Otherwise, it processes all feeds in the database.
     @param _: The request object.
     @return: The response of the function.
     """
@@ -113,9 +115,25 @@ def gbfs_validator_batch(_, db_session: Session):
         logging.error("PUBSUB_TOPIC_NAME environment variable not set.")
         return "PUBSUB_TOPIC_NAME environment variable not set.", 500
 
-    # Get all GBFS feeds from the database
     try:
-        gbfs_feeds = fetch_all_gbfs_feeds(db_session)
+        feed_stable_ids = None
+        if request and request.method == "POST" and request.is_json:
+            request_json = request.get_json()
+            feed_stable_ids = (
+                request_json.get("feed_stable_ids") if request_json else None
+            )
+        else:
+            logging.info("Request body not provided or not a valid JSON.")
+    except Exception as e:
+        logging.error("Error parsing request body: %s", e)
+        return "Invalid request body.", 400
+
+    try:
+        if feed_stable_ids:
+            gbfs_feeds = fetch_gbfs_feeds_by_stable_ids(db_session, feed_stable_ids)
+        else:
+            # Get all GBFS feeds from the database
+            gbfs_feeds = fetch_all_gbfs_feeds(db_session)
     except Exception:
         return "Error getting all GBFS feeds.", 500
 
@@ -150,3 +168,15 @@ def gbfs_validator_batch(_, db_session: Session):
         f"GBFS Validator batch function triggered successfully for {len(feeds_data)} feeds.",
         200,
     )
+
+
+def fetch_gbfs_feeds_by_stable_ids(db_session, feed_stable_ids):
+    """Fetch GBFS feeds by their IDs and not deprecated from the database"""
+    gbfs_feeds = (
+        db_session.query(Gbfsfeed)
+        .filter(
+            Gbfsfeed.stable_id.in_(feed_stable_ids), Gbfsfeed.status != "deprecated"
+        )
+        .all()
+    )
+    return gbfs_feeds

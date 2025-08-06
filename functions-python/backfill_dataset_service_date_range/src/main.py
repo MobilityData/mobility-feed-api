@@ -2,9 +2,10 @@ import logging
 import os
 import functions_framework
 
+from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.helpers.logger import init_logger
 
-from shared.database.database import with_db_session, refresh_materialized_view
+from shared.database.database import with_db_session
 
 from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import or_, func
@@ -17,13 +18,12 @@ from shared.helpers.timezone import (
 from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Validationreport,
-    t_feedsearch,
 )
 
-import requests
 import json
 
 from google.cloud import storage
+import requests
 
 env = os.getenv("ENV", "dev").lower()
 bucket_name = f"mobilitydata-datasets-{env}"
@@ -146,7 +146,7 @@ def backfill_datasets(session: "Session"):
                 try:
                     changes_count = 0
                     session.commit()
-                    refresh_materialized_view(session, t_feedsearch.name)
+                    create_refresh_materialized_view_task()
                     logging.info(f"{changes_count} elements committed.")
                 except Exception as e:
                     logging.error("Error committing changes:", e)

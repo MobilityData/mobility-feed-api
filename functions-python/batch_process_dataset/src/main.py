@@ -28,15 +28,17 @@ import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
+from shared.common.gcp_utils import create_refresh_materialized_view_task
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
 
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, t_feedsearch, Gtfsfile
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
-from shared.database.database import with_db_session, refresh_materialized_view
+from shared.database.database import with_db_session
 import logging
 
 from shared.helpers.logger import init_logger, get_logger
-from shared.helpers.utils import download_and_get_hash
+from shared.helpers.utils import download_and_get_hash, get_hash_from_file
 from sqlalchemy.orm import Session
+
 
 init_logger()
 
@@ -177,6 +179,8 @@ class DatasetProcessor:
                         id=str(uuid.uuid4()),
                         file_name=file_name,
                         file_size_bytes=os.path.getsize(file_path),
+                        hosted_url=file_blob.public_url if public else None,
+                        hash=get_hash_from_file(file_path),
                     )
                 )
         return blob, extracted_files
@@ -233,9 +237,11 @@ class DatasetProcessor:
                     file_sha256_hash=file_sha256_hash,
                     hosted_url=f"{self.public_hosted_datasets_url}/{dataset_full_path}",
                     extracted_files=extracted_files,
-                    zipped_size=os.path.getsize(temp_file_path)
-                    if os.path.exists(temp_file_path)
-                    else None,
+                    zipped_size=(
+                        os.path.getsize(temp_file_path)
+                        if os.path.exists(temp_file_path)
+                        else None
+                    ),
                 )
 
             self.logger.info(
@@ -298,15 +304,15 @@ class DatasetProcessor:
                 hash=dataset_file.file_sha256_hash,
                 downloaded_at=func.now(),
                 hosted_url=dataset_file.hosted_url,
-                gtfsfiles=dataset_file.extracted_files
-                if dataset_file.extracted_files
-                else [],
+                gtfsfiles=(
+                    dataset_file.extracted_files if dataset_file.extracted_files else []
+                ),
                 zipped_size_bytes=dataset_file.zipped_size,
-                unzipped_size_bytes=sum(
-                    [ex.file_size_bytes for ex in dataset_file.extracted_files]
-                )
-                if dataset_file.extracted_files
-                else None,
+                unzipped_size_bytes=(
+                    sum([ex.file_size_bytes for ex in dataset_file.extracted_files])
+                    if dataset_file.extracted_files
+                    else None
+                ),
             )
             if latest_dataset:
                 latest_dataset.latest = False
@@ -315,10 +321,7 @@ class DatasetProcessor:
             db_session.commit()
             self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
-            refresh_materialized_view(db_session, t_feedsearch.name)
-            self.logger.info(
-                f"[{self.feed_stable_id}] Materialized view refresh event triggered successfully."
-            )
+            create_refresh_materialized_view_task()
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
