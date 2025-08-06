@@ -52,6 +52,51 @@ def download_to_local(url: str, filename: str):
         logging.info(f"Blob already exists: gs://{BUCKET_NAME}/{blob_path}")
 
 
+def verify_reverse_geolocation_process():
+    """
+    Verify the reverse geolocation process by downloading the necessary files,
+    triggering the reverse geolocation process, and visualizing the resulting GeoJSON file.
+    This function simulates the process as if it were running in a Google Cloud Function environment.
+    The resulting map will be saved in the .cloudstorage/verifier/{feed_stable_id}/geojson_map.html
+    location, which can be viewed in a web browser.
+    """
+    app = Flask(__name__)
+    download_to_local(url=station_information_url, filename="station_information.json")
+    download_to_local(url=vehicle_status_url, filename="vehicle_status.json")
+
+    with app.test_request_context(
+        path="/reverse_geolocation",
+        method="POST",
+        data=json.dumps(data),
+        headers={"Content-Type": "application/json"},
+    ):
+        request = Request.from_values(
+            method="POST",
+            path="/reverse_geolocation",
+            data=json.dumps(data),
+            headers={"Content-Type": "application/json"},
+        )
+        reverse_geolocation_process(request)
+
+        # Visualize the resulting geojson file
+        url = f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/geolocation.geojson"
+        gdf = gpd.read_file(url)
+
+        # Calculate centroid for map center
+        center = gdf.geometry.union_all().centroid
+        m = folium.Map(location=[center.y, center.x], zoom_start=2)
+
+        # Add GeoJSON overlay
+        folium.GeoJson(gdf).add_to(m)
+
+        # Automatically zoom to fit the full polygon bounds
+        minx, miny, maxx, maxy = gdf.total_bounds
+        m.fit_bounds([[miny, minx], [maxy, maxx]])  # [[south, west], [north, east]]
+
+        # Save the map
+        m.save(f".cloudstorage/verifier/{feed_stable_id}/geojson_map.html")
+
+
 if __name__ == "__main__":
     import geopandas as gpd
     from gcp_storage_emulator.server import create_server
@@ -67,7 +112,6 @@ if __name__ == "__main__":
         "data_type": "gbfs",
         "public": "False",
     }
-    app = Flask(__name__)
 
     try:
         os.environ["STORAGE_EMULATOR_HOST"] = f"http://{HOST}:{PORT}"
@@ -77,43 +121,7 @@ if __name__ == "__main__":
             host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
         )
         server.start()
-
-        download_to_local(
-            url=station_information_url, filename="station_information.json"
-        )
-        download_to_local(url=vehicle_status_url, filename="vehicle_status.json")
-
-        with app.test_request_context(
-            path="/reverse_geolocation",
-            method="POST",
-            data=json.dumps(data),
-            headers={"Content-Type": "application/json"},
-        ):
-            request = Request.from_values(
-                method="POST",
-                path="/reverse_geolocation",
-                data=json.dumps(data),
-                headers={"Content-Type": "application/json"},
-            )
-            reverse_geolocation_process(request)
-
-            #         Visualize the resulting geojson file
-            url = f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/geolocation.geojson"
-            gdf = gpd.read_file(url)
-
-            # Calculate centroid for map center
-            center = gdf.geometry.union_all().centroid
-            m = folium.Map(location=[center.y, center.x], zoom_start=2)
-
-            # Add GeoJSON overlay
-            folium.GeoJson(gdf).add_to(m)
-
-            # Automatically zoom to fit the full polygon bounds
-            minx, miny, maxx, maxy = gdf.total_bounds
-            m.fit_bounds([[miny, minx], [maxy, maxx]])  # [[south, west], [north, east]]
-
-            # Save the map
-            m.save(f".cloudstorage/verifier/{feed_stable_id}/geojson_map.html")
+        verify_reverse_geolocation_process()
     except Exception as e:
         logging.error(f"Error verifying download content: {e}")
     finally:

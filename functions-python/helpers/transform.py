@@ -16,15 +16,17 @@
 from typing import List, Optional
 
 
-def to_boolean(value):
+def to_boolean(value, default_value: Optional[bool] = False) -> bool:
     """
     Convert a value to a boolean.
     """
     if isinstance(value, bool):
         return value
+    if isinstance(value, (int, float)):
+        return value != 0
     if isinstance(value, str):
-        return value.lower() in ["true", "1", "yes", "y"]
-    return False
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    return default_value
 
 
 def get_nested_value(
@@ -53,3 +55,23 @@ def get_nested_value(
         result = current_data.strip()
         return result if result else default_value
     return current_data
+
+
+def to_enum(value, enum_class=None, default_value=None):
+    """
+    Convert a value to an enum member of the specified enum class.
+
+    Args:
+        value: The value to convert.
+        enum_class: The enum class to convert the value to.
+        default_value: The default value to return if conversion fails.
+
+    Returns:
+        An enum member if conversion is successful, otherwise the default value.
+    """
+    if enum_class and isinstance(value, enum_class):
+        return value
+    try:
+        return enum_class(str(value))
+    except (ValueError, TypeError):
+        return default_value
