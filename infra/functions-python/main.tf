@@ -71,22 +71,31 @@ locals {
 }
 
 locals {
-  # To allow multiple functions to access the same secrets, we need to combine all the keys from the different functions
-  # Combine all keys into a list
-  all_secret_keys_list = concat(
-    [for x in local.function_tokens_config.secret_environment_variables : x.key],
-    [for x in local.function_process_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_gbfs_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_update_validation_report_config.secret_environment_variables : x.key],
-    [for x in local.function_backfill_dataset_service_date_range_config.secret_environment_variables : x.key],
-    [for x in local.function_update_feed_status_config.secret_environment_variables : x.key],
-    [for x in local.function_export_csv_config.secret_environment_variables : x.key],
-    [for x in local.function_tasks_executor_config.secret_environment_variables : x.key]
+  all_secret_dicts = concat(
+    local.function_tokens_config.secret_environment_variables,
+    local.function_process_validation_report_config.secret_environment_variables,
+    local.function_gbfs_validation_report_config.secret_environment_variables,
+    local.function_update_validation_report_config.secret_environment_variables,
+    local.function_backfill_dataset_service_date_range_config.secret_environment_variables,
+    local.function_update_feed_status_config.secret_environment_variables,
+    local.function_export_csv_config.secret_environment_variables,
+    local.function_tasks_executor_config.secret_environment_variables
   )
 
-  # Convert the list to a set to ensure uniqueness
-  unique_secret_keys = toset(local.all_secret_keys_list)
+  # Remove duplicates by key, keeping the first occurrence
+  unique_secret_dicts = [
+    for i, s in local.all_secret_dicts :
+    s if index([
+      for j in local.all_secret_dicts : j.key
+    ], s.key) == i
+  ]
+
+  # Convert to a map for for_each
+  unique_secret_dict_map = {
+    for s in local.unique_secret_dicts : s.key => s
+  }
 }
+
 
 data "google_vpc_access_connector" "vpc_connector" {
   name    = local.vpc_connector_name
@@ -229,11 +238,11 @@ resource "google_storage_bucket_object" "tasks_executor_zip" {
 
 # Secrets access
 resource "google_secret_manager_secret_iam_member" "secret_iam_member" {
-  for_each = local.unique_secret_keys
+  for_each = local.unique_secret_dict_map
 
   project    = var.project_id
   # The secret_id is the current item in the set. Since these are unique keys, we use each.value to access it.
-  secret_id  = "${upper(var.environment)}_${each.value}"
+  secret_id  = lookup(each.value, "secret", "${upper(var.environment)}_${each.value["key"]}")
   role       = "roles/secretmanager.secretAccessor"
   member     = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
@@ -992,7 +1001,6 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
       }
     }
   }
-
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
@@ -1224,6 +1232,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       ENV = var.environment
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout
@@ -1241,7 +1250,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       content {
         key        = secret_environment_variables.value["key"]
         project_id = var.project_id
-        secret     = "${upper(var.environment)}_${secret_environment_variables.value["key"]}"
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
         version    = "latest"
       }
     }

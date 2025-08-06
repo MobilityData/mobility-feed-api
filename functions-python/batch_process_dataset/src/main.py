@@ -28,7 +28,6 @@ import functions_framework
 from cloudevents.http import CloudEvent
 from google.cloud import storage
 from sqlalchemy import func
-
 from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
 
@@ -37,8 +36,9 @@ from shared.database.database import with_db_session
 import logging
 
 from shared.helpers.logger import init_logger, get_logger
-from shared.helpers.utils import download_and_get_hash
+from shared.helpers.utils import download_and_get_hash, get_hash_from_file
 from sqlalchemy.orm import Session
+
 
 init_logger()
 
@@ -179,6 +179,8 @@ class DatasetProcessor:
                         id=str(uuid.uuid4()),
                         file_name=file_name,
                         file_size_bytes=os.path.getsize(file_path),
+                        hosted_url=file_blob.public_url if public else None,
+                        hash=get_hash_from_file(file_path),
                     )
                 )
         return blob, extracted_files
