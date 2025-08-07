@@ -92,34 +92,26 @@ class TestPmtilesBuilder(unittest.TestCase):
         if "DATASETS_BUCKET_NAME" in os.environ:
             del os.environ["DATASETS_BUCKET_NAME"]
 
-    @patch(
-        "tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._download_files_from_gcs"
-    )
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_routes_geojson")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._run_tippecanoe")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_stops_geojson")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_routes_json")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._upload_files_to_gcs")
-    def test_build_pmtiles_calls_create_shapes_index(
-        self,
-        mock_upload,
-        mock_routes_json,
-        mock_stops_geojson,
-        mock_run_tippecanoe,
-        mock_routes_geojson,
-        mock_download,
-    ):
-        self.builder.bucket = MagicMock()
-        self.builder.bucket.list_blobs.return_value = []
-        # Create minimal shapes.txt in local_dir
+    def test_build_pmtiles_creates_correct_shapes_index(self):
+        # Prepare shapes.txt
         os.makedirs(local_dir, exist_ok=True)
         shapes_path = os.path.join(local_dir, "shapes.txt")
         with open(shapes_path, "w", encoding="utf-8") as f:
-            f.write(
-                "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\ns1,45.0,-73.0,1\n"
-            )
-        result = self.builder.build_pmtiles()
-        self.assertIn("message", result)
+            f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
+            f.write("s1,45.0,-73.0,1\n")
+            f.write("s1,45.1,-73.1,2\n")
+            f.write("s2,46.0,-74.0,1\n")
+
+        index = self.builder._create_shapes_index()
+        self.assertIn("columns", index)
+        self.assertEqual(
+            index["columns"],
+            ["shape_id", "shape_pt_lat", "shape_pt_lon", "shape_pt_sequence"],
+        )
+        self.assertIn("s1", index)
+        self.assertIn("s2", index)
+        self.assertEqual(len(index["s1"]), 2)
+        self.assertEqual(len(index["s2"]), 1)
 
     def test_get_shape_points(self):
         # Prepare shapes.txt
