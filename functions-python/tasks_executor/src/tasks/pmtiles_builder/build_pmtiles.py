@@ -232,6 +232,7 @@ class PmtilesBuilder:
         Returns:
             A dictionary with key shaped_id and values a list of positions in the shapes.txt file.
         """
+        # TODO: see if we can get rid of the index by reading the shapes coordinates with the memory efficient numpy.
         self.logger.info("Creating shapes index")
         shapes_index = {}
         try:
@@ -421,7 +422,7 @@ class PmtilesBuilder:
     def _create_stops_geojson(self):
         self.logger.info("Creating stops geojson...")
         try:
-            stops = self._read_csv(f"{local_dir}/stops.txt")
+            stops = self._read_csv(self.stops_file)
             if isinstance(stops, dict) and "error" in stops:
                 return stops
             self.logger.debug("Loaded %d stops.", len(stops))
@@ -464,7 +465,7 @@ class PmtilesBuilder:
         self.logger.info("Creating routes json...")
         try:
             routes = []
-            with open(f"{local_dir}/routes.txt", newline="", encoding="utf-8") as f:
+            with open(self.routes_file, newline="", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     route = {
