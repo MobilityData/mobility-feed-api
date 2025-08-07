@@ -50,7 +50,7 @@ describe('Add Feed Form', () => {
       cy.muiDropdownSelect('[data-cy=logoPermission]', 'yes');
       cy.get('[data-cy=fourthStepSubmit]').click();
       cy.url().should('include', 'contribute/submitted');
-      //success check
+      // success check
       cy.get('[data-cy=feedSubmitSuccess]').should('exist');
     });
 
@@ -97,18 +97,12 @@ describe('Add Feed Form', () => {
       cy.muiDropdownSelect('[data-cy=countryDropdown]', 'CA');
       cy.get('[data-cy=secondStepSubmit]').click();
       // Step 3: fill required emptyLicenseUsage if present
-      cy.get('body').then($body => {
-        if ($body.find('[data-cy="emptyLicenseUsage"]').length) {
-          cy.get('[data-cy="emptyLicenseUsage"]').click();
-          cy.get('li').should('have.length.at.least', 1);
-          cy.get('li').then($lis => {
-            const texts = $lis.map((i, el) => el.textContent).get();
-            cy.log('Dropdown options:', texts.join(', '));
-            expect(texts).to.include('Not sure');
-          });
-          cy.contains('li', 'Not sure').click();
-        }
-      });
+      cy.get('[data-cy=thirdStepSubmit]').click();
+      cy.get('[data-cy="emptyLicenseUsage"]')
+        .parents('.MuiFormControl-root')
+        .find('.MuiFormHelperText-root')
+        .should('contain', 'required');
+
       cy.get('[data-cy=thirdStepSubmit]').click();
       // Step 4
       cy.get('[data-cy=fourthStepSubmit]').should('exist');
@@ -161,7 +155,10 @@ describe('Add Feed Form', () => {
     cy.url().should('include', '/contribute?step=3');
     // step 3: should see emptyLicenseUsage select
     cy.get('[data-cy="emptyLicenseUsage"]').should('exist');
-    cy.get('[data-cy="emptyLicenseUsageLabel"]').should('contain', 'available for trip planners and other third parties to use');
+    cy.get('[data-cy="emptyLicenseUsageLabel"]').should(
+      'contain',
+      'Can this feed be used commercially by trip planners and other third parties?',
+    );
     // Open dropdown and check options with debug output
     cy.get('[data-cy="emptyLicenseUsage"]').click();
     cy.get('li').should('have.length.at.least', 1);
