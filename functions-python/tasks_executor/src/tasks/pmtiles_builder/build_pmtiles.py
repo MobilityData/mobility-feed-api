@@ -21,7 +21,6 @@ import csv
 import json
 import logging
 import os
-import pickle
 import shutil
 import subprocess
 from logging import DEBUG
@@ -67,6 +66,15 @@ class PmtilesBuilder:
         self.bucket_name = os.getenv("DATASETS_BUCKET_NAME")
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
+        self.stop_times_index = {}
+        self.stop_times_by_trip = None
+
+        self.stop_times_file = f"{local_dir}/stop_times.txt"
+        self.shapes_file = f"{local_dir}/shapes.txt"
+        self.trips_file = f"{local_dir}/trips.txt"
+        self.routes_file = f"{local_dir}/routes.txt"
+        self.stops_file = f"{local_dir}/stops.txt"
+
     @staticmethod
     def _get_parameters(payload):
         """
@@ -102,8 +110,6 @@ class PmtilesBuilder:
             )
 
             self._download_files_from_gcs(unzipped_files_path)
-
-            self._create_shapes_index()
 
             self._create_routes_geojson()
 
@@ -215,15 +221,24 @@ class PmtilesBuilder:
         except Exception as e:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
-    def _create_shapes_index(self):
+    def _create_shapes_index(self) -> dict:
+        """
+        Create an index for shapes.txt file to quickly access shape points by shape_id.
+        We create the index to save memory. With the index, we keep a list of positions in the file for each shape.
+        If instead we read the whole file into memory, we would need 2 floats for the longitude and latitude plus an
+        int for the sequence number for each point.
+        The largest number of shapes we have currently in a dataset is 37 millions.
+        This means about 900 MB if we have the index, and 1.6 GB if read the coordinates in memory.
+        Returns:
+            A dictionary with key shaped_id and values a list of positions in the shapes.txt file.
+        """
         self.logger.info("Creating shapes index")
+        shapes_index = {}
         try:
-            index = {}
-            shapes = f"{local_dir}/shapes.txt"
-            outfile = f"{local_dir}/shapes_index.pkl"
-            with open(shapes, "r", encoding="utf-8", newline="") as f:
+            with open(self.shapes_file, "r", encoding="utf-8", newline="") as f:
                 header = f.readline()
                 columns = next(csv.reader([header]))
+                shapes_index["columns"] = columns
                 count = 0
                 while True:
                     pos = f.tell()
@@ -232,16 +247,15 @@ class PmtilesBuilder:
                         break
                     row = dict(zip(columns, next(csv.reader([line]))))
                     sid = row["shape_id"]
-                    index.setdefault(sid, []).append(pos)
+                    shapes_index.setdefault(sid, []).append(pos)
                     count += 1
                     if count % 1000000 == 0:
                         self.logger.debug("Indexed %d lines so far...", count)
             self.logger.debug("Total indexed lines: %d", count)
-            self.logger.debug("Total unique shape_ids: %d", len(index))
-            with open(outfile, "wb") as idxf:
-                pickle.dump(index, idxf)
+            self.logger.debug("Total unique shape_ids: %d", len(shapes_index))
         except Exception as e:
             raise Exception(f"Failed to create shapes index: {e}") from e
+        return shapes_index
 
     def _read_csv(self, filename):
         try:
@@ -255,8 +269,7 @@ class PmtilesBuilder:
         self.logger.debug("Getting shape points for shape_id %s", shape_id)
         try:
             points = []
-            shapes_file = f"{local_dir}/shapes.txt"
-            with open(shapes_file, "r", encoding="utf-8", newline="") as f:
+            with open(self.shapes_file, "r", encoding="utf-8", newline="") as f:
                 for pos in index.get(shape_id, []):
                     f.seek(pos)
                     line = f.readline()
@@ -277,113 +290,108 @@ class PmtilesBuilder:
             raise Exception(f"Failed to get shape points for {shape_id}: {e}") from e
 
     def _create_routes_geojson(self):
-        self.logger.info("Creating routes geojson")
         try:
-            self.logger.debug("Loading shapes_index.pkl...")
-            shapes_index_file = f"{local_dir}/shapes_index.pkl"
-            shapes_file = f"{local_dir}/shapes.txt"
-            trips_file = f"{local_dir}/trips.txt"
-            routes_file = f"{local_dir}/routes.txt"
-            stops_file = f"{local_dir}/stops.txt"
-            stop_times_file = f"{local_dir}/stop_times.txt"
-            with open(shapes_index_file, "rb") as idxf:
-                shapes_index = pickle.load(idxf)
-            self.logger.debug("Loaded index for %d shape_ids.", len(shapes_index))
+            shapes_index = self._create_shapes_index()
+            self.logger.info("Creating routes geojson (optimized for memory)")
 
-            with open(shapes_file, "r", encoding="utf-8", newline="") as f:
-                header = f.readline()
-                shapes_columns = next(csv.reader([header]))
-            shapes_index["columns"] = shapes_columns
-
-            routes = {r["route_id"]: r for r in self._read_csv(routes_file)}
-            self.logger.debug("Loaded %d routes.", len(routes))
-
-            trips = list(self._read_csv(trips_file))
-            self.logger.debug("Loaded %d trips.", len(trips))
-
-            stops = {
+            # Load stops into memory (usually not huge)
+            # Used only if there is no shapes for a route
+            coordinates_indexed_by_stop = {
                 s["stop_id"]: (float(s["stop_lon"]), float(s["stop_lat"]))
-                for s in self._read_csv(stops_file)
+                for s in self._read_csv(self.stops_file)
             }
-            self.logger.debug("Loaded %d stops.", len(stops))
 
-            stop_times_by_trip = {}
-            self.logger.debug(
-                "Grouping stop_times by trip_id for dataset %s",
-                self.dataset_stable_id,
-            )
-            with open(stop_times_file, newline="", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    stop_times_by_trip.setdefault(row["trip_id"], []).append(row)
-            self.logger.debug(
-                "Grouped stop_times for %d trips.", len(stop_times_by_trip)
-            )
+            # We want the shape of a route. To do that we find one trip for each route. We will assume that all
+            # trips for a route have the same shape_id. If not I am not sure how to represent this in the route map
+            # when we select a route.
+            shape_map_indexed_by_route = {}
+            trip_map_indexed_by_route = {}
+            with open(self.trips_file, newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    trip_id = row["trip_id"]
+                    route_id = row["route_id"]
+                    shape_id = row.get("shape_id", "")
+                    if shape_id and route_id not in shape_map_indexed_by_route:
+                        shape_map_indexed_by_route[route_id] = shape_id
+                    if trip_id and route_id not in trip_map_indexed_by_route:
+                        trip_map_indexed_by_route[route_id] = trip_id
 
             features = []
             missing_coordinates_routes = set()
-            for i, (route_id, route) in enumerate(routes.items(), 1):
-                if i % 100 == 0 or i == 1:
-                    self.logger.debug(
-                        "Processing route %d/%d (route_id: %s)",
-                        i,
-                        len(routes),
-                        route_id,
-                    )
-                trip = next((t for t in trips if t["route_id"] == route_id), None)
-                if not trip:
-                    self.logger.iunfo(
-                        "  No trip found for route_id %s, skipping.", route_id
-                    )
-                    continue
-                coordinates = []
-                if "shape_id" in trip and trip["shape_id"]:
-                    self.logger.debug(
-                        "  Using shape_id %s for route_id %s",
-                        trip["shape_id"],
-                        route_id,
-                    )
-                    coordinates = self._get_shape_points(trip["shape_id"], shapes_index)
-                    if isinstance(coordinates, dict) and "error" in coordinates:
-                        raise Exception(
-                            f"Error getting shape points for shape_id {trip['shape_id']}: {coordinates['error']}"
-                        )
-                if not coordinates:
-                    trip_stop_times = stop_times_by_trip.get(trip["trip_id"], [])
-                    trip_stop_times.sort(key=lambda x: int(x["stop_sequence"]))
-                    coordinates = [
-                        stops[st["stop_id"]]
-                        for st in trip_stop_times
-                        if st["stop_id"] in stops
-                    ]
-                    self.logger.debug(
-                        "  Used %d stop coordinates for route_id %s",
-                        len(coordinates),
-                        route_id,
-                    )
-                if not coordinates:
-                    missing_coordinates_routes.add(route_id)
-                    continue
-                features.append(
-                    {
-                        "type": "Feature",
-                        "properties": {k: route[k] for k in route},
-                        "geometry": {"type": "LineString", "coordinates": coordinates},
-                    }
-                )
+            routes_geojson = f"{local_dir}/routes-output.geojson"
+            with open(routes_geojson, "w", encoding="utf-8") as geojson_file:
+                geojson_file.write('{"type": "FeatureCollection", "features": [\n')
+                first = True
+                with open(
+                    self.routes_file, newline="", encoding="utf-8"
+                ) as routes_file:
+                    for i, route in enumerate(csv.DictReader(routes_file), 1):
+                        route_id = route["route_id"]
+
+                        shape_id = shape_map_indexed_by_route.get(route_id, "")
+
+                        coordinates = []
+                        if shape_id:
+                            coordinates = self._get_shape_points(shape_id, shapes_index)
+                        if not coordinates:
+                            # We don't have the coordinates for the shape, fallback on stop_times and stops
+                            trip_id = trip_map_indexed_by_route.get(route_id, "")
+
+                            if trip_id:
+                                trip_stop_times = self._get_trip_stop_times(trip_id)
+                                # We assume stop_times is already sorted by stop_sequence in the file.
+                                # According to the SPECS:
+                                #    The values must increase along the trip but do not need to be consecutive.
+                                coordinates = [
+                                    coordinates_indexed_by_stop[stop_id]
+                                    for stop_id in trip_stop_times
+                                    if stop_id in coordinates_indexed_by_stop
+                                ]
+                        if not coordinates:
+                            missing_coordinates_routes.add(route_id)
+                            continue
+                        feature = {
+                            "type": "Feature",
+                            "properties": {k: route[k] for k in route},
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": coordinates,
+                            },
+                        }
+
+                        if not first:
+                            geojson_file.write(",\n")
+                        geojson_file.write(json.dumps(feature))
+                        first = False
+
+                        if i % 100 == 0 or i == 1:
+                            self.logger.debug(
+                                "Processed route %d (route_id: %s)", i, route_id
+                            )
+
+                geojson_file.write("\n]}")
 
             if missing_coordinates_routes:
                 self.logger.info(
                     "Routes without coordinates: %s", list(missing_coordinates_routes)
                 )
             self.logger.debug(
-                "Writing %d features to routes-output.geojson...", len(features)
+                "Wrote %d features to routes-output.geojson", len(features)
             )
-            routes_geojson = f"{local_dir}/routes-output.geojson"
-            with open(routes_geojson, "w", encoding="utf-8") as f:
-                json.dump({"type": "FeatureCollection", "features": features}, f)
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
+
+    def _get_trip_stop_times(self, trip_id):
+        # Lazy instantiation of the dictionary, because we may not need it al all if there is a shape.
+        if self.stop_times_by_trip is None:
+            self.stop_times_by_trip = {}
+            with open(self.stop_times_file, newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    self.stop_times_by_trip.setdefault(row["trip_id"], []).append(
+                        row["stop_id"]
+                    )
+
+        return self.stop_times_by_trip.get(trip_id, [])
 
     def _run_tippecanoe(self, input_file, output_file):
         self.logger.info("Running tippecanoe for input file %s", input_file)
