@@ -102,6 +102,7 @@ describe('Add Feed Form', () => {
         .parents('.MuiFormControl-root')
         .find('.MuiFormHelperText-root')
         .should('contain', 'required');
+      cy.muiDropdownSelect('[data-cy=emptyLicenseUsage]', 'yes');
 
       cy.get('[data-cy=thirdStepSubmit]').click();
       // Step 4
