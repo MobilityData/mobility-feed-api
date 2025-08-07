@@ -9,6 +9,9 @@ requests~=2.32.3
 attrs~=23.1.0
 pluggy~=1.3.0
 certifi~=2024.7.4
+fastapi
+uvicorn[standard]
+
 
 # SQL Alchemy and Geo Alchemy
 SQLAlchemy==2.0.23
@@ -17,7 +20,9 @@ geoalchemy2==0.14.7
 # Google specific packages for this function
 google-cloud-workflows
 google-cloud-pubsub
+google-cloud-tasks
 flask
+google-cloud-storage
 
 # Configuration
 python-dotenv==1.0.0

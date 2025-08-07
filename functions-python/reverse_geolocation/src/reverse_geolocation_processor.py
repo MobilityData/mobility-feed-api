@@ -23,7 +23,9 @@ from location_group_utils import (
     geopolygons_as_string,
 )
 from parse_request import parse_request_parameters
-from shared.database.database import with_db_session, refresh_materialized_view
+from shared.common.gcp_utils import create_refresh_materialized_view_task
+from shared.database.database import with_db_session
+
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Feed,
@@ -31,7 +33,6 @@ from shared.database_gen.sqlacodegen_models import (
     Osmlocationgroup,
     Feedosmlocationgroup,
     Location,
-    t_feedsearch,
     Gtfsdataset,
     Gtfsfeed,
 )
@@ -375,7 +376,8 @@ def extract_location_aggregates(
 
     # Commit the changes to the database before refreshing the materialized view
     db_session.commit()
-    refresh_materialized_view(db_session, t_feedsearch.name)
+
+    create_refresh_materialized_view_task()
 
 
 @with_db_session
@@ -474,13 +476,15 @@ def reverse_geolocation_process(
         overall_duration = (datetime.now() - overall_start).total_seconds()
         logger.info(f"Total time taken for the process: {overall_duration:.2f} seconds")
         logger.info(
-            "COMPLETED. Processed %s stops for stable ID %s. Retrieved %s locations.",
+            "COMPLETED. Processed %s stops for stable ID %s. "
+            "Retrieved %s locations.",
             total_stops,
             stable_id,
             len(location_groups),
         )
         return (
-            f"Processed {total_stops} stops for stable ID {stable_id}. Retrieved {len(location_groups)} locations.",
+            f"Processed {total_stops} stops for stable ID {stable_id}. "
+            f"Retrieved {len(location_groups)} locations.",
             200,
         )
 
