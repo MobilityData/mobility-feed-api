@@ -44,8 +44,6 @@ def create_refresh_materialized_view_task():
             f"tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
         )
 
-        task_name = client.task_path(project, location, queue, task_name)
-
         # Enqueue the task
         try:
             create_http_task_with_name(
@@ -86,8 +84,10 @@ def create_http_task_with_name(
 
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
+    # Build the full task path for the name field
+    full_task_path = tasks_v2.CloudTasksClient.task_path(project_id, gcp_region, queue_name, task_name)
     task = tasks_v2.Task(
-        name=task_name,
+        name=full_task_path,
         schedule_time=task_time,
         http_request=tasks_v2.HttpRequest(
             url=url,
