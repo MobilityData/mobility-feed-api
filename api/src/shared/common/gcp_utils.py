@@ -34,15 +34,30 @@ def create_refresh_materialized_view_task():
         proto_time.FromDatetime(bucket_time)
 
         # Cloud Tasks setup
-        client = tasks_v2.CloudTasksClient()
+
         project = os.getenv("PROJECT_ID")
+        logging.info(f"!@##$%^^^^!@Loaded PROJECT_ID: {project}")
         location = os.getenv("LOCATION")
+        logging.info(f"!@##$%^^^^!@Loaded LOCATION: {location}")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
-        url = (
-            f"https://{os.getenv('GCP_REGION')}-"
-            f"{os.getenv('PROJECT_ID')}.cloudfunctions.net/"
-            f"tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
-        )
+        logging.info(f"!@##$%^^^^!@Loaded MATERIALIZED_VIEW_QUEUE: {queue}")
+        gcp_region = os.getenv("GCP_REGION")
+        logging.info(f"!@##$%^^^^!@Loaded GCP_REGION: {gcp_region}")
+        environment_name = os.getenv("ENVIRONMENT_NAME")
+        logging.info(f"!@##$%^^^^!@Loaded ENVIRONMENT_NAME: {environment_name}")
+        service_account_email = os.getenv("SERVICE_ACCOUNT_EMAIL")
+        logging.info(f"!@##$%^^^^!@Loaded SERVICE_ACCOUNT_EMAIL: {service_account_email}")
+        url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
+        logging.info(f"!@##$%^^^^!@Constructed Cloud Task URL: {url}")
+
+        # Create the Cloud Tasks client only before enqueuing the task
+        try:
+            logging.info("!@##$%^^^^!@Creating Cloud Tasks client.")
+            client = tasks_v2.CloudTasksClient()
+        except Exception as e:
+            error_msg = f"!@##$%^^^^!@Error creating Cloud Tasks client: {e}"
+            logging.error(error_msg)
+            return {"error": error_msg}, 500
 
         # Enqueue the task
         try:
