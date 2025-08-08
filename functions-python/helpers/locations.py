@@ -1,8 +1,17 @@
+from enum import Enum
 from typing import Dict, Optional
 from sqlalchemy.orm import Session
 import pycountry
 from shared.database_gen.sqlacodegen_models import Feed, Location
 import logging
+
+
+class ReverseGeocodingStrategy(str, Enum):
+    """
+    Enum for reverse geocoding strategies.
+    """
+
+    PER_POINT = "per-point"
 
 
 def get_country_code(country_name: str) -> Optional[str]:

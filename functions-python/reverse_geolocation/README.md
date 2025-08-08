@@ -62,6 +62,8 @@ This function performs the core reverse geolocation logic. It processes location
 - `vehicle_status_url`: Required if `data_type` is `gbfs` and `station_information_url` and `free_bike_status_url` are omitted. URL of the GBFS `vehicle_status.json` file.
 - `free_bike_status_url`: Required if `data_type` is `gbfs` and `station_information_url` and `vehicle_status_url` are omitted. URL of the GBFS `free_bike_status.json` file.
 - `data_type`: Optional. Specifies the type of data being processed. Can be `gtfs` or `gbfs`. If not provided, the function will attempt to determine the type based on the URLs provided.
+- `strategy`: Optional. Specifies the reverse geolocation strategy to use. Defaults to `per-point`.
+- `public`: Optional. Indicates whether the resulting geojson files will be public or private. Defaults to `true`.
 
 ### Processing Steps:
 

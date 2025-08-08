@@ -7,6 +7,9 @@ import pandas as pd
 import requests
 from jsonpath_ng import parse
 
+from shared.helpers.locations import ReverseGeocodingStrategy
+from shared.helpers.transform import to_boolean, to_enum
+
 
 def parse_request_parameters(
     request: flask.Request,
@@ -45,7 +48,19 @@ def parse_request_parameters(
         raise ValueError(
             f"Invalid data_type '{data_type}'. Supported types are 'gtfs' and 'gbfs'."
         )
-    return df, stable_id, dataset_id, data_type, urls
+    public = True
+    if "public" in request_json:
+        public = to_boolean(request_json["public"], default_value=True)
+    strategy = ReverseGeocodingStrategy.PER_POINT
+    if "strategy" in request_json:
+        strategy = to_enum(
+            value=request_json["strategy"],
+            default_value=ReverseGeocodingStrategy.PER_POINT,
+        )
+    else:
+        logging.info("No strategy provided, using default")
+    logging.info("Strategy set to: %s.", strategy)
+    return df, stable_id, dataset_id, data_type, urls, public, strategy
 
 
 def parse_request_parameters_gtfs(

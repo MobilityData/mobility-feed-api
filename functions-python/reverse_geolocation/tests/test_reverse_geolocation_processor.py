@@ -45,14 +45,25 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             "stable_id": "test_stable_id",
             "dataset_id": "test_dataset_id",
             "stops_url": "test_url",
+            "public": "True",
+            "strategy": "per-point",
         }
-        stops_df, stable_id, dataset_id, data_type, url = parse_request_parameters(
-            request
-        )
-        self.assertEqual(stable_id, "test_stable_id")
-        self.assertEqual(dataset_id, "test_dataset_id")
-        self.assertEqual(stops_df.shape, (2, 4))
-        self.assertEqual(data_type, "gtfs")
+        (
+            stops_df,
+            stable_id,
+            dataset_id,
+            data_type,
+            urls,
+            public,
+            strategy,
+        ) = parse_request_parameters(request)
+        self.assertEqual("test_stable_id", stable_id)
+        self.assertEqual("test_dataset_id", dataset_id)
+        self.assertEqual((2, 4), stops_df.shape)
+        self.assertEqual("gtfs", data_type)
+        self.assertEqual(["test_url"], urls)
+        self.assertEqual(True, public)
+        self.assertEqual("per-point", strategy)
 
         # Exception should be raised
         requests_mock.get.return_value.content = None
@@ -83,13 +94,23 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             "data_type": "gbfs",
         }
 
-        df, stable_id, dataset_id, data_type, urls = parse_request_parameters(request)
+        (
+            df,
+            stable_id,
+            dataset_id,
+            data_type,
+            urls,
+            public,
+            strategy,
+        ) = parse_request_parameters(request)
 
-        self.assertEqual(stable_id, "stable123")
-        self.assertEqual(dataset_id, None)
-        self.assertEqual(data_type, "gbfs")
-        self.assertEqual(urls[0], "http://dummy.url")
-        self.assertEqual(df.shape, (2, 2))
+        self.assertEqual("stable123", stable_id)
+        self.assertEqual(None, dataset_id)
+        self.assertEqual("gbfs", data_type)
+        self.assertEqual("http://dummy.url", urls[0])
+        self.assertEqual((2, 2), df.shape)
+        self.assertEqual("per-point", strategy)
+        self.assertEqual(True, public)
 
     @patch("parse_request.requests")
     def test_parse_request_parameters_gbfs_vehicle_status(self, requests_mock):
@@ -110,15 +131,26 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             "stable_id": "stable456",
             "vehicle_status_url": "http://dummy.vehicle",
             "data_type": "gbfs",
+            "public": "False",
         }
 
-        df, stable_id, dataset_id, data_type, urls = parse_request_parameters(request)
+        (
+            df,
+            stable_id,
+            dataset_id,
+            data_type,
+            urls,
+            public,
+            strategy,
+        ) = parse_request_parameters(request)
 
-        self.assertEqual(stable_id, "stable456")
-        self.assertEqual(dataset_id, None)
-        self.assertEqual(data_type, "gbfs")
-        self.assertEqual(urls[0], "http://dummy.vehicle")
-        self.assertEqual(df.shape, (2, 2))
+        self.assertEqual("stable456", stable_id)
+        self.assertEqual(None, dataset_id)
+        self.assertEqual("gbfs", data_type)
+        self.assertEqual("http://dummy.vehicle", urls[0])
+        self.assertEqual((2, 2), df.shape)
+        self.assertEqual("per-point", strategy)
+        self.assertEqual(False, public)
 
     @patch("parse_request.requests")
     def test_parse_request_parameters_invalid_request(self, requests_mock):
@@ -629,13 +661,13 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     @patch("reverse_geolocation_processor.create_refresh_materialized_view_task")
     @patch("reverse_geolocation_processor.extract_location_aggregate")
-    def test_extract_location_aggregates(
+    def test_extract_location_aggregates_per_point(
         self,
         mock_extract_location_aggregate,
         mock_create_refresh_materialized_view_task,
         db_session,
     ):
-        from reverse_geolocation_processor import extract_location_aggregates
+        from reverse_geolocation_processor import extract_location_aggregates_per_point
 
         clean_testing_db()
 
@@ -694,7 +726,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         location_aggregates = {}
 
         # Call the function
-        extract_location_aggregates(
+        extract_location_aggregates_per_point(
             feed_id, stops_df, location_aggregates, logger, db_session=db_session
         )
 
