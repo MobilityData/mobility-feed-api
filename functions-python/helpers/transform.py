@@ -25,7 +25,7 @@ def to_boolean(value, default_value: Optional[bool] = False) -> bool:
     if isinstance(value, (int, float)):
         return value != 0
     if isinstance(value, str):
-        return value.strip().lower() in {"true", "1", "yes", "y"}
+        return value.strip().lower() in ["true", "1", "yes", "y"]
     return default_value
 
 
