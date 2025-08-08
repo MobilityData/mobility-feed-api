@@ -30,6 +30,9 @@ const sampleRequestBodyGTFS: FeedSubmissionFormRequestBody = {
   userInterviewEmail: "interviewee@example.com",
   whatToolsUsedText: "Google Sheets, Node.js",
   hasLogoPermission: "yes",
+  unofficialDesc: "For research purposes",
+  updateFreq: "every month",
+  emptyLicenseUsage: "unsure",
 };
 
 const sampleRequestBodyGTFSRT: FeedSubmissionFormRequestBody = {
@@ -138,6 +141,9 @@ describe("Feed Form Implementation", () => {
       [SheetCol.LinkToAssociatedGTFS]:
         sampleRequestBodyGTFS.gtfsRelatedScheduleLink,
       [SheetCol.LogoPermission]: sampleRequestBodyGTFS.hasLogoPermission,
+      [SheetCol.UnofficialDesc]: sampleRequestBodyGTFS.unofficialDesc,
+      [SheetCol.UpdateFreq]: sampleRequestBodyGTFS.updateFreq,
+      [SheetCol.EmptyLicenseUsage]: sampleRequestBodyGTFS.emptyLicenseUsage,
       [SheetCol.OfficialFeedSource]: sampleRequestBodyGTFS.isOfficialFeed,
     });
   });
