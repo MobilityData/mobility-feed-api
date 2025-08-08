@@ -37,6 +37,7 @@ export const featureChipsStyle: SxProps<Theme> = (theme) => ({
 });
 
 export const mapBoxPositionStyle = {
+  position: 'relative',
   width: 'calc(100% + 32px)',
   flexGrow: 1,
   mb: '-16px',
@@ -68,11 +69,14 @@ export const StyledTitleContainer = styled(Box)(({ theme }) => ({
   alignItems: 'center',
 }));
 
-export const ResponsiveListItem = styled('li')(({ theme }) => ({
+export const StyledListItem = styled('li')(({ theme }) => ({
   width: '100%',
   margin: '5px 0',
   fontWeight: 'normal',
   fontSize: '16px',
+}))
+
+export const ResponsiveListItem = styled(StyledListItem)(({ theme }) => ({
   [theme.breakpoints.up('lg')]: {
     width: 'calc(50% - 15px)',
   },
