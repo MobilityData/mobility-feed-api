@@ -1,0 +1,42 @@
+{
+   "feeds": "Feed",
+   "dataType": "数据类型",
+   "transitProvider": "交通提供商",
+   "location": "位置",
+   "feedDescription": "Feed说明",
+   "searchFor": "搜索",
+   "resultsFor": "{{startResult}}-{{endResult}} 个结果，共 {{totalResults}} 个",
+   "deprecated": "已弃用",
+   "searchPlaceholder": "交通提供商、Feed名称或位置",
+   "noResults": "很抱歉，我们未找到\"{{activeSearch}}\"的搜索结果。",
+   "searchSuggestions": "搜索建议：",
+   "searchTips": {
+      "twoDigit": "使用两位数代码搜索国家/地区，例如搜索法国时输入\"FR\"",
+      "fullName": "包含交通提供商的全名，例如\"Toronto Transit Commission\"而不是\"TTC\"",
+      "checkSpelling": "仔细检查拼写"
+   },
+   "errorAndContact": "请检查您的互联网连接并重试。如果问题仍然存在<1>请联系我们</1>以获得进一步的帮助。",
+   "errorLoadingFeed": "加载feed时出错。",
+   "form": {
+      "addOrUpdateFeed": "添加或更新Feed",
+      "signUp": "注册移动数据库帐户或登录以添加或更新GTFS Feed。",
+      "signUpAction": "注册帐户",
+      "loginSuccess": "您已成功登录，现在可以添加或更新Feed。"
+   },
+   "seeFullList": "查看完整列表",
+   "hideFullList": "隐藏完整列表",
+   "producerDownloadUrl": "生产者下载URL",
+   "copyDownloadUrl": "复制下载URL",
+   "producerUrlCopied": "生产者URL已复制到剪贴板",
+   "authenticationType": "身份验证类型",
+   "registerToDownloadFeed": "注册以下载feed",
+   "feedContactEmail": "Feed 联系电子邮件",
+   "copyFeedContactEmail": "复制feed联系电子邮件",
+   "features": "功能",
+   "unableToDownloadFeed": "无法下载此feed。如果此feed有更新的URL，<1>请在此处提交</1>",
+   "feedHasBeenReplaced": "此feed已被其他生产者URL替换。{' '}<1> 在此处转到新 feed</1> .",
+   "downloadLatest": "下载最新版本",
+   "seeLicense": "查看许可证",
+   "boundingBoxTitle": "来自 stops.txt 的边界框",
+   "unableToGenerateBoundingBox": "无法生成边界框。"
+}
