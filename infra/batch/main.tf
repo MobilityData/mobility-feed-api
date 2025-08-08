@@ -229,6 +229,13 @@ resource "google_project_iam_member" "datastore_owner" {
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# Grant the batch functions service account permission to enqueue Cloud Tasks
+resource "google_project_iam_member" "queue_enqueuer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.enqueuer"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 resource "google_pubsub_topic" "pubsub_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
