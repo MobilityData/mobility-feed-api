@@ -56,6 +56,7 @@ def create_refresh_materialized_view_task():
 
         # Enqueue the task
         try:
+            logging.info("About to call create_http_task_with_name")
             create_http_task_with_name(
                 client=client,
                 body=b"",
@@ -91,7 +92,7 @@ def create_http_task_with_name(
     http_method: "tasks_v2.HttpMethod",
 ):
     """Creates a GCP Cloud Task."""
-
+    logging.info("Entered create_http_task_with_name")
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
     # Build the full task path for the name field
@@ -107,4 +108,6 @@ def create_http_task_with_name(
             headers={"Content-Type": "application/json"},
         ),
     )
+    logging.info(f"Task created with name: {task.name}")
     client.create_task(parent=client.queue_path(project_id, gcp_region, queue_name), task=task)
+    logging.info("Successfully created task in create_http_task_with_name")
