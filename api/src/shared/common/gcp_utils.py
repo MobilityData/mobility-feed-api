@@ -94,6 +94,7 @@ def create_http_task_with_name(
 
     # Build the full task path for the name field
     full_task_path = f"projects/{project_id}/locations/{gcp_region}/queues/{queue_name}/tasks/{task_name}"
+    logging.info(f"$$$$$$$$$$$$$%%%%%%%%%%%%%%%$$$$$Full task path: {full_task_path}")
     task = tasks_v2.Task(
         name=full_task_path,
         schedule_time=task_time,
