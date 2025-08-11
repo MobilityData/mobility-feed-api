@@ -37,13 +37,10 @@ def create_refresh_materialized_view_task():
 
         project = os.getenv("PROJECT_ID")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
-        logging.info(f"!@##$%^^^^!@Loaded MATERIALIZED_VIEW_QUEUE: {queue}")
         gcp_region = os.getenv("GCP_REGION")
         environment_name = os.getenv("ENVIRONMENT")
         service_account_email = os.getenv("SERVICE_ACCOUNT_EMAIL")
-        logging.info(f"!@##$%^^^^!@Loaded SERVICE_ACCOUNT_EMAIL: {service_account_email}")
         url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
-        logging.info(f"!@##$%^^^^!@Constructed Cloud Task URL: {url}")
 
         # Create the Cloud Tasks client only before enqueuing the task
         try:
@@ -96,7 +93,7 @@ def create_http_task_with_name(
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
     # Build the full task path for the name field
-    full_task_path = tasks_v2.CloudTasksClient.task_path(project_id, gcp_region, queue_name, task_name)
+    full_task_path = f"projects/{project_id}/locations/{gcp_region}/queues/{queue_name}/tasks/{task_name}"
     task = tasks_v2.Task(
         name=full_task_path,
         schedule_time=task_time,
