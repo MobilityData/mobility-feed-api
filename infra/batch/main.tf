@@ -240,26 +240,6 @@ resource "google_pubsub_topic" "pubsub_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
 
-# Task queue to invoke refresh_materialized_view 
-resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
-  project  = var.project_id
-  location = var.gcp_region
-  name     = "refresh-materialized-view-task-queue-${var.environment}-${local.deployment_timestamp}"
-
-  rate_limits {
-    max_concurrent_dispatches = 1
-    max_dispatches_per_second = 0.5
-  }
-
-  retry_config {
-    # This will make the cloud task retry for ~30 minutes
-    max_attempts  = 5
-    min_backoff   = "120s"
-    max_backoff   = "120s"
-    max_doublings = 2
-  }
-}
-
 # Batch process dataset function
 resource "google_cloudfunctions2_function" "pubsub_function" {
   name        = "${local.function_batch_process_dataset_config.name}-${var.environment}"
@@ -294,6 +274,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables
@@ -315,6 +297,26 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
     pubsub_topic          = google_pubsub_topic.pubsub_topic.id
     retry_policy          = "RETRY_POLICY_RETRY"
+  }
+}
+
+# Task queue to invoke refresh_materialized_view 
+resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "refresh-materialized-view-task-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 0.5
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~30 minutes
+    max_attempts  = 5
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
   }
 }
 
