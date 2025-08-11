@@ -620,7 +620,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Call the function
         bounding_box = update_dataset_bounding_box(
-            dataset_id, stops_df, db_session=db_session
+            dataset_id, stops_df, db_session=db_session, logger=logger
         )
 
         # Expected bounding box: POLYGON((30 10, 40 10, 40 20, 30 20, 30 10))

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from google.cloud import storage
 
 from reverse_geolocation_processor import reverse_geolocation_process
+from shared.helpers.logger import init_logger
 
 HOST = "localhost"
 PORT = 9023
@@ -23,6 +24,8 @@ free_bike_status_url = None
 
 # Load environment variables from .env.local
 load_dotenv(dotenv_path=".env.local")
+
+init_logger()
 
 
 def download_to_local(url: str, filename: str):

@@ -1,10 +1,11 @@
+import functools
 import time
 import tracemalloc
 import psutil
 import logging
 
 
-def track_metrics(metrics=("time", "memory", "cpu"), logger=None):
+def track_metrics(metrics=("time", "memory", "cpu")):
     """Decorator to track specified metrics (time, memory, cpu) during function execution.
     The decorator logs the metrics using the provided logger or a default logger if none is provided.
     Args:
@@ -18,18 +19,13 @@ def track_metrics(metrics=("time", "memory", "cpu"), logger=None):
             return sum(data)
     """
 
-    def decorator(func):
+    def decorator(funct):
+        @functools.wraps(funct)
         def wrapper(*args, **kwargs):
+            logger = kwargs.get("logger")
             if not logger:
                 # Use a default logger if none is provided
-                logger_instance = logging.getLogger(func.__name__)
-                # handler = logging.StreamHandler()
-                # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-                # handler.setFormatter(formatter)
-                # logger_instance.addHandler(handler)
-                # logger_instance.setLevel(logging.DEBUG)
-            else:
-                logger_instance = logger
+                logger = logging.getLogger(funct.__name__)
 
             process = psutil.Process()
             tracemalloc.start() if "memory" in metrics else None
@@ -39,30 +35,30 @@ def track_metrics(metrics=("time", "memory", "cpu"), logger=None):
             )
 
             try:
-                result = func(*args, **kwargs)
+                result = funct(*args, **kwargs)
             except Exception as e:
-                logger_instance.error(
-                    f"Function '{func.__name__}' raised an exception: {e}"
-                )
+                logger.error(f"Function '{funct.__name__}' raised an exception: {e}")
                 raise
             finally:
+                metrics_message = ""
                 if "time" in metrics:
                     duration = time.time() - start_time
-                    logger_instance.debug(
-                        f"Function '{func.__name__}' executed in {duration:.2f} seconds."
-                    )
+                    metrics_message = f"time: {duration:.2f} seconds"
                 if "memory" in metrics:
                     current, peak = tracemalloc.get_traced_memory()
                     tracemalloc.stop()
-                    logger_instance.debug(
-                        f"Function '{func.__name__}' peak memory usage: {peak / (1024 ** 2):.2f} MB."
-                    )
+                    if metrics_message:
+                        metrics_message += ", "
+                    metrics_message += f"memory: {current / (1024 ** 2):.2f} MB (peak: {peak / (1024 ** 2):.2f} MB)"
                 if "cpu" in metrics:
                     cpu_after = process.cpu_percent(interval=None)
-                    logger_instance.debug(
-                        f"Function '{func.__name__}' CPU usage: {cpu_after - cpu_before:.2f}%."
+                    if metrics_message:
+                        metrics_message += ", "
+                    metrics_message += f"cpu: {cpu_after - cpu_before:.2f}%"
+                if len(metrics_message) > 0:
+                    logger.info(
+                        "Function metrics('%s'): %s", funct.__name__, metrics_message
                     )
-
             return result
 
         return wrapper

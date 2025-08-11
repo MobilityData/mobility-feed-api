@@ -51,7 +51,9 @@ def init_logger():
     Initializes the logger with level INFO if not set in the environment.
     On cloud environment it will also initialize the GCP logger.
     """
-    logging.basicConfig(level=get_env_logging_level())
+    logging_level = get_env_logging_level()
+    logging.basicConfig(level=logging_level)
+    logging.info("Logger initialized with level: %s", logging_level)
     global _logging_initialized
     if not is_local_env() and not _logging_initialized:
         # Avoids initializing the logs multiple times due to performance concerns
@@ -81,6 +83,7 @@ def get_logger(name: str, stable_id: str = None):
             if stable_id
             else logging.getLogger(name)
         )
+        logger.setLevel(level=get_env_logging_level())
         if stable_id and not any(
             isinstance(log_filter, StableIdFilter) for log_filter in logger.filters
         ):
