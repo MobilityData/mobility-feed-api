@@ -36,13 +36,10 @@ def create_refresh_materialized_view_task():
         # Cloud Tasks setup
 
         project = os.getenv("PROJECT_ID")
-        logging.info(f"!@##$%^^^^!@Loaded PROJECT_ID: {project}")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
         logging.info(f"!@##$%^^^^!@Loaded MATERIALIZED_VIEW_QUEUE: {queue}")
         gcp_region = os.getenv("GCP_REGION")
-        logging.info(f"!@##$%^^^^!@Loaded GCP_REGION: {gcp_region}")
         environment_name = os.getenv("ENVIRONMENT")
-        logging.info(f"!@##$%^^^^!@Loaded ENVIRONMENT: {environment_name}")
         service_account_email = os.getenv("SERVICE_ACCOUNT_EMAIL")
         logging.info(f"!@##$%^^^^!@Loaded SERVICE_ACCOUNT_EMAIL: {service_account_email}")
         url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
