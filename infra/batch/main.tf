@@ -405,3 +405,7 @@ resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
   ip_address            = data.google_compute_global_address.files_http_lb_ipv4.address
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
+
+locals {
+  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
+}
