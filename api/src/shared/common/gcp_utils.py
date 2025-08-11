@@ -37,14 +37,12 @@ def create_refresh_materialized_view_task():
 
         project = os.getenv("PROJECT_ID")
         logging.info(f"!@##$%^^^^!@Loaded PROJECT_ID: {project}")
-        location = os.getenv("LOCATION")
-        logging.info(f"!@##$%^^^^!@Loaded LOCATION: {location}")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
         logging.info(f"!@##$%^^^^!@Loaded MATERIALIZED_VIEW_QUEUE: {queue}")
         gcp_region = os.getenv("GCP_REGION")
         logging.info(f"!@##$%^^^^!@Loaded GCP_REGION: {gcp_region}")
-        environment_name = os.getenv("ENVIRONMENT_NAME")
-        logging.info(f"!@##$%^^^^!@Loaded ENVIRONMENT_NAME: {environment_name}")
+        environment_name = os.getenv("ENVIRONMENT")
+        logging.info(f"!@##$%^^^^!@Loaded ENVIRONMENT: {environment_name}")
         service_account_email = os.getenv("SERVICE_ACCOUNT_EMAIL")
         logging.info(f"!@##$%^^^^!@Loaded SERVICE_ACCOUNT_EMAIL: {service_account_email}")
         url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
@@ -66,7 +64,7 @@ def create_refresh_materialized_view_task():
                 body=b"",
                 url=url,
                 project_id=project,
-                gcp_region=location,
+                gcp_region=gcp_region,
                 queue_name=queue,
                 task_name=task_name,
                 task_time=proto_time,

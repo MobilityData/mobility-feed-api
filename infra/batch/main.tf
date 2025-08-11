@@ -271,6 +271,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       DB_REUSE_SESSION    = "True"
       ENVIRONMENT         = var.environment
       PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables
