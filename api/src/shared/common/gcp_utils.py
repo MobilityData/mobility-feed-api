@@ -101,5 +101,6 @@ def create_http_task_with_name(
         ),
     )
     logging.info(f"Task created with task.name: {task.name}")
+    logging.info(f"Task created with task.task_name: {task.task_name}")
     client.create_task(parent=parent, task=task, task_name=task_name)
     logging.info("Successfully created task in create_http_task_with_name")
