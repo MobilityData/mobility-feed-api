@@ -236,6 +236,12 @@ resource "google_project_iam_member" "queue_enqueuer" {
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+resource "google_project_iam_member" "queue_viewer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.viewer"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 resource "google_pubsub_topic" "pubsub_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
