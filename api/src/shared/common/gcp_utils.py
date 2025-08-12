@@ -101,5 +101,9 @@ def create_http_task_with_name(
         ),
     )
     logging.info(f"Task created with task.name: {task.name}")
-    client.create_task(parent=parent, task=task)
+    try:
+        response = client.create_task(parent=parent, task=task)
+    except Exception as e:
+        logging.error(f"Error creating task: {e}")
+        logging.error(f"response: {response}")
     logging.info("Successfully created task in create_http_task_with_name")
