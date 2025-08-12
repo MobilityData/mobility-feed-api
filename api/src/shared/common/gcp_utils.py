@@ -87,6 +87,8 @@ def create_http_task_with_name(
     parent = client.queue_path(project_id, gcp_region, queue_name)
     logging.info(f"Queue parent path: {parent}")
 
+    logging.info(f"$$$$$$$$$$$$Queue exists check: {client.get_queue(name=parent)}")
+
     task = tasks_v2.Task(
         name=f"{parent}/tasks/{task_name}",
         schedule_time=task_time,
