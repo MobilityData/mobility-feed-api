@@ -37,25 +37,17 @@ def create_refresh_materialized_view_task():
 
         project = os.getenv("PROJECT_ID")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
+        logging.info(f"Queue name from env: {queue}")
         gcp_region = os.getenv("GCP_REGION")
         environment_name = os.getenv("ENVIRONMENT")
-        service_account_email = os.getenv("SERVICE_ACCOUNT_EMAIL")
+        # service_account_email = os.getenv("SERVICE_ACCOUNT_EMAIL")
         url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
-
-        # Create the Cloud Tasks client only before enqueuing the task
-        try:
-            logging.info("!@##$%^^^^!@Creating Cloud Tasks client.")
-            client = tasks_v2.CloudTasksClient()
-        except Exception as e:
-            error_msg = f"!@##$%^^^^!@Error creating Cloud Tasks client: {e}"
-            logging.error(error_msg)
-            return {"error": error_msg}, 500
 
         # Enqueue the task
         try:
             logging.info("About to call create_http_task_with_name")
             create_http_task_with_name(
-                client=client,
+                client=tasks_v2.CloudTasksClient(),
                 body=b"",
                 url=url,
                 project_id=project,
@@ -92,11 +84,11 @@ def create_http_task_with_name(
     logging.info("Entered create_http_task_with_name")
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
-    # Build the full task path for the name field
-    full_task_path = f"projects/{project_id}/locations/{gcp_region}/queues/{queue_name}/tasks/{task_name}"
-    logging.info(f"$$$$$$$$$$$$$%%%%%%%%%%%%%%%$$$$$Full task path: {full_task_path}")
+    parent = client.queue_path(project_id, gcp_region, queue_name)
+    logging.info(f"Queue parent path: {parent}")
+
     task = tasks_v2.Task(
-        name=full_task_path,
+        name=f"{parent}/tasks/{task_name}",
         schedule_time=task_time,
         http_request=tasks_v2.HttpRequest(
             url=url,
@@ -107,5 +99,5 @@ def create_http_task_with_name(
         ),
     )
     logging.info(f"Task created with name: {task.name}")
-    client.create_task(parent=client.queue_path(project_id, gcp_region, queue_name), task=task)
+    client.create_task(parent=parent, task=task)
     logging.info("Successfully created task in create_http_task_with_name")
