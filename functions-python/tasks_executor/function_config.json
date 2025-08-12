@@ -2,12 +2,16 @@
   "name": "tasks_executor",
   "description": "The Tasks Executor function runs maintenance tasks avoiding the creation of multiple functions for one-time execution",
   "entry_point": "tasks_executor",
-  "timeout": 540,
-  "memory": "4Gi",
+  "timeout": 1000,
+  "memory": "8Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
   "include_api_folders": ["database_gen", "database", "common"],
-  "environment_variables": [],
+  "environment_variables": [
+    {
+      "key": "DATASETS_BUCKET_NAME"
+    }
+  ],
   "secret_environment_variables": [
     {
       "key": "FEEDS_DATABASE_URL"
@@ -21,5 +25,5 @@
   "max_instance_request_concurrency": 1,
   "max_instance_count": 1,
   "min_instance_count": 0,
-  "available_cpu": 1
+  "available_cpu": 2
 }

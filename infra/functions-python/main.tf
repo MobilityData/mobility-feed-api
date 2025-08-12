@@ -1414,7 +1414,7 @@ resource "google_cloud_tasks_queue" "update_validation_report_task_queue" {
 resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
   project  = var.project_id
   location = var.gcp_region
-  name     = "refresh-materialized-view-task-queue"
+  name     = "refresh-materialized-view-task-queue-${var.environment}-${local.deployment_timestamp}"
 
   rate_limits {
     max_concurrent_dispatches = 1
