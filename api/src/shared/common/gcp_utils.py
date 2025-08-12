@@ -87,10 +87,10 @@ def create_http_task_with_name(
     parent = client.queue_path(project_id, gcp_region, queue_name)
     logging.info(f"Queue parent path: {parent}")
 
-    logging.info(f"$$$$$$$$$$$$Queue exists check: {client.get_queue(name=parent)}")
+    # logging.info(f"$$$$$$$$$$$$Queue exists check: {client.get_queue(name=parent)}")
 
     task = tasks_v2.Task(
-        name=f"{parent}/tasks/{task_name}",
+        task_name=task_name,
         schedule_time=task_time,
         http_request=tasks_v2.HttpRequest(
             url=url,
@@ -100,6 +100,6 @@ def create_http_task_with_name(
             headers={"Content-Type": "application/json"},
         ),
     )
-    logging.info(f"Task created with name: {task.name}")
-    client.create_task(parent=parent, task=task)
+    logging.info(f"Task created with task.name: {task.name}")
+    client.create_task(parent=parent, task=task, task_name=task_name)
     logging.info("Successfully created task in create_http_task_with_name")
