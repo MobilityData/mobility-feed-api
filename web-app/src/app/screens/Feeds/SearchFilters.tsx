@@ -2,13 +2,13 @@ import { Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import NestedCheckboxList, {
   type CheckboxStructure,
 } from '../../components/NestedCheckboxList';
-import { SearchHeader } from './Feeds.styles';
 import { useTranslation } from 'react-i18next';
 import { useRemoteConfig } from '../../context/RemoteConfigProvider';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useEffect, useState } from 'react';
 import { DATASET_FEATURES, groupFeaturesByComponent } from '../../utils/consts';
 import { type GbfsVersionConfig } from '../../interface/RemoteConfig';
+import { SearchHeader } from '../../styles/Filters.styles';
 
 function setInitialExpandGroup(): Record<string, boolean> {
   const expandGroup: Record<string, boolean> = {};
