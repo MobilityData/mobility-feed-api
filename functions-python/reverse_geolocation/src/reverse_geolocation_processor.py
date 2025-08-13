@@ -3,7 +3,7 @@ import logging
 import os
 import traceback
 from datetime import datetime
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, List
 
 import flask
 import pandas as pd
@@ -15,35 +15,30 @@ from shapely.geometry import mapping
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
-from shared.helpers.locations import ReverseGeocodingStrategy
 
 from location_group_utils import (
     ERROR_STATUS_CODE,
     GeopolygonAggregate,
-    generate_color,
-    geopolygons_as_string,
+    generate_color, get_or_create_feed_osm_location_group, get_or_create_location,
 )
 from parse_request import parse_request_parameters
-from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database.database import with_db_session
-
 from shared.database_gen.sqlacodegen_models import (
-    Geopolygon,
     Feed,
     Feedlocationgrouppoint,
     Osmlocationgroup,
-    Feedosmlocationgroup,
-    Location,
-    Gtfsdataset,
-    Gtfsfeed,
+    Gtfsdataset, Gtfsfeed,
 )
+from shared.helpers.locations import ReverseGeocodingStrategy
 from shared.helpers.logger import get_logger
 from shared.helpers.runtime_metrics import track_metrics
+from strategy_extraction_per_point import extract_location_aggregates_per_point
+from strategy_extraction_per_polygon import extract_location_aggregates_per_polygon
 
 
 @with_db_session
 def get_cached_geopolygons(
-    stable_id: str, stops_df: pd.DataFrame, logger, db_session: Session
+    feed: Feed, stops_df: pd.DataFrame, logger, db_session: Session
 ) -> Tuple[str, Dict[str, GeopolygonAggregate], pd.DataFrame]:
     """
     Get the geopolygons from the database cache.
@@ -65,23 +60,16 @@ def get_cached_geopolygons(
     )
     stops_df["geometry_str"] = stops_df["geometry"].apply(str)
 
-    feed = (
-        db_session.query(Feed)
-        .options(joinedload(Feed.feedlocationgrouppoints))
-        .filter(Feed.stable_id == stable_id)
-        .one_or_none()
-    )
-    if not feed:
-        logger.warning("No feed found for stable ID.")
-        raise ValueError(f"No feed found for stable ID {stable_id}.")
-
-    feed_id = feed.id
-
     cached_geometries = {
         to_shape(stop.geometry).wkt for stop in feed.feedlocationgrouppoints
     }
-    matched_stops_df = stops_df[stops_df["geometry_str"].isin(cached_geometries)]
-    unmatched_stop_df = stops_df[~stops_df["geometry_str"].isin(cached_geometries)]
+    use_cache = False
+    matched_stops_df = stops_df[stops_df["geometry_str"].isin(cached_geometries)] if use_cache else pd.DataFrame(
+        columns=stops_df.columns)
+    unmatched_stop_df = stops_df[~stops_df["geometry_str"].isin(cached_geometries)] if use_cache else stops_df
+
+    # matched_stops_df = stops_df[stops_df["geometry_str"].isin(cached_geometries)]
+    # unmatched_stop_df = stops_df[~stops_df["geometry_str"].isin(cached_geometries)]
 
     logger.info(
         "Matched stops: %s | Unmatched stops: %s",
@@ -90,22 +78,23 @@ def get_cached_geopolygons(
     )
 
     df_geometry_set = set(matched_stops_df["geometry_str"].tolist())
-    geometries_to_delete = cached_geometries - df_geometry_set
-
+    # geometries_to_delete = cached_geometries - df_geometry_set
+    geometries_to_delete = False
     if geometries_to_delete:
         logger.info("Deleting %s outdated cached stops.", len(geometries_to_delete))
         db_session.query(Feedlocationgrouppoint).filter(
-            Feedlocationgrouppoint.feed_id == feed_id,
+            Feedlocationgrouppoint.feed_id == feed.id,
             func.ST_AsText(Feedlocationgrouppoint.geometry).in_(
                 list(geometries_to_delete)
             ),
         ).delete(synchronize_session=False)
         db_session.flush()
+        db_session.commit()
 
     matched_geometries = matched_stops_df["geometry"].tolist()
     if not matched_geometries:
         logger.info("No matched geometries found.")
-        return feed_id, dict(), unmatched_stop_df
+        return feed.id, dict(), unmatched_stop_df
     location_group_counts = (
         db_session.query(
             Osmlocationgroup,
@@ -113,7 +102,7 @@ def get_cached_geopolygons(
         )
         .join(Feedlocationgrouppoint, Osmlocationgroup.feedlocationgrouppoints)
         .filter(
-            Feedlocationgrouppoint.feed_id == feed_id,
+            Feedlocationgrouppoint.feed_id == feed.id,
             Feedlocationgrouppoint.geometry.in_(matched_geometries),
         )
         .group_by(Osmlocationgroup.group_id)
@@ -127,102 +116,7 @@ def get_cached_geopolygons(
     }
 
     logger.info("Total location groups retrieved: %s", len(location_groups))
-    return feed_id, location_groups, unmatched_stop_df
-
-
-def extract_location_aggregate(
-    feed_id: str, stop_point: WKTElement, logger, db_session: Session
-) -> Optional[GeopolygonAggregate]:
-    """
-    Extract the location group for a given stop point.
-    """
-    geopolygons = (
-        db_session.query(Geopolygon)
-        .filter(Geopolygon.geometry.ST_Contains(stop_point))
-        .all()
-    )
-
-    if len(geopolygons) <= 1:
-        logger.warning(
-            "Invalid number of geopolygons for point: %s -> %s", stop_point, geopolygons
-        )
-        return None
-    admin_levels = {g.admin_level for g in geopolygons}
-    if len(admin_levels) != len(geopolygons):
-        logger.warning(
-            "Duplicate admin levels for point: %s -> %s",
-            stop_point,
-            geopolygons_as_string(geopolygons),
-        )
-        return None
-
-    valid_iso_3166_1 = any(g.iso_3166_1_code for g in geopolygons)
-    valid_iso_3166_2 = any(g.iso_3166_2_code for g in geopolygons)
-    if not valid_iso_3166_1 or not valid_iso_3166_2:
-        logger.warning(
-            "Invalid ISO codes for point: %s -> %s",
-            stop_point,
-            geopolygons_as_string(geopolygons),
-        )
-        return
-
-    # Sort the polygons by admin level so that lower levels come first
-    geopolygons.sort(key=lambda x: x.admin_level)
-
-    group_id = ".".join([str(g.osm_id) for g in geopolygons])
-    group = (
-        db_session.query(Osmlocationgroup)
-        .filter(Osmlocationgroup.group_id == group_id)
-        .one_or_none()
-    )
-    if not group:
-        group = Osmlocationgroup(
-            group_id=group_id,
-            group_name=", ".join([g.name for g in geopolygons]),
-            osms=geopolygons,
-        )
-        db_session.add(group)
-        db_session.flush()  # Ensure the group is added before using it
-    stop = (
-        db_session.query(Feedlocationgrouppoint)
-        .filter(
-            Feedlocationgrouppoint.feed_id == feed_id,
-            Feedlocationgrouppoint.geometry == stop_point,
-        )
-        .one_or_none()
-    )
-    if not stop:
-        stop = Feedlocationgrouppoint(
-            feed_id=feed_id,
-            geometry=stop_point,
-        )
-        db_session.add(stop)
-    stop.group = group
-    logger.info(
-        "Point %s matched to %s", stop_point, ", ".join([g.name for g in geopolygons])
-    )
-    return GeopolygonAggregate(group, 1)
-
-
-def get_or_create_feed_osm_location_group(
-    feed_id: str, location_aggregate: GeopolygonAggregate, db_session: Session
-) -> Feedosmlocationgroup:
-    """Get or create the feed osm location group."""
-    feed_osm_location = (
-        db_session.query(Feedosmlocationgroup)
-        .filter(
-            Feedosmlocationgroup.feed_id == feed_id,
-            Feedosmlocationgroup.group_id == location_aggregate.group_id,
-        )
-        .one_or_none()
-    )
-    if not feed_osm_location:
-        feed_osm_location = Feedosmlocationgroup(
-            feed_id=feed_id,
-            group_id=location_aggregate.group_id,
-        )
-    feed_osm_location.stops_count = location_aggregate.stop_count
-    return feed_osm_location
+    return feed.id, location_groups, unmatched_stop_df
 
 
 def create_geojson_aggregate(
@@ -292,96 +186,6 @@ def create_geojson_aggregate(
     if public:
         blob.make_public()
     logger.info("GeoJSON data saved to %s", blob.name)
-
-
-def get_or_create_location(
-    location_group: GeopolygonAggregate, logger, db_session: Session
-) -> Optional[Location]:
-    """Get or create the Location entity."""
-    try:
-        logger.info("Location ID : %s", location_group.location_id())
-        location = (
-            db_session.query(Location)
-            .filter(Location.id == location_group.location_id())
-            .one_or_none()
-        )
-        if not location:
-            location = Location(
-                id=location_group.location_id(),
-                country_code=location_group.iso_3166_1_code,
-                country=location_group.country(),
-                subdivision_name=location_group.subdivision_name(),
-                municipality=location_group.municipality(),
-            )
-        return location
-    except Exception as e:
-        logger.error("Error creating location: %s", e)
-        return None
-
-
-@with_db_session
-def extract_location_aggregates_per_point(
-    feed_id: str,
-    stops_df: pd.DataFrame,
-    location_aggregates: Dict[str, GeopolygonAggregate],
-    logger: logging.Logger,
-    db_session: Session,
-) -> None:
-    """Extract the location aggregates for the stops. The location_aggregates dictionary will be updated with the new
-    location groups, keeping track of the stop count for each aggregate."""
-    i = 0
-    total_stop_count = len(stops_df)
-    for _, stop in stops_df.iterrows():
-        i += 1
-        logger.info("Processing stop %s/%s", i, total_stop_count)
-        location_aggregate = extract_location_aggregate(
-            feed_id, stop["geometry"], logger, db_session
-        )
-        if not location_aggregate:
-            continue
-        if location_aggregate.group_id in location_aggregates:
-            location_aggregates[location_aggregate.group_id].merge(location_aggregate)
-        else:
-            location_aggregates[location_aggregate.group_id] = location_aggregate
-        if (
-            i % 100 == 0
-        ):  # Commit every 100 stops to avoid reprocessing all stops in case of failure
-            db_session.commit()
-
-    feed = db_session.query(Feed).filter(Feed.id == feed_id).one_or_none()
-    osm_location_groups = [
-        get_or_create_feed_osm_location_group(
-            feed_id, location_aggregates[location_group.group_id], db_session
-        )
-        for location_group in location_aggregates.values()
-    ]
-    feed.feedosmlocationgroups.clear()
-    feed.feedosmlocationgroups.extend(osm_location_groups)
-    feed_locations = []
-    for location_aggregate in location_aggregates.values():
-        location = get_or_create_location(location_aggregate, logger, db_session)
-        if location:
-            feed_locations.append(location)
-
-    if feed.data_type == "gtfs":
-        gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed_id).one_or_none()
-        for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
-            logger.info(
-                "Updating GTFS-RT feed with stable ID %s", gtfs_rt_feed.stable_id
-            )
-            gtfs_rt_feed.feedosmlocationgroups.clear()
-            gtfs_rt_feed.feedosmlocationgroups.extend(osm_location_groups)
-            if feed_locations:
-                gtfs_rt_feed.locations.clear()
-                gtfs_rt_feed.locations = feed_locations
-
-    if feed_locations:
-        feed.locations = feed_locations
-
-    # Commit the changes to the database before refreshing the materialized view
-    db_session.commit()
-
-    create_refresh_materialized_view_task()
 
 
 @with_db_session
@@ -514,20 +318,33 @@ def reverse_geolocation_process(
         return str(e), ERROR_STATUS_CODE
 
 
+@with_db_session
 @track_metrics(metrics=("time", "memory", "cpu"))
 def reverse_geolocation(
     strategy,
     stable_id,
     stops_df,
     logger,
+    db_session: Session = None,
 ):
     """
     Reverse geolocation processing based on the specified strategy.
     """
-    logger.info("Processing geopolygons with per-point strategy.")
+    logger.info("Processing geopolygons with strategy: %s.", strategy)
+
+    feed = (
+        db_session.query(Feed)
+        .options(joinedload(Feed.feedlocationgrouppoints))
+        .filter(Feed.stable_id == stable_id)
+        .one_or_none()
+    )
+    if not feed:
+        logger.warning("No feed found for stable ID.")
+        raise ValueError(f"No feed found for stable ID {stable_id}.")
+
     # Get Cached Geopolygons
     feed_id, location_groups, unmatched_stops_df = get_cached_geopolygons(
-        stable_id, stops_df, logger
+        feed, stops_df, logger
     )
     logger.info("Number of location groups extracted: %s", len(location_groups))
     # Extract Location Groups
@@ -536,8 +353,43 @@ def reverse_geolocation(
             extract_location_aggregates_per_point(
                 feed_id, unmatched_stops_df, location_groups, logger
             )
+        case ReverseGeocodingStrategy.PER_POLYGON:
+            extract_location_aggregates_per_polygon(
+                feed_id, unmatched_stops_df, location_groups, logger
+            )
         case _:
             logger.error("Invalid strategy: %s", strategy)
             return f"Invalid strategy: {strategy}", ERROR_STATUS_CODE
 
+    osm_location_groups = [
+        get_or_create_feed_osm_location_group(
+            feed_id, location_groups[location_group.group_id], db_session
+        )
+        for location_group in location_groups.values()
+    ]
+    feed.feedosmlocationgroups.clear()
+    feed.feedosmlocationgroups.extend(osm_location_groups)
+    feed_locations = []
+    for location_aggregate in location_groups.values():
+        location = get_or_create_location(location_aggregate, logger, db_session)
+        if location:
+            feed_locations.append(location)
+
+    if feed.data_type == "gtfs":
+        gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed_id).one_or_none()
+        for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
+            logger.info(
+                "Updating GTFS-RT feed with stable ID %s", gtfs_rt_feed.stable_id
+            )
+            gtfs_rt_feed.feedosmlocationgroups.clear()
+            gtfs_rt_feed.feedosmlocationgroups.extend(osm_location_groups)
+            if feed_locations:
+                gtfs_rt_feed.locations.clear()
+                gtfs_rt_feed.locations = feed_locations
+
+    if feed_locations:
+        feed.locations = feed_locations
+
+    # Commit the changes to the database
+    db_session.commit()
     return location_groups

@@ -13,6 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import logging
 from typing import List, Optional
 
 
@@ -73,5 +74,6 @@ def to_enum(value, enum_class=None, default_value=None):
         return value
     try:
         return enum_class(str(value))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
+        logging.warning("Failed to convert value to enum member: %s", e)
         return default_value

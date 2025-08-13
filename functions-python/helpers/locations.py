@@ -11,7 +11,13 @@ class ReverseGeocodingStrategy(str, Enum):
     Enum for reverse geocoding strategies.
     """
 
+    # Per point strategy uses point-in-polygon to find the location for each point
+    # It queries the database for each point, which can be slow for large datasets
     PER_POINT = "per-point"
+
+    # Per polygon strategy uses point-in-polygon to find the location for each point
+    # It queries the database for each polygon, which can be faster for large datasets
+    PER_POLYGON = "per-polygon"
 
 
 def get_country_code(country_name: str) -> Optional[str]:

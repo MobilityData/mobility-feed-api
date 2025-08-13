@@ -8,9 +8,11 @@ import requests
 from jsonpath_ng import parse
 
 from shared.helpers.locations import ReverseGeocodingStrategy
+from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.transform import to_boolean, to_enum
 
 
+@track_metrics(metrics=("time", "memory", "cpu"))
 def parse_request_parameters(
     request: flask.Request,
 ) -> Tuple[pd.DataFrame, str, Optional[str], str, List[str]]:
@@ -54,6 +56,7 @@ def parse_request_parameters(
     strategy = ReverseGeocodingStrategy.PER_POINT
     if "strategy" in request_json:
         strategy = to_enum(
+            enum_class=ReverseGeocodingStrategy,
             value=request_json["strategy"],
             default_value=ReverseGeocodingStrategy.PER_POINT,
         )
@@ -141,6 +144,7 @@ def parse_free_bike_status_url(free_bike_status_url):
     return pd.DataFrame(bikes_info)
 
 
+@track_metrics(metrics=("time", "memory", "cpu"))
 def parse_request_parameters_gbfs(
     request_json: dict,
 ) -> Tuple[pd.DataFrame, str, Optional[str], List[str]]:

@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 from google.cloud import storage
 
 from reverse_geolocation_processor import reverse_geolocation_process
+from shared.helpers.locations import ReverseGeocodingStrategy
 from shared.helpers.logger import init_logger
+from shared.helpers.runtime_metrics import track_metrics
 
 HOST = "localhost"
 PORT = 9023
@@ -20,6 +22,9 @@ station_information_url = (
     "https://data.rideflamingo.com/gbfs/3/auckland/station_information.json"
 )
 vehicle_status_url = "https://data.rideflamingo.com/gbfs/3/auckland/vehicle_status.json"
+
+# vehicle_status_url = None
+# station_information_url = "https://api-public.odpt.org/api/v4/gbfs/hellocycling/station_information.json"
 free_bike_status_url = None
 
 # Load environment variables from .env.local
@@ -27,8 +32,8 @@ load_dotenv(dotenv_path=".env.local")
 
 init_logger()
 
-
-def download_to_local(url: str, filename: str):
+@track_metrics(metrics=("time", "memory", "cpu"))
+def download_to_local(url: str, filename: str, force_download: bool = False):
     """
     Download a file from a URL and upload it to the Google Cloud Storage emulator.
     If the file already exists, it will not be downloaded again.
@@ -36,13 +41,15 @@ def download_to_local(url: str, filename: str):
         url (str): The URL to download the file from.
         filename (str): The name of the file to save in the emulator.
     """
+    if not url:
+        return
     blob_path = f"{feed_stable_id}/{filename}"
     client = storage.Client()
     bucket = client.bucket(BUCKET_NAME)
     blob = bucket.blob(blob_path)
 
     # Check if the blob already exists in the emulator
-    if not blob.exists():
+    if not blob.exists() or force_download:
         logging.info(f"Downloading and uploading: {blob_path}")
         with requests.get(url, stream=True) as response:
             response.raise_for_status()
@@ -55,7 +62,7 @@ def download_to_local(url: str, filename: str):
         logging.info(f"Blob already exists: gs://{BUCKET_NAME}/{blob_path}")
 
 
-def verify_reverse_geolocation_process():
+def verify_reverse_geolocation_process(strategy: ReverseGeocodingStrategy):
     """
     Verify the reverse geolocation process by downloading the necessary files,
     triggering the reverse geolocation process, and visualizing the resulting GeoJSON file.
@@ -64,8 +71,8 @@ def verify_reverse_geolocation_process():
     location, which can be viewed in a web browser.
     """
     app = Flask(__name__)
-    download_to_local(url=station_information_url, filename="station_information.json")
-    download_to_local(url=vehicle_status_url, filename="vehicle_status.json")
+    download_to_local(url=station_information_url, filename="station_information.json", force_download=True)
+    download_to_local(url=vehicle_status_url, filename="vehicle_status.json", force_download=True)
 
     with app.test_request_context(
         path="/reverse_geolocation",
@@ -97,7 +104,7 @@ def verify_reverse_geolocation_process():
         m.fit_bounds([[miny, minx], [maxy, maxx]])  # [[south, west], [north, east]]
 
         # Save the map
-        m.save(f".cloudstorage/verifier/{feed_stable_id}/geojson_map.html")
+        m.save(f".cloudstorage/verifier/{feed_stable_id}/geojson_map_{strategy.value}.html")
 
 
 if __name__ == "__main__":
@@ -105,13 +112,14 @@ if __name__ == "__main__":
     from gcp_storage_emulator.server import create_server
     from flask import Flask, Request
 
+    strategy = ReverseGeocodingStrategy.PER_POLYGON
     data = {
         "stable_id": feed_stable_id,
         "dataset_id": "example_dataset_id",
-        "station_information_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/station_information.json",
-        "vehicle_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/vehicle_status.json",
-        "free_bike_status_url": free_bike_status_url,
-        "strategy": "per-point",
+        "station_information_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/station_information.json" if station_information_url else None,
+        "vehicle_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/vehicle_status.json" if vehicle_status_url else None,
+        "free_bike_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/free_bike_status.json" if free_bike_status_url else None,
+        "strategy": str(strategy.value),
         "data_type": "gbfs",
         "public": "False",
     }
@@ -124,7 +132,7 @@ if __name__ == "__main__":
             host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
         )
         server.start()
-        verify_reverse_geolocation_process()
+        verify_reverse_geolocation_process(strategy=strategy)
     except Exception as e:
         logging.error(f"Error verifying download content: {e}")
     finally:
