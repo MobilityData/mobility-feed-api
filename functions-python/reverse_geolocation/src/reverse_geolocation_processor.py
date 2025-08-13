@@ -526,7 +526,7 @@ def reverse_geolocation(
     """
     logger.info("Processing geopolygons with per-point strategy.")
     # Get Cached Geopolygons
-    feed_id, location_groups, stops_df = get_cached_geopolygons(
+    feed_id, location_groups, unmatched_stops_df = get_cached_geopolygons(
         stable_id, stops_df, logger
     )
     logger.info("Number of location groups extracted: %s", len(location_groups))
@@ -534,7 +534,7 @@ def reverse_geolocation(
     match strategy:
         case ReverseGeocodingStrategy.PER_POINT:
             extract_location_aggregates_per_point(
-                feed_id, stops_df, location_groups, logger
+                feed_id, unmatched_stops_df, location_groups, logger
             )
         case _:
             logger.error("Invalid strategy: %s", strategy)

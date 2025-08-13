@@ -9,10 +9,9 @@ def track_metrics(metrics=("time", "memory", "cpu")):
     """Decorator to track specified metrics (time, memory, cpu) during function execution.
     The decorator logs the metrics using the provided logger or a default logger if none is provided.
     Args:
-        metrics (tuple): Metrics to track. Options are "time", "memory", "cpu
-        logger (logging.Logger): Logger instance to log the metrics. If None, uses a default logger.
+        metrics (tuple): Metrics to track. Options are "time", "memory", "cpu".
     Usage:
-        @track_metrics(metrics=("time", "memory", "cpu"), logger=dynamic_logger)
+        @track_metrics(metrics=("time", "memory", "cpu"))
         def example_function():
             data = [i for i in range(10**6)]  # Simulate work
             time.sleep(1)  # Simulate delay
