@@ -34,13 +34,11 @@ def create_refresh_materialized_view_task():
         proto_time.FromDatetime(bucket_time)
 
         # Cloud Tasks setup
-
         project = os.getenv("PROJECT_ID")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
         logging.info(f"Queue name from env: {queue}")
         gcp_region = os.getenv("GCP_REGION")
         environment_name = os.getenv("ENVIRONMENT")
-        # service_account_email = os.getenv("SERVICE_ACCOUNT_EMAIL")
         url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
 
         # Enqueue the task
@@ -57,11 +55,11 @@ def create_refresh_materialized_view_task():
                 task_time=proto_time,
                 http_method=tasks_v2.HttpMethod.GET,
             )
-            logging.info(f"Scheduled refresh materialized view task for {timestamp_str}")
-            return {"message": f"Refresh task for {timestamp_str} scheduled."}, 200
+            logging.info(f"Scheduled refresh materialized view task for {task_name}")
+            return {"message": f"Refresh task for {task_name} scheduled."}, 200
         except Exception as e:
             if "ALREADY_EXISTS" in str(e):
-                logging.info(f"Task already exists for {timestamp_str}, skipping.")
+                logging.info(f"Task already exists for {task_name}, skipping.")
 
     except Exception as error:
         error_msg = f"Error enqueuing task: {error}"
@@ -86,8 +84,6 @@ def create_http_task_with_name(
 
     parent = client.queue_path(project_id, gcp_region, queue_name)
     logging.info(f"Queue parent path: {parent}")
-
-    # logging.info(f"$$$$$$$$$$$$Queue exists check: {client.get_queue(name=parent)}")
 
     task = tasks_v2.Task(
         name=f"{parent}/tasks/{task_name}",
