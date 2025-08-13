@@ -36,14 +36,13 @@ def create_refresh_materialized_view_task():
         # Cloud Tasks setup
         project = os.getenv("PROJECT_ID")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
-        logging.info(f"Queue name from env: {queue}")
+        logging.debug("Queue name from env: %s", queue)
         gcp_region = os.getenv("GCP_REGION")
         environment_name = os.getenv("ENVIRONMENT")
         url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
 
         # Enqueue the task
         try:
-            logging.info("About to call create_http_task_with_name")
             create_http_task_with_name(
                 client=tasks_v2.CloudTasksClient(),
                 body=b"",
@@ -55,16 +54,15 @@ def create_refresh_materialized_view_task():
                 task_time=proto_time,
                 http_method=tasks_v2.HttpMethod.GET,
             )
-            logging.info(f"Scheduled refresh materialized view task for {task_name}")
-            return {"message": f"Refresh task for {task_name} scheduled."}, 200
+            logging.info("Scheduled refresh materialized view task for %s", task_name)
+            return {"message": "Refresh task for %s scheduled." % task_name}, 200
         except Exception as e:
             if "ALREADY_EXISTS" in str(e):
-                logging.info(f"Task already exists for {task_name}, skipping.")
+                logging.info("Task already exists for %s, skipping.", task_name)
 
     except Exception as error:
-        error_msg = f"Error enqueuing task: {error}"
-        logging.error(error_msg)
-        return {"error": error_msg}, 500
+        logging.error("Error enqueuing task: %s", error)
+        return {"error": "Error enqueuing task: %s" % error}, 500
 
 
 def create_http_task_with_name(
@@ -79,11 +77,10 @@ def create_http_task_with_name(
     http_method: "tasks_v2.HttpMethod",
 ):
     """Creates a GCP Cloud Task."""
-    logging.info("Entered create_http_task_with_name")
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
     parent = client.queue_path(project_id, gcp_region, queue_name)
-    logging.info(f"Queue parent path: {parent}")
+    logging.info("Queue parent path: %s", parent)
 
     task = tasks_v2.Task(
         name=f"{parent}/tasks/{task_name}",
@@ -96,10 +93,10 @@ def create_http_task_with_name(
             headers={"Content-Type": "application/json"},
         ),
     )
-    logging.info(f"Task created with task.name: {task.name}")
+    logging.info("Task created with task_name: %s", task_name)
     try:
         response = client.create_task(parent=parent, task=task)
     except Exception as e:
-        logging.error(f"Error creating task: {e}")
-        logging.error(f"response: {response}")
+        logging.error("Error creating task: %s", e)
+        logging.error("response: %s", response)
     logging.info("Successfully created task in create_http_task_with_name")

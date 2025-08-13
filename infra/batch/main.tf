@@ -41,6 +41,8 @@ locals {
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
   # 1day=86400, 7days=604800, 31days=2678400
   retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 604800
+
+  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -413,8 +415,4 @@ resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
   port_range            = "443"
   ip_address            = data.google_compute_global_address.files_http_lb_ipv4.address
   load_balancing_scheme = "EXTERNAL_MANAGED"
-}
-
-locals {
-  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
 }
