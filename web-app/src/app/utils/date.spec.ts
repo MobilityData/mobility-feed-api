@@ -1,4 +1,56 @@
-import { getTimeLeftForTokenExpiration } from './date';
+import { getTimeLeftForTokenExpiration, displayFormattedDate } from './date';
+
+describe('displayFormattedDate', () => {
+  test('returns empty string for null', () => {
+    expect(displayFormattedDate(null as unknown as string)).toBe('');
+  });
+
+  test('returns empty string for undefined', () => {
+    expect(displayFormattedDate(undefined as unknown as string)).toBe('');
+  });
+
+  test('returns empty string for empty string', () => {
+    expect(displayFormattedDate('')).toBe('');
+  });
+
+  test('returns empty string for invalid date string', () => {
+    expect(displayFormattedDate('not-a-date')).toBe('');
+  });
+
+  test('returns formatted string for valid ISO date', () => {
+    const result = displayFormattedDate('2023-01-01T12:00:00Z');
+    // Format manually to match expected UTC time
+    expect(result).toBe(
+      new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'UTC',
+      }).format(new Date('2023-01-01T12:00:00Z')),
+    );
+  });
+
+  test('returns formatted string for valid date-only string', () => {
+    const result = displayFormattedDate('2023-01-01');
+    expect(result).toBe(
+      new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'UTC',
+      }).format(new Date('2023-01-01')),
+    );
+  });
+
+  test('returns formatted string for ISO with timezone offset', () => {
+    const result = displayFormattedDate('2023-01-01T12:00:00-05:00');
+    expect(result).toBe(
+      new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'UTC',
+      }).format(new Date('2023-01-01T12:00:00-05:00')),
+    );
+  });
+});
 
 describe('getTimeLeftForTokenExpiration', () => {
   const nowHours = 12;

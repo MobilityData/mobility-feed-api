@@ -437,6 +437,41 @@ export default function Feed(): React.ReactElement {
             ).toDateString()}`}
           </Typography>
         )}
+        {feed.external_ids?.some((eId) => eId.source === 'tld') === true && (
+          <Typography
+            data-testid='transitland-attribution'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {t('dataAattribution')}{' '}
+            <a
+              rel='noreferrer nofollow'
+              target='_blank'
+              href='https://www.transit.land/terms'
+            >
+              Transitland
+            </a>
+          </Typography>
+        )}
+        {feed.external_ids?.some((eId) => eId.source === 'ntd') === true && (
+          <Typography
+            data-testid='fta-attribution'
+            variant={'caption'}
+            width={'100%'}
+            component={'div'}
+          >
+            {t('dataAattribution')}
+            {' the United States '}
+            <a
+              rel='noreferrer nofollow'
+              target='_blank'
+              href='https://www.transit.dot.gov/ntd/data-product/2023-annual-database-general-transit-feed-specification-gtfs-weblinks'
+            >
+              National Transit Database
+            </a>
+          </Typography>
+        )}
       </Box>
 
       {feed?.data_type === 'gtfs_rt' &&

@@ -5,6 +5,7 @@ omit =
     */database_gen/*
     */dataset_service/*
     */shared/*
+    */scripts/*
 
 [report]
 exclude_lines =

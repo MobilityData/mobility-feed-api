@@ -6,6 +6,9 @@ import unittest
 from hashlib import sha256
 from typing import Final
 from unittest.mock import patch, MagicMock, Mock, mock_open
+
+import faker
+
 from main import (
     DatasetProcessor,
     DatasetFile,
@@ -43,8 +46,9 @@ def create_cloud_event(mock_data):
 class TestDatasetProcessor(unittest.TestCase):
     @patch("main.DatasetProcessor.upload_file_to_storage")
     @patch("main.DatasetProcessor.download_content")
+    @patch("main.DatasetProcessor.unzip_files")
     def test_upload_dataset_diff_hash(
-        self, mock_download_url_content, upload_file_to_storage
+        self, mock_unzip_files, mock_download_url_content, upload_file_to_storage
     ):
         """
         Test upload_dataset method of DatasetProcessor class with different hash from the latest one
@@ -52,8 +56,9 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_blob = MagicMock()
         mock_blob.public_url = public_url
         mock_blob.path = public_url
-        upload_file_to_storage.return_value = mock_blob
+        upload_file_to_storage.return_value = mock_blob, []
         mock_download_url_content.return_value = file_hash, True
+        mock_unzip_files.return_value = [mock_blob, mock_blob]
 
         processor = DatasetProcessor(
             public_url,
@@ -78,8 +83,7 @@ class TestDatasetProcessor(unittest.TestCase):
             f"/feed_stable_id-mocked_timestamp.zip",
         )
         self.assertEqual(result.file_sha256_hash, file_hash)
-        # Upload to storage is called twice, one for the latest and one for the timestamped one
-        self.assertEqual(upload_file_to_storage.call_count, 2)
+        self.assertEqual(upload_file_to_storage.call_count, 1)
 
     @patch("main.DatasetProcessor.upload_file_to_storage")
     @patch("main.DatasetProcessor.download_content")
@@ -176,7 +180,7 @@ class TestDatasetProcessor(unittest.TestCase):
     def test_upload_file_to_storage(self):
         bucket_name = "test-bucket"
         source_file_path = "path/to/source/file"
-        target_path = "path/to/target/file"
+        extracted_file_path = "path/to/source/file"
 
         mock_blob = Mock()
         mock_blob.public_url = public_url
@@ -202,15 +206,19 @@ class TestDatasetProcessor(unittest.TestCase):
                 None,
                 test_hosted_public_url,
             )
-            result = processor.upload_file_to_storage(source_file_path, target_path)
-
+            dataset_id = faker.Faker().uuid4()
+            result, _ = processor.upload_file_to_storage(
+                source_file_path, dataset_id, extracted_file_path
+            )
             self.assertEqual(result.public_url, public_url)
             mock_client.get_bucket.assert_called_with(bucket_name)
-            mock_bucket.blob.assert_called_with(target_path)
+            mock_bucket.blob.assert_called_with(
+                f"feed_stable_id/{dataset_id}/{dataset_id}.zip"
+            )
             mock_blob.upload_from_file.assert_called()
 
             # Assert that the file was opened in binary read mode
-            mock_file.assert_called_once_with(source_file_path, "rb")
+            mock_file.assert_called_with(source_file_path, "rb")
 
     @patch.dict(
         os.environ, {"FEEDS_CREDENTIALS": '{"test_stable_id": "test_credentials"}'}

@@ -41,7 +41,7 @@ export default function DataQualitySummary({
                 component='a'
                 href={latestDataset?.validation_report?.url_html}
                 target='_blank'
-                rel='noopener noreferrer'
+                rel='noopener noreferrer nofollow'
                 icon={
                   latestDataset?.validation_report?.unique_error_count !==
                     undefined &&
@@ -75,7 +75,7 @@ export default function DataQualitySummary({
                 component='a'
                 href={latestDataset?.validation_report?.url_html}
                 target='_blank'
-                rel='noopener noreferrer'
+                rel='noopener noreferrer nofollow'
                 icon={
                   latestDataset?.validation_report?.unique_warning_count !==
                     undefined &&
@@ -112,7 +112,7 @@ export default function DataQualitySummary({
                 component='a'
                 href={latestDataset?.validation_report?.url_html}
                 target='_blank'
-                rel='noopener noreferrer'
+                rel='noopener noreferrer nofollow'
                 label={`${
                   latestDataset?.validation_report?.unique_info_count ?? '0'
                 } ${t('common:feedback.infoNotices')}`}

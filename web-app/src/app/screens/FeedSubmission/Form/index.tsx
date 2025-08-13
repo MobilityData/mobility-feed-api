@@ -51,6 +51,9 @@ export interface FeedSubmissionFormFormInput {
   userInterviewEmail?: string;
   whatToolsUsedText?: string;
   hasLogoPermission: YesNoFormInput;
+  unofficialDesc?: string; // Why was this feed created?
+  updateFreq?: string; // How often is this feed updated?
+  emptyLicenseUsage?: string; // Confirm usage if no license and official
 }
 
 const defaultFormValues: FeedSubmissionFormFormInput = {
@@ -81,6 +84,9 @@ const defaultFormValues: FeedSubmissionFormFormInput = {
   userInterviewEmail: '',
   whatToolsUsedText: '',
   hasLogoPermission: '',
+  unofficialDesc: '',
+  updateFreq: '',
+  emptyLicenseUsage: '',
 };
 
 export default function FeedSubmissionForm(): React.ReactElement {

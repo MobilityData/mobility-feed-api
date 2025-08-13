@@ -15,6 +15,7 @@ from shapely.geometry import mapping
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
+from shared.helpers.locations import ReverseGeocodingStrategy
 
 from location_group_utils import (
     ERROR_STATUS_CODE,
@@ -23,7 +24,9 @@ from location_group_utils import (
     geopolygons_as_string,
 )
 from parse_request import parse_request_parameters
-from shared.database.database import with_db_session, refresh_materialized_view
+from shared.common.gcp_utils import create_refresh_materialized_view_task
+from shared.database.database import with_db_session
+
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Feed,
@@ -31,11 +34,11 @@ from shared.database_gen.sqlacodegen_models import (
     Osmlocationgroup,
     Feedosmlocationgroup,
     Location,
-    t_feedsearch,
     Gtfsdataset,
     Gtfsfeed,
 )
 from shared.helpers.logger import get_logger
+from shared.helpers.runtime_metrics import track_metrics
 
 
 @with_db_session
@@ -230,6 +233,7 @@ def create_geojson_aggregate(
     data_type: str,
     logger,
     extraction_urls: List[str] = None,
+    public: bool = True,
 ) -> None:
     """Create a GeoJSON file with the aggregated locations. This file will be uploaded to GCS and used for
     visualization."""
@@ -285,7 +289,8 @@ def create_geojson_aggregate(
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(f"{stable_id}/geolocation.geojson")
     blob.upload_from_string(json.dumps(json_data))
-    blob.make_public()
+    if public:
+        blob.make_public()
     logger.info("GeoJSON data saved to %s", blob.name)
 
 
@@ -315,7 +320,7 @@ def get_or_create_location(
 
 
 @with_db_session
-def extract_location_aggregates(
+def extract_location_aggregates_per_point(
     feed_id: str,
     stops_df: pd.DataFrame,
     location_aggregates: Dict[str, GeopolygonAggregate],
@@ -375,12 +380,14 @@ def extract_location_aggregates(
 
     # Commit the changes to the database before refreshing the materialized view
     db_session.commit()
-    refresh_materialized_view(db_session, t_feedsearch.name)
+
+    create_refresh_materialized_view_task()
 
 
 @with_db_session
+@track_metrics(metrics=("time", "memory", "cpu"))
 def update_dataset_bounding_box(
-    dataset_id: str, stops_df: pd.DataFrame, db_session: Session
+    dataset_id: str, stops_df: pd.DataFrame, logger: logging.Logger, db_session: Session
 ) -> shapely.Polygon:
     """
     Update the bounding box of the dataset using the stops DataFrame.
@@ -416,9 +423,27 @@ def reverse_geolocation_process(
 ) -> Tuple[str, int] | Tuple[Dict, int]:
     """
     Main function to handle reverse geolocation processing.
-    """
-    overall_start = datetime.now()
+    @:request: Flask request object containing the parameters for the reverse geolocation process.
+    Example request JSON(GTFS):
+    {
+        "stable_id": "example_stable_id",
+        "dataset_id": "example_dataset_id",
+        "stops_url": "https://example.com/path/to/stops.csv",
+        "data_type": "gtfs",
+        "strategy": "per-point"
+    }
+    Example request JSON(GBFS):
+    {
+        "stable_id": "example_stable_id",
+        "dataset_id": "example_dataset_id",
+        "station_information_url": "https://example.com/path/to/station_information.json",
+        "vehicle_status_url": "https://example.com/path/to/vehicle_status.json",
+        "free_bike_status_url": "https://example.com/path/to/free_bike_status.json",
+        "strategy": "per-point"
+    }
+    @:returns: A tuple containing a message and the HTTP status code.
 
+    """
     try:
         # Parse request parameters
         (
@@ -427,6 +452,8 @@ def reverse_geolocation_process(
             dataset_id,
             data_type,
             extraction_urls,
+            public,
+            strategy,
         ) = parse_request_parameters(request)
 
         # Remove duplicate lat/lon points
@@ -445,19 +472,16 @@ def reverse_geolocation_process(
         return str(e), ERROR_STATUS_CODE
 
     logger = get_logger(__name__, stable_id)
-
     try:
         # Update the bounding box of the dataset
-        bounding_box = update_dataset_bounding_box(dataset_id, stops_df)
+        bounding_box = update_dataset_bounding_box(dataset_id, stops_df, logger)
 
-        # Get Cached Geopolygons
-        feed_id, location_groups, stops_df = get_cached_geopolygons(
-            stable_id, stops_df, logger
+        location_groups = reverse_geolocation(
+            strategy,
+            stable_id,
+            stops_df,
+            logger,
         )
-        logger.info("Number of location groups extracted: %s", len(location_groups))
-
-        # Extract Location Groups
-        extract_location_aggregates(feed_id, stops_df, location_groups, logger)
 
         # Create GeoJSON Aggregate
         create_geojson_aggregate(
@@ -468,19 +492,18 @@ def reverse_geolocation_process(
             data_type=data_type,
             extraction_urls=extraction_urls,
             logger=logger,
+            public=public,
         )
-
-        # Overall Time
-        overall_duration = (datetime.now() - overall_start).total_seconds()
-        logger.info(f"Total time taken for the process: {overall_duration:.2f} seconds")
         logger.info(
-            "COMPLETED. Processed %s stops for stable ID %s. Retrieved %s locations.",
-            total_stops,
+            "COMPLETED. Processed %s stops for stable ID %s with strategy. "
+            "Retrieved %s locations.",
+            len(stops_df),
             stable_id,
             len(location_groups),
         )
         return (
-            f"Processed {total_stops} stops for stable ID {stable_id}. Retrieved {len(location_groups)} locations.",
+            f"Processed {total_stops} stops for stable ID {stable_id}. "
+            f"Retrieved {len(location_groups)} locations.",
             200,
         )
 
@@ -489,3 +512,32 @@ def reverse_geolocation_process(
         logger.error("Error processing geopolygons: %s", e)
         logger.error(traceback.format_exc())  # Log full traceback
         return str(e), ERROR_STATUS_CODE
+
+
+@track_metrics(metrics=("time", "memory", "cpu"))
+def reverse_geolocation(
+    strategy,
+    stable_id,
+    stops_df,
+    logger,
+):
+    """
+    Reverse geolocation processing based on the specified strategy.
+    """
+    logger.info("Processing geopolygons with per-point strategy.")
+    # Get Cached Geopolygons
+    feed_id, location_groups, unmatched_stops_df = get_cached_geopolygons(
+        stable_id, stops_df, logger
+    )
+    logger.info("Number of location groups extracted: %s", len(location_groups))
+    # Extract Location Groups
+    match strategy:
+        case ReverseGeocodingStrategy.PER_POINT:
+            extract_location_aggregates_per_point(
+                feed_id, unmatched_stops_df, location_groups, logger
+            )
+        case _:
+            logger.error("Invalid strategy: %s", strategy)
+            return f"Invalid strategy: {strategy}", ERROR_STATUS_CODE
+
+    return location_groups

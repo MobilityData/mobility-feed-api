@@ -20,6 +20,7 @@ google-cloud-storage
 google-cloud-tasks
 google-cloud-datastore
 google-cloud-pubsub
+google-auth==2.29.0
 
 # Additional packages for this function
 pandas
@@ -28,6 +29,7 @@ shapely
 gtfs-kit
 matplotlib
 jsonpath_ng
+psutil
 
 # Configuration
 python-dotenv==1.0.0

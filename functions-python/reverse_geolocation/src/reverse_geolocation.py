@@ -41,6 +41,13 @@ def parse_resource_data(data: dict) -> Tuple[str, str, str]:
 def reverse_geolocation_pubsub(request: CloudEvent) -> None:
     """
     Reverse geolocation function triggered by a Pub/Sub message.
+    @:request: CloudEvent containing the Pub/Sub message data. Example data:
+    {
+        "stable_id": "example_stable_id",
+        "dataset_id": "example_dataset_id",
+        "url": "https://example.com/path/to/feed.zip"
+    }
+
     """
     try:
         init(request)

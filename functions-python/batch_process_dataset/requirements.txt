@@ -21,6 +21,7 @@ google-api-core
 google-cloud-firestore
 google-cloud-datastore
 google-cloud-bigquery
+google-cloud-tasks
 cloudevents~=1.10.1
 
 # Configuration
