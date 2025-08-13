@@ -3,6 +3,7 @@ import logging
 import os
 import traceback
 from datetime import datetime
+from logging import Logger
 from typing import Dict, Tuple, List
 
 import flask
@@ -19,7 +20,9 @@ from sqlalchemy.orm import joinedload
 from location_group_utils import (
     ERROR_STATUS_CODE,
     GeopolygonAggregate,
-    generate_color, get_or_create_feed_osm_location_group, get_or_create_location,
+    generate_color,
+    get_or_create_feed_osm_location_group,
+    get_or_create_location,
 )
 from parse_request import parse_request_parameters
 from shared.database.database import with_db_session
@@ -27,7 +30,8 @@ from shared.database_gen.sqlacodegen_models import (
     Feed,
     Feedlocationgrouppoint,
     Osmlocationgroup,
-    Gtfsdataset, Gtfsfeed,
+    Gtfsdataset,
+    Gtfsfeed,
 )
 from shared.helpers.locations import ReverseGeocodingStrategy
 from shared.helpers.logger import get_logger
@@ -37,23 +41,18 @@ from strategy_extraction_per_polygon import extract_location_aggregates_per_poly
 
 
 @with_db_session
-def get_cached_geopolygons(
-    feed: Feed, stops_df: pd.DataFrame, logger, db_session: Session
+def get_geopolygons_with_geometry(
+    feed: Feed, stops_df: pd.DataFrame, logger, use_cache: bool, db_session: Session
 ) -> Tuple[str, Dict[str, GeopolygonAggregate], pd.DataFrame]:
     """
-    Get the geopolygons from the database cache.
+
 
     @:returns a tuple containing:
         - feed_id: The ID of the feed.
         - location_groups: A dictionary of location groups with the group ID as the key.
-        - unmatched_stop_df: DataFrame of unmatched stops for further processing.
+        - unmatched_stop_df: DataFrame of unmatched stops with geo
     """
     logger.info("Getting cached geopolygons for stable ID.")
-
-    if stops_df.empty:
-        logger.warning("The provided stops DataFrame is empty.")
-        raise ValueError("The provided stops DataFrame is empty.")
-
     stops_df["geometry"] = stops_df.apply(
         lambda x: WKTElement(f"POINT ({x['stop_lon']} {x['stop_lat']})", srid=4326),
         axis=1,
@@ -63,38 +62,31 @@ def get_cached_geopolygons(
     cached_geometries = {
         to_shape(stop.geometry).wkt for stop in feed.feedlocationgrouppoints
     }
-    use_cache = False
-    matched_stops_df = stops_df[stops_df["geometry_str"].isin(cached_geometries)] if use_cache else pd.DataFrame(
-        columns=stops_df.columns)
-    unmatched_stop_df = stops_df[~stops_df["geometry_str"].isin(cached_geometries)] if use_cache else stops_df
-
-    # matched_stops_df = stops_df[stops_df["geometry_str"].isin(cached_geometries)]
-    # unmatched_stop_df = stops_df[~stops_df["geometry_str"].isin(cached_geometries)]
-
+    matched_stops_df = (
+        stops_df[stops_df["geometry_str"].isin(cached_geometries)]
+        if use_cache
+        else pd.DataFrame(columns=stops_df.columns)
+    )
+    unmatched_stop_df = (
+        stops_df[~stops_df["geometry_str"].isin(cached_geometries)]
+        if use_cache
+        else stops_df
+    )
     logger.info(
         "Matched stops: %s | Unmatched stops: %s",
         len(matched_stops_df),
         len(unmatched_stop_df),
     )
-
-    df_geometry_set = set(matched_stops_df["geometry_str"].tolist())
-    # geometries_to_delete = cached_geometries - df_geometry_set
-    geometries_to_delete = False
-    if geometries_to_delete:
-        logger.info("Deleting %s outdated cached stops.", len(geometries_to_delete))
-        db_session.query(Feedlocationgrouppoint).filter(
-            Feedlocationgrouppoint.feed_id == feed.id,
-            func.ST_AsText(Feedlocationgrouppoint.geometry).in_(
-                list(geometries_to_delete)
-            ),
-        ).delete(synchronize_session=False)
-        db_session.flush()
-        db_session.commit()
+    if use_cache:
+        df_geometry_set = set(matched_stops_df["geometry_str"].tolist())
+        geometries_to_delete = cached_geometries - df_geometry_set
+        if geometries_to_delete:
+            clean_stop_cache(db_session, feed, geometries_to_delete, logger)
 
     matched_geometries = matched_stops_df["geometry"].tolist()
     if not matched_geometries:
         logger.info("No matched geometries found.")
-        return feed.id, dict(), unmatched_stop_df
+        return dict(), unmatched_stop_df
     location_group_counts = (
         db_session.query(
             Osmlocationgroup,
@@ -116,7 +108,18 @@ def get_cached_geopolygons(
     }
 
     logger.info("Total location groups retrieved: %s", len(location_groups))
-    return feed.id, location_groups, unmatched_stop_df
+    return location_groups, unmatched_stop_df
+
+
+@track_metrics(metrics=("time", "memory", "cpu"))
+def clean_stop_cache(db_session, feed, geometries_to_delete, logger):
+    """Clean the stop cache by deleting outdated cached stops."""
+    logger.info("Deleting %s outdated cached stops.", len(geometries_to_delete))
+    db_session.query(Feedlocationgrouppoint).filter(
+        Feedlocationgrouppoint.feed_id == feed.id,
+        func.ST_AsText(Feedlocationgrouppoint.geometry).in_(list(geometries_to_delete)),
+    ).delete(synchronize_session=False)
+    db_session.commit()
 
 
 def create_geojson_aggregate(
@@ -258,7 +261,10 @@ def reverse_geolocation_process(
             extraction_urls,
             public,
             strategy,
+            use_cache,
         ) = parse_request_parameters(request)
+
+        logger = get_logger(__name__, stable_id)
 
         # Remove duplicate lat/lon points
         stops_df["stop_lat"] = pd.to_numeric(stops_df["stop_lat"], errors="coerce")
@@ -272,19 +278,24 @@ def reverse_geolocation_process(
             return "All stops have null lat/lon values", ERROR_STATUS_CODE
         total_stops = len(stops_df)
     except ValueError as e:
-        logging.error(f"Error parsing request parameters: {e}")
+        logging.error("Error parsing request parameters: %s", e)
         return str(e), ERROR_STATUS_CODE
 
-    logger = get_logger(__name__, stable_id)
+    if stops_df.empty:
+        no_stops_message = "No stops found in the feed."
+        logger.warning(no_stops_message)
+        return str(no_stops_message), ERROR_STATUS_CODE
+
     try:
         # Update the bounding box of the dataset
         bounding_box = update_dataset_bounding_box(dataset_id, stops_df, logger)
 
         location_groups = reverse_geolocation(
-            strategy,
-            stable_id,
-            stops_df,
-            logger,
+            strategy=strategy,
+            stable_id=stable_id,
+            stops_df=stops_df,
+            logger=logger,
+            use_cache=use_cache,
         )
 
         # Create GeoJSON Aggregate
@@ -325,6 +336,7 @@ def reverse_geolocation(
     stable_id,
     stops_df,
     logger,
+    use_cache,
     db_session: Session = None,
 ):
     """
@@ -342,41 +354,56 @@ def reverse_geolocation(
         logger.warning("No feed found for stable ID.")
         raise ValueError(f"No feed found for stable ID {stable_id}.")
 
-    # Get Cached Geopolygons
-    feed_id, location_groups, unmatched_stops_df = get_cached_geopolygons(
-        feed, stops_df, logger
+    # Get Geopolygons with Geometry and cached location groups
+    cache_location_groups, unmatched_stops_df = get_geopolygons_with_geometry(
+        feed=feed, stops_df=stops_df, logger=logger, use_cache=use_cache
     )
-    logger.info("Number of location groups extracted: %s", len(location_groups))
+    logger.info("Number of location groups cached: %s", len(cache_location_groups))
     # Extract Location Groups
     match strategy:
         case ReverseGeocodingStrategy.PER_POINT:
             extract_location_aggregates_per_point(
-                feed_id, unmatched_stops_df, location_groups, logger
+                feed, unmatched_stops_df, cache_location_groups, logger
             )
         case ReverseGeocodingStrategy.PER_POLYGON:
             extract_location_aggregates_per_polygon(
-                feed_id, unmatched_stops_df, location_groups, logger
+                feed, unmatched_stops_df, cache_location_groups, logger
             )
         case _:
             logger.error("Invalid strategy: %s", strategy)
             return f"Invalid strategy: {strategy}", ERROR_STATUS_CODE
 
+    update_feed_location(
+        cache_location_groups=cache_location_groups,
+        feed=feed,
+        logger=logger,
+        db_session=db_session,
+    )
+    return cache_location_groups
+
+
+@track_metrics(metrics=("time", "memory", "cpu"))
+def update_feed_location(
+    cache_location_groups: Dict[str, GeopolygonAggregate],
+    feed: Feed,
+    logger: Logger,
+    db_session: Session,
+):
     osm_location_groups = [
         get_or_create_feed_osm_location_group(
-            feed_id, location_groups[location_group.group_id], db_session
+            feed.id, cache_location_groups[location_group.group_id], db_session
         )
-        for location_group in location_groups.values()
+        for location_group in cache_location_groups.values()
     ]
     feed.feedosmlocationgroups.clear()
     feed.feedosmlocationgroups.extend(osm_location_groups)
     feed_locations = []
-    for location_aggregate in location_groups.values():
+    for location_aggregate in cache_location_groups.values():
         location = get_or_create_location(location_aggregate, logger, db_session)
         if location:
             feed_locations.append(location)
-
     if feed.data_type == "gtfs":
-        gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed_id).one_or_none()
+        gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed.id).one_or_none()
         for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
             logger.info(
                 "Updating GTFS-RT feed with stable ID %s", gtfs_rt_feed.stable_id
@@ -386,10 +413,7 @@ def reverse_geolocation(
             if feed_locations:
                 gtfs_rt_feed.locations.clear()
                 gtfs_rt_feed.locations = feed_locations
-
     if feed_locations:
         feed.locations = feed_locations
-
     # Commit the changes to the database
     db_session.commit()
-    return location_groups

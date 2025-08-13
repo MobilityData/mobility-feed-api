@@ -32,6 +32,7 @@ load_dotenv(dotenv_path=".env.local")
 
 init_logger()
 
+
 @track_metrics(metrics=("time", "memory", "cpu"))
 def download_to_local(url: str, filename: str, force_download: bool = False):
     """
@@ -71,8 +72,14 @@ def verify_reverse_geolocation_process(strategy: ReverseGeocodingStrategy):
     location, which can be viewed in a web browser.
     """
     app = Flask(__name__)
-    download_to_local(url=station_information_url, filename="station_information.json", force_download=True)
-    download_to_local(url=vehicle_status_url, filename="vehicle_status.json", force_download=True)
+    download_to_local(
+        url=station_information_url,
+        filename="station_information.json",
+        force_download=True,
+    )
+    download_to_local(
+        url=vehicle_status_url, filename="vehicle_status.json", force_download=True
+    )
 
     with app.test_request_context(
         path="/reverse_geolocation",
@@ -104,7 +111,9 @@ def verify_reverse_geolocation_process(strategy: ReverseGeocodingStrategy):
         m.fit_bounds([[miny, minx], [maxy, maxx]])  # [[south, west], [north, east]]
 
         # Save the map
-        m.save(f".cloudstorage/verifier/{feed_stable_id}/geojson_map_{strategy.value}.html")
+        m.save(
+            f".cloudstorage/verifier/{feed_stable_id}/geojson_map_{strategy.value}.html"
+        )
 
 
 if __name__ == "__main__":
@@ -116,9 +125,15 @@ if __name__ == "__main__":
     data = {
         "stable_id": feed_stable_id,
         "dataset_id": "example_dataset_id",
-        "station_information_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/station_information.json" if station_information_url else None,
-        "vehicle_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/vehicle_status.json" if vehicle_status_url else None,
-        "free_bike_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/free_bike_status.json" if free_bike_status_url else None,
+        "station_information_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/station_information.json"
+        if station_information_url
+        else None,
+        "vehicle_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/vehicle_status.json"
+        if vehicle_status_url
+        else None,
+        "free_bike_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/free_bike_status.json"
+        if free_bike_status_url
+        else None,
         "strategy": str(strategy.value),
         "data_type": "gbfs",
         "public": "False",

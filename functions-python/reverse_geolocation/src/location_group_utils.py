@@ -6,8 +6,13 @@ from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
 from sqlalchemy.orm import Session
 
-from shared.database_gen.sqlacodegen_models import Geopolygon, Osmlocationgroup, Feedlocationgrouppoint, \
-    Feedosmlocationgroup, Location
+from shared.database_gen.sqlacodegen_models import (
+    Geopolygon,
+    Osmlocationgroup,
+    Feedosmlocationgroup,
+    Location,
+    Feed,
+)
 
 ERROR_STATUS_CODE = 299  # Custom error code for the function to avoid retries
 
@@ -134,8 +139,9 @@ def geopolygons_as_string(geopolygons: List[Geopolygon]) -> str:
         [str(geopolygon) for geopolygon in detach_from_session(geopolygons)]
     )
 
+
 def extract_location_aggregate(
-    feed_id: str, stop_point: WKTElement, logger, db_session: Session
+    feed: Feed, stop_point: WKTElement, logger, db_session: Session
 ) -> Optional[GeopolygonAggregate]:
     """
     Extract the location group for a given stop point.
@@ -151,11 +157,17 @@ def extract_location_aggregate(
             "Invalid number of geopolygons for point: %s -> %s", stop_point, geopolygons
         )
         return None
-    return extract_location_aggregate_geopolygons(feed_id=feed_id, stop_point=stop_point,
-                                                  geopolygons=geopolygons, logger=logger, db_session=db_session)
+    return extract_location_aggregate_geopolygons(
+        feed=feed,
+        stop_point=stop_point,
+        geopolygons=geopolygons,
+        logger=logger,
+        db_session=db_session,
+    )
+
 
 def extract_location_aggregate_geopolygons(
-    feed_id: str, stop_point: WKTElement, geopolygons, logger, db_session: Session
+    feed: Feed, stop_point: WKTElement, geopolygons, logger, db_session: Session
 ) -> Optional[GeopolygonAggregate]:
     admin_levels = {g.admin_level for g in geopolygons}
     if len(admin_levels) != len(geopolygons):
@@ -193,7 +205,7 @@ def extract_location_aggregate_geopolygons(
         )
         db_session.add(group)
     # TODO: Review the connection with stops
-        # db_session.flush()
+    # db_session.flush()
     # stop = (
     #     db_session.query(Feedlocationgrouppoint)
     #     .filter(
@@ -244,6 +256,7 @@ def get_or_create_feed_osm_location_group(
         )
     feed_osm_location.stops_count = location_aggregate.stop_count
     return feed_osm_location
+
 
 def get_or_create_location(
     location_group: GeopolygonAggregate, logger, db_session: Session

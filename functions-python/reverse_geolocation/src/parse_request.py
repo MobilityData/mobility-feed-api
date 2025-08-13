@@ -18,8 +18,17 @@ def parse_request_parameters(
 ) -> Tuple[pd.DataFrame, str, Optional[str], str, List[str]]:
     """
     Parse the request parameters and return a DataFrame with the stops data.
-    @:returns Tuple: A tuple containing the stops DataFrame, stable ID, dataset ID, data type, and a list of URLs that
-    were used to fetch the data.
+    @:returns Tuple: A tuple containing:
+        - df: DataFrame
+        - feed_stable_id: str
+        - dataset_id: str (only for GTFS)
+        - data_type: str, either 'gtfs' or 'gbfs'.
+        - urls: List, a list of URLs that were used to fetch the data.
+        - public: bool(Optional), whether the data should be public or not. Default is True.
+        - strategy: ReverseGeocodingStrategy, the strategy to use for reverse geocoding. Default is PER_POINT.
+        - use_cache: bool(Optional), whether to use cache or not. Default is True for GBFS, false otherwise.
+    @:raises ValueError: If the request mandatory parameters are invalid or missing.
+
     """
     logging.info("Parsing request parameters.")
     request_json = request.get_json(silent=True)
@@ -63,7 +72,15 @@ def parse_request_parameters(
     else:
         logging.info("No strategy provided, using default")
     logging.info("Strategy set to: %s.", strategy)
-    return df, stable_id, dataset_id, data_type, urls, public, strategy
+    if "use_cache" in request_json:
+        use_cache = to_boolean(
+            request_json["use_cache"], default_value=(data_type == "gtfs")
+        )
+        logging.info("Use cache: %s", use_cache)
+    else:
+        use_cache = data_type == "gtfs"
+        logging.info("No use_cache provided, using(%s): %s", data_type, use_cache)
+    return df, stable_id, dataset_id, data_type, urls, public, strategy, use_cache
 
 
 def parse_request_parameters_gtfs(

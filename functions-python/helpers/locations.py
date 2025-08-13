@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Dict, Optional
 from sqlalchemy.orm import Session
 import pycountry
-from shared.database_gen.sqlacodegen_models import Feed, Location
+from shared.database_gen.sqlacodegen_models import Feed, Location, Geopolygon
 import logging
 
 
@@ -139,3 +139,70 @@ def translate_feed_locations(feed: Feed, location_translations: Dict):
                 if location_translation["country_translation"]
                 else location.country
             )
+
+
+def to_shapely(g):
+    """
+    Convert a GeoAlchemy WKB/WKT element or WKT string into a Shapely geometry.
+    If it's already a Shapely geometry, return it as-is.
+    """
+    # Import here to avoid adding unnecessary dependencies if not used to GCP functions
+    from shapely import wkt as shapely_wkt
+    from geoalchemy2 import WKTElement, WKBElement
+    from geoalchemy2.shape import to_shape
+
+    if isinstance(g, WKBElement):
+        return to_shape(g)
+    if isinstance(g, WKTElement):
+        return shapely_wkt.loads(g.data)
+    if isinstance(g, str):
+        # assume WKT
+        return shapely_wkt.loads(g)
+    return g  # assume already shapely
+
+
+def select_highest_level_polygon(geopolygons: list[Geopolygon]) -> Optional[Geopolygon]:
+    """
+    Select the geopolygon with the highest admin_level from a list of geopolygons.
+    Admin levels are compared, with NULL treated as the lowest priority.
+    """
+    if not geopolygons:
+        return None
+    # Treat NULL admin_level as the lowest priority
+    return max(
+        geopolygons, key=lambda g: (-1 if g.admin_level is None else g.admin_level)
+    )
+
+
+def select_lowest_level_polygon(geopolygons: list[Geopolygon]) -> Optional[Geopolygon]:
+    """
+    Select the geopolygon with the lowest admin_level from a list of geopolygons.
+    Admin levels are compared, with NULL treated as the lowest priority.
+    """
+    if not geopolygons:
+        return None
+    # Treat NULL admin_level as the lowest priority
+    return min(
+        geopolygons, key=lambda g: (100 if g.admin_level is None else g.admin_level)
+    )
+
+
+def get_country_code_from_polygons(geopolygons: list[Geopolygon]) -> Optional[str]:
+    """
+    Given a list of polygon GeoJSON-like features (each with 'properties'),
+    return the country code (ISO 3166-1 alpha-2) from the most likely polygon.
+
+    Args:
+        polygons: List of dicts, each must have 'properties' with
+                  'admin_level' and 'iso_3166_1_code'
+
+    Returns:
+        A two-letter country code string or None if not found
+    """
+    country_polygons = [g for g in geopolygons if g.iso_3166_1_code]
+    if not country_polygons:
+        return None
+
+    # Prefer the one with the lowest admin_level (most local)
+    lowest_admin_level_polygon = select_lowest_level_polygon(country_polygons)
+    return lowest_admin_level_polygon.iso_3166_1_code

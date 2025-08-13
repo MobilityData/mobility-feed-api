@@ -4,16 +4,16 @@ from typing import Dict
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from location_group_utils import GeopolygonAggregate, extract_location_aggregate, get_or_create_feed_osm_location_group, \
-    get_or_create_location
+from location_group_utils import GeopolygonAggregate, extract_location_aggregate
 from shared.database.database import with_db_session
+from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.runtime_metrics import track_metrics
 
 
 @with_db_session
 @track_metrics(metrics=("time", "memory", "cpu"))
 def extract_location_aggregates_per_point(
-    feed_id: str,
+    feed: Feed,
     stops_df: pd.DataFrame,
     location_aggregates: Dict[str, GeopolygonAggregate],
     logger: logging.Logger,
@@ -29,7 +29,7 @@ def extract_location_aggregates_per_point(
             logger.info("Processing stop %s/%s", i, total_stop_count)
         i += 1
         location_aggregate = extract_location_aggregate(
-            feed_id, stop["geometry"], logger, db_session
+            feed, stop["geometry"], logger, db_session
         )
         if not location_aggregate:
             continue
