@@ -29,6 +29,7 @@ shapely
 gtfs-kit
 matplotlib
 jsonpath_ng
+psutil
 
 # Configuration
 python-dotenv==1.0.0
