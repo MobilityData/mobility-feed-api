@@ -321,10 +321,10 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
   }
 
   retry_config {
-    # This will make the cloud task retry for ~30 minutes
+    # ~22 minutes total: 120 + 240 + 480 + 480 = 1320s (initial attempt + 4 retries)
     max_attempts  = 5
     min_backoff   = "120s"
-    max_backoff   = "120s"
+    max_backoff   = "480s"
     max_doublings = 2
   }
 }
