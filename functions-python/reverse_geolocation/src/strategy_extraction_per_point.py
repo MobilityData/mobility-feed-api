@@ -23,10 +23,17 @@ def extract_location_aggregates_per_point(
     location groups, keeping track of the stop count for each aggregate."""
     i = 0
     total_stop_count = len(stops_df)
-    batch_size = 1000
+    batch_size = total_stop_count / 20  # Process 5% of the total stops in each batch
     for _, stop in stops_df.iterrows():
         if i % batch_size == 0:
-            logger.info("Processing stop %s/%s", i, total_stop_count)
+            remaining_stops_count = total_stop_count - i
+            logger.info(
+                "Progress %.2f%% (%d/%d)",
+                100 - (remaining_stops_count / total_stop_count) * 100,
+                remaining_stops_count,
+                total_stop_count,
+            )
+            # logger.info("Processing stop %s/%s", i, total_stop_count)
         i += 1
         location_aggregate = extract_location_aggregate(
             feed, stop["geometry"], logger, db_session

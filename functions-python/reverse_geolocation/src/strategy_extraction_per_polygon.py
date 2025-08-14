@@ -12,11 +12,12 @@ from location_group_utils import (
 )
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Geopolygon, Feed
+from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.locations import (
     select_highest_level_polygon,
     to_shapely,
     get_country_code_from_polygons,
+    get_geopolygons_covers,
 )
 from shared.helpers.runtime_metrics import track_metrics
 
@@ -53,17 +54,31 @@ def extract_location_aggregates_per_polygon(
     remaining_stops_df = stops_df.copy()
     processed_groups: set[str] = set()
 
+    total_stop_count = len(remaining_stops_df)
+    last_seen_count = total_stop_count
+    batch_size = total_stop_count / 20  # Process 5% of the total stops in each batch
     while not remaining_stops_df.empty:
+        if (last_seen_count - len(remaining_stops_df)) >= batch_size:
+            logger.info(
+                "Progress %.2f%% (%d/%d)",
+                100 - (len(remaining_stops_df) / total_stop_count) * 100,
+                len(remaining_stops_df),
+                total_stop_count,
+            )
+            last_seen_count = len(remaining_stops_df)
+
         stop_point = remaining_stops_df.iloc[0][
             "geometry"
         ]  # GeoAlchemy WKT/WKB element or WKT string
 
         # Get all polygons containing this point (SQL, uses DB index on geopolygon.geometry)
-        geopolygons = (
-            db_session.query(Geopolygon)
-            .filter(Geopolygon.geometry.ST_Contains(stop_point))
-            .all()
-        )
+        # geopolygons = (
+        #     db_session.query(Geopolygon)
+        #     .filter(Geopolygon.geometry.ST_Contains(stop_point))
+        #     .all()
+        # )
+
+        geopolygons = get_geopolygons_covers(stop_point, db_session)
 
         highest = select_highest_level_polygon(geopolygons)
         if highest is None or highest.geometry is None:
@@ -81,12 +96,28 @@ def extract_location_aggregates_per_polygon(
             in_poly_mask = remaining_stops_df["geometry"].apply(
                 lambda g: poly_shp.contains(to_shapely(g))
             )
+            count_before = len(remaining_stops_df)
             stops_in_polygon = remaining_stops_df.loc[in_poly_mask]
             # Remove them from the remaining pool
             remaining_stops_df = remaining_stops_df.drop(stops_in_polygon.index)
+            logger.debug(
+                "Points clustered in polygon %s: %d",
+                highest.admin_level,
+                count_before - len(remaining_stops_df),
+            )
         else:
             # If admin_level < locality_admin_level, we assume the polygon is too large to filter points
             # directly, so we just use the first point as a representative
+            logger.debug(
+                "Point cannot be clustered in polygon. "
+                "osm_id: %s, name: %s, "
+                "iso_3166_1_code: %s, iso_3166_2_code: %s, admin_level: %s, ",
+                highest.osm_id,
+                highest.name,
+                highest.iso_3166_1_code,
+                highest.iso_3166_2_code,
+                highest.admin_level,
+            )
             stops_in_polygon = remaining_stops_df.iloc[[0]]
             remaining_stops_df = remaining_stops_df.iloc[1:]
 

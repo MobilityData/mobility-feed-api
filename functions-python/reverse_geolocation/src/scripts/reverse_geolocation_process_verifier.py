@@ -1,14 +1,19 @@
 import json
 import logging
 import os
+import uuid
 from io import BytesIO
+from typing import Dict
 
 import folium
 import requests
 from dotenv import load_dotenv
 from google.cloud import storage
+from sqlalchemy.orm import Session
 
 from reverse_geolocation_processor import reverse_geolocation_process
+from shared.database.database import with_db_session
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gbfsfeed
 from shared.helpers.locations import ReverseGeocodingStrategy
 from shared.helpers.logger import init_logger
 from shared.helpers.runtime_metrics import track_metrics
@@ -16,16 +21,32 @@ from shared.helpers.runtime_metrics import track_metrics
 HOST = "localhost"
 PORT = 9023
 BUCKET_NAME = "verifier"
-feed_stable_id = "mdb-1"
 
-station_information_url = (
-    "https://data.rideflamingo.com/gbfs/3/auckland/station_information.json"
-)
-vehicle_status_url = "https://data.rideflamingo.com/gbfs/3/auckland/vehicle_status.json"
-
-# vehicle_status_url = None
-# station_information_url = "https://api-public.odpt.org/api/v4/gbfs/hellocycling/station_information.json"
-free_bike_status_url = None
+feeds = [
+    {
+        "stable_id": "local-test-gbfs-flamingo_auckland",
+        "station_information_url": "https://data.rideflamingo.com/gbfs/3/auckland/station_information.json",
+        "vehicle_status_url": "https://data.rideflamingo.com/gbfs/3/auckland/vehicle_status.json",
+        "data_type": "gbfs",
+    },
+    {
+        "stable_id": "local-test-gbfs-hellocycling",
+        "station_information_url": "https://api-public.odpt.org/api/v4/gbfs/hellocycling/station_information.json",
+        "data_type": "gbfs",
+    },
+    {
+        "stable_id": "local-test-2014",
+        "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-2014/"
+        "mdb-2014-202508120303/extracted/stops.txt",
+        "data_type": "gtfs",
+    },
+    {
+        "stable_id": "local-test-1139",
+        "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1139/"
+        "mdb-1139-202406071559/stops.txt",
+        "data_type": "gtfs",
+    },
+]
 
 # Load environment variables from .env.local
 load_dotenv(dotenv_path=".env.local")
@@ -34,7 +55,9 @@ init_logger()
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
-def download_to_local(url: str, filename: str, force_download: bool = False):
+def download_to_local(
+    feed_stable_id: str, url: str, filename: str, force_download: bool = False
+):
     """
     Download a file from a URL and upload it to the Google Cloud Storage emulator.
     If the file already exists, it will not be downloaded again.
@@ -63,7 +86,13 @@ def download_to_local(url: str, filename: str, force_download: bool = False):
         logging.info(f"Blob already exists: gs://{BUCKET_NAME}/{blob_path}")
 
 
-def verify_reverse_geolocation_process(strategy: ReverseGeocodingStrategy):
+def verify_reverse_geolocation_process(
+    feed_stable_id: str,
+    feed_dict: Dict,
+    data: Dict,
+    strategy: ReverseGeocodingStrategy,
+    force_download: bool = True,
+):
     """
     Verify the reverse geolocation process by downloading the necessary files,
     triggering the reverse geolocation process, and visualizing the resulting GeoJSON file.
@@ -72,14 +101,36 @@ def verify_reverse_geolocation_process(strategy: ReverseGeocodingStrategy):
     location, which can be viewed in a web browser.
     """
     app = Flask(__name__)
-    download_to_local(
-        url=station_information_url,
-        filename="station_information.json",
-        force_download=True,
-    )
-    download_to_local(
-        url=vehicle_status_url, filename="vehicle_status.json", force_download=True
-    )
+
+    if feed_dict["data_type"] == "gbfs":
+        if "station_information_url" in feed_dict:
+            download_to_local(
+                feed_stable_id=feed_stable_id,
+                url=feed_dict["station_information_url"],
+                filename="station_information.json",
+                force_download=True,
+            )
+        if "vehicle_status_url" in feed_dict:
+            download_to_local(
+                feed_stable_id=feed_stable_id,
+                url=feed_dict["vehicle_status_url"],
+                filename="vehicle_status.json",
+                force_download=True,
+            )
+        if "free_bike_status_url" in feed_dict:
+            download_to_local(
+                feed_stable_id=feed_stable_id,
+                url=feed_dict["free_bike_status_url"],
+                filename="free_bike_status.json",
+                force_download=True,
+            )
+    else:
+        download_to_local(
+            feed_stable_id=feed_stable_id,
+            url=feed_dict["stops_url"],
+            filename="stops.txt",
+            force_download=force_download,
+        )
 
     with app.test_request_context(
         path="/reverse_geolocation",
@@ -116,27 +167,61 @@ def verify_reverse_geolocation_process(strategy: ReverseGeocodingStrategy):
         )
 
 
+@with_db_session
+def create_test_data(feed_stable_id: str, feed_dict: Dict, db_session: Session = None):
+    """
+    Create test data in the database if it does not exist.
+    This function is used to ensure that the reverse geolocation process has the necessary data to work with.
+    """
+    # Here you would typically interact with your database to create the necessary test data
+    # For this example, we will just log the action
+    logging.info(f"Creating test data for {feed_stable_id} with data: {feed_dict}")
+    model = Gtfsfeed if feed_dict["data_type"] == "gtfs" else Gbfsfeed
+    local_feed = (
+        db_session.query(model).filter(model.stable_id == feed_stable_id).one_or_none()
+    )
+    if not local_feed:
+        local_feed = model(
+            id=uuid.uuid4(),
+            stable_id=feed_stable_id,
+            data_type=feed_dict["data_type"],
+            feed_name="Test Feed",
+            note="This is a test feed created for reverse geolocation verification.",
+            producer_url="https://files.mobilitydatabase.org/mdb-2014/mdb-2014-202508120303/mdb-2014-202508120303.zip",
+            authentication_type="0",
+            status="active",
+        )
+        db_session.add(local_feed)
+        db_session.commit()
+
+
 if __name__ == "__main__":
     import geopandas as gpd
     from gcp_storage_emulator.server import create_server
     from flask import Flask, Request
 
-    strategy = ReverseGeocodingStrategy.PER_POLYGON
+    strategy = ReverseGeocodingStrategy.PER_POINT
+    feed_dict = feeds[2]
+    feed_stable_id = feed_dict["stable_id"]
+    # create test data in the database if does not exist
+    create_test_data(feed_stable_id=feed_stable_id, feed_dict=feed_dict)
     data = {
         "stable_id": feed_stable_id,
-        "dataset_id": "example_dataset_id",
+        "dataset_id": feed_dict["dataset_id"] if "dataset_id" in feed_dict else None,
         "station_information_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/station_information.json"
-        if station_information_url
+        if "station_information_url" in feed_dict
         else None,
         "vehicle_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/vehicle_status.json"
-        if vehicle_status_url
+        if "vehicle_status_url" in feed_dict
         else None,
         "free_bike_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/free_bike_status.json"
-        if free_bike_status_url
+        if "free_bike_status_url" in feed_dict
         else None,
+        "stops_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/stops.txt",
         "strategy": str(strategy.value),
-        "data_type": "gbfs",
-        "public": "False",
+        "data_type": feed_dict["data_type"],
+        "use_cache": False,
+        "public": False,
     }
 
     try:
@@ -147,7 +232,12 @@ if __name__ == "__main__":
             host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
         )
         server.start()
-        verify_reverse_geolocation_process(strategy=strategy)
+        verify_reverse_geolocation_process(
+            feed_stable_id=feed_stable_id,
+            feed_dict=feed_dict,
+            strategy=strategy,
+            data=data,
+        )
     except Exception as e:
         logging.error(f"Error verifying download content: {e}")
     finally:

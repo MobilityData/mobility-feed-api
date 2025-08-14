@@ -1,6 +1,11 @@
 from enum import Enum
 from typing import Dict, Optional
+
+from geoalchemy2 import WKTElement
 from sqlalchemy.orm import Session
+from sqlalchemy import func, cast
+from geoalchemy2.types import Geography
+
 import pycountry
 from shared.database_gen.sqlacodegen_models import Feed, Location, Geopolygon
 import logging
@@ -206,3 +211,23 @@ def get_country_code_from_polygons(geopolygons: list[Geopolygon]) -> Optional[st
     # Prefer the one with the lowest admin_level (most local)
     lowest_admin_level_polygon = select_lowest_level_polygon(country_polygons)
     return lowest_admin_level_polygon.iso_3166_1_code
+
+
+def get_geopolygons_covers(stop_point: WKTElement, db_session: Session):
+    """
+    Get all geopolygons that cover a given point using BigQuery-compatible semantics.
+    """
+    # BigQuery-compatible point-in-polygon (geodesic + border-inclusive)
+    geopolygons = (
+        db_session.query(Geopolygon)
+        # optional prefilter to use your GiST index on geometry (fast)
+        .filter(func.ST_Intersects(Geopolygon.geometry, stop_point))
+        # exact check matching BigQuery's GEOGRAPHY semantics
+        .filter(
+            func.ST_Covers(
+                cast(Geopolygon.geometry, Geography(srid=4326)),
+                cast(stop_point, Geography(srid=4326)),
+            )
+        ).all()
+    )
+    return geopolygons

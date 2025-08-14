@@ -1,3 +1,4 @@
+from logging import Logger
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
@@ -13,6 +14,7 @@ from shared.database_gen.sqlacodegen_models import (
     Location,
     Feed,
 )
+from shared.helpers.locations import get_geopolygons_covers
 
 ERROR_STATUS_CODE = 299  # Custom error code for the function to avoid retries
 
@@ -141,16 +143,12 @@ def geopolygons_as_string(geopolygons: List[Geopolygon]) -> str:
 
 
 def extract_location_aggregate(
-    feed: Feed, stop_point: WKTElement, logger, db_session: Session
+    feed: Feed, stop_point: WKTElement, logger: Logger, db_session: Session
 ) -> Optional[GeopolygonAggregate]:
     """
     Extract the location group for a given stop point.
     """
-    geopolygons = (
-        db_session.query(Geopolygon)
-        .filter(Geopolygon.geometry.ST_Contains(stop_point))
-        .all()
-    )
+    geopolygons = get_geopolygons_covers(stop_point, db_session)
 
     if len(geopolygons) <= 1:
         logger.warning(
@@ -204,6 +202,7 @@ def extract_location_aggregate_geopolygons(
             osms=geopolygons,
         )
         db_session.add(group)
+        db_session.flush()
     # TODO: Review the connection with stops
     # db_session.flush()
     # stop = (
