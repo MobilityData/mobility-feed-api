@@ -83,7 +83,11 @@ def create_http_task_with_name(
     logging.info("Queue parent path: %s", parent)
 
     task = tasks_v2.Task(
-        name=f"{parent}/tasks/{task_name}",
+        # If task_name is provided, it will be used; otherwise, a unique name will be generated.
+        # The task_name should be unique to avoid conflicts.
+        # If task_name is None, the Cloud Tasks service will generate a unique name.
+        # This is useful for deduplication purposes.
+        name=f"{parent}/tasks/{task_name}" if task_name else None,
         schedule_time=task_time,
         http_request=tasks_v2.HttpRequest(
             url=url,
