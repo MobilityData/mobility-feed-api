@@ -1,0 +1,1172 @@
+[
+    {
+        "routeId": "01",
+        "routeName": "Lianes 1",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "02",
+        "routeName": "Lianes 2",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "05",
+        "routeName": "Lianes 5",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "06",
+        "routeName": "Lianes 6",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "07",
+        "routeName": "Lianes 7",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "08",
+        "routeName": "Lianes 8",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "09",
+        "routeName": "Lianes 9",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "15",
+        "routeName": "Lianes 15",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "16",
+        "routeName": "Lianes 16",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "20",
+        "routeName": "Principale 20",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "22",
+        "routeName": "Principale 22",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "23",
+        "routeName": "Principale 23",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "24",
+        "routeName": "Principale 24",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "25",
+        "routeName": "Principale 25",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "26",
+        "routeName": "Principale 26",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "27",
+        "routeName": "Principale 27",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "28",
+        "routeName": "Principale 28",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "29",
+        "routeName": "Principale 29",
+        "color": "#00A98B",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "30",
+        "routeName": "Locale 30",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "31",
+        "routeName": "Lianes 31",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "32",
+        "routeName": "Locale 32",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "33",
+        "routeName": "Locale 33",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "34",
+        "routeName": "Locale 34",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "35",
+        "routeName": "Lianes 35",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "37",
+        "routeName": "Locale 37",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "38",
+        "routeName": "Locale 38",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "39",
+        "routeName": "Lianes 39",
+        "color": "#00B1EB",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "51",
+        "routeName": "Directe 51",
+        "color": "#4A4A49",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "52",
+        "routeName": "Directe 52",
+        "color": "#4A4A49",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "53",
+        "routeName": "Directe 53",
+        "color": "#4A4A49",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "454",
+        "routeName": "Directe 54",
+        "color": "#4A4A49",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "55",
+        "routeName": "Directe 55",
+        "color": "#4A4A49",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "57",
+        "routeName": "Directe 57",
+        "color": "#4A4A49",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "460",
+        "routeName": "Locale 60",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "461",
+        "routeName": "Locale 61",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "64",
+        "routeName": "Locale 64",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "65",
+        "routeName": "Locale 65",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "66",
+        "routeName": "Locale 66",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "67",
+        "routeName": "Locale 67",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "469",
+        "routeName": "Locale 69",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "70",
+        "routeName": "Locale 70",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "71",
+        "routeName": "Locale 71",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "72",
+        "routeName": "Locale 72",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "73",
+        "routeName": "Locale 73",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "74",
+        "routeName": "Locale 74",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "75",
+        "routeName": "Locale 75",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "76",
+        "routeName": "Locale 76",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "77",
+        "routeName": "Locale 77",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "78",
+        "routeName": "Locale 78",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "79",
+        "routeName": "Locale 79",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "80",
+        "routeName": "Locale 80",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "81",
+        "routeName": "Locale 81",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "82",
+        "routeName": "Locale 82",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "83",
+        "routeName": "Locale 83",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "84",
+        "routeName": "Locale 84",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "85",
+        "routeName": "Locale 85",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "86",
+        "routeName": "Locale 86",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "87",
+        "routeName": "Locale 87",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "89",
+        "routeName": "Locale 89",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "90",
+        "routeName": "Locale 90",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "951",
+        "routeName": "LE BATO 1",
+        "color": "#006BB5",
+        "textColor": "#FFFFFF",
+        "routeType": "4",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "952",
+        "routeName": "LE BATO 2",
+        "color": "#006BB5",
+        "textColor": "#FFFFFF",
+        "routeType": "4",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "953",
+        "routeName": "LE BATO 3",
+        "color": "#006BB5",
+        "textColor": "#FFFFFF",
+        "routeType": "4",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "19",
+        "routeName": "Navette Arena",
+        "color": "#CD117E",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "568",
+        "routeName": "Flex' Artigues",
+        "color": "#76B82A",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "59",
+        "routeName": "Ligne A",
+        "color": "#831F82",
+        "textColor": "#FFFFFF",
+        "routeType": "0",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "159",
+        "routeName": "Bus Relais A",
+        "color": "#8CBF44",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "161",
+        "routeName": "Bus Relais C",
+        "color": "#8CBF44",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "60",
+        "routeName": "Ligne B",
+        "color": "#E50040",
+        "textColor": "#FFFFFF",
+        "routeType": "0",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "61",
+        "routeName": "Ligne C",
+        "color": "#D35098",
+        "textColor": "#FFFFFF",
+        "routeType": "0",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "62",
+        "routeName": "Ligne D",
+        "color": "#9262A3",
+        "textColor": "#FFFFFF",
+        "routeType": "0",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "901",
+        "routeName": "BUS EXPRESS G",
+        "color": "#006685",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "501",
+        "routeName": "Flex'Night 1",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "502",
+        "routeName": "Flex'Night 2",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "503",
+        "routeName": "Flex'Night 3",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "504",
+        "routeName": "Flex'Night 4",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "505",
+        "routeName": "Flex'Night 5",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "506",
+        "routeName": "Flex'Night 6",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "507",
+        "routeName": "Flex'Night 7",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "810",
+        "routeName": "SCODI S10",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "811",
+        "routeName": "SCODI S11",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "813",
+        "routeName": "SCODI S13",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "814",
+        "routeName": "SCODI S14",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "815",
+        "routeName": "SCODI S15",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "816",
+        "routeName": "SCODI S16",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "817",
+        "routeName": "SCODI S17",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "801",
+        "routeName": "SCODI S01",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "820",
+        "routeName": "SCODI S20",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "821",
+        "routeName": "SCODI S21",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "822",
+        "routeName": "SCODI S22",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "824",
+        "routeName": "SCODI S24",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "825",
+        "routeName": "SCODI S25",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "826",
+        "routeName": "SCODI S26",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "827",
+        "routeName": "SCODI S27",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "828",
+        "routeName": "SCODI S28",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "829",
+        "routeName": "SCODI S29",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "802",
+        "routeName": "SCODI S02",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "830",
+        "routeName": "SCODI S30",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "832",
+        "routeName": "SCODI S32",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "833",
+        "routeName": "SCODI S33",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "834",
+        "routeName": "SCODI S34",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "835",
+        "routeName": "SCODI S35",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "836",
+        "routeName": "SCODI S36",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "837",
+        "routeName": "SCODI S37",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "838",
+        "routeName": "SCODI S38",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "839",
+        "routeName": "SCODI S39",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "803",
+        "routeName": "SCODI S03",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "840",
+        "routeName": "SCODI S40",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "842",
+        "routeName": "SCODI S42",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "843",
+        "routeName": "SCODI S43",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "844",
+        "routeName": "SCODI S44",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "845",
+        "routeName": "SCODI S45",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "846",
+        "routeName": "SCODI S46",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "847",
+        "routeName": "SCODI S47",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "848",
+        "routeName": "SCODI S48",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "849",
+        "routeName": "SCODI S49",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "804",
+        "routeName": "SCODI S04",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "853",
+        "routeName": "SCODI S53",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "855",
+        "routeName": "SCODI S55",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "856",
+        "routeName": "SCODI S56",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "857",
+        "routeName": "SCODI S57",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "858",
+        "routeName": "SCODI S58",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "859",
+        "routeName": "SCODI S59",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "805",
+        "routeName": "SCODI S05",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "860",
+        "routeName": "SCODI S60",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "864",
+        "routeName": "SCODI S64",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "807",
+        "routeName": "SCODI S07",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "808",
+        "routeName": "SCODI S08",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "809",
+        "routeName": "SCODI S09",
+        "color": "#164194",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    },
+    {
+        "routeId": "58",
+        "routeName": "TBNight",
+        "color": "#0C324C",
+        "textColor": "#FFFFFF",
+        "routeType": "3",
+        "startDate": "",
+        "endDate": ""
+    }
+]
