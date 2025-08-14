@@ -34,41 +34,35 @@ def create_refresh_materialized_view_task():
         proto_time.FromDatetime(bucket_time)
 
         # Cloud Tasks setup
-        client = tasks_v2.CloudTasksClient()
         project = os.getenv("PROJECT_ID")
-        location = os.getenv("LOCATION")
         queue = os.getenv("MATERIALIZED_VIEW_QUEUE")
-        url = (
-            f"https://{os.getenv('GCP_REGION')}-"
-            f"{os.getenv('PROJECT_ID')}.cloudfunctions.net/"
-            f"tasks-executor-{os.getenv('ENVIRONMENT_NAME')}"
-        )
-
-        task_name = client.task_path(project, location, queue, task_name)
+        logging.debug("Queue name from env: %s", queue)
+        gcp_region = os.getenv("GCP_REGION")
+        environment_name = os.getenv("ENVIRONMENT")
+        url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
 
         # Enqueue the task
         try:
             create_http_task_with_name(
-                client=client,
+                client=tasks_v2.CloudTasksClient(),
                 body=b"",
                 url=url,
                 project_id=project,
-                gcp_region=location,
+                gcp_region=gcp_region,
                 queue_name=queue,
                 task_name=task_name,
                 task_time=proto_time,
                 http_method=tasks_v2.HttpMethod.GET,
             )
-            logging.info(f"Scheduled refresh materialized view task for {timestamp_str}")
-            return {"message": f"Refresh task for {timestamp_str} scheduled."}, 200
+            logging.info("Scheduled refresh materialized view task for %s", task_name)
+            return {"message": "Refresh task for %s scheduled." % task_name}, 200
         except Exception as e:
             if "ALREADY_EXISTS" in str(e):
-                logging.info(f"Task already exists for {timestamp_str}, skipping.")
+                logging.info("Task already exists for %s, skipping.", task_name)
 
     except Exception as error:
-        error_msg = f"Error enqueuing task: {error}"
-        logging.error(error_msg)
-        return {"error": error_msg}, 500
+        logging.error("Error enqueuing task: %s", error)
+        return {"error": "Error enqueuing task: %s" % error}, 500
 
 
 def create_http_task_with_name(
@@ -83,11 +77,13 @@ def create_http_task_with_name(
     http_method: "tasks_v2.HttpMethod",
 ):
     """Creates a GCP Cloud Task."""
-
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
+    parent = client.queue_path(project_id, gcp_region, queue_name)
+    logging.info("Queue parent path: %s", parent)
+
     task = tasks_v2.Task(
-        name=task_name,
+        name=f"{parent}/tasks/{task_name}",
         schedule_time=task_time,
         http_request=tasks_v2.HttpRequest(
             url=url,
@@ -97,4 +93,10 @@ def create_http_task_with_name(
             headers={"Content-Type": "application/json"},
         ),
     )
-    client.create_task(parent=client.queue_path(project_id, gcp_region, queue_name), task=task)
+    logging.info("Task created with task_name: %s", task_name)
+    try:
+        response = client.create_task(parent=parent, task=task)
+    except Exception as e:
+        logging.error("Error creating task: %s", e)
+        logging.error("response: %s", response)
+    logging.info("Successfully created task in create_http_task_with_name")
