@@ -174,14 +174,14 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
     @with_db_session(db_url=default_db_url)
     def test_get_cached_geopolygons_empty_df(self, db_session):
-        from reverse_geolocation_processor import get_cached_geopolygons
+        from reverse_geolocation_processor import get_geopolygons_with_geometry
 
         with self.assertRaises(ValueError):
-            get_cached_geopolygons("test-stable-id", pd.DataFrame(), logger)
+            get_geopolygons_with_geometry("test-stable-id", pd.DataFrame(), logger)
 
     @with_db_session(db_url=default_db_url)
     def test_get_cached_geopolygons_no_feed(self, db_session):
-        from reverse_geolocation_processor import get_cached_geopolygons
+        from reverse_geolocation_processor import get_geopolygons_with_geometry
 
         stops_df = pd.DataFrame(
             {
@@ -192,11 +192,11 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             }
         )
         with self.assertRaises(ValueError):
-            get_cached_geopolygons("test-stable-id", stops_df, logger)
+            get_geopolygons_with_geometry("test-stable-id", stops_df, logger)
 
     @with_db_session(db_url=default_db_url)
     def test_get_cached_geopolygons_no_cached_stop(self, db_session):
-        from reverse_geolocation_processor import get_cached_geopolygons
+        from reverse_geolocation_processor import get_geopolygons_with_geometry
 
         stops_df = pd.DataFrame(
             {
@@ -215,7 +215,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         db_session.add(feed)
         db_session.commit()
-        result_feed_id, location_groups, results_df = get_cached_geopolygons(
+        result_feed_id, location_groups, results_df = get_geopolygons_with_geometry(
             stable_id, stops_df, logger
         )
         self.assertEqual(result_feed_id, feed_id)
@@ -224,7 +224,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
     @with_db_session(db_url=default_db_url)
     def test_get_cached_geopolygons_w_cached_stop(self, db_session):
-        from reverse_geolocation_processor import get_cached_geopolygons
+        from reverse_geolocation_processor import get_geopolygons_with_geometry
 
         stops_df = pd.DataFrame(
             {
@@ -264,7 +264,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         db_session.add(feed)
         db_session.commit()
-        result_feed_id, location_groups, results_df = get_cached_geopolygons(
+        result_feed_id, location_groups, results_df = get_geopolygons_with_geometry(
             stable_id, stops_df, logger
         )
         self.assertEqual(result_feed_id, feed_id)
