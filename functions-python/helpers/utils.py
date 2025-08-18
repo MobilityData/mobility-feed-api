@@ -207,7 +207,7 @@ def create_http_task(
         project_id=project_id,
         gcp_region=gcp_region,
         queue_name=queue_name,
-        task_name="task_name",
+        task_name=None,  # No specific task name provided
         task_time=proto_time,
         http_method=tasks_v2.HttpMethod.POST,
     )
