@@ -21,7 +21,7 @@ class TestBigQueryDataTransfer(unittest.TestCase):
         self.transfer.create_bigquery_dataset()
 
         self.mock_bq_client().get_dataset.assert_called_once()
-        self.mock_bq_client().create_dataset_entities.assert_not_called()
+        self.mock_bq_client().create_dataset.assert_not_called()
 
     @patch("common.bq_data_transfer.bigquery.DatasetReference")
     def test_create_bigquery_dataset_not_exists(self, _):
@@ -30,6 +30,7 @@ class TestBigQueryDataTransfer(unittest.TestCase):
         self.transfer.create_bigquery_dataset()
 
         self.mock_bq_client().get_dataset.assert_called_once()
+        self.mock_bq_client().create_dataset.assert_called_once()
 
     @patch("common.bq_data_transfer.load_json_schema")
     @patch("common.bq_data_transfer.json_schema_to_bigquery")
