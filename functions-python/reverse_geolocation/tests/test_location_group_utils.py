@@ -1,3 +1,4 @@
+import logging
 import unittest
 
 import pytest
@@ -5,9 +6,16 @@ from faker import Faker
 from geoalchemy2 import WKTElement
 
 from location_group_utils import GeopolygonAggregate
-from shared.database_gen.sqlacodegen_models import Geopolygon, Osmlocationgroup
+from shared.database.database import with_db_session
+from shared.database_gen.sqlacodegen_models import (
+    Geopolygon,
+    Osmlocationgroup,
+    Gtfsfeed,
+)
+from test_shared.test_utils.database_utils import default_db_url, clean_testing_db
 
 faker = Faker()
+logger = logging.getLogger(__name__)
 
 
 class TestLocationGroupUtils(unittest.TestCase):
@@ -75,6 +83,120 @@ class TestLocationGroupUtils(unittest.TestCase):
         geopolygon_aggregate_2 = GeopolygonAggregate(location_group, 1)
         geopolygon_aggregate.merge(geopolygon_aggregate_2)
         self.assertEqual(geopolygon_aggregate.stop_count, 2)
+
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_group(self, db_session):
+        from location_group_utils import extract_location_aggregate
+
+        clean_testing_db()
+        geopolygon_country_lvl = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.country(),
+            admin_level=2,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_1_code=faker.country_code(),
+        )
+        geopolygon_subdivision_lvl = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.city(),
+            admin_level=3,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_2_code=faker.country_code(),
+        )
+        feed_id = faker.uuid4(cast_to=str)
+        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(geopolygon_subdivision_lvl)
+        db_session.add(feed)
+        db_session.commit()
+        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
+        aggregate = extract_location_aggregate(stop_wkt, logger, db_session)
+        self.assertTrue(
+            aggregate.iso_3166_1_code == geopolygon_country_lvl.iso_3166_1_code
+        )
+        self.assertTrue(
+            aggregate.iso_3166_2_code == geopolygon_subdivision_lvl.iso_3166_2_code
+        )
+
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_duplicate_admin_level(self, db_session):
+        from location_group_utils import extract_location_aggregate
+
+        print("test extract location duplicate admin level")
+        clean_testing_db()
+        print("Done cleaning the db")
+        geopolygon_country_lvl = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.country(),
+            admin_level=2,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_1_code=faker.country_code(),
+        )
+        geopolygon_subdivision_lvl = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.city(),
+            admin_level=2,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_2_code=faker.country_code(),
+        )
+        feed_id = faker.uuid4(cast_to=str)
+        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(geopolygon_subdivision_lvl)
+        db_session.add(feed)
+        db_session.commit()
+        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
+        aggregate = extract_location_aggregate(stop_wkt, logger, db_session)
+        self.assertIsNone(aggregate)
+
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_not_enough_geopolygons(self, db_session):
+        from location_group_utils import extract_location_aggregate
+
+        clean_testing_db()
+        geopolygon_country_lvl = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.country(),
+            admin_level=2,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_1_code=faker.country_code(),
+        )
+        feed_id = faker.uuid4(cast_to=str)
+        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(feed)
+        db_session.commit()
+        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
+        aggregate = extract_location_aggregate(stop_wkt, logger, db_session)
+        self.assertIsNone(aggregate)
+
+    @with_db_session(db_url=default_db_url)
+    def test_extract_location_missing_iso_codes(self, db_session):
+        from location_group_utils import extract_location_aggregate
+
+        clean_testing_db()
+        geopolygon_country_lvl = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.country(),
+            admin_level=2,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_1_code=faker.country_code(),
+        )
+        geopolygon_subdivision_lvl = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.city(),
+            admin_level=3,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+        )
+        feed_id = faker.uuid4(cast_to=str)
+        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
+        db_session.add(geopolygon_country_lvl)
+        db_session.add(geopolygon_subdivision_lvl)
+        db_session.add(feed)
+        db_session.commit()
+        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
+        aggregate = extract_location_aggregate(stop_wkt, logger, db_session)
+        self.assertIsNone(aggregate)
 
 
 @pytest.mark.parametrize(

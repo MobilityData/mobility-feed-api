@@ -42,7 +42,11 @@ from strategy_extraction_per_polygon import extract_location_aggregates_per_poly
 
 @with_db_session
 def get_geopolygons_with_geometry(
-    feed: Feed, stops_df: pd.DataFrame, logger, use_cache: bool, db_session: Session
+    feed: Feed,
+    stops_df: pd.DataFrame,
+    use_cache: bool,
+    logger: Logger,
+    db_session: Session,
 ) -> Tuple[str, Dict[str, GeopolygonAggregate], pd.DataFrame]:
     """
 
@@ -356,7 +360,7 @@ def reverse_geolocation(
 
     # Get Geopolygons with Geometry and cached location groups
     cache_location_groups, unmatched_stops_df = get_geopolygons_with_geometry(
-        feed=feed, stops_df=stops_df, logger=logger, use_cache=use_cache
+        feed=feed, stops_df=stops_df, use_cache=use_cache, logger=logger
     )
     logger.info("Number of location groups cached: %s", len(cache_location_groups))
     if len(unmatched_stops_df) > 0:

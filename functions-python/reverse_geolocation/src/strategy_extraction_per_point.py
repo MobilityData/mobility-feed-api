@@ -28,8 +28,11 @@ def extract_location_aggregates_per_point(
     location groups, keeping track of the stop count for each aggregate."""
     i = 0
     total_stop_count = len(stops_df)
-    batch_size = int(
-        total_stop_count / 20
+    if total_stop_count == 0:
+        logger.warning("No stops to process")
+        return
+    batch_size = max(
+        int(total_stop_count / 20), total_stop_count
     )  # Process 5% of the total stops in each batch
     for _, stop in stops_df.iterrows():
         if i % batch_size == 0:

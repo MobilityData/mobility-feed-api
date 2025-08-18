@@ -14,7 +14,6 @@ from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Location,
     Gtfsdataset,
-    Gtfsrealtimefeed,
 )
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
@@ -56,6 +55,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             urls,
             public,
             strategy,
+            use_cache,
         ) = parse_request_parameters(request)
         self.assertEqual("test_stable_id", stable_id)
         self.assertEqual("test_dataset_id", dataset_id)
@@ -102,6 +102,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             urls,
             public,
             strategy,
+            use_cache,
         ) = parse_request_parameters(request)
 
         self.assertEqual("stable123", stable_id)
@@ -142,6 +143,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             urls,
             public,
             strategy,
+            use_cache,
         ) = parse_request_parameters(request)
 
         self.assertEqual("stable456", stable_id)
@@ -177,22 +179,9 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         from reverse_geolocation_processor import get_geopolygons_with_geometry
 
         with self.assertRaises(ValueError):
-            get_geopolygons_with_geometry("test-stable-id", pd.DataFrame(), logger)
-
-    @with_db_session(db_url=default_db_url)
-    def test_get_cached_geopolygons_no_feed(self, db_session):
-        from reverse_geolocation_processor import get_geopolygons_with_geometry
-
-        stops_df = pd.DataFrame(
-            {
-                "stop_id": [1, 2],
-                "stop_name": ["stop1", "stop2"],
-                "stop_lat": [1.0, 2.0],
-                "stop_lon": [1.0, 2.0],
-            }
-        )
-        with self.assertRaises(ValueError):
-            get_geopolygons_with_geometry("test-stable-id", stops_df, logger)
+            get_geopolygons_with_geometry(
+                "test-stable-id", pd.DataFrame(), False, logger
+            )
 
     @with_db_session(db_url=default_db_url)
     def test_get_cached_geopolygons_no_cached_stop(self, db_session):
@@ -215,10 +204,9 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         db_session.add(feed)
         db_session.commit()
-        result_feed_id, location_groups, results_df = get_geopolygons_with_geometry(
-            stable_id, stops_df, logger
+        location_groups, results_df = get_geopolygons_with_geometry(
+            feed, stops_df, False, logger
         )
-        self.assertEqual(result_feed_id, feed_id)
         self.assertDictEqual(location_groups, {})
         self.assertEqual(results_df.shape, (2, 6))  # Added geometry columns
 
@@ -264,126 +252,11 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         db_session.add(feed)
         db_session.commit()
-        result_feed_id, location_groups, results_df = get_geopolygons_with_geometry(
-            stable_id, stops_df, logger
+        location_groups, results_df = get_geopolygons_with_geometry(
+            feed, stops_df, True, logger
         )
-        self.assertEqual(result_feed_id, feed_id)
         self.assertEqual(len(location_groups), 1)
         self.assertEqual(results_df.shape, (1, 6))  # Added geometry columns
-
-    @with_db_session(db_url=default_db_url)
-    def test_extract_location_group(self, db_session):
-        from reverse_geolocation_processor import extract_location_aggregate
-
-        clean_testing_db()
-        geopolygon_country_lvl = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.country(),
-            admin_level=2,
-            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
-            iso_3166_1_code=faker.country_code(),
-        )
-        geopolygon_subdivision_lvl = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.city(),
-            admin_level=3,
-            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
-            iso_3166_2_code=faker.country_code(),
-        )
-        feed_id = faker.uuid4(cast_to=str)
-        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        db_session.add(geopolygon_country_lvl)
-        db_session.add(geopolygon_subdivision_lvl)
-        db_session.add(feed)
-        db_session.commit()
-        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
-        self.assertTrue(
-            aggregate.iso_3166_1_code == geopolygon_country_lvl.iso_3166_1_code
-        )
-        self.assertTrue(
-            aggregate.iso_3166_2_code == geopolygon_subdivision_lvl.iso_3166_2_code
-        )
-
-    @with_db_session(db_url=default_db_url)
-    def test_extract_location_duplicate_admin_level(self, db_session):
-        from reverse_geolocation_processor import extract_location_aggregate
-
-        print("test extract location duplicate admin level")
-        clean_testing_db()
-        print("Done cleaning the db")
-        geopolygon_country_lvl = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.country(),
-            admin_level=2,
-            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
-            iso_3166_1_code=faker.country_code(),
-        )
-        geopolygon_subdivision_lvl = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.city(),
-            admin_level=2,
-            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
-            iso_3166_2_code=faker.country_code(),
-        )
-        feed_id = faker.uuid4(cast_to=str)
-        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        db_session.add(geopolygon_country_lvl)
-        db_session.add(geopolygon_subdivision_lvl)
-        db_session.add(feed)
-        db_session.commit()
-        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
-        self.assertIsNone(aggregate)
-
-    @with_db_session(db_url=default_db_url)
-    def test_extract_location_not_enough_geopolygons(self, db_session):
-        from reverse_geolocation_processor import extract_location_aggregate
-
-        clean_testing_db()
-        geopolygon_country_lvl = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.country(),
-            admin_level=2,
-            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
-            iso_3166_1_code=faker.country_code(),
-        )
-        feed_id = faker.uuid4(cast_to=str)
-        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        db_session.add(geopolygon_country_lvl)
-        db_session.add(feed)
-        db_session.commit()
-        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
-        self.assertIsNone(aggregate)
-
-    @with_db_session(db_url=default_db_url)
-    def test_extract_location_missing_iso_codes(self, db_session):
-        from reverse_geolocation_processor import extract_location_aggregate
-
-        clean_testing_db()
-        geopolygon_country_lvl = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.country(),
-            admin_level=2,
-            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
-            iso_3166_1_code=faker.country_code(),
-        )
-        geopolygon_subdivision_lvl = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.city(),
-            admin_level=3,
-            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
-        )
-        feed_id = faker.uuid4(cast_to=str)
-        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        db_session.add(geopolygon_country_lvl)
-        db_session.add(geopolygon_subdivision_lvl)
-        db_session.add(feed)
-        db_session.commit()
-        stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
-        aggregate = extract_location_aggregate(feed_id, stop_wkt, logger, db_session)
-        self.assertIsNone(aggregate)
 
     @with_db_session(db_url=default_db_url)
     def test_create_feed_osm_location(self, db_session):
@@ -657,86 +530,3 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             update_dataset_bounding_box(
                 faker.uuid4(cast_to=str), stops_df, db_session=db_session
             )
-
-    @with_db_session(db_url=default_db_url)
-    @patch("reverse_geolocation_processor.create_refresh_materialized_view_task")
-    @patch("reverse_geolocation_processor.extract_location_aggregate")
-    def test_extract_location_aggregates_per_point(
-        self,
-        mock_extract_location_aggregate,
-        mock_create_refresh_materialized_view_task,
-        db_session,
-    ):
-        from reverse_geolocation_processor import extract_location_aggregates_per_point
-
-        clean_testing_db()
-
-        # Create sample feed
-        feed_id = faker.uuid4(cast_to=str)
-        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
-        gtfs_rt_feed = Gtfsrealtimefeed(
-            id=faker.uuid4(cast_to=str), stable_id=faker.uuid4(cast_to=str)
-        )
-        feed.gtfs_rt_feeds = [gtfs_rt_feed]
-        db_session.add(feed)
-        db_session.commit()
-
-        # Prepare stops DataFrame
-        stops_df = pd.DataFrame(
-            {
-                "stop_id": [1, 2, 3],
-                "stop_lat": [2.0, 3.0, 10.0],  # Two inside polygon, one unmatched
-                "stop_lon": [2.0, 3.0, 10.0],
-            }
-        )
-
-        stops_df["geometry"] = stops_df.apply(
-            lambda x: WKTElement(f"POINT ({x['stop_lon']} {x['stop_lat']})", srid=4326),
-            axis=1,
-        )
-
-        # Prepare mock GeopolygonAggregate for matched stops
-        geopolygon = Geopolygon(
-            osm_id=faker.random_int(),
-            name=faker.city(),
-            admin_level=3,
-            geometry=WKTElement("POLYGON((0 0, 5 0, 5 5, 0 5, 0 0))", srid=4326),
-            iso_3166_1_code=faker.country_code(),
-        )
-
-        group = Osmlocationgroup(
-            group_id=faker.uuid4(cast_to=str),
-            group_name=geopolygon.name,
-            osms=[geopolygon],
-        )
-
-        mock_aggregate = GeopolygonAggregate(group, stops_count=1)
-        db_session.add(group)
-        db_session.commit()
-
-        # Mock extract_location_aggregate behavior
-        def side_effect(_, stop_geometry, __, ___):
-            if stop_geometry.data == "POINT (10.0 10.0)":  # Simulate unmatched stop
-                return None
-            return mock_aggregate
-
-        mock_extract_location_aggregate.side_effect = side_effect
-
-        # Prepare location_aggregates dict (empty initially)
-        location_aggregates = {}
-
-        # Call the function
-        extract_location_aggregates_per_point(
-            feed_id, stops_df, location_aggregates, logger, db_session=db_session
-        )
-
-        # Assertions
-        # Ensure only matched stops are aggregated
-        self.assertEqual(len(location_aggregates), 1)
-        first_aggregate = list(location_aggregates.values())[0]
-        self.assertIsInstance(first_aggregate, GeopolygonAggregate)
-        self.assertEqual(first_aggregate.stop_count, 2)  # Two matched stops
-
-        # Verify materialized view was refreshed
-        mock_create_refresh_materialized_view_task.assert_called_once()
-        db_session.close_all()

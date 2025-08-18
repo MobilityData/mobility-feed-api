@@ -211,9 +211,7 @@ if __name__ == "__main__":
     from gcp_storage_emulator.server import create_server
     from flask import Flask, Request
 
-    strategy = (
-        ReverseGeocodingStrategy.PER_POINT
-    )  # or ReverseGeocodingStrategy.PER_POINT
+    strategy = ReverseGeocodingStrategy.PER_POLYGON
 
     feed_dict = feeds[4]
     feed_stable_id = feed_dict["stable_id"]
