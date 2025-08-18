@@ -24,30 +24,37 @@ BUCKET_NAME = "verifier"
 
 feeds = [
     {
-        # 1539 stops, NZ
+        # 1539 stops, NZ, 1 location
         "stable_id": "local-test-gbfs-flamingo_auckland",
         "station_information_url": "https://data.rideflamingo.com/gbfs/3/auckland/station_information.json",
         "vehicle_status_url": "https://data.rideflamingo.com/gbfs/3/auckland/vehicle_status.json",
         "data_type": "gbfs",
     },
     {
-        # 11777 stops, JP
+        # 11777 stops, JP, 241 locations
         "stable_id": "local-test-gbfs-hellocycling",
         "station_information_url": "https://api-public.odpt.org/api/v4/gbfs/hellocycling/station_information.json",
         "data_type": "gbfs",
     },
     {
-        # 308611, UK aggregated
+        # 308611, UK aggregated, 225 locations
         "stable_id": "local-test-2014",
         "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-2014/"
         "mdb-2014-202508120303/extracted/stops.txt",
         "data_type": "gtfs",
     },
     {
-        # 663 stops, Europe
+        # 663 stops, Europe, 324 locations
         "stable_id": "local-test-1139",
         "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1139/"
         "mdb-1139-202406071559/stops.txt",
+        "data_type": "gtfs",
+    },
+    {
+        # 10985 stops, Spain, duplicate key error(https://github.com/MobilityData/mobility-feed-api/issues/1289)
+        "stable_id": "local-test-gtfs-mdb-2825",
+        "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-2825/"
+        "mdb-2825-202508181628/extracted/stops.txt",
         "data_type": "gtfs",
     },
 ]
@@ -204,9 +211,11 @@ if __name__ == "__main__":
     from gcp_storage_emulator.server import create_server
     from flask import Flask, Request
 
-    strategy = ReverseGeocodingStrategy.PER_POINT
+    strategy = (
+        ReverseGeocodingStrategy.PER_POINT
+    )  # or ReverseGeocodingStrategy.PER_POINT
 
-    feed_dict = feeds[1]
+    feed_dict = feeds[4]
     feed_stable_id = feed_dict["stable_id"]
     # create test data in the database if does not exist
     create_test_data(feed_stable_id=feed_stable_id, feed_dict=feed_dict)
@@ -225,7 +234,7 @@ if __name__ == "__main__":
         "stops_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/stops.txt",
         "strategy": str(strategy.value),
         "data_type": feed_dict["data_type"],
-        # "use_cache": True,
+        "use_cache": False,
         "public": False,
     }
 

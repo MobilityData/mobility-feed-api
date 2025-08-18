@@ -359,27 +359,28 @@ def reverse_geolocation(
         feed=feed, stops_df=stops_df, logger=logger, use_cache=use_cache
     )
     logger.info("Number of location groups cached: %s", len(cache_location_groups))
-    # Extract Location Groups
-    match strategy:
-        case ReverseGeocodingStrategy.PER_POINT:
-            extract_location_aggregates_per_point(
-                feed=feed,
-                stops_df=unmatched_stops_df,
-                location_aggregates=cache_location_groups,
-                use_cache=use_cache,
-                logger=logger,
-            )
-        case ReverseGeocodingStrategy.PER_POLYGON:
-            extract_location_aggregates_per_polygon(
-                feed=feed,
-                stops_df=unmatched_stops_df,
-                location_aggregates=cache_location_groups,
-                use_cache=use_cache,
-                logger=logger,
-            )
-        case _:
-            logger.error("Invalid strategy: %s", strategy)
-            return f"Invalid strategy: {strategy}", ERROR_STATUS_CODE
+    if len(unmatched_stops_df) > 0:
+        # Extract Location Groups
+        match strategy:
+            case ReverseGeocodingStrategy.PER_POINT:
+                extract_location_aggregates_per_point(
+                    feed=feed,
+                    stops_df=unmatched_stops_df,
+                    location_aggregates=cache_location_groups,
+                    use_cache=use_cache,
+                    logger=logger,
+                )
+            case ReverseGeocodingStrategy.PER_POLYGON:
+                extract_location_aggregates_per_polygon(
+                    feed=feed,
+                    stops_df=unmatched_stops_df,
+                    location_aggregates=cache_location_groups,
+                    use_cache=use_cache,
+                    logger=logger,
+                )
+            case _:
+                logger.error("Invalid strategy: %s", strategy)
+                return f"Invalid strategy: {strategy}", ERROR_STATUS_CODE
 
     update_feed_location(
         cache_location_groups=cache_location_groups,
@@ -406,10 +407,15 @@ def update_feed_location(
     feed.feedosmlocationgroups.clear()
     feed.feedosmlocationgroups.extend(osm_location_groups)
     feed_locations = []
+    # The location_ids set is used to avoid duplicates when creating locations.
+    # Fixes: https://github.com/MobilityData/mobility-feed-api/issues/1289
+    location_ids = set()
     for location_aggregate in cache_location_groups.values():
         location = get_or_create_location(location_aggregate, logger, db_session)
         if location:
-            feed_locations.append(location)
+            if location.id not in location_ids:
+                feed_locations.append(location)
+            location_ids.add(location.id)
     if feed.data_type == "gtfs":
         gtfs_feed = db_session.query(Gtfsfeed).filter(Feed.id == feed.id).one_or_none()
         for gtfs_rt_feed in gtfs_feed.gtfs_rt_feeds:
