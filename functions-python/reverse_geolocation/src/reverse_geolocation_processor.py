@@ -363,11 +363,19 @@ def reverse_geolocation(
     match strategy:
         case ReverseGeocodingStrategy.PER_POINT:
             extract_location_aggregates_per_point(
-                feed, unmatched_stops_df, cache_location_groups, logger
+                feed=feed,
+                stops_df=unmatched_stops_df,
+                location_aggregates=cache_location_groups,
+                use_cache=use_cache,
+                logger=logger,
             )
         case ReverseGeocodingStrategy.PER_POLYGON:
             extract_location_aggregates_per_polygon(
-                feed, unmatched_stops_df, cache_location_groups, logger
+                feed=feed,
+                stops_df=unmatched_stops_df,
+                location_aggregates=cache_location_groups,
+                use_cache=use_cache,
+                logger=logger,
             )
         case _:
             logger.error("Invalid strategy: %s", strategy)

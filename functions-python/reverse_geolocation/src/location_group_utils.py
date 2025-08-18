@@ -13,6 +13,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feedosmlocationgroup,
     Location,
     Feed,
+    Feedlocationgrouppoint,
 )
 from shared.helpers.locations import get_geopolygons_covers
 
@@ -39,6 +40,7 @@ class GeopolygonAggregate:
     """
 
     def __init__(self, location_group: Osmlocationgroup, stops_count: int):
+        self.location_group = location_group
         self.group_id = location_group.group_id
         self.group_name = location_group.group_name
         self.geopolygons = [
@@ -143,7 +145,7 @@ def geopolygons_as_string(geopolygons: List[Geopolygon]) -> str:
 
 
 def extract_location_aggregate(
-    feed: Feed, stop_point: WKTElement, logger: Logger, db_session: Session
+    stop_point: WKTElement, logger: Logger, db_session: Session
 ) -> Optional[GeopolygonAggregate]:
     """
     Extract the location group for a given stop point.
@@ -156,7 +158,6 @@ def extract_location_aggregate(
         )
         return None
     return extract_location_aggregate_geopolygons(
-        feed=feed,
         stop_point=stop_point,
         geopolygons=geopolygons,
         logger=logger,
@@ -165,7 +166,7 @@ def extract_location_aggregate(
 
 
 def extract_location_aggregate_geopolygons(
-    feed: Feed, stop_point: WKTElement, geopolygons, logger, db_session: Session
+    stop_point: WKTElement, geopolygons, logger, db_session: Session
 ) -> Optional[GeopolygonAggregate]:
     admin_levels = {g.admin_level for g in geopolygons}
     if len(admin_levels) != len(geopolygons):
@@ -203,37 +204,49 @@ def extract_location_aggregate_geopolygons(
         )
         db_session.add(group)
         db_session.flush()
-    # TODO: Review the connection with stops
-    # db_session.flush()
-    # stop = (
-    #     db_session.query(Feedlocationgrouppoint)
-    #     .filter(
-    #         Feedlocationgrouppoint.feed_id == feed_id,
-    #         Feedlocationgrouppoint.geometry == stop_point,
-    #     )
-    #     .one_or_none()
-    # )
-    # if not stop:
-    #     stop = Feedlocationgrouppoint(
-    #         feed_id=feed_id,
-    #         geometry=stop_point,
-    #     )
-    #     stop.group = group
-    #     db_session.add(stop)
-    # else:
-    #     if stop.group_id != group.group_id:
-    #         logger.info(
-    #             "Updating stop point %s from group %s to %s",
-    #             stop_point,
-    #             stop.group_id,
-    #             group.group_id,
-    #         )
-    #         stop.group = group
-    # db_session.flush()  # Ensure the group and stop entity is in sync with the DB
     logger.debug(
         "Point %s matched to %s", stop_point, ", ".join([g.name for g in geopolygons])
     )
     return GeopolygonAggregate(group, 1)
+
+
+def create_or_update_stop_group(
+    feed: Feed,
+    stop_point: WKTElement,
+    group: Osmlocationgroup,
+    logger: Logger,
+    db_session: Session,
+):
+    """
+    Create or update the stop group for a given stop point.
+    This function ensures that each stop point is associated with the correct location group.
+    At the end of the function, the group and stop entities are flushed to ensure they are in sync with the database.
+    """
+    stop = (
+        db_session.query(Feedlocationgrouppoint)
+        .filter(
+            Feedlocationgrouppoint.feed_id == feed.id,
+            Feedlocationgrouppoint.geometry == stop_point,
+        )
+        .one_or_none()
+    )
+    if not stop:
+        stop = Feedlocationgrouppoint(
+            feed_id=feed.id,
+            geometry=stop_point,
+        )
+        stop.group = group
+        db_session.add(stop)
+    else:
+        if stop.group_id != group.group_id:
+            logger.info(
+                "Updating stop point %s from group %s to %s",
+                stop_point,
+                stop.group_id,
+                group.group_id,
+            )
+            stop.group = group
+    db_session.flush()  # Ensure the group and stop entity is in sync with the DB
 
 
 def get_or_create_feed_osm_location_group(

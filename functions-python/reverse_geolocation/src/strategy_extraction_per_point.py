@@ -4,7 +4,11 @@ from typing import Dict
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from location_group_utils import GeopolygonAggregate, extract_location_aggregate
+from location_group_utils import (
+    GeopolygonAggregate,
+    extract_location_aggregate,
+    create_or_update_stop_group,
+)
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Feed
 from shared.helpers.runtime_metrics import track_metrics
@@ -16,6 +20,7 @@ def extract_location_aggregates_per_point(
     feed: Feed,
     stops_df: pd.DataFrame,
     location_aggregates: Dict[str, GeopolygonAggregate],
+    use_cache: bool,
     logger: logging.Logger,
     db_session: Session,
 ) -> None:
@@ -23,7 +28,9 @@ def extract_location_aggregates_per_point(
     location groups, keeping track of the stop count for each aggregate."""
     i = 0
     total_stop_count = len(stops_df)
-    batch_size = total_stop_count / 20  # Process 5% of the total stops in each batch
+    batch_size = int(
+        total_stop_count / 20
+    )  # Process 5% of the total stops in each batch
     for _, stop in stops_df.iterrows():
         if i % batch_size == 0:
             remaining_stops_count = total_stop_count - i
@@ -33,13 +40,20 @@ def extract_location_aggregates_per_point(
                 remaining_stops_count,
                 total_stop_count,
             )
-            # logger.info("Processing stop %s/%s", i, total_stop_count)
         i += 1
         location_aggregate = extract_location_aggregate(
-            feed, stop["geometry"], logger, db_session
+            stop["geometry"], logger, db_session
         )
         if not location_aggregate:
             continue
+        if use_cache:
+            create_or_update_stop_group(
+                feed,
+                stop["geometry"],
+                location_aggregate.location_group,
+                logger,
+                db_session,
+            )
 
         if location_aggregate.group_id in location_aggregates:
             location_aggregates[location_aggregate.group_id].merge(location_aggregate)

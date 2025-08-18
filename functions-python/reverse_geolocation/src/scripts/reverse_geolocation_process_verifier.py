@@ -24,23 +24,27 @@ BUCKET_NAME = "verifier"
 
 feeds = [
     {
+        # 1539 stops, NZ
         "stable_id": "local-test-gbfs-flamingo_auckland",
         "station_information_url": "https://data.rideflamingo.com/gbfs/3/auckland/station_information.json",
         "vehicle_status_url": "https://data.rideflamingo.com/gbfs/3/auckland/vehicle_status.json",
         "data_type": "gbfs",
     },
     {
+        # 11777 stops, JP
         "stable_id": "local-test-gbfs-hellocycling",
         "station_information_url": "https://api-public.odpt.org/api/v4/gbfs/hellocycling/station_information.json",
         "data_type": "gbfs",
     },
     {
+        # 308611, UK aggregated
         "stable_id": "local-test-2014",
         "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-2014/"
         "mdb-2014-202508120303/extracted/stops.txt",
         "data_type": "gtfs",
     },
     {
+        # 663 stops, Europe
         "stable_id": "local-test-1139",
         "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1139/"
         "mdb-1139-202406071559/stops.txt",
@@ -201,7 +205,8 @@ if __name__ == "__main__":
     from flask import Flask, Request
 
     strategy = ReverseGeocodingStrategy.PER_POINT
-    feed_dict = feeds[2]
+
+    feed_dict = feeds[1]
     feed_stable_id = feed_dict["stable_id"]
     # create test data in the database if does not exist
     create_test_data(feed_stable_id=feed_stable_id, feed_dict=feed_dict)
@@ -220,7 +225,7 @@ if __name__ == "__main__":
         "stops_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/stops.txt",
         "strategy": str(strategy.value),
         "data_type": feed_dict["data_type"],
-        "use_cache": False,
+        # "use_cache": True,
         "public": False,
     }
 

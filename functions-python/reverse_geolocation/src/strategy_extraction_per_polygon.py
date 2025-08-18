@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from location_group_utils import (
     GeopolygonAggregate,
     extract_location_aggregate_geopolygons,
+    create_or_update_stop_group,
 )
 
 from shared.database.database import with_db_session
@@ -23,13 +24,14 @@ from shared.helpers.runtime_metrics import track_metrics
 
 DEFAULT_LOCALITY_ADMIN_LEVEL = 7  # Default admin level for locality
 # TODO: Move this to a configuration service or a config file
+# TODO: review admin_level threshold per country/region
 COUNTRY_LOCALITY_ADMIN_LEVELS = json.loads(
-    os.getenv("COUNTRY_LOCALITY_ADMIN_LEVELS", '{"JP": 7, "NZ": 4}')
+    os.getenv("COUNTRY_LOCALITY_ADMIN_LEVELS", '{"JP": 7}')
 )
 
 
 # TODO: Move this to a configuration service or a config file
-def get_country_localy_admin_level(country_code: str) -> Dict[str, int]:
+def get_country_locality_admin_level(country_code: str) -> Dict[str, int]:
     """
     Get the country locality admin levels from the environment variable.
     If the variable is not set, return a default mapping.
@@ -45,6 +47,7 @@ def extract_location_aggregates_per_polygon(
     feed: Feed,
     stops_df: pd.DataFrame,
     location_aggregates: Dict[str, GeopolygonAggregate],
+    use_cache: bool,
     logger: logging.Logger,
     db_session: Session,
 ) -> None:
@@ -66,18 +69,14 @@ def extract_location_aggregates_per_polygon(
                 total_stop_count,
             )
             last_seen_count = len(remaining_stops_df)
+            #     Commit the changes to the database after processing the batch
+            db_session.commit()
 
         stop_point = remaining_stops_df.iloc[0][
             "geometry"
         ]  # GeoAlchemy WKT/WKB element or WKT string
 
         # Get all polygons containing this point (SQL, uses DB index on geopolygon.geometry)
-        # geopolygons = (
-        #     db_session.query(Geopolygon)
-        #     .filter(Geopolygon.geometry.ST_Contains(stop_point))
-        #     .all()
-        # )
-
         geopolygons = get_geopolygons_covers(stop_point, db_session)
 
         highest = select_highest_level_polygon(geopolygons)
@@ -87,9 +86,8 @@ def extract_location_aggregates_per_polygon(
             remaining_stops_df = remaining_stops_df.iloc[1:]
             continue
 
-        # TODO: review admin_level threshold per country/region
         country_code = get_country_code_from_polygons(geopolygons)
-        if highest.admin_level >= get_country_localy_admin_level(country_code):
+        if highest.admin_level >= get_country_locality_admin_level(country_code):
             # If admin_level >= locality_admin_level, we can filter points inside this polygon
             # Convert to Shapely geometry for spatial operations
             poly_shp = to_shapely(highest.geometry)
@@ -123,20 +121,29 @@ def extract_location_aggregates_per_polygon(
 
         # Process ONLY ONE representative point for this stop "cluster"
         rep_geom = stops_in_polygon.iloc[0]["geometry"]
-        agg = extract_location_aggregate_geopolygons(
-            feed=feed,
+        location_aggregate = extract_location_aggregate_geopolygons(
             stop_point=rep_geom,
             geopolygons=geopolygons,
             logger=logger,
             db_session=db_session,
         )
-        if not agg or agg.group_id in processed_groups:
+        if not location_aggregate or location_aggregate.group_id in processed_groups:
             continue
-        processed_groups.add(agg.group_id)
+        #     If the location cluster has more than one stop, we will create or update the stop group
+        if len(stops_in_polygon) >= 1:
+            location_aggregate.stop_count = len(stops_in_polygon)
+        if use_cache:
+            for _, stop in stops_in_polygon.iterrows():
+                # Create or update the stop group for each stop in the cluster
+                # This will also update the location_aggregate with the stop count
+                create_or_update_stop_group(
+                    feed, stop["geometry"], location_aggregate, logger, db_session
+                )
+        processed_groups.add(location_aggregate.group_id)
 
-        if agg.group_id in location_aggregates:
-            location_aggregates[agg.group_id].merge(agg)
+        if location_aggregate.group_id in location_aggregates:
+            location_aggregates[location_aggregate.group_id].merge(location_aggregate)
         else:
-            location_aggregates[agg.group_id] = agg
+            location_aggregates[location_aggregate.group_id] = location_aggregate
 
     logger.info("Completed processing all points")
