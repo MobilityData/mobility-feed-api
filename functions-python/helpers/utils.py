@@ -24,6 +24,7 @@ from google.cloud import storage
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib3.util.ssl_ import create_urllib3_context
+from pathlib import Path
 
 
 def create_bucket(bucket_name):
@@ -38,6 +39,28 @@ def create_bucket(bucket_name):
         logging.info(f"Bucket {bucket} created.")
     else:
         logging.info(f"Bucket {bucket_name} already exists.")
+
+
+def download_from_gcs(bucket_name: str, blob_path: str, local_path: str) -> str:
+    """
+    Download a file from GCS to a local path.
+
+    Args:
+        bucket_name: Name of the bucket (e.g. "my-bucket")
+        blob_path: Path to the file in the bucket (e.g. "folder1/file.txt")
+        local_path: Where to save locally (e.g. "/tmp/file.txt")
+
+    Returns:
+        The absolute path to the downloaded file.
+    """
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(blob_path)
+
+    Path(local_path).parent.mkdir(parents=True, exist_ok=True)  # Create parent directories if they don't exist
+    blob.download_to_filename(local_path)
+
+    return str(Path(local_path).resolve())
 
 
 def download_url_content(url, with_retry=False):

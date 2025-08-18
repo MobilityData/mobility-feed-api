@@ -2,7 +2,7 @@
   "name": "tasks_executor",
   "description": "The Tasks Executor function runs maintenance tasks avoiding the creation of multiple functions for one-time execution",
   "entry_point": "tasks_executor",
-  "timeout": 1000,
+  "timeout": 3600,
   "memory": "8Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],

@@ -207,7 +207,7 @@ class TestDatasetProcessor(unittest.TestCase):
                 test_hosted_public_url,
             )
             dataset_id = faker.Faker().uuid4()
-            result, _ = processor.upload_file_to_storage(
+            result, _ = processor.upload_files_to_storage(
                 source_file_path, dataset_id, extracted_file_path
             )
             self.assertEqual(result.public_url, public_url)
@@ -358,11 +358,11 @@ class TestDatasetProcessor(unittest.TestCase):
         )
 
         processor.upload_dataset = MagicMock(return_value=None)
-        processor.create_dataset = MagicMock()
+        processor.create_dataset_entities = MagicMock()
         result = processor.process()
 
         self.assertIsNone(result)
-        processor.create_dataset.assert_not_called()
+        processor.create_dataset_entities.assert_not_called()
 
     @patch("main.DatasetTraceService")
     @patch("main.DatasetProcessor")

@@ -1,5 +1,12 @@
 # Batch Datasets
 This directory contains the GCP serverless function that enqueue all active feeds to download datasets.
+The function accepts an option request body to limit the feeds to process, otherwise it processes all active feeds:
+```json
+{
+    "feed_stable_ids": ["feed_id_1", "feed_id_2"]
+}
+```
+
 The function publish one Pub/Sub message per active feed with the following format:
 ```json
     {
@@ -19,6 +26,7 @@ The function publish one Pub/Sub message per active feed with the following form
         }
     }
 ``` 
+# TODO - Update with current behavior
 
 # Function configuration
 The function is configured using the following environment variables:
