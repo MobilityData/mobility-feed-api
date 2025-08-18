@@ -36,7 +36,11 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
 from shared.helpers.logger import init_logger, get_logger
-from shared.helpers.utils import download_and_get_hash, get_hash_from_file, download_from_gcs
+from shared.helpers.utils import (
+    download_and_get_hash,
+    get_hash_from_file,
+    download_from_gcs,
+)
 
 init_logger()
 
@@ -66,7 +70,7 @@ class DatasetProcessor:
         authentication_type,
         api_key_parameter_name,
         public_hosted_datasets_url,
-        dataset_stable_id
+        dataset_stable_id=None,
     ):
         self.logger = get_logger(DatasetProcessor.__name__, feed_stable_id)
         self.producer_url = producer_url
@@ -138,7 +142,7 @@ class DatasetProcessor:
         dataset_stable_id,
         extracted_files_path,
         public=True,
-        skip_dataset_upload=False
+        skip_dataset_upload=False,
     ):
         """
         Uploads the dataset file and extracted files to GCP storage
@@ -164,7 +168,7 @@ class DatasetProcessor:
                 f"Extracted files path {extracted_files_path} does not exist."
             )
             return blob, extracted_files
-        self.logger.info('Processing extracted files from %s', extracted_files_path)
+        self.logger.info("Processing extracted files from %s", extracted_files_path)
         for file_name in os.listdir(extracted_files_path):
             file_path = os.path.join(extracted_files_path, file_name)
             if os.path.isfile(file_path):
@@ -225,7 +229,9 @@ class DatasetProcessor:
                 dataset_full_path = (
                     f"{self.feed_stable_id}/{dataset_stable_id}/{dataset_stable_id}.zip"
                 )
-                self.logger.info(f"Creating file {dataset_full_path} in bucket {self.bucket_name}")
+                self.logger.info(
+                    f"Creating file {dataset_full_path} in bucket {self.bucket_name}"
+                )
                 _, extracted_files = self.upload_files_to_storage(
                     temp_file_path,
                     dataset_stable_id,
@@ -254,7 +260,7 @@ class DatasetProcessor:
                 os.remove(temp_file_path)
         return None
 
-    def process2(self, public=True) -> DatasetFile or None:
+    def process_from_bucket_latest(self, public=True) -> DatasetFile or None:
         """
         Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
@@ -266,13 +272,15 @@ class DatasetProcessor:
             self.logger.info("Accessing URL %s", self.producer_url)
             temp_file_path = self.generate_temp_filename()
             blob_file_path = f"{self.feed_stable_id}/latest.zip"
-            download_from_gcs(os.getenv('DATASETS_BUCKET_NAME'), blob_file_path, temp_file_path)
+            download_from_gcs(
+                os.getenv("DATASETS_BUCKET_NAME"), blob_file_path, temp_file_path
+            )
 
             extracted_files_path = self.unzip_files(temp_file_path)
-            dataset_full_path = (
-                f"{self.feed_stable_id}/{self.dataset_stable_id}/{self.dataset_stable_id}.zip"
+            dataset_full_path = f"{self.feed_stable_id}/{self.dataset_stable_id}/{self.dataset_stable_id}.zip"
+            self.logger.info(
+                f"Creating file {dataset_full_path} in bucket {self.bucket_name}"
             )
-            self.logger.info(f"Creating file {dataset_full_path} in bucket {self.bucket_name}")
             _, extracted_files = self.upload_files_to_storage(
                 temp_file_path,
                 self.dataset_stable_id,
@@ -298,7 +306,6 @@ class DatasetProcessor:
                 os.remove(temp_file_path)
         return None
 
-
     def unzip_files(self, temp_file_path):
         extracted_files_path = os.path.join(temp_file_path.split(".")[0], "extracted")
         self.logger.info(f"Unzipping files to {extracted_files_path}")
@@ -321,7 +328,12 @@ class DatasetProcessor:
         return temporary_file_path
 
     @with_db_session
-    def create_dataset_entities(self, dataset_file: DatasetFile, db_session: Session, skip_dataset_creation=False):
+    def create_dataset_entities(
+        self,
+        dataset_file: DatasetFile,
+        db_session: Session,
+        skip_dataset_creation=False,
+    ):
         """
         Creates dataset entities in the database
         """
@@ -352,7 +364,9 @@ class DatasetProcessor:
                     downloaded_at=func.now(),
                     hosted_url=dataset_file.hosted_url,
                     gtfsfiles=(
-                        dataset_file.extracted_files if dataset_file.extracted_files else []
+                        dataset_file.extracted_files
+                        if dataset_file.extracted_files
+                        else []
                     ),
                     zipped_size_bytes=dataset_file.zipped_size,
                     unzipped_size_bytes=(
@@ -363,13 +377,15 @@ class DatasetProcessor:
                 )
                 db_session.add(dataset)
             elif skip_dataset_creation and latest_dataset:
-                latest_dataset.gtfsfiles = dataset_file.extracted_files if dataset_file.extracted_files else []
+                latest_dataset.gtfsfiles = (
+                    dataset_file.extracted_files if dataset_file.extracted_files else []
+                )
                 latest_dataset.zipped_size_bytes = dataset_file.zipped_size
                 latest_dataset.unzipped_size_bytes = (
-                        sum([ex.file_size_bytes for ex in dataset_file.extracted_files])
-                        if dataset_file.extracted_files
-                        else None
-                    )
+                    sum([ex.file_size_bytes for ex in dataset_file.extracted_files])
+                    if dataset_file.extracted_files
+                    else None
+                )
 
             if latest_dataset and not skip_dataset_creation:
                 latest_dataset.latest = False
@@ -381,7 +397,7 @@ class DatasetProcessor:
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
-    def process(self) -> DatasetFile or None:
+    def process_from_producer_url(self) -> DatasetFile or None:
         """
         Process the dataset and store new version in GCP bucket if any changes are detected
         :return: the file hash and the hosted url as a tuple or None if no upload is required
@@ -501,12 +517,12 @@ def process_dataset(cloud_event: CloudEvent):
             int(json_payload["authentication_type"]),
             json_payload["api_key_parameter_name"],
             public_hosted_datasets_url,
-            json_payload.get('dataset_stable_id')
+            json_payload.get("dataset_stable_id"),
         )
-        if json_payload.get("process_files_only", False):
-            dataset_file = processor.process2()
+        if json_payload.get("use_bucket_latest", False):
+            dataset_file = processor.process_from_bucket_latest()
         else:
-            dataset_file = processor.process()
+            dataset_file = processor.process_from_producer_url()
     except Exception as e:
         # This makes sure the logger is initialized
         logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")

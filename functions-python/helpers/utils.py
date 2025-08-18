@@ -57,7 +57,9 @@ def download_from_gcs(bucket_name: str, blob_path: str, local_path: str) -> str:
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
 
-    Path(local_path).parent.mkdir(parents=True, exist_ok=True)  # Create parent directories if they don't exist
+    Path(local_path).parent.mkdir(
+        parents=True, exist_ok=True
+    )  # Create parent directories if they don't exist
     blob.download_to_filename(local_path)
 
     return str(Path(local_path).resolve())

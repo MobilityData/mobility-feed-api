@@ -65,7 +65,9 @@ def publish(publisher: PublisherClient, topic_path: str, data_bytes: bytes) -> F
     return publisher.publish(topic_path, data=data_bytes)
 
 
-def get_non_deprecated_feeds(session: Session, feed_stable_ids: Optional[list[str]] = None):
+def get_non_deprecated_feeds(
+    session: Session, feed_stable_ids: Optional[list[str]] = None
+):
     """
     Returns a list of non deprecated feeds
     :return: list of feeds
@@ -117,7 +119,9 @@ def batch_datasets(request, db_session: Session):
         request_json = request.get_json()
         feed_stable_ids = request_json.get("feed_stable_ids") if request_json else None
     except Exception:
-        logging.info(f"No feed_stable_ids provided in the request, processing all feeds.")
+        logging.info(
+            "No feed_stable_ids provided in the request, processing all feeds."
+        )
 
     try:
         feeds = get_non_deprecated_feeds(db_session, feed_stable_ids=feed_stable_ids)
