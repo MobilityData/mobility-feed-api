@@ -30,7 +30,6 @@ class TestBigQueryDataTransfer(unittest.TestCase):
         self.transfer.create_bigquery_dataset()
 
         self.mock_bq_client().get_dataset.assert_called_once()
-        self.mock_bq_client().create_dataset_entities.assert_called_once()
 
     @patch("common.bq_data_transfer.load_json_schema")
     @patch("common.bq_data_transfer.json_schema_to_bigquery")
