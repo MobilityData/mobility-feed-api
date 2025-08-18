@@ -262,7 +262,6 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
       DB_REUSE_SESSION    = "True"
-      SOME_TMP_VARIABLE   = "Dummy"
       ENVIRONMENT         = var.environment
       PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
     }

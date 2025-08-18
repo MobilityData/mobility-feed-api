@@ -26,7 +26,6 @@ The function publish one Pub/Sub message per active feed with the following form
         }
     }
 ``` 
-# TODO - Update with current behavior
 
 # Function configuration
 The function is configured using the following environment variables:
