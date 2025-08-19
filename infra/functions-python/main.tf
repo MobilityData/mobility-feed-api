@@ -68,6 +68,9 @@ locals {
 
   function_tasks_executor_config = jsondecode(file("${path.module}/../../functions-python/tasks_executor/function_config.json"))
   function_tasks_executor_zip = "${path.module}/../../functions-python/tasks_executor/.dist/tasks_executor.zip"
+
+  function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
+  function_pmtiles_builder_zip = "${path.module}/../../functions-python/pmtiles_builder/.dist/pmtiles_builder.zip"
 }
 
 locals {
@@ -79,7 +82,8 @@ locals {
     local.function_backfill_dataset_service_date_range_config.secret_environment_variables,
     local.function_update_feed_status_config.secret_environment_variables,
     local.function_export_csv_config.secret_environment_variables,
-    local.function_tasks_executor_config.secret_environment_variables
+    local.function_tasks_executor_config.secret_environment_variables,
+    local.function_pmtiles_builder_config.secret_environment_variables
   )
 
   # Remove duplicates by key, keeping the first occurrence
@@ -234,6 +238,13 @@ resource "google_storage_bucket_object" "tasks_executor_zip" {
   bucket = google_storage_bucket.functions_bucket.name
   name   = "task-executor-${substr(filebase64sha256(local.function_tasks_executor_zip), 0, 10)}.zip"
   source = local.function_tasks_executor_zip
+}
+
+# 15. PMTiles Builder
+resource "google_storage_bucket_object" "pmtiles_builder_zip" {
+  bucket = google_storage_bucket.functions_bucket.name
+  name   = "pmtiles-${substr(filebase64sha256(local.function_pmtiles_builder_zip), 0, 10)}.zip"
+  source = local.function_pmtiles_builder_zip
 }
 
 # Secrets access
@@ -1257,6 +1268,55 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
   }
 }
 
+# 15. functions/pmtiles_builder cloud function
+resource "google_cloudfunctions2_function" "pmtiles_builder" {
+  name        = "${local.function_pmtiles_builder_config.name}"
+  project     = var.project_id
+  description = local.function_pmtiles_builder_config.description
+  location    = var.gcp_region
+  depends_on  = [google_secret_manager_secret_iam_member.secret_iam_member]
+
+  build_config {
+    runtime     = var.python_runtime
+    entry_point = "${local.function_pmtiles_builder_config.entry_point}"
+    source {
+      storage_source {
+        bucket = google_storage_bucket.functions_bucket.name
+        object = google_storage_bucket_object.pmtiles_builder_zip.name
+      }
+    }
+  }
+  service_config {
+    environment_variables = {
+      PROJECT_ID  = var.project_id
+      ENV = var.environment
+      PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+    }
+    available_memory                 = local.function_pmtiles_builder_config.memory
+    timeout_seconds                  = local.function_pmtiles_builder_config.timeout
+    available_cpu                    = local.function_pmtiles_builder_config.available_cpu
+    max_instance_request_concurrency = local.function_pmtiles_builder_config.max_instance_request_concurrency
+    max_instance_count               = local.function_pmtiles_builder_config.max_instance_count
+    min_instance_count               = local.function_pmtiles_builder_config.min_instance_count
+    service_account_email            = google_service_account.functions_service_account.email
+    ingress_settings                 = "ALLOW_ALL"
+    vpc_connector                    = data.google_vpc_access_connector.vpc_connector.id
+    vpc_connector_egress_settings    = "PRIVATE_RANGES_ONLY"
+
+    dynamic "secret_environment_variables" {
+      for_each = local.function_pmtiles_builder_config.secret_environment_variables
+      content {
+        key        = secret_environment_variables.value["key"]
+        project_id = var.project_id
+        secret     = lookup(secret_environment_variables.value, "secret", "${upper(var.environment)}_${secret_environment_variables.value["key"]}")
+        version    = "latest"
+      }
+    }
+  }
+}
+
 # Create the Pub/Sub topic used for publishing messages about rebuilding missing bounding boxes
 resource "google_pubsub_topic" "rebuild_missing_bounding_boxes" {
   name = "rebuild-bounding-boxes-topic"
@@ -1429,6 +1489,27 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
     max_doublings = 2
   }
 }
+
+# Task queue to invoke pmtiles_builder function
+resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "pmtiles-builder-task-queue"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~1 hour
+    max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
+}
+
 
 # Task queue to invoke gbfs_validator_batch function for the scheduler
 resource "google_cloudfunctions2_function_iam_member" "gbfs_validator_batch_invoker" {
