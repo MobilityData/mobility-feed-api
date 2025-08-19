@@ -3,7 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import { Box, Typography, useTheme } from '@mui/material';
 import {
   locationTypesMapping,
-  RouteTypeMetadata,
+  type RouteTypeMetadata,
   routeTypesMapping,
 } from '../constants/RouteTypes';
 
@@ -75,7 +75,7 @@ export const MapElement = (
       >
         {renderRouteTypeIcon(
           routeTypesMapping[element.routeType?.toString() || '0'],
-          element.routeTextColor ? ('#' + element.routeTextColor) : '#000000',
+          element.routeTextColor ? '#' + element.routeTextColor : '#000000',
         )}
 
         <Typography gutterBottom sx={{ color: 'inherit', fontSize: 14, m: 0 }}>

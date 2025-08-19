@@ -74,7 +74,7 @@ export const StyledListItem = styled('li')(({ theme }) => ({
   margin: '5px 0',
   fontWeight: 'normal',
   fontSize: '16px',
-}))
+}));
 
 export const ResponsiveListItem = styled(StyledListItem)(({ theme }) => ({
   [theme.breakpoints.up('lg')]: {

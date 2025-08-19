@@ -1,4 +1,4 @@
-import { styled, Typography } from "@mui/material";
+import { styled, Typography } from '@mui/material';
 
 export const SearchHeader = styled(Typography)(({ theme }) => ({
   '&.no-collapse': {

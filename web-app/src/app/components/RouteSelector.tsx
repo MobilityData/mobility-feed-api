@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 
 interface RouteSelectorProps {
-  routes: Array<any>; // Replace 'any' with a more specific type if available
+  routes: any[]; // Replace 'any' with a more specific type if available
   selectedRouteIds?: string[];
   onSelectionChange?: (selectedRoutes: string[]) => void;
 }
@@ -72,7 +72,7 @@ export default function RouteSelector({
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1}}>
+      <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1 }}>
         {filteredRoutes
           .sort((a, b) => a.routeId - b.routeId)
           .map((route) => (

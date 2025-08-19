@@ -1,6 +1,6 @@
 /* eslint-disable */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import Map, {
   type MapRef,
   MapProvider,
@@ -23,8 +23,15 @@ import {
 import { MapDataPopup } from './Map/MapDataPopup';
 import { useTheme as themeProvider } from '../context/ThemeProvider';
 
+interface LatestDatasetLite {
+  hosted_url?: string;
+  id?: string;
+  stable_id?: string;
+}
+
 export interface GtfsVisualizationMapProps {
   polygon: LatLngExpression[];
+  latestDataset?: LatestDatasetLite;
   filteredRoutes?: string[];
   filteredRouteTypes?: string[];
   hideStops?: boolean;
@@ -32,10 +39,45 @@ export interface GtfsVisualizationMapProps {
 
 export const GtfsVisualizationMap = ({
   polygon,
+  latestDataset,
   filteredRoutes = [],
   filteredRouteTypes = [],
   hideStops = false,
 }: GtfsVisualizationMapProps): JSX.Element => {
+
+    console.log('[GtfsVisualizationMap] mount', {
+        latestDatasetId: latestDataset?.id,
+        latestDatasetHostedUrl: latestDataset?.hosted_url,
+    });
+
+    const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(() => {
+    const baseUrl = latestDataset?.hosted_url ? latestDataset.hosted_url.replace(/[^/]+$/, '') : undefined;
+    console.log('[GtfsVisualizationMap] latestDataset URLs', {
+        hostedUrl: latestDataset?.hosted_url,
+        baseUrl,
+    });
+
+     const stops = `${baseUrl}/pmtiles/stops.pmtiles`;
+     const routes = `${baseUrl}/pmtiles/routes.pmtiles`;
+
+     return { stopsPmtilesUrl: stops, routesPmtilesUrl: routes };
+  }, [latestDataset?.id, latestDataset?.stable_id]);
+
+
+    useEffect(() => {
+      console.log('[GtfsVisualizationMap] PMTiles URLs', {
+        stopsPmtilesUrl,
+        routesPmtilesUrl,
+      });
+    }, [stopsPmtilesUrl, routesPmtilesUrl]);
+
+        // Log whenever the identifiers change
+  useEffect(() => {
+    console.log('[GtfsVisualizationMap] props update', {
+      latestDatasetId: latestDataset?.id,
+    });
+  }, [latestDataset?.id]);
+
   const theme = useTheme();
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
   const [hoverData, setHoverData] = useState<string>('');
@@ -311,12 +353,12 @@ export const GtfsVisualizationMap = ({
                 },
                 sample: {
                   type: 'vector',
-                  url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-v2.pmtiles', // Google Storage Bucket (CORS enabled)
+                    url: `pmtiles://${stopsPmtilesUrl}`, // dynamic stops
                   //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-bordeaux.pmtiles', // bordeaux
                 },
                 routes: {
                   type: 'vector',
-                  url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-v2.pmtiles', // (STM) Google Storage Bucket (CORS enabled)
+                url: `pmtiles://${routesPmtilesUrl}`, // dynamic routes
                   //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-bordeaux.pmtiles', // bordeaux
                 },
                 // boundingBox: {

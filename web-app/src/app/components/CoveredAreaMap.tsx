@@ -166,7 +166,10 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
           >
             <ZoomOutMapIcon></ZoomOutMapIcon>
           </Fab>
-          <GtfsVisualizationMap polygon={boundingBox ?? []} />
+          <GtfsVisualizationMap
+            polygon={boundingBox ?? []}
+            latestDataset={latestDataset}
+          />
         </>
       );
     }
