@@ -6,19 +6,23 @@ from unittest.mock import patch, MagicMock
 import pandas as pd
 import shapely
 from faker import Faker
+from flask import Request
 from geoalchemy2 import WKTElement
+from sqlalchemy.orm import Session
 
-from location_group_utils import GeopolygonAggregate
+from location_group_utils import GeopolygonAggregate, ERROR_STATUS_CODE
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Gtfsdataset,
+    Gtfsrealtimefeed,
 )
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Feedlocationgrouppoint,
     Osmlocationgroup,
 )
+from shared.helpers.locations import ReverseGeocodingStrategy
 from test_shared.test_utils.database_utils import (
     default_db_url,
     clean_testing_db,
@@ -397,3 +401,321 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             update_dataset_bounding_box(
                 faker.uuid4(cast_to=str), stops_df, db_session=db_session
             )
+
+    @patch("reverse_geolocation_processor.parse_request_parameters")
+    @patch("reverse_geolocation_processor.update_dataset_bounding_box")
+    @patch("reverse_geolocation_processor.reverse_geolocation")
+    @patch("reverse_geolocation_processor.create_geojson_aggregate")
+    def test_valid_request(
+        self,
+        mock_create_geojson_aggregate,
+        mock_reverse_geolocation,
+        mock_update_bounding_box,
+        mock_parse_request_parameters,
+    ):
+        from reverse_geolocation_processor import reverse_geolocation_process
+
+        # Mocking the parsed request parameters
+        mock_parse_request_parameters.return_value = (
+            pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+            "test_stable_id",
+            "test_dataset_id",
+            "gtfs",
+            ["test_url"],
+            True,
+            "per-point",
+            False,
+        )
+        mock_update_bounding_box.return_value = MagicMock()
+        mock_reverse_geolocation.return_value = {"group_id": MagicMock()}
+
+        # Mocking a Flask request
+        request = MagicMock(spec=Request)
+
+        # Call the function
+        response, status_code = reverse_geolocation_process(request)
+
+        # Assertions
+        self.assertEqual(status_code, 200)
+        self.assertIn("Processed 1 stops", response)
+        mock_parse_request_parameters.assert_called_once()
+        mock_update_bounding_box.assert_called_once()
+        mock_reverse_geolocation.assert_called_once()
+        mock_create_geojson_aggregate.assert_called_once()
+
+    @patch("reverse_geolocation_processor.parse_request_parameters")
+    def test_invalid_request(self, mock_parse_request_parameters):
+        from reverse_geolocation_processor import reverse_geolocation_process
+
+        # Mocking parse_request_parameters to raise a ValueError
+        mock_parse_request_parameters.side_effect = ValueError("Invalid request")
+
+        # Mocking a Flask request
+        request = MagicMock(spec=Request)
+
+        # Call the function
+        response, status_code = reverse_geolocation_process(request)
+
+        # Assertions
+        self.assertEqual(status_code, ERROR_STATUS_CODE)
+        self.assertEqual(response, "Invalid request")
+        mock_parse_request_parameters.assert_called_once()
+
+    @patch("reverse_geolocation_processor.parse_request_parameters")
+    @patch("reverse_geolocation_processor.update_dataset_bounding_box")
+    @patch("reverse_geolocation_processor.reverse_geolocation")
+    def test_exception_handling(
+        self,
+        mock_reverse_geolocation,
+        mock_update_bounding_box,
+        mock_parse_request_parameters,
+    ):
+        from reverse_geolocation_processor import reverse_geolocation_process
+
+        # Mocking the parsed request parameters
+        mock_parse_request_parameters.return_value = (
+            pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+            "test_stable_id",
+            "test_dataset_id",
+            "gtfs",
+            ["test_url"],
+            True,
+            "per-point",
+            False,
+        )
+        mock_update_bounding_box.side_effect = Exception("Unexpected error")
+
+        # Mocking a Flask request
+        request = MagicMock(spec=Request)
+
+        # Call the function
+        response, status_code = reverse_geolocation_process(request)
+
+        # Assertions
+        self.assertEqual(status_code, ERROR_STATUS_CODE)
+        self.assertIn("Unexpected error", response)
+        mock_parse_request_parameters.assert_called_once()
+        mock_update_bounding_box.assert_called_once()
+        mock_reverse_geolocation.assert_not_called()
+
+    @patch("reverse_geolocation_processor.parse_request_parameters")
+    def test_valid_request_empty_stops(
+        self,
+        mock_parse_request_parameters,
+    ):
+        from reverse_geolocation_processor import reverse_geolocation_process
+
+        # Mocking the parsed request parameters
+        mock_parse_request_parameters.return_value = (
+            pd.DataFrame({"stop_lat": [], "stop_lon": []}),
+            "test_stable_id",
+            "test_dataset_id",
+            "gtfs",
+            ["test_url"],
+            True,
+            "per-point",
+            False,
+        )
+
+        # Mocking a Flask request
+        request = MagicMock(spec=Request)
+
+        # Call the function
+        response, status_code = reverse_geolocation_process(request)
+
+        # Assertions
+        self.assertEqual(status_code, ERROR_STATUS_CODE)
+        self.assertIn("No stops found in the feed", response)
+        mock_parse_request_parameters.assert_called_once()
+
+    @patch("reverse_geolocation_processor.get_geopolygons_with_geometry")
+    @patch("reverse_geolocation_processor.extract_location_aggregates_per_point")
+    @patch("reverse_geolocation_processor.update_feed_location")
+    @patch("reverse_geolocation_processor.load_feed")
+    def test_valid_per_point_strategy(
+        self,
+        mock_load_feed,
+        mock_update_feed_location,
+        mock_extract_per_point,
+        mock_get_geopolygons,
+    ):
+        from reverse_geolocation_processor import reverse_geolocation
+
+        # Mock feed and database session
+        mock_feed_instance = MagicMock()
+        mock_load_feed.return_value = mock_feed_instance
+
+        # Mock geopolygons
+        mock_get_geopolygons.return_value = (
+            {},
+            pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+        )
+
+        # Call the function
+        result = reverse_geolocation(
+            strategy=ReverseGeocodingStrategy.PER_POINT,
+            stable_id="test_stable_id",
+            stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+            logger=MagicMock(),
+            use_cache=True,
+            db_session=MagicMock(spec=Session),
+        )
+
+        # Assertions
+        self.assertEqual(result, {})
+        mock_get_geopolygons.assert_called_once()
+        mock_extract_per_point.assert_called_once()
+        mock_update_feed_location.assert_called_once()
+
+    @patch("reverse_geolocation_processor.get_geopolygons_with_geometry")
+    @patch("reverse_geolocation_processor.update_feed_location")
+    @patch("reverse_geolocation_processor.load_feed")
+    @patch("reverse_geolocation_processor.extract_location_aggregates_per_polygon")
+    def test_valid_per_polygon_strategy(
+        self,
+        mock_extract_per_polygon,
+        mock_load_feed,
+        mock_update_feed_location,
+        mock_get_geopolygons,
+    ):
+        from reverse_geolocation_processor import reverse_geolocation
+
+        # Mock feed and database session
+        mock_feed_instance = MagicMock()
+        mock_load_feed.query.return_value = mock_feed_instance
+
+        # Mock geopolygons
+        mock_get_geopolygons.return_value = (
+            {},
+            pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+        )
+        mock_extract_per_polygon.return_value = ()
+        # Call the function
+        result = reverse_geolocation(
+            strategy=ReverseGeocodingStrategy.PER_POLYGON,
+            stable_id="test_stable_id",
+            stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+            logger=MagicMock(),
+            use_cache=True,
+            db_session=MagicMock(spec=Session),
+        )
+
+        # Assertions
+        self.assertEqual(result, {})
+        mock_get_geopolygons.assert_called_once()
+        mock_update_feed_location.assert_called_once()
+        mock_extract_per_polygon.assert_called_once()
+
+    @with_db_session
+    def test_invalid_strategy(
+        self,
+        db_session: Session,
+    ):
+        from reverse_geolocation_processor import reverse_geolocation
+
+        clean_testing_db()
+        feed = Gtfsfeed(
+            id="test_feed",
+            stable_id="test_feed",
+            status="active",
+            gtfsdatasets=[],
+            locations=[],
+        )
+        db_session.add(feed)
+        db_session.commit()
+
+        # Call the function
+        result = reverse_geolocation(
+            strategy="invalid_strategy",
+            stable_id="test_feed",
+            stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+            logger=MagicMock(),
+            use_cache=True,
+            db_session=db_session,
+        )
+        db_session.commit()
+        # Assertions
+        self.assertEqual(
+            ("Invalid strategy: invalid_strategy", ERROR_STATUS_CODE), result
+        )
+        clean_testing_db()
+
+    @with_db_session
+    def test_load_feed_missing_feed(self, db_session):
+        from reverse_geolocation_processor import reverse_geolocation
+
+        # Call the function and expect a ValueError
+        with self.assertRaises(ValueError) as context:
+            reverse_geolocation(
+                strategy=ReverseGeocodingStrategy.PER_POINT,
+                stable_id="missing_stable_id",
+                stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+                logger=MagicMock(),
+                use_cache=True,
+                db_session=db_session,
+            )
+
+        self.assertIn("No feed found for stable ID", str(context.exception))
+
+    @with_db_session
+    def test_update_feed_location_success(self, db_session):
+        from reverse_geolocation_processor import update_feed_location
+
+        clean_testing_db()
+        feed = Gtfsfeed(
+            id="test_feed",
+            data_type="gtfs",
+            stable_id="test_feed",
+            status="active",
+            gtfsdatasets=[],
+            locations=[],
+            gtfs_rt_feeds=[
+                Gtfsrealtimefeed(
+                    id="test_rt_feed",
+                )
+            ],
+        )
+        group = Osmlocationgroup(
+            group_id="group_1",
+            group_name="group_name",
+            osms=[
+                Geopolygon(
+                    osm_id=1,
+                    admin_level=2,
+                    geometry=WKTElement(
+                        "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
+                    ),
+                    iso_3166_1_code="US",
+                    name="US",
+                ),
+                Geopolygon(
+                    osm_id=2,
+                    admin_level=4,
+                    geometry=WKTElement(
+                        "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
+                    ),
+                    iso_3166_2_code="US-CA",
+                    name="California",
+                ),
+            ],
+        )
+        db_session.add(feed)
+        db_session.add(group)
+        db_session.commit()
+
+        location_group = GeopolygonAggregate(group, stops_count=1)
+        cache_location_groups = {"group_1": location_group}
+
+        # Call the function
+        update_feed_location(
+            cache_location_groups=cache_location_groups,
+            feed=feed,
+            logger=logger,
+            db_session=db_session,
+        )
+
+        self.assertEqual(1, len(feed.locations))
+        self.assertEqual("US", feed.locations[0].country_code)
+        self.assertEqual(1, len(feed.gtfs_rt_feeds[0].locations))
+        self.assertEqual("US", feed.gtfs_rt_feeds[0].locations[0].country_code)
+        clean_testing_db()

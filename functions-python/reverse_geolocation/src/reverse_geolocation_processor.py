@@ -12,7 +12,6 @@ import shapely.geometry
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
 
-# from google.cloud import storage
 from shapely.geometry import mapping
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -284,9 +283,6 @@ def reverse_geolocation_process(
             stops_df["stop_lat"].notnull() & stops_df["stop_lon"].notnull()
         ]
         stops_df = stops_df.drop_duplicates(subset=["stop_lat", "stop_lon"])
-        if stops_df.empty:
-            logging.warning("All stops have null lat/lon values.")
-            return "All stops have null lat/lon values", ERROR_STATUS_CODE
         total_stops = len(stops_df)
     except ValueError as e:
         logging.error("Error parsing request parameters: %s", e)
@@ -355,15 +351,7 @@ def reverse_geolocation(
     """
     logger.info("Processing geopolygons with strategy: %s.", strategy)
 
-    feed = (
-        db_session.query(Feed)
-        .options(joinedload(Feed.feedlocationgrouppoints))
-        .filter(Feed.stable_id == stable_id)
-        .one_or_none()
-    )
-    if not feed:
-        logger.warning("No feed found for stable ID.")
-        raise ValueError(f"No feed found for stable ID {stable_id}.")
+    feed = load_feed(stable_id, logger, db_session)
 
     # Get Geopolygons with Geometry and cached location groups
     cache_location_groups, unmatched_stops_df = get_geopolygons_with_geometry(
@@ -400,6 +388,19 @@ def reverse_geolocation(
         db_session=db_session,
     )
     return cache_location_groups
+
+
+def load_feed(stable_id, logger, db_session):
+    feed = (
+        db_session.query(Feed)
+        .options(joinedload(Feed.feedlocationgrouppoints))
+        .filter(Feed.stable_id == stable_id)
+        .one_or_none()
+    )
+    if not feed:
+        logger.warning("No feed found for stable ID.")
+        raise ValueError(f"No feed found for stable ID {stable_id}.")
+    return feed
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
