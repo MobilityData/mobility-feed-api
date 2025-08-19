@@ -41,6 +41,7 @@ from shared.helpers.utils import (
     get_hash_from_file,
     download_from_gcs,
 )
+from pipeline_tasks import create_pipeline_tasks
 
 init_logger()
 
@@ -300,7 +301,8 @@ class DatasetProcessor:
                     else None
                 ),
             )
-            self.create_dataset_entities(dataset_file, skip_dataset_creation=True)
+            dataset = self.create_dataset_entities(dataset_file, skip_dataset_creation=True)
+            create_pipeline_tasks(dataset)
         finally:
             if temp_file_path and os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
@@ -352,6 +354,7 @@ class DatasetProcessor:
             self.logger.info(
                 f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
             )
+            dataset = None
             if not skip_dataset_creation:
                 dataset = Gtfsdataset(
                     id=str(uuid.uuid4()),
@@ -394,6 +397,7 @@ class DatasetProcessor:
             self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
             create_refresh_materialized_view_task()
+            return latest_dataset if skip_dataset_creation else dataset
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
@@ -407,7 +411,8 @@ class DatasetProcessor:
         if dataset_file is None:
             self.logger.info(f"[{self.feed_stable_id}] No database update required.")
             return None
-        self.create_dataset_entities(dataset_file)
+        dataset = self.create_dataset_entities(dataset_file)
+        create_pipeline_tasks(dataset)
         return dataset_file
 
 
