@@ -73,11 +73,9 @@ def extract_location_aggregates_per_polygon(
 
     total_stop_count = len(remaining_stops_df)
     last_seen_count = total_stop_count
-    batch_size = max(
-        int(total_stop_count / 20), total_stop_count
-    )  # Process 5% of the total stops in each batch
+    batch_size = max(int(total_stop_count / 20), 0)  # Process ~5% of the total stops in each batch
     while not remaining_stops_df.empty:
-        if (last_seen_count - len(remaining_stops_df)) >= batch_size:
+        if (last_seen_count - len(remaining_stops_df)) >= batch_size or len(remaining_stops_df) == total_stop_count:
             logger.info(
                 "Progress %.2f%% (%d/%d)",
                 100 - (len(remaining_stops_df) / total_stop_count) * 100,
@@ -91,7 +89,7 @@ def extract_location_aggregates_per_polygon(
         stop_point = remaining_stops_df.iloc[0][
             "geometry"
         ]  # GeoAlchemy WKT/WKB element or WKT string
-
+        stops_in_polygon = remaining_stops_df.iloc[[0]]
         # remove the first point from the remaining stops
         remaining_stops_df = remaining_stops_df.iloc[1:]
 
@@ -144,9 +142,7 @@ def extract_location_aggregates_per_polygon(
         )
         if not location_aggregate or location_aggregate.group_id in processed_groups:
             continue
-        #     If the location cluster has more than one stop, we will create or update the stop group
-        if len(stops_in_polygon) >= 1:
-            location_aggregate.stop_count = len(stops_in_polygon)
+        location_aggregate.stop_count = len(stops_in_polygon)
         if use_cache:
             for _, stop in stops_in_polygon.iterrows():
                 # Create or update the stop group for each stop in the cluster
