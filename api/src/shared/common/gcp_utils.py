@@ -39,7 +39,7 @@ def create_refresh_materialized_view_task():
         logging.debug("Queue name from env: %s", queue)
         gcp_region = os.getenv("GCP_REGION")
         environment_name = os.getenv("ENVIRONMENT")
-        url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
+        url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks_executor-{environment_name}"
 
         # Enqueue the task
         try:
