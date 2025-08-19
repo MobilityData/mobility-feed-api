@@ -41,6 +41,8 @@ locals {
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
   # 1day=86400, 7days=604800, 31days=2678400
   retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 604800
+
+  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -229,6 +231,20 @@ resource "google_project_iam_member" "datastore_owner" {
   member  = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
 
+# Grant the batch functions service account permission to enqueue Cloud Tasks
+resource "google_project_iam_member" "queue_enqueuer" {
+  project = var.project_id
+  role    = "roles/cloudtasks.enqueuer"
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
+# This permission is added to allow the function to act as the service account and generate tokens.
+resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
+  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 resource "google_pubsub_topic" "pubsub_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
@@ -264,6 +280,11 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       DB_REUSE_SESSION    = "True"
       ENVIRONMENT         = var.environment
       PUBLIC_HOSTED_DATASETS_URL = local.public_hosted_datasets_url
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables
@@ -285,6 +306,26 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
     event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
     pubsub_topic          = google_pubsub_topic.pubsub_topic.id
     retry_policy          = "RETRY_POLICY_RETRY"
+  }
+}
+
+# Task queue to invoke refresh_materialized_view 
+resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "refresh-materialized-view-task-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 0.5
+  }
+
+  retry_config {
+    # ~22 minutes total: 120 + 240 + 480 + 480 = 1320s (initial attempt + 4 retries)
+    max_attempts  = 5
+    min_backoff   = "120s"
+    max_backoff   = "480s"
+    max_doublings = 2
   }
 }
 

@@ -1,8 +1,15 @@
 import { utcToZonedTime } from 'date-fns-tz';
 import { intervalToDuration, isFuture } from 'date-fns';
 
-export const displayFormattedDate = (stringDate: string): string => {
+export const displayFormattedDate = (stringDate?: string): string => {
+  if (stringDate == null) {
+    return '';
+  }
   const date = new Date(stringDate);
+  // Check if the date is valid
+  if (isNaN(date.getTime())) {
+    return '';
+  }
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',

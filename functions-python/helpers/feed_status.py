@@ -1,12 +1,12 @@
 import logging
 from datetime import datetime, timezone
 from sqlalchemy import text
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, t_feedsearch
-from shared.database.database import refresh_materialized_view
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+from shared.common.gcp_utils import create_refresh_materialized_view_task
 
 
 #  query to update the status of the feeds based on the service date range of the latest dataset
@@ -74,14 +74,10 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
         raise Exception(f"Error updating feed statuses: {e}")
 
     try:
-        session.commit()
-        refresh_materialized_view(session, t_feedsearch.name)
+        create_refresh_materialized_view_task()
         logging.info("Feed Database changes for status committed.")
         logging.info("Status Changes: %s", diff_counts)
-        session.close()
         return diff_counts
     except Exception as e:
         logging.error("Error committing changes:", e)
-        session.rollback()
-        session.close()
         raise Exception(f"Error creating dataset: {e}")

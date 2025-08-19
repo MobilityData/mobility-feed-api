@@ -49,4 +49,10 @@ class LatestDatasetImpl(LatestDataset):
             agency_timezone=dataset.agency_timezone,
             hash=dataset.hash,
             validation_report=validation_report,
+            unzipped_folder_size_mb=round(dataset.unzipped_size_bytes / 1024**2, 2)
+            if dataset.unzipped_size_bytes
+            else None,
+            zipped_folder_size_mb=round(dataset.zipped_size_bytes / 1024**2, 2)
+            if dataset.zipped_size_bytes
+            else None,
         )

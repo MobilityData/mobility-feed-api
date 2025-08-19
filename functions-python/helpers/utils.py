@@ -16,6 +16,7 @@
 import hashlib
 import logging
 import os
+import ssl
 
 import requests
 import urllib3
@@ -78,6 +79,17 @@ def download_url_content(url, with_retry=False):
         raise e
 
 
+def get_hash_from_file(file_path, hash_algorithm="sha256", chunk_size=8192):
+    """
+    Returns the hash of a file
+    """
+    hash_object = hashlib.new(hash_algorithm)
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            hash_object.update(chunk)
+    return hash_object.hexdigest()
+
+
 def download_and_get_hash(
     url,
     file_path,
@@ -87,6 +99,7 @@ def download_and_get_hash(
     api_key_parameter_name=None,
     credentials=None,
     logger=None,
+    trusted_certs=False,  # If True, disables SSL verification
 ):
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
@@ -107,12 +120,19 @@ def download_and_get_hash(
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/126.0.0.0 Mobile Safari/537.36"
         }
+        # Careful, some URLs may already contain a query string
+        # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
         if authentication_type == 1 and api_key_parameter_name and credentials:
-            url += f"?{api_key_parameter_name}={credentials}"
+            separator = "&" if "?" in url else "?"
+            url += f"{separator}{api_key_parameter_name}={credentials}"
 
         # authentication_type == 2 -> the credentials are passed in the header
         if authentication_type == 2 and api_key_parameter_name and credentials:
             headers[api_key_parameter_name] = credentials
+
+        if trusted_certs:
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
 
         with urllib3.PoolManager(ssl_context=ctx) as http:
             with http.request(
@@ -148,20 +168,21 @@ def create_http_task(
     gcp_region: str,
     queue_name: str,
 ) -> None:
-    """Creates a GCP Cloud Task."""
+    from shared.common.gcp_utils import create_http_task_with_name
     from google.cloud import tasks_v2
+    from google.protobuf import timestamp_pb2
 
-    task = tasks_v2.Task(
-        http_request=tasks_v2.HttpRequest(
-            url=url,
-            http_method=tasks_v2.HttpMethod.POST,
-            oidc_token=tasks_v2.OidcToken(
-                service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL")
-            ),
-            body=body,
-            headers={"Content-Type": "application/json"},
-        )
-    )
-    client.create_task(
-        parent=client.queue_path(project_id, gcp_region, queue_name), task=task
+    proto_time = timestamp_pb2.Timestamp()
+    proto_time.GetCurrentTime()
+
+    create_http_task_with_name(
+        client=client,
+        body=body,
+        url=url,
+        project_id=project_id,
+        gcp_region=gcp_region,
+        queue_name=queue_name,
+        task_name=None,  # No specific task name provided
+        task_time=proto_time,
+        http_method=tasks_v2.HttpMethod.POST,
     )
