@@ -1,5 +1,6 @@
 import logging
 import unittest
+from unittest.mock import MagicMock
 
 import pytest
 from faker import Faker
@@ -11,6 +12,7 @@ from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Osmlocationgroup,
     Gtfsfeed,
+    Location,
 )
 from test_shared.test_utils.database_utils import default_db_url, clean_testing_db
 
@@ -197,6 +199,145 @@ class TestLocationGroupUtils(unittest.TestCase):
         stop_wkt = WKTElement("POINT (0.5 0.5)", srid=4326)
         aggregate = extract_location_aggregate(stop_wkt, logger, db_session)
         self.assertIsNone(aggregate)
+
+    @with_db_session(db_url=default_db_url)
+    def test_create_feed_osm_location(self, db_session):
+        from location_group_utils import get_or_create_feed_osm_location_group
+
+        clean_testing_db()
+        feed_id = faker.uuid4(cast_to=str)
+        feed = Gtfsfeed(id=feed_id, stable_id=faker.uuid4(cast_to=str))
+        db_session.add(feed)
+        db_session.commit()
+        stops_count = faker.random_int()
+        aggregate = GeopolygonAggregate(
+            Osmlocationgroup(
+                group_id=faker.uuid4(cast_to=str),
+                group_name=faker.country(),
+                osms=[
+                    Geopolygon(
+                        osm_id=faker.random_int(),
+                        admin_level=2,
+                        geometry=WKTElement(
+                            "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
+                        ),
+                        iso_3166_1_code=faker.country_code(),
+                    )
+                ],
+            ),
+            stops_count=stops_count,
+        )
+        feed_osm_location = get_or_create_feed_osm_location_group(
+            feed_id, aggregate, db_session
+        )
+        self.assertIsNotNone(feed_osm_location)
+        self.assertEqual(feed_osm_location.stops_count, stops_count)
+
+    @with_db_session(db_url=default_db_url)
+    def test_create_new_location(self, db_session):
+        from reverse_geolocation_processor import get_or_create_location
+
+        # Clean DB before test
+        clean_testing_db()
+
+        # Create sample Geopolygon and GeopolygonAggregate
+        geopolygon_country = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.city(),
+            admin_level=3,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_1_code=faker.country_code(),
+        )
+        geopolygon_subdivision = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.city(),
+            admin_level=3,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_2_code=faker.country_code(),
+        )
+
+        group = Osmlocationgroup(
+            group_id=faker.uuid4(cast_to=str),
+            group_name=f"{geopolygon_country.name}, {geopolygon_subdivision.name}",
+            osms=[geopolygon_country, geopolygon_subdivision],
+        )
+
+        location_aggregate = GeopolygonAggregate(group, stops_count=5)
+
+        # Call the function
+        location = get_or_create_location(location_aggregate, logger, db_session)
+
+        # Assert location is created
+        self.assertIsNotNone(location)
+        self.assertEqual(location.id, location_aggregate.location_id())
+        self.assertEqual(location.country_code, location_aggregate.iso_3166_1_code)
+        self.assertEqual(location.country, location_aggregate.country())
+        self.assertEqual(
+            location.subdivision_name, location_aggregate.subdivision_name()
+        )
+        self.assertEqual(location.municipality, location_aggregate.municipality())
+
+    @with_db_session(db_url=default_db_url)
+    def test_retrieve_existing_location(self, db_session):
+        from reverse_geolocation_processor import get_or_create_location
+
+        # Clean DB before test
+        clean_testing_db()
+
+        # Create sample Location
+        existing_location = Location(
+            id=faker.uuid4(cast_to=str),
+            country_code=faker.country_code(),
+            country=faker.country(),
+            subdivision_name=faker.state(),
+            municipality=faker.city(),
+        )
+
+        db_session.add(existing_location)
+        db_session.commit()
+
+        # Create GeopolygonAggregate with same location_id
+        geopolygon_country = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.city(),
+            admin_level=3,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_1_code=faker.country_code(),
+        )
+        geopolygon_subdivision = Geopolygon(
+            osm_id=faker.random_int(),
+            name=faker.city(),
+            admin_level=3,
+            geometry=WKTElement("POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326),
+            iso_3166_2_code=faker.country_code(),
+        )
+
+        group = Osmlocationgroup(
+            group_id=faker.uuid4(cast_to=str),
+            group_name=f"{geopolygon_country.name}, {geopolygon_subdivision.name}",
+            osms=[geopolygon_country, geopolygon_subdivision],
+        )
+
+        location_aggregate = GeopolygonAggregate(group, stops_count=5)
+        location_aggregate.location_id = (
+            lambda: existing_location.id
+        )  # Mocking location_id method
+
+        # Call the function
+        location = get_or_create_location(location_aggregate, logger, db_session)
+
+        # Assert the existing location was returned
+        self.assertIsNotNone(location)
+        self.assertEqual(location.id, existing_location.id)
+        self.assertEqual(location.country, existing_location.country)
+
+    def test_retrieve_location_exception(self):
+        from reverse_geolocation_processor import get_or_create_location
+
+        mock_session = MagicMock()
+        mock_session.query.side_effect = Exception("Test exception")
+        location = get_or_create_location(None, logger, mock_session)
+        self.assertIsNone(location)
 
 
 @pytest.mark.parametrize(

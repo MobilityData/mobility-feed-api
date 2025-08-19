@@ -11,7 +11,8 @@ import pandas as pd
 import shapely.geometry
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
-from google.cloud import storage
+
+# from google.cloud import storage
 from shapely.geometry import mapping
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -180,7 +181,7 @@ def create_geojson_aggregate(
             for osm_id in geo_polygon_count
         ],
     }
-    storage_client = storage.Client()
+    storage_client = get_storage_client()
     if data_type == "gtfs":
         bucket_name = os.getenv("DATASETS_BUCKET_NAME_GTFS")
     elif data_type == "gbfs":
@@ -193,6 +194,12 @@ def create_geojson_aggregate(
     if public:
         blob.make_public()
     logger.info("GeoJSON data saved to %s", blob.name)
+
+
+def get_storage_client():
+    from google.cloud import storage
+
+    return storage.Client()
 
 
 @with_db_session

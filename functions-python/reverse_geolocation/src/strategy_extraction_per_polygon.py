@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from functools import lru_cache
 from typing import Dict
 
 import pandas as pd
@@ -22,12 +23,23 @@ from shared.helpers.locations import (
 )
 from shared.helpers.runtime_metrics import track_metrics
 
-DEFAULT_LOCALITY_ADMIN_LEVEL = 7  # Default admin level for locality
+
 # TODO: Move this to a configuration service or a config file
 # TODO: review admin_level threshold per country/region
-COUNTRY_LOCALITY_ADMIN_LEVELS = json.loads(
-    os.getenv("COUNTRY_LOCALITY_ADMIN_LEVELS", '{"JP": 7}')
-)
+@lru_cache(maxsize=1)
+def get_country_locality_admin_levels() -> Dict[str, int]:
+    """
+    Lazily load and cache the country locality admin levels from the environment variable.
+    """
+    return json.loads(os.getenv("COUNTRY_LOCALITY_ADMIN_LEVELS", '{"JP": 7}'))
+
+
+@lru_cache(maxsize=1)
+def get_country_locality_admin_level_default() -> Dict[str, int]:
+    """
+    Lazily load and cache the country locality admin levels from the environment variable.
+    """
+    return os.getenv("COUNTRY_LOCALITY_ADMIN_LEVEL_DEFAULT", 7)
 
 
 # TODO: Move this to a configuration service or a config file
@@ -36,9 +48,11 @@ def get_country_locality_admin_level(country_code: str) -> Dict[str, int]:
     Get the country locality admin levels from the environment variable.
     If the variable is not set, return a default mapping.
     The default mapping is:
-        {"JP": 7, "NZ": 4}
+        {"JP": 7}
     """
-    return COUNTRY_LOCALITY_ADMIN_LEVELS.get(country_code, DEFAULT_LOCALITY_ADMIN_LEVEL)
+    return get_country_locality_admin_levels().get(
+        country_code, get_country_locality_admin_level_default()
+    )
 
 
 @with_db_session
