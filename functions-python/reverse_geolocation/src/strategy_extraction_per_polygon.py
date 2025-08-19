@@ -90,16 +90,18 @@ def extract_location_aggregates_per_polygon(
             "geometry"
         ]  # GeoAlchemy WKT/WKB element or WKT string
 
+        # remove the first point from the remaining stops
+        remaining_stops_df = remaining_stops_df.iloc[1:]
+
         # Get all polygons containing this point (SQL, uses DB index on geopolygon.geometry)
         geopolygons = get_geopolygons_covers(stop_point, db_session)
 
         highest = select_highest_level_polygon(geopolygons)
         if highest is None or highest.geometry is None:
             logger.warning("No geopolygons found for point: %s", stop_point)
-            # drop just this point and continue
-            remaining_stops_df = remaining_stops_df.iloc[1:]
             continue
 
+        rep_geom = highest.geometry
         country_code = get_country_code_from_polygons(geopolygons)
         if highest.admin_level >= get_country_locality_admin_level(country_code):
             # If admin_level >= locality_admin_level, we can filter points inside this polygon
@@ -130,11 +132,8 @@ def extract_location_aggregates_per_polygon(
                 highest.iso_3166_2_code,
                 highest.admin_level,
             )
-            stops_in_polygon = remaining_stops_df.iloc[[0]]
-            remaining_stops_df = remaining_stops_df.iloc[1:]
 
         # Process ONLY ONE representative point for this stop "cluster"
-        rep_geom = stops_in_polygon.iloc[0]["geometry"]
         location_aggregate = extract_location_aggregate_geopolygons(
             stop_point=rep_geom,
             geopolygons=geopolygons,

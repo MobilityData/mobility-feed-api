@@ -606,7 +606,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         mock_update_feed_location.assert_called_once()
         mock_extract_per_polygon.assert_called_once()
 
-    @with_db_session
+    @with_db_session(db_url=default_db_url)
     def test_invalid_strategy(
         self,
         db_session: Session,
@@ -640,7 +640,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         clean_testing_db()
 
-    @with_db_session
+    @with_db_session(db_url=default_db_url)
     def test_load_feed_missing_feed(self, db_session):
         from reverse_geolocation_processor import reverse_geolocation
 
@@ -657,7 +657,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         self.assertIn("No feed found for stable ID", str(context.exception))
 
-    @with_db_session
+    @with_db_session(db_url=default_db_url)
     def test_update_feed_location_success(self, db_session):
         from reverse_geolocation_processor import update_feed_location
 
@@ -685,8 +685,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                     geometry=WKTElement(
                         "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
                     ),
-                    iso_3166_1_code="US",
-                    name="US",
+                    iso_3166_1_code="CA",
+                    name="Canada",
                 ),
                 Geopolygon(
                     osm_id=2,
@@ -694,8 +694,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                     geometry=WKTElement(
                         "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
                     ),
-                    iso_3166_2_code="US-CA",
-                    name="California",
+                    iso_3166_2_code="CA-QC",
+                    name="Quebec",
                 ),
             ],
         )
@@ -715,7 +715,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
 
         self.assertEqual(1, len(feed.locations))
-        self.assertEqual("US", feed.locations[0].country_code)
+        self.assertEqual("CA", feed.locations[0].country_code)
         self.assertEqual(1, len(feed.gtfs_rt_feeds[0].locations))
-        self.assertEqual("US", feed.gtfs_rt_feeds[0].locations[0].country_code)
+        self.assertEqual("CA", feed.gtfs_rt_feeds[0].locations[0].country_code)
         clean_testing_db()
