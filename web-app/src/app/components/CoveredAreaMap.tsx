@@ -183,7 +183,6 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     );
   };
 
-  const mapDisplayError = boundingBox == undefined && geoJsonError;
   const latestAutodiscoveryUrl = getGbfsLatestVersionVisualizationUrl(
     feed as GBFSFeedType,
   );

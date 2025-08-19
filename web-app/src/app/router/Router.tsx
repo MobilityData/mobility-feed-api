@@ -102,7 +102,7 @@ export const AppRouter: React.FC = () => {
       />
       <Route path='feeds/:feedId' element={<Feed />} />
       <Route path='feeds/:feedDataType/:feedId' element={<Feed />} />
-      <Route path='feeds/:feedId/map' element={<FullMapView/>} />
+      <Route path='feeds/:feedId/map' element={<FullMapView />} />
       <Route path='feeds/:feedDataType/:feedId/map' element={<FullMapView />} />
       <Route path='contribute' element={<FeedSubmission />} />
       <Route path='contribute/submitted' element={<FeedSubmitted />} />

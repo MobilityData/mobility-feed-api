@@ -17,6 +17,7 @@ import { type LatLngExpression } from 'leaflet';
 import type { FeatureCollection } from 'geojson';
 import { Box, useTheme } from '@mui/material';
 import { MapElement, MapRouteElement, MapStopElement } from './MapElement';
+import type { MapElementType } from './MapElement';
 import {
   reversedRouteTypesMapping,
 } from '../constants/RouteTypes';
@@ -81,7 +82,7 @@ export const GtfsVisualizationMap = ({
   const theme = useTheme();
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
   const [hoverData, setHoverData] = useState<string>('');
-  const [mapElement, setMapElement] = useState<MapElement[]>([]);
+  const [mapElements, setMapElements] = useState<MapElementType[]>([]);
   const [mapClickRouteData, setMapClickRouteData] = useState<Record<
     string,
     string
@@ -98,7 +99,7 @@ export const GtfsVisualizationMap = ({
 
   // Create a map to store routeId to routeColor mapping
   const routeIdToColorMap: Record<string, string> = {};
-  mapElement.forEach((el) => {
+  mapElements.forEach((el) => {
     if (!el.isStop) {
       const routeElement: MapRouteElement = el as MapRouteElement;
       if (routeElement.routeId && routeElement.routeColor) {
@@ -179,7 +180,7 @@ export const GtfsVisualizationMap = ({
   const handleMouseMove = (event: maplibregl.MapLayerMouseEvent): void => {
     // Ensure that the mapRef is not null before trying to access the map
     const map = mapRef.current?.getMap();
-    const mapElements: MapElement[] = [];
+    const mapElements: MapElementType[] = [];
 
     if (map != undefined) {
       // Get the features under the mouse pointer
@@ -225,7 +226,7 @@ export const GtfsVisualizationMap = ({
             };
             mapElements.push(mapElement);
           } else {
-            const mapElement: MapElement = {
+            const mapElement: MapRouteElement = {
               isStop: false,
               name: feature.properties.route_long_name,
               routeType: feature.properties.route_type,
@@ -237,8 +238,7 @@ export const GtfsVisualizationMap = ({
           }
         });
 
-        setMapElement(mapElements);
-
+        setMapElements(mapElements);
         const elementIds: string[] = [];
         features.forEach((feature) => {
           if (feature.properties.route_id != undefined) {
@@ -251,7 +251,7 @@ export const GtfsVisualizationMap = ({
       } else {
         setHoverInfo([]);
         setHoverData('');
-        setMapElement([]);
+        setMapElements([]);
       }
     }
   };
@@ -320,7 +320,7 @@ export const GtfsVisualizationMap = ({
             borderRadius: '5px',
           }}
         >
-          <MapElement mapElements={mapElement}></MapElement>
+          <MapElement mapElements={mapElements}></MapElement>
           <Map
             onClick={(event) => {
               handleMouseClick(event);

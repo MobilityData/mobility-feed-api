@@ -19,7 +19,6 @@ import {
 } from '../Map.styles';
 import {
   selectBoundingBoxFromLatestDataset,
-  selectDatasetsLoadingStatus,
   selectLatestDatasetsData,
 } from '../../../store/selectors';
 import { useSelector } from 'react-redux';
@@ -29,7 +28,7 @@ import { useAppDispatch } from '../../../hooks';
 
 export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
-  const { feedId, feedDataType } = useParams();
+  const { feedId } = useParams();
   const theme = useTheme();
   const [filteredRoutes, setFilteredRoutes] = useState<string[]>([]);
   const [filteredRouteTypes, setFilteredRouteTypes] = useState<string[]>([]);
@@ -38,7 +37,6 @@ export default function FullMapView(): React.ReactElement {
     useState<boolean>(false);
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
-  const datasetLoadingStatus = useSelector(selectDatasetsLoadingStatus);
   const dispatch = useAppDispatch();
 
   const clearAllFilters = (): void => {
@@ -253,7 +251,9 @@ export default function FullMapView(): React.ReactElement {
           <Button
             variant='contained'
             fullWidth
-            onClick={() => setShowMapControlMobile(!showMapControlMobile)}
+            onClick={() => {
+              setShowMapControlMobile(!showMapControlMobile);
+            }}
           >
             Back To Map
           </Button>
@@ -300,7 +300,9 @@ export default function FullMapView(): React.ReactElement {
             }}
             size='small'
             aria-label='filter'
-            onClick={() => setShowMapControlMobile(!showMapControlMobile)}
+            onClick={() => {
+              setShowMapControlMobile(!showMapControlMobile);
+            }}
           >
             <FilterAltIcon />
           </Fab>

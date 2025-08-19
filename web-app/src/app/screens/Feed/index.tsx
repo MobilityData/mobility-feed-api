@@ -342,7 +342,7 @@ export default function Feed(): React.ReactElement {
     <Box sx={{ position: 'relative' }}>
       <Grid container item xs={12} spacing={3} alignItems={'end'}>
         <Button
-          sx={{py: 0}}
+          sx={{ py: 0 }}
           size='large'
           startIcon={<ChevronLeft />}
           color={'inherit'}

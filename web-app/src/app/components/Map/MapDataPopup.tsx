@@ -146,12 +146,12 @@ export const MapDataPopup = (
               </Typography>
 
               {mapClickStopData.route_ids != null &&
-                mapClickStopData.route_ids.replace(/[\[\]"\\]/g, ',').length >
+                mapClickStopData.route_ids.replace(/[[\]"\\]/g, ',').length >
                   0 && (
                   <Typography variant='body2'>
                     <span style={{ marginRight: '8px' }}>Route Ids</span>
                     <b>
-                      {mapClickStopData.route_ids.replace(/[\[\]"\\]/g, ' ')}
+                      {mapClickStopData.route_ids.replace(/[[\]"\\]/g, ' ')}
                     </b>
                   </Typography>
                 )}

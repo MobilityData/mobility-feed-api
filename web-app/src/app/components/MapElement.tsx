@@ -24,10 +24,10 @@ export interface MapStopElement extends BaseMapElement {
   stopId: string;
 }
 
-export type MapElement = MapRouteElement | MapStopElement;
+export type MapElementType = MapRouteElement | MapStopElement;
 
 export interface MapElementProps {
-  mapElements: MapElement[];
+  mapElements: MapElementType[];
 }
 
 export const MapElement = (
@@ -35,7 +35,7 @@ export const MapElement = (
 ): JSX.Element => {
   const theme = useTheme();
   const formatSet = new Set();
-  const formattedElements: MapElement[] = [];
+  const formattedElements: MapElementType[] = [];
 
   props.mapElements.forEach((element) => {
     if (!formatSet.has(element.name)) {
@@ -50,12 +50,12 @@ export const MapElement = (
     routeColorText: string,
   ): JSX.Element | null => {
     // The route type could be out of specs (e.g. google route types), so we may not have an icon.
-    if (!routeTypeMetadata || !routeTypeMetadata.icon) {
-       // Optionally render a default icon or return null
-       return null;
+    if (routeTypeMetadata?.icon == null) {
+      // Optionally render a default icon or return null
+      return null;
     }
     const { icon: Icon } = routeTypeMetadata;
-    return <Icon style={{ color:  routeColorText, fontSize: 20 }} />;
+    return <Icon style={{ color: routeColorText, fontSize: 20 }} />;
   };
 
   const renderRouteMapElement = (element: MapRouteElement): JSX.Element => {
@@ -65,17 +65,23 @@ export const MapElement = (
           display: 'flex',
           alignItems: 'center',
           gap: 1,
-          color: element.routeTextColor
-            ? '#' + element.routeTextColor
-            : '000000',
-          background: element.routeColor ? '#' + element.routeColor : 'ffffff',
+          color:
+            element.routeTextColor !== ''
+              ? '#' + element.routeTextColor
+              : '#000000',
+          background:
+            element.routeColor !== '' ? '#' + element.routeColor : '#ffffff',
           padding: '5px',
           borderRadius: '5px',
         }}
       >
         {renderRouteTypeIcon(
-          routeTypesMapping[element.routeType?.toString() || '0'],
-          element.routeTextColor ? '#' + element.routeTextColor : '#000000',
+          routeTypesMapping[
+            element.routeType != null ? element.routeType.toString() : '0'
+          ],
+          element.routeTextColor !== ''
+            ? '#' + element.routeTextColor
+            : '#000000',
         )}
 
         <Typography gutterBottom sx={{ color: 'inherit', fontSize: 14, m: 0 }}>
@@ -85,7 +91,10 @@ export const MapElement = (
     );
   };
 
-  const renderStopMapElement = (element: MapStopElement, iconColor: string): JSX.Element => {
+  const renderStopMapElement = (
+    element: MapStopElement,
+    iconColor: string,
+  ): JSX.Element => {
     return (
       <Box
         sx={{
@@ -97,7 +106,9 @@ export const MapElement = (
         }}
       >
         {renderRouteTypeIcon(
-          locationTypesMapping[element.locationType?.toString() || '0'],
+          locationTypesMapping[
+            element.locationType != null ? element.locationType.toString() : '0'
+          ],
           iconColor,
         )}
 
@@ -135,7 +146,12 @@ export const MapElement = (
               {element.isStop ? 'Stop' : 'Route'}
             </Typography>
             {element.isStop ? (
-              <>{renderStopMapElement(element as MapStopElement, theme.palette.text.primary)}</>
+              <>
+                {renderStopMapElement(
+                  element as MapStopElement,
+                  theme.palette.text.primary,
+                )}
+              </>
             ) : (
               <>{renderRouteMapElement(element as MapRouteElement)}</>
             )}

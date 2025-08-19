@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 
 interface RouteSelectorProps {
-  routes: any[]; // Replace 'any' with a more specific type if available
+  routes: Array<{ routeId: string; routeName: string; color?: string }>;
   selectedRouteIds?: string[];
   onSelectionChange?: (selectedRoutes: string[]) => void;
 }
@@ -20,7 +20,7 @@ export default function RouteSelector({
   routes,
   selectedRouteIds = [],
   onSelectionChange,
-}: RouteSelectorProps) {
+}: RouteSelectorProps): React.ReactElement {
   const [search, setSearch] = useState('');
   const [selectedRoutes, setSelectedRoutes] =
     useState<string[]>(selectedRouteIds);
@@ -38,7 +38,7 @@ export default function RouteSelector({
     setSelectedRoutes([...selectedRouteIds]);
   }, [selectedRouteIds]);
 
-  const handleToggle = (routeId: string) => {
+  const handleToggle = (routeId: string): void => {
     setSelectedRoutes((prev) => {
       const newSelection = prev.includes(routeId)
         ? prev.filter((id) => id !== routeId)
@@ -69,17 +69,21 @@ export default function RouteSelector({
         size='small'
         placeholder='Search routes...'
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => {
+          setSearch(e.target.value);
+        }}
       />
 
       <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1 }}>
         {filteredRoutes
-          .sort((a, b) => a.routeId - b.routeId)
+          .sort((a, b) => a.routeId.localeCompare(b.routeId))
           .map((route) => (
             <ListItemButton
               key={route.routeId}
               sx={{ pl: 0 }}
-              onClick={() => handleToggle(route.routeId)}
+              onClick={() => {
+                handleToggle(route.routeId);
+              }}
               dense={true}
             >
               <ListItemIcon sx={{ minWidth: 34 }}>
@@ -97,7 +101,7 @@ export default function RouteSelector({
                       sx={{
                         width: 16,
                         height: 16,
-                        backgroundColor: route.color || '#000',
+                        backgroundColor: route.color ?? '#000',
                         borderRadius: '4px',
                         mr: 1,
                         border: '1px solid #999',
