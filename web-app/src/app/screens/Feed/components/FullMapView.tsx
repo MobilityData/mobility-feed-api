@@ -1,7 +1,7 @@
 import { Box, Fab, Button, Chip, useTheme } from '@mui/material';
 import RouteSelector from '../../../components/RouteSelector';
 import sampleRoutes from './sample-route-output.json'; // STM
-//import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
+// import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
 import React, { useState } from 'react';
 import { GtfsVisualizationMap } from '../../../components/GtfsVisualizationMap';
 import CloseIcon from '@mui/icons-material/Close';
@@ -307,6 +307,7 @@ export default function FullMapView(): React.ReactElement {
           {boundingBox != undefined && (
             <GtfsVisualizationMap
               polygon={boundingBox}
+              latestDataset={latestDataset}
               filteredRouteTypes={filteredRouteTypes}
               filteredRoutes={filteredRoutes}
               hideStops={hideStops}

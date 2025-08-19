@@ -1,4 +1,4 @@
-import { styled, type SxProps, type Theme, Typography } from '@mui/material';
+import { type SxProps, type Theme } from '@mui/material';
 
 export const chipHolderStyles: SxProps<Theme> = (theme) => ({
   display: 'flex',

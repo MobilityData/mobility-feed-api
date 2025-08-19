@@ -1,7 +1,7 @@
 import { Popup } from 'react-map-gl/maplibre';
 import {
   locationTypesMapping,
-  RouteTypeMetadata,
+  type RouteTypeMetadata,
   routeTypesMapping,
 } from '../../constants/RouteTypes';
 import { Box, Link, Typography, useTheme } from '@mui/material';
