@@ -54,7 +54,47 @@ def test_batch_datasets(mock_client, mock_publish, db_session):
             "shared.dataset_service.main.BatchExecutionService.save",
             return_value=None,
         ):
-            batch_datasets(Mock())
+            mock_request = MagicMock()
+            mock_request.get_json = MagicMock(return_value={})
+            batch_datasets(mock_request)
+            assert mock_publish.call_count == 5
+            # loop over mock_publish.call_args_list and check that the stable_id of the feed is in the list of
+            # active feeds
+            for i in range(3):
+                message = json.loads(
+                    mock_publish.call_args_list[i][0][2].decode("utf-8")
+                )
+                assert message["feed_stable_id"] in [feed.stable_id for feed in feeds]
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "FEEDS_DATABASE_URL": default_db_url,
+        "FEEDS_PUBSUB_TOPIC_NAME": "test_topic",
+        "ENVIRONMENT": "test",
+        "FEEDS_LIMIT": "5",
+    },
+)
+@patch("main.publish")
+@patch("main.get_pubsub_client")
+@with_db_session(db_url=default_db_url)
+def test_batch_datasets_w_feed_ids(mock_client, mock_publish, db_session):
+    mock_client.return_value = MagicMock()
+    feeds = get_non_deprecated_feeds(db_session)
+    with patch(
+        "shared.dataset_service.main.BatchExecutionService.__init__",
+        return_value=None,
+    ):
+        with patch(
+            "shared.dataset_service.main.BatchExecutionService.save",
+            return_value=None,
+        ):
+            mock_request = MagicMock()
+            mock_request.get_json = MagicMock(
+                return_value={"feed_stable_ids": [feed.stable_id for feed in feeds]}
+            )
+            batch_datasets(mock_request)
             assert mock_publish.call_count == 5
             # loop over mock_publish.call_args_list and check that the stable_id of the feed is in the list of
             # active feeds
