@@ -115,9 +115,12 @@ def extract_location_aggregates_per_polygon(
                 lambda g: poly_shp.contains(to_shapely(g))
             )
             count_before = len(remaining_stops_df)
-            stops_in_polygon = remaining_stops_df.loc[in_poly_mask]
+            stops_mask = remaining_stops_df.loc[in_poly_mask]
+            # concat the points that are inside the polygon
+            # This will include the point that is being processed in this iteration
+            stops_in_polygon = pd.concat([stops_in_polygon, stops_mask])
             # Remove them from the remaining pool
-            remaining_stops_df = remaining_stops_df.drop(stops_in_polygon.index)
+            remaining_stops_df = remaining_stops_df.drop(stops_mask.index)
             logger.debug(
                 "Points clustered in polygon %s: %d",
                 highest.admin_level,
@@ -160,5 +163,6 @@ def extract_location_aggregates_per_polygon(
             location_aggregates[location_aggregate.group_id].merge(location_aggregate)
         else:
             location_aggregates[location_aggregate.group_id] = location_aggregate
-
+    # Make sure to commit the changes after processing all points
+    db_session.commit()
     logger.info("Completed processing all points")
