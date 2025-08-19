@@ -65,7 +65,7 @@ def rebuild_missing_bounding_boxes(
         }
     else:
         # publish a message to a Pub/Sub topic for each feed
-        pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
+        pubsub_topic_name = os.getenv("BOUNDING_BOXES_PUBSUB_TOPIC_NAME")
         project_id = os.getenv("PROJECT_ID")
 
         logging.info("Publishing to topic: %s", pubsub_topic_name)

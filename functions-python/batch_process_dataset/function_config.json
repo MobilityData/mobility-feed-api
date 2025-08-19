@@ -3,7 +3,7 @@
   "description": "Process datasets from the feed passed in the Pub/Sub event",
   "entry_point": "process_dataset",
   "timeout": 540,
-  "memory": "2Gi",
+  "memory": "8Gi",
   "trigger_http": true,
   "include_folders": ["helpers", "dataset_service"],
   "include_api_folders": ["database_gen", "database", "common"],
@@ -20,5 +20,5 @@
   "max_instance_request_concurrency": 1,
   "max_instance_count": 5,
   "min_instance_count": 0,
-  "available_cpu": 1
+  "available_cpu": 2
 }
