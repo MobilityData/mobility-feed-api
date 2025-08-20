@@ -25,6 +25,7 @@ import { useSelector } from 'react-redux';
 import { useParams } from 'react-router-dom';
 import { loadingDataset } from '../../../store/dataset-reducer';
 import { useAppDispatch } from '../../../hooks';
+import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 
 export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
@@ -35,6 +36,7 @@ export default function FullMapView(): React.ReactElement {
   const [hideStops, setHideStops] = useState<boolean>(false);
   const [showMapControlMobile, setShowMapControlMobile] =
     useState<boolean>(false);
+  const { config } = useRemoteConfig();
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
   const dispatch = useAppDispatch();
@@ -306,7 +308,7 @@ export default function FullMapView(): React.ReactElement {
           >
             <FilterAltIcon />
           </Fab>
-          {boundingBox != undefined && (
+          {config.enableGtfsVisualizationMap && boundingBox != undefined && (
             <GtfsVisualizationMap
               polygon={boundingBox}
               latestDataset={latestDataset}
