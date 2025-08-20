@@ -113,7 +113,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual("gbfs", data_type)
         self.assertEqual("http://dummy.url", urls[0])
         self.assertEqual((2, 2), df.shape)
-        self.assertEqual("per-point", strategy)
+        self.assertEqual("per-polygon", strategy)
         self.assertEqual(True, public)
 
     @patch("parse_request.requests")
@@ -154,7 +154,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual("gbfs", data_type)
         self.assertEqual("http://dummy.vehicle", urls[0])
         self.assertEqual((2, 2), df.shape)
-        self.assertEqual("per-point", strategy)
+        self.assertEqual("per-polygon", strategy)
         self.assertEqual(False, public)
 
     @patch("parse_request.requests")

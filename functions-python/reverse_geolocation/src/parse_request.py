@@ -62,12 +62,12 @@ def parse_request_parameters(
     public = True
     if "public" in request_json:
         public = to_boolean(request_json["public"], default_value=True)
-    strategy = ReverseGeocodingStrategy.PER_POINT
+    strategy = ReverseGeocodingStrategy.PER_POLYGON
     if "strategy" in request_json:
         strategy = to_enum(
             enum_class=ReverseGeocodingStrategy,
             value=request_json["strategy"],
-            default_value=ReverseGeocodingStrategy.PER_POINT,
+            default_value=ReverseGeocodingStrategy.PER_POLYGON,
         )
     else:
         logging.info("No strategy provided, using default")

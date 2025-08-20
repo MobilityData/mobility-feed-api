@@ -44,7 +44,7 @@ feeds = [
         "data_type": "gtfs",
     },
     {
-        # 663 stops, Europe, 324 locations
+        # 663 stops, Europe, 334 locations
         "stable_id": "local-test-1139",
         "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1139/"
         "mdb-1139-202406071559/stops.txt",
@@ -213,7 +213,7 @@ if __name__ == "__main__":
 
     strategy = ReverseGeocodingStrategy.PER_POLYGON
 
-    feed_dict = feeds[4]
+    feed_dict = feeds[3]
     feed_stable_id = feed_dict["stable_id"]
     # create test data in the database if does not exist
     create_test_data(feed_stable_id=feed_stable_id, feed_dict=feed_dict)
