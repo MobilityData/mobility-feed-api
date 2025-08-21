@@ -1,17 +1,13 @@
-import json
 import logging
 import os
-import tempfile
 import traceback
 import uuid
-import zipfile
 
-from google.cloud import storage
 from sqlalchemy.orm import joinedload
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
-from shared.helpers.utils import get_hash_from_file, download_and_get_hash
+from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.helpers.pub_sub import publish_messages
 
 
 def rebuild_missing_dataset_files_handler(payload) -> dict:
@@ -65,83 +61,6 @@ def get_datasets_with_missing_files_query(db_session, after_date, latest_only):
     return query
 
 
-def process_dataset(dataset: Gtfsdataset, credentials=None):
-    """
-    Downloads, extracts, uploads, and indexes files for a GTFS dataset.
-
-    Args:
-        dataset (Gtfsdataset): The dataset to process.
-        credentials (str): Optional credentials for authentication.
-    """
-    hosted_url = dataset.hosted_url
-    stable_id = dataset.stable_id
-    logging.info("Processing dataset %s with URL %s", stable_id, hosted_url)
-    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
-
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        zip_path = os.path.join(tmp_dir, "dataset.zip")
-        download_and_get_hash(
-            hosted_url,
-            zip_path,
-            authentication_type=dataset.feed.authentication_type,
-            api_key_parameter_name=dataset.feed.api_key_parameter_name,
-            credentials=credentials,
-            trusted_certs=True,
-        )
-        dataset.zipped_size_bytes = os.path.getsize(zip_path)
-
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(tmp_dir)
-
-        dataset.unzipped_size_bytes = sum(
-            os.path.getsize(os.path.join(root, f))
-            for root, _, files in os.walk(tmp_dir)
-            for f in files
-        )
-
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket_name)
-        gtfs_files = []
-
-        for root, _, files in os.walk(tmp_dir):
-            for file_name in files:
-                file_path = os.path.join(root, file_name)
-                # Only store files in GCS for latest datasets
-                if dataset.latest:
-                    logging.info("Storing latest dataset file %s", file_name)
-                    blob_path = f"{'-'.join(stable_id.split('-')[:2])}/{stable_id}/extracted/{file_name}"
-                    blob = bucket.blob(blob_path)
-                    blob.upload_from_filename(file_path)
-                    blob.make_public()
-
-                gtfs_files.append(
-                    Gtfsfile(
-                        id=str(uuid.uuid4()),
-                        file_name=file_name,
-                        file_size_bytes=os.path.getsize(file_path),
-                        hash=get_hash_from_file(file_path),
-                        hosted_url=blob.public_url if dataset.latest else None,
-                    )
-                )
-
-        dataset.gtfsfiles = gtfs_files
-        extracted_data = {
-            "zipped_size_bytes": dataset.zipped_size_bytes,
-            "unzipped_size_bytes": dataset.unzipped_size_bytes,
-            "file_count": len(gtfs_files),
-            "files": [
-                {
-                    "file_name": file.file_name,
-                    "file_size_bytes": file.file_size_bytes,
-                    "hash": file.hash,
-                    "hosted_url": file.hosted_url,
-                }
-                for file in gtfs_files
-            ],
-        }
-        logging.info(extracted_data)
-
-
 @with_db_session
 def rebuild_missing_dataset_files(
     db_session,
@@ -180,14 +99,24 @@ def rebuild_missing_dataset_files(
     total_processed = 0
     count = 0
     batch_count = 5
-    credentials = json.loads(os.getenv("FEEDS_CREDENTIALS", "{}"))
     logging.info("Starting to process datasets with missing files...")
-
+    execution_id = f"task-executor-uuid-{uuid.uuid4()}"
+    messages = []
     for dataset in datasets.all():
         try:
-            process_dataset(
-                dataset, credentials=credentials.get(dataset.feed.stable_id)
-            )
+            message = {
+                "execution_id": execution_id,
+                "producer_url": dataset.feed.producer_url,
+                "feed_stable_id": dataset.feed.stable_id,
+                "feed_id": dataset.feed.id,
+                "dataset_stable_id": dataset.stable_id,
+                "dataset_hash": dataset.hash,
+                "authentication_type": dataset.feed.authentication_type,
+                "authentication_info_url": dataset.feed.authentication_info_url,
+                "api_key_parameter_name": dataset.feed.api_key_parameter_name,
+                "use_bucket_latest": True,
+            }
+            messages.append(message)
         except Exception:
             logging.error("Error processing dataset %s:", dataset.stable_id)
             traceback.print_exc()
@@ -196,15 +125,19 @@ def rebuild_missing_dataset_files(
         total_processed += 1
 
         if count % batch_count == 0:
-            db_session.commit()
+            publish_messages(
+                messages,
+                os.getenv("PROJECT_ID"),
+                os.getenv("DATASET_PROCESSING_TOPIC_NAME"),
+            )
+            messages = []
             logging.info(
-                "Committed %d datasets. Total processed: %d",
+                "Published message for %d datasets. Total processed: %d",
                 batch_count,
                 total_processed,
             )
 
-    db_session.commit()
-    logging.info("All datasets processed and committed. Total: %d", total_processed)
+    logging.info("All datasets processed. Total: %d", total_processed)
 
     result = {
         "message": "Rebuild missing dataset files completed.",

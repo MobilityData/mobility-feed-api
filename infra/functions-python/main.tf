@@ -1230,7 +1230,8 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
     environment_variables = {
       PROJECT_ID  = var.project_id
       ENV = var.environment
-      PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
+      BOUNDING_BOXES_PUBSUB_TOPIC_NAME = google_pubsub_topic.rebuild_missing_bounding_boxes.name
+      DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
     }
