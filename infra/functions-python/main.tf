@@ -1055,122 +1055,7 @@ resource "google_cloud_tasks_queue" "reverse_geolocation_task_queue_processor" {
   }
 }
 
-# 13.3 functions/reverse_geolocation - main cloud function entry point
-resource "google_cloudfunctions2_function" "reverse_geolocation" {
-  name        = local.function_reverse_geolocation_config.name
-  description = local.function_reverse_geolocation_config.description
-  location    = var.gcp_region
-  depends_on = [
-    google_project_iam_member.event-receiving,
-    google_secret_manager_secret_iam_member.secret_iam_member,
-    google_cloud_tasks_queue.reverse_geolocation_task_queue_processor
-  ]
-  # Trigger when a new dataset is uploaded
-  event_trigger {
-    event_type = "google.cloud.audit.log.v1.written"
-    service_account_email = google_service_account.functions_service_account.email
-    event_filters {
-      attribute = "serviceName"
-      value = "storage.googleapis.com"
-    }
-    event_filters {
-      attribute = "methodName"
-      value = "storage.objects.create"
-    }
-    event_filters {
-      attribute = "resourceName"
-      value     = "projects/_/buckets/mobilitydata-datasets-${var.environment}/objects/*/*/*.zip"
-      operator = "match-path-pattern"
-    }
-  }
-
-  build_config {
-    runtime     = var.python_runtime
-    entry_point = local.function_reverse_geolocation_config.entry_point
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.reverse_geolocation_zip.name
-      }
-    }
-  }
-  service_config {
-    environment_variables = {
-      PYTHONNODEBUGRANGES = 0
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
-    }
-    available_memory = "16Gi"
-    timeout_seconds = local.function_reverse_geolocation_config.timeout
-    available_cpu = 4
-    max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
-    max_instance_count = local.function_reverse_geolocation_config.max_instance_count
-    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
-  }
-}
-
-# 13.4 functions/reverse_geolocation - reverse geolocation - pubsub triggered
-resource "google_pubsub_topic" "reverse_geolocation" {
-  name = "reverse-geolocation"
-}
-resource "google_cloudfunctions2_function" "reverse_geolocation_pubsub" {
-  name        = "${local.function_reverse_geolocation_config.name}-pubsub"
-  description = local.function_reverse_geolocation_config.description
-  location    = var.gcp_region
-  depends_on = [
-    google_project_iam_member.event-receiving,
-    google_secret_manager_secret_iam_member.secret_iam_member,
-    google_cloud_tasks_queue.reverse_geolocation_task_queue_processor,
-    google_pubsub_topic.reverse_geolocation
-  ]
-  event_trigger {
-    trigger_region        = var.gcp_region
-    service_account_email = google_service_account.functions_service_account.email
-    event_type            = "google.cloud.pubsub.topic.v1.messagePublished"
-    pubsub_topic          = google_pubsub_topic.reverse_geolocation.id
-    retry_policy          = "RETRY_POLICY_RETRY"
-  }
-
-  build_config {
-    runtime     = var.python_runtime
-    entry_point = "${local.function_reverse_geolocation_config.entry_point}_pubsub"
-    source {
-      storage_source {
-        bucket = google_storage_bucket.functions_bucket.name
-        object = google_storage_bucket_object.reverse_geolocation_zip.name
-      }
-    }
-  }
-  service_config {
-    environment_variables = {
-      PYTHONNODEBUGRANGES = 0
-      PROJECT_ID = var.project_id
-      GCP_REGION = var.gcp_region
-      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
-      DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
-      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
-    }
-    available_memory = "16Gi"
-    timeout_seconds = local.function_reverse_geolocation_config.timeout
-    available_cpu = 4
-    max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
-    max_instance_count = local.function_reverse_geolocation_config.max_instance_count
-    min_instance_count = local.function_reverse_geolocation_config.min_instance_count
-    service_account_email = google_service_account.functions_service_account.email
-    ingress_settings = local.function_reverse_geolocation_config.ingress_settings
-    vpc_connector = data.google_vpc_access_connector.vpc_connector.id
-    vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
-  }
-}
-
-# 13.5 functions/reverse_geolocation - batch cloud function
+# 13.3 functions/reverse_geolocation - batch cloud function
 resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   name        = "${local.function_reverse_geolocation_config.name}-batch"
   description = local.function_reverse_geolocation_config.description
@@ -1193,9 +1078,11 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
-      PUBSUB_TOPIC_NAME = google_pubsub_topic.reverse_geolocation.name
       PROJECT_ID = var.project_id
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      QUEUE_NAME = google_cloud_tasks_queue.reverse_geolocation_task_queue_processor.name
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
     }
     available_memory = local.function_reverse_geolocation_config.available_memory
     timeout_seconds = local.function_reverse_geolocation_config.timeout

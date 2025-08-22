@@ -17,7 +17,11 @@ def create_http_reverse_geolocation_processor_task(
     """
     client = tasks_v2.CloudTasksClient()
     body = json.dumps(
-        {"stable_id": stable_id, "stops_url": stops_url, "dataset_id": dataset_stable_id}
+        {
+            "stable_id": stable_id,
+            "stops_url": stops_url,
+            "dataset_id": dataset_stable_id,
+        }
     ).encode()
     queue_name = os.getenv("REVERSE_GEOLOCATION_QUEUE")
     project_id = os.getenv("PROJECT_ID")
@@ -58,9 +62,7 @@ def create_http_pmtiles_builder_task(
     )
 
 
-def create_pipeline_tasks(
-    dataset: Gtfsdataset
-) -> None:
+def create_pipeline_tasks(dataset: Gtfsdataset) -> None:
     """
     Create pipeline tasks for a dataset.
     """
@@ -74,7 +76,9 @@ def create_pipeline_tasks(
 
     # Create reverse geolocation task
     if stops_url:
-        create_http_reverse_geolocation_processor_task(stable_id, dataset_stable_id, stops_url)
+        create_http_reverse_geolocation_processor_task(
+            stable_id, dataset_stable_id, stops_url
+        )
 
     # Create PMTiles builder task
     create_http_pmtiles_builder_task(stable_id, dataset_stable_id)
