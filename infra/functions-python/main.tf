@@ -1271,7 +1271,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
 
 # 15. functions/pmtiles_builder cloud function
 resource "google_cloudfunctions2_function" "pmtiles_builder" {
-  name        = "${local.function_pmtiles_builder_config.name}"
+  name        = local.function_pmtiles_builder_config.name
   project     = var.project_id
   description = local.function_pmtiles_builder_config.description
   location    = var.gcp_region
