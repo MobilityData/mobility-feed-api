@@ -249,6 +249,27 @@ resource "google_pubsub_topic" "pubsub_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
 
+# Task queue to invoke pmtiles_builder function
+resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "pmtiles-builder-task-queue-${var.environment}"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~1 hour
+    max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
+}
+
+
 # Batch process dataset function
 resource "google_cloudfunctions2_function" "pubsub_function" {
   name        = "${local.function_batch_process_dataset_config.name}-${var.environment}"
@@ -284,7 +305,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
-
+      PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
+      REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables

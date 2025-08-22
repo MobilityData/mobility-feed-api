@@ -19,7 +19,7 @@ def create_http_reverse_geolocation_processor_task(
     body = json.dumps(
         {"stable_id": stable_id, "stops_url": stops_url, "dataset_id": dataset_stable_id}
     ).encode()
-    queue_name = os.getenv("REVERSE_GEOLOCATION_QUEUE_NAME")
+    queue_name = os.getenv("REVERSE_GEOLOCATION_QUEUE")
     project_id = os.getenv("PROJECT_ID")
     gcp_region = os.getenv("GCP_REGION")
 
@@ -32,6 +32,7 @@ def create_http_reverse_geolocation_processor_task(
         queue_name,
     )
 
+
 def create_http_pmtiles_builder_task(
     stable_id: str,
     dataset_stable_id: str,
@@ -43,7 +44,7 @@ def create_http_pmtiles_builder_task(
     body = json.dumps(
         {"feed_stable_id": stable_id, "dataset_stable_id": dataset_stable_id}
     ).encode()
-    queue_name = os.getenv("PMTILES_BUILDER_QUEUE_NAME")
+    queue_name = os.getenv("PMTILES_BUILDER_QUEUE")
     project_id = os.getenv("PROJECT_ID")
     gcp_region = os.getenv("GCP_REGION")
 

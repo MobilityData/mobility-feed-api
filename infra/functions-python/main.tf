@@ -1491,27 +1491,6 @@ resource "google_cloud_tasks_queue" "refresh_materialized_view_task_queue" {
   }
 }
 
-# Task queue to invoke pmtiles_builder function
-resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
-  project  = var.project_id
-  location = var.gcp_region
-  name     = "pmtiles-builder-task-queue"
-
-  rate_limits {
-    max_concurrent_dispatches = 1
-    max_dispatches_per_second = 1
-  }
-
-  retry_config {
-    # This will make the cloud task retry for ~1 hour
-    max_attempts  = 31
-    min_backoff   = "120s"
-    max_backoff   = "120s"
-    max_doublings = 2
-  }
-}
-
-
 # Task queue to invoke gbfs_validator_batch function for the scheduler
 resource "google_cloudfunctions2_function_iam_member" "gbfs_validator_batch_invoker" {
   project        = var.project_id
