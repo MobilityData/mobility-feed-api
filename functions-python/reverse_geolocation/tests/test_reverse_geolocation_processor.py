@@ -59,6 +59,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             public,
             strategy,
             use_cache,
+            maximum_executions,
         ) = parse_request_parameters(request)
         self.assertEqual("test_stable_id", stable_id)
         self.assertEqual("test_dataset_id", dataset_id)
@@ -67,6 +68,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual(["test_url"], urls)
         self.assertEqual(True, public)
         self.assertEqual("per-point", strategy)
+        self.assertEqual(True, use_cache)
+        self.assertEqual(1, maximum_executions)
 
         # Exception should be raised
         requests_mock.get.return_value.content = None
@@ -106,6 +109,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             public,
             strategy,
             use_cache,
+            maximum_executions,
         ) = parse_request_parameters(request)
 
         self.assertEqual("stable123", stable_id)
@@ -115,6 +119,9 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual((2, 2), df.shape)
         self.assertEqual("per-polygon", strategy)
         self.assertEqual(True, public)
+        # Cache is disabled for GBFS data by default
+        self.assertEqual(False, use_cache)
+        self.assertEqual(1, maximum_executions)
 
     @patch("parse_request.requests")
     def test_parse_request_parameters_gbfs_vehicle_status(self, requests_mock):
@@ -136,6 +143,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             "vehicle_status_url": "http://dummy.vehicle",
             "data_type": "gbfs",
             "public": "False",
+            "maximum_executions": 10,
         }
 
         (
@@ -147,6 +155,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             public,
             strategy,
             use_cache,
+            maximum_executions,
         ) = parse_request_parameters(request)
 
         self.assertEqual("stable456", stable_id)
@@ -156,6 +165,9 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual((2, 2), df.shape)
         self.assertEqual("per-polygon", strategy)
         self.assertEqual(False, public)
+        # Cache is disabled for GBFS data by default
+        self.assertEqual(False, use_cache)
+        self.assertEqual(10, maximum_executions)
 
     @patch("parse_request.requests")
     def test_parse_request_parameters_invalid_request(self, requests_mock):
@@ -406,8 +418,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.update_dataset_bounding_box")
     @patch("reverse_geolocation_processor.reverse_geolocation")
     @patch("reverse_geolocation_processor.create_geojson_aggregate")
+    @patch("reverse_geolocation_processor.check_maximum_executions")
+    @patch("reverse_geolocation_processor.get_execution_id")
     def test_valid_request(
         self,
+        mock_get_execution_id,
+        mock_check_maximum_executions,
         mock_create_geojson_aggregate,
         mock_reverse_geolocation,
         mock_update_bounding_box,
@@ -415,6 +431,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     ):
         from reverse_geolocation_processor import reverse_geolocation_process
 
+        mock_get_execution_id.return_value = "test_execution_id"
+        mock_check_maximum_executions.return_value = None
         # Mocking the parsed request parameters
         mock_parse_request_parameters.return_value = (
             pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
@@ -425,6 +443,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             True,
             "per-point",
             False,
+            1,
         )
         mock_update_bounding_box.return_value = MagicMock()
         mock_reverse_geolocation.return_value = {"group_id": MagicMock()}
@@ -464,14 +483,21 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.parse_request_parameters")
     @patch("reverse_geolocation_processor.update_dataset_bounding_box")
     @patch("reverse_geolocation_processor.reverse_geolocation")
+    @patch("reverse_geolocation_processor.check_maximum_executions")
+    @patch("reverse_geolocation_processor.get_execution_id")
     def test_exception_handling(
         self,
+        mock_check_get_execution_id,
+        mock_check_maximum_executions,
         mock_reverse_geolocation,
         mock_update_bounding_box,
         mock_parse_request_parameters,
     ):
         from reverse_geolocation_processor import reverse_geolocation_process
 
+        mock_check_get_execution_id.return_value = "test_execution_id"
+        mock_check_maximum_executions.return_value = None
+        # mock_dataset_service.get_by_execution_and_stable_ids.return_value = 0
         # Mocking the parsed request parameters
         mock_parse_request_parameters.return_value = (
             pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
@@ -482,6 +508,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             True,
             "per-point",
             False,
+            1,
         )
         mock_update_bounding_box.side_effect = Exception("Unexpected error")
 
@@ -499,12 +526,18 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         mock_reverse_geolocation.assert_not_called()
 
     @patch("reverse_geolocation_processor.parse_request_parameters")
+    @patch("reverse_geolocation_processor.check_maximum_executions")
+    @patch("reverse_geolocation_processor.get_execution_id")
     def test_valid_request_empty_stops(
         self,
+        mock_get_execution_id,
+        mock_check_maximum_executions,
         mock_parse_request_parameters,
     ):
         from reverse_geolocation_processor import reverse_geolocation_process
 
+        mock_get_execution_id.return_value = "test_execution_id"
+        mock_check_maximum_executions.return_value = None
         # Mocking the parsed request parameters
         mock_parse_request_parameters.return_value = (
             pd.DataFrame({"stop_lat": [], "stop_lon": []}),
@@ -515,6 +548,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             True,
             "per-point",
             False,
+            1,
         )
 
         # Mocking a Flask request

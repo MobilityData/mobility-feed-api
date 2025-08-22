@@ -80,7 +80,21 @@ def parse_request_parameters(
     else:
         use_cache = data_type == "gtfs"
         logging.info("No use_cache provided, using(%s): %s", data_type, use_cache)
-    return df, stable_id, dataset_id, data_type, urls, public, strategy, use_cache
+    if "maximum_executions" in request_json:
+        maximum_executions = int(request_json["maximum_executions"])
+    else:
+        maximum_executions = 1
+    return (
+        df,
+        stable_id,
+        dataset_id,
+        data_type,
+        urls,
+        public,
+        strategy,
+        use_cache,
+        maximum_executions,
+    )
 
 
 def parse_request_parameters_gtfs(

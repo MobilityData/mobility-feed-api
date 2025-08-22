@@ -17,10 +17,12 @@ import hashlib
 import logging
 import os
 import ssl
+from datetime import date, datetime
+from logging import Logger
+from typing import Optional
 
 import requests
 import urllib3
-from google.cloud import storage
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from urllib3.util.ssl_ import create_urllib3_context
@@ -32,6 +34,8 @@ def create_bucket(bucket_name):
     Creates GCP storage bucket if it doesn't exist
     :param bucket_name: name of the bucket to create
     """
+    from google.cloud import storage
+
     storage_client = storage.Client()
     bucket = storage_client.lookup_bucket(bucket_name)
     if bucket is None:
@@ -53,6 +57,8 @@ def download_from_gcs(bucket_name: str, blob_path: str, local_path: str) -> str:
     Returns:
         The absolute path to the downloaded file.
     """
+    from google.cloud import storage
+
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(blob_path)
@@ -211,3 +217,53 @@ def create_http_task(
         task_time=proto_time,
         http_method=tasks_v2.HttpMethod.POST,
     )
+
+
+def get_execution_id(json_payload: dict, stable_id: Optional[str]) -> str:
+    """
+    Extracts the execution_id from the JSON payload.
+    If not present, defaults to today's date in YYYY-MM-DD format followed by a hyphen and the stable_id if provided.
+    """
+    execution_id = json_payload.get("execution_id")
+    if not execution_id:
+        execution_id = f"{str(date.today())}"
+        if stable_id:
+            execution_id += f"-{stable_id}"
+        else:
+            # Even this should not happen, but just in case we are defaulting it to the current time
+            execution_id += f"-{datetime.now().strftime('%H:%M:%S')}"
+    return execution_id
+
+
+def check_maximum_executions(
+    execution_id: str, stable_id: str, logger: Logger, maximum_executions: int = 1
+) -> str:
+    """
+    Checks if the dataset has been executed more than the maximum allowed times.
+    If it has, returns an error message; otherwise, returns None.
+    :param execution_id: The ID of the execution.
+    :param stable_id: The stable ID of the dataset.
+    :param logger: Logger instance to log messages.
+    :param maximum_executions: The maximum number of allowed executions.
+    :return: Error message if the maximum executions are exceeded, otherwise None.
+    """
+    from shared.dataset_service.main import DatasetTraceService
+
+    trace_service = DatasetTraceService()
+    trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
+    logger.info(f"Dataset trace: {trace}")
+    executions = len(trace) if trace else 0
+    logger.info(
+        f"Dataset executed times={executions}/{maximum_executions} "
+        f"in execution=[{execution_id}] "
+    )
+
+    if executions > 0:
+        if executions >= maximum_executions:
+            error_message = (
+                f"Function already executed maximum times "
+                f"in execution: [{execution_id}]"
+            )
+            logger.error(error_message)
+            return error_message
+    return None

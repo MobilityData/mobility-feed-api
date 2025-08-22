@@ -36,6 +36,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.locations import ReverseGeocodingStrategy
 from shared.helpers.logger import get_logger
 from shared.helpers.runtime_metrics import track_metrics
+from shared.helpers.utils import check_maximum_executions, get_execution_id
 from strategy_extraction_per_point import extract_location_aggregates_per_point
 from strategy_extraction_per_polygon import extract_location_aggregates_per_polygon
 
@@ -272,9 +273,20 @@ def reverse_geolocation_process(
             public,
             strategy,
             use_cache,
+            maximum_executions,
         ) = parse_request_parameters(request)
 
         logger = get_logger(__name__, stable_id)
+
+        # Check for maximum executions to avoid repeated processing during the same day
+        request_json = request.get_json(silent=True)
+        execution_id = get_execution_id(request_json, stable_id)
+        max_execution_error = check_maximum_executions(
+            execution_id, stable_id, logger, maximum_executions
+        )
+        if max_execution_error:
+            logger.warning(max_execution_error)
+            return max_execution_error, ERROR_STATUS_CODE
 
         # Remove duplicate lat/lon points
         stops_df["stop_lat"] = pd.to_numeric(stops_df["stop_lat"], errors="coerce")

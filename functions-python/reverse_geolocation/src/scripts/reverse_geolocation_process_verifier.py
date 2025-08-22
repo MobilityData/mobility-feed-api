@@ -1,3 +1,8 @@
+# This script is used to verify the reverse geolocation process
+# Before running this script, ensure you have the necessary environment set up:
+# 1. Google DataStore emulator running on localhost:8081 by running:
+#       gcloud beta emulators datastore start --project=your-project-id
+
 import json
 import logging
 import os
@@ -234,12 +239,14 @@ if __name__ == "__main__":
         "data_type": feed_dict["data_type"],
         "use_cache": False,
         "public": False,
+        "maximum_executions": 1000,
     }
 
     try:
         os.environ["STORAGE_EMULATOR_HOST"] = f"http://{HOST}:{PORT}"
         os.environ["DATASETS_BUCKET_NAME_GBFS"] = BUCKET_NAME
         os.environ["DATASETS_BUCKET_NAME_GTFS"] = BUCKET_NAME
+        os.environ["DATASTORE_EMULATOR_HOST"] = "localhost:8081"
         server = create_server(
             host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
         )
