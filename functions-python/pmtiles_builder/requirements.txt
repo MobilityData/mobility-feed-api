@@ -18,11 +18,10 @@ SQLAlchemy==2.0.23
 geoalchemy2==0.14.7
 
 # Google specific packages for this function
-google-cloud-workflows
-google-cloud-pubsub
-google-cloud-tasks
 flask
 google-cloud-storage
 
 # Configuration
 python-dotenv==1.0.0
+tippecanoe
+

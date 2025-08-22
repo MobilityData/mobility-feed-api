@@ -1,16 +1,23 @@
+import json
 import logging
 import os
 from typing import List, Dict, Tuple
 
 import flask
 import pycountry
-from sqlalchemy.orm import contains_eager
+from google.cloud import tasks_v2
 from sqlalchemy.orm.session import Session
 
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset, Location
 from shared.database.database import with_db_session
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    Gtfsdataset,
+    Location,
+    Gtfsfile,
+)
 from shared.helpers.logger import init_logger
-from shared.helpers.pub_sub import publish_messages
+from shared.helpers.utils import create_http_task
+from sqlalchemy.orm import selectinload
 
 
 init_logger()
@@ -23,37 +30,42 @@ def get_feeds_data(
     """Get the feeds data for the given country codes. In case no country codes are provided, fetch feeds for all
     countries."""
     query = (
-        db_session.query(Gtfsfeed)
-        .join(Gtfsfeed.gtfsdatasets)
-        .join(Gtfsfeed.locations)
-        .options(contains_eager(Gtfsfeed.gtfsdatasets))
-        .filter(Gtfsfeed.status != "deprecated")
-        .filter(Gtfsdataset.latest)
-    )
-    if country_codes:
-        logging.info("Getting feeds for country codes: %s", country_codes)
-        query = query.filter(
-            Gtfsfeed.locations.any(Location.country_code.in_(country_codes))
+        db_session.query(Gtfsdataset)
+        .filter(Gtfsdataset.latest.is_(True))
+        .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
+        .filter(Gtfsdataset.gtfsfiles.any(Gtfsfile.file_name == "stops.txt"))
+        # Efficient eager loading without JOIN duplication
+        .options(
+            selectinload(Gtfsdataset.feed),
+            selectinload(Gtfsdataset.gtfsfiles),
+            selectinload(Gtfsdataset.locations),
         )
-    else:
-        logging.warning("No country codes provided. Fetching feeds for all countries.")
+    )
+
+    if country_codes:
+        query = query.filter(
+            Gtfsdataset.locations.any(Location.country_code.in_(country_codes))
+        )
 
     if include_only_unprocessed:
-        logging.info("Filtering for unprocessed feeds.")
-        query = query.filter(~Gtfsfeed.feedlocationgrouppoints.any())
+        query = query.filter(
+            Gtfsdataset.feed.has(~Gtfsfeed.feedlocationgrouppoints.any())
+        )
 
     results = query.populate_existing().all()
-    logging.info("Found %s feeds.", len(results))
 
     data = [
         {
-            "stable_id": feed.stable_id,
-            "dataset_id": feed.gtfsdatasets[0].stable_id,
-            "url": feed.gtfsdatasets[0].hosted_url,
+            "stable_id": ds.feed.stable_id,
+            "dataset_id": ds.stable_id,
+            "stops_url": next(
+                (f.hosted_url for f in ds.gtfsfiles if f.file_name == "stops.txt"),
+                None,
+            ),
         }
-        for feed in results
+        for ds in results
     ]
-    return data
+    return [d for d in data if d["stops_url"]]
 
 
 def parse_request_parameters(request: flask.Request) -> Tuple[List[str], bool]:
@@ -79,13 +91,39 @@ def reverse_geolocation_batch(request: flask.Request) -> Tuple[str, int]:
         feeds_data = get_feeds_data(country_codes, include_only_unprocessed)
         logging.info("Valid feeds with latest dataset: %s", len(feeds_data))
 
-        pubsub_topic_name = os.getenv("PUBSUB_TOPIC_NAME", None)
-        project_id = os.getenv("PROJECT_ID")
-
-        logging.info("Publishing to topic: %s", pubsub_topic_name)
-        publish_messages(feeds_data, project_id, pubsub_topic_name)
-
+        for feed in feeds_data:
+            create_http_processor_task(
+                stable_id=feed["stable_id"],
+                dataset_id=feed["dataset_id"],
+                stops_url=feed["stops_url"],
+            )
         return f"Batch function triggered for {len(feeds_data)} feeds.", 200
     except Exception as e:
         logging.error("Execution error: %s", e)
         return "Error while fetching feeds.", 500
+
+
+def create_http_processor_task(
+    stable_id: str,
+    dataset_id: str,
+    stops_url: str,
+) -> None:
+    """
+    Create a task to process a group of points.
+    """
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {"stable_id": stable_id, "stops_url": stops_url, "dataset_id": dataset_id}
+    ).encode()
+    queue_name = os.getenv("QUEUE_NAME")
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+
+    create_http_task(
+        client,
+        body,
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/reverse-geolocation-processor",
+        project_id,
+        gcp_region,
+        queue_name,
+    )

@@ -31,7 +31,6 @@ from tasks.validation_reports.rebuild_missing_validation_reports import (
 from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
     rebuild_missing_bounding_boxes_handler,
 )
-from tasks.pmtiles_builder.build_pmtiles import build_pmtiles_handler
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -62,10 +61,6 @@ tasks = {
     "rebuild_missing_dataset_files": {
         "description": "Rebuilds missing dataset files for GTFS datasets.",
         "handler": rebuild_missing_dataset_files_handler,
-    },
-    "build_pmtiles": {
-        "description": "Build pmtiles for a given dataset.",
-        "handler": build_pmtiles_handler,
     },
 }
 

@@ -1,0 +1,10 @@
+[run]
+omit =
+    */test*/*
+    */helpers/*
+    */database_gen/*
+    */shared/*
+
+[report]
+exclude_lines =
+    if __name__ == .__main__.:

@@ -27,6 +27,8 @@ from enum import Enum
 from google.cloud import storage
 
 from shared.helpers.logger import get_logger
+import flask
+import functions_framework
 
 STOP_TIMES_FILE = "stop_times.txt"
 SHAPES_FILE = "shapes.txt"
@@ -35,7 +37,8 @@ ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
 
 
-def build_pmtiles_handler(payload) -> dict:
+@functions_framework.http
+def build_pmtiles_handler(request: flask.Request) -> dict:
     """
     Entrypoint for building PMTiles files from a GTFS dataset.
     """
@@ -51,7 +54,7 @@ def build_pmtiles_handler(payload) -> dict:
                 workdir = debug_workdir
             else:
                 workdir = temp_dir
-            feed_stable_id, dataset_stable_id = PmtilesBuilder._get_parameters(payload)
+            feed_stable_id, dataset_stable_id = PmtilesBuilder.get_parameters(request)
             result = {
                 "params": {
                     "feed_stable_id": feed_stable_id,
@@ -120,10 +123,11 @@ class PmtilesBuilder:
         return os.path.join(self.workdir, filename)
 
     @staticmethod
-    def _get_parameters(payload):
+    def get_parameters(request):
         """
-        Get parameters from the payload and environment variables.
+        Get parameters from the request and environment variables.
         """
+        payload = request.get_json(silent=True) or {}
         feed_stable_id = payload.get("feed_stable_id", None)
         dataset_stable_id = payload.get("dataset_stable_id", None)
         return feed_stable_id, dataset_stable_id
