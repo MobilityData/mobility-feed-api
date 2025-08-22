@@ -34,7 +34,6 @@ def get_feeds_data(
         .filter(Gtfsdataset.latest.is_(True))
         .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
         .filter(Gtfsdataset.gtfsfiles.any(Gtfsfile.file_name == "stops.txt"))
-        # Efficient eager loading without JOIN duplication
         .options(
             selectinload(Gtfsdataset.feed),
             selectinload(Gtfsdataset.gtfsfiles),
