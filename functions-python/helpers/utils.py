@@ -28,6 +28,9 @@ from urllib3.util.retry import Retry
 from urllib3.util.ssl_ import create_urllib3_context
 from pathlib import Path
 
+from shared.dataset_service.dataset_service_commons import DatasetTrace
+from shared.helpers.logger import get_logger
+
 
 def create_bucket(bucket_name):
     """
@@ -267,3 +270,34 @@ def check_maximum_executions(
             logger.error(error_message)
             return error_message
     return None
+
+
+def record_execution_trace(
+    execution_id,
+    stable_id,
+    status,
+    logger=None,
+    dataset_file=None,
+    error_message=None,
+):
+    """
+    Record the trace in the datastore
+    """
+    from shared.dataset_service.main import DatasetTraceService
+
+    trace_service = DatasetTraceService()
+
+    (logger if logger else get_logger()).info(
+        f"Recording trace in execution: [{execution_id}] with status: [{status}]"
+    )
+    trace = DatasetTrace(
+        trace_id=None,
+        stable_id=stable_id,
+        status=status,
+        execution_id=execution_id,
+        file_sha256_hash=dataset_file.file_sha256_hash if dataset_file else None,
+        hosted_url=dataset_file.hosted_url if dataset_file else None,
+        error_message=error_message,
+        timestamp=datetime.now(),
+    )
+    trace_service.save(trace)

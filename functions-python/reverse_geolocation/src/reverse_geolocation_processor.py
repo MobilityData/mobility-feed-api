@@ -33,10 +33,16 @@ from shared.database_gen.sqlacodegen_models import (
     Gtfsdataset,
     Gtfsfeed,
 )
+from shared.dataset_service.dataset_service_commons import Status
+
 from shared.helpers.locations import ReverseGeocodingStrategy
 from shared.helpers.logger import get_logger
 from shared.helpers.runtime_metrics import track_metrics
-from shared.helpers.utils import check_maximum_executions, get_execution_id
+from shared.helpers.utils import (
+    check_maximum_executions,
+    get_execution_id,
+    record_execution_trace,
+)
 from strategy_extraction_per_point import extract_location_aggregates_per_point
 from strategy_extraction_per_polygon import extract_location_aggregates_per_polygon
 
@@ -288,6 +294,14 @@ def reverse_geolocation_process(
             logger.warning(max_execution_error)
             return max_execution_error, ERROR_STATUS_CODE
 
+        record_execution_trace(
+            execution_id=execution_id,
+            stable_id=stable_id,
+            status=Status.PROCESSING,
+            logger=logger,
+            dataset_file=None,
+            error_message=None,
+        )
         # Remove duplicate lat/lon points
         stops_df["stop_lat"] = pd.to_numeric(stops_df["stop_lat"], errors="coerce")
         stops_df["stop_lon"] = pd.to_numeric(stops_df["stop_lon"], errors="coerce")
@@ -335,6 +349,14 @@ def reverse_geolocation_process(
             stable_id,
             len(location_groups),
         )
+        record_execution_trace(
+            execution_id=execution_id,
+            stable_id=stable_id,
+            status=Status.SUCCESS,
+            logger=logger,
+            dataset_file=None,
+            error_message=None,
+        )
         return (
             f"Processed {total_stops} stops for stable ID {stable_id}. "
             f"Retrieved {len(location_groups)} locations.",
@@ -345,6 +367,14 @@ def reverse_geolocation_process(
         logger = logger if logger else logging
         logger.error("Error processing geopolygons: %s", e)
         logger.error(traceback.format_exc())  # Log full traceback
+        record_execution_trace(
+            execution_id=execution_id,
+            stable_id=stable_id,
+            status=Status.FAILED,
+            logger=logger,
+            dataset_file=None,
+            error_message=str(e),
+        )
         return str(e), ERROR_STATUS_CODE
 
 

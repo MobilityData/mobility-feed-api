@@ -420,8 +420,10 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.create_geojson_aggregate")
     @patch("reverse_geolocation_processor.check_maximum_executions")
     @patch("reverse_geolocation_processor.get_execution_id")
+    @patch("reverse_geolocation_processor.record_execution_trace")
     def test_valid_request(
         self,
+        _,
         mock_get_execution_id,
         mock_check_maximum_executions,
         mock_create_geojson_aggregate,
@@ -485,8 +487,10 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.reverse_geolocation")
     @patch("reverse_geolocation_processor.check_maximum_executions")
     @patch("reverse_geolocation_processor.get_execution_id")
+    @patch("reverse_geolocation_processor.record_execution_trace")
     def test_exception_handling(
         self,
+        _,
         mock_check_get_execution_id,
         mock_check_maximum_executions,
         mock_reverse_geolocation,
@@ -528,8 +532,10 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.parse_request_parameters")
     @patch("reverse_geolocation_processor.check_maximum_executions")
     @patch("reverse_geolocation_processor.get_execution_id")
+    @patch("reverse_geolocation_processor.record_execution_trace")
     def test_valid_request_empty_stops(
         self,
+        _,
         mock_get_execution_id,
         mock_check_maximum_executions,
         mock_parse_request_parameters,
