@@ -28,9 +28,6 @@ from urllib3.util.retry import Retry
 from urllib3.util.ssl_ import create_urllib3_context
 from pathlib import Path
 
-from shared.dataset_service.dataset_service_commons import DatasetTrace
-from shared.helpers.logger import get_logger
-
 
 def create_bucket(bucket_name):
     """
@@ -283,6 +280,8 @@ def record_execution_trace(
     Record the trace in the datastore
     """
     from shared.dataset_service.main import DatasetTraceService
+    from shared.dataset_service.dataset_service_commons import DatasetTrace
+    from shared.helpers.logger import get_logger
 
     trace_service = DatasetTraceService()
 

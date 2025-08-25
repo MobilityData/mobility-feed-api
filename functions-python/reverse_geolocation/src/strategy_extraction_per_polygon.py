@@ -106,7 +106,6 @@ def extract_location_aggregates_per_polygon(
             logger.warning("No geopolygons found for point: %s", stop_point)
             continue
 
-        rep_geom = highest.geometry
         country_code = get_country_code_from_polygons(geopolygons)
         if highest.admin_level >= get_country_locality_admin_level(country_code):
             # If admin_level >= locality_admin_level, we can filter points inside this polygon
@@ -144,7 +143,7 @@ def extract_location_aggregates_per_polygon(
 
         # Process ONLY ONE representative point for this stop "cluster"
         location_aggregate = extract_location_aggregate_geopolygons(
-            stop_point=rep_geom,
+            stop_point=stop_point,
             geopolygons=geopolygons,
             logger=logger,
             db_session=db_session,

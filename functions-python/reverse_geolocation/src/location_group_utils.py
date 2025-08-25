@@ -221,13 +221,18 @@ def extract_location_aggregate_geopolygons(
 ) -> Optional[GeopolygonAggregate]:
     admin_levels = {g.admin_level for g in geopolygons}
     # If duplicates per admin_level exist, resolve instead of returning None
-    if admin_levels != len(geopolygons):
+    if len(admin_levels) != len(geopolygons):
         logger.warning(
             "Duplicate admin levels for point: %s -> %s",
             stop_point,
             geopolygons_as_string(geopolygons),
         )
         geopolygons = dedupe_by_admin_level(geopolygons, logger)
+        logger.warning(
+            "Deduplicated admin levels for point: %s -> %s",
+            stop_point,
+            geopolygons_as_string(geopolygons),
+        )
 
     valid_iso_3166_1 = any(g.iso_3166_1_code for g in geopolygons)
     valid_iso_3166_2 = any(g.iso_3166_2_code for g in geopolygons)
