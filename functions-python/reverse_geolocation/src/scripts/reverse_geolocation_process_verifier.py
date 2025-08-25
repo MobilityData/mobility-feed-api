@@ -63,14 +63,16 @@ feeds = [
         "data_type": "gtfs",
     },
     {
-        # 5. 1355 stops, Canada, Saskatchewan , Duplicate admin level https://github.com/MobilityData/mobility-feed-api/issues/965
+        # 5. 1355 stops, Canada, Saskatchewan ,
+        # Duplicate admin level https://github.com/MobilityData/mobility-feed-api/issues/965
         "stable_id": "local-test-gtfs-mdb-716",
         "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-716/mdb-716-202507082001/"
         "extracted/stops.txt",
         "data_type": "gtfs",
     },
     {
-        # 6. 667 stops, Canada, New Brunswick, Duplicate admin level https://github.com/MobilityData/mobility-feed-api/issues/965
+        # 6. 667 stops, Canada, New Brunswick,
+        # Duplicate admin level https://github.com/MobilityData/mobility-feed-api/issues/965
         "stable_id": "local-test-gtfs-mdb-1111",
         "stops_url": "https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-1111/mdb-1111-202507082012/"
         "extracted/stops.txt",
