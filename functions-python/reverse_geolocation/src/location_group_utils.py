@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import pycountry
 from geoalchemy2 import WKTElement
 from geoalchemy2.shape import to_shape
+from pyproj import Geod
+from shapely.geometry.geo import mapping
 from sqlalchemy.orm import Session
 
 from shared.database_gen.sqlacodegen_models import (
@@ -18,6 +20,7 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.locations import get_geopolygons_covers
 
 ERROR_STATUS_CODE = 299  # Custom error code for the function to avoid retries
+GEOD = Geod(ellps="WGS84")  # Geod object for geodesic calculations
 
 
 def generate_color(
@@ -165,17 +168,66 @@ def extract_location_aggregate(
     )
 
 
+def geodesic_area_m2(geom) -> float:
+    """Return absolute geodesic area in m² for a Shapely geometry (Polygon/MultiPolygon)."""
+    # pyproj can handle GeoJSON-like mappings, including MultiPolygons
+    area, _perim = GEOD.geometry_area_perimeter(mapping(geom))
+    return abs(area)
+
+
+def resolve_same_level_conflicts(items: List[Geopolygon]) -> Geopolygon:
+    # 1) Prefer iso_3166_2_code if present
+    candidates = [g for g in items if g.iso_3166_2_code] or items
+
+    if len(candidates) > 1:
+        # 2) Prefer the smallest geodesic area (m²)
+        def area_for(g: Geopolygon) -> float:
+            try:
+                geom = to_shape(g.geometry)  # -> Shapely geometry (in EPSG:4326)
+                return geodesic_area_m2(geom)
+            except Exception:
+                # If geometry missing/bad, push to the end
+                return float("inf")
+
+        candidates.sort(key=area_for)
+
+    # 3) Prefer with name, then lowest OSM id
+    candidates.sort(key=lambda g: (0 if (g.name and g.name.strip()) else 1, g.osm_id))
+    return candidates[0]
+
+
+def dedupe_by_admin_level(geopolygons: List[Geopolygon], logger) -> List[Geopolygon]:
+    """Keep one polygon per admin_level using tie-break rules above."""
+    by_level: dict[int, List[Geopolygon]] = {}
+    for g in geopolygons:
+        by_level.setdefault(g.admin_level, []).append(g)
+
+    winners: List[Geopolygon] = []
+    for level, items in sorted(
+        by_level.items(), key=lambda kv: kv[0]
+    ):  # keep order by level
+        if len(items) > 1:
+            logger.debug(
+                "Tie at admin_level=%s among osm_ids=%s",
+                level,
+                [i.osm_id for i in items],
+            )
+        winners.append(resolve_same_level_conflicts(items))
+    return winners
+
+
 def extract_location_aggregate_geopolygons(
     stop_point: WKTElement, geopolygons, logger, db_session: Session
 ) -> Optional[GeopolygonAggregate]:
     admin_levels = {g.admin_level for g in geopolygons}
-    if len(admin_levels) != len(geopolygons):
+    # If duplicates per admin_level exist, resolve instead of returning None
+    if admin_levels != len(geopolygons):
         logger.warning(
             "Duplicate admin levels for point: %s -> %s",
             stop_point,
             geopolygons_as_string(geopolygons),
         )
-        return None
+        geopolygons = dedupe_by_admin_level(geopolygons, logger)
 
     valid_iso_3166_1 = any(g.iso_3166_1_code for g in geopolygons)
     valid_iso_3166_2 = any(g.iso_3166_2_code for g in geopolygons)

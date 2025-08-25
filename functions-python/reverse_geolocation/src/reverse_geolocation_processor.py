@@ -331,6 +331,19 @@ def reverse_geolocation_process(
             use_cache=use_cache,
         )
 
+        if not location_groups:
+            no_locations_message = "No locations found for the provided stops."
+            logger.warning(no_locations_message)
+            record_execution_trace(
+                execution_id=execution_id,
+                stable_id=stable_id,
+                status=Status.FAILED,
+                logger=logger,
+                dataset_file=None,
+                error_message=no_locations_message,
+            )
+            return no_locations_message, ERROR_STATUS_CODE
+
         # Create GeoJSON Aggregate
         create_geojson_aggregate(
             list(location_groups.values()),
