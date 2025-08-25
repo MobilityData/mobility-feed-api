@@ -1006,6 +1006,8 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
       PYTHONNODEBUGRANGES = 0
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       DATASETS_BUCKET_NAME_GTFS = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
     }
