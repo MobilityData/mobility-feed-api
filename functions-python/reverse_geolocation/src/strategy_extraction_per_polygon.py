@@ -76,6 +76,7 @@ def extract_location_aggregates_per_polygon(
     batch_size = max(
         int(total_stop_count / 20), 0
     )  # Process ~5% of the total stops in each batch
+    stop_clustered_total = 0
     while not remaining_stops_df.empty:
         if (last_seen_count - len(remaining_stops_df)) >= batch_size or len(
             remaining_stops_df
@@ -126,6 +127,7 @@ def extract_location_aggregates_per_polygon(
                 highest.admin_level,
                 count_before - len(remaining_stops_df),
             )
+            stop_clustered_total += count_before - len(remaining_stops_df)
         else:
             # If admin_level < locality_admin_level, we assume the polygon is too large to filter points
             # directly, so we just use the first point as a representative
@@ -169,4 +171,6 @@ def extract_location_aggregates_per_polygon(
             location_aggregates[location_aggregate.group_id] = location_aggregate
     # Make sure to commit the changes after processing all points
     db_session.commit()
-    logger.info("Completed processing all points")
+    logger.info(
+        "Completed processing all points with clustered total %d", stop_clustered_total
+    )

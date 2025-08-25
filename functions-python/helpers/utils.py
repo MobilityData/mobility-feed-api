@@ -254,21 +254,20 @@ def check_maximum_executions(
 
     trace_service = DatasetTraceService()
     trace = trace_service.get_by_execution_and_stable_ids(execution_id, stable_id)
-    logger.info(f"Dataset trace: {trace}")
     executions = len(trace) if trace else 0
     logger.info(
-        f"Dataset executed times={executions}/{maximum_executions} "
+        f"Function executed times={executions}/{maximum_executions} "
         f"in execution=[{execution_id}] "
     )
 
     if executions > 0:
         if executions >= maximum_executions:
-            error_message = (
+            message = (
                 f"Function already executed maximum times "
                 f"in execution: [{execution_id}]"
             )
-            logger.error(error_message)
-            return error_message
+            logger.warning(message)
+            return message
     return None
 
 
