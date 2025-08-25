@@ -11,19 +11,21 @@ def read_csv(filepath):
             yield row
 
 
-def load_routes(routes_file):
+def load_routes(routes_data):
+    """Creates a dictionary of routes from route data."""
     routes = {}
-    for row in read_csv(routes_file):
+    for row in routes_data:
         route_id = row.get("route_id")
         if route_id:
             routes[route_id] = row
     return routes
 
 
-def build_stop_to_routes(stop_times_file, trips_file):
+def build_stop_to_routes(stop_times_data, trips_data):
+    """Builds a mapping from stop_id to a set of route_ids."""
     # Build trip_id -> route_id mapping
     trip_to_route = {}
-    for row in read_csv(trips_file):
+    for row in trips_data:
         trip_id = row.get("trip_id")
         route_id = row.get("route_id")
         if trip_id and route_id:
@@ -31,7 +33,7 @@ def build_stop_to_routes(stop_times_file, trips_file):
 
     # Build stop_id -> set of route_ids
     stop_to_routes = defaultdict(set)
-    for row in read_csv(stop_times_file):
+    for row in stop_times_data:
         trip_id = row.get("trip_id")
         stop_id = row.get("stop_id")
         if trip_id and stop_id:
@@ -42,15 +44,14 @@ def build_stop_to_routes(stop_times_file, trips_file):
     return stop_to_routes
 
 
-def convert_stops_to_geojson(
-    stops_file, stop_times_file, trips_file, routes_file, output_file
-):
-    routes = load_routes(routes_file)
-    stop_to_routes = build_stop_to_routes(stop_times_file, trips_file)
+def convert_stops_to_geojson(stops, stop_times, trips, routes, output_file):
+    """Converts GTFS stops data to a GeoJSON file."""
+    routes_map = load_routes(routes)
+    stop_to_routes = build_stop_to_routes(stop_times, trips)
 
     features = []
 
-    for row in read_csv(stops_file):
+    for row in stops:
         stop_id = row.get("stop_id")
         if not stop_id:
             continue
@@ -66,7 +67,9 @@ def convert_stops_to_geojson(
         # Routes serving this stop
         route_ids = sorted(stop_to_routes.get(stop_id, []))
         route_colors = [
-            routes[r].get("route_color", "#000000") for r in route_ids if r in routes
+            routes_map[r].get("route_color", "#000000")
+            for r in route_ids
+            if r in routes_map
         ]
 
         feature = {
@@ -83,8 +86,6 @@ def convert_stops_to_geojson(
                 "zone_id": row.get("zone_id", ""),
                 "stop_url": row.get("stop_url", ""),
                 "wheelchair_boarding": row.get("wheelchair_boarding", ""),
-                # "stop_lat": row.get("stop_lat"),
-                # "stop_lon": row.get("stop_lon"),
                 "location_type": row.get("location_type", ""),
                 "route_ids": route_ids,
                 "route_colors": route_colors,
@@ -102,9 +103,7 @@ def convert_stops_to_geojson(
 
 if __name__ == "__main__":
     if len(sys.argv) != 6:
-        print(
-            "Usage: python script.py stops.txt stop_times.txt trips.txt routes.txt output.geojson"
-        )
+        print("Usage: python script.py stops stop_times trips routes output.geojson")
         sys.exit(1)
 
     convert_stops_to_geojson(

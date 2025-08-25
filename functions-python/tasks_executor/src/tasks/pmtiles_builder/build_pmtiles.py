@@ -37,6 +37,14 @@ ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
 AGENCY_FILE = "agency.txt"
 
+logging.basicConfig(
+    level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+for h in root.handlers:
+    h.setLevel(logging.DEBUG)
+
 
 def build_pmtiles_handler(payload) -> dict:
     """
@@ -66,7 +74,8 @@ def build_pmtiles_handler(payload) -> dict:
                 dataset_stable_id=dataset_stable_id,
                 workdir=workdir,
             )
-            status, message = builder.build_pmtiles()
+            gtfs_data = builder._load_gtfs_data()
+            status, message = builder.build_pmtiles(gtfs_data)
 
             # A failure at this point means the pmtiles could not be created because the data
             # is not available. So it's not an error of the pmtiles creation. I n that case
@@ -131,7 +140,7 @@ class PmtilesBuilder:
         dataset_stable_id = payload.get("dataset_stable_id", None)
         return feed_stable_id, dataset_stable_id
 
-    def build_pmtiles(self):
+    def build_pmtiles(self, gtfs_data):
         if not self.bucket_name:
             raise Exception("DATASETS_BUCKET_NAME environment variable is not defined.")
 
@@ -160,11 +169,11 @@ class PmtilesBuilder:
         self._run_tippecanoe("routes-output.geojson", "routes.pmtiles")
 
         convert_stops_to_geojson(
-            stops_file=self.get_path(STOPS_FILE),
-            stop_times_file=self.get_path(STOP_TIMES_FILE),
-            trips_file=self.get_path(TRIPS_FILE),
-            routes_file=self.get_path(ROUTES_FILE),
-            output_file=self.get_path("stops-output.geojson"),
+            gtfs_data["stops"],
+            gtfs_data["stop_times"],
+            gtfs_data["trips"],
+            gtfs_data["routes"],
+            self.get_path("stops-output.geojson"),
         )
         # self._create_stops_geojson()
 
@@ -598,3 +607,16 @@ class PmtilesBuilder:
             agencies["default"] = default_agency_name
 
         return agencies
+
+    def _load_gtfs_data(self):
+        """
+        Loads the main GTFS files into memory.
+        """
+        self.logger.info("Loading GTFS data into memory.")
+        return {
+            "routes": self._read_csv(self.get_path(ROUTES_FILE)),
+            "trips": self._read_csv(self.get_path(TRIPS_FILE)),
+            "stops": self._read_csv(self.get_path(STOPS_FILE)),
+            "stop_times": self._read_csv(self.get_path(STOP_TIMES_FILE)),
+            "agencies": self._load_agencies(),
+        }
