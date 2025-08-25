@@ -155,7 +155,11 @@ def extract_location_aggregates_per_polygon(
                 # Create or update the stop group for each stop in the cluster
                 # This will also update the location_aggregate with the stop count
                 create_or_update_stop_group(
-                    feed, stop["geometry"], location_aggregate, logger, db_session
+                    feed,
+                    stop["geometry"],
+                    location_aggregate.location_group,
+                    logger,
+                    db_session,
                 )
         processed_groups.add(location_aggregate.group_id)
 
