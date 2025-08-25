@@ -5,7 +5,7 @@
   "timeout": 540,
   "available_memory": "4Gi",
   "trigger_http": true,
-  "include_folders": ["helpers"],
+  "include_folders": ["helpers", "dataset_service"],
   "include_api_folders": ["database_gen", "database", "common"],
   "environment_variables": [],
   "secret_environment_variables": [

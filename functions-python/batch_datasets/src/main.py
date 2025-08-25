@@ -29,7 +29,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
-from shared.dataset_service.main import BatchExecutionService, BatchExecution
+from shared.dataset_service.dataset_service_commons import BatchExecution
+from shared.dataset_service.main import BatchExecutionService
 from shared.database.database import with_db_session
 from shared.helpers.logger import init_logger
 

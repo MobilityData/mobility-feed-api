@@ -1004,6 +1004,8 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
   service_config {
     environment_variables = {
       PYTHONNODEBUGRANGES = 0
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
       DATASETS_BUCKET_NAME_GTFS = "${var.datasets_bucket_name}-${var.environment}"
       DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
     }

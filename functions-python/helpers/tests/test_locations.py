@@ -2,13 +2,24 @@
 
 import unittest
 from unittest.mock import MagicMock
-from shared.database_gen.sqlacodegen_models import Feed, Location
+
+from geoalchemy2 import WKTElement
+from geoalchemy2.shape import from_shape
+from shapely.geometry.point import Point
+from shapely.geometry.polygon import Polygon
+
 from locations import (
     translate_feed_locations,
     get_country_code,
     create_or_get_location,
+    to_shapely,
+    select_highest_level_polygon,
+    select_lowest_level_polygon,
+    get_country_code_from_polygons,
 )
 from unittest.mock import patch
+
+from shared.database_gen.sqlacodegen_models import Location, Feed, Geopolygon
 
 
 class TestLocations(unittest.TestCase):
@@ -277,3 +288,170 @@ class TestLocations(unittest.TestCase):
         self.assertEqual(mock_location2.subdivision_name, "Translated State 2")
         self.assertEqual(mock_location2.municipality, "Translated City 2")
         self.assertEqual(mock_location2.country, "Translated Country 2")
+
+    def test_to_shapely_wkt_element(self):
+        wkt_element = WKTElement("POINT (1 2)", srid=4326)
+        result = to_shapely(wkt_element)
+        self.assertIsInstance(result, Point)
+        self.assertEqual(result.x, 1)
+        self.assertEqual(result.y, 2)
+
+    def test_to_shapely_wkb_element(self):
+        shapely_point = Point(1, 2)
+        wkb_element = from_shape(shapely_point, srid=4326)
+        result = to_shapely(wkb_element)
+        self.assertIsInstance(result, Point)
+        self.assertEqual(result.x, 1)
+        self.assertEqual(result.y, 2)
+
+    def test_to_shapely_wkt_string(self):
+        wkt_string = "POINT (1 2)"
+        result = to_shapely(wkt_string)
+        self.assertIsInstance(result, Point)
+        self.assertEqual(result.x, 1)
+        self.assertEqual(result.y, 2)
+
+    def test_to_shapely_shapely_geometry(self):
+        shapely_polygon = Polygon([(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)])
+        result = to_shapely(shapely_polygon)
+        self.assertIs(result, shapely_polygon)
+
+    def test_to_shapely_invalid_input(self):
+        invalid_input = 12345
+        result = to_shapely(invalid_input)
+        self.assertEqual(result, invalid_input)
+
+    def test_select_highest_level_polygon_mpty_list_returns_none(self):
+        result = select_highest_level_polygon([])
+        assert result is None
+
+    def test_select_highest_level_polygon_single_polygon(self):
+        g1 = Geopolygon(osm_id=1, admin_level=5)
+        result = select_highest_level_polygon([g1])
+        assert result == g1
+
+    def test_select_highest_level_polygon_multiple_polygons_selects_highest(self):
+        g1 = Geopolygon(osm_id=1, admin_level=3)
+        g2 = Geopolygon(osm_id=2, admin_level=7)
+        g3 = Geopolygon(osm_id=3, admin_level=5)
+        result = select_highest_level_polygon([g1, g2, g3])
+        assert result == g2
+
+    def test_select_highest_level_polygon_null_admin_level_treated_lowest(self):
+        g1 = Geopolygon(osm_id=1, admin_level=None)
+        g2 = Geopolygon(osm_id=2, admin_level=4)
+        result = select_highest_level_polygon([g1, g2])
+        assert result == g2
+
+    def test_select_highest_level_polygon_all_null_admin_levels(self):
+        g1 = Geopolygon(osm_id=1, admin_level=None)
+        g2 = Geopolygon(osm_id=2, admin_level=None)
+        result = select_highest_level_polygon([g1, g2])
+        # Should return one of them, but not None
+        assert result in [g1, g2]
+
+    def test_select_highest_level_polygon_ties_highest_admin_level(self):
+        g1 = Geopolygon(osm_id=1, admin_level=6)
+        g2 = Geopolygon(osm_id=2, admin_level=6)
+        result = select_highest_level_polygon([g1, g2])
+        # Either polygon with admin_level=6 is valid
+        assert result.admin_level == 6
+
+    def test_select_lowest_level_polygon_empty_list_returns_none(self):
+        self.assertIsNone(select_lowest_level_polygon([]))
+
+    def test_select_lowest_level_polygon_single_polygon_is_returned(self):
+        g1 = Geopolygon(osm_id=1, admin_level=5)
+        self.assertEqual(g1, select_lowest_level_polygon([g1]))
+
+    def test_select_lowest_level_polygon_chooses_smallest_numeric_level(self):
+        g1 = Geopolygon(osm_id=1, admin_level=7)
+        g2 = Geopolygon(osm_id=2, admin_level=3)
+        g3 = Geopolygon(osm_id=3, admin_level=5)
+        result = select_lowest_level_polygon([g1, g2, g3])
+        self.assertEqual(g2, result)
+        self.assertEqual(3, result.admin_level)
+
+    def test_select_lowest_level_polygon_ignores_none_when_numbers_exist(self):
+        g1 = Geopolygon(osm_id=1, admin_level=None)
+        g2 = Geopolygon(osm_id=2, admin_level=4)
+        result = select_lowest_level_polygon([g1, g2])
+        self.assertEqual(g2, result)
+        self.assertEqual(4, result.admin_level)
+
+    def test_select_lowest_level_polygon_all_none_returns_one_of_inputs(self):
+        g1 = Geopolygon(osm_id=1, admin_level=None)
+        g2 = Geopolygon(osm_id=2, admin_level=None)
+        result = select_lowest_level_polygon([g1, g2])
+        self.assertIn(result, (g1, g2))
+        self.assertIsNone(result.admin_level)
+
+    def test_select_lowest_level_polygon_ties_return_one_with_that_level(self):
+        g1 = Geopolygon(osm_id=1, admin_level=2)
+        g2 = Geopolygon(osm_id=2, admin_level=2)
+        result = select_lowest_level_polygon([g1, g2])
+        self.assertEqual(2, result.admin_level)
+
+    def test_get_country_code_from_polygons_returns_none_for_empty_list(self):
+        self.assertIsNone(get_country_code_from_polygons([]))
+
+    def test_get_country_code_from_polygons_ignores_polygons_without_country_code(self):
+        # Only one polygon has an ISO code -> it should be chosen regardless of admin_level
+        polys = [
+            Geopolygon(osm_id=1, admin_level=5, iso_3166_1_code=None),
+            Geopolygon(osm_id=2, admin_level=3, iso_3166_1_code=""),  # falsy -> ignored
+            Geopolygon(osm_id=3, admin_level=7, iso_3166_1_code="CA"),
+        ]
+        self.assertEqual("CA", get_country_code_from_polygons(polys))
+
+    def test_get_country_code_from_polygons_returns_none_when_no_iso_codes_present(
+        self,
+    ):
+        polys = [
+            Geopolygon(osm_id=1, admin_level=3, iso_3166_1_code=None),
+            Geopolygon(osm_id=2, admin_level=2, iso_3166_1_code=""),
+        ]
+        self.assertIsNone(get_country_code_from_polygons(polys))
+
+    def test_get_country_code_from_polygons_picks_lowest_admin_level(self):
+        # Among those with ISO codes, choose the one with the smallest admin_level
+        polys = [
+            Geopolygon(osm_id=1, admin_level=7, iso_3166_1_code="US"),
+            Geopolygon(osm_id=2, admin_level=3, iso_3166_1_code="CA"),
+            Geopolygon(osm_id=3, admin_level=5, iso_3166_1_code="MX"),
+        ]
+        self.assertEqual(
+            "CA", get_country_code_from_polygons(polys)
+        )  # admin_level=3 is lowest
+
+    def test_get_country_code_from_polygons_tie_returns_any_with_that_level(self):
+        # If two have the same lowest admin_level, either is fine.
+        polys = [
+            Geopolygon(osm_id=1, admin_level=2, iso_3166_1_code="US"),
+            Geopolygon(osm_id=2, admin_level=2, iso_3166_1_code="CA"),
+            Geopolygon(osm_id=3, admin_level=4, iso_3166_1_code="MX"),
+        ]
+        result = get_country_code_from_polygons(polys)
+        self.assertIn(result, {"US", "CA"})
+
+    def test_get_country_code_from_polygons_none_admin_levels_are_low_priority_when_numbers_exist(
+        self,
+    ):
+        # If select_lowest_level_polygon treats None as "lowest priority",
+        # polygons with numeric admin_level should win over None.
+        polys = [
+            Geopolygon(osm_id=1, admin_level=None, iso_3166_1_code="US"),
+            Geopolygon(osm_id=2, admin_level=4, iso_3166_1_code="CA"),
+        ]
+        self.assertEqual("CA", get_country_code_from_polygons(polys))
+
+    def test_get_country_code_from_polygons_all_none_admin_levels_returns_one_with_code(
+        self,
+    ):
+        # When all eligible have admin_level=None, any with an ISO code is acceptable.
+        polys = [
+            Geopolygon(osm_id=1, admin_level=None, iso_3166_1_code="US"),
+            Geopolygon(osm_id=2, admin_level=None, iso_3166_1_code="CA"),
+        ]
+        result = get_country_code_from_polygons(polys)
+        self.assertIn(result, {"US", "CA"})

@@ -4,6 +4,7 @@ omit =
     database.py
     */database_gen/*
     */dataset_service/*
+    */shared/common/*
 
 [report]
 exclude_lines =

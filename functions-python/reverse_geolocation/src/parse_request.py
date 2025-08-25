@@ -8,16 +8,27 @@ import requests
 from jsonpath_ng import parse
 
 from shared.helpers.locations import ReverseGeocodingStrategy
+from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.transform import to_boolean, to_enum
 
 
+@track_metrics(metrics=("time", "memory", "cpu"))
 def parse_request_parameters(
     request: flask.Request,
 ) -> Tuple[pd.DataFrame, str, Optional[str], str, List[str]]:
     """
     Parse the request parameters and return a DataFrame with the stops data.
-    @:returns Tuple: A tuple containing the stops DataFrame, stable ID, dataset ID, data type, and a list of URLs that
-    were used to fetch the data.
+    @:returns Tuple: A tuple containing:
+        - df: DataFrame
+        - feed_stable_id: str
+        - dataset_id: str (only for GTFS)
+        - data_type: str, either 'gtfs' or 'gbfs'.
+        - urls: List, a list of URLs that were used to fetch the data.
+        - public: bool(Optional), whether the data should be public or not. Default is True.
+        - strategy: ReverseGeocodingStrategy, the strategy to use for reverse geocoding. Default is PER_POINT.
+        - use_cache: bool(Optional), whether to use cache or not. Default is True for GBFS, false otherwise.
+    @:raises ValueError: If the request mandatory parameters are invalid or missing.
+
     """
     logging.info("Parsing request parameters.")
     request_json = request.get_json(silent=True)
@@ -51,16 +62,39 @@ def parse_request_parameters(
     public = True
     if "public" in request_json:
         public = to_boolean(request_json["public"], default_value=True)
-    strategy = ReverseGeocodingStrategy.PER_POINT
+    strategy = ReverseGeocodingStrategy.PER_POLYGON
     if "strategy" in request_json:
         strategy = to_enum(
+            enum_class=ReverseGeocodingStrategy,
             value=request_json["strategy"],
-            default_value=ReverseGeocodingStrategy.PER_POINT,
+            default_value=ReverseGeocodingStrategy.PER_POLYGON,
         )
     else:
         logging.info("No strategy provided, using default")
     logging.info("Strategy set to: %s.", strategy)
-    return df, stable_id, dataset_id, data_type, urls, public, strategy
+    if "use_cache" in request_json:
+        use_cache = to_boolean(
+            request_json["use_cache"], default_value=(data_type == "gtfs")
+        )
+        logging.info("Use cache: %s", use_cache)
+    else:
+        use_cache = data_type == "gtfs"
+        logging.info("No use_cache provided, using(%s): %s", data_type, use_cache)
+    if "maximum_executions" in request_json:
+        maximum_executions = int(request_json["maximum_executions"])
+    else:
+        maximum_executions = 1
+    return (
+        df,
+        stable_id,
+        dataset_id,
+        data_type,
+        urls,
+        public,
+        strategy,
+        use_cache,
+        maximum_executions,
+    )
 
 
 def parse_request_parameters_gtfs(
@@ -141,6 +175,7 @@ def parse_free_bike_status_url(free_bike_status_url):
     return pd.DataFrame(bikes_info)
 
 
+@track_metrics(metrics=("time", "memory", "cpu"))
 def parse_request_parameters_gbfs(
     request_json: dict,
 ) -> Tuple[pd.DataFrame, str, Optional[str], List[str]]:
