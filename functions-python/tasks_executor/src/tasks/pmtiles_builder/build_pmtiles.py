@@ -28,11 +28,14 @@ from google.cloud import storage
 
 from shared.helpers.logger import get_logger
 
+from .gtfs_stops_to_geojson import convert_stops_to_geojson
+
 STOP_TIMES_FILE = "stop_times.txt"
 SHAPES_FILE = "shapes.txt"
 TRIPS_FILE = "trips.txt"
 ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
+AGENCY_FILE = "agency.txt"
 
 
 def build_pmtiles_handler(payload) -> dict:
@@ -110,7 +113,7 @@ class PmtilesBuilder:
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
         self.stop_times_index = {}
-        self.stop_times_by_trip = None
+        self.stop_ids_by_trip_id = None
 
         self.workdir = workdir
 
@@ -156,7 +159,14 @@ class PmtilesBuilder:
 
         self._run_tippecanoe("routes-output.geojson", "routes.pmtiles")
 
-        self._create_stops_geojson()
+        convert_stops_to_geojson(
+            stops_file=self.get_path(STOPS_FILE),
+            stop_times_file=self.get_path(STOP_TIMES_FILE),
+            trips_file=self.get_path(TRIPS_FILE),
+            routes_file=self.get_path(ROUTES_FILE),
+            output_file=self.get_path("stops-output.geojson"),
+        )
+        # self._create_stops_geojson()
 
         self._run_tippecanoe("stops-output.geojson", "stops.pmtiles")
 
@@ -195,6 +205,7 @@ class PmtilesBuilder:
                 {"name": STOP_TIMES_FILE, "required": True},
                 {"name": TRIPS_FILE, "required": True},
                 {"name": STOPS_FILE, "required": True},
+                {"name": AGENCY_FILE, "required": False},
                 {"name": SHAPES_FILE, "required": False},
             ]
             for file_info in files:
@@ -256,6 +267,20 @@ class PmtilesBuilder:
                     self.bucket_name,
                     blob_path,
                 )
+                try:
+                    blob.make_public()
+                    self.logger.debug(
+                        "Made object public: https://storage.googleapis.com/%s/%s",
+                        self.bucket_name,
+                        blob_path,
+                    )
+                except Exception as e:
+                    # Likely due to Uniform bucket-level access; log and continue
+                    self.logger.warning(
+                        "Could not make %s public (uniform bucket-level access enabled?): %s",
+                        blob_path,
+                        e,
+                    )
         except Exception as e:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
@@ -299,6 +324,20 @@ class PmtilesBuilder:
         return shapes_index
 
     def _read_csv(self, filename):
+        """
+        Reads the content of a CSV file and returns it as a list of dictionaries
+        where each dictionary represents a row.
+
+        Parameters:
+        filename (str): The file path of the CSV file to be read.
+
+        Raises:
+        Exception: If there is an error during file opening or reading. The raised
+        exception will include the original error message along with the file name.
+
+        Returns:
+        list[dict]: A list of dictionaries, each representing a row in the CSV file.
+        """
         try:
             self.logger.debug("Loading %s", filename)
             with open(filename, newline="", encoding="utf-8") as f:
@@ -334,6 +373,8 @@ class PmtilesBuilder:
 
     def _create_routes_geojson(self):
         try:
+            agencies = self._load_agencies()
+
             shapes_index = self._create_shapes_index()
             self.logger.info("Creating routes geojson (optimized for memory)")
 
@@ -373,6 +414,9 @@ class PmtilesBuilder:
 
                         shape_id = shape_map_indexed_by_route.get(route_id, "")
 
+                        agency_id = route.get("agency_id") or "default"
+                        agency_name = agencies.get(agency_id, agency_id)
+
                         coordinates = []
                         if shape_id:
                             coordinates = self._get_shape_points(shape_id, shapes_index)
@@ -381,7 +425,7 @@ class PmtilesBuilder:
                             trip_id = trip_map_indexed_by_route.get(route_id, "")
 
                             if trip_id:
-                                trip_stop_times = self._get_trip_stop_times(trip_id)
+                                trip_stop_times = self._get_trip_stop_ids(trip_id)
                                 # We assume stop_times is already sorted by stop_sequence in the file.
                                 # According to the SPECS:
                                 #    The values must increase along the trip but do not need to be consecutive.
@@ -395,7 +439,18 @@ class PmtilesBuilder:
                             continue
                         feature = {
                             "type": "Feature",
-                            "properties": {k: route[k] for k in route},
+                            "properties": {
+                                "agency_name": agency_name,
+                                "route_id": route_id,
+                                "route_short_name": route.get("route_short_name", ""),
+                                "route_long_name": route.get("route_long_name", ""),
+                                "route_type": route.get("route_type", ""),
+                                "route_color": route.get("route_color", "#000000"),
+                                "route_text_color": route.get(
+                                    "route_text_color", "#FFFFFF"
+                                ),
+                            },
+                            # "properties": {k: route[k] for k in route},
                             "geometry": {
                                 "type": "LineString",
                                 "coordinates": coordinates,
@@ -424,19 +479,19 @@ class PmtilesBuilder:
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
 
-    def _get_trip_stop_times(self, trip_id):
+    def _get_trip_stop_ids(self, trip_id):
         # Lazy instantiation of the dictionary, because we may not need it al all if there is a shape.
-        if self.stop_times_by_trip is None:
-            self.stop_times_by_trip = {}
+        if self.stop_ids_by_trip_id is None:
+            self.stop_ids_by_trip_id = {}
             with open(
                 self.get_path(STOP_TIMES_FILE), newline="", encoding="utf-8"
             ) as f:
                 for row in csv.DictReader(f):
-                    self.stop_times_by_trip.setdefault(row["trip_id"], []).append(
+                    self.stop_ids_by_trip_id.setdefault(row["trip_id"], []).append(
                         row["stop_id"]
                     )
 
-        return self.stop_times_by_trip.get(trip_id, [])
+        return self.stop_ids_by_trip_id.get(trip_id, [])
 
     def _run_tippecanoe(self, input_file, output_file):
         self.logger.info("Running tippecanoe for input file %s", input_file)
@@ -514,7 +569,8 @@ class PmtilesBuilder:
                 for row in reader:
                     route = {
                         "routeId": row.get("route_id", ""),
-                        "routeName": row.get("route_long_name", ""),
+                        "routeName": row.get("route_long_name", "")
+                        or row.get("route_short_name", ""),
                         "color": f"#{row.get('route_color', '000000')}",
                         "textColor": f"#{row.get('route_text_color', 'FFFFFF')}",
                         "routeType": f"{row.get('route_type', 'unknown')}",
@@ -527,3 +583,18 @@ class PmtilesBuilder:
             self.logger.debug("Converted %d routes to routes.json.", len(routes))
         except Exception as e:
             raise Exception(f"Failed to create routes JSON for dataset: {e}") from e
+
+    def _load_agencies(self):
+        agencies = {}
+        default_agency_name = ""
+        for row in self._read_csv(self.get_path(AGENCY_FILE)):
+            agency_id = row.get("agency_id") or "default"
+            agency_name = row.get("agency_name", "").strip()
+            agencies[agency_id] = agency_name
+            if not default_agency_name:
+                default_agency_name = agency_name
+
+        if not agencies and default_agency_name:
+            agencies["default"] = default_agency_name
+
+        return agencies
