@@ -20,7 +20,7 @@ from typing import Final
 from google.cloud import datastore
 from google.cloud.datastore import Client
 
-from shared.dataset_service.dataset_service_commons import (
+from dataset_service_commons import (
     DatasetTrace,
     Status,
     PipelineStage,
