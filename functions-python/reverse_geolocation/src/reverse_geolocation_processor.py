@@ -25,6 +25,7 @@ from location_group_utils import (
     get_or_create_location,
 )
 from parse_request import parse_request_parameters
+from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -355,6 +356,7 @@ def reverse_geolocation_process(
             logger=logger,
             public=public,
         )
+
         logger.info(
             "COMPLETED. Processed %s stops for stable ID %s with strategy. "
             "Retrieved %s locations.",
@@ -442,6 +444,7 @@ def reverse_geolocation(
         logger=logger,
         db_session=db_session,
     )
+    create_refresh_materialized_view_task()
     return cache_location_groups
 
 
