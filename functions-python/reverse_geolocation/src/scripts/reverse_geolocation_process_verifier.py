@@ -80,7 +80,7 @@ feeds = [
     },
 ]
 run_with_feed_index = (
-    6  # Set to an integer index to run with a specific feed from the list above
+    1  # Set to an integer index to run with a specific feed from the list above
 )
 
 
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     from gcp_storage_emulator.server import create_server
     from flask import Flask, Request
 
-    strategy = ReverseGeocodingStrategy.PER_POLYGON
+    strategy = ReverseGeocodingStrategy.PER_POINT
 
     feed_dict = feeds[run_with_feed_index]
     feed_stable_id = feed_dict["stable_id"]

@@ -74,7 +74,7 @@ def extract_location_aggregates_per_polygon(
     total_stop_count = len(remaining_stops_df)
     last_seen_count = total_stop_count
     batch_size = max(
-        int(total_stop_count / 20), 0
+        1, int(total_stop_count * 0.05)
     )  # Process ~5% of the total stops in each batch
     stop_clustered_total = 0
     while not remaining_stops_df.empty:
