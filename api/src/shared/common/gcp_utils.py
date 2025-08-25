@@ -95,10 +95,12 @@ def create_http_task_with_name(
             headers={"Content-Type": "application/json"},
         ),
     )
-    logging.info("Task created with task_name: %s", task_name)
     try:
         response = client.create_task(parent=parent, task=task)
+        logging.info("Task created with task_name: %s", task_name)
     except Exception as e:
-        logging.error("Error creating task: %s", e)
-        logging.error("response: %s", response)
-    logging.info("Successfully created task in create_http_task_with_name")
+        if "Requested entity already exists" in str(e):
+            logging.info("Task already exists for %s, skipping.", task_name)
+        else:
+            logging.error("Error creating task: %s", e)
+            logging.error("response: %s", response)
