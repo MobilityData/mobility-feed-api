@@ -37,14 +37,6 @@ ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
 AGENCY_FILE = "agency.txt"
 
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-)
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
-for h in root.handlers:
-    h.setLevel(logging.DEBUG)
-
 
 def build_pmtiles_handler(payload) -> dict:
     """
