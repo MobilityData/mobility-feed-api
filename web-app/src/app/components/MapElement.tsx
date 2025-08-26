@@ -66,11 +66,11 @@ export const MapElement = (
           alignItems: 'center',
           gap: 1,
           color:
-            element.routeTextColor == 's'
+            element.routeTextColor !== ''
               ? '#' + element.routeTextColor
               : theme.map.routeTextColor,
           background:
-            element.routeColor == 's'
+            element.routeColor !== ''
               ? '#' + element.routeColor
               : theme.map.routeColor,
           padding: '5px',
