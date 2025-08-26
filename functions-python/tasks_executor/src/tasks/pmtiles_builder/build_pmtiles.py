@@ -256,6 +256,21 @@ class PmtilesBuilder:
                     self.bucket_name,
                     blob_path,
                 )
+
+                try:
+                    blob.make_public()
+                    self.logger.debug(
+                        "Made object public: https://storage.googleapis.com/%s/%s",
+                        self.bucket_name,
+                        blob_path,
+                    )
+                except Exception as e:
+                    # Likely due to Uniform bucket-level access; log and continue
+                    self.logger.warning(
+                        "Could not make %s public (uniform bucket-level access enabled?): %s",
+                        blob_path,
+                        e,
+                    )
         except Exception as e:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
