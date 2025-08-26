@@ -26,7 +26,7 @@ pydantic==2.11.7
 python-dotenv==1.0.0
 python-multipart==0.0.9
 PyYAML==6.0.1
-requests==2.32.2
+requests==2.32.4
 Rx==1.6.1
 six==1.16.0
 starlette==0.37.2
