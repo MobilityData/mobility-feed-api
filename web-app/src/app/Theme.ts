@@ -15,12 +15,16 @@ declare module '@mui/material/styles' {
   interface Theme {
     map: {
       basemapTileUrl: string;
+      routeColor: string;
+      routeTextColor: string;
     };
   }
 
   interface ThemeOptions {
     map?: {
       basemapTileUrl?: string;
+      routeColor?: string;
+      routeTextColor?: string;
     };
   }
 }
@@ -111,6 +115,8 @@ export const getTheme = (mode: ThemeModeEnum): Theme => {
       basemapTileUrl: isLightMode
         ? 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
         : 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      routeColor: chosenPalette.background.default,
+      routeTextColor: chosenPalette.text.primary,
     },
     mixins: {
       code: {

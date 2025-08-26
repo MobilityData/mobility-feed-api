@@ -66,11 +66,13 @@ export const MapElement = (
           alignItems: 'center',
           gap: 1,
           color:
-            element.routeTextColor !== ''
+            element.routeTextColor == 's'
               ? '#' + element.routeTextColor
-              : '#000000',
+              : theme.map.routeTextColor,
           background:
-            element.routeColor !== '' ? '#' + element.routeColor : '#ffffff',
+            element.routeColor == 's'
+              ? '#' + element.routeColor
+              : theme.map.routeColor,
           padding: '5px',
           borderRadius: '5px',
         }}
@@ -81,7 +83,7 @@ export const MapElement = (
           ],
           element.routeTextColor !== ''
             ? '#' + element.routeTextColor
-            : '#000000',
+            : theme.map.routeTextColor,
         )}
 
         <Typography gutterBottom sx={{ color: 'inherit', fontSize: 14, m: 0 }}>

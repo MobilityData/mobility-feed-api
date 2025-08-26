@@ -71,14 +71,6 @@ export default function FullMapView(): React.ReactElement {
     })) as CheckboxStructure[];
   };
 
-  // since this is a page on it's own, we can check if the bounding box is set in state, if not we have no choice but to fetch it
-  // console.log(
-  //   'boundingBox from state',
-  //   boundingBox,
-  //   latestDataset,
-  //   datasetLoadingStatus,
-  //   feedId,
-  // );
   if (boundingBox == undefined && latestDataset == undefined) {
     if (feedId != undefined) {
       dispatch(

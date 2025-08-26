@@ -46,38 +46,13 @@ export const GtfsVisualizationMap = ({
   hideStops = false,
 }: GtfsVisualizationMapProps): JSX.Element => {
 
-    console.log('[GtfsVisualizationMap] mount', {
-        latestDatasetId: latestDataset?.id,
-        latestDatasetHostedUrl: latestDataset?.hosted_url,
-    });
-
     const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(() => {
     const baseUrl = latestDataset?.hosted_url ? latestDataset.hosted_url.replace(/[^/]+$/, '') : undefined;
-    console.log('[GtfsVisualizationMap] latestDataset URLs', {
-        hostedUrl: latestDataset?.hosted_url,
-        baseUrl,
-    });
-
      const stops = `${baseUrl}/pmtiles/stops.pmtiles`;
      const routes = `${baseUrl}/pmtiles/routes.pmtiles`;
 
      return { stopsPmtilesUrl: stops, routesPmtilesUrl: routes };
   }, [latestDataset?.id, latestDataset?.stable_id]);
-
-
-    useEffect(() => {
-      console.log('[GtfsVisualizationMap] PMTiles URLs', {
-        stopsPmtilesUrl,
-        routesPmtilesUrl,
-      });
-    }, [stopsPmtilesUrl, routesPmtilesUrl]);
-
-        // Log whenever the identifiers change
-  useEffect(() => {
-    console.log('[GtfsVisualizationMap] props update', {
-      latestDatasetId: latestDataset?.id,
-    });
-  }, [latestDataset?.id]);
 
   const theme = useTheme();
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
@@ -152,7 +127,6 @@ export const GtfsVisualizationMap = ({
           longitude: String(event.lngLat.lng),
           latitude: String(event.lngLat.lat),
         }); // Example properties, adjust as needed
-        console.log('Mouse selectedStop', selectedStop);
         setMapClickRouteData(null);
         return;
       }
@@ -166,7 +140,6 @@ export const GtfsVisualizationMap = ({
           longitude: String(event.lngLat.lng),
           latitude: String(event.lngLat.lat),
         }); // Example properties, adjust as needed
-        console.log('Mouse clicked on map:', features);
         setMapClickStopData(null);
       }
     }
@@ -340,7 +313,6 @@ export const GtfsVisualizationMap = ({
             ]}
             scrollZoom={true}
             dragPan={true}
-            // https://pmtiles.io/ Good tool for debugging PMTiles
             mapStyle={{
               version: 8,
               sources: {
@@ -354,17 +326,11 @@ export const GtfsVisualizationMap = ({
                 sample: {
                   type: 'vector',
                     url: `pmtiles://${stopsPmtilesUrl}`, // dynamic stops
-                  //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/stops-bordeaux.pmtiles', // bordeaux
                 },
                 routes: {
                   type: 'vector',
                 url: `pmtiles://${routesPmtilesUrl}`, // dynamic routes
-                  //url: 'pmtiles://https://storage.googleapis.com/map-details-bucket-test/routes-bordeaux.pmtiles', // bordeaux
                 },
-                // boundingBox: {
-                //   type: 'geojson',
-                //   data: geojson, // displays the bounding box
-                // },
               },
               // Order matters: the last layer will be on top
               // Layers control all the logic in the map -> lots of duplicated for the sake of effects
@@ -445,16 +411,6 @@ export const GtfsVisualizationMap = ({
                     ],
                   },
                 },
-
-                // {
-                //   id: 'boundingBox',
-                //   type: 'fill',
-                //   source: 'boundingBox',
-                //   paint: {
-                //     'fill-color': '#088',
-                //     'fill-opacity': 0.8,
-                //   },
-                // },
                 {
                   id: 'stops',
                   filter: !hideStops, // Hide stops if hideStops is true
