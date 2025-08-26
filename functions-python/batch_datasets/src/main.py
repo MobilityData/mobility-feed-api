@@ -19,6 +19,7 @@ import logging
 import os
 import uuid
 from datetime import datetime
+from typing import Optional
 
 import functions_framework
 from google.cloud import pubsub_v1
@@ -64,7 +65,9 @@ def publish(publisher: PublisherClient, topic_path: str, data_bytes: bytes) -> F
     return publisher.publish(topic_path, data=data_bytes)
 
 
-def get_non_deprecated_feeds(session: Session):
+def get_non_deprecated_feeds(
+    session: Session, feed_stable_ids: Optional[list[str]] = None
+):
     """
     Returns a list of non deprecated feeds
     :return: list of feeds
@@ -79,7 +82,7 @@ def get_non_deprecated_feeds(session: Session):
             Gtfsfeed.authentication_info_url,
             Gtfsfeed.api_key_parameter_name,
             Gtfsfeed.status,
-            Gtfsdataset.id.label("dataset_id"),
+            Gtfsdataset.stable_id.label("dataset_stable_id"),
             Gtfsdataset.hash.label("dataset_hash"),
         )
         .select_from(Gtfsfeed)
@@ -87,6 +90,9 @@ def get_non_deprecated_feeds(session: Session):
         .filter(Gtfsfeed.status != "deprecated")
         .filter(or_(Gtfsdataset.id.is_(None), Gtfsdataset.latest.is_(True)))
     )
+    if feed_stable_ids:
+        # If feed_stable_ids are provided, filter the query by stable IDs
+        query = query.filter(Gtfsfeed.stable_id.in_(feed_stable_ids))
     # Limit the query to 10 feeds (or FEEDS_LIMIT param) for testing purposes and lower environments
     if os.getenv("ENVIRONMENT", "").lower() in ("dev", "test", "qa"):
         limit = os.getenv("FEEDS_LIMIT")
@@ -108,8 +114,17 @@ def batch_datasets(request, db_session: Session):
     :param db_session: database session object
     :return: HTTP response object
     """
+    feed_stable_ids = None
     try:
-        feeds = get_non_deprecated_feeds(db_session)
+        request_json = request.get_json()
+        feed_stable_ids = request_json.get("feed_stable_ids") if request_json else None
+    except Exception:
+        logging.info(
+            "No feed_stable_ids provided in the request, processing all feeds."
+        )
+
+    try:
+        feeds = get_non_deprecated_feeds(db_session, feed_stable_ids=feed_stable_ids)
     except Exception as error:
         logging.error(f"Error retrieving feeds: {error}")
         raise Exception(f"Error retrieving feeds: {error}")
@@ -130,7 +145,7 @@ def batch_datasets(request, db_session: Session):
             "producer_url": feed.producer_url,
             "feed_stable_id": feed.stable_id,
             "feed_id": feed.feed_id,
-            "dataset_id": feed.dataset_id,
+            "dataset_stable_id": feed.dataset_stable_id,
             "dataset_hash": feed.dataset_hash,
             "authentication_type": feed.authentication_type,
             "authentication_info_url": feed.authentication_info_url,
