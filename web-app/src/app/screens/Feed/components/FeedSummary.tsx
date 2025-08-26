@@ -46,6 +46,7 @@ import FeedAuthenticationSummaryInfo from './FeedAuthenticationSummaryInfo';
 import CommuteIcon from '@mui/icons-material/Commute';
 import { Link as RouterLink } from 'react-router-dom';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -67,7 +68,7 @@ export default function FeedSummary({
   const providersToDisplay = showAllProviders
     ? sortedProviders
     : sortedProviders.slice(0, 4);
-
+  const { config } = useRemoteConfig();
   return (
     <ContentBox
       width={width}
@@ -142,7 +143,7 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
-      {feed?.data_type === 'gtfs' && (
+      {feed?.data_type === 'gtfs' && config.enableGtfsVisualizationMap && (
         <Box sx={boxElementStyle}>
           <StyledTitleContainer>
             {/* TODO: get back to this */}
@@ -166,7 +167,7 @@ export default function FeedSummary({
           </Typography>
         </Box>
       )}
-      {feed?.data_type === 'gtfs' && (
+      {feed?.data_type === 'gtfs' && config.enableGtfsVisualizationMap && (
         <Box sx={boxElementStyle}>
           <StyledTitleContainer>
             {/* TODO: get back to this */}
