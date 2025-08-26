@@ -2,7 +2,7 @@ aiohttp~=3.10.5
 asgiref~=3.8.1
 asyncio~=3.4.3
 attrs~=23.1.0
-certifi==2024.7.4
+certifi==2025.8.3
 email-validator==2.0.0
 fastapi==0.115.2
 httpx
@@ -18,7 +18,7 @@ Rx==1.6.1
 starlette==0.40.0
 typing-extensions==4.10.0
 ujson==4.0.2
-urllib3~=2.2.2
+urllib3~=2.5.0
 uvicorn
 uvloop==0.19.0
 
