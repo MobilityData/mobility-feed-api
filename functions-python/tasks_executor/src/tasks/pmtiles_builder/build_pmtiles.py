@@ -579,7 +579,8 @@ class PmtilesBuilder:
                     route = {
                         "routeId": row.get("route_id", ""),
                         "routeName": row.get("route_long_name", "")
-                        or row.get("route_short_name", ""),
+                        or row.get("route_short_name", "")
+                        or row.get("route_id", ""),
                         "color": f"#{row.get('route_color', '000000')}",
                         "textColor": f"#{row.get('route_text_color', 'FFFFFF')}",
                         "routeType": f"{row.get('route_type', 'unknown')}",
