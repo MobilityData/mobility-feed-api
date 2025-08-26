@@ -28,6 +28,7 @@ export interface CheckboxStructure {
   seeChildren?: boolean;
   children?: CheckboxStructure[];
   disabled?: boolean;
+  props?: Record<string, string>;
 }
 
 function useDebouncedCallback(callback: () => void, delay: number): () => void {
