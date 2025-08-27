@@ -158,7 +158,14 @@ class TestPmtilesBuilder(unittest.TestCase):
             PmtilesBuilder.OperationStatus.SUCCESS,
             "All required files downloaded successfully.",
         )
-        status, message = self.builder.build_pmtiles()
+        mock_gtfs_data = {
+            "routes": MagicMock(),
+            "trips": MagicMock(),
+            "stops": MagicMock(),
+            "stop_times": MagicMock(),
+            "shapes": MagicMock(),
+        }
+        status, message = self.builder.build_pmtiles(gtfs_data=mock_gtfs_data)
         self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
         self.assertEqual(message, "success")
 
@@ -318,7 +325,7 @@ class TestPmtilesBuilder(unittest.TestCase):
             # works as expected. The suppress_logging context manager is used to silence log output during the test.
             with suppress_logging():
                 with self.assertRaises(Exception) as cm:
-                    self.builder.build_pmtiles()
+                    self.builder.build_pmtiles(gtfs_data={})
             self.assertIn("Download failed", str(cm.exception))
 
     def test_upload_files_to_gcs_missing_file(self):
