@@ -35,6 +35,15 @@ import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 
+declare global {
+  interface Window {
+    gtag?: (
+      command: 'event',
+      action: string,
+      params?: { [key: string]: any },
+    ) => void;
+  }
+}
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
   latestDataset?: { hosted_url?: string };
@@ -127,6 +136,18 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (newView !== null) setView(newView);
   };
 
+  const handleOpenFullMapClick = (): void => {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      typeof window.gtag === 'function'
+    ) {
+      window.gtag('event', 'gtfs_visualization_open_full_map', {
+        event_category: 'engagement',
+        event_label: 'Open Full GTFS Visualization Map',
+      });
+    }
+  };
+
   const getGbfsLatestVersionVisualizationUrl = (
     feed: GBFSFeedType,
   ): string | undefined => {
@@ -217,8 +238,12 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       >
         {view === 'gtfsVisualizationView' &&
           config.enableGtfsVisualizationMap && (
-            <Button component={Link} to='./map'>
-              Open Full Map with Filters
+            <Button
+              component={Link}
+              to='./map'
+              onClick={handleOpenFullMapClick}
+            >
+              Open Detailed Map
             </Button>
           )}
         {feed?.data_type === 'gbfs' ? (
