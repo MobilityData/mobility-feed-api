@@ -584,7 +584,6 @@ class PmtilesBuilder:
 
     def _load_agencies(self):
         agencies = {}
-        default_agency_name = ""
         agency_file_path = self.get_path(AGENCY_FILE)
         if not os.path.exists(agency_file_path):
             self.logger.warning("agency.txt not found, agencies will be empty.")
@@ -593,11 +592,6 @@ class PmtilesBuilder:
             agency_id = row.get("agency_id") or ""
             agency_name = row.get("agency_name", "").strip()
             agencies[agency_id] = agency_name
-            if not default_agency_name:
-                default_agency_name = agency_name
-
-        if not agencies and default_agency_name:
-            agencies["default"] = default_agency_name
 
         return agencies
 
