@@ -1,10 +1,14 @@
 import csv
 import json
 import sys
+import logging
 from collections import defaultdict
+
+logger = logging.getLogger(__name__)
 
 
 def read_csv(filepath):
+    """Reads a CSV file and yields each row as a dictionary."""
     with open(filepath, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -62,21 +66,27 @@ def convert_stops_to_geojson(stops, stop_times, trips, routes, output_file):
             or not row["stop_lat"]
             or not row["stop_lon"]
         ):
-            continue  # skip bad coordinates
+            logger.warning(f"Missing coordinates for stop_id {stop_id}, skipping.")
+            continue
 
         # Routes serving this stop
         route_ids = sorted(stop_to_routes.get(stop_id, []))
         route_colors = [
-            routes_map[r].get("route_color", "#000000")
-            for r in route_ids
-            if r in routes_map
+            routes_map[r].get("route_color", "") for r in route_ids if r in routes_map
         ]
+
+        try:
+            stop_lon = float(row["stop_lon"])
+            stop_lat = float(row["stop_lat"])
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid coordinates for stop_id {stop_id}, skipping.")
+            continue
 
         feature = {
             "type": "Feature",
             "geometry": {
                 "type": "Point",
-                "coordinates": [float(row["stop_lon"]), float(row["stop_lat"])],
+                "coordinates": [stop_lon, stop_lat],
             },
             "properties": {
                 "stop_id": stop_id,
@@ -98,12 +108,14 @@ def convert_stops_to_geojson(stops, stop_times, trips, routes, output_file):
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(geojson, f, indent=2, ensure_ascii=False)
 
-    print(f"✅ GeoJSON file saved to {output_file} with {len(features)} stops")
+    logger.info(f"✅ GeoJSON file saved to {output_file} with {len(features)} stops")
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 6:
-        print("Usage: python script.py stops stop_times trips routes output.geojson")
+        logger.info(
+            "Usage: python script.py stops stop_times trips routes output.geojson"
+        )
         sys.exit(1)
 
     convert_stops_to_geojson(

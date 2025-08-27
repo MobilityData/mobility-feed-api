@@ -167,7 +167,6 @@ class PmtilesBuilder:
             gtfs_data["routes"],
             self.get_path("stops-output.geojson"),
         )
-        # self._create_stops_geojson()
 
         self._run_tippecanoe("stops-output.geojson", "stops.pmtiles")
 
@@ -446,12 +445,9 @@ class PmtilesBuilder:
                                 "route_short_name": route.get("route_short_name", ""),
                                 "route_long_name": route.get("route_long_name", ""),
                                 "route_type": route.get("route_type", ""),
-                                "route_color": route.get("route_color", "#000000"),
-                                "route_text_color": route.get(
-                                    "route_text_color", "#FFFFFF"
-                                ),
+                                "route_color": route.get("route_color", ""),
+                                "route_text_color": route.get("route_text_color", ""),
                             },
-                            # "properties": {k: route[k] for k in route},
                             "geometry": {
                                 "type": "LineString",
                                 "coordinates": coordinates,
@@ -575,7 +571,7 @@ class PmtilesBuilder:
                         or row.get("route_id", ""),
                         "color": f"#{row.get('route_color', '000000')}",
                         "textColor": f"#{row.get('route_text_color', 'FFFFFF')}",
-                        "routeType": f"{row.get('route_type', 'unknown')}",
+                        "routeType": f"{row.get('route_type', '')}",
                     }
                     routes.append(route)
 
@@ -589,8 +585,12 @@ class PmtilesBuilder:
     def _load_agencies(self):
         agencies = {}
         default_agency_name = ""
-        for row in self._read_csv(self.get_path(AGENCY_FILE)):
-            agency_id = row.get("agency_id") or "default"
+        agency_file_path = self.get_path(AGENCY_FILE)
+        if not os.path.exists(agency_file_path):
+            self.logger.warning("agency.txt not found, agencies will be empty.")
+            return agencies
+        for row in self._read_csv(agency_file_path):
+            agency_id = row.get("agency_id") or ""
             agency_name = row.get("agency_name", "").strip()
             agencies[agency_id] = agency_name
             if not default_agency_name:
