@@ -35,6 +35,7 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   enableFeedStatusBadge: boolean;
   enableGbfsInSearchPage: boolean;
   gbfsVersions: string;
+  enableGtfsVisualizationMap: boolean;
 }
 
 const featureByPassDefault: BypassConfig = {
@@ -60,6 +61,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableFeedStatusBadge: false,
   enableGbfsInSearchPage: true,
   gbfsVersions: JSON.stringify(gbfsVersionsDefault),
+  enableGtfsVisualizationMap: false,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;

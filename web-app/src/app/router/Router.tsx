@@ -34,6 +34,7 @@ import GBFSFeedAnalytics from '../screens/Analytics/GBFSFeedAnalytics';
 import GBFSNoticeAnalytics from '../screens/Analytics/GBFSNoticeAnalytics';
 import GBFSVersionAnalytics from '../screens/Analytics/GBFSVersionAnalytics';
 import ContactUs from '../screens/ContactUs';
+import FullMapView from '../screens/Feed/components/FullMapView';
 
 export const AppRouter: React.FC = () => {
   const navigateTo = useNavigate();
@@ -101,6 +102,8 @@ export const AppRouter: React.FC = () => {
       />
       <Route path='feeds/:feedId' element={<Feed />} />
       <Route path='feeds/:feedDataType/:feedId' element={<Feed />} />
+      <Route path='feeds/:feedId/map' element={<FullMapView />} />
+      <Route path='feeds/:feedDataType/:feedId/map' element={<FullMapView />} />
       <Route path='contribute' element={<FeedSubmission />} />
       <Route path='contribute/submitted' element={<FeedSubmitted />} />
       <Route path='contribute-faq' element={<FeedSubmissionFAQ />} />

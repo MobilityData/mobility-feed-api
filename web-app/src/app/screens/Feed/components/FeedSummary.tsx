@@ -40,8 +40,13 @@ import {
   ResponsiveListItem,
   boxElementStyleProducerURL,
   featureChipsStyle,
+  StyledListItem,
 } from '../Feed.styles';
 import FeedAuthenticationSummaryInfo from './FeedAuthenticationSummaryInfo';
+import CommuteIcon from '@mui/icons-material/Commute';
+import { Link as RouterLink } from 'react-router-dom';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -63,7 +68,7 @@ export default function FeedSummary({
   const providersToDisplay = showAllProviders
     ? sortedProviders
     : sortedProviders.slice(0, 4);
-
+  const { config } = useRemoteConfig();
   return (
     <ContentBox
       width={width}
@@ -104,9 +109,15 @@ export default function FeedSummary({
               listStyle: providersToDisplay.length <= 1 ? 'none' : undefined,
             }}
           >
-            {providersToDisplay.map((provider) => (
-              <ResponsiveListItem key={provider}>{provider}</ResponsiveListItem>
-            ))}
+            {providersToDisplay.map((provider) =>
+              providersToDisplay.length <= 1 ? (
+                <StyledListItem key={provider}>{provider}</StyledListItem>
+              ) : (
+                <ResponsiveListItem key={provider}>
+                  {provider}
+                </ResponsiveListItem>
+              ),
+            )}
           </ul>
 
           {!showAllProviders && sortedProviders.length > 4 && (
@@ -132,6 +143,58 @@ export default function FeedSummary({
           )}
         </Box>
       </Box>
+      {feed?.data_type === 'gtfs' && config.enableGtfsVisualizationMap && (
+        <Box sx={boxElementStyle}>
+          <StyledTitleContainer>
+            {/* TODO: get back to this */}
+            <AccessTimeIcon></AccessTimeIcon>
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              Number of Routes
+            </Typography>
+          </StyledTitleContainer>
+          <Typography variant='body1'>
+            130
+            <Tooltip title='Find Routes On Map' placement='top' sx={{ ml: 1 }}>
+              <IconButton
+                size='small'
+                component={RouterLink}
+                to='./map'
+                color={'primary'}
+              >
+                <TravelExploreIcon></TravelExploreIcon>
+              </IconButton>
+            </Tooltip>
+          </Typography>
+        </Box>
+      )}
+      {feed?.data_type === 'gtfs' && config.enableGtfsVisualizationMap && (
+        <Box sx={boxElementStyle}>
+          <StyledTitleContainer>
+            {/* TODO: get back to this */}
+            <CommuteIcon></CommuteIcon>
+            <Typography variant='subtitle1' sx={{ fontWeight: 'bold' }}>
+              Type of Routes
+            </Typography>
+          </StyledTitleContainer>
+          <Typography variant='body1'>
+            Bus, Ferry, Tram
+            <Tooltip
+              title='View Routes Types On Map'
+              placement='top'
+              sx={{ ml: 1 }}
+            >
+              <IconButton
+                size='small'
+                component={RouterLink}
+                to='./map'
+                color={'primary'}
+              >
+                <TravelExploreIcon></TravelExploreIcon>
+              </IconButton>
+            </Tooltip>
+          </Typography>
+        </Box>
+      )}
       {latestDataset?.agency_timezone != undefined && (
         <Box sx={boxElementStyle}>
           <StyledTitleContainer>

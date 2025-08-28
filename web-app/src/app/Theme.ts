@@ -12,6 +12,21 @@ declare module '@mui/material/styles' {
   interface PaletteOptions {
     boxShadow?: string;
   }
+  interface Theme {
+    map: {
+      basemapTileUrl: string;
+      routeColor: string;
+      routeTextColor: string;
+    };
+  }
+
+  interface ThemeOptions {
+    map?: {
+      basemapTileUrl?: string;
+      routeColor?: string;
+      routeTextColor?: string;
+    };
+  }
 }
 
 declare module '@mui/material/Typography' {
@@ -96,6 +111,13 @@ export const getTheme = (mode: ThemeModeEnum): Theme => {
   const chosenPalette = !isLightMode ? darkPalette : palette;
   return createTheme({
     palette: { ...chosenPalette, mode },
+    map: {
+      basemapTileUrl: isLightMode
+        ? 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+        : 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      routeColor: chosenPalette.background.default,
+      routeTextColor: chosenPalette.text.primary,
+    },
     mixins: {
       code: {
         contrastText: '#f1fa8c',

@@ -2,13 +2,8 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
-from main import (
-    DatasetTrace,
-    DatasetTraceService,
-    Status,
-    BatchExecutionService,
-    BatchExecution,
-)
+from dataset_service_commons import DatasetTrace, Status, BatchExecution
+from main import DatasetTraceService, BatchExecutionService
 
 
 class TestDatasetService(unittest.TestCase):
