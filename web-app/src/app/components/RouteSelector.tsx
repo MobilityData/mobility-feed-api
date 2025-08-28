@@ -9,9 +9,10 @@ import {
   Box,
   ListItemButton,
 } from '@mui/material';
+import { type GtfsRoute } from '../types';
 
 interface RouteSelectorProps {
-  routes: Array<{ routeId: string; routeName: string; color?: string }>;
+  routes: GtfsRoute[];
   selectedRouteIds?: string[];
   onSelectionChange?: (selectedRoutes: string[]) => void;
 }
@@ -29,8 +30,8 @@ export default function RouteSelector({
     const searchLower = search.toLowerCase();
     return routes.filter(
       (route) =>
-        route.routeName.toLowerCase().includes(searchLower) ||
-        route.routeId.includes(searchLower),
+        (route.routeName ?? '').toLowerCase().includes(searchLower) ||
+        (route.routeId ?? '').includes(searchLower),
     );
   }, [search, routes]);
 
@@ -38,7 +39,10 @@ export default function RouteSelector({
     setSelectedRoutes([...selectedRouteIds]);
   }, [selectedRouteIds]);
 
-  const handleToggle = (routeId: string): void => {
+  const handleToggle = (routeId: string | undefined): void => {
+    if (routeId == undefined) {
+      return routeId;
+    }
     setSelectedRoutes((prev) => {
       const newSelection = prev.includes(routeId)
         ? prev.filter((id) => id !== routeId)
@@ -76,7 +80,7 @@ export default function RouteSelector({
 
       <List dense sx={{ maxHeight: 'none', overflow: 'auto', flex: 1 }}>
         {filteredRoutes
-          .sort((a, b) => a.routeId.localeCompare(b.routeId))
+          .sort((a, b) => (a.routeId ?? '').localeCompare(b.routeId ?? ''))
           .map((route) => (
             <ListItemButton
               key={route.routeId}
@@ -89,7 +93,7 @@ export default function RouteSelector({
               <ListItemIcon sx={{ minWidth: 34 }}>
                 <Checkbox
                   edge='start'
-                  checked={selectedRoutes.includes(route.routeId)}
+                  checked={selectedRoutes.includes(route.routeId ?? '')}
                   tabIndex={-1}
                   disableRipple
                 />

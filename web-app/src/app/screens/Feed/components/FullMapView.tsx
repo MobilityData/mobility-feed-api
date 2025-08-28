@@ -1,14 +1,11 @@
 import { Box, Fab, Button, Chip, useTheme } from '@mui/material';
 import RouteSelector from '../../../components/RouteSelector';
-import sampleRoutes from './sample-route-output.json'; // STM
-// import sampleRoutes from './routes_TBM-2622_sample.json'; // BOrdaux
 import React, { useState } from 'react';
 import { GtfsVisualizationMap } from '../../../components/GtfsVisualizationMap';
 import CloseIcon from '@mui/icons-material/Close';
 import NestedCheckboxList, {
   type CheckboxStructure,
 } from '../../../components/NestedCheckboxList';
-import { routeTypesMapping } from '../../../constants/RouteTypes';
 import { ChevronLeft } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { SearchHeader } from '../../../styles/Filters.styles';
@@ -19,6 +16,8 @@ import {
 } from '../Map.styles';
 import {
   selectBoundingBoxFromLatestDataset,
+  selectGtfsDatasetRoutesJson,
+  selectGtfsDatasetRouteTypes,
   selectLatestDatasetsData,
 } from '../../../store/selectors';
 import { useSelector } from 'react-redux';
@@ -26,49 +25,49 @@ import { useParams } from 'react-router-dom';
 import { loadingDataset } from '../../../store/dataset-reducer';
 import { useAppDispatch } from '../../../hooks';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
+import { getRouteTypeTranslatedName } from '../../../constants/RouteTypes';
 
 export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
   const { feedId } = useParams();
   const theme = useTheme();
   const [filteredRoutes, setFilteredRoutes] = useState<string[]>([]);
-  const [filteredRouteTypes, setFilteredRouteTypes] = useState<string[]>([]);
+  const [filteredRouteTypeIds, setFilteredRouteTypeIds] = useState<string[]>(
+    [],
+  );
   const [hideStops, setHideStops] = useState<boolean>(false);
   const [showMapControlMobile, setShowMapControlMobile] =
     useState<boolean>(false);
   const { config } = useRemoteConfig();
   const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
+  const routes = useSelector(selectGtfsDatasetRoutesJson);
+  const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
   const dispatch = useAppDispatch();
 
   const clearAllFilters = (): void => {
     setFilteredRoutes([]);
-    setFilteredRouteTypes([]);
+    setFilteredRouteTypeIds([]);
     setHideStops(false);
   };
 
   const getRouteDisplayName = (routeId: string): string => {
-    const route = sampleRoutes.find((r) => r.routeId === routeId);
+    const route = (routes ?? []).find((r) => r.routeId === routeId);
     return route != null ? `${route.routeId} - ${route.routeName}` : routeId;
   };
 
-  const getUniqueRouteTypesCheckboxData = (
-    routes: Array<{ routeType: string }>,
-  ): CheckboxStructure[] => {
-    const uniqueTypes = new Set<string>();
-    routes.forEach((route) => {
-      if (route?.routeType !== '') {
-        uniqueTypes.add(route.routeType);
-      }
-    });
-    return Array.from(uniqueTypes).map((type) => ({
-      title: routeTypesMapping[type].name,
-      checked: filteredRouteTypes.includes(routeTypesMapping[type].name),
-      props: {
-        routeTypeId: type,
-      },
-      type: 'checkbox',
-    })) as CheckboxStructure[];
+  const getUniqueRouteTypesCheckboxData = (): CheckboxStructure[] => {
+    return (routeTypes ?? []).map((routeTypeId) => {
+      const translatedName = getRouteTypeTranslatedName(routeTypeId, t);
+      return {
+        title: translatedName,
+        checked: filteredRouteTypeIds.includes(routeTypeId),
+        props: {
+          routeTypeId,
+        },
+        type: 'checkbox',
+      };
+    }) as CheckboxStructure[];
   };
 
   if (boundingBox == undefined && latestDataset == undefined) {
@@ -86,7 +85,7 @@ export default function FullMapView(): React.ReactElement {
     return (
       <StyledChipFilterContainer id='map-filters'>
         {(filteredRoutes.length > 0 ||
-          filteredRouteTypes.length > 0 ||
+          filteredRouteTypeIds.length > 0 ||
           hideStops) && (
           <Button
             variant={'text'}
@@ -109,16 +108,16 @@ export default function FullMapView(): React.ReactElement {
             sx={{ cursor: 'pointer' }}
           ></Chip>
         )}
-        {filteredRouteTypes.map((routeType) => (
+        {filteredRouteTypeIds.map((routeTypeId) => (
           <Chip
             color='primary'
             variant='outlined'
             size='small'
-            key={routeType}
-            label={routeType}
+            key={routeTypeId}
+            label={getRouteTypeTranslatedName(routeTypeId, t)}
             onDelete={() => {
-              setFilteredRouteTypes((prev) =>
-                prev.filter((type) => type !== routeType),
+              setFilteredRouteTypeIds((prev) =>
+                prev.filter((type) => type !== routeTypeId),
               );
             }}
             sx={{ cursor: 'pointer' }}
@@ -197,12 +196,12 @@ export default function FullMapView(): React.ReactElement {
           Route Types
         </SearchHeader>
         <NestedCheckboxList
-          checkboxData={getUniqueRouteTypesCheckboxData(sampleRoutes)}
+          checkboxData={getUniqueRouteTypesCheckboxData()}
           onCheckboxChange={(checkboxData: CheckboxStructure[]) => {
-            setFilteredRouteTypes(
+            setFilteredRouteTypeIds(
               checkboxData
                 .map((item) => {
-                  return item.checked ? item?.title ?? '' : '';
+                  return item.checked ? item?.props?.routeTypeId ?? '' : '';
                 })
                 .filter((item) => item !== ''),
             );
@@ -228,7 +227,7 @@ export default function FullMapView(): React.ReactElement {
           Routes
         </SearchHeader>
         <RouteSelector
-          routes={sampleRoutes}
+          routes={routes ?? []}
           selectedRouteIds={filteredRoutes}
           onSelectionChange={(val) => {
             setFilteredRoutes(val);
@@ -304,7 +303,7 @@ export default function FullMapView(): React.ReactElement {
             <GtfsVisualizationMap
               polygon={boundingBox}
               latestDataset={latestDataset}
-              filteredRouteTypes={filteredRouteTypes}
+              filteredRouteTypeIds={filteredRouteTypeIds}
               filteredRoutes={filteredRoutes}
               hideStops={hideStops}
             ></GtfsVisualizationMap>

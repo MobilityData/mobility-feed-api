@@ -13,13 +13,19 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import PlaceIcon from '@mui/icons-material/Place';
 import DirectionsSubwayIcon from '@mui/icons-material/DirectionsSubway';
 import type { SvgIconComponent } from '@mui/icons-material';
+import type { TFunction } from 'i18next';
 
 export interface RouteTypeMetadata {
   name: string;
   icon: SvgIconComponent;
+  isDefault?: boolean;
 }
 
-export type LocationTypeMetadata = RouteTypeMetadata;
+export const defaultRouteType: RouteTypeMetadata = {
+  name: '',
+  icon: PlaceIcon,
+  isDefault: true,
+};
 
 export const routeTypesMapping: Record<string, RouteTypeMetadata> = {
   '0': { name: 'Tram', icon: TramIcon },
@@ -36,7 +42,7 @@ export const routeTypesMapping: Record<string, RouteTypeMetadata> = {
 };
 
 // TODO: find better icons for these
-export const locationTypesMapping: Record<string, LocationTypeMetadata> = {
+export const locationTypesMapping: Record<string, RouteTypeMetadata> = {
   '0': { name: 'Stop', icon: DirectionsBusIcon },
   '1': { name: 'Station', icon: TrainIcon },
   '2': { name: 'Entrance/Exit', icon: MeetingRoomIcon },
@@ -46,3 +52,22 @@ export const locationTypesMapping: Record<string, LocationTypeMetadata> = {
 export const reversedRouteTypesMapping = Object.fromEntries(
   Object.entries(routeTypesMapping).map(([k, v]) => [v.name, k]),
 );
+
+export const getRouteByTypeOrDefault = (
+  routeType: string | undefined | null,
+): RouteTypeMetadata => {
+  if (routeType == null) {
+    return defaultRouteType;
+  }
+  return routeTypesMapping[routeType] ?? defaultRouteType;
+};
+
+export const getRouteTypeTranslatedName = (
+  routeTypeId: string,
+  t: TFunction,
+): string => {
+  const routeType = getRouteByTypeOrDefault(routeTypeId);
+  return !(routeType.isDefault ?? false)
+    ? t(`common:gtfsSpec.routeType.${routeTypeId}.name`)
+    : 'default';
+};
