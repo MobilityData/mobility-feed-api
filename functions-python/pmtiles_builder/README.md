@@ -1,13 +1,10 @@
 # Build pmtile for a specific GTFS dataset
 
-This task generates the pmtiles for a provided dataset.
+This function generates the pmtiles for a provided dataset.
 pmtiles are used for displaying routes and stops in the UI
 
-## Task ID
-Use task Id: `build_pmtiles`
-
 ## Usage
-The function receive the following payload:
+The function receive the following request:
 ```
    {
       "feed_stable_id": str, 
@@ -23,7 +20,7 @@ Example:
    }
 ```
 
-The task will verify that the dataset stable id starts with the feed stable id (mdb-1004 in our example)
+The function will verify that the dataset stable id starts with the feed stable id (mdb-1004 in our example)
 
 # GCP environment variables
 The function uses the following environment variables:

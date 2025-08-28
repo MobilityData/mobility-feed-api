@@ -13,60 +13,36 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
+import importlib
 import logging
 import uuid
-from datetime import datetime
-from enum import Enum
-from dataclasses import dataclass, asdict
-from typing import Optional, Final
+from dataclasses import asdict
+from typing import Final
 from google.cloud import datastore
 from google.cloud.datastore import Client
 
+# This allows the module to be run as a script or imported as a module
+if __package__ is None or __package__ == "":
+    import os
+    import sys
+
+    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+    import dataset_service_commons
+else:
+    dataset_service_commons = importlib.import_module(
+        ".dataset_service_commons", package=__package__
+    )
+
+Status = dataset_service_commons.Status
+PipelineStage = dataset_service_commons.PipelineStage
+BatchExecution = dataset_service_commons.BatchExecution
+DatasetTrace = dataset_service_commons.DatasetTrace
 
 # This files contains the dataset trace and batch execution models and services.
 # The dataset trace is used to store the trace of a dataset and the batch execution
 # One batch execution can have multiple dataset traces.
 # Each dataset trace represents the resulting log of the dataset processing.
 # The persistent layer used is Google Cloud Datastore.
-
-
-# Status of the dataset trace
-class Status(Enum):
-    FAILED = "FAILED"
-    SUCCESS = "SUCCESS"
-    PUBLISHED = "PUBLISHED"
-    NOT_PUBLISHED = "NOT_PUBLISHED"
-    PROCESSING = "PROCESSING"
-
-
-# Stage of the pipeline
-class PipelineStage(Enum):
-    DATASET_PROCESSING = "DATASET_PROCESSING"
-    LOCATION_EXTRACTION = "LOCATION_EXTRACTION"
-    GBFS_VALIDATION = "GBFS_VALIDATION"
-
-
-# Dataset trace class to store the trace of a dataset
-@dataclass
-class DatasetTrace:
-    stable_id: str
-    status: Status
-    timestamp: datetime
-    dataset_id: Optional[str] = None
-    trace_id: Optional[str] = None
-    execution_id: Optional[str] = None
-    file_sha256_hash: Optional[str] = None
-    hosted_url: Optional[str] = None
-    pipeline_stage: PipelineStage = PipelineStage.DATASET_PROCESSING
-    error_message: Optional[str] = None
-
-
-# Batch execution class to store the trace of a batch execution
-@dataclass
-class BatchExecution:
-    execution_id: str
-    timestamp: datetime
-    feeds_total: int
 
 
 dataset_trace_collection: Final[str] = "dataset_trace"
