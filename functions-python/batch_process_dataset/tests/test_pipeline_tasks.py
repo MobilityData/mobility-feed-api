@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 from pipeline_tasks import (
     create_http_reverse_geolocation_processor_task,
     create_http_pmtiles_builder_task,
-    has_file_changed,
+    get_changed_files,
     create_pipeline_tasks,
 )
 
@@ -152,9 +152,8 @@ class TestHasFileChanged(unittest.TestCase):
         )
         mock_session = self._make_mock_session_chain(previous_dataset=None)
 
-        # Use __wrapped__ to bypass @with_db_session
-        result = has_file_changed(dataset, "stops.txt", db_session=mock_session)
-        self.assertTrue(result)
+        result = get_changed_files(dataset, db_session=mock_session)
+        self.assertTrue("stops.txt" in result)
 
     def test_previous_without_target_file_returns_true(self):
         prev = SimpleDataset(
@@ -173,10 +172,10 @@ class TestHasFileChanged(unittest.TestCase):
         )
         mock_session = self._make_mock_session_chain(previous_dataset=prev)
 
-        result = has_file_changed(dataset, "stops.txt", db_session=mock_session)
-        self.assertTrue(result)
+        result = get_changed_files(dataset, db_session=mock_session)
+        self.assertTrue("stops.txt" in result)
 
-    def test_new_dataset_missing_target_file_returns_true(self):
+    def test_new_dataset_missing_target_file_returns_false(self):
         prev = SimpleDataset(
             feed_id=1,
             dataset_id=9,
@@ -193,8 +192,8 @@ class TestHasFileChanged(unittest.TestCase):
         )
         mock_session = self._make_mock_session_chain(previous_dataset=prev)
 
-        result = has_file_changed(dataset, "stops.txt", db_session=mock_session)
-        self.assertTrue(result)
+        result = get_changed_files(dataset, db_session=mock_session)
+        self.assertFalse("stops.txt" in result)
 
     def test_hash_diff_returns_true(self):
         prev = SimpleDataset(
@@ -213,8 +212,8 @@ class TestHasFileChanged(unittest.TestCase):
         )
         mock_session = self._make_mock_session_chain(previous_dataset=prev)
 
-        result = has_file_changed(dataset, "stops.txt", db_session=mock_session)
-        self.assertTrue(result)
+        result = get_changed_files(dataset, db_session=mock_session)
+        self.assertTrue("stops.txt" in result)
 
     def test_hash_same_returns_false(self):
         prev = SimpleDataset(
@@ -233,8 +232,8 @@ class TestHasFileChanged(unittest.TestCase):
         )
         mock_session = self._make_mock_session_chain(previous_dataset=prev)
 
-        result = has_file_changed(dataset, "stops.txt", db_session=mock_session)
-        self.assertFalse(result)
+        result = get_changed_files(dataset, db_session=mock_session)
+        self.assertFalse("stops.txt" in result)
 
     class TestCreatePipelineTasks(unittest.TestCase):
         @patch.dict(
