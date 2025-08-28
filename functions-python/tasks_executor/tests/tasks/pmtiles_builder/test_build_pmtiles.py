@@ -464,7 +464,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
         if "DATASETS_BUCKET_NAME" in os.environ:
             del os.environ["DATASETS_BUCKET_NAME"]
 
-    def test_build_pmtiles_handler_missing_bucket_env(self):
+    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder")
+    def test_build_pmtiles_handler_missing_bucket_env(self, mock_builder_class):
         os.environ.pop("DATASETS_BUCKET_NAME", None)
         payload = {
             "feed_stable_id": self.feed_stable_id,
@@ -477,7 +478,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             "DATASETS_BUCKET_NAME environment variable is not defined.", result["error"]
         )
 
-    def test_build_pmtiles_handler_missing_ids(self):
+    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder")
+    def test_build_pmtiles_handler_missing_ids(self, mock_builder_class):
         payload = {}
         with suppress_logging():
             result = build_pmtiles_handler(payload)
@@ -487,7 +489,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             result["error"],
         )
 
-    def test_build_pmtiles_handler_feed_not_prefix(self):
+    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder")
+    def test_build_pmtiles_handler_feed_not_prefix(self, mock_builder_class):
         payload = {
             "feed_stable_id": "notprefix",
             "dataset_stable_id": self.dataset_stable_id,
