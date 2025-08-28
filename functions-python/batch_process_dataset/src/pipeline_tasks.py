@@ -59,7 +59,7 @@ def create_http_pmtiles_builder_task(
     create_http_task(
         client,
         body,
-        f"https://{gcp_region}-{project_id}.cloudfunctions.net/pmtiles_builder",
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/pmtiles-builder",
         project_id,
         gcp_region,
         queue_name,
@@ -157,6 +157,7 @@ def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
         create_http_pmtiles_builder_task(stable_id, dataset_stable_id)
     elif routes_file:
         logging.info(
-            f"Skipping PMTiles task for dataset {dataset_stable_id} due to size. routes.txt size: "
-            f"{routes_file.file_size_bytes} bytes"
+            f"Skipping PMTiles task for dataset {dataset_stable_id} due to constraints --> "
+            f"routes.txt file size : {routes_file.file_size_bytes} bytes"
+            f" and changed files: {changed_files}"
         )
