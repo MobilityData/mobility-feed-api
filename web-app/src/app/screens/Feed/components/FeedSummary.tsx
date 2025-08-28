@@ -47,6 +47,12 @@ import CommuteIcon from '@mui/icons-material/Commute';
 import { Link as RouterLink } from 'react-router-dom';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
+import { useSelector } from 'react-redux';
+import {
+  selectGtfsDatasetRoutesTotal,
+  selectGtfsDatasetRouteTypes,
+} from '../../../store/selectors';
+import { getRouteTypeTranslatedName } from '../../../constants/RouteTypes';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -69,6 +75,9 @@ export default function FeedSummary({
     ? sortedProviders
     : sortedProviders.slice(0, 4);
   const { config } = useRemoteConfig();
+  const totalRoutes = useSelector(selectGtfsDatasetRoutesTotal);
+  const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
+
   return (
     <ContentBox
       width={width}
@@ -153,13 +162,14 @@ export default function FeedSummary({
             </Typography>
           </StyledTitleContainer>
           <Typography variant='body1'>
-            130
+            {totalRoutes ?? '---'}
             <Tooltip title='Find Routes On Map' placement='top' sx={{ ml: 1 }}>
               <IconButton
                 size='small'
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
+                disabled={totalRoutes == undefined}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>
@@ -177,7 +187,11 @@ export default function FeedSummary({
             </Typography>
           </StyledTitleContainer>
           <Typography variant='body1'>
-            Bus, Ferry, Tram
+            {routeTypes != null && routeTypes.length > 0
+              ? routeTypes
+                  .map((routeType) => getRouteTypeTranslatedName(routeType, t))
+                  .join(', ')
+              : '---'}
             <Tooltip
               title='View Routes Types On Map'
               placement='top'
@@ -188,6 +202,7 @@ export default function FeedSummary({
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
+                disabled={routeTypes == undefined}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>
