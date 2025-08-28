@@ -426,38 +426,11 @@ class TestPmtilesBuilder(unittest.TestCase):
 
 class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
     def setUp(self):
-        self.test_dir = tempfile.TemporaryDirectory()
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         self.feed_stable_id = "feed123"
         self.dataset_stable_id = "feed123_dataset456"
 
-        # Create minimal GTFS files using builder.get_path
-        files = {
-            "routes.txt": (
-                "route_id,route_long_name,route_color,route_text_color,route_type\n"
-                "r1,Route 1,FF0000,FFFFFF,3\n"
-            ),
-            "shapes.txt": (
-                "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n"
-                "s1,45.0,-73.0,1\n"
-                "s1,45.1,-73.1,2\n"
-            ),
-            "trips.txt": ("route_id,service_id,trip_id,shape_id\n" "r1,svc1,t1,s1\n"),
-            "stops.txt": (
-                "stop_id,stop_lat,stop_lon\n" "stop1,45.0,-73.0\n" "stop2,45.1,-73.1\n"
-            ),
-            "stop_times.txt": (
-                "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
-                "t1,08:00:00,08:00:00,stop1,1\n"
-                "t1,08:10:00,08:10:00,stop2,2\n"
-            ),
-        }
-        for fname, content in files.items():
-            with open(self.builder.get_path(fname), "w", encoding="utf-8") as f:
-                f.write(content)
-
     def tearDown(self):
-        self.test_dir.cleanup()
         if "DATASETS_BUCKET_NAME" in os.environ:
             del os.environ["DATASETS_BUCKET_NAME"]
 
