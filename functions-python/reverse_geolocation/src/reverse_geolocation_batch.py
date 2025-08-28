@@ -34,15 +34,14 @@ def get_feeds_data(
         .filter(Gtfsdataset.latest.is_(True))
         .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
         .filter(Gtfsdataset.gtfsfiles.any(Gtfsfile.file_name == "stops.txt"))
-        .options(
-            selectinload(Gtfsdataset.feed),
-            selectinload(Gtfsdataset.gtfsfiles)
-        )
+        .options(selectinload(Gtfsdataset.feed), selectinload(Gtfsdataset.gtfsfiles))
     )
 
     if country_codes:
         query = query.filter(
-            Gtfsdataset.locations.any(Location.country_code.in_(country_codes))
+            Gtfsdataset.feed.has(
+                Gtfsfeed.locations.any(Location.country_code.in_(country_codes))
+            )
         )
 
     if include_only_unprocessed:

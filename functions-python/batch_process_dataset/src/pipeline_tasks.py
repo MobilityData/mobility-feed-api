@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 from google.cloud import tasks_v2
@@ -80,5 +81,14 @@ def create_pipeline_tasks(dataset: Gtfsdataset) -> None:
             stable_id, dataset_stable_id, stops_url
         )
 
+    routes_file = next(
+        (file for file in gtfs_files if file.file_name == "routes.txt"), None
+    )
     # Create PMTiles builder task
-    create_http_pmtiles_builder_task(stable_id, dataset_stable_id)
+    if routes_file and 0 < routes_file.file_size_bytes < 1_000_000:
+        create_http_pmtiles_builder_task(stable_id, dataset_stable_id)
+    elif routes_file:
+        logging.info(
+            f"Skipping PMTiles task for dataset {dataset_stable_id} due to size. routes.txt size: "
+            f"{routes_file.file_size_bytes} bytes"
+        )
