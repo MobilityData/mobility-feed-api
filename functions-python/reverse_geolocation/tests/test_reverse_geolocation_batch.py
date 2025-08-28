@@ -111,7 +111,7 @@ class TestReverseGeolocationBatch(unittest.TestCase):
             }.get(value, default)
             parse_request_parameters(request)
 
-    @patch("reverse_geolocation_batch.create_http_task")
+    @patch("reverse_geolocation_batch.create_http_processor_task")
     @patch("reverse_geolocation_batch.get_feeds_data")
     @patch("reverse_geolocation_batch.parse_request_parameters")
     def test_reverse_geolocation_batch(self, mock_parse_request, mock_get_feeds, _):
