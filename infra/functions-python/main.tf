@@ -1406,7 +1406,6 @@ resource "google_pubsub_topic_iam_member" "functions_publisher" {
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
     feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
     dataset_batch = data.google_pubsub_topic.datasets_batch_topic.name
-    reverse_geolocation = google_pubsub_topic.reverse_geolocation.name
   }
 
   project = var.project_id
@@ -1420,7 +1419,6 @@ resource "google_pubsub_topic_iam_member" "functions_subscriber" {
   for_each = {
     validate_gbfs_feed = google_pubsub_topic.validate_gbfs_feed.name
     feed_sync_dispatcher_transitland = google_pubsub_topic.transitland_feeds_dispatch.name
-    reverse_geolocation = google_pubsub_topic.reverse_geolocation.name
   }
 
   project = var.project_id
