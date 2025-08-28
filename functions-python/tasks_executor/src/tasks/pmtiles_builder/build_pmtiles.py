@@ -42,6 +42,9 @@ def build_pmtiles_handler(payload) -> dict:
     """
     Entrypoint for building PMTiles files from a GTFS dataset.
     """
+    # Initialize to None to handle cases where get_parameters fails
+    feed_stable_id = None
+    dataset_stable_id = None
     try:
         # Create a temporary folder to work in. It will be deleted when exiting the block.
         with tempfile.TemporaryDirectory(prefix="build_pmtiles_") as temp_dir:
