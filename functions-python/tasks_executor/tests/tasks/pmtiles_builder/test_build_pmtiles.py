@@ -430,9 +430,6 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         self.feed_stable_id = "feed123"
         self.dataset_stable_id = "feed123_dataset456"
-        self.builder = PmtilesBuilder(
-            self.feed_stable_id, self.dataset_stable_id, workdir=self.test_dir.name
-        )
 
         # Create minimal GTFS files using builder.get_path
         files = {
