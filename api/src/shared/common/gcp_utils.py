@@ -83,6 +83,7 @@ def create_http_task_with_name(
 ):
     """Creates a GCP Cloud Task."""
     from google.protobuf import duration_pb2
+
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
     parent = client.queue_path(project_id, gcp_region, queue_name)

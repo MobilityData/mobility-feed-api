@@ -217,7 +217,7 @@ def create_http_task(
         task_name=None,  # No specific task name provided
         task_time=proto_time,
         http_method=tasks_v2.HttpMethod.POST,
-        timeout_s=timeout_s
+        timeout_s=timeout_s,
     )
 
 

@@ -1024,7 +1024,7 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_processor" {
       DATASETS_BUCKET_NAME_GBFS = "${var.gbfs_bucket_name}-${var.environment}"
     }
     available_memory = local.function_reverse_geolocation_config.available_memory
-    timeout_seconds = 3600
+    timeout_seconds = 1700
     available_cpu = local.function_reverse_geolocation_config.available_cpu
     max_instance_request_concurrency = local.function_reverse_geolocation_config.max_instance_request_concurrency
     max_instance_count = 10
