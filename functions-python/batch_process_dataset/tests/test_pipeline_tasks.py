@@ -121,7 +121,7 @@ class TestPipelineTasks(unittest.TestCase):
         )
         self.assertEqual(
             args[2],
-            "https://northamerica-northeast1-my-project.cloudfunctions.net/pmtiles_builder",
+            "https://northamerica-northeast1-my-project.cloudfunctions.net/pmtiles-builder",
         )
         self.assertEqual(args[3], "my-project")
         self.assertEqual(args[4], "northamerica-northeast1")
