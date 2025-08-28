@@ -198,6 +198,7 @@ def create_http_task(
     project_id: str,
     gcp_region: str,
     queue_name: str,
+    timeout_s: int = 1800,  # 30 minutes
 ) -> None:
     from shared.common.gcp_utils import create_http_task_with_name
     from google.cloud import tasks_v2
@@ -216,6 +217,7 @@ def create_http_task(
         task_name=None,  # No specific task name provided
         task_time=proto_time,
         http_method=tasks_v2.HttpMethod.POST,
+        timeout_s=timeout_s
     )
 
 

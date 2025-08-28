@@ -441,13 +441,6 @@ resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
   load_balancing_scheme = "EXTERNAL_MANAGED"
 }
 
-# This permission is added to allow the function to act as the service account and generate tokens.
-resource "google_project_iam_member" "service_account_workflow_act_as_binding" {
-  project = var.project_id
-  role    = "roles/iam.serviceAccountUser" #iam.serviceAccounts.actAs
-  member  = "serviceAccount:${google_service_account.functions_service_account.email}"
-}
-
 resource "google_cloud_run_service_iam_member" "pmtiles_builder_invoker" {
   project  = var.project_id
   location = var.gcp_region
