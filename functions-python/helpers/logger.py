@@ -17,8 +17,6 @@ import os
 import logging
 import threading
 
-import google.cloud.logging
-
 from shared.common.logging_utils import get_env_logging_level
 
 
@@ -61,6 +59,8 @@ def init_logger():
             if _logging_initialized:
                 return
             try:
+                import google.cloud.logging
+
                 client = google.cloud.logging.Client()
                 client.setup_logging()
             except Exception as error:
