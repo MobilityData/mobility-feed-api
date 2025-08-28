@@ -55,11 +55,12 @@ def create_http_pmtiles_builder_task(
     queue_name = os.getenv("PMTILES_BUILDER_QUEUE")
     project_id = os.getenv("PROJECT_ID")
     gcp_region = os.getenv("GCP_REGION")
+    gcp_env = os.getenv("ENVIRONMENT")
 
     create_http_task(
         client,
         body,
-        f"https://{gcp_region}-{project_id}.cloudfunctions.net/pmtiles-builder",
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/pmtiles-builder-{gcp_env}",
         project_id,
         gcp_region,
         queue_name,

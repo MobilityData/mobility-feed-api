@@ -92,6 +92,7 @@ class TestPipelineTasks(unittest.TestCase):
             "PMTILES_BUILDER_QUEUE": "pmtiles-queue",
             "PROJECT_ID": "my-project",
             "GCP_REGION": "northamerica-northeast1",
+            "ENVIRONMENT": "dev",
         },
         clear=False,
     )
@@ -121,7 +122,7 @@ class TestPipelineTasks(unittest.TestCase):
         )
         self.assertEqual(
             args[2],
-            "https://northamerica-northeast1-my-project.cloudfunctions.net/pmtiles-builder",
+            "https://northamerica-northeast1-my-project.cloudfunctions.net/pmtiles-builder-dev",
         )
         self.assertEqual(args[3], "my-project")
         self.assertEqual(args[4], "northamerica-northeast1")

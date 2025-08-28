@@ -28,6 +28,7 @@ locals {
     "networkmanagement.googleapis.com",
     "cloudbuild.googleapis.com"
   ]
+  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
 
   function_batch_datasets_config = jsondecode(file("${path.module}/../../functions-python/batch_datasets/function_config.json"))
   function_batch_datasets_zip    = "${path.module}/../../functions-python/batch_datasets/.dist/batch_datasets.zip"
@@ -255,7 +256,7 @@ resource "google_pubsub_topic" "pubsub_topic" {
 resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   project  = var.project_id
   location = var.gcp_region
-  name     = "pmtiles-builder-queue-${var.environment}"
+  name     = "pmtiles-builder-queue-${var.environment}-${local.deployment_timestamp}"
 
   rate_limits {
     max_concurrent_dispatches = 1
@@ -444,7 +445,7 @@ resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
 resource "google_cloud_run_service_iam_member" "pmtiles_builder_invoker" {
   project  = var.project_id
   location = var.gcp_region
-  service  = local.function_pmtiles_builder_config.name
+  service  = "${local.function_pmtiles_builder_config.name}-${var.environment}"
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
