@@ -28,8 +28,6 @@ locals {
     "networkmanagement.googleapis.com",
     "cloudbuild.googleapis.com"
   ]
-  deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
-
   function_batch_datasets_config = jsondecode(file("${path.module}/../../functions-python/batch_datasets/function_config.json"))
   function_batch_datasets_zip    = "${path.module}/../../functions-python/batch_datasets/.dist/batch_datasets.zip"
 
