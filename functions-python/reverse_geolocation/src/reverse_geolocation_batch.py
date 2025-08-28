@@ -36,8 +36,7 @@ def get_feeds_data(
         .filter(Gtfsdataset.gtfsfiles.any(Gtfsfile.file_name == "stops.txt"))
         .options(
             selectinload(Gtfsdataset.feed),
-            selectinload(Gtfsdataset.gtfsfiles),
-            selectinload(Gtfsdataset.locations),
+            selectinload(Gtfsdataset.gtfsfiles)
         )
     )
 
