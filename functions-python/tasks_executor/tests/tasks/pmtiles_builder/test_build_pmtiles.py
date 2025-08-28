@@ -4,7 +4,7 @@ import logging
 import tempfile
 import unittest
 from contextlib import contextmanager
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 import os
 
 from tasks.pmtiles_builder.build_pmtiles import (
@@ -164,22 +164,20 @@ class TestPmtilesBuilder(unittest.TestCase):
             PmtilesBuilder.OperationStatus.SUCCESS,
             "All required files downloaded successfully.",
         )
-        
         # Mock file existence checks
         mock_exists.return_value = True
-        
         # Mock the stops-output.geojson file that will be accessed
         mock_stops_data = '{"type": "FeatureCollection", "features": []}'
-        mock_file_open.return_value.__enter__.return_value.read.return_value = mock_stops_data
-        
+        mock_file_open.return_value.__enter__.return_value.read.return_value = (
+            mock_stops_data
+        )
         mock_gtfs_data = {
             "routes": MagicMock(),
             "trips": MagicMock(),
             "stops": MagicMock(),
             "stop_times": MagicMock(),
-            "stops-output.geojson": mock_stops_data
+            "stops-output.geojson": mock_stops_data,
         }
-        
         status, message = self.builder.build_pmtiles(mock_gtfs_data)
         self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
         self.assertEqual(message, "success")
