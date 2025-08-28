@@ -1,5 +1,5 @@
 {
-  "name": "pmtiles_builder",
+  "name": "pmtiles-builder",
   "description": "The PMTiles Builder function creates PMTiles from dataset files",
   "entry_point": "build_pmtiles_handler",
   "timeout": 1000,
