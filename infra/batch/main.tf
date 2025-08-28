@@ -255,7 +255,7 @@ resource "google_pubsub_topic" "pubsub_topic" {
 resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   project  = var.project_id
   location = var.gcp_region
-  name     = "pmtiles-builder-task-queue-${var.environment}"
+  name     = "pmtiles-builder-queue-${var.environment}"
 
   rate_limits {
     max_concurrent_dispatches = 1

@@ -3,7 +3,9 @@ import logging
 import os
 
 from google.cloud import tasks_v2
+from sqlalchemy.orm import Session
 
+from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from shared.helpers.utils import create_http_task
 
@@ -63,7 +65,39 @@ def create_http_pmtiles_builder_task(
     )
 
 
-def create_pipeline_tasks(dataset: Gtfsdataset) -> None:
+@with_db_session
+def has_file_changed(dataset: Gtfsdataset, file_name: str, db_session: Session) -> bool:
+    """
+    Check if a file has changed in the dataset.
+    """
+    previous_dataset = (
+        db_session.query(Gtfsdataset)
+        .filter(
+            Gtfsdataset.feed_id == dataset.feed_id,
+            Gtfsdataset.id != dataset.id,
+            Gtfsdataset.latest.is_(False),
+        )
+        .order_by(Gtfsdataset.downloaded_at.desc())
+        .first()
+    )
+    if not previous_dataset:
+        return True
+    existing_file = next(
+        (file for file in previous_dataset.gtfsfiles if file.file_name == file_name),
+        None,
+    )
+    if not existing_file:
+        return True
+    new_dataset_file = next(
+        (file for file in dataset.gtfsfiles if file.file_name == file_name), None
+    )
+    if not new_dataset_file:
+        return True
+    return existing_file.hash != new_dataset_file.hash
+
+
+@with_db_session
+def create_pipeline_tasks(dataset: Gtfsdataset, db_session: Session) -> None:
     """
     Create pipeline tasks for a dataset.
     """
@@ -76,7 +110,7 @@ def create_pipeline_tasks(dataset: Gtfsdataset) -> None:
     stops_url = stops_file.hosted_url if stops_file else None
 
     # Create reverse geolocation task
-    if stops_url:
+    if stops_url and has_file_changed(dataset, "stops.txt", db_session):
         create_http_reverse_geolocation_processor_task(
             stable_id, dataset_stable_id, stops_url
         )
@@ -85,7 +119,11 @@ def create_pipeline_tasks(dataset: Gtfsdataset) -> None:
         (file for file in gtfs_files if file.file_name == "routes.txt"), None
     )
     # Create PMTiles builder task
-    if routes_file and 0 < routes_file.file_size_bytes < 1_000_000:
+    if (
+        routes_file
+        and 0 < routes_file.file_size_bytes < 1_000_000
+        and has_file_changed(dataset, "routes.txt", db_session)
+    ):
         create_http_pmtiles_builder_task(stable_id, dataset_stable_id)
     elif routes_file:
         logging.info(
