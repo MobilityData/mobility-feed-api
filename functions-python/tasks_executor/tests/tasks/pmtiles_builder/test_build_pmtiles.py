@@ -142,8 +142,14 @@ class TestPmtilesBuilder(unittest.TestCase):
     @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_stops_geojson")
     @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_routes_json")
     @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._upload_files_to_gcs")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("os.path.exists")
+    @patch("os.makedirs")
     def test_build_pmtiles_success(
         self,
+        mock_makedirs,
+        mock_exists,
+        mock_file_open,
         mock_upload,
         mock_routes_json,
         mock_stops_geojson,
@@ -158,14 +164,23 @@ class TestPmtilesBuilder(unittest.TestCase):
             PmtilesBuilder.OperationStatus.SUCCESS,
             "All required files downloaded successfully.",
         )
+        
+        # Mock file existence checks
+        mock_exists.return_value = True
+        
+        # Mock the stops-output.geojson file that will be accessed
+        mock_stops_data = '{"type": "FeatureCollection", "features": []}'
+        mock_file_open.return_value.__enter__.return_value.read.return_value = mock_stops_data
+        
         mock_gtfs_data = {
             "routes": MagicMock(),
             "trips": MagicMock(),
             "stops": MagicMock(),
             "stop_times": MagicMock(),
-            "shapes": MagicMock(),
+            "stops-output.geojson": mock_stops_data
         }
-        status, message = self.builder.build_pmtiles(gtfs_data=mock_gtfs_data)
+        
+        status, message = self.builder.build_pmtiles(mock_gtfs_data)
         self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
         self.assertEqual(message, "success")
 
