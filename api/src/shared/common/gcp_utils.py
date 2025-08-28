@@ -79,8 +79,11 @@ def create_http_task_with_name(
     task_name: str,
     task_time: Timestamp,
     http_method: "tasks_v2.HttpMethod",
+    timeout_s: int = 1800,  # 30 minutes
 ):
     """Creates a GCP Cloud Task."""
+    from google.protobuf import duration_pb2
+
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
     parent = client.queue_path(project_id, gcp_region, queue_name)
@@ -98,6 +101,7 @@ def create_http_task_with_name(
             body=body,
             headers={"Content-Type": "application/json"},
         ),
+        dispatch_deadline=duration_pb2.Duration(seconds=timeout_s),
     )
     try:
         response = client.create_task(parent=parent, task=task)

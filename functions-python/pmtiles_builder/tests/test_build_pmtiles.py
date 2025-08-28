@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from unittest.mock import patch, MagicMock
 import os
 
-from tasks.pmtiles_builder.build_pmtiles import (
+from main import (
     PmtilesBuilder,
     build_pmtiles_handler,
 )
@@ -34,8 +34,8 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.builder.logger = MagicMock()
         self.builder.bucket_name = "test-bucket"  # Ensure bucket_name is set
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.storage.Client")
-    @patch("tasks.pmtiles_builder.build_pmtiles.ROUTES_FILE", "routes.txt")
+    @patch("main.storage.Client")
+    @patch("main.ROUTES_FILE", "routes.txt")
     def test_required_file_missing(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -48,7 +48,7 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.assertIn("Required file", msg)
         self.builder.logger.warning.assert_called()
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.SHAPES_FILE", "shapes.txt")
+    @patch("main.SHAPES_FILE", "shapes.txt")
     def test_optional_file_missing(self):
         blob = MagicMock()
         blob.exists.return_value = False
@@ -56,8 +56,8 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         status, msg = self.builder._download_files_from_gcs("some/path")
         self.builder.logger.debug.assert_called()
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.storage.Client")
-    @patch("tasks.pmtiles_builder.build_pmtiles.ROUTES_FILE", "routes.txt")
+    @patch("main.storage.Client")
+    @patch("main.ROUTES_FILE", "routes.txt")
     def test_file_download_success(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -70,14 +70,14 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.assertEqual(status, self.builder.OperationStatus.SUCCESS)
         self.assertIn("downloaded successfully", msg)
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.storage.Client")
+    @patch("main.storage.Client")
     def test_bucket_not_exist(self, mock_client):
         mock_client.return_value.get_bucket.side_effect = Exception("Bucket not found")
         status, message = self.builder._download_files_from_gcs("some/path")
         self.assertEqual(status, PmtilesBuilder.OperationStatus.FAILURE)
         self.assertIn("Bucket not found", message)
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.storage.Client")
+    @patch("main.storage.Client")
     def test_download_required_file_error(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -91,7 +91,7 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.assertIn("Error downloading required file", str(context.exception))
         self.builder.logger.error.assert_called()
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.storage.Client")
+    @patch("main.storage.Client")
     def test_download_optional_file_error(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -105,7 +105,7 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         blob.download_to_filename.side_effect = download_side_effect
         self.builder.bucket.blob.return_value = blob
         self.builder.bucket.list_blobs.return_value = [MagicMock()]
-        with patch("tasks.pmtiles_builder.build_pmtiles.SHAPES_FILE", "shapes.txt"):
+        with patch("main.SHAPES_FILE", "shapes.txt"):
             status, msg = self.builder._download_files_from_gcs("some/path")
         self.assertEqual(status, self.builder.OperationStatus.SUCCESS)
         self.builder.logger.warning.assert_called_with(
@@ -121,27 +121,25 @@ class TestPmtilesBuilder(unittest.TestCase):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         self.builder = PmtilesBuilder(self.feed_stable_id, self.dataset_stable_id)
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.subprocess.run")
+    @patch("main.subprocess.run")
     def test_run_tippecanoe_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
         self.builder._run_tippecanoe("input.geojson", "output.pmtiles")
         mock_run.assert_called_once()
 
-    @patch("tasks.pmtiles_builder.build_pmtiles.subprocess.run")
+    @patch("main.subprocess.run")
     def test_run_tippecanoe_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
         with self.assertRaises(Exception), suppress_logging():
             self.builder._run_tippecanoe("input.geojson", "output.pmtiles")
 
-    @patch(
-        "tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._download_files_from_gcs"
-    )
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_shapes_index")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_routes_geojson")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._run_tippecanoe")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_stops_geojson")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._create_routes_json")
-    @patch("tasks.pmtiles_builder.build_pmtiles.PmtilesBuilder._upload_files_to_gcs")
+    @patch("main.PmtilesBuilder._download_files_from_gcs")
+    @patch("main.PmtilesBuilder._create_shapes_index")
+    @patch("main.PmtilesBuilder._create_routes_geojson")
+    @patch("main.PmtilesBuilder._run_tippecanoe")
+    @patch("main.PmtilesBuilder._create_stops_geojson")
+    @patch("main.PmtilesBuilder._create_routes_json")
+    @patch("main.PmtilesBuilder._upload_files_to_gcs")
     def test_build_pmtiles_success(
         self,
         mock_upload,
@@ -164,7 +162,9 @@ class TestPmtilesBuilder(unittest.TestCase):
 
     def test_get_parameters(self):
         payload = {"feed_stable_id": "f", "dataset_stable_id": "d"}
-        f, d = PmtilesBuilder._get_parameters(payload)
+        request = MagicMock()
+        request.get_json.return_value = payload
+        f, d = PmtilesBuilder.get_parameters(request)
         self.assertEqual(f, "f")
         self.assertEqual(d, "d")
 
@@ -450,8 +450,11 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             "feed_stable_id": self.feed_stable_id,
             "dataset_stable_id": self.dataset_stable_id,
         }
+        request = MagicMock()
+        request.get_json.return_value = payload
+
         with suppress_logging():
-            result = build_pmtiles_handler(payload)
+            result = build_pmtiles_handler(request)
         self.assertIn("error", result)
         self.assertIn(
             "DATASETS_BUCKET_NAME environment variable is not defined.", result["error"]
@@ -459,8 +462,11 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
 
     def test_build_pmtiles_handler_missing_ids(self):
         payload = {}
+        request = MagicMock()
+        request.get_json.return_value = payload
+
         with suppress_logging():
-            result = build_pmtiles_handler(payload)
+            result = build_pmtiles_handler(request)
         self.assertIn("error", result)
         self.assertIn(
             "Both feed_stable_id and dataset_stable_id must be defined.",
@@ -472,8 +478,10 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             "feed_stable_id": "notprefix",
             "dataset_stable_id": self.dataset_stable_id,
         }
+        request = MagicMock()
+        request.get_json.return_value = payload
         with suppress_logging():
-            result = build_pmtiles_handler(payload)
+            result = build_pmtiles_handler(request)
         self.assertIn("error", result)
         self.assertIn("is not a prefix of dataset_stable_id", result["error"])
 
