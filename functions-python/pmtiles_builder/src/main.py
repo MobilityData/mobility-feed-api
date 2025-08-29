@@ -27,6 +27,8 @@ from enum import Enum
 from google.cloud import storage
 
 from shared.helpers.logger import get_logger
+from gtfs_stops_to_geojson import convert_stops_to_geojson
+
 import flask
 import functions_framework
 
@@ -35,6 +37,7 @@ SHAPES_FILE = "shapes.txt"
 TRIPS_FILE = "trips.txt"
 ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
+AGENCY_FILE = "agency.txt"
 
 
 @functions_framework.http
@@ -42,6 +45,37 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
     """
     Entrypoint for building PMTiles files from a GTFS dataset.
     """
+    # Initialize to None to handle cases where get_parameters fails
+    feed_stable_id = None
+    dataset_stable_id = None
+
+    payload = request.get_json(silent=True)
+
+    feed_stable_id = payload.get("feed_stable_id")
+    dataset_stable_id = payload.get("dataset_stable_id")
+
+    if not (feed_stable_id and dataset_stable_id):
+        return {
+            "status": "error",
+            "error": "Both feed_stable_id and dataset_stable_id must be defined.",
+            "message": "",
+        }
+
+    if not dataset_stable_id.startswith(feed_stable_id):
+        return {
+            "status": "error",
+            "error": f"feed_stable_id={feed_stable_id} is not a prefix of dataset_stable_id={dataset_stable_id}",
+            "message": "",
+        }
+
+    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
+    if not bucket_name:
+        return {
+            "status": "error",
+            "error": "DATASETS_BUCKET_NAME environment variable is not defined.",
+            "message": "",
+        }
+
     try:
         # Create a temporary folder to work in. It will be deleted when exiting the block.
         with tempfile.TemporaryDirectory(prefix="build_pmtiles_") as temp_dir:
@@ -54,7 +88,7 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
                 workdir = debug_workdir
             else:
                 workdir = temp_dir
-            feed_stable_id, dataset_stable_id = PmtilesBuilder.get_parameters(request)
+
             result = {
                 "params": {
                     "feed_stable_id": feed_stable_id,
@@ -66,7 +100,8 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
                 dataset_stable_id=dataset_stable_id,
                 workdir=workdir,
             )
-            status, message = builder.build_pmtiles()
+            gtfs_data = builder._load_gtfs_data()
+            status, message = builder.build_pmtiles(gtfs_data)
 
             # A failure at this point means the pmtiles could not be created because the data
             # is not available. So it's not an error of the pmtiles creation. I n that case
@@ -113,7 +148,7 @@ class PmtilesBuilder:
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
         self.stop_times_index = {}
-        self.stop_times_by_trip = None
+        self.stop_ids_by_trip_id = None
 
         self.workdir = workdir
 
@@ -132,7 +167,7 @@ class PmtilesBuilder:
         dataset_stable_id = payload.get("dataset_stable_id", None)
         return feed_stable_id, dataset_stable_id
 
-    def build_pmtiles(self):
+    def build_pmtiles(self, gtfs_data):
         if not self.bucket_name:
             raise Exception("DATASETS_BUCKET_NAME environment variable is not defined.")
 
@@ -160,7 +195,13 @@ class PmtilesBuilder:
 
         self._run_tippecanoe("routes-output.geojson", "routes.pmtiles")
 
-        self._create_stops_geojson()
+        convert_stops_to_geojson(
+            gtfs_data["stops"],
+            gtfs_data["stop_times"],
+            gtfs_data["trips"],
+            gtfs_data["routes"],
+            self.get_path("stops-output.geojson"),
+        )
 
         self._run_tippecanoe("stops-output.geojson", "stops.pmtiles")
 
@@ -199,6 +240,7 @@ class PmtilesBuilder:
                 {"name": STOP_TIMES_FILE, "required": True},
                 {"name": TRIPS_FILE, "required": True},
                 {"name": STOPS_FILE, "required": True},
+                {"name": AGENCY_FILE, "required": False},
                 {"name": SHAPES_FILE, "required": False},
             ]
             for file_info in files:
@@ -260,7 +302,6 @@ class PmtilesBuilder:
                     self.bucket_name,
                     blob_path,
                 )
-
                 try:
                     blob.make_public()
                     self.logger.debug(
@@ -318,6 +359,20 @@ class PmtilesBuilder:
         return shapes_index
 
     def _read_csv(self, filename):
+        """
+        Reads the content of a CSV file and returns it as a list of dictionaries
+        where each dictionary represents a row.
+
+        Parameters:
+        filename (str): The file path of the CSV file to be read.
+
+        Raises:
+        Exception: If there is an error during file opening or reading. The raised
+        exception will include the original error message along with the file name.
+
+        Returns:
+        list[dict]: A list of dictionaries, each representing a row in the CSV file.
+        """
         try:
             self.logger.debug("Loading %s", filename)
             with open(filename, newline="", encoding="utf-8") as f:
@@ -353,6 +408,8 @@ class PmtilesBuilder:
 
     def _create_routes_geojson(self):
         try:
+            agencies = self._load_agencies()
+
             shapes_index = self._create_shapes_index()
             self.logger.info("Creating routes geojson (optimized for memory)")
 
@@ -392,6 +449,9 @@ class PmtilesBuilder:
 
                         shape_id = shape_map_indexed_by_route.get(route_id, "")
 
+                        agency_id = route.get("agency_id") or "default"
+                        agency_name = agencies.get(agency_id, agency_id)
+
                         coordinates = []
                         if shape_id:
                             coordinates = self._get_shape_points(shape_id, shapes_index)
@@ -400,7 +460,7 @@ class PmtilesBuilder:
                             trip_id = trip_map_indexed_by_route.get(route_id, "")
 
                             if trip_id:
-                                trip_stop_times = self._get_trip_stop_times(trip_id)
+                                trip_stop_times = self._get_trip_stop_ids(trip_id)
                                 # We assume stop_times is already sorted by stop_sequence in the file.
                                 # According to the SPECS:
                                 #    The values must increase along the trip but do not need to be consecutive.
@@ -414,7 +474,15 @@ class PmtilesBuilder:
                             continue
                         feature = {
                             "type": "Feature",
-                            "properties": {k: route[k] for k in route},
+                            "properties": {
+                                "agency_name": agency_name,
+                                "route_id": route_id,
+                                "route_short_name": route.get("route_short_name", ""),
+                                "route_long_name": route.get("route_long_name", ""),
+                                "route_type": route.get("route_type", ""),
+                                "route_color": route.get("route_color", ""),
+                                "route_text_color": route.get("route_text_color", ""),
+                            },
                             "geometry": {
                                 "type": "LineString",
                                 "coordinates": coordinates,
@@ -443,19 +511,19 @@ class PmtilesBuilder:
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
 
-    def _get_trip_stop_times(self, trip_id):
+    def _get_trip_stop_ids(self, trip_id):
         # Lazy instantiation of the dictionary, because we may not need it al all if there is a shape.
-        if self.stop_times_by_trip is None:
-            self.stop_times_by_trip = {}
+        if self.stop_ids_by_trip_id is None:
+            self.stop_ids_by_trip_id = {}
             with open(
                 self.get_path(STOP_TIMES_FILE), newline="", encoding="utf-8"
             ) as f:
                 for row in csv.DictReader(f):
-                    self.stop_times_by_trip.setdefault(row["trip_id"], []).append(
+                    self.stop_ids_by_trip_id.setdefault(row["trip_id"], []).append(
                         row["stop_id"]
                     )
 
-        return self.stop_times_by_trip.get(trip_id, [])
+        return self.stop_ids_by_trip_id.get(trip_id, [])
 
     def _run_tippecanoe(self, input_file, output_file):
         self.logger.info("Running tippecanoe for input file %s", input_file)
@@ -533,10 +601,12 @@ class PmtilesBuilder:
                 for row in reader:
                     route = {
                         "routeId": row.get("route_id", ""),
-                        "routeName": row.get("route_long_name", ""),
+                        "routeName": row.get("route_long_name", "")
+                        or row.get("route_short_name", "")
+                        or row.get("route_id", ""),
                         "color": f"#{row.get('route_color', '000000')}",
                         "textColor": f"#{row.get('route_text_color', 'FFFFFF')}",
-                        "routeType": f"{row.get('route_type', 'unknown')}",
+                        "routeType": f"{row.get('route_type', '')}",
                     }
                     routes.append(route)
 
@@ -546,3 +616,29 @@ class PmtilesBuilder:
             self.logger.debug("Converted %d routes to routes.json.", len(routes))
         except Exception as e:
             raise Exception(f"Failed to create routes JSON for dataset: {e}") from e
+
+    def _load_agencies(self):
+        agencies = {}
+        agency_file_path = self.get_path(AGENCY_FILE)
+        if not os.path.exists(agency_file_path):
+            self.logger.warning("agency.txt not found, agencies will be empty.")
+            return agencies
+        for row in self._read_csv(agency_file_path):
+            agency_id = row.get("agency_id") or ""
+            agency_name = row.get("agency_name", "").strip()
+            agencies[agency_id] = agency_name
+
+        return agencies
+
+    def _load_gtfs_data(self):
+        """
+        Loads the main GTFS files into memory.
+        """
+        self.logger.info("Loading GTFS data into memory.")
+        return {
+            "routes": self._read_csv(self.get_path(ROUTES_FILE)),
+            "trips": self._read_csv(self.get_path(TRIPS_FILE)),
+            "stops": self._read_csv(self.get_path(STOPS_FILE)),
+            "stop_times": self._read_csv(self.get_path(STOP_TIMES_FILE)),
+            "agencies": self._load_agencies(),
+        }

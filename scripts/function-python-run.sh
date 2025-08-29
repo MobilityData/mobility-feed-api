@@ -41,11 +41,13 @@ display_usage() {
   echo "  -h|--help                           Display help content."
   echo "  --function_name <FUNCTION_NAME>     Name of the function to be executed."
   echo "  --index <integer>                   One based index of the function to be executed, if more than one function are decorated."
+  echo "  --no_install_venv                   Do not install a python virtual environment."
   exit 1
 }
 
 index=1
 function_name=''
+
 while [[ $# -gt 0 ]]; do
   key="$1"
 
@@ -63,6 +65,10 @@ while [[ $# -gt 0 ]]; do
     index="$2"
     shift # past argument
     shift # past value
+    ;;
+  --no_install_venv)
+    no_install_venv=true
+    shift # past argument
     ;;
   *)      # unknown option
     shift # past argument
@@ -104,15 +110,20 @@ fi
 
 export PYTHONPATH="$FX_PATH"
 
-# Install a virgin python virtual environment and provision it with the required packages so it's the same as
-# the one that will be deployed in the cloud
-pushd "$FUNCTIONS_PATH/$function_name" >/dev/null
-printf "\nINFO: installing python virtual environment"
-rm -rf venv
-pip3 install --disable-pip-version-check virtualenv > /dev/null
-python3 -m virtualenv venv > /dev/null
-venv/bin/python -m pip install --disable-pip-version-check -r requirements.txt >/dev/null
-popd > /dev/null
+# We can skp the venv install if it has already been done. It saves time when repetitively running this script.
+if [ "${no_install_venv:-}" != "true" ]; then
+  # Install a virgin python virtual environment and provision it with the required packages so it's the same as
+  # the one that will be deployed in the cloud
+  pushd "$FUNCTIONS_PATH/$function_name" >/dev/null
+  printf "\nINFO: installing python virtual environment"
+  rm -rf venv
+  pip3 install --disable-pip-version-check virtualenv > /dev/null
+  python3 -m virtualenv venv > /dev/null
+  venv/bin/python -m pip install --disable-pip-version-check -r requirements.txt >/dev/null
+  popd > /dev/null
+else
+  printf "\nINFO: skipping python virtual environment installation"
+fi
 
 printf "\nINFO: running function in functions-framework"
 "$FUNCTIONS_PATH/$function_name"/venv/bin/functions-framework --target "$target" --debug --source "$FX_PATH/main.py" --signature-type http

@@ -119,6 +119,19 @@ class TestPmtilesBuilder(unittest.TestCase):
         self.feed_stable_id = "feed123"
         self.dataset_stable_id = "feed123_dataset456"
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+
+        # Patch the storage client before instantiating the builder
+        self.storage_patcher = patch("main.storage.Client")
+        self.mock_storage_client = self.storage_patcher.start()
+        self.mock_storage_client.return_value.get_bucket.return_value = MagicMock()
+
+        self.download_patcher = patch("main.PmtilesBuilder._download_files_from_gcs")
+        self.mock_download = self.download_patcher.start()
+        self.mock_download.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+
         self.builder = PmtilesBuilder(self.feed_stable_id, self.dataset_stable_id)
 
     @patch("main.subprocess.run")
@@ -133,6 +146,7 @@ class TestPmtilesBuilder(unittest.TestCase):
         with self.assertRaises(Exception), suppress_logging():
             self.builder._run_tippecanoe("input.geojson", "output.pmtiles")
 
+    @patch("main.convert_stops_to_geojson")
     @patch("main.PmtilesBuilder._download_files_from_gcs")
     @patch("main.PmtilesBuilder._create_shapes_index")
     @patch("main.PmtilesBuilder._create_routes_geojson")
@@ -149,6 +163,7 @@ class TestPmtilesBuilder(unittest.TestCase):
         mock_routes_geojson,
         mock_shapes_index,
         mock_download,
+        mock_convert_stops,
     ):
         self.builder.bucket = MagicMock()
         self.builder.bucket.list_blobs.return_value = []
@@ -156,7 +171,44 @@ class TestPmtilesBuilder(unittest.TestCase):
             PmtilesBuilder.OperationStatus.SUCCESS,
             "All required files downloaded successfully.",
         )
-        status, message = self.builder.build_pmtiles()
+        # Configure all mocks to return a success status
+        mock_shapes_index.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            {},
+        )
+        mock_routes_geojson.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_stops_geojson.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_routes_json.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_run_tippecanoe.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_upload.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_convert_stops.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+
+        status, message = self.builder.build_pmtiles(
+            gtfs_data={
+                "stops": [],
+                "stop_times": [],
+                "trips": [],
+                "routes": [],
+            }
+        )
         self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
         self.assertEqual(message, "success")
 
@@ -169,6 +221,8 @@ class TestPmtilesBuilder(unittest.TestCase):
         self.assertEqual(d, "d")
 
     def tearDown(self):
+        self.storage_patcher.stop()
+        self.download_patcher.stop()
         if "DATASETS_BUCKET_NAME" in os.environ:
             del os.environ["DATASETS_BUCKET_NAME"]
 
@@ -318,7 +372,7 @@ class TestPmtilesBuilder(unittest.TestCase):
             # works as expected. The suppress_logging context manager is used to silence log output during the test.
             with suppress_logging():
                 with self.assertRaises(Exception) as cm:
-                    self.builder.build_pmtiles()
+                    self.builder.build_pmtiles(gtfs_data={})
             self.assertIn("Download failed", str(cm.exception))
 
     def test_upload_files_to_gcs_missing_file(self):
@@ -444,7 +498,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
         if "DATASETS_BUCKET_NAME" in os.environ:
             del os.environ["DATASETS_BUCKET_NAME"]
 
-    def test_build_pmtiles_handler_missing_bucket_env(self):
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_missing_bucket_env(self, mock_builder):
         os.environ.pop("DATASETS_BUCKET_NAME", None)
         payload = {
             "feed_stable_id": self.feed_stable_id,
@@ -460,7 +515,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             "DATASETS_BUCKET_NAME environment variable is not defined.", result["error"]
         )
 
-    def test_build_pmtiles_handler_missing_ids(self):
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_missing_ids(self, mock_builder):
         payload = {}
         request = MagicMock()
         request.get_json.return_value = payload
@@ -473,7 +529,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             result["error"],
         )
 
-    def test_build_pmtiles_handler_feed_not_prefix(self):
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_feed_not_prefix(self, mock_builder):
         payload = {
             "feed_stable_id": "notprefix",
             "dataset_stable_id": self.dataset_stable_id,
