@@ -30,7 +30,7 @@ from shared.helpers.logger import get_logger
 import flask
 import functions_framework
 
-from .gtfs_stops_to_geojson import convert_stops_to_geojson
+from gtfs_stops_to_geojson import convert_stops_to_geojson
 
 STOP_TIMES_FILE = "stop_times.txt"
 SHAPES_FILE = "shapes.txt"
@@ -48,6 +48,34 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
     # Initialize to None to handle cases where get_parameters fails
     feed_stable_id = None
     dataset_stable_id = None
+
+    payload = request.get_json(silent=True)
+
+    feed_stable_id = payload.get("feed_stable_id")
+    dataset_stable_id = payload.get("dataset_stable_id")
+
+    if not (feed_stable_id and dataset_stable_id):
+        return {
+            "status": "error",
+            "error": "Both feed_stable_id and dataset_stable_id must be defined.",
+            "message": "",
+        }
+
+    if not dataset_stable_id.startswith(feed_stable_id):
+        return {
+            "status": "error",
+            "error": f"feed_stable_id={feed_stable_id} is not a prefix of dataset_stable_id={dataset_stable_id}",
+            "message": "",
+        }
+
+    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
+    if not bucket_name:
+        return {
+            "status": "error",
+            "error": "DATASETS_BUCKET_NAME environment variable is not defined.",
+            "message": "",
+        }
+
     try:
         # Create a temporary folder to work in. It will be deleted when exiting the block.
         with tempfile.TemporaryDirectory(prefix="build_pmtiles_") as temp_dir:
@@ -60,7 +88,7 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
                 workdir = debug_workdir
             else:
                 workdir = temp_dir
-            feed_stable_id, dataset_stable_id = PmtilesBuilder.get_parameters(request)
+
             result = {
                 "params": {
                     "feed_stable_id": feed_stable_id,

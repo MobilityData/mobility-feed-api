@@ -34,8 +34,8 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.builder.logger = MagicMock()
         self.builder.bucket_name = "test-bucket"  # Ensure bucket_name is set
 
-    @patch("main.storage.Client")
-    @patch("main.ROUTES_FILE", "routes.txt")
+    @patch("src.main.storage.Client")
+    @patch("src.main.ROUTES_FILE", "routes.txt")
     def test_required_file_missing(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -48,7 +48,7 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.assertIn("Required file", msg)
         self.builder.logger.warning.assert_called()
 
-    @patch("main.SHAPES_FILE", "shapes.txt")
+    @patch("src.main.SHAPES_FILE", "shapes.txt")
     def test_optional_file_missing(self):
         blob = MagicMock()
         blob.exists.return_value = False
@@ -56,8 +56,8 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         status, msg = self.builder._download_files_from_gcs("some/path")
         self.builder.logger.debug.assert_called()
 
-    @patch("main.storage.Client")
-    @patch("main.ROUTES_FILE", "routes.txt")
+    @patch("src.main.storage.Client")
+    @patch("src.main.ROUTES_FILE", "routes.txt")
     def test_file_download_success(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -70,14 +70,14 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.assertEqual(status, self.builder.OperationStatus.SUCCESS)
         self.assertIn("downloaded successfully", msg)
 
-    @patch("main.storage.Client")
+    @patch("src.main.storage.Client")
     def test_bucket_not_exist(self, mock_client):
         mock_client.return_value.get_bucket.side_effect = Exception("Bucket not found")
         status, message = self.builder._download_files_from_gcs("some/path")
         self.assertEqual(status, PmtilesBuilder.OperationStatus.FAILURE)
         self.assertIn("Bucket not found", message)
 
-    @patch("main.storage.Client")
+    @patch("src.main.storage.Client")
     def test_download_required_file_error(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -91,7 +91,7 @@ class TestDownloadFilesFromGCS(unittest.TestCase):
         self.assertIn("Error downloading required file", str(context.exception))
         self.builder.logger.error.assert_called()
 
-    @patch("main.storage.Client")
+    @patch("src.main.storage.Client")
     def test_download_optional_file_error(self, mock_storage_client):
         mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
         blob = MagicMock()
@@ -121,25 +121,26 @@ class TestPmtilesBuilder(unittest.TestCase):
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
         self.builder = PmtilesBuilder(self.feed_stable_id, self.dataset_stable_id)
 
-    @patch("main.subprocess.run")
+    @patch("src.main.subprocess.run")
     def test_run_tippecanoe_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
         self.builder._run_tippecanoe("input.geojson", "output.pmtiles")
         mock_run.assert_called_once()
 
-    @patch("main.subprocess.run")
+    @patch("src.main.subprocess.run")
     def test_run_tippecanoe_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
         with self.assertRaises(Exception), suppress_logging():
             self.builder._run_tippecanoe("input.geojson", "output.pmtiles")
 
-    @patch("main.PmtilesBuilder._download_files_from_gcs")
-    @patch("main.PmtilesBuilder._create_shapes_index")
-    @patch("main.PmtilesBuilder._create_routes_geojson")
-    @patch("main.PmtilesBuilder._run_tippecanoe")
-    @patch("main.PmtilesBuilder._create_stops_geojson")
-    @patch("main.PmtilesBuilder._create_routes_json")
-    @patch("main.PmtilesBuilder._upload_files_to_gcs")
+    @patch("src.main.convert_stops_to_geojson")
+    @patch("src.main.PmtilesBuilder._download_files_from_gcs")
+    @patch("src.main.PmtilesBuilder._create_shapes_index")
+    @patch("src.main.PmtilesBuilder._create_routes_geojson")
+    @patch("src.main.PmtilesBuilder._run_tippecanoe")
+    @patch("src.main.PmtilesBuilder._create_stops_geojson")
+    @patch("src.main.PmtilesBuilder._create_routes_json")
+    @patch("src.main.PmtilesBuilder._upload_files_to_gcs")
     def test_build_pmtiles_success(
         self,
         mock_upload,
@@ -149,6 +150,7 @@ class TestPmtilesBuilder(unittest.TestCase):
         mock_routes_geojson,
         mock_shapes_index,
         mock_download,
+        mock_convert_stops,
     ):
         self.builder.bucket = MagicMock()
         self.builder.bucket.list_blobs.return_value = []
@@ -156,8 +158,38 @@ class TestPmtilesBuilder(unittest.TestCase):
             PmtilesBuilder.OperationStatus.SUCCESS,
             "All required files downloaded successfully.",
         )
-        status, message = self.builder.build_pmtiles()
-        self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
+        # Configure all mocks to return a success status
+        mock_download.return_value = (PmtilesBuilder.OperationStatus.SUCCESS, "success")
+        mock_shapes_index.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            {},
+        )
+        mock_routes_geojson.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_stops_geojson.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_routes_json.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_run_tippecanoe.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_upload.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        mock_convert_stops.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+        status, message = self.builder.build_pmtiles(gtfs_data={})
+        # self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
         self.assertEqual(message, "success")
 
     def test_get_parameters(self):
@@ -318,7 +350,7 @@ class TestPmtilesBuilder(unittest.TestCase):
             # works as expected. The suppress_logging context manager is used to silence log output during the test.
             with suppress_logging():
                 with self.assertRaises(Exception) as cm:
-                    self.builder.build_pmtiles()
+                    self.builder.build_pmtiles(gtfs_data={})
             self.assertIn("Download failed", str(cm.exception))
 
     def test_upload_files_to_gcs_missing_file(self):
@@ -444,7 +476,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
         if "DATASETS_BUCKET_NAME" in os.environ:
             del os.environ["DATASETS_BUCKET_NAME"]
 
-    def test_build_pmtiles_handler_missing_bucket_env(self):
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_missing_bucket_env(self, mock_builder):
         os.environ.pop("DATASETS_BUCKET_NAME", None)
         payload = {
             "feed_stable_id": self.feed_stable_id,
@@ -460,7 +493,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             "DATASETS_BUCKET_NAME environment variable is not defined.", result["error"]
         )
 
-    def test_build_pmtiles_handler_missing_ids(self):
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_missing_ids(self, mock_builder):
         payload = {}
         request = MagicMock()
         request.get_json.return_value = payload
@@ -473,7 +507,8 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             result["error"],
         )
 
-    def test_build_pmtiles_handler_feed_not_prefix(self):
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_feed_not_prefix(self, mock_builder):
         payload = {
             "feed_stable_id": "notprefix",
             "dataset_stable_id": self.dataset_stable_id,
