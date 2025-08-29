@@ -30,7 +30,7 @@ from shared.helpers.logger import get_logger
 import flask
 import functions_framework
 
-from gtfs_stops_to_geojson import convert_stops_to_geojson
+from .gtfs_stops_to_geojson import convert_stops_to_geojson
 
 STOP_TIMES_FILE = "stop_times.txt"
 SHAPES_FILE = "shapes.txt"
