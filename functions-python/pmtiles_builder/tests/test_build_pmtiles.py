@@ -119,6 +119,19 @@ class TestPmtilesBuilder(unittest.TestCase):
         self.feed_stable_id = "feed123"
         self.dataset_stable_id = "feed123_dataset456"
         os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+
+        # Patch the storage client before instantiating the builder
+        self.storage_patcher = patch("main.storage.Client")
+        self.mock_storage_client = self.storage_patcher.start()
+        self.mock_storage_client.return_value.get_bucket.return_value = MagicMock()
+
+        self.download_patcher = patch("main.PmtilesBuilder._download_files_from_gcs")
+        self.mock_download = self.download_patcher.start()
+        self.mock_download.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "success",
+        )
+
         self.builder = PmtilesBuilder(self.feed_stable_id, self.dataset_stable_id)
 
     @patch("src.main.subprocess.run")
@@ -159,7 +172,6 @@ class TestPmtilesBuilder(unittest.TestCase):
             "All required files downloaded successfully.",
         )
         # Configure all mocks to return a success status
-        mock_download.return_value = (PmtilesBuilder.OperationStatus.SUCCESS, "success")
         mock_shapes_index.return_value = (
             PmtilesBuilder.OperationStatus.SUCCESS,
             {},
@@ -189,7 +201,7 @@ class TestPmtilesBuilder(unittest.TestCase):
             "success",
         )
         status, message = self.builder.build_pmtiles(gtfs_data={})
-        # self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
+        self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
         self.assertEqual(message, "success")
 
     def test_get_parameters(self):
@@ -201,6 +213,8 @@ class TestPmtilesBuilder(unittest.TestCase):
         self.assertEqual(d, "d")
 
     def tearDown(self):
+        self.storage_patcher.stop()
+        self.download_patcher.stop()
         if "DATASETS_BUCKET_NAME" in os.environ:
             del os.environ["DATASETS_BUCKET_NAME"]
 
