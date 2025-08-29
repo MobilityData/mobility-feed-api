@@ -41,6 +41,7 @@ from shared.helpers.utils import (
     get_hash_from_file,
     download_from_gcs,
 )
+from pipeline_tasks import create_pipeline_tasks
 
 init_logger()
 
@@ -260,7 +261,10 @@ class DatasetProcessor:
                 os.remove(temp_file_path)
         return None
 
-    def process_from_bucket_latest(self, public=True) -> DatasetFile or None:
+    @with_db_session
+    def process_from_bucket_latest(
+        self, db_session, public=True
+    ) -> DatasetFile or None:
         """
         Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
@@ -300,7 +304,10 @@ class DatasetProcessor:
                     else None
                 ),
             )
-            self.create_dataset_entities(dataset_file, skip_dataset_creation=True)
+            dataset = self.create_dataset_entities(
+                dataset_file, skip_dataset_creation=True, db_session=db_session
+            )
+            create_pipeline_tasks(dataset)
         finally:
             if temp_file_path and os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
@@ -352,6 +359,7 @@ class DatasetProcessor:
             self.logger.info(
                 f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
             )
+            dataset = None
             if not skip_dataset_creation:
                 dataset = Gtfsdataset(
                     id=str(uuid.uuid4()),
@@ -394,10 +402,12 @@ class DatasetProcessor:
             self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
 
             create_refresh_materialized_view_task()
+            return latest_dataset if skip_dataset_creation else dataset
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
-    def process_from_producer_url(self) -> DatasetFile or None:
+    @with_db_session
+    def process_from_producer_url(self, db_session) -> DatasetFile or None:
         """
         Process the dataset and store new version in GCP bucket if any changes are detected
         :return: the file hash and the hosted url as a tuple or None if no upload is required
@@ -407,7 +417,8 @@ class DatasetProcessor:
         if dataset_file is None:
             self.logger.info(f"[{self.feed_stable_id}] No database update required.")
             return None
-        self.create_dataset_entities(dataset_file)
+        dataset = self.create_dataset_entities(dataset_file, db_session=db_session)
+        create_pipeline_tasks(dataset)
         return dataset_file
 
 

@@ -28,7 +28,6 @@ locals {
     "networkmanagement.googleapis.com",
     "cloudbuild.googleapis.com"
   ]
-
   function_batch_datasets_config = jsondecode(file("${path.module}/../../functions-python/batch_datasets/function_config.json"))
   function_batch_datasets_zip    = "${path.module}/../../functions-python/batch_datasets/.dist/batch_datasets.zip"
 
@@ -43,6 +42,8 @@ locals {
   retention_duration_seconds = lower(var.environment) == "prod" ? 2678400 : 604800
 
   deployment_timestamp = formatdate("YYYYMMDDhhmmss", timestamp())
+
+  function_pmtiles_builder_config = jsondecode(file("${path.module}/../../functions-python/pmtiles_builder/function_config.json"))
 }
 
 data "google_vpc_access_connector" "vpc_connector" {
@@ -249,6 +250,27 @@ resource "google_pubsub_topic" "pubsub_topic" {
   name = "datasets-batch-topic-${var.environment}"
 }
 
+# Task queue to invoke pmtiles_builder function
+resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "pmtiles-builder-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~1 hour
+    max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
+}
+
+
 # Batch process dataset function
 resource "google_cloudfunctions2_function" "pubsub_function" {
   name        = "${local.function_batch_process_dataset_config.name}-${var.environment}"
@@ -284,7 +306,8 @@ resource "google_cloudfunctions2_function" "pubsub_function" {
       GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
-
+      PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
+      REVERSE_GEOLOCATION_QUEUE = "reverse-geolocation-processor-task-queue"
     }
     dynamic "secret_environment_variables" {
       for_each = local.function_batch_process_dataset_config.secret_environment_variables
@@ -415,4 +438,12 @@ resource "google_compute_global_forwarding_rule" "files_http_lb_rule_ipv4" {
   port_range            = "443"
   ip_address            = data.google_compute_global_address.files_http_lb_ipv4.address
   load_balancing_scheme = "EXTERNAL_MANAGED"
+}
+
+resource "google_cloud_run_service_iam_member" "pmtiles_builder_invoker" {
+  project  = var.project_id
+  location = var.gcp_region
+  service  = "${local.function_pmtiles_builder_config.name}-${var.environment}"
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.functions_service_account.email}"
 }
