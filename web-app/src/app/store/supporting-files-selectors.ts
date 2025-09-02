@@ -14,8 +14,7 @@ export const selectGtfsGeolocationGeojson = (
   const gtfsGeolocationGeojson = state.supportingFiles.gtfsGeolocationGeojson;
   const data = state.supportingFiles.gtfsGeolocationGeojson.data;
   if (
-    gtfsGeolocationGeojson != undefined &&
-    gtfsGeolocationGeojson.key == 'gtfsDatasetRoutesJson'
+    gtfsGeolocationGeojson.key == 'gtfsGeolocationGeojson'
   ) {
     return data as GeoJSONData;
   }
