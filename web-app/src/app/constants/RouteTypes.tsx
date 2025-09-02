@@ -69,5 +69,5 @@ export const getRouteTypeTranslatedName = (
   const routeType = getRouteByTypeOrDefault(routeTypeId);
   return !(routeType.isDefault ?? false)
     ? t(`common:gtfsSpec.routeType.${routeTypeId}.name`)
-    : 'default';
+    : '';
 };

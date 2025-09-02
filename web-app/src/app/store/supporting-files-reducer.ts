@@ -91,6 +91,7 @@ export const supportingFilesSlice = createSlice({
       action: PayloadAction<{ key: SupportingFileKey; error: string }>,
     ) => {
       const { key, error } = action.payload;
+      state[key].status = 'failed';
       state[key].error = error;
     },
   },
