@@ -9,6 +9,7 @@ import {
   Typography,
   Fab,
 } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Link } from 'react-router-dom';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
@@ -239,9 +240,12 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         {view === 'gtfsVisualizationView' &&
           config.enableGtfsVisualizationMap && (
             <Button
+              variant='contained'
+              disableElevation
               component={Link}
               to='./map'
               onClick={handleOpenFullMapClick}
+              endIcon={<OpenInNewIcon></OpenInNewIcon>}
             >
               Open Detailed Map
             </Button>
