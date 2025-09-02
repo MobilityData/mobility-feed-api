@@ -13,9 +13,7 @@ export const selectGtfsGeolocationGeojson = (
 ): GeoJSONData | undefined => {
   const gtfsGeolocationGeojson = state.supportingFiles.gtfsGeolocationGeojson;
   const data = state.supportingFiles.gtfsGeolocationGeojson.data;
-  if (
-    gtfsGeolocationGeojson.key == 'gtfsGeolocationGeojson'
-  ) {
+  if (gtfsGeolocationGeojson.key == 'gtfsGeolocationGeojson') {
     return data as GeoJSONData;
   }
   return undefined;
