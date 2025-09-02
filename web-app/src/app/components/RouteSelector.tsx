@@ -41,7 +41,7 @@ export default function RouteSelector({
 
   const handleToggle = (routeId: string | undefined): void => {
     if (routeId == undefined) {
-      return routeId;
+      return;
     }
     setSelectedRoutes((prev) => {
       const newSelection = prev.includes(routeId)
