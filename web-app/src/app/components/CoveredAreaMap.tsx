@@ -35,6 +35,7 @@ import ModeOfTravelIcon from '@mui/icons-material/ModeOfTravel';
 import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
+import ReactGA from 'react-ga';
 
 declare global {
   interface Window {
@@ -50,6 +51,9 @@ interface CoveredAreaMapProps {
   latestDataset?: { hosted_url?: string };
   feed: AllFeedType;
 }
+
+// Initialize ReactGA
+ReactGA.initialize('DETAILED_MAP_ANALYTICS_TRACKING_ID');
 
 export const fetchGeoJson = async (
   latestDatasetUrl: string,
@@ -138,13 +142,11 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   };
 
   const handleOpenFullMapClick = (): void => {
-    if (
-      process.env.NODE_ENV === 'production' &&
-      typeof window.gtag === 'function'
-    ) {
-      window.gtag('event', 'gtfs_visualization_open_full_map', {
-        event_category: 'engagement',
-        event_label: 'Open Full GTFS Visualization Map',
+    if (process.env.NODE_ENV === 'development') {
+      ReactGA.event({
+        category: 'engagement',
+        action: 'gtfs_visualization_open_full_map',
+        label: 'Open Detailed Map',
       });
     }
   };
