@@ -7,14 +7,6 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 
-def read_csv(filepath):
-    """Reads a CSV file and yields each row as a dictionary."""
-    with open(filepath, mode="r", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            yield row
-
-
 def load_routes(routes_data):
     """Creates a dictionary of routes from route data."""
     routes = {}
