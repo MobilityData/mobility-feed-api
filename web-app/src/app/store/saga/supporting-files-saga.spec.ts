@@ -15,7 +15,6 @@ describe('supporting-files-saga', () => {
     const fakeData = {
       type: 'FeatureCollection',
       features: [],
-      // include GBFS metadata so the value matches GeoJSONDataGBFS in the union
       extracted_at: '2025-01-01T00:00:00Z',
       extraction_url: 'http://example.com/source',
     };

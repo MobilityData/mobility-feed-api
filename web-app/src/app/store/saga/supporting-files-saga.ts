@@ -17,17 +17,10 @@ import {
   type GeoJSONData,
   type GeoJSONDataGBFS,
 } from '../../types';
-
-// Use the project's HTTP wrapper to fetch JSON
-
-// TODO: Review this per environment
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getFilesBaseUrl = () => {
-  return 'https://dev-files.mobilitydatabase.org';
-};
+import { getFeedFilesBaseUrl } from '../../utils/config';
 
 export function buildRoutesUrl(feedId: string, datasetId: string): string {
-  return `${getFilesBaseUrl()}/${feedId}/${datasetId}/pmtiles/routes.json`;
+  return `${getFeedFilesBaseUrl()}/${feedId}/${datasetId}/pmtiles/routes.json`;
 }
 
 export function* loadSupportingFileSaga({
