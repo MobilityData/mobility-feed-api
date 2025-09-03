@@ -1178,6 +1178,15 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
   }
 }
 
+# Grant execution permission to bathcfunctions service account to the tasks_executor function
+resource "google_cloudfunctions2_function_iam_member" "tasks_executor_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.tasks_executor.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
 # 15. functions/pmtiles_builder cloud function
 resource "google_cloudfunctions2_function" "pmtiles_builder" {
   name        = "${local.function_pmtiles_builder_config.name}-${var.environment}"
