@@ -1077,7 +1077,7 @@ resource "google_cloudfunctions2_function_iam_member" "reverse_geolocation_proce
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
-# Grant execution permission to bathcfunctions service account to the pmtiles_builder function
+# Grant execution permission to batchfunctions service account to the pmtiles_builder function
 resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker_batch_sa" {
   project        = var.project_id
   location       = var.gcp_region
