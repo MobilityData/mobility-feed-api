@@ -18,11 +18,7 @@ import type { FeatureCollection } from 'geojson';
 import { Box, useTheme } from '@mui/material';
 import { MapElement, MapRouteElement, MapStopElement } from './MapElement';
 import type { MapElementType } from './MapElement';
-import {
-  reversedRouteTypesMapping,
-} from '../constants/RouteTypes';
 import { MapDataPopup } from './Map/MapDataPopup';
-import { useTheme as themeProvider } from '../context/ThemeProvider';
 
 interface LatestDatasetLite {
   hosted_url?: string;
@@ -34,7 +30,7 @@ export interface GtfsVisualizationMapProps {
   polygon: LatLngExpression[];
   latestDataset?: LatestDatasetLite;
   filteredRoutes?: string[];
-  filteredRouteTypes?: string[];
+  filteredRouteTypeIds?: string[];
   hideStops?: boolean;
 }
 
@@ -42,7 +38,7 @@ export const GtfsVisualizationMap = ({
   polygon,
   latestDataset,
   filteredRoutes = [],
-  filteredRouteTypes = [],
+  filteredRouteTypeIds = [],
   hideStops = false,
 }: GtfsVisualizationMapProps): JSX.Element => {
 
@@ -67,10 +63,6 @@ export const GtfsVisualizationMap = ({
     string
   > | null>(null);
   const mapRef = useRef<MapRef>(null);
-
-  const filteredRouteTypesIds = filteredRouteTypes.map(
-    (d) => reversedRouteTypesMapping[d],
-  );
 
   // Create a map to store routeId to routeColor mapping
   const routeIdToColorMap: Record<string, string> = {};
@@ -106,8 +98,8 @@ export const GtfsVisualizationMap = ({
   }
 
   const routeTypeFilter: ExpressionSpecification | boolean =
-    filteredRouteTypes.length > 0
-      ? ['in', ['get', 'route_type'], ['literal', filteredRouteTypesIds]]
+    filteredRouteTypeIds.length > 0
+      ? ['in', ['get', 'route_type'], ['literal', filteredRouteTypeIds]]
       : true; // if no filter applied, show all
 
   const handleMouseClick = (event: maplibregl.MapLayerMouseEvent): void => {
