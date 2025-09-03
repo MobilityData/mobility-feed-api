@@ -541,7 +541,7 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
     headers = {
       "Content-Type" = "application/json"
     }
-    body = {}
+    body = base64encode("{}")
   }
   attempt_deadline = "320s"
 }
