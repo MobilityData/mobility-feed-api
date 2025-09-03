@@ -29,3 +29,4 @@ The function uses the following environment variables:
 - `PROJECT_ID` : The GCP Project id.
 - `ENVIRONMENT` : The environment where the function is running.
 - `GCP_REGION` : The GCP region where the function is running.
+- `SERVICE_ACCOUNT_EMAIL` : The service account email to use to execute the tasks.
