@@ -169,5 +169,9 @@ def get_parameters(payload):
     if not bucket_name:
         raise EnvironmentError("DATASETS_BUCKET_NAME environment variable is not set.")
     check_existing = payload.get("check_existing", True)
-    check_existing = check_existing if isinstance(check_existing, bool) else str(check_existing).lower() == "true"
+    check_existing = (
+        check_existing
+        if isinstance(check_existing, bool)
+        else str(check_existing).lower() == "true"
+    )
     return dry_run, bucket_name, check_existing
