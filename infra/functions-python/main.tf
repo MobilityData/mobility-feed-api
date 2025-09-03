@@ -1073,7 +1073,7 @@ resource "google_cloudfunctions2_function_iam_member" "reverse_geolocation_proce
   project        = var.project_id
   location       = var.gcp_region
   cloud_function = google_cloudfunctions2_function.reverse_geolocation_processor.name
-  role           = "roles/run.invoker"
+  role           = "roles/cloudfunctions.invoker"
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
