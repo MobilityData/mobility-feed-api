@@ -36,7 +36,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.dataset_service.dataset_service_commons import Status
 
-from shared.helpers.locations import ReverseGeocodingStrategy
+from shared.helpers.locations import ReverseGeocodingStrategy, round_geojson_coords
 from shared.helpers.logger import get_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.utils import (
@@ -169,9 +169,10 @@ def create_geojson_aggregate(
         "features": [
             {
                 "type": "Feature",
-                "geometry": mapping(geo_polygon_count[osm_id]["clipped_geometry"]),
+                "geometry": round_geojson_coords(
+                    mapping(geo_polygon_count[osm_id]["clipped_geometry"])
+                ),
                 "properties": {
-                    "osm_id": osm_id,
                     "country_code": geo_polygon_count[osm_id]["group"].iso_3166_1_code,
                     "subdivision_code": geo_polygon_count[osm_id][
                         "group"

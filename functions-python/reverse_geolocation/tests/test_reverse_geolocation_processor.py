@@ -329,7 +329,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual(geojson_data["type"], "FeatureCollection")
         self.assertEqual(len(geojson_data["features"]), 1)
         feature = geojson_data["features"][0]
-        self.assertEqual(feature["properties"]["osm_id"], str(geopolygon_1.osm_id))
         self.assertEqual(
             feature["properties"]["country_code"], geopolygon_1.iso_3166_1_code
         )

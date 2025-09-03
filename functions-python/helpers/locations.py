@@ -231,3 +231,27 @@ def get_geopolygons_covers(stop_point: WKTElement, db_session: Session):
         ).all()
     )
     return geopolygons
+
+
+def round_geojson_coords(geometry, precision=5):
+    """Recursively round coordinates in a GeoJSON geometry dict to the given precision."""
+    if isinstance(geometry, dict):
+        if "coordinates" in geometry:
+            geometry = geometry.copy()
+            geometry["coordinates"] = round_coords(geometry["coordinates"], precision)
+        if "geometries" in geometry:  # GeometryCollection
+            geometry = geometry.copy()
+            geometry["geometries"] = [
+                round_geojson_coords(g, precision) for g in geometry["geometries"]
+            ]
+        return geometry
+    return geometry
+
+
+def round_coords(coords, precision):
+    if isinstance(coords, (list, tuple)):
+        if coords and isinstance(coords[0], (list, tuple)):
+            return [round_coords(c, precision) for c in coords]
+        else:
+            return [round(float(c), precision) for c in coords]
+    return coords
