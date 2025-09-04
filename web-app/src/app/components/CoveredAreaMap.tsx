@@ -35,7 +35,8 @@ import ModeOfTravelIcon from '@mui/icons-material/ModeOfTravel';
 import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
-import ReactGA from 'react-ga';
+import ReactGA from 'react-ga4';
+import { getEnvConfig } from '../utils/config';
 
 declare global {
   interface Window {
@@ -53,7 +54,10 @@ interface CoveredAreaMapProps {
 }
 
 // Initialize ReactGA
-ReactGA.initialize('DETAILED_MAP_ANALYTICS_TRACKING_ID');
+const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
+if (gaId.length > 0) {
+  ReactGA.initialize(gaId);
+}
 
 export const fetchGeoJson = async (
   latestDatasetUrl: string,
@@ -141,14 +145,12 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (newView !== null) setView(newView);
   };
 
-  const handleOpenFullMapClick = (): void => {
-    if (process.env.NODE_ENV === 'development') {
-      ReactGA.event({
-        category: 'engagement',
-        action: 'gtfs_visualization_open_full_map',
-        label: 'Open Detailed Map',
-      });
-    }
+  const handleOpenDetailedMapClick = (): void => {
+    ReactGA.event({
+      category: 'engagement',
+      action: 'gtfs_visualization_open_full_map',
+      label: 'Open Detailed Map',
+    });
   };
 
   const getGbfsLatestVersionVisualizationUrl = (
@@ -246,7 +248,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
               disableElevation
               component={Link}
               to='./map'
-              onClick={handleOpenFullMapClick}
+              onClick={handleOpenDetailedMapClick}
               endIcon={<OpenInNewIcon></OpenInNewIcon>}
             >
               Open Detailed Map
