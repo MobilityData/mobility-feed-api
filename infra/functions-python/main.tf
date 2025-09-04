@@ -32,6 +32,9 @@ locals {
   vpc_connector_name = lower(var.environment) == "dev" ? "vpc-connector-qa" : "vpc-connector-${lower(var.environment)}"
   vpc_connector_project = lower(var.environment) == "dev" ? "mobility-feeds-qa" : var.project_id
 
+  # This is as a constant due to the existent of two independent infra modules
+  batchfunctions_sa_email = "batchfunctions-service-account@${var.project_id}.iam.gserviceaccount.com"
+
   function_process_validation_report_config = jsondecode(file("${path.module}/../../functions-python/process_validation_report/function_config.json"))
   function_process_validation_report_zip = "${path.module}/../../functions-python/process_validation_report/.dist/process_validation_report.zip"
   public_hosted_datasets_url = lower(var.environment) == "prod" ? "https://${var.public_hosted_datasets_dns}" : "https://${var.environment}-${var.public_hosted_datasets_dns}"
@@ -349,6 +352,10 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
+      ENV = var.environment
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
       FILES_ENDPOINT    = local.public_hosted_datasets_url
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
@@ -534,6 +541,7 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
     headers = {
       "Content-Type" = "application/json"
     }
+    body = base64encode("{}")
   }
   attempt_deadline = "320s"
 }
@@ -1060,6 +1068,15 @@ resource "google_cloud_tasks_queue" "reverse_geolocation_task_queue_processor" {
   }
 }
 
+# Grant execution permission to bathcfunctions service account to the reverse_geolocation_processor function
+resource "google_cloudfunctions2_function_iam_member" "reverse_geolocation_processor_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.reverse_geolocation_processor.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
 # 13.3 functions/reverse_geolocation - batch cloud function
 resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   name        = "${local.function_reverse_geolocation_config.name}-batch"
@@ -1159,6 +1176,15 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       }
     }
   }
+}
+
+# Grant execution permission to bathcfunctions service account to the tasks_executor function
+resource "google_cloudfunctions2_function_iam_member" "tasks_executor_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.tasks_executor.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
 # 15. functions/pmtiles_builder cloud function
