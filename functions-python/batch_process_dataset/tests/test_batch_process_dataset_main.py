@@ -488,16 +488,18 @@ class TestDatasetProcessor(unittest.TestCase):
         )
 
         # Act
-        result = processor.process_from_bucket_latest(public=True)
+        result = processor.process_from_bucket(public=True)
 
         # Assert: function returns None in current implementation
-        self.assertIsNone(result)
+        self.assertIsNone(result.zipped_size)
 
         # Assert: downloads from the bucket latest.zip for this feed
         mock_download_from_gcs.assert_called_once()
         args, kwargs = mock_download_from_gcs.call_args
         self.assertEqual(args[0], "test-bucket")  # bucket name
-        self.assertEqual(args[1], "feed_stable_id/latest.zip")  # blob path
+        self.assertEqual(
+            args[1], "feed_stable_id/dataset-stable-id-123/dataset-stable-id-123.zip"
+        )  # blob path
         self.assertIsNotNone(
             args[2]
         )  # temp file path (random), so just ensure it exists

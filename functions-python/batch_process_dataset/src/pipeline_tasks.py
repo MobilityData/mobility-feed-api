@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
-from shared.helpers.utils import create_http_task
+from shared.helpers.utils import create_http_task, create_http_pmtiles_builder_task
 
 
 def create_http_reverse_geolocation_processor_task(
@@ -35,32 +35,6 @@ def create_http_reverse_geolocation_processor_task(
         client,
         body,
         f"https://{gcp_region}-{project_id}.cloudfunctions.net/reverse-geolocation-processor",
-        project_id,
-        gcp_region,
-        queue_name,
-    )
-
-
-def create_http_pmtiles_builder_task(
-    stable_id: str,
-    dataset_stable_id: str,
-) -> None:
-    """
-    Create a task to generate PMTiles for a dataset.
-    """
-    client = tasks_v2.CloudTasksClient()
-    body = json.dumps(
-        {"feed_stable_id": stable_id, "dataset_stable_id": dataset_stable_id}
-    ).encode()
-    queue_name = os.getenv("PMTILES_BUILDER_QUEUE")
-    project_id = os.getenv("PROJECT_ID")
-    gcp_region = os.getenv("GCP_REGION")
-    gcp_env = os.getenv("ENVIRONMENT")
-
-    create_http_task(
-        client,
-        body,
-        f"https://{gcp_region}-{project_id}.cloudfunctions.net/pmtiles-builder-{gcp_env}",
         project_id,
         gcp_region,
         queue_name,

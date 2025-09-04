@@ -1077,6 +1077,24 @@ resource "google_cloudfunctions2_function_iam_member" "reverse_geolocation_proce
   member         = "serviceAccount:${local.batchfunctions_sa_email}"
 }
 
+# Grant execution permission to batchfunctions service account to the pmtiles_builder function
+resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker_batch_sa" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.pmtiles_builder.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${local.batchfunctions_sa_email}"
+}
+
+# Grant execution permission to the service account to the pmtiles_builder function
+resource "google_cloudfunctions2_function_iam_member" "pmtiles_builder_invoker" {
+  project        = var.project_id
+  location       = var.gcp_region
+  cloud_function = google_cloudfunctions2_function.pmtiles_builder.name
+  role           = "roles/cloudfunctions.invoker"
+  member         = "serviceAccount:${google_service_account.functions_service_account.email}"
+}
+
 # 13.3 functions/reverse_geolocation - batch cloud function
 resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   name        = "${local.function_reverse_geolocation_config.name}-batch"
@@ -1128,6 +1146,27 @@ resource "google_cloudfunctions2_function" "reverse_geolocation_batch" {
   }
 }
 
+# Task queue to invoke pmtiles_builder function
+resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
+  project  = var.project_id
+  location = var.gcp_region
+  name     = "pmtiles-builder-queue-${var.environment}-${local.deployment_timestamp}"
+
+  rate_limits {
+    max_concurrent_dispatches = 1
+    max_dispatches_per_second = 1
+  }
+
+  retry_config {
+    # This will make the cloud task retry for ~1 hour
+    max_attempts  = 31
+    min_backoff   = "120s"
+    max_backoff   = "120s"
+    max_doublings = 2
+  }
+}
+
+
 # 14. functions/tasks_executor cloud function
 resource "google_cloudfunctions2_function" "tasks_executor" {
   name        = "${local.function_tasks_executor_config.name}-${var.environment}"
@@ -1154,6 +1193,9 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
+      GCP_REGION = var.gcp_region
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout

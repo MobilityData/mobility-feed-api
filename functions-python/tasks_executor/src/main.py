@@ -18,18 +18,22 @@ from typing import Any, Final
 
 import flask
 import functions_framework
+
 from shared.helpers.logger import init_logger
-from tasks.refresh_feedsearch_view.refresh_materialized_view import (
-    refresh_materialized_view_handler,
-)
 from tasks.dataset_files.rebuild_missing_dataset_files import (
     rebuild_missing_dataset_files_handler,
+)
+from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
+    rebuild_missing_bounding_boxes_handler,
+)
+from tasks.refresh_feedsearch_view.refresh_materialized_view import (
+    refresh_materialized_view_handler,
 )
 from tasks.validation_reports.rebuild_missing_validation_reports import (
     rebuild_missing_validation_reports_handler,
 )
-from tasks.missing_bounding_boxes.rebuild_missing_bounding_boxes import (
-    rebuild_missing_bounding_boxes_handler,
+from tasks.visualization_files.rebuild_missing_visualization_files import (
+    rebuild_missing_visualization_files_handler,
 )
 
 init_logger()
@@ -61,6 +65,10 @@ tasks = {
     "rebuild_missing_dataset_files": {
         "description": "Rebuilds missing dataset files for GTFS datasets.",
         "handler": rebuild_missing_dataset_files_handler,
+    },
+    "rebuild_missing_visualization_files": {
+        "description": "Rebuilds missing visualization files for GTFS datasets.",
+        "handler": rebuild_missing_visualization_files_handler,
     },
 }
 
