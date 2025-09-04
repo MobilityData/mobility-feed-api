@@ -308,13 +308,15 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
             </Tooltip>
             {config.enableGtfsVisualizationMap && (
               <Tooltip title={t('gtfsVisualizationTooltip')}>
-                <ToggleButton
-                  value='gtfsVisualizationView'
-                  disabled={!config.enableGtfsVisualizationMap}
-                  aria-label='Bounding Box View'
-                >
-                  <ModeOfTravelIcon />
-                </ToggleButton>
+                <span>
+                  <ToggleButton
+                    value='gtfsVisualizationView'
+                    disabled={!config.enableGtfsVisualizationMap}
+                    aria-label='Bounding Box View'
+                  >
+                    <ModeOfTravelIcon />
+                  </ToggleButton>
+                </span>
               </Tooltip>
             )}
           </ToggleButtonGroup>
