@@ -151,14 +151,12 @@ class TestPmtilesBuilder(unittest.TestCase):
     @patch("main.PmtilesBuilder._create_shapes_index")
     @patch("main.PmtilesBuilder._create_routes_geojson")
     @patch("main.PmtilesBuilder._run_tippecanoe")
-    @patch("main.PmtilesBuilder._create_stops_geojson")
     @patch("main.PmtilesBuilder._create_routes_json")
     @patch("main.PmtilesBuilder._upload_files_to_gcs")
     def test_build_pmtiles_success(
         self,
         mock_upload,
         mock_routes_json,
-        mock_stops_geojson,
         mock_run_tippecanoe,
         mock_routes_geojson,
         mock_shapes_index,
@@ -180,10 +178,6 @@ class TestPmtilesBuilder(unittest.TestCase):
             PmtilesBuilder.OperationStatus.SUCCESS,
             "success",
         )
-        mock_stops_geojson.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "success",
-        )
         mock_routes_json.return_value = (
             PmtilesBuilder.OperationStatus.SUCCESS,
             "success",
@@ -201,24 +195,10 @@ class TestPmtilesBuilder(unittest.TestCase):
             "success",
         )
 
-        status, message = self.builder.build_pmtiles(
-            gtfs_data={
-                "stops": [],
-                "stop_times": [],
-                "trips": [],
-                "routes": [],
-            }
-        )
+        status, message = self.builder.build_pmtiles()
+
         self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
         self.assertEqual(message, "success")
-
-    def test_get_parameters(self):
-        payload = {"feed_stable_id": "f", "dataset_stable_id": "d"}
-        request = MagicMock()
-        request.get_json.return_value = payload
-        f, d = PmtilesBuilder.get_parameters(request)
-        self.assertEqual(f, "f")
-        self.assertEqual(d, "d")
 
     def tearDown(self):
         self.storage_patcher.stop()
@@ -229,7 +209,7 @@ class TestPmtilesBuilder(unittest.TestCase):
     def test_build_pmtiles_creates_correct_shapes_index(self):
         # Prepare shapes.txt
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.workdir = temp_dir
+            self.builder.set_workdir(temp_dir)
             shapes_path = os.path.join(temp_dir, "shapes.txt")
             with open(shapes_path, "w", encoding="utf-8") as f:
                 f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
@@ -251,7 +231,7 @@ class TestPmtilesBuilder(unittest.TestCase):
     def test_get_shape_points(self):
         # Prepare shapes.txt
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.workdir = temp_dir
+            self.builder.set_workdir(temp_dir)
             shapes_path = self.builder.get_path("shapes.txt")
 
             with open(shapes_path, "w", encoding="utf-8") as f:
@@ -278,7 +258,7 @@ class TestPmtilesBuilder(unittest.TestCase):
     def test_create_routes_geojson(self):
         # Prepare minimal GTFS files
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.workdir = temp_dir
+            self.builder.set_workdir(temp_dir)
             with open(self.builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
                 f.write(
                     "route_id,route_long_name,route_color,route_text_color,route_type\nr1,Route 1,FF0000,FFFFFF,3\n"
@@ -310,29 +290,10 @@ class TestPmtilesBuilder(unittest.TestCase):
                 data = f.read()
         self.assertIn("FeatureCollection", data)
 
-    def test_create_stops_geojson(self):
-        # Prepare minimal stops.txt
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.workdir = temp_dir
-            with open(self.builder.get_path("stops.txt"), "w", encoding="utf-8") as f:
-                f.write("stop_id,stop_lat,stop_lon\n")
-                f.write("stop1,45.0,-73.0\n")
-                f.write("stop2,45.1,-73.1\n")
-
-            # Call the method
-            self.builder._create_stops_geojson()
-
-            # Assert output file exists and is valid GeoJSON
-            output_path = self.builder.get_path("stops-output.geojson")
-            self.assertTrue(os.path.exists(output_path))
-            with open(output_path, "r", encoding="utf-8") as f:
-                data = f.read()
-                self.assertIn("FeatureCollection", data)
-
     def test_create_routes_json(self):
         # Prepare minimal routes.txt
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.workdir = temp_dir
+            self.builder.set_workdir(temp_dir)
             with open(self.builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
                 f.write(
                     "route_id,route_long_name,route_color,route_text_color,route_type\n"
@@ -372,7 +333,7 @@ class TestPmtilesBuilder(unittest.TestCase):
             # works as expected. The suppress_logging context manager is used to silence log output during the test.
             with suppress_logging():
                 with self.assertRaises(Exception) as cm:
-                    self.builder.build_pmtiles(gtfs_data={})
+                    self.builder.build_pmtiles()
             self.assertIn("Download failed", str(cm.exception))
 
     def test_upload_files_to_gcs_missing_file(self):
@@ -397,7 +358,7 @@ class TestPmtilesBuilder(unittest.TestCase):
     def test_create_routes_geojson_fallback_to_stop_coordinates(self):
         # Prepare minimal GTFS files with no shape_id for the trip
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.workdir = temp_dir
+            self.builder.set_workdir(temp_dir)
             with open(self.builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
                 f.write(
                     "route_id,route_long_name,route_color,route_text_color,route_type\nr1,Route 1,FF0000,FFFFFF,3\n"
@@ -432,30 +393,33 @@ class TestPmtilesBuilder(unittest.TestCase):
                 coords = data["features"][0]["geometry"]["coordinates"]
                 self.assertEqual(coords, [[-73.0, 45.0], [-73.1, 45.1]])
 
-    def test_create_stops_geojson_invalid_coordinates(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.workdir = temp_dir
-            stops_path = self.builder.get_path("stops.txt")
-            with open(stops_path, "w", encoding="utf-8") as f:
-                f.write("stop_id,stop_lat,stop_lon\n")
-                f.write("stop1,45.0,-73.0\n")  # valid
-                f.write("stop2,not_a_lat,-73.1\n")  # invalid lat
+    def test_load_agencies(self):
+        builder = PmtilesBuilder("feed123", "feed123_dataset456")
+        builder.csv_cache = MagicMock()
 
-            with self.assertLogs(level="INFO") as log_cm:
-                self.builder._create_stops_geojson()
-                self.assertTrue(
-                    any(
-                        "Skipping stop stop2: invalid coordinates" in msg
-                        for msg in log_cm.output
-                    )
-                )
+        # Case 1: Normal agencies
+        builder.csv_cache.get_file.return_value = [
+            {"agency_id": "a1", "agency_name": "Agency One"},
+            {"agency_id": "a2", "agency_name": "Agency Two"},
+        ]
+        with patch("os.path.exists", return_value=True):
+            agencies = builder._load_agencies()
+            self.assertEqual(agencies, {"a1": "Agency One", "a2": "Agency Two"})
 
-            output_path = self.builder.get_path("stops-output.geojson")
-            self.assertTrue(os.path.exists(output_path))
-            with open(output_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.assertEqual(len(data["features"]), 1)
-                self.assertEqual(data["features"][0]["properties"]["stop_id"], "stop1")
+            # Case 2: Empty agency_id and missing agency_id
+            builder.csv_cache.get_file.return_value = [
+                {"agency_id": "", "agency_name": "No ID Agency"},
+                {"agency_name": "  Trimmed Agency  "},  # No agency_id
+            ]
+            agencies = builder._load_agencies()
+            self.assertEqual(agencies, {"": "Trimmed Agency"})  # Last one overwrites
+
+            # Case 3: agency_name with leading/trailing spaces
+            builder.csv_cache.get_file.return_value = [
+                {"agency_id": "a3", "agency_name": "  Spaced Name  "},
+            ]
+            agencies = builder._load_agencies()
+            self.assertEqual(agencies, {"a3": "Spaced Name"})
 
 
 class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
@@ -541,6 +505,27 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
             result = build_pmtiles_handler(request)
         self.assertIn("error", result)
         self.assertIn("is not a prefix of dataset_stable_id", result["error"])
+
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_success(self, mock_builder):
+        # Set up environment and request
+        debug_dir = tempfile.mkdtemp()
+        os.environ["DEBUG_WORKDIR"] = debug_dir
+        payload = {
+            "feed_stable_id": self.feed_stable_id,
+            "dataset_stable_id": self.dataset_stable_id,
+        }
+        request = MagicMock()
+        request.get_json.return_value = payload
+
+        # Simulate FAILURE status
+        instance = mock_builder.return_value
+        instance.build_pmtiles.return_value = (
+            instance.OperationStatus.FAILURE,
+            "fail msg",
+        )
+        result = build_pmtiles_handler(request)
+        self.assertIn("Successfully", result["message"])
 
 
 class TestPmtilesBuilderUpload(unittest.TestCase):

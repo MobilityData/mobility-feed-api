@@ -26,18 +26,20 @@ import tempfile
 from enum import Enum
 from google.cloud import storage
 
+from csv_cache import (
+    CsvCache,
+    ROUTES_FILE,
+    STOP_TIMES_FILE,
+    TRIPS_FILE,
+    STOPS_FILE,
+    AGENCY_FILE,
+    SHAPES_FILE,
+)
 from shared.helpers.logger import get_logger
 from gtfs_stops_to_geojson import convert_stops_to_geojson
 
 import flask
 import functions_framework
-
-STOP_TIMES_FILE = "stop_times.txt"
-SHAPES_FILE = "shapes.txt"
-TRIPS_FILE = "trips.txt"
-ROUTES_FILE = "routes.txt"
-STOPS_FILE = "stops.txt"
-AGENCY_FILE = "agency.txt"
 
 
 @functions_framework.http
@@ -45,9 +47,6 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
     """
     Entrypoint for building PMTiles files from a GTFS dataset.
     """
-    # Initialize to None to handle cases where get_parameters fails
-    feed_stable_id = None
-    dataset_stable_id = None
 
     payload = request.get_json(silent=True)
 
@@ -100,8 +99,7 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
                 dataset_stable_id=dataset_stable_id,
                 workdir=workdir,
             )
-            gtfs_data = builder._load_gtfs_data()
-            status, message = builder.build_pmtiles(gtfs_data)
+            status, message = builder.build_pmtiles()
 
             # A failure at this point means the pmtiles could not be created because the data
             # is not available. So it's not an error of the pmtiles creation. I n that case
@@ -147,27 +145,18 @@ class PmtilesBuilder:
         self.bucket_name = os.getenv("DATASETS_BUCKET_NAME")
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
-        self.stop_times_index = {}
-        self.stop_ids_by_trip_id = None
+        self.csv_cache = CsvCache(workdir)
 
-        self.workdir = workdir
-
-        self.logger.info("Using work directory: %s", self.workdir)
+        self.logger.info("Using work directory: %s", workdir)
 
     def get_path(self, filename: str) -> str:
-        return os.path.join(self.workdir, filename)
+        return self.csv_cache.get_path(filename)
 
-    @staticmethod
-    def get_parameters(request):
-        """
-        Get parameters from the request and environment variables.
-        """
-        payload = request.get_json(silent=True) or {}
-        feed_stable_id = payload.get("feed_stable_id", None)
-        dataset_stable_id = payload.get("dataset_stable_id", None)
-        return feed_stable_id, dataset_stable_id
+    # Useful for testing
+    def set_workdir(self, workdir: str):
+        self.csv_cache.set_workdir(workdir)
 
-    def build_pmtiles(self, gtfs_data):
+    def build_pmtiles(self):
         if not self.bucket_name:
             raise Exception("DATASETS_BUCKET_NAME environment variable is not defined.")
 
@@ -196,10 +185,7 @@ class PmtilesBuilder:
         self._run_tippecanoe("routes-output.geojson", "routes.pmtiles")
 
         convert_stops_to_geojson(
-            gtfs_data["stops"],
-            gtfs_data["stop_times"],
-            gtfs_data["trips"],
-            gtfs_data["routes"],
+            self.csv_cache,
             self.get_path("stops-output.geojson"),
         )
 
@@ -289,7 +275,7 @@ class PmtilesBuilder:
                 blob.delete()
                 self.logger.debug("Deleted existing blob: %s", blob.name)
             for file_name in file_to_upload:
-                file_path = os.path.join(self.workdir, file_name)
+                file_path = self.get_path(file_name)
                 if not os.path.exists(file_path):
                     self.logger.warning("File not found: %s", file_path)
                     continue
@@ -358,28 +344,6 @@ class PmtilesBuilder:
             self.logger.warning("Cannot read shapes file: %s", e)
         return shapes_index
 
-    def _read_csv(self, filename):
-        """
-        Reads the content of a CSV file and returns it as a list of dictionaries
-        where each dictionary represents a row.
-
-        Parameters:
-        filename (str): The file path of the CSV file to be read.
-
-        Raises:
-        Exception: If there is an error during file opening or reading. The raised
-        exception will include the original error message along with the file name.
-
-        Returns:
-        list[dict]: A list of dictionaries, each representing a row in the CSV file.
-        """
-        try:
-            self.logger.debug("Loading %s", filename)
-            with open(filename, newline="", encoding="utf-8") as f:
-                return list(csv.DictReader(f))
-        except Exception as e:
-            raise Exception(f"Failed to read CSV file {filename}: {e}") from e
-
     def _get_shape_points(self, shape_id, index):
         self.logger.debug("Getting shape points for shape_id %s", shape_id)
         try:
@@ -413,91 +377,70 @@ class PmtilesBuilder:
             shapes_index = self._create_shapes_index()
             self.logger.info("Creating routes geojson (optimized for memory)")
 
-            # Load stops into memory (usually not huge)
-            # Used only if there is no shapes for a route
-            coordinates_indexed_by_stop = {
-                s["stop_id"]: (float(s["stop_lon"]), float(s["stop_lat"]))
-                for s in self._read_csv(self.get_path(STOPS_FILE))
-            }
-
-            # We want the shape of a route. To do that we find one trip for each route. We will assume that all
-            # trips for a route have the same shape_id. If not I am not sure how to represent this in the route map
-            # when we select a route.
-            shape_map_indexed_by_route = {}
-            trip_map_indexed_by_route = {}
-            with open(self.get_path(TRIPS_FILE), newline="", encoding="utf-8") as f:
-                for row in csv.DictReader(f):
-                    trip_id = row["trip_id"]
-                    route_id = row["route_id"]
-                    shape_id = row.get("shape_id", "")
-                    if shape_id and route_id not in shape_map_indexed_by_route:
-                        shape_map_indexed_by_route[route_id] = shape_id
-                    if trip_id and route_id not in trip_map_indexed_by_route:
-                        trip_map_indexed_by_route[route_id] = trip_id
-
             features = []
             missing_coordinates_routes = set()
             routes_geojson = self.get_path("routes-output.geojson")
             with open(routes_geojson, "w", encoding="utf-8") as geojson_file:
                 geojson_file.write('{"type": "FeatureCollection", "features": [\n')
                 first = True
-                with open(
-                    self.get_path(ROUTES_FILE), newline="", encoding="utf-8"
-                ) as routes_file:
-                    for i, route in enumerate(csv.DictReader(routes_file), 1):
-                        route_id = route["route_id"]
+                for i, route in enumerate(self.csv_cache.get_file(ROUTES_FILE), 1):
+                    agency_id = route.get("agency_id") or "default"
+                    agency_name = agencies.get(agency_id, agency_id)
 
-                        shape_id = shape_map_indexed_by_route.get(route_id, "")
+                    route_id = route["route_id"]
+                    shape_id = self.csv_cache.get_shape_from_route(route_id)
 
-                        agency_id = route.get("agency_id") or "default"
-                        agency_name = agencies.get(agency_id, agency_id)
+                    coordinates = []
+                    if shape_id:
+                        coordinates = self._get_shape_points(shape_id, shapes_index)
+                    if not coordinates:
+                        # We don't have the coordinates for the shape, fallback on using stops.
+                        trip_id = self.csv_cache.get_trip_from_route(route_id)
 
-                        coordinates = []
-                        if shape_id:
-                            coordinates = self._get_shape_points(shape_id, shapes_index)
-                        if not coordinates:
-                            # We don't have the coordinates for the shape, fallback on stop_times and stops
-                            trip_id = trip_map_indexed_by_route.get(route_id, "")
+                        if trip_id:
+                            stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
+                            # We assume stop_times is already sorted by stop_sequence in the file.
+                            # According to the SPECS:
+                            #    The values must increase along the trip but do not need to be consecutive.
+                            coordinates = [
+                                coord
+                                for stop_id in stops_for_trip
+                                if (
+                                    coord := self.csv_cache.get_coordinates_for_stop(
+                                        stop_id
+                                    )
+                                )
+                                is not None
+                            ]
+                    if not coordinates:
+                        missing_coordinates_routes.add(route_id)
+                        continue
+                    feature = {
+                        "type": "Feature",
+                        "properties": {
+                            "agency_name": agency_name,
+                            "route_id": route_id,
+                            "route_short_name": route.get("route_short_name", ""),
+                            "route_long_name": route.get("route_long_name", ""),
+                            "route_type": route.get("route_type", ""),
+                            "route_color": route.get("route_color", ""),
+                            "route_text_color": route.get("route_text_color", ""),
+                        },
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": coordinates,
+                        },
+                    }
 
-                            if trip_id:
-                                trip_stop_times = self._get_trip_stop_ids(trip_id)
-                                # We assume stop_times is already sorted by stop_sequence in the file.
-                                # According to the SPECS:
-                                #    The values must increase along the trip but do not need to be consecutive.
-                                coordinates = [
-                                    coordinates_indexed_by_stop[stop_id]
-                                    for stop_id in trip_stop_times
-                                    if stop_id in coordinates_indexed_by_stop
-                                ]
-                        if not coordinates:
-                            missing_coordinates_routes.add(route_id)
-                            continue
-                        feature = {
-                            "type": "Feature",
-                            "properties": {
-                                "agency_name": agency_name,
-                                "route_id": route_id,
-                                "route_short_name": route.get("route_short_name", ""),
-                                "route_long_name": route.get("route_long_name", ""),
-                                "route_type": route.get("route_type", ""),
-                                "route_color": route.get("route_color", ""),
-                                "route_text_color": route.get("route_text_color", ""),
-                            },
-                            "geometry": {
-                                "type": "LineString",
-                                "coordinates": coordinates,
-                            },
-                        }
+                    if not first:
+                        geojson_file.write(",\n")
+                    geojson_file.write(json.dumps(feature))
+                    first = False
 
-                        if not first:
-                            geojson_file.write(",\n")
-                        geojson_file.write(json.dumps(feature))
-                        first = False
-
-                        if i % 100 == 0 or i == 1:
-                            self.logger.debug(
-                                "Processed route %d (route_id: %s)", i, route_id
-                            )
+                    if i % 100 == 0 or i == 1:
+                        self.logger.debug(
+                            "Processed route %d (route_id: %s)", i, route_id
+                        )
 
                 geojson_file.write("\n]}")
 
@@ -510,20 +453,6 @@ class PmtilesBuilder:
             )
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
-
-    def _get_trip_stop_ids(self, trip_id):
-        # Lazy instantiation of the dictionary, because we may not need it al all if there is a shape.
-        if self.stop_ids_by_trip_id is None:
-            self.stop_ids_by_trip_id = {}
-            with open(
-                self.get_path(STOP_TIMES_FILE), newline="", encoding="utf-8"
-            ) as f:
-                for row in csv.DictReader(f):
-                    self.stop_ids_by_trip_id.setdefault(row["trip_id"], []).append(
-                        row["stop_id"]
-                    )
-
-        return self.stop_ids_by_trip_id.get(trip_id, [])
 
     def _run_tippecanoe(self, input_file, output_file):
         self.logger.info("Running tippecanoe for input file %s", input_file)
@@ -550,67 +479,23 @@ class PmtilesBuilder:
                 f"Failed to run tippecanoe for output file {output_file}: {e}"
             ) from e
 
-    def _create_stops_geojson(self):
-        self.logger.info("Creating stops geojson...")
-        try:
-            stops = self._read_csv(self.get_path(STOPS_FILE))
-            if isinstance(stops, dict) and "error" in stops:
-                return stops
-            self.logger.debug("Loaded %d stops.", len(stops))
-
-            features = []
-            for i, stop in enumerate(stops, 1):
-                try:
-                    lon = float(stop["stop_lon"])
-                    lat = float(stop["stop_lat"])
-                except (KeyError, ValueError):
-                    self.logger.info(
-                        "Skipping stop %s: invalid coordinates",
-                        stop.get("stop_id", ""),
-                    )
-                    continue
-                features.append(
-                    {
-                        "type": "Feature",
-                        "properties": {k: stop[k] for k in stop},
-                        "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                    }
-                )
-
-            geojson = {"type": "FeatureCollection", "features": features}
-            stops_geojson = self.get_path("stops-output.geojson")
-
-            self.logger.debug(
-                "Writing %d features to stops-output.geojson for dataset %s",
-                len(features),
-                self.dataset_stable_id,
-            )
-            with open(stops_geojson, "w", encoding="utf-8") as f:
-                json.dump(geojson, f)
-        except Exception as e:
-            raise Exception(
-                f"Failed to create stops GeoJSON for dataset {self.dataset_stable_id}: {e}"
-            ) from e
-
     def _create_routes_json(self):
         self.logger.info("Creating routes json...")
         try:
             routes = []
-            with open(self.get_path(ROUTES_FILE), newline="", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    route = {
-                        "routeId": row.get("route_id", ""),
-                        "routeName": row.get("route_long_name", "")
-                        or row.get("route_short_name", "")
-                        or row.get("route_id", ""),
-                        "color": f"#{row.get('route_color', '000000')}",
-                        "textColor": f"#{row.get('route_text_color', 'FFFFFF')}",
-                        "routeType": f"{row.get('route_type', '')}",
-                    }
-                    routes.append(route)
+            for row in self.csv_cache.get_file(ROUTES_FILE):
+                route = {
+                    "routeId": row.get("route_id", ""),
+                    "routeName": row.get("route_long_name", "")
+                    or row.get("route_short_name", "")
+                    or row.get("route_id", ""),
+                    "color": f"#{row.get('route_color', '000000')}",
+                    "textColor": f"#{row.get('route_text_color', 'FFFFFF')}",
+                    "routeType": f"{row.get('route_type', '')}",
+                }
+                routes.append(route)
 
-            with open(f"{self.workdir}/routes.json", "w", encoding="utf-8") as f:
+            with open(self.get_path("routes.json"), "w", encoding="utf-8") as f:
                 json.dump(routes, f, ensure_ascii=False, indent=4)
 
             self.logger.debug("Converted %d routes to routes.json.", len(routes))
@@ -623,22 +508,9 @@ class PmtilesBuilder:
         if not os.path.exists(agency_file_path):
             self.logger.warning("agency.txt not found, agencies will be empty.")
             return agencies
-        for row in self._read_csv(agency_file_path):
+        for row in self.csv_cache.get_file(AGENCY_FILE):
             agency_id = row.get("agency_id") or ""
             agency_name = row.get("agency_name", "").strip()
             agencies[agency_id] = agency_name
 
         return agencies
-
-    def _load_gtfs_data(self):
-        """
-        Loads the main GTFS files into memory.
-        """
-        self.logger.info("Loading GTFS data into memory.")
-        return {
-            "routes": self._read_csv(self.get_path(ROUTES_FILE)),
-            "trips": self._read_csv(self.get_path(TRIPS_FILE)),
-            "stops": self._read_csv(self.get_path(STOPS_FILE)),
-            "stop_times": self._read_csv(self.get_path(STOP_TIMES_FILE)),
-            "agencies": self._load_agencies(),
-        }

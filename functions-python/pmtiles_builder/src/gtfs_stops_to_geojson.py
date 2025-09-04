@@ -3,10 +3,12 @@ import sys
 import logging
 from collections import defaultdict
 
+from csv_cache import CsvCache, ROUTES_FILE, TRIPS_FILE, STOP_TIMES_FILE, STOPS_FILE
+
 logger = logging.getLogger(__name__)
 
 
-def load_routes(routes_data):
+def create_routes_map(routes_data):
     """Creates a dictionary of routes from route data."""
     routes = {}
     for row in routes_data:
@@ -39,14 +41,16 @@ def build_stop_to_routes(stop_times_data, trips_data):
     return stop_to_routes
 
 
-def convert_stops_to_geojson(stops, stop_times, trips, routes, output_file):
+def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
     """Converts GTFS stops data to a GeoJSON file."""
-    routes_map = load_routes(routes)
-    stop_to_routes = build_stop_to_routes(stop_times, trips)
+    routes_map = create_routes_map(csv_cache.get_file(ROUTES_FILE))
+    stop_to_routes = build_stop_to_routes(
+        csv_cache.get_file(STOP_TIMES_FILE), csv_cache.get_file(TRIPS_FILE)
+    )
 
     features = []
 
-    for row in stops:
+    for row in csv_cache.get_file(STOPS_FILE):
         stop_id = row.get("stop_id")
         if not stop_id:
             continue
