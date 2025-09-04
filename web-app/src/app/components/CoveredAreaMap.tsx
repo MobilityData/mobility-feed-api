@@ -148,7 +148,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   const handleOpenDetailedMapClick = (): void => {
     ReactGA.event({
       category: 'engagement',
-      action: 'gtfs_visualization_open_full_map',
+      action: 'gtfs_visualization_open_detailed_map',
       label: 'Open Detailed Map',
     });
   };

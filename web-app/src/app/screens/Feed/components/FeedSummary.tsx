@@ -47,12 +47,20 @@ import CommuteIcon from '@mui/icons-material/Commute';
 import { Link as RouterLink } from 'react-router-dom';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
+import ReactGA from 'react-ga4';
+import { getEnvConfig } from '../../../utils/config';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
   sortedProviders: string[];
   latestDataset?: components['schemas']['GtfsDataset'] | undefined;
   width: Record<string, string>;
+}
+
+// Initialize ReactGA
+const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
+if (gaId.length > 0) {
+  ReactGA.initialize(gaId);
 }
 
 export default function FeedSummary({
@@ -69,6 +77,15 @@ export default function FeedSummary({
     ? sortedProviders
     : sortedProviders.slice(0, 4);
   const { config } = useRemoteConfig();
+
+  const handleOpenDetailedMapClick = (): void => {
+    ReactGA.event({
+      category: 'engagement',
+      action: 'gtfs_visualization_open_detailed_map',
+      label: 'Open Detailed Map',
+    });
+  };
+
   return (
     <ContentBox
       width={width}
@@ -160,6 +177,7 @@ export default function FeedSummary({
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
+                onClick={handleOpenDetailedMapClick}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>
@@ -188,6 +206,7 @@ export default function FeedSummary({
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
+                onClick={handleOpenDetailedMapClick}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>
