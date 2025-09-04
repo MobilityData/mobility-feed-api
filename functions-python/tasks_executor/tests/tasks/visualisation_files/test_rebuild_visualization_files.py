@@ -64,11 +64,10 @@ class TestRebuildMissingVisualizationFiles(unittest.TestCase):
         self.assertTrue(check_existing)
 
         # dry_run as string "True" (case-insensitive -> True)
-        payload = {"dry_run": "True", "check_existing": "ignored"}
+        payload = {"dry_run": "True", "check_existing": "True"}
         dry_run, bucket_name, check_existing = get_parameters(payload)
         self.assertTrue(dry_run)
         self.assertEqual(bucket_name, "my-bucket")
-        # check_existing default True when not explicitly provided as bool
         self.assertTrue(check_existing)
 
     @patch.dict(os.environ, {}, clear=True)

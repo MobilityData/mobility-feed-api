@@ -46,6 +46,7 @@ def rebuild_missing_visualization_files_handler(payload) -> dict:
     The payload structure is:
     {
         "dry_run": bool,  # [optional] If True, do not execute the workflow
+        "check_existing": bool,  # [optional] If True, check if visualization files already exist before creating tasks
     }
     Args:
         payload (dict): The payload containing the task details.
@@ -73,6 +74,7 @@ def rebuild_missing_visualization_files(
     Args:
         bucket_name (str): The name of the bucket containing the GTFS data.
         dry_run (bool): dry run flag. If True, do not execute the workflow. Default: True
+        check_existing (bool): If True, check if visualization files already exist before creating tasks. Default: True
         db_session: DB session
 
     Returns:
