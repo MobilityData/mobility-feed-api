@@ -124,3 +124,46 @@ export const oathProviders = {
   Github: new GithubAuthProvider(),
   Apple: new OAuthProvider('apple.com'),
 };
+
+export interface GeoJSONData {
+  type: 'FeatureCollection' | 'Feature' | 'GeometryCollection';
+  features?: Array<{
+    type: 'Feature';
+    geometry: {
+      type: 'Point' | 'Polygon' | 'LineString' | 'MultiPolygon';
+      coordinates: number[][] | number[][][];
+    };
+    properties: Record<string, string | number>;
+  }>;
+}
+
+export interface GeoJSONDataGBFS extends GeoJSONData {
+  extracted_at: string;
+  extraction_url: string;
+}
+
+export interface GtfsRoute {
+  routeId?: string;
+  routeName?: string;
+  color?: string;
+  textColor?: string;
+  routeType?: string;
+}
+
+export type LoadStatus = 'uninitialized' | 'loading' | 'loaded' | 'failed';
+export type SupportingFileKey =
+  | 'gtfsGeolocationGeojson'
+  | 'gtfsDatasetRoutesJson';
+export interface SupportingFileDataMap {
+  gtfsGeolocationGeojson: GeoJSONData;
+  gtfsDatasetRoutesJson: GtfsRoute[];
+}
+export interface SupportingFile<
+  K extends keyof SupportingFileDataMap = keyof SupportingFileDataMap,
+> {
+  key: K;
+  status: LoadStatus;
+  url?: string;
+  data?: SupportingFileDataMap[K];
+  error?: string;
+}

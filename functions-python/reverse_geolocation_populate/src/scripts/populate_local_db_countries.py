@@ -23,7 +23,7 @@ iso_3166_1_codes_file = "iso_3166_1_alpha_2_codes.json"
 SCRIPT_DIR = Path(__file__).resolve().parent
 JSON_PATH = SCRIPT_DIR / iso_3166_1_codes_file
 
-country_filter = ["US", "CA", "GB", "FR", "DE", "IT", "ES", "JP", "IN"]
+country_filter = ["US", "CA", "GB", "FR", "DE", "IT", "ES", "JP", "IN", "NZ"]
 logging.basicConfig(level=logging.INFO)
 
 

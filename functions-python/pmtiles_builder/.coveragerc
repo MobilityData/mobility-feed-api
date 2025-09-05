@@ -1,10 +1,9 @@
 [run]
 omit =
     */test*/*
-    database.py
+    */helpers/*
     */database_gen/*
-    */dataset_service/*
-    */shared/common/*
+    */shared/*
 
 [report]
 exclude_lines =

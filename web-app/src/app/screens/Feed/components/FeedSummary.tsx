@@ -49,6 +49,12 @@ import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
 import ReactGA from 'react-ga4';
 import { getEnvConfig } from '../../../utils/config';
+import { useSelector } from 'react-redux';
+import {
+  selectGtfsDatasetRoutesTotal,
+  selectGtfsDatasetRouteTypes,
+} from '../../../store/selectors';
+import { getRouteTypeTranslatedName } from '../../../constants/RouteTypes';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -85,6 +91,9 @@ export default function FeedSummary({
       label: 'Open Detailed Map',
     });
   };
+
+  const totalRoutes = useSelector(selectGtfsDatasetRoutesTotal);
+  const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
 
   return (
     <ContentBox
@@ -170,7 +179,7 @@ export default function FeedSummary({
             </Typography>
           </StyledTitleContainer>
           <Typography variant='body1'>
-            130
+            {totalRoutes ?? '---'}
             <Tooltip title='Find Routes On Map' placement='top' sx={{ ml: 1 }}>
               <IconButton
                 size='small'
@@ -178,6 +187,7 @@ export default function FeedSummary({
                 to='./map'
                 color={'primary'}
                 onClick={handleOpenDetailedMapClick}
+                disabled={totalRoutes == undefined}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>
@@ -195,7 +205,11 @@ export default function FeedSummary({
             </Typography>
           </StyledTitleContainer>
           <Typography variant='body1'>
-            Bus, Ferry, Tram
+            {routeTypes != null && routeTypes.length > 0
+              ? routeTypes
+                  .map((routeType) => getRouteTypeTranslatedName(routeType, t))
+                  .join(', ')
+              : '---'}
             <Tooltip
               title='View Routes Types On Map'
               placement='top'
@@ -207,6 +221,7 @@ export default function FeedSummary({
                 to='./map'
                 color={'primary'}
                 onClick={handleOpenDetailedMapClick}
+                disabled={routeTypes == undefined}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>

@@ -1,7 +1,12 @@
+import json
 import logging
 import os
 from google.cloud import tasks_v2
 from google.protobuf.timestamp_pb2 import Timestamp
+
+REFRESH_VIEW_TASK_EXECUTOR_BODY = json.dumps(
+    {"task": "refresh_materialized_view", "payload": {"dry_run": False}}
+).encode()
 
 
 def create_refresh_materialized_view_task():
@@ -39,20 +44,19 @@ def create_refresh_materialized_view_task():
         logging.debug("Queue name from env: %s", queue)
         gcp_region = os.getenv("GCP_REGION")
         environment_name = os.getenv("ENVIRONMENT")
-        url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks-executor-{environment_name}"
-
+        url = f"https://{gcp_region}-" f"{project}.cloudfunctions.net/" f"tasks_executor-{environment_name}"
         # Enqueue the task
         try:
             create_http_task_with_name(
                 client=tasks_v2.CloudTasksClient(),
-                body=b"",
+                body=REFRESH_VIEW_TASK_EXECUTOR_BODY,
                 url=url,
                 project_id=project,
                 gcp_region=gcp_region,
                 queue_name=queue,
                 task_name=task_name,
                 task_time=proto_time,
-                http_method=tasks_v2.HttpMethod.GET,
+                http_method=tasks_v2.HttpMethod.POST,
             )
             logging.info("Scheduled refresh materialized view task for %s", task_name)
             return {"message": "Refresh task for %s scheduled." % task_name}, 200
@@ -75,8 +79,11 @@ def create_http_task_with_name(
     task_name: str,
     task_time: Timestamp,
     http_method: "tasks_v2.HttpMethod",
+    timeout_s: int = 1800,  # 30 minutes
 ):
     """Creates a GCP Cloud Task."""
+    from google.protobuf import duration_pb2
+
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))
 
     parent = client.queue_path(project_id, gcp_region, queue_name)
@@ -94,11 +101,14 @@ def create_http_task_with_name(
             body=body,
             headers={"Content-Type": "application/json"},
         ),
+        dispatch_deadline=duration_pb2.Duration(seconds=timeout_s),
     )
-    logging.info("Task created with task_name: %s", task_name)
     try:
         response = client.create_task(parent=parent, task=task)
+        logging.info("Task created with task_name: %s", task_name)
     except Exception as e:
-        logging.error("Error creating task: %s", e)
-        logging.error("response: %s", response)
-    logging.info("Successfully created task in create_http_task_with_name")
+        if "Requested entity already exists" in str(e):
+            logging.info("Task already exists for %s, skipping.", task_name)
+        else:
+            logging.error("Error creating task: %s", e)
+            logging.error("response: %s", response)

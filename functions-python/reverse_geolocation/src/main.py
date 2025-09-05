@@ -2,9 +2,8 @@ import logging
 
 import flask
 import functions_framework
-from cloudevents.http import CloudEvent
-from shared.helpers.logger import init_logger
 
+from shared.helpers.logger import init_logger
 
 init_logger()
 
@@ -31,31 +30,5 @@ def reverse_geolocation_batch(request: flask.Request):
     from reverse_geolocation_batch import reverse_geolocation_batch
 
     result = reverse_geolocation_batch(request)
-    logging.info(result)
-    return result
-
-
-@functions_framework.cloud_event
-def reverse_geolocation(request: CloudEvent):
-    """
-    Cloud Function that triggers the reverse geolocation process
-    Function trigger: A new dataset is uploaded to the storage bucket.
-    """
-    from reverse_geolocation import reverse_geolocation_storage_trigger
-
-    result = reverse_geolocation_storage_trigger(request)
-    logging.info(result)
-    return result
-
-
-@functions_framework.cloud_event
-def reverse_geolocation_pubsub(request: CloudEvent):
-    """
-    Cloud Function that triggers the reverse geolocation process
-    Function trigger: A message is sent to a Pub/Sub topic.
-    """
-    from reverse_geolocation import reverse_geolocation_pubsub
-
-    result = reverse_geolocation_pubsub(request)
     logging.info(result)
     return result

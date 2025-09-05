@@ -451,6 +451,7 @@ class TestDatasetProcessor(unittest.TestCase):
         )
 
     @patch.dict(os.environ, {"DATASETS_BUCKET_NAME": "test-bucket"})
+    @patch("main.create_pipeline_tasks")
     @patch("main.DatasetProcessor.create_dataset_entities")
     @patch("main.DatasetProcessor.upload_files_to_storage")
     @patch("main.DatasetProcessor.unzip_files")
@@ -461,6 +462,7 @@ class TestDatasetProcessor(unittest.TestCase):
         mock_unzip_files,
         mock_upload_files_to_storage,
         mock_create_dataset_entities,
+        _,
     ):
         # Arrange
         mock_blob = MagicMock()
