@@ -9,6 +9,7 @@ import {
   Typography,
   Fab,
 } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Link } from 'react-router-dom';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
@@ -34,11 +35,28 @@ import ModeOfTravelIcon from '@mui/icons-material/ModeOfTravel';
 import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
+import ReactGA from 'react-ga4';
+import { getEnvConfig } from '../utils/config';
 
+declare global {
+  interface Window {
+    gtag?: (
+      command: 'event',
+      action: string,
+      params?: Record<string, unknown>,
+    ) => void;
+  }
+}
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
   latestDataset?: { hosted_url?: string };
   feed: AllFeedType;
+}
+
+// Initialize ReactGA
+const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
+if (gaId.length > 0) {
+  ReactGA.initialize(gaId);
 }
 
 export const fetchGeoJson = async (
@@ -125,6 +143,14 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     newView: MapViews | null,
   ): void => {
     if (newView !== null) setView(newView);
+  };
+
+  const handleOpenDetailedMapClick = (): void => {
+    ReactGA.event({
+      category: 'engagement',
+      action: 'gtfs_visualization_open_detailed_map',
+      label: 'Open Detailed Map',
+    });
   };
 
   const getGbfsLatestVersionVisualizationUrl = (
@@ -217,8 +243,15 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       >
         {view === 'gtfsVisualizationView' &&
           config.enableGtfsVisualizationMap && (
-            <Button component={Link} to='./map'>
-              Open Full Map with Filters
+            <Button
+              variant='contained'
+              disableElevation
+              component={Link}
+              to='./map'
+              onClick={handleOpenDetailedMapClick}
+              endIcon={<OpenInNewIcon></OpenInNewIcon>}
+            >
+              Open Detailed Map
             </Button>
           )}
         {feed?.data_type === 'gbfs' ? (
@@ -275,13 +308,15 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
             </Tooltip>
             {config.enableGtfsVisualizationMap && (
               <Tooltip title={t('gtfsVisualizationTooltip')}>
-                <ToggleButton
-                  value='gtfsVisualizationView'
-                  disabled={!config.enableGtfsVisualizationMap}
-                  aria-label='Bounding Box View'
-                >
-                  <ModeOfTravelIcon />
-                </ToggleButton>
+                <span>
+                  <ToggleButton
+                    value='gtfsVisualizationView'
+                    disabled={!config.enableGtfsVisualizationMap}
+                    aria-label='Bounding Box View'
+                  >
+                    <ModeOfTravelIcon />
+                  </ToggleButton>
+                </span>
               </Tooltip>
             )}
           </ToggleButtonGroup>

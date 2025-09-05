@@ -47,6 +47,8 @@ import CommuteIcon from '@mui/icons-material/Commute';
 import { Link as RouterLink } from 'react-router-dom';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import { useRemoteConfig } from '../../../context/RemoteConfigProvider';
+import ReactGA from 'react-ga4';
+import { getEnvConfig } from '../../../utils/config';
 import { useSelector } from 'react-redux';
 import {
   selectGtfsDatasetRoutesTotal,
@@ -59,6 +61,12 @@ export interface FeedSummaryProps {
   sortedProviders: string[];
   latestDataset?: components['schemas']['GtfsDataset'] | undefined;
   width: Record<string, string>;
+}
+
+// Initialize ReactGA
+const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
+if (gaId.length > 0) {
+  ReactGA.initialize(gaId);
 }
 
 export default function FeedSummary({
@@ -75,6 +83,15 @@ export default function FeedSummary({
     ? sortedProviders
     : sortedProviders.slice(0, 4);
   const { config } = useRemoteConfig();
+
+  const handleOpenDetailedMapClick = (): void => {
+    ReactGA.event({
+      category: 'engagement',
+      action: 'gtfs_visualization_open_detailed_map',
+      label: 'Open Detailed Map',
+    });
+  };
+
   const totalRoutes = useSelector(selectGtfsDatasetRoutesTotal);
   const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
 
@@ -169,6 +186,7 @@ export default function FeedSummary({
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
+                onClick={handleOpenDetailedMapClick}
                 disabled={totalRoutes == undefined}
               >
                 <TravelExploreIcon></TravelExploreIcon>
@@ -202,6 +220,7 @@ export default function FeedSummary({
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
+                onClick={handleOpenDetailedMapClick}
                 disabled={routeTypes == undefined}
               >
                 <TravelExploreIcon></TravelExploreIcon>
