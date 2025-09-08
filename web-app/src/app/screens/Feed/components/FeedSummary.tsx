@@ -54,19 +54,12 @@ import {
 } from '../../../store/selectors';
 import { getRouteTypeTranslatedName } from '../../../constants/RouteTypes';
 import ReactGA from 'react-ga4';
-import { getEnvConfig } from '../../../utils/config';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
   sortedProviders: string[];
   latestDataset?: components['schemas']['GtfsDataset'] | undefined;
   width: Record<string, string>;
-}
-
-// Initialize ReactGA
-const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
-if (gaId.length > 0) {
-  ReactGA.initialize(gaId);
 }
 
 export default function FeedSummary({

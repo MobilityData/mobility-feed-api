@@ -36,27 +36,11 @@ import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import ReactGA from 'react-ga4';
-import { getEnvConfig } from '../utils/config';
 
-declare global {
-  interface Window {
-    gtag?: (
-      command: 'event',
-      action: string,
-      params?: Record<string, unknown>,
-    ) => void;
-  }
-}
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
   latestDataset?: { hosted_url?: string };
   feed: AllFeedType;
-}
-
-// Initialize ReactGA
-const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
-if (gaId.length > 0) {
-  ReactGA.initialize(gaId);
 }
 
 export const fetchGeoJson = async (

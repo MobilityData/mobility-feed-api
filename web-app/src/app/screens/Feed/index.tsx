@@ -67,7 +67,6 @@ import GbfsFeedInfo from './components/GbfsFeedInfo';
 import GbfsVersions from './components/GbfsVersions';
 import generateFeedStructuredData from './StructuredData.functions';
 import ReactGA from 'react-ga4';
-import { getEnvConfig } from '../../utils/config';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -141,12 +140,6 @@ const handleOpenFullQualityReportClick = (): void => {
     label: 'Open Full Quality Report',
   });
 };
-
-// Initialize ReactGA
-const gaId = getEnvConfig('REACT_APP_GOOGLE_ANALYTICS_ID');
-if (gaId.length > 0) {
-  ReactGA.initialize(gaId);
-}
 
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
