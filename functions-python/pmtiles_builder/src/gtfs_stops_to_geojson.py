@@ -4,6 +4,7 @@ import logging
 from collections import defaultdict
 
 from csv_cache import CsvCache, ROUTES_FILE, TRIPS_FILE, STOP_TIMES_FILE, STOPS_FILE
+from shared.helpers.runtime_metrics import track_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ def build_stop_to_routes(stop_times_data, trips_data):
     return stop_to_routes
 
 
+@track_metrics(metrics=("time", "memory", "cpu"))
 def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
     """Converts GTFS stops data to a GeoJSON file."""
     routes_map = create_routes_map(csv_cache.get_file(ROUTES_FILE))

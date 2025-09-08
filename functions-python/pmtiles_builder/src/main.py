@@ -35,11 +35,14 @@ from csv_cache import (
     AGENCY_FILE,
     SHAPES_FILE,
 )
-from shared.helpers.logger import get_logger
+from shared.helpers.runtime_metrics import track_metrics
+from shared.helpers.logger import get_logger, init_logger
 from gtfs_stops_to_geojson import convert_stops_to_geojson
 
 import flask
 import functions_framework
+
+init_logger()
 
 
 @functions_framework.http
@@ -305,6 +308,7 @@ class PmtilesBuilder:
         except Exception as e:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def _create_shapes_index(self) -> dict:
         """
         Create an index for shapes.txt file to quickly access shape points by shape_id.
@@ -370,6 +374,7 @@ class PmtilesBuilder:
         except Exception as e:
             raise Exception(f"Failed to get shape points for {shape_id}: {e}") from e
 
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def _create_routes_geojson(self):
         try:
             agencies = self._load_agencies()
@@ -454,6 +459,7 @@ class PmtilesBuilder:
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
 
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def _run_tippecanoe(self, input_file, output_file):
         self.logger.info("Running tippecanoe for input file %s", input_file)
         try:
@@ -479,6 +485,7 @@ class PmtilesBuilder:
                 f"Failed to run tippecanoe for output file {output_file}: {e}"
             ) from e
 
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def _create_routes_json(self):
         self.logger.info("Creating routes json...")
         try:
