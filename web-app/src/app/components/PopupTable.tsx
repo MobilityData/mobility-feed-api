@@ -18,9 +18,6 @@ interface PopupTableProps {
 }
 
 const fieldDescriptions: Record<string, { description?: string }> = {
-  osm_id: {
-    description: 'OpenStreetMap ID of the geographic area.',
-  },
   stops_in_area: {
     description:
       'This is the number of stops in stops.txt that are located within this geographic area.',
