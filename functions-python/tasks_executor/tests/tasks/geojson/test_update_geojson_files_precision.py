@@ -180,8 +180,8 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
             )
 
         # verify upload happened
-        self.assertIn("geolocation.geojson", fake_bucket.uploaded)
-        uploaded_text = fake_bucket.uploaded["geolocation.geojson"]
+        self.assertIn(blob_name, fake_bucket.uploaded)
+        uploaded_text = fake_bucket.uploaded[blob_name]
         uploaded_geo = json.loads(uploaded_text)
         coords = uploaded_geo.get("features")[0]["geometry"]["coordinates"]
         self.assertEqual(coords, [round(100.1234567, 5), round(0.9876543, 5)])

@@ -62,8 +62,8 @@ def query_unprocessed_feeds(limit, db_session):
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
-def _upload_file(bucket, geojson):
-    processed_blob = bucket.blob("geolocation.geojson")
+def _upload_file(bucket, file_path, geojson):
+    processed_blob = bucket.blob(file_path)
     processed_blob.upload_from_string(
         json.dumps(geojson, ensure_ascii=False),
         content_type="application/geo+json",
@@ -163,9 +163,8 @@ def update_geojson_files_precision_handler(
             if processed % 100 == 0:
                 logging.info("Processed %s/%s", processed, len(feeds))
                 db_session.commit()
-            file = storage.Blob(
-                bucket=bucket, name=f"{feed.stable_id}/{GEOLOCATION_FILENAME}"
-            )
+            file_path = f"{feed.stable_id}/{GEOLOCATION_FILENAME}"
+            file = storage.Blob(bucket=bucket, name=file_path)
             if not file.exists():
                 logging.info("File does not exist: %s", file.name)
                 continue
@@ -181,8 +180,9 @@ def update_geojson_files_precision_handler(
 
             # Optionally upload processed geojson
             if not dry_run:
-                _upload_file(bucket, geojson)
+                _upload_file(bucket, file_path, geojson)
                 _update_feed_info(feed, timestamp)
+                logging.info("Updated feed %s", feed.stable_id)
 
             processed += 1
         except Exception as e:
