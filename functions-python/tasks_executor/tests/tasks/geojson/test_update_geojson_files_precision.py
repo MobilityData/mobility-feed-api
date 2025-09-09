@@ -81,7 +81,10 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
             "features": [
                 {
                     "type": "Feature",
-                    "geometry": {"type": "Point", "coordinates": [12.3456789, -98.7654321]},
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [12.3456789, -98.7654321],
+                    },
                     "properties": {
                         "name": "A",
                         "osm_id": 123,
@@ -113,13 +116,18 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
         }
         out1 = process_geojson(feat, precision=4)
         self.assertIsInstance(out1, dict)
-        self.assertEqual(out1["geometry"]["coordinates"], [round(1.23456789, 4), round(2.3456789, 4)])
+        self.assertEqual(
+            out1["geometry"]["coordinates"], [round(1.23456789, 4), round(2.3456789, 4)]
+        )
         self.assertNotIn("osm", out1.get("properties", {}))
 
         lst = [feat]
         out2 = process_geojson(lst, precision=3)
         self.assertIsInstance(out2, list)
-        self.assertEqual(out2[0]["geometry"]["coordinates"], [round(1.23456789, 3), round(2.3456789, 3)])
+        self.assertEqual(
+            out2[0]["geometry"]["coordinates"],
+            [round(1.23456789, 3), round(2.3456789, 3)],
+        )
 
     @patch("tasks.geojson.update_geojson_files_precision.query_unprocessed_feeds")
     def test_handler_uploads_and_updates_feed_info(self, mock_query):
@@ -128,7 +136,10 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
             "features": [
                 {
                     "type": "Feature",
-                    "geometry": {"type": "Point", "coordinates": [100.1234567, 0.9876543]},
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [100.1234567, 0.9876543],
+                    },
                     "properties": {"id": "node/1", "keep": "x"},
                 }
             ],
@@ -149,7 +160,11 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
         fake_feed = types.SimpleNamespace(
             stable_id=feed_stable_id,
             geolocation_file_created_date=None,
-            gtfsdatasets=[types.SimpleNamespace(bounding_box=types.SimpleNamespace(id="bbid"), downloaded_date=None)],
+            gtfsdatasets=[
+                types.SimpleNamespace(
+                    bounding_box=types.SimpleNamespace(id="bbid"), downloaded_date=None
+                )
+            ],
         )
 
         mock_query.return_value = [fake_feed]
@@ -168,7 +183,12 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
 
         fake_db = FakeDBSession()
 
-        payload = {"bucket_name": "any-bucket", "dry_run": False, "precision": 5, "limit": 1}
+        payload = {
+            "bucket_name": "any-bucket",
+            "dry_run": False,
+            "precision": 5,
+            "limit": 1,
+        }
 
         # Inject modules into sys.modules for the duration of the handler call
         with patch.dict(sys.modules, {"google.cloud": cloud_mod, "google": google_mod}):

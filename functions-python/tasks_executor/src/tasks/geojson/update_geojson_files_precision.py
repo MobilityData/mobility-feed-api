@@ -20,6 +20,8 @@ import os
 import re
 from typing import Any, Dict, List
 
+from sqlalchemy import select, func
+
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsfeed
 from shared.helpers.locations import round_geojson_coords
@@ -151,7 +153,7 @@ def update_geojson_files_precision_handler(
 
     feeds: [Gtfsfeed] = query_unprocessed_feeds(limit, db_session)
     logging.info("Found %s feeds", len(feeds))
-    timestamp = db_session.execute("SELECT CURRENT_TIMESTAMP").scalar()
+    timestamp = db_session.execute(select(func.current_timestamp())).scalar()
     for feed in feeds:
         try:
             if processed % 100 == 0:

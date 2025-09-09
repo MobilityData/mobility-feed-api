@@ -14,15 +14,6 @@
 #  limitations under the License.
 #
 
-from pathlib import Path
-import sys
-
-# Ensure project's src is on sys.path so imports like 'shared' resolve when tests start
-_repo_root = Path(__file__).resolve().parents[1]
-_src_dir = str(_repo_root / "src")
-if _src_dir not in sys.path:
-    sys.path.insert(0, _src_dir)
-
 from datetime import datetime, UTC, timedelta
 
 from sqlalchemy.orm import Session
