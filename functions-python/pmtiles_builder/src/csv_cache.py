@@ -37,8 +37,12 @@ class CsvCache:
     def __init__(
         self,
         workdir: str = "./workdir",
+        logger=None,
     ):
-        self.logger = get_logger(CsvCache.__name__)
+        if logger:
+            self.logger = logger
+        else:
+            self.logger = get_logger(CsvCache.__name__)
 
         self.workdir = workdir
 

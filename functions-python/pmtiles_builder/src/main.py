@@ -148,7 +148,7 @@ class PmtilesBuilder:
         self.bucket_name = os.getenv("DATASETS_BUCKET_NAME")
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
-        self.csv_cache = CsvCache(workdir)
+        self.csv_cache = CsvCache(workdir, self.logger)
 
         self.logger.info("Using work directory: %s", workdir)
 
