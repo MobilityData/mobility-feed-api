@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, cast
 from geoalchemy2.types import Geography
 
-import pycountry
 from shared.database_gen.sqlacodegen_models import Feed, Location, Geopolygon
 import logging
 
@@ -35,6 +34,7 @@ def get_country_code(country_name: str) -> Optional[str]:
     Returns:
         Optional[str]: Two-letter ISO country code or None if not found
     """
+    import pycountry
     # Return None for empty or whitespace-only strings
     if not country_name or not country_name.strip():
         logging.error("Could not find country code for: empty string")
