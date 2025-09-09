@@ -159,26 +159,26 @@ def update_geojson_files_precision_handler(
             if processed % 100 == 0:
                 logging.info("Processed %s/%s", processed, len(feeds))
                 db_session.commit()
-            with storage.Blob(
+            file = storage.Blob(
                 bucket=bucket, name=f"{feed.stable_id}/{GEOLOCATION_FILENAME}"
-            ) as file:
-                if not file.exists():
-                    logging.info("File does not exist: %s", file.name)
-                    continue
-                logging.info("Processing file: %s", file.name)
-                text = file.download_as_text()
-                geojson = json.loads(text)
+            )
+            if not file.exists():
+                logging.info("File does not exist: %s", file.name)
+                continue
+            logging.info("Processing file: %s", file.name)
+            text = file.download_as_text()
+            geojson = json.loads(text)
 
-                geojson = process_geojson(geojson, precision)
-                if not geojson:
-                    logging.info("No valid GeoJSON features found in %s", file.name)
+            geojson = process_geojson(geojson, precision)
+            if not geojson:
+                logging.info("No valid GeoJSON features found in %s", file.name)
 
-                # Optionally upload processed geojson
-                if not dry_run:
-                    _upload_file(bucket, geojson)
-                    _update_feed_info(feed, timestamp)
+            # Optionally upload processed geojson
+            if not dry_run:
+                _upload_file(bucket, geojson)
+                _update_feed_info(feed, timestamp)
 
-                processed += 1
+            processed += 1
         except Exception as e:
             logging.exception("Error processing feed %s: %s", feed.stable_id, e)
             errors.append(feed.stable_id)
