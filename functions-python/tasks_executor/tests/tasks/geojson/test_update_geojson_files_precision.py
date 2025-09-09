@@ -26,9 +26,6 @@ class _FakeBlobContext:
     def __enter__(self):
         return self
 
-    # def __exit__(self, exc_type, exc, tb):
-    #     return self.exists
-
     def exists(self):
         return self.blob_exists
 
@@ -44,6 +41,9 @@ class _FakeUploadBlob:
     def upload_from_string(self, content, content_type=None):
         # store as text for assertions
         self.bucket.uploaded[self.name] = content
+
+    def make_public(self):
+        return
 
 
 class FakeBucket:

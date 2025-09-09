@@ -68,6 +68,7 @@ def _upload_file(bucket, file_path, geojson):
         json.dumps(geojson, ensure_ascii=False),
         content_type="application/geo+json",
     )
+    processed_blob.make_public()
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
