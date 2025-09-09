@@ -66,6 +66,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import GbfsFeedInfo from './components/GbfsFeedInfo';
 import GbfsVersions from './components/GbfsVersions';
 import generateFeedStructuredData from './StructuredData.functions';
+import ReactGA from 'react-ga4';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -122,6 +123,22 @@ const wrapComponent = (
       </Box>
     </Container>
   );
+};
+
+const handleDownloadLatestClick = (): void => {
+  ReactGA.event({
+    category: 'engagement',
+    action: 'download_latest_dataset',
+    label: 'Download Latest Dataset',
+  });
+};
+
+const handleOpenFullQualityReportClick = (): void => {
+  ReactGA.event({
+    category: 'engagement',
+    action: 'open_full_quality_report',
+    label: 'Open Full Quality Report',
+  });
 };
 
 export default function Feed(): React.ReactElement {
@@ -532,6 +549,7 @@ export default function Feed(): React.ReactElement {
             rel='noreferrer nofollow'
             id='download-latest-button'
             endIcon={<DownloadIcon></DownloadIcon>}
+            onClick={handleDownloadLatestClick}
           >
             {t('downloadLatest')}
           </Button>
@@ -544,6 +562,7 @@ export default function Feed(): React.ReactElement {
             target='_blank'
             rel='noreferrer nofollow'
             endIcon={<OpenInNewIcon></OpenInNewIcon>}
+            onClick={handleOpenFullQualityReportClick}
           >
             {t('openFullQualityReport')}
           </Button>

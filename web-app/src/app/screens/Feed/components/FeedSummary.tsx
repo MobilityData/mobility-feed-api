@@ -53,6 +53,7 @@ import {
   selectGtfsDatasetRouteTypes,
 } from '../../../store/selectors';
 import { getRouteTypeTranslatedName } from '../../../constants/RouteTypes';
+import ReactGA from 'react-ga4';
 
 export interface FeedSummaryProps {
   feed: GTFSFeedType | GTFSRTFeedType | undefined;
@@ -77,6 +78,14 @@ export default function FeedSummary({
   const { config } = useRemoteConfig();
   const totalRoutes = useSelector(selectGtfsDatasetRoutesTotal);
   const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
+
+  const handleOpenDetailedMapClick = (): void => {
+    ReactGA.event({
+      category: 'engagement',
+      action: 'gtfs_visualization_open_detailed_map',
+      label: 'Open Detailed Map',
+    });
+  };
 
   return (
     <ContentBox
@@ -170,6 +179,7 @@ export default function FeedSummary({
                 to='./map'
                 color={'primary'}
                 disabled={totalRoutes == undefined}
+                onClick={handleOpenDetailedMapClick}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>
@@ -203,6 +213,7 @@ export default function FeedSummary({
                 to='./map'
                 color={'primary'}
                 disabled={routeTypes == undefined}
+                onClick={handleOpenDetailedMapClick}
               >
                 <TravelExploreIcon></TravelExploreIcon>
               </IconButton>
