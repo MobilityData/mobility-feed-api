@@ -235,7 +235,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
               onClick={handleOpenDetailedMapClick}
               endIcon={<OpenInNewIcon></OpenInNewIcon>}
             >
-              Open Detailed Map
+              {t('openDetailedMap')}
             </Button>
           )}
         {feed?.data_type === 'gbfs' ? (
