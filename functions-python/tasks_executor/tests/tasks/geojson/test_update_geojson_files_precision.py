@@ -5,26 +5,32 @@ import types
 import unittest
 from unittest.mock import patch
 
+from sqlalchemy.orm import Session
+
+from shared.database.database import with_db_session
+from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsfeed
 from tasks.geojson.update_geojson_files_precision import (
     process_geojson,
     update_geojson_files_precision_handler,
     GEOLOCATION_FILENAME,
 )
+from test_shared.test_utils.database_utils import default_db_url
 
 
 class _FakeBlobContext:
-    def __init__(self, bucket, name):
+    def __init__(self, bucket, name, blob_exists=True):
         self.bucket = bucket
         self.name = name
+        self.blob_exists = blob_exists
 
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc, tb):
-        return False
+    # def __exit__(self, exc_type, exc, tb):
+    #     return self.exists
 
     def exists(self):
-        return self.name in self.bucket.initial_blobs
+        return self.blob_exists
 
     def download_as_text(self):
         return self.bucket.initial_blobs[self.name]
@@ -60,15 +66,16 @@ class FakeClient:
 
 
 class FakeStorageModule:
-    def __init__(self, bucket):
+    def __init__(self, bucket, blob_exists=True):
         self._bucket = bucket
+        self._blob_exists = blob_exists
 
     def Client(self):
         return FakeClient(self._bucket)
 
     # storage.Blob(...) used as a context manager in the handler
     def Blob(self, *, bucket, name):
-        return _FakeBlobContext(bucket, name)
+        return _FakeBlobContext(bucket, name, self._blob_exists)
 
 
 class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
@@ -129,8 +136,8 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
             [round(1.23456789, 3), round(2.3456789, 3)],
         )
 
-    @patch("tasks.geojson.update_geojson_files_precision.query_unprocessed_feeds")
-    def test_handler_uploads_and_updates_feed_info(self, mock_query):
+    @with_db_session(db_url=default_db_url)
+    def test_handler_uploads_and_updates_feed_info(self, db_session: Session):
         geo = {
             "type": "FeatureCollection",
             "features": [
@@ -144,11 +151,12 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
                 }
             ],
         }
-        feed_stable_id = "feed_123"
+        testing_feed = db_session.query(Gtfsfeed).limit(1).first()
+        feed_stable_id = testing_feed.stable_id
         blob_name = f"{feed_stable_id}/{GEOLOCATION_FILENAME}"
 
         fake_bucket = FakeBucket(initial_blobs={blob_name: json.dumps(geo)})
-        fake_storage = FakeStorageModule(fake_bucket)
+        fake_storage = FakeStorageModule(fake_bucket, blob_exists=True)
 
         # create module objects for google and google.cloud and inject via sys.modules
         cloud_mod = types.ModuleType("google.cloud")
@@ -156,32 +164,6 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
         cloud_mod.storage = fake_storage
         google_mod = types.ModuleType("google")
         google_mod.cloud = cloud_mod
-
-        fake_feed = types.SimpleNamespace(
-            stable_id=feed_stable_id,
-            geolocation_file_created_date=None,
-            gtfsdatasets=[
-                types.SimpleNamespace(
-                    bounding_box=types.SimpleNamespace(id="bbid"), downloaded_date=None
-                )
-            ],
-        )
-
-        mock_query.return_value = [fake_feed]
-
-        # fake db session
-        class FakeExecResult:
-            def scalar(self):
-                return "NOW_TS"
-
-        class FakeDBSession:
-            def execute(self, q):
-                return FakeExecResult()
-
-            def commit(self):
-                return None
-
-        fake_db = FakeDBSession()
 
         payload = {
             "bucket_name": "any-bucket",
@@ -193,7 +175,9 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
         # Inject modules into sys.modules for the duration of the handler call
         with patch.dict(sys.modules, {"google.cloud": cloud_mod, "google": google_mod}):
             # call wrapped handler to provide fake db_session
-            update_geojson_files_precision_handler(payload, db_session=fake_db)
+            result = update_geojson_files_precision_handler(
+                payload, db_session=db_session
+            )
 
         # verify upload happened
         self.assertIn("geolocation.geojson", fake_bucket.uploaded)
@@ -202,8 +186,111 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
         coords = uploaded_geo.get("features")[0]["geometry"]["coordinates"]
         self.assertEqual(coords, [round(100.1234567, 5), round(0.9876543, 5)])
 
+        self.assertEqual(
+            {
+                "total_processed_files": 1,
+                "errors": [],
+                "not_found_file": 0,
+                "params": {
+                    "dry_run": False,
+                    "precision": 5,
+                    "limit": 1,
+                },
+            },
+            result,
+        )
         # feed updated
-        self.assertEqual(fake_feed.geolocation_file_created_date, "NOW_TS")
+        reloaded_testing_feed = (
+            db_session.query(Gtfsfeed)
+            .filter(Gtfsfeed.id.__eq__(testing_feed.id))
+            .limit(1)
+            .first()
+        )
+        self.assertIsNotNone(reloaded_testing_feed.geolocation_file_dataset_id)
+        self.assertIsNotNone(reloaded_testing_feed.geolocation_file_created_date)
+
+    @with_db_session(db_url=default_db_url)
+    def test_handler_file_dont_exists(self, db_session: Session):
+        fake_bucket = FakeBucket(initial_blobs={})
+        fake_storage = FakeStorageModule(fake_bucket, blob_exists=False)
+
+        # create module objects for google and google.cloud and inject via sys.modules
+        cloud_mod = types.ModuleType("google.cloud")
+        # 'from google.cloud import storage' in handler will bind 'storage' to this attribute
+        cloud_mod.storage = fake_storage
+        google_mod = types.ModuleType("google")
+        google_mod.cloud = cloud_mod
+
+        payload = {
+            "bucket_name": "any-bucket",
+            "dry_run": False,
+            "precision": 5,
+            "limit": 1,
+        }
+
+        # Inject modules into sys.modules for the duration of the handler call
+        with patch.dict(sys.modules, {"google.cloud": cloud_mod, "google": google_mod}):
+            # call wrapped handler to provide fake db_session
+            result = update_geojson_files_precision_handler(
+                payload, db_session=db_session
+            )
+            self.assertEqual(
+                {
+                    "total_processed_files": 0,
+                    "errors": [],
+                    "not_found_file": 1,
+                    "params": {
+                        "dry_run": False,
+                        "precision": 5,
+                        "limit": 1,
+                    },
+                },
+                result,
+            )
+
+    @with_db_session(db_url=default_db_url)
+    def test_handler_file_not_valid_file(self, db_session: Session):
+        geo = "{}"
+        testing_feed = db_session.query(Gtfsfeed).limit(1).first()
+        feed_stable_id = testing_feed.stable_id
+        blob_name = f"{feed_stable_id}/{GEOLOCATION_FILENAME}"
+
+        fake_bucket = FakeBucket(initial_blobs={blob_name: geo})
+        fake_storage = FakeStorageModule(fake_bucket, blob_exists=True)
+
+        # create module objects for google and google.cloud and inject via sys.modules
+        cloud_mod = types.ModuleType("google.cloud")
+        # 'from google.cloud import storage' in handler will bind 'storage' to this attribute
+        cloud_mod.storage = fake_storage
+        google_mod = types.ModuleType("google")
+        google_mod.cloud = cloud_mod
+
+        payload = {
+            "bucket_name": "any-bucket",
+            "dry_run": False,
+            "precision": 5,
+            "limit": 1,
+        }
+        testing_feed = db_session.query(Gtfsfeed).limit(1).first()
+        # Inject modules into sys.modules for the duration of the handler call
+        with patch.dict(sys.modules, {"google.cloud": cloud_mod, "google": google_mod}):
+            # call wrapped handler to provide fake db_session
+            result = update_geojson_files_precision_handler(
+                payload, db_session=db_session
+            )
+            self.assertEqual(
+                {
+                    "total_processed_files": 0,
+                    "errors": [testing_feed.stable_id],
+                    "not_found_file": 0,
+                    "params": {
+                        "dry_run": False,
+                        "precision": 5,
+                        "limit": 1,
+                    },
+                },
+                result,
+            )
 
 
 if __name__ == "__main__":

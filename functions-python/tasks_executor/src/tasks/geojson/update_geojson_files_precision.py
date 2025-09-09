@@ -71,15 +71,19 @@ def _upload_file(bucket, geojson):
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
-def _update_feed_info(feed, timestamp):
+def _update_feed_info(feed: Gtfsfeed, timestamp):
     feed.geolocation_file_created_date = timestamp
     # find the most recent dataset with bounding box and set the id
     if feed.gtfsdatasets and any(d.bounding_box for d in feed.gtfsdatasets):
         latest_with_bbox = max(
             (d for d in feed.gtfsdatasets if d.bounding_box),
-            key=lambda d: d.downloaded_date or timestamp,
+            key=lambda d: d.downloaded_at or timestamp,
         )
-        feed.geolocation_file_dataset_id = latest_with_bbox.bounding_box.id
+        feed.geolocation_file_dataset_id = latest_with_bbox.id
+    else:
+        logging.info(
+            "No GTFS datasets available with bounding box for feed %s", feed.id
+        )
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
@@ -171,7 +175,9 @@ def update_geojson_files_precision_handler(
 
             geojson = process_geojson(geojson, precision)
             if not geojson:
-                logging.info("No valid GeoJSON features found in %s", file.name)
+                logging.warning("No valid GeoJSON features found in %s", file.name)
+                errors.append(feed.stable_id)
+                continue
 
             # Optionally upload processed geojson
             if not dry_run:
@@ -182,7 +188,8 @@ def update_geojson_files_precision_handler(
         except Exception as e:
             logging.exception("Error processing feed %s: %s", feed.stable_id, e)
             errors.append(feed.stable_id)
-
+    if not dry_run and processed > 0:
+        db_session.commit()
     summary = {
         "total_processed_files": processed,
         "errors": errors,
@@ -194,4 +201,4 @@ def update_geojson_files_precision_handler(
         },
     }
     logging.info("update_geojson_files_handler result: %s", summary)
-    return
+    return summary
