@@ -49,6 +49,23 @@ The function expects a Pub/Sub message with the following format:
     }
   }
 }
+
+{
+  "message": {
+    "data": {
+      "execution_id": "batch-trace-e5eaa516bd884c0a39861d08de301d97/2153210919778512803;o=1",
+      "producer_url": "https://www.stm.info/sites/default/files/gtfs/gtfs_stm.zip",
+      "feed_stable_id": "mdb-2126",
+      "feed_id": "9f1748c5-b482-4577-819e-ce78c75980b3",
+      "dataset_stable_id": "mdb-2126-202504170018",
+      "dataset_hash": "7d019543ee12b2a44d580d7780d71546108a2cb1c4f3bfcc5cf3ee97b847fafd",
+      "authentication_type": "0",
+      "authentication_info_url": "",
+      "api_key_parameter_name": ""
+    }
+  }
+}
+
 ```
 
 # Function configuration
