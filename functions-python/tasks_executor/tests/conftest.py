@@ -36,7 +36,6 @@ def populate_database(db_session: Session | None = None):
     """
     # Create 2 GTFS Feeds
     feeds = []
-    # raise NotImplementedError("Implement the function to populate the database.")
     now = datetime.now(UTC)
     for i in range(2):
         feed = Gtfsfeed(
