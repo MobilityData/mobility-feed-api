@@ -11,6 +11,9 @@ The function receive the following payload:
     {
         "dry_run": bool,  # [optional] If True, do not execute the workflow,
         "check_existing": bool # [optional] If True, check if the visualization files already exist before rebuilding them. Default is True.
+        "latest_only": bool # [optional] If True, only check the latest dataset for each feed. Default is True.
+        "include_deprecated_feeds": bool # [optional] If True, include deprecated feeds. Default is False.
+        "limit": int # [optional] Limit the number of datasets to process. If not provided, process all datasets.
     }
 ```
 Example:
