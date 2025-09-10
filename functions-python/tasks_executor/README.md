@@ -56,6 +56,7 @@ To update the geolocation files precision:
    "task": "update_geojson_files_precision",
    "payload": {
       "dry_run": true,
+      "data_type": "gtfs",
       "precision": 5,
       "limit": 10
    }

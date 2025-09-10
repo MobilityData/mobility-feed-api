@@ -18,12 +18,13 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 
 from sqlalchemy import select, func
+from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gbfsfeed
 from shared.helpers.locations import round_geojson_coords
 from shared.helpers.runtime_metrics import track_metrics
 
@@ -48,13 +49,16 @@ def _remove_osm_ids_from_properties(props: Dict[str, Any] | None):
         props.pop(k, None)
 
 
-def query_unprocessed_feeds(limit, db_session):
+def query_unprocessed_feeds(
+    limit: int, feed_type: Literal["gtfs", "gbfs"], db_session: Session
+) -> List[Gtfsfeed] | List[Gbfsfeed]:
     """
-    Query Gtfsfeed entries that have not been processed yet, geolocation_file_created_date is null.
+    Query eed entries that have not been processed yet, geolocation_file_created_date is null.
     """
+    model: Gtfsfeed | Gbfsfeed = Gtfsfeed if feed_type == "gtfs" else Gbfsfeed
     feeds = (
-        db_session.query(Gtfsfeed)
-        .filter(Gtfsfeed.geolocation_file_created_date.is_(None))
+        db_session.query(model)
+        .filter(model.geolocation_file_created_date.is_(None))
         .limit(limit)
         .all()
     )
@@ -72,8 +76,10 @@ def _upload_file(bucket, file_path, geojson):
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
-def _update_feed_info(feed: Gtfsfeed, timestamp):
+def _update_feed_info(feed: Gtfsfeed | Gbfsfeed, timestamp):
     feed.geolocation_file_created_date = timestamp
+    if isinstance(feed, Gbfsfeed):
+        return
     # find the most recent dataset with bounding box and set the id
     if feed.gtfsdatasets and any(d.bounding_box for d in feed.gtfsdatasets):
         latest_with_bbox = max(
@@ -141,29 +147,37 @@ def update_geojson_files_precision_handler(
         from google.cloud import storage
     except Exception as e:
         raise RuntimeError("google-cloud-storage is required at runtime: %s" % e)
-    bucket_name = payload.get("bucket_name") or os.getenv("DATASETS_BUCKET_NAME")
+
+    dry_run = payload.get("dry_run", True)
+    data_type: Literal["gtfs", "gbfs"] = payload.get("data_type", "gtfs")
+    precision = int(payload.get("precision", 5))
+    limit = int(payload.get("limit", None))
+    bucket_name = payload.get("bucket_name") or (
+        os.getenv("DATASETS_BUCKET_NAME")
+        if data_type == "gtfs"
+        else os.getenv("GBFS_SNAPSHOTS_BUCKET_NAME")
+    )
     if not bucket_name:
         raise ValueError(
             "bucket_name must be provided in payload or set in GEOJSON_BUCKET env"
         )
-
-    dry_run = payload.get("dry_run", True)
-    precision = int(payload.get("precision", 5))
-    limit = int(payload.get("limit", None))
     client = storage.Client()
     bucket = client.bucket(bucket_name)
 
     errors: List[Dict[str, str]] = []
     processed = 0
 
-    feeds: [Gtfsfeed] = query_unprocessed_feeds(limit, db_session)
+    feeds: List[Gtfsfeed] | List[Gbfsfeed] = query_unprocessed_feeds(
+        limit, data_type, db_session
+    )
     logging.info("Found %s feeds", len(feeds))
     timestamp = db_session.execute(select(func.current_timestamp())).scalar()
     for feed in feeds:
         try:
             if processed % 100 == 0:
                 logging.info("Processed %s/%s", processed, len(feeds))
-                db_session.commit()
+                if not dry_run and processed > 0:
+                    db_session.commit()
             file_path = f"{feed.stable_id}/{GEOLOCATION_FILENAME}"
             file = storage.Blob(bucket=bucket, name=file_path)
             if not file.exists():
@@ -189,6 +203,7 @@ def update_geojson_files_precision_handler(
         except Exception as e:
             logging.exception("Error processing feed %s: %s", feed.stable_id, e)
             errors.append(feed.stable_id)
+    logging.info("Processed %s/%s", processed, len(feeds))
     if not dry_run and processed > 0:
         db_session.commit()
     summary = {

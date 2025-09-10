@@ -1154,6 +1154,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      GBFS_SNAPSHOTS_BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
     }
     available_memory                 = local.function_tasks_executor_config.memory
     timeout_seconds                  = local.function_tasks_executor_config.timeout

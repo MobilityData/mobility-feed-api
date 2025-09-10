@@ -18,7 +18,8 @@ The function accepts the following payload:
 {
   "dry_run": true,                // [optional] If true, do not upload or modify the database (default: true)
   "precision": 5,                 // [optional] Number of decimal places to keep in coordinates (default: 5)
-  "limit": 10                     // [optional] Limit the number of feeds to process (default: no limit)
+  "limit": 10,                    // [optional] Limit the number of feeds to process (default: no limit)
+  "data_type": "gtfs"             // [optional] Type of data to process, either "gtfs" or "gbfs" (default: "gtfs")
 }
 ```
 
@@ -27,6 +28,7 @@ The function accepts the following payload:
 ```json
 {
   "dry_run": true,
+  "data_type": "gtfs",
   "limit": 10
 }
 ```
@@ -42,9 +44,10 @@ Also updates the `geolocation_file_created_date` and `geolocation_file_dataset_i
 
 The function requires the following environment variables:
 
-| Variable               | Description                                                                  |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `DATASETS_BUCKET_NAME` | The name of the GCS bucket used to store extracted GTFS files                |
+| Variable                       | Description                                                             |
+|--------------------------------|-------------------------------------------------------------------------|
+| `DATASETS_BUCKET_NAME`         | The name of the GCS bucket used to store extracted GTFS files           | 
+| `GBFS_SNAPSHOTS_BUCKET_NAME`   | The name of the GCS bucket used to store extracted GBFS snapshots files | 
 
 ---
 

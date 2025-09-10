@@ -8,6 +8,7 @@ from unittest.mock import patch
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
+from shared.database_gen.sqlacodegen_models import Gbfsfeed
 from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsfeed
 from tasks.geojson.update_geojson_files_precision import (
     process_geojson,
@@ -137,7 +138,7 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
         )
 
     @with_db_session(db_url=default_db_url)
-    def test_handler_uploads_and_updates_feed_info(self, db_session: Session):
+    def test_handler_uploads_and_updates_gtfs_feed_info(self, db_session: Session):
         geo = {
             "type": "FeatureCollection",
             "features": [
@@ -207,6 +208,81 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
             .first()
         )
         self.assertIsNotNone(reloaded_testing_feed.geolocation_file_dataset_id)
+        self.assertIsNotNone(reloaded_testing_feed.geolocation_file_created_date)
+
+    @with_db_session(db_url=default_db_url)
+    def test_handler_uploads_and_updates_gbfs_feed_info(self, db_session: Session):
+        geo = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [100.1234567, 0.9876543],
+                    },
+                    "properties": {"id": "node/1", "keep": "x"},
+                }
+            ],
+        }
+        testing_gbfs_feed = db_session.query(Gbfsfeed).limit(1).first()
+        self.assertIsNotNone(testing_gbfs_feed)
+        feed_stable_id = testing_gbfs_feed.stable_id
+        blob_name = f"{feed_stable_id}/{GEOLOCATION_FILENAME}"
+
+        fake_bucket = FakeBucket(initial_blobs={blob_name: json.dumps(geo)})
+        fake_storage = FakeStorageModule(fake_bucket, blob_exists=True)
+
+        # create module objects for google and google.cloud and inject via sys.modules
+        cloud_mod = types.ModuleType("google.cloud")
+        # 'from google.cloud import storage' in handler will bind 'storage' to this attribute
+        cloud_mod.storage = fake_storage
+        google_mod = types.ModuleType("google")
+        google_mod.cloud = cloud_mod
+
+        payload = {
+            "bucket_name": "any-bucket",
+            "dry_run": False,
+            "data_type": "gbfs",
+            "precision": 5,
+            "limit": 1,
+        }
+
+        # Inject modules into sys.modules for the duration of the handler call
+        with patch.dict(sys.modules, {"google.cloud": cloud_mod, "google": google_mod}):
+            # call wrapped handler to provide fake db_session
+            result = update_geojson_files_precision_handler(
+                payload, db_session=db_session
+            )
+
+        # verify upload happened
+        self.assertIn(blob_name, fake_bucket.uploaded)
+        uploaded_text = fake_bucket.uploaded[blob_name]
+        uploaded_geo = json.loads(uploaded_text)
+        coords = uploaded_geo.get("features")[0]["geometry"]["coordinates"]
+        self.assertEqual(coords, [round(100.1234567, 5), round(0.9876543, 5)])
+
+        self.assertEqual(
+            {
+                "total_processed_files": 1,
+                "errors": [],
+                "not_found_file": 0,
+                "params": {
+                    "dry_run": False,
+                    "precision": 5,
+                    "limit": 1,
+                },
+            },
+            result,
+        )
+        # feed updated
+        reloaded_testing_feed = (
+            db_session.query(Gbfsfeed)
+            .filter(Gbfsfeed.id.__eq__(testing_gbfs_feed.id))
+            .limit(1)
+            .first()
+        )
+        self.assertIsNone(reloaded_testing_feed.geolocation_file_dataset_id)
         self.assertIsNotNone(reloaded_testing_feed.geolocation_file_created_date)
 
     @with_db_session(db_url=default_db_url)
