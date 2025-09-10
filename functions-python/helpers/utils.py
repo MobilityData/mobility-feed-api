@@ -221,6 +221,35 @@ def create_http_task(
     )
 
 
+def create_http_pmtiles_builder_task(
+    stable_id: str,
+    dataset_stable_id: str,
+) -> None:
+    """
+    Create a task to generate PMTiles for a dataset.
+    """
+    from google.cloud import tasks_v2
+    import json
+
+    client = tasks_v2.CloudTasksClient()
+    body = json.dumps(
+        {"feed_stable_id": stable_id, "dataset_stable_id": dataset_stable_id}
+    ).encode()
+    queue_name = os.getenv("PMTILES_BUILDER_QUEUE")
+    project_id = os.getenv("PROJECT_ID")
+    gcp_region = os.getenv("GCP_REGION")
+    gcp_env = os.getenv("ENVIRONMENT")
+
+    create_http_task(
+        client,
+        body,
+        f"https://{gcp_region}-{project_id}.cloudfunctions.net/pmtiles-builder-{gcp_env}",
+        project_id,
+        gcp_region,
+        queue_name,
+    )
+
+
 def get_execution_id(json_payload: dict, stable_id: Optional[str]) -> str:
     """
     Extracts the execution_id from the JSON payload.
