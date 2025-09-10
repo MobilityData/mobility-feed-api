@@ -262,29 +262,22 @@ class DatasetProcessor:
         return None
 
     @with_db_session
-    def process_from_bucket_latest(
-        self, db_session, public=True
-    ) -> DatasetFile or None:
+    def process_from_bucket(self, db_session, public=True) -> Optional[DatasetFile]:
         """
-        Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
-        <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
-        if the dataset hash is different from the latest dataset stored
-        :return: the file hash and the hosted url as a tuple or None if no upload is required
+        Process an existing dataset from the GCP bucket updates the related database entities
+        :return: The DatasetFile object created
         """
         temp_file_path = None
         try:
-            self.logger.info("Accessing URL %s", self.producer_url)
             temp_file_path = self.generate_temp_filename()
-            blob_file_path = f"{self.feed_stable_id}/latest.zip"
+            blob_file_path = f"{self.feed_stable_id}/{self.dataset_stable_id}/{self.dataset_stable_id}.zip"
+            self.logger.info(f"Processing dataset from bucket: {blob_file_path}")
             download_from_gcs(
                 os.getenv("DATASETS_BUCKET_NAME"), blob_file_path, temp_file_path
             )
 
             extracted_files_path = self.unzip_files(temp_file_path)
-            dataset_full_path = f"{self.feed_stable_id}/{self.dataset_stable_id}/{self.dataset_stable_id}.zip"
-            self.logger.info(
-                f"Creating file {dataset_full_path} in bucket {self.bucket_name}"
-            )
+
             _, extracted_files = self.upload_files_to_storage(
                 temp_file_path,
                 self.dataset_stable_id,
@@ -296,7 +289,7 @@ class DatasetProcessor:
             dataset_file = DatasetFile(
                 stable_id=self.dataset_stable_id,
                 file_sha256_hash=self.latest_hash,
-                hosted_url=f"{self.public_hosted_datasets_url}/{dataset_full_path}",
+                hosted_url=f"{self.public_hosted_datasets_url}/{blob_file_path}",
                 extracted_files=extracted_files,
                 zipped_size=(
                     os.path.getsize(temp_file_path)
@@ -307,11 +300,21 @@ class DatasetProcessor:
             dataset = self.create_dataset_entities(
                 dataset_file, skip_dataset_creation=True, db_session=db_session
             )
-            create_pipeline_tasks(dataset)
+            if dataset and dataset.latest:
+                self.logger.info(
+                    f"Creating pipeline tasks for latest dataset {dataset.stable_id}"
+                )
+                create_pipeline_tasks(dataset)
+            elif dataset:
+                self.logger.info(
+                    f"Dataset {dataset.stable_id} is not the latest, skipping pipeline tasks creation."
+                )
+            else:
+                raise ValueError("Dataset update failed, dataset is None.")
+            return dataset_file
         finally:
             if temp_file_path and os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
-        return None
 
     def unzip_files(self, temp_file_path):
         extracted_files_path = os.path.join(temp_file_path.split(".")[0], "extracted")
@@ -356,11 +359,11 @@ class DatasetProcessor:
                     f"[{self.feed_stable_id}] No latest dataset found for feed."
                 )
 
-            self.logger.info(
-                f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
-            )
             dataset = None
             if not skip_dataset_creation:
+                self.logger.info(
+                    f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
+                )
                 dataset = Gtfsdataset(
                     id=str(uuid.uuid4()),
                     feed_id=self.feed_id,
@@ -377,22 +380,20 @@ class DatasetProcessor:
                         else []
                     ),
                     zipped_size_bytes=dataset_file.zipped_size,
-                    unzipped_size_bytes=(
-                        sum([ex.file_size_bytes for ex in dataset_file.extracted_files])
-                        if dataset_file.extracted_files
-                        else None
-                    ),
+                    unzipped_size_bytes=self._get_unzipped_size(dataset_file),
                 )
                 db_session.add(dataset)
             elif skip_dataset_creation and latest_dataset:
+                self.logger.info(
+                    f"[{self.feed_stable_id}] Updating latest dataset for feed with stable id "
+                    f"{latest_dataset.stable_id}."
+                )
                 latest_dataset.gtfsfiles = (
                     dataset_file.extracted_files if dataset_file.extracted_files else []
                 )
                 latest_dataset.zipped_size_bytes = dataset_file.zipped_size
-                latest_dataset.unzipped_size_bytes = (
-                    sum([ex.file_size_bytes for ex in dataset_file.extracted_files])
-                    if dataset_file.extracted_files
-                    else None
+                latest_dataset.unzipped_size_bytes = self._get_unzipped_size(
+                    dataset_file
                 )
 
             if latest_dataset and not skip_dataset_creation:
@@ -406,11 +407,19 @@ class DatasetProcessor:
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
+    @staticmethod
+    def _get_unzipped_size(dataset_file):
+        return (
+            sum([ex.file_size_bytes for ex in dataset_file.extracted_files])
+            if dataset_file.extracted_files
+            else None
+        )
+
     @with_db_session
-    def process_from_producer_url(self, db_session) -> DatasetFile or None:
+    def process_from_producer_url(self, db_session) -> Optional[DatasetFile]:
         """
         Process the dataset and store new version in GCP bucket if any changes are detected
-        :return: the file hash and the hosted url as a tuple or None if no upload is required
+        :return: the DatasetFile object created
         """
         dataset_file = self.upload_dataset()
 
@@ -531,7 +540,7 @@ def process_dataset(cloud_event: CloudEvent):
             json_payload.get("dataset_stable_id"),
         )
         if json_payload.get("use_bucket_latest", False):
-            dataset_file = processor.process_from_bucket_latest()
+            dataset_file = processor.process_from_bucket()
         else:
             dataset_file = processor.process_from_producer_url()
     except Exception as e:
