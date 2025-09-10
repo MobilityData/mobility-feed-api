@@ -213,7 +213,7 @@ def get_storage_client():
 @with_db_session
 @track_metrics(metrics=("time", "memory", "cpu"))
 def update_dataset_bounding_box(
-    dataset_id: str, stops_df: pd.DataFrame, logger: logging.Logger, db_session: Session
+    dataset_id: str, stops_df: pd.DataFrame, db_session: Session
 ) -> shapely.Polygon:
     """
     Update the bounding box of the dataset using the stops DataFrame.
@@ -240,7 +240,15 @@ def update_dataset_bounding_box(
     )
     if not gtfs_dataset:
         raise ValueError(f"Dataset {dataset_id} does not exist in the database.")
+    gtfs_feed = db_session.query(Gtfsfeed, gtfs_dataset.feed_id).one_or_none()
+    if not gtfs_feed:
+        raise ValueError(
+            f"GTFS feed for dataset {dataset_id} does not exist in the database."
+        )
+    gtfs_feed.bounding_box = bounding_box
+    gtfs_feed.bounding_box_dataset = gtfs_dataset
     gtfs_dataset.bounding_box = bounding_box
+
     return to_shape(bounding_box)
 
 
@@ -323,7 +331,7 @@ def reverse_geolocation_process(
 
     try:
         # Update the bounding box of the dataset
-        bounding_box = update_dataset_bounding_box(dataset_id, stops_df, logger)
+        bounding_box = update_dataset_bounding_box(dataset_id, stops_df)
 
         location_groups = reverse_geolocation(
             strategy=strategy,
