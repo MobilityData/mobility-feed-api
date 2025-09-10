@@ -348,7 +348,7 @@ class DatasetProcessor:
         Generates a temporary filename
         """
         temporary_file_path = (
-            f"/temp/{self.feed_stable_id}-{random.randint(0, 1000000)}.zip"
+            f"/tmp/{self.feed_stable_id}-{random.randint(0, 1000000)}.zip"
         )
         return temporary_file_path
 
