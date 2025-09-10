@@ -82,10 +82,10 @@ export const selectGtfsFeedBoundingBox = (
   const feed = state.feedProfile.data as GTFSFeedType;
 
   if (
-    feed?.bounding_box?.maximum_latitude === undefined ||
-    feed?.bounding_box.maximum_longitude === undefined ||
-    feed?.bounding_box.minimum_latitude === undefined ||
-    feed?.bounding_box.minimum_longitude === undefined
+    feed?.bounding_box?.maximum_latitude == undefined ||
+    feed?.bounding_box.maximum_longitude == undefined ||
+    feed?.bounding_box.minimum_latitude == undefined ||
+    feed?.bounding_box.minimum_longitude == undefined
   ) {
     return undefined;
   }
