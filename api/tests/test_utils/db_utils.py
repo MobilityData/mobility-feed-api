@@ -192,23 +192,14 @@ excluded_tables: Final[list[str]] = [
 
 def empty_database(db, url):
     if is_test_db(url):
-
-        metadata_tables = Base.metadata.tables
-
-        # Get all table names excluding those in the excluded_tables list
-        all_table_names = [table_name for table_name in metadata_tables.keys() if table_name not in excluded_tables]
-
-        # Sort the table names in reverse order of dependencies
-        tables_to_delete = sorted(
-            all_table_names, key=lambda name: len(metadata_tables[name].foreign_keys), reverse=True
-        )
-
         try:
             with db.start_db_session() as session:
-                for table_name in tables_to_delete:
-                    table = Base.metadata.tables[table_name]
-                    delete_stmt = delete(table)
-                    session.execute(delete_stmt)
-
+                # Using sorted_tables to respect foreign key constraints
+                for table in reversed(Base.metadata.sorted_tables):
+                    if table.name not in excluded_tables:
+                        table = Base.metadata.tables[table.name]
+                        delete_stmt = delete(table)
+                        session.execute(delete_stmt)
+                session.commit()
         except Exception as error:
             logging.error(f"Error while deleting from test db: {error}")

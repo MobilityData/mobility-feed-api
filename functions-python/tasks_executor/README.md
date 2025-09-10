@@ -50,3 +50,14 @@ To get the list of supported tasks use:
    "payload": {}
 }
 ```
+To update the geolocation files precision:
+```json
+{
+   "task": "update_geojson_files_precision",
+   "payload": {
+      "dry_run": true,
+      "precision": 5,
+      "limit": 10
+   }
+}
+```
