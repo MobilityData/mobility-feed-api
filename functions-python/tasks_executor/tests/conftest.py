@@ -13,7 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
+import uuid
 from datetime import datetime, UTC, timedelta
 
 from sqlalchemy.orm import Session
@@ -22,6 +22,7 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsdataset,
+    Gbfsfeed,
 )
 from test_shared.test_utils.database_utils import clean_testing_db, default_db_url
 
@@ -46,6 +47,14 @@ def populate_database(db_session: Session | None = None):
         )
         db_session.add(feed)
         feeds.append(feed)
+    gbfs_feed = Gbfsfeed(
+        id=f"feed_{uuid.uuid4()}",
+        stable_id=f"stable_feed_gbfs_{uuid.uuid4()}",
+        data_type="gbfs",
+        status="active",
+        created_at=now,
+    )
+    db_session.add(gbfs_feed)
     db_session.flush()
 
     datasets = []
@@ -56,6 +65,7 @@ def populate_database(db_session: Session | None = None):
             feed=feed,
             stable_id=f"dataset_stable_{i:04d}",
             downloaded_at=now - timedelta(days=i),
+            bounding_box="POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))",
         )
         db_session.add(dataset)
         datasets.append(dataset)

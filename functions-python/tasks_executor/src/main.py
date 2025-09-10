@@ -35,6 +35,9 @@ from tasks.validation_reports.rebuild_missing_validation_reports import (
 from tasks.visualization_files.rebuild_missing_visualization_files import (
     rebuild_missing_visualization_files_handler,
 )
+from tasks.geojson.update_geojson_files_precision import (
+    update_geojson_files_precision_handler,
+)
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -65,6 +68,10 @@ tasks = {
     "rebuild_missing_dataset_files": {
         "description": "Rebuilds missing dataset files for GTFS datasets.",
         "handler": rebuild_missing_dataset_files_handler,
+    },
+    "update_geojson_files": {
+        "description": "Iterate over bucket looking for {feed_stable_id}/geolocation.geojson and update precision.",
+        "handler": update_geojson_files_precision_handler,
     },
     "rebuild_missing_visualization_files": {
         "description": "Rebuilds missing visualization files for GTFS datasets.",

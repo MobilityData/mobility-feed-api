@@ -143,7 +143,7 @@ def pytest_sessionfinish(session, exitstatus):
     returning the exit status to the system.
     """
     # Cleaned at the beginning instead of the end so we can examine the DB after the test.
-    # clean_testing_db()
+    clean_testing_db()
 
 
 def pytest_unconfigure(config):

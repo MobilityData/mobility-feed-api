@@ -1193,6 +1193,7 @@ resource "google_cloudfunctions2_function" "tasks_executor" {
       DATASET_PROCESSING_TOPIC_NAME = "datasets-batch-topic-${var.environment}"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      GBFS_SNAPSHOTS_BUCKET_NAME = google_storage_bucket.gbfs_snapshots_bucket.name
       PMTILES_BUILDER_QUEUE = google_cloud_tasks_queue.pmtiles_builder_task_queue.name
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email
       GCP_REGION = var.gcp_region
