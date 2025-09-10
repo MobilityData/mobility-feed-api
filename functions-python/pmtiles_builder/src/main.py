@@ -43,7 +43,7 @@ from gtfs_stops_to_geojson import convert_stops_to_geojson
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
-from src.shared.database.database import with_db_session
+from shared.database.database import with_db_session
 
 init_logger()
 

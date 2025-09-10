@@ -91,6 +91,8 @@ export const selectGtfsFeedBoundingBox = (
   }
   return [
     [feed.bounding_box.minimum_latitude, feed.bounding_box.minimum_longitude],
+    [feed.bounding_box.minimum_latitude, feed.bounding_box.maximum_longitude],
     [feed.bounding_box.maximum_latitude, feed.bounding_box.maximum_longitude],
+    [feed.bounding_box.maximum_latitude, feed.bounding_box.minimum_longitude],
   ];
 };

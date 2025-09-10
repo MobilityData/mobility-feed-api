@@ -240,7 +240,7 @@ def update_dataset_bounding_box(
     )
     if not gtfs_dataset:
         raise ValueError(f"Dataset {dataset_id} does not exist in the database.")
-    gtfs_feed = db_session.query(Gtfsfeed, gtfs_dataset.feed_id).one_or_none()
+    gtfs_feed = db_session.get(Gtfsfeed, gtfs_dataset.feed_id)
     if not gtfs_feed:
         raise ValueError(
             f"GTFS feed for dataset {dataset_id} does not exist in the database."
