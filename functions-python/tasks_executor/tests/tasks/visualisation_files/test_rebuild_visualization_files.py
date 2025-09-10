@@ -41,31 +41,62 @@ class TestRebuildMissingVisualizationFiles(unittest.TestCase):
     @patch.dict(os.environ, {"DATASETS_BUCKET_NAME": "test-bucket"}, clear=True)
     def test_get_parameters_defaults(self):
         payload = {}
-        dry_run, bucket_name, check_existing = get_parameters(payload)
+        (
+            dry_run,
+            bucket_name,
+            check_existing,
+            latest_only,
+            include_deprecated_feeds,
+            limit,
+        ) = get_parameters(payload)
 
         self.assertTrue(dry_run)
         self.assertEqual(bucket_name, "test-bucket")
         self.assertTrue(check_existing)
+        self.assertTrue(latest_only)
+        self.assertFalse(include_deprecated_feeds)
+        self.assertIsNone(limit)
 
     @patch.dict(os.environ, {"DATASETS_BUCKET_NAME": "my-bucket"}, clear=True)
     def test_get_parameters_explicit_bool_and_string(self):
         # dry_run as bool False
         payload = {"dry_run": False, "check_existing": False}
-        dry_run, bucket_name, check_existing = get_parameters(payload)
+        (
+            dry_run,
+            bucket_name,
+            check_existing,
+            latest_only,
+            include_deprecated_feeds,
+            limit,
+        ) = get_parameters(payload)
         self.assertFalse(dry_run)
         self.assertEqual(bucket_name, "my-bucket")
         self.assertFalse(check_existing)
 
         # dry_run as string "false" (should coerce to False)
         payload = {"dry_run": "false"}
-        dry_run, bucket_name, check_existing = get_parameters(payload)
+        (
+            dry_run,
+            bucket_name,
+            check_existing,
+            latest_only,
+            include_deprecated_feeds,
+            limit,
+        ) = get_parameters(payload)
         self.assertFalse(dry_run)
         self.assertEqual(bucket_name, "my-bucket")
         self.assertTrue(check_existing)
 
         # dry_run as string "True" (case-insensitive -> True)
         payload = {"dry_run": "True", "check_existing": "True"}
-        dry_run, bucket_name, check_existing = get_parameters(payload)
+        (
+            dry_run,
+            bucket_name,
+            check_existing,
+            latest_only,
+            include_deprecated_feeds,
+            limit,
+        ) = get_parameters(payload)
         self.assertTrue(dry_run)
         self.assertEqual(bucket_name, "my-bucket")
         self.assertTrue(check_existing)
@@ -93,6 +124,9 @@ class TestRebuildMissingVisualizationFiles(unittest.TestCase):
         impl_mock.assert_called_once_with(
             dry_run=True,
             bucket_name="handler-bucket",
+            include_deprecated_feeds=False,
+            latest_only=True,
+            limit=None,
             check_existing=False,
         )
 

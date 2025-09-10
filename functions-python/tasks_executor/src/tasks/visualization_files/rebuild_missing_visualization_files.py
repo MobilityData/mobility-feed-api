@@ -16,7 +16,7 @@
 
 import logging
 import os
-from typing import List, Final
+from typing import List, Final, Optional
 
 from google.cloud import storage
 from sqlalchemy import func, distinct
@@ -47,18 +47,31 @@ def rebuild_missing_visualization_files_handler(payload) -> dict:
     {
         "dry_run": bool,  # [optional] If True, do not execute the workflow
         "check_existing": bool,  # [optional] If True, check if visualization files already exist before creating tasks
+        "latest_only": bool,  # [optional] If True, include only latest datasets
+        "include_deprecated_feeds": bool,  # [optional] If True, include datasets from deprecated feeds
+        "limit": int,  # [optional] Limit the number of datasets to process
     }
     Args:
         payload (dict): The payload containing the task details.
     Returns:
         str: A message indicating the result of the operation with the total_processed datasets.
     """
-    (dry_run, bucket_name, check_existing) = get_parameters(payload)
+    (
+        dry_run,
+        bucket_name,
+        check_existing,
+        latest_only,
+        include_deprecated_feeds,
+        limit,
+    ) = get_parameters(payload)
 
     return rebuild_missing_visualization_files(
         dry_run=dry_run,
         bucket_name=bucket_name,
         check_existing=check_existing,
+        latest_only=latest_only,
+        include_deprecated_feeds=include_deprecated_feeds,
+        limit=limit,
     )
 
 
@@ -67,6 +80,9 @@ def rebuild_missing_visualization_files(
     bucket_name: str,
     dry_run: bool = True,
     check_existing: bool = True,
+    latest_only: bool = True,
+    include_deprecated_feeds: bool = False,
+    limit: Optional[int] = None,
     db_session: Session | None = None,
 ) -> dict:
     """
@@ -75,22 +91,34 @@ def rebuild_missing_visualization_files(
         bucket_name (str): The name of the bucket containing the GTFS data.
         dry_run (bool): dry run flag. If True, do not execute the workflow. Default: True
         check_existing (bool): If True, check if visualization files already exist before creating tasks. Default: True
+        latest_only (bool): If True, include only latest datasets. Default: True
+        include_deprecated_feeds (bool): If True, include datasets from deprecated feeds. Default: False
+        limit (Optional[int]): Limit the number of datasets to process. Default: None (no limit)
         db_session: DB session
 
     Returns:
         flask.Response: A response with message and total_processed datasets.
     """
-    # Query latest datasets with all required files
+    # Query datasets with all required files
+    datasets_query = db_session.query(Gtfsdataset)
+    if latest_only:
+        datasets_query = datasets_query.filter(Gtfsdataset.latest.is_(True))
+    if not include_deprecated_feeds:
+        datasets_query = datasets_query.filter(
+            Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated")
+        )
+
     datasets_query = (
-        db_session.query(Gtfsdataset)
-        .filter(Gtfsdataset.latest.is_(True))
-        .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
-        .join(Gtfsdataset.gtfsfiles)
+        datasets_query.join(Gtfsdataset.gtfsfiles)
         .filter(Gtfsfile.file_name.in_(REQUIRED_FILES))
         .group_by(Gtfsdataset.id)
         .having(func.count(distinct(Gtfsfile.file_name)) == len(REQUIRED_FILES))
         .options(selectinload(Gtfsdataset.feed))
     )
+
+    if limit:
+        datasets_query = datasets_query.limit(limit)
+
     datasets = datasets_query.all()
     logging.info(f"Found {len(datasets)} latest datasets with all required files.")
 
@@ -150,6 +178,10 @@ def rebuild_missing_visualization_files(
         "params": {
             "dry_run": dry_run,
             "bucket_name": bucket_name,
+            "check_existing": check_existing,
+            "latest_only": latest_only,
+            "include_deprecated_feeds": include_deprecated_feeds,
+            "limit": limit,
         },
     }
     logging.info(result)
@@ -176,4 +208,25 @@ def get_parameters(payload):
         if isinstance(check_existing, bool)
         else str(check_existing).lower() == "true"
     )
-    return dry_run, bucket_name, check_existing
+    latest_only = payload.get("latest_only", True)
+    latest_only = (
+        latest_only
+        if isinstance(latest_only, bool)
+        else str(latest_only).lower() == "true"
+    )
+    include_deprecated_feeds = payload.get("include_deprecated_feeds", False)
+    include_deprecated_feeds = (
+        include_deprecated_feeds
+        if isinstance(include_deprecated_feeds, bool)
+        else str(include_deprecated_feeds).lower() == "true"
+    )
+    limit = payload.get("limit", None)
+    limit = limit if isinstance(limit, int) and limit > 0 else None
+    return (
+        dry_run,
+        bucket_name,
+        check_existing,
+        latest_only,
+        include_deprecated_feeds,
+        limit,
+    )
