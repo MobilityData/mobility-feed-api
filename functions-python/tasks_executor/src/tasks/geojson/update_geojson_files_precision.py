@@ -53,7 +53,7 @@ def query_unprocessed_feeds(
     limit: int, feed_type: Literal["gtfs", "gbfs"], db_session: Session
 ) -> List[Gtfsfeed] | List[Gbfsfeed]:
     """
-    Query eed entries that have not been processed yet, geolocation_file_created_date is null.
+    Query feed entries that have not been processed yet, geolocation_file_created_date is null.
     """
     model: Gtfsfeed | Gbfsfeed = Gtfsfeed if feed_type == "gtfs" else Gbfsfeed
     feeds = (
@@ -138,7 +138,9 @@ def update_geojson_files_precision_handler(
 
     Payload keys:
       - dry_run (bool) default True
+      - data_type (str) "gtfs" or "gbfs", default "gtfs"
       - precision (int) default 5
+      - bucket_name (str) optional, defaults to env var DATASETS_BUCKET_NAME or GBFS_SNAPSHOTS_BUCKET_NAME
       - limit (int)
 
     """
