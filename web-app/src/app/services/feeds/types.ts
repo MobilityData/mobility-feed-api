@@ -197,6 +197,13 @@ export interface components {
       data_type?: 'gtfs' | 'gtfs_rt' | 'gbfs';
       locations?: components['schemas']['Locations'];
       latest_dataset?: components['schemas']['LatestDataset'];
+      bounding_box?: components['schemas']['BoundingBox'];
+      /**
+       * @description The dataset ID of the dataset used to compute the visualization files.
+       *
+       * @example mdb-1210-202402121801
+       */
+      visualization_dataset_id?: string;
     };
     GbfsFeed: components['schemas']['BasicFeed'] & {
       /**

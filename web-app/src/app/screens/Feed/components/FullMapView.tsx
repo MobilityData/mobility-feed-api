@@ -15,9 +15,9 @@ import {
   StyledMapControlPanel,
 } from '../Map.styles';
 import {
-  selectBoundingBoxFromLatestDataset,
   selectGtfsDatasetRoutesJson,
   selectGtfsDatasetRouteTypes,
+  selectGtfsFeedBoundingBox,
   selectLatestDatasetsData,
 } from '../../../store/selectors';
 import { useSelector } from 'react-redux';
@@ -40,7 +40,7 @@ export default function FullMapView(): React.ReactElement {
     useState<boolean>(false);
   const { config } = useRemoteConfig();
   const latestDataset = useSelector(selectLatestDatasetsData);
-  const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
+  const boundingBox = useSelector(selectGtfsFeedBoundingBox);
   const routes = useSelector(selectGtfsDatasetRoutesJson);
   const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
   const dispatch = useAppDispatch();

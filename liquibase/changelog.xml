@@ -66,5 +66,6 @@
     <include file="changes/feat_1265_cascade_delete.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1259.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1260.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_1333.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_pt_152.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
