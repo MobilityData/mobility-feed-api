@@ -24,7 +24,11 @@ import os
 import subprocess
 import tempfile
 from enum import Enum
+
+import flask
+import functions_framework
 from google.cloud import storage
+from sqlalchemy.orm import Session
 
 from csv_cache import (
     CsvCache,
@@ -35,12 +39,11 @@ from csv_cache import (
     AGENCY_FILE,
     SHAPES_FILE,
 )
-from shared.helpers.runtime_metrics import track_metrics
-from shared.helpers.logger import get_logger, init_logger
 from gtfs_stops_to_geojson import convert_stops_to_geojson
-
-import flask
-import functions_framework
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
+from shared.helpers.logger import get_logger, init_logger
+from shared.helpers.runtime_metrics import track_metrics
+from shared.database.database import with_db_session
 
 init_logger()
 
@@ -198,6 +201,7 @@ class PmtilesBuilder:
 
         files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
         self._upload_files_to_gcs(files_to_upload)
+        self._update_database()
 
         return self.OperationStatus.SUCCESS, "success"
 
@@ -521,3 +525,30 @@ class PmtilesBuilder:
             agencies[agency_id] = agency_name
 
         return agencies
+
+    @with_db_session
+    def _update_database(self, db_session: Session = None):
+        dataset = (
+            db_session.query(Gtfsdataset)
+            .filter(Gtfsdataset.stable_id == self.dataset_stable_id)
+            .one_or_none()
+        )
+        if not dataset:
+            self.logger.error(
+                "Dataset %s not found in database, cannot update pmtiles_generated.",
+                self.dataset_stable_id,
+            )
+            return
+
+        # fetch the subclass row that shares the same PK as Feed
+        gtfsfeed = db_session.get(Gtfsfeed, dataset.feed_id)
+        if not gtfsfeed:
+            self.logger.error(
+                "Gtfsfeed(id=%s) not found (but Feed exists) — cannot set visualization_dataset.",
+                dataset.feed_id,
+            )
+            return
+
+        # set the relationship on the subclass
+        gtfsfeed.visualization_dataset = dataset
+        db_session.commit()

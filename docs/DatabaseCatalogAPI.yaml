@@ -472,6 +472,13 @@ components:
               $ref: "#/components/schemas/Locations"
             latest_dataset:
               $ref: "#/components/schemas/LatestDataset"
+            bounding_box:
+              $ref: "#/components/schemas/BoundingBox"
+            visualization_dataset_id:
+              description: >
+                The dataset ID of the dataset used to compute the visualization files.
+              type: string
+              example: mdb-1210-202402121801
 
     GbfsFeed:
       allOf:

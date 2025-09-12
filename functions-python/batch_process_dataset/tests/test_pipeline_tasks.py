@@ -5,7 +5,6 @@ from unittest.mock import patch, MagicMock
 
 from pipeline_tasks import (
     create_http_reverse_geolocation_processor_task,
-    create_http_pmtiles_builder_task,
     get_changed_files,
     create_pipeline_tasks,
 )
@@ -85,48 +84,6 @@ class TestPipelineTasks(unittest.TestCase):
         self.assertEqual(args[3], "my-project")
         self.assertEqual(args[4], "northamerica-northeast1")
         self.assertEqual(args[5], "rev-geo-queue")
-
-    @patch.dict(
-        os.environ,
-        {
-            "PMTILES_BUILDER_QUEUE": "pmtiles-queue",
-            "PROJECT_ID": "my-project",
-            "GCP_REGION": "northamerica-northeast1",
-            "ENVIRONMENT": "dev",
-        },
-        clear=False,
-    )
-    @patch("pipeline_tasks.create_http_task")
-    @patch("pipeline_tasks.tasks_v2.CloudTasksClient")
-    def test_create_http_pmtiles_builder_task(
-        self, mock_client_cls, mock_create_http_task
-    ):
-        client_instance = MagicMock()
-        mock_client_cls.return_value = client_instance
-
-        stable_id = "feed-456"
-        dataset_stable_id = "dataset-def"
-
-        create_http_pmtiles_builder_task(
-            stable_id=stable_id, dataset_stable_id=dataset_stable_id
-        )
-
-        mock_client_cls.assert_called_once()
-        self.assertEqual(mock_create_http_task.call_count, 1)
-        args, _ = mock_create_http_task.call_args
-
-        payload = json.loads(args[1].decode("utf-8"))
-        self.assertEqual(
-            payload,
-            {"feed_stable_id": stable_id, "dataset_stable_id": dataset_stable_id},
-        )
-        self.assertEqual(
-            args[2],
-            "https://northamerica-northeast1-my-project.cloudfunctions.net/pmtiles-builder-dev",
-        )
-        self.assertEqual(args[3], "my-project")
-        self.assertEqual(args[4], "northamerica-northeast1")
-        self.assertEqual(args[5], "pmtiles-queue")
 
 
 class TestHasFileChanged(unittest.TestCase):

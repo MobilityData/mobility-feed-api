@@ -86,6 +86,7 @@ def get_gtfs_feeds_query(
             contains_eager(Gtfsfeed.gtfsdatasets)
             .joinedload(Gtfsdataset.validation_reports)
             .joinedload(Validationreport.features),
+            joinedload(Gtfsfeed.visualization_dataset),
             *get_joinedload_options(),
         ).order_by(Gtfsfeed.provider, Gtfsfeed.stable_id)
 
@@ -182,6 +183,7 @@ def get_all_gtfs_feeds(
                     contains_eager(Gtfsfeed.gtfsdatasets)
                     .joinedload(Gtfsdataset.validation_reports)
                     .joinedload(Validationreport.features),
+                    joinedload(Gtfsfeed.visualization_dataset),
                     *get_joinedload_options(include_extracted_location_entities=True),
                 )
             )
