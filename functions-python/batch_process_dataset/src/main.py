@@ -126,34 +126,16 @@ class DatasetProcessor:
         """
         Downloads the content of a URL and return the hash of the file
         """
-        # file_hash = download_and_get_hash(
-        #     self.producer_url,
-        #     temporary_file_path,
-        #     authentication_type=self.authentication_type,
-        #     api_key_parameter_name=self.api_key_parameter_name,
-        #     credentials=self.feed_credentials,
-        #     logger=self.logger,
-        # )
-        # is_zip = zipfile.is_zipfile(temporary_file_path)
-        # return file_hash, is_zip
-        try:
-            file_hash = download_and_get_hash(
-                self.producer_url,
-                temporary_file_path,
-                authentication_type=self.authentication_type,
-                api_key_parameter_name=self.api_key_parameter_name,
-                credentials=self.feed_credentials,
-                logger=self.logger,
-            )
-            self.logger.info(
-                f"Downloaded file size: {os.path.getsize(temporary_file_path)} bytes"
-            )
-            if not zipfile.is_zipfile(temporary_file_path):
-                raise ValueError("Downloaded file is not a valid ZIP file")
-            return file_hash, True
-        except Exception as e:
-            self.logger.error(f"Error downloading or validating file: {e}")
-            raise
+        file_hash = download_and_get_hash(
+            self.producer_url,
+            temporary_file_path,
+            authentication_type=self.authentication_type,
+            api_key_parameter_name=self.api_key_parameter_name,
+            credentials=self.feed_credentials,
+            logger=self.logger,
+        )
+        is_zip = zipfile.is_zipfile(temporary_file_path)
+        return file_hash, is_zip
 
     def upload_files_to_storage(
         self,
