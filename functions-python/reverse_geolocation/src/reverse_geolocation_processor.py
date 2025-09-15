@@ -26,7 +26,7 @@ from location_group_utils import (
 )
 from parse_request import parse_request_parameters
 from shared.common.gcp_utils import create_refresh_materialized_view_task
-from shared.database.database import with_db_session
+from shared.database.database import with_db_session, get_db_timestamp
 from shared.database_gen.sqlacodegen_models import (
     Feed,
     Feedlocationgrouppoint,
@@ -134,15 +134,18 @@ def clean_stop_cache(db_session, feed, geometries_to_delete, logger):
     db_session.commit()
 
 
+@with_db_session
 def create_geojson_aggregate(
     location_groups: List[GeopolygonAggregate],
     total_stops: int,
-    stable_id: str,
     bounding_box: shapely.Polygon,
     data_type: str,
     logger,
+    feed: Feed,
+    gtfs_dataset: Gtfsdataset = None,
     extraction_urls: List[str] = None,
     public: bool = True,
+    db_session: Session = None,
 ) -> None:
     """Create a GeoJSON file with the aggregated locations. This file will be uploaded to GCS and used for
     visualization."""
@@ -197,10 +200,13 @@ def create_geojson_aggregate(
     else:
         raise ValueError("The data type must be either 'gtfs' or 'gbfs'.")
     bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(f"{stable_id}/geolocation.geojson")
+    blob = bucket.blob(f"{feed.stable_id}/geolocation.geojson")
     blob.upload_from_string(json.dumps(json_data))
     if public:
         blob.make_public()
+    feed.geolocation_file_created_date = get_db_timestamp(db_session)
+    if gtfs_dataset:
+        feed.geolocation_file_dataset = gtfs_dataset
     logger.info("GeoJSON data saved to %s", blob.name)
 
 
@@ -210,10 +216,9 @@ def get_storage_client():
     return storage.Client()
 
 
-@with_db_session
 @track_metrics(metrics=("time", "memory", "cpu"))
 def update_dataset_bounding_box(
-    dataset_id: str, stops_df: pd.DataFrame, db_session: Session
+    gtfs_dataset: Gtfsdataset, stops_df: pd.DataFrame, db_session: Session
 ) -> shapely.Polygon:
     """
     Update the bounding box of the dataset using the stops DataFrame.
@@ -231,19 +236,12 @@ def update_dataset_bounding_box(
         f")",
         srid=4326,
     )
-    if not dataset_id:
-        return to_shape(bounding_box)
-    gtfs_dataset = (
-        db_session.query(Gtfsdataset)
-        .filter(Gtfsdataset.stable_id == dataset_id)
-        .one_or_none()
-    )
     if not gtfs_dataset:
-        raise ValueError(f"Dataset {dataset_id} does not exist in the database.")
+        return to_shape(bounding_box)
     gtfs_feed = db_session.get(Gtfsfeed, gtfs_dataset.feed_id)
     if not gtfs_feed:
         raise ValueError(
-            f"GTFS feed for dataset {dataset_id} does not exist in the database."
+            f"GTFS feed for dataset {gtfs_dataset.stable_id} does not exist in the database."
         )
     gtfs_feed.bounding_box = bounding_box
     gtfs_feed.bounding_box_dataset = gtfs_dataset
@@ -252,8 +250,22 @@ def update_dataset_bounding_box(
     return to_shape(bounding_box)
 
 
+def load_dataset(dataset_id: str, db_session: Session) -> Gtfsdataset:
+    gtfs_dataset = (
+        db_session.query(Gtfsdataset)
+        .filter(Gtfsdataset.stable_id == dataset_id)
+        .one_or_none()
+    )
+    if not gtfs_dataset:
+        raise ValueError(
+            f"Dataset with ID {dataset_id} does not exist in the database."
+        )
+    return gtfs_dataset
+
+
+@with_db_session()
 def reverse_geolocation_process(
-    request: flask.Request,
+    request: flask.Request, db_session: Session = None
 ) -> Tuple[str, int] | Tuple[Dict, int]:
     """
     Main function to handle reverse geolocation processing.
@@ -331,7 +343,27 @@ def reverse_geolocation_process(
 
     try:
         # Update the bounding box of the dataset
-        bounding_box = update_dataset_bounding_box(dataset_id, stops_df)
+        if dataset_id:
+            gtfs_dataset = load_dataset(dataset_id, db_session)
+            feed = gtfs_dataset.feed
+        if not feed:
+            feed = (
+                db_session.query(Feed).filter(Feed.stable_id == stable_id).one_or_none()
+            )
+            if not feed:
+                no_feed_message = f"No feed found for stable ID {stable_id}."
+                logger.warning(no_feed_message)
+                record_execution_trace(
+                    execution_id=execution_id,
+                    stable_id=stable_id,
+                    status=Status.FAILED,
+                    logger=logger,
+                    dataset_file=None,
+                    error_message=no_feed_message,
+                )
+                return no_feed_message, ERROR_STATUS_CODE
+
+        bounding_box = update_dataset_bounding_box(gtfs_dataset, stops_df, db_session)
 
         location_groups = reverse_geolocation(
             strategy=strategy,
@@ -339,6 +371,7 @@ def reverse_geolocation_process(
             stops_df=stops_df,
             logger=logger,
             use_cache=use_cache,
+            db_session=db_session,
         )
 
         if not location_groups:
@@ -364,8 +397,14 @@ def reverse_geolocation_process(
             extraction_urls=extraction_urls,
             logger=logger,
             public=public,
+            feed=feed,
+            gtfs_dataset=gtfs_dataset,
+            db_session=db_session,
         )
 
+        # Commit the changes to the database
+        db_session.commit()
+        create_refresh_materialized_view_task()
         logger.info(
             "COMPLETED. Processed %s stops for stable ID %s with strategy. "
             "Retrieved %s locations.",
@@ -453,7 +492,6 @@ def reverse_geolocation(
         logger=logger,
         db_session=db_session,
     )
-    create_refresh_materialized_view_task()
     return cache_location_groups
 
 
@@ -508,5 +546,3 @@ def update_feed_location(
                 gtfs_rt_feed.locations = feed_locations
     if feed_locations:
         feed.locations = feed_locations
-    # Commit the changes to the database
-    db_session.commit()
