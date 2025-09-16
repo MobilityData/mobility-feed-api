@@ -377,7 +377,6 @@ def reverse_geolocation_process(
         create_geojson_aggregate(
             list(location_groups.values()),
             total_stops=total_stops,
-            stable_id=stable_id,
             bounding_box=bounding_box,
             data_type=data_type,
             extraction_urls=extraction_urls,

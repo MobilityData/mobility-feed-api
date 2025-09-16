@@ -1,6 +1,5 @@
 from unittest.mock import patch, MagicMock
 
-from conftest import clean_testing_db, populate_database
 from shared.database.database import with_db_session
 from test_shared.test_utils.database_utils import default_db_url
 from main import (
@@ -64,8 +63,8 @@ def test_update_feed_status(db_session: Session) -> None:
 
 @with_db_session(db_url=default_db_url)
 def test_update_feed_status_with_ids(db_session: Session) -> None:
-    clean_testing_db()
-    populate_database()
+    # clean_testing_db()
+    # populate_database()
     feeds_before: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
     result = dict(update_feed_statuses_query(db_session, ["mdb-8"]))
     assert result == {
