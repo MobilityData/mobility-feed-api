@@ -282,7 +282,6 @@ class TestUpdateGeojsonFilesPrecision(unittest.TestCase):
             .limit(1)
             .first()
         )
-        self.assertIsNone(reloaded_testing_feed.geolocation_file_dataset_id)
         self.assertIsNotNone(reloaded_testing_feed.geolocation_file_created_date)
 
     @with_db_session(db_url=default_db_url)

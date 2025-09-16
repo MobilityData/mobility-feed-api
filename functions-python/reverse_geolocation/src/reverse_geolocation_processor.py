@@ -33,6 +33,7 @@ from shared.database_gen.sqlacodegen_models import (
     Osmlocationgroup,
     Gtfsdataset,
     Gtfsfeed,
+    Gbfsfeed,
 )
 from shared.dataset_service.dataset_service_commons import Status
 
@@ -141,7 +142,7 @@ def create_geojson_aggregate(
     bounding_box: shapely.Polygon,
     data_type: str,
     logger,
-    feed: Feed,
+    feed: Gtfsfeed | Gbfsfeed,
     gtfs_dataset: Gtfsdataset = None,
     extraction_urls: List[str] = None,
     public: bool = True,
@@ -345,23 +346,7 @@ def reverse_geolocation_process(
         # Update the bounding box of the dataset
         if dataset_id:
             gtfs_dataset = load_dataset(dataset_id, db_session)
-            feed = gtfs_dataset.feed
-        if not feed:
-            feed = (
-                db_session.query(Feed).filter(Feed.stable_id == stable_id).one_or_none()
-            )
-            if not feed:
-                no_feed_message = f"No feed found for stable ID {stable_id}."
-                logger.warning(no_feed_message)
-                record_execution_trace(
-                    execution_id=execution_id,
-                    stable_id=stable_id,
-                    status=Status.FAILED,
-                    logger=logger,
-                    dataset_file=None,
-                    error_message=no_feed_message,
-                )
-                return no_feed_message, ERROR_STATUS_CODE
+        feed = load_feed(stable_id, data_type, logger, db_session)
 
         bounding_box = update_dataset_bounding_box(gtfs_dataset, stops_df, db_session)
 
@@ -369,6 +354,7 @@ def reverse_geolocation_process(
             strategy=strategy,
             stable_id=stable_id,
             stops_df=stops_df,
+            data_type=data_type,
             logger=logger,
             use_cache=use_cache,
             db_session=db_session,
@@ -447,6 +433,7 @@ def reverse_geolocation(
     strategy,
     stable_id,
     stops_df,
+    data_type,
     logger,
     use_cache,
     db_session: Session = None,
@@ -456,7 +443,7 @@ def reverse_geolocation(
     """
     logger.info("Processing geopolygons with strategy: %s.", strategy)
 
-    feed = load_feed(stable_id, logger, db_session)
+    feed = load_feed(stable_id, data_type, logger, db_session)
 
     # Get Geopolygons with Geometry and cached location groups
     cache_location_groups, unmatched_stops_df = get_geopolygons_with_geometry(
@@ -495,9 +482,10 @@ def reverse_geolocation(
     return cache_location_groups
 
 
-def load_feed(stable_id, logger, db_session):
+def load_feed(stable_id, data_type, logger, db_session) -> Gtfsfeed | Gbfsfeed:
+    """Load feed from the database using the stable ID and data type."""
     feed = (
-        db_session.query(Feed)
+        db_session.query(Gbfsfeed if data_type == "gbfs" else Gtfsfeed)
         .options(joinedload(Feed.feedlocationgrouppoints))
         .filter(Feed.stable_id == stable_id)
         .one_or_none()

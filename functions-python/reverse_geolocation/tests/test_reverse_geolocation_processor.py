@@ -451,10 +451,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.check_maximum_executions")
     @patch("reverse_geolocation_processor.get_execution_id")
     @patch("reverse_geolocation_processor.load_dataset")
+    @patch("reverse_geolocation_processor.load_feed")
     @patch("reverse_geolocation_processor.record_execution_trace")
     def test_valid_request(
         self,
         _,
+        mock_load_feed,
         mock_load_dataset,
         mock_get_execution_id,
         mock_check_maximum_executions,
@@ -482,9 +484,10 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         mock_update_bounding_box.return_value = MagicMock()
         mock_reverse_geolocation.return_value = {"group_id": MagicMock()}
         mock_create_geojson_aggregate.return_value = MagicMock()
+        mock_load_feed.return_value = MagicMock()
+        mock_load_dataset.return_value = MagicMock()
         # Mocking a Flask request
         request = MagicMock(spec=Request)
-
         # Call the function
         response, status_code = reverse_geolocation_process(request)
 
@@ -520,10 +523,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.check_maximum_executions")
     @patch("reverse_geolocation_processor.get_execution_id")
     @patch("reverse_geolocation_processor.load_dataset")
+    @patch("reverse_geolocation_processor.load_feed")
     @patch("reverse_geolocation_processor.record_execution_trace")
     def test_exception_handling(
         self,
         _,
+        mock_load_feed,
         mock_load_dataset,
         mock_check_get_execution_id,
         mock_check_maximum_executions,
@@ -549,6 +554,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             1,
         )
         mock_load_dataset.return_value = MagicMock()
+        mock_load_feed.return_value = MagicMock()
         mock_update_bounding_box.side_effect = Exception("Unexpected error")
 
         # Mocking a Flask request
@@ -632,6 +638,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             stable_id="test_stable_id",
             stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
             logger=MagicMock(),
+            data_type="gtfs",
             use_cache=True,
             db_session=MagicMock(spec=Session),
         )
@@ -670,6 +677,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             strategy=ReverseGeocodingStrategy.PER_POLYGON,
             stable_id="test_stable_id",
             stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+            data_type="gtfs",
             logger=MagicMock(),
             use_cache=True,
             db_session=MagicMock(spec=Session),
@@ -689,7 +697,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         from reverse_geolocation_processor import reverse_geolocation
 
         id = str(uuid.uuid4())
-        feed = Feed(
+        feed = Gtfsfeed(
             id=id,
             stable_id=f"test_feed{id}",
             status="active",
@@ -705,6 +713,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             stable_id=f"test_feed{id}",
             stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
             logger=MagicMock(),
+            data_type=feed.data_type,
             use_cache=True,
             db_session=db_session,
         )
@@ -724,6 +733,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                 strategy=ReverseGeocodingStrategy.PER_POINT,
                 stable_id="missing_stable_id",
                 stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+                data_type="gtfs",
                 logger=MagicMock(),
                 use_cache=True,
                 db_session=db_session,
