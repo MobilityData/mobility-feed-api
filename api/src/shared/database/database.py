@@ -5,7 +5,7 @@ import threading
 import uuid
 from typing import Type, Callable
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text, event
+from sqlalchemy import create_engine, text, event, func, select
 from sqlalchemy.orm import load_only, Query, class_mapper, Session, mapper
 from shared.database_gen.sqlacodegen_models import (
     Base,
@@ -31,6 +31,11 @@ def generate_unique_id() -> str:
     :return: the ID
     """
     return str(uuid.uuid4())
+
+
+def get_db_timestamp(db_session: Session) -> func.current_timestamp():
+    """Get the current time from the database."""
+    return db_session.execute(select(func.current_timestamp())).scalar()
 
 
 def configure_polymorphic_mappers():
