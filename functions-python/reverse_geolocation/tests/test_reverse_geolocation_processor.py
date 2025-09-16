@@ -1,6 +1,7 @@
 import json
 import logging
 import unittest
+import uuid
 from unittest.mock import patch, MagicMock
 
 import pandas as pd
@@ -16,6 +17,7 @@ from shared.database_gen.sqlacodegen_models import (
     Geopolygon,
     Gtfsdataset,
     Gtfsrealtimefeed,
+    Feed,
 )
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
@@ -25,7 +27,6 @@ from shared.database_gen.sqlacodegen_models import (
 from shared.helpers.locations import ReverseGeocodingStrategy
 from test_shared.test_utils.database_utils import (
     default_db_url,
-    clean_testing_db,
 )
 
 faker = Faker()
@@ -210,7 +211,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                 "stop_lon": [1.0, 2.0],
             }
         )
-        clean_testing_db()
         stable_id = faker.uuid4(cast_to=str)
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(
@@ -237,7 +237,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                 "stop_lon": [1, 2],
             }
         )
-        clean_testing_db()
         stable_id = faker.uuid4(cast_to=str)
         feed_id = faker.uuid4(cast_to=str)
         country_name = faker.country()
@@ -273,9 +272,12 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual(len(location_groups), 1)
         self.assertEqual(results_df.shape, (1, 6))  # Added geometry columns
 
+    @with_db_session(db_url=default_db_url)
     @patch("reverse_geolocation_processor.get_storage_client")
     @patch("os.getenv")
-    def test_create_geojson_aggregate(self, mock_getenv, mock_storage_client):
+    def test_create_geojson_aggregate(
+        self, mock_getenv, mock_storage_client, db_session
+    ):
         from reverse_geolocation_processor import create_geojson_aggregate
 
         # Mock the specific environment variable
@@ -310,15 +312,32 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         # Bounding box that fully contains the geopolygon
         bounding_box = shapely.geometry.box(-1, -1, 2, 2)
 
+        feed = Feed(
+            id=faker.uuid4(cast_to=str),
+            stable_id="test_stable_id",
+            data_type="gtfs",
+            gtfsdatasets=[
+                Gtfsdataset(
+                    id=faker.uuid4(cast_to=str),
+                    stable_id=faker.uuid4(cast_to=str),
+                    feed=Gtfsfeed(
+                        id=faker.uuid4(cast_to=str),
+                        stable_id="test_stable_id",
+                    ),
+                )
+            ],
+        )
         # Call the function
         create_geojson_aggregate(
             location_groups=[aggregate],
             total_stops=20,
-            stable_id="test_stable_id",
             bounding_box=bounding_box,
             data_type="gtfs",
+            feed=feed,
+            gtfs_dataset=feed.gtfsdatasets[0],
             extraction_urls=["test_extraction_url"],
             logger=logger,
+            db_session=db_session,
         )
 
         # Assertions on blob upload
@@ -344,9 +363,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def test_update_dataset_bounding_box_success(self, db_session):
         from reverse_geolocation_processor import update_dataset_bounding_box
-
-        # Clean DB before test
-        clean_testing_db()
 
         # Create sample dataset
         feed_id = faker.uuid4(cast_to=str)
@@ -375,7 +391,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Call the function
         bounding_box = update_dataset_bounding_box(
-            dataset_id, stops_df, db_session=db_session
+            dataset, stops_df, db_session=db_session
         )
 
         # Expected bounding box: POLYGON((30 10, 40 10, 40 20, 30 20, 30 10))
@@ -399,7 +415,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     def test_update_dataset_bounding_box_exception(self, db_session):
         from reverse_geolocation_processor import update_dataset_bounding_box
 
-        clean_testing_db()
         stops_df = pd.DataFrame(
             {
                 "stop_id": [1, 2, 3, 4],
@@ -419,10 +434,14 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.create_geojson_aggregate")
     @patch("reverse_geolocation_processor.check_maximum_executions")
     @patch("reverse_geolocation_processor.get_execution_id")
+    @patch("reverse_geolocation_processor.load_dataset")
+    @patch("reverse_geolocation_processor.load_feed")
     @patch("reverse_geolocation_processor.record_execution_trace")
     def test_valid_request(
         self,
         _,
+        mock_load_feed,
+        mock_load_dataset,
         mock_get_execution_id,
         mock_check_maximum_executions,
         mock_create_geojson_aggregate,
@@ -448,15 +467,16 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         )
         mock_update_bounding_box.return_value = MagicMock()
         mock_reverse_geolocation.return_value = {"group_id": MagicMock()}
-
+        mock_create_geojson_aggregate.return_value = MagicMock()
+        mock_load_feed.return_value = MagicMock()
+        mock_load_dataset.return_value = MagicMock()
         # Mocking a Flask request
         request = MagicMock(spec=Request)
-
         # Call the function
         response, status_code = reverse_geolocation_process(request)
 
         # Assertions
-        self.assertEqual(status_code, 200)
+        self.assertEqual(200, status_code)
         self.assertIn("Processed 1 stops", response)
         mock_parse_request_parameters.assert_called_once()
         mock_update_bounding_box.assert_called_once()
@@ -486,10 +506,14 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     @patch("reverse_geolocation_processor.reverse_geolocation")
     @patch("reverse_geolocation_processor.check_maximum_executions")
     @patch("reverse_geolocation_processor.get_execution_id")
+    @patch("reverse_geolocation_processor.load_dataset")
+    @patch("reverse_geolocation_processor.load_feed")
     @patch("reverse_geolocation_processor.record_execution_trace")
     def test_exception_handling(
         self,
         _,
+        mock_load_feed,
+        mock_load_dataset,
         mock_check_get_execution_id,
         mock_check_maximum_executions,
         mock_reverse_geolocation,
@@ -513,6 +537,8 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             False,
             1,
         )
+        mock_load_dataset.return_value = MagicMock()
+        mock_load_feed.return_value = MagicMock()
         mock_update_bounding_box.side_effect = Exception("Unexpected error")
 
         # Mocking a Flask request
@@ -596,6 +622,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             stable_id="test_stable_id",
             stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
             logger=MagicMock(),
+            data_type="gtfs",
             use_cache=True,
             db_session=MagicMock(spec=Session),
         )
@@ -634,6 +661,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             strategy=ReverseGeocodingStrategy.PER_POLYGON,
             stable_id="test_stable_id",
             stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+            data_type="gtfs",
             logger=MagicMock(),
             use_cache=True,
             db_session=MagicMock(spec=Session),
@@ -652,10 +680,10 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     ):
         from reverse_geolocation_processor import reverse_geolocation
 
-        clean_testing_db()
+        id = str(uuid.uuid4())
         feed = Gtfsfeed(
-            id="test_feed",
-            stable_id="test_feed",
+            id=id,
+            stable_id=f"test_feed{id}",
             status="active",
             gtfsdatasets=[],
             locations=[],
@@ -666,9 +694,10 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         # Call the function
         result = reverse_geolocation(
             strategy="invalid_strategy",
-            stable_id="test_feed",
+            stable_id=f"test_feed{id}",
             stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
             logger=MagicMock(),
+            data_type=feed.data_type,
             use_cache=True,
             db_session=db_session,
         )
@@ -677,7 +706,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual(
             ("Invalid strategy: invalid_strategy", ERROR_STATUS_CODE), result
         )
-        clean_testing_db()
 
     @with_db_session(db_url=default_db_url)
     def test_load_feed_missing_feed(self, db_session):
@@ -689,6 +717,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                 strategy=ReverseGeocodingStrategy.PER_POINT,
                 stable_id="missing_stable_id",
                 stops_df=pd.DataFrame({"stop_lat": [1.0], "stop_lon": [1.0]}),
+                data_type="gtfs",
                 logger=MagicMock(),
                 use_cache=True,
                 db_session=db_session,
@@ -700,26 +729,26 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
     def test_update_feed_location_success(self, db_session):
         from reverse_geolocation_processor import update_feed_location
 
-        clean_testing_db()
+        id = str(uuid.uuid4())
         feed = Gtfsfeed(
-            id="test_feed",
+            id=id,
             data_type="gtfs",
-            stable_id="test_feed",
+            stable_id=f"test_feed{id}",
             status="active",
             gtfsdatasets=[],
             locations=[],
             gtfs_rt_feeds=[
                 Gtfsrealtimefeed(
-                    id="test_rt_feed",
+                    id=f"test_rt_feed{id}",
                 )
             ],
         )
         group = Osmlocationgroup(
-            group_id="group_1",
+            group_id=f"group_1{id}",
             group_name="group_name",
             osms=[
                 Geopolygon(
-                    osm_id=1,
+                    osm_id=faker.random_int(),
                     admin_level=2,
                     geometry=WKTElement(
                         "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
@@ -728,7 +757,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                     name="Canada",
                 ),
                 Geopolygon(
-                    osm_id=2,
+                    osm_id=faker.random_int(),
                     admin_level=4,
                     geometry=WKTElement(
                         "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))", srid=4326
@@ -743,7 +772,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         db_session.commit()
 
         location_group = GeopolygonAggregate(group, stops_count=1)
-        cache_location_groups = {"group_1": location_group}
+        cache_location_groups = {f"group_1{id}": location_group}
 
         # Call the function
         update_feed_location(
@@ -757,4 +786,3 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual("CA", feed.locations[0].country_code)
         self.assertEqual(1, len(feed.gtfs_rt_feeds[0].locations))
         self.assertEqual("CA", feed.gtfs_rt_feeds[0].locations[0].country_code)
-        clean_testing_db()
