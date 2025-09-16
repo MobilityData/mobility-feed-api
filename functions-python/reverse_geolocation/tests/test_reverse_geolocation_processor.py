@@ -287,12 +287,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
             else None
         )
 
-        # mock_getenv.side_effect = (
-        #     lambda var_name, default=None: "test_bucket"
-        #     if var_name in ["DATASETS_BUCKET_NAME_GTFS", "DATASETS_BUCKET_NAME_GBFS"]
-        #     else default
-        # )
-
         # Mock the storage client and blob
         mock_bucket = MagicMock()
         mock_blob = MagicMock()
@@ -333,16 +327,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
                 )
             ],
         )
-
-        # location_groups: List[GeopolygonAggregate],
-        # total_stops: int,
-        # bounding_box: shapely.Polygon,
-        # data_type: str,
-        # logger,
-        # feed: Feed,
-        # gtfs_dataset: Gtfsdataset = None,
-        # extraction_urls: List[str] = None,
-        # public: bool = True,
         # Call the function
         create_geojson_aggregate(
             location_groups=[aggregate],
