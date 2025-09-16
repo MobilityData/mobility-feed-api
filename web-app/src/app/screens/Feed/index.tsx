@@ -27,10 +27,10 @@ import {
   selectRelatedFeedsData,
   selectRelatedGtfsRTFeedsData,
   selectAutoDiscoveryUrl,
+  selectGtfsFeedBoundingBox,
 } from '../../store/feed-selectors';
 import { clearDataset, loadingDataset } from '../../store/dataset-reducer';
 import {
-  selectBoundingBoxFromLatestDataset,
   selectDatasetsData,
   selectDatasetsLoadingStatus,
   selectHasLoadedAllDatasets,
@@ -66,6 +66,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import GbfsFeedInfo from './components/GbfsFeedInfo';
 import GbfsVersions from './components/GbfsVersions';
 import generateFeedStructuredData from './StructuredData.functions';
+import ReactGA from 'react-ga4';
 
 const wrapComponent = (
   feedLoadingStatus: string,
@@ -124,6 +125,22 @@ const wrapComponent = (
   );
 };
 
+const handleDownloadLatestClick = (): void => {
+  ReactGA.event({
+    category: 'engagement',
+    action: 'download_latest_dataset',
+    label: 'Download Latest Dataset',
+  });
+};
+
+const handleOpenFullQualityReportClick = (): void => {
+  ReactGA.event({
+    category: 'engagement',
+    action: 'open_full_quality_report',
+    label: 'Open Full Quality Report',
+  });
+};
+
 export default function Feed(): React.ReactElement {
   const { t } = useTranslation('feeds');
   const theme = useTheme();
@@ -139,7 +156,7 @@ export default function Feed(): React.ReactElement {
   const datasets = useSelector(selectDatasetsData);
   const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
-  const boundingBox = useSelector(selectBoundingBoxFromLatestDataset);
+  const boundingBox = useSelector(selectGtfsFeedBoundingBox);
   const feed = useSelector(selectFeedData);
   const gbfsAutodiscoveryUrl = useSelector(selectAutoDiscoveryUrl);
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;
@@ -532,6 +549,7 @@ export default function Feed(): React.ReactElement {
             rel='noreferrer nofollow'
             id='download-latest-button'
             endIcon={<DownloadIcon></DownloadIcon>}
+            onClick={handleDownloadLatestClick}
           >
             {t('downloadLatest')}
           </Button>
@@ -544,6 +562,7 @@ export default function Feed(): React.ReactElement {
             target='_blank'
             rel='noreferrer nofollow'
             endIcon={<OpenInNewIcon></OpenInNewIcon>}
+            onClick={handleOpenFullQualityReportClick}
           >
             {t('openFullQualityReport')}
           </Button>

@@ -82,6 +82,7 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         try:
             db_session.add(feed)
+            db_session.flush()
             db_session.add(dataset)
             db_session.flush()
             returned_dataset = get_dataset(dataset_stable_id, db_session)
@@ -123,6 +124,7 @@ class TestValidationReportProcessor(unittest.TestCase):
         )
         try:
             db_session.add(feed)
+            db_session.flush()
             db_session.add(dataset)
             db_session.commit()
             create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
@@ -347,17 +349,18 @@ class TestValidationReportProcessor(unittest.TestCase):
                 ],
             },
         )
-        feed_stable_id = faker.word()
-        dataset_stable_id = faker.word()
+        feed_stable_id = faker.uuid4()
+        dataset_stable_id = faker.uuid4()
 
         # Create GTFS Feed
-        feed = Gtfsfeed(id=faker.word(), data_type="gtfs", stable_id=feed_stable_id)
+        feed = Gtfsfeed(id=faker.uuid4(), data_type="gtfs", stable_id=feed_stable_id)
         # Create a new dataset
         dataset = Gtfsdataset(
-            id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
+            id=faker.uuid4(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
         )
         try:
             db_session.add(feed)
+            db_session.flush()
             db_session.add(dataset)
             db_session.commit()
             create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")

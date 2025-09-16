@@ -9,6 +9,7 @@ import {
   Typography,
   Fab,
 } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Link } from 'react-router-dom';
 import MapIcon from '@mui/icons-material/Map';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
@@ -34,6 +35,7 @@ import ModeOfTravelIcon from '@mui/icons-material/ModeOfTravel';
 import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
+import ReactGA from 'react-ga4';
 import { selectGtfsDatasetRoutesJson } from '../store/supporting-files-selectors';
 
 interface CoveredAreaMapProps {
@@ -142,6 +144,14 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (newView !== null) setView(newView);
   };
 
+  const handleOpenDetailedMapClick = (): void => {
+    ReactGA.event({
+      category: 'engagement',
+      action: 'gtfs_visualization_open_detailed_map',
+      label: 'Open Detailed Map',
+    });
+  };
+
   const getGbfsLatestVersionVisualizationUrl = (
     feed: GBFSFeedType,
   ): string | undefined => {
@@ -244,8 +254,15 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       >
         {view === 'gtfsVisualizationView' &&
           config.enableGtfsVisualizationMap && (
-            <Button component={Link} to='./map'>
-              Open Full Map with Filters
+            <Button
+              variant='contained'
+              disableElevation
+              component={Link}
+              to='./map'
+              onClick={handleOpenDetailedMapClick}
+              endIcon={<OpenInNewIcon></OpenInNewIcon>}
+            >
+              {t('openDetailedMap')}
             </Button>
           )}
         {feed?.data_type === 'gbfs' ? (
@@ -314,6 +331,19 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
                 <MapIcon />
               </ToggleButton>
             </Tooltip>
+            {config.enableGtfsVisualizationMap && (
+              <Tooltip title={t('gtfsVisualizationTooltip')}>
+                <span>
+                  <ToggleButton
+                    value='gtfsVisualizationView'
+                    disabled={!config.enableGtfsVisualizationMap}
+                    aria-label='Bounding Box View'
+                  >
+                    <ModeOfTravelIcon />
+                  </ToggleButton>
+                </span>
+              </Tooltip>
+            )}
           </ToggleButtonGroup>
         )}
       </Box>

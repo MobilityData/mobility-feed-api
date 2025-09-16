@@ -36,7 +36,7 @@ from shared.database_gen.sqlacodegen_models import (
 )
 from shared.dataset_service.dataset_service_commons import Status
 
-from shared.helpers.locations import ReverseGeocodingStrategy
+from shared.helpers.locations import ReverseGeocodingStrategy, round_geojson_coords
 from shared.helpers.logger import get_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.utils import (
@@ -169,9 +169,10 @@ def create_geojson_aggregate(
         "features": [
             {
                 "type": "Feature",
-                "geometry": mapping(geo_polygon_count[osm_id]["clipped_geometry"]),
+                "geometry": round_geojson_coords(
+                    mapping(geo_polygon_count[osm_id]["clipped_geometry"])
+                ),
                 "properties": {
-                    "osm_id": osm_id,
                     "country_code": geo_polygon_count[osm_id]["group"].iso_3166_1_code,
                     "subdivision_code": geo_polygon_count[osm_id][
                         "group"
@@ -212,7 +213,7 @@ def get_storage_client():
 @with_db_session
 @track_metrics(metrics=("time", "memory", "cpu"))
 def update_dataset_bounding_box(
-    dataset_id: str, stops_df: pd.DataFrame, logger: logging.Logger, db_session: Session
+    dataset_id: str, stops_df: pd.DataFrame, db_session: Session
 ) -> shapely.Polygon:
     """
     Update the bounding box of the dataset using the stops DataFrame.
@@ -239,7 +240,15 @@ def update_dataset_bounding_box(
     )
     if not gtfs_dataset:
         raise ValueError(f"Dataset {dataset_id} does not exist in the database.")
+    gtfs_feed = db_session.get(Gtfsfeed, gtfs_dataset.feed_id)
+    if not gtfs_feed:
+        raise ValueError(
+            f"GTFS feed for dataset {dataset_id} does not exist in the database."
+        )
+    gtfs_feed.bounding_box = bounding_box
+    gtfs_feed.bounding_box_dataset = gtfs_dataset
     gtfs_dataset.bounding_box = bounding_box
+
     return to_shape(bounding_box)
 
 
@@ -322,7 +331,7 @@ def reverse_geolocation_process(
 
     try:
         # Update the bounding box of the dataset
-        bounding_box = update_dataset_bounding_box(dataset_id, stops_df, logger)
+        bounding_box = update_dataset_bounding_box(dataset_id, stops_df)
 
         location_groups = reverse_geolocation(
             strategy=strategy,

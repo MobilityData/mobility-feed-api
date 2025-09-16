@@ -1,5 +1,5 @@
 """Unit tests for locations helper module."""
-
+import math
 import unittest
 from unittest.mock import MagicMock
 
@@ -16,6 +16,8 @@ from locations import (
     select_highest_level_polygon,
     select_lowest_level_polygon,
     get_country_code_from_polygons,
+    round_geojson_coords,
+    round_coords,
 )
 from unittest.mock import patch
 
@@ -455,3 +457,154 @@ class TestLocations(unittest.TestCase):
         ]
         result = get_country_code_from_polygons(polys)
         self.assertIn(result, {"US", "CA"})
+
+    def _coords_equal(self, a, b, abs_tol=1e-5):
+        if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+            if len(a) != len(b):
+                return False
+            return all(self._coords_equal(x, y, abs_tol=abs_tol) for x, y in zip(a, b))
+        elif isinstance(a, (list, tuple)) or isinstance(b, (list, tuple)):
+            return False
+        else:
+            return math.isclose(a, b, abs_tol=abs_tol)
+
+    def test_round_point(self):
+        geom = {"type": "Point", "coordinates": [1.1234567, 2.9876543]}
+        rounded = round_geojson_coords(geom, precision=5)
+        assert self._coords_equal(rounded["coordinates"], [1.12346, 2.98765])
+
+    def test_round_linestring(self):
+        geom = {
+            "type": "LineString",
+            "coordinates": [[1.1234567, 2.9876543], [3.1111111, 4.9999999]],
+        }
+        rounded = round_geojson_coords(geom, precision=5)
+        assert self._coords_equal(
+            rounded["coordinates"], [[1.12346, 2.98765], [3.11111, 5.0]]
+        )
+
+    def test_round_polygon(self):
+        geom = {
+            "type": "Polygon",
+            "coordinates": [
+                [[1.1234567, 2.9876543], [3.1111111, 4.9999999], [1.1234567, 2.9876543]]
+            ],
+        }
+        rounded = round_geojson_coords(geom, precision=5)
+        assert self._coords_equal(
+            rounded["coordinates"],
+            [[[1.12346, 2.98765], [3.11111, 5.0], [1.12346, 2.98765]]],
+        )
+
+    def test_round_multipoint(self):
+        geom = {
+            "type": "MultiPoint",
+            "coordinates": [[1.1234567, 2.9876543], [3.1111111, 4.9999999]],
+        }
+        rounded = round_geojson_coords(geom, precision=5)
+        assert self._coords_equal(
+            rounded["coordinates"], [[1.12346, 2.98765], [3.11111, 5.0]]
+        )
+
+    def test_round_multilinestring(self):
+        geom = {
+            "type": "MultiLineString",
+            "coordinates": [
+                [[1.1234567, 2.9876543], [3.1111111, 4.9999999]],
+                [[5.5555555, 6.6666666], [7.7777777, 8.8888888]],
+            ],
+        }
+        rounded = round_geojson_coords(geom, precision=5)
+        assert self._coords_equal(
+            rounded["coordinates"],
+            [
+                [[1.12346, 2.98765], [3.11111, 5.0]],
+                [[5.55556, 6.66667], [7.77778, 8.88889]],
+            ],
+        )
+
+    def test_round_multipolygon(self):
+        geom = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [
+                    [
+                        [1.1234567, 2.9876543],
+                        [3.1111111, 4.9999999],
+                        [1.1234567, 2.9876543],
+                    ]
+                ],
+                [
+                    [
+                        [5.5555555, 6.6666666],
+                        [7.7777777, 8.8888888],
+                        [5.5555555, 6.6666666],
+                    ]
+                ],
+            ],
+        }
+        rounded = round_geojson_coords(geom, precision=5)
+        assert self._coords_equal(
+            rounded["coordinates"],
+            [
+                [[[1.12346, 2.98765], [3.11111, 5.0], [1.12346, 2.98765]]],
+                [[[5.55556, 6.66667], [7.77778, 8.88889], [5.55556, 6.66667]]],
+            ],
+        )
+
+    def test_round_geometrycollection(self):
+        geom = {
+            "type": "GeometryCollection",
+            "geometries": [
+                {"type": "Point", "coordinates": [1.1234567, 2.9876543]},
+                {
+                    "type": "LineString",
+                    "coordinates": [[3.1111111, 4.9999999], [5.5555555, 6.6666666]],
+                },
+            ],
+        }
+        rounded = round_geojson_coords(geom, precision=5)
+        assert self._coords_equal(
+            rounded["geometries"][0]["coordinates"], [1.12346, 2.98765]
+        )
+        assert self._coords_equal(
+            rounded["geometries"][1]["coordinates"],
+            [[3.11111, 5.0], [5.55556, 6.66667]],
+        )
+
+    def test_empty_coords(self):
+        geom = {"type": "Point", "coordinates": []}
+        rounded = round_geojson_coords(geom, precision=5)
+        assert rounded["coordinates"] == []
+
+    def test_non_list_coords(self):
+        geom = {"type": "Point", "coordinates": 1.1234567}
+        rounded = round_geojson_coords(geom, precision=5)
+        assert rounded["coordinates"] == 1.1234567
+
+    def test_round_coords_single_float(self):
+        assert (
+            round_coords(1.1234567, 5) == 1.1234567
+        )  # Non-list input returns unchanged
+
+    def test_round_coords_list_of_floats(self):
+        assert round_coords([1.1234567, 2.9876543], 5) == [1.12346, 2.98765]
+
+    def test_round_coords_tuple_of_floats(self):
+        assert round_coords((1.1234567, 2.9876543), 5) == [1.12346, 2.98765]
+
+    def test_round_coords_nested_lists(self):
+        coords = [[[1.1234567, 2.9876543], [3.1111111, 4.9999999]]]
+        expected = [[[1.12346, 2.98765], [3.11111, 5.0]]]
+        assert round_coords(coords, 5) == expected
+
+    def test_round_coords_empty_list(self):
+        assert round_coords([], 5) == []
+
+    def test_round_coords_non_numeric(self):
+        assert round_coords("not_a_number", 5) == "not_a_number"
+
+    def test_round_coords_mixed_types(self):
+        coords = [1.1234567, "foo", 2.9876543]
+        expected = [1.12346, "foo", 2.98765]
+        assert round_coords(coords, 5) == expected

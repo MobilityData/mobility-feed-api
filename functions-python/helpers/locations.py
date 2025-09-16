@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, cast
 from geoalchemy2.types import Geography
 
-import pycountry
 from shared.database_gen.sqlacodegen_models import Feed, Location, Geopolygon
 import logging
 
@@ -35,6 +34,8 @@ def get_country_code(country_name: str) -> Optional[str]:
     Returns:
         Optional[str]: Two-letter ISO country code or None if not found
     """
+    import pycountry
+
     # Return None for empty or whitespace-only strings
     if not country_name or not country_name.strip():
         logging.error("Could not find country code for: empty string")
@@ -46,7 +47,7 @@ def get_country_code(country_name: str) -> Optional[str]:
         if country:
             return country.alpha_2
 
-        # Try searching by name
+        # Try searching with fuzzy matching
         countries = pycountry.countries.search_fuzzy(country_name)
         if countries:
             return countries[0].alpha_2
@@ -231,3 +232,50 @@ def get_geopolygons_covers(stop_point: WKTElement, db_session: Session):
         ).all()
     )
     return geopolygons
+
+
+def round_geojson_coords(geometry, precision=5):
+    """
+    Recursively round all coordinates in a GeoJSON geometry to the given precision.
+    Handles Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon, GeometryCollection.
+    """
+    geom_type = geometry.get("type")
+    if geom_type == "GeometryCollection":
+        return {
+            "type": "GeometryCollection",
+            "geometries": [
+                round_geojson_coords(g, precision)
+                for g in geometry.get("geometries", [])
+            ],
+        }
+    elif "coordinates" in geometry:
+        return {
+            **geometry,
+            "coordinates": round_coords(geometry["coordinates"], precision),
+        }
+    else:
+        return geometry
+
+
+def round_coords(coords, precision):
+    """
+    Recursively round coordinates to the given precision.
+    Handles nested lists of coordinates.
+    Args:
+        coords: A coordinate or list of coordinates (can be nested)
+        precision: Number of decimal places to round to
+    Returns:
+        Rounded coordinates with the same structure as input
+    """
+    if isinstance(coords, (list, tuple)):
+        if coords and isinstance(coords[0], (list, tuple)):
+            return [round_coords(c, precision) for c in coords]
+        else:
+            result = []
+            for c in coords:
+                if isinstance(c, (int, float)):
+                    result.append(round(float(c), precision))
+                else:
+                    result.append(c)
+            return result
+    return coords

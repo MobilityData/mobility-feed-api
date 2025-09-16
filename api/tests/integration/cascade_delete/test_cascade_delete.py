@@ -119,8 +119,10 @@ def test_delete_feed_cascadeto_gtfsdataset(test_database):
 
     with test_database.start_db_session() as session:
         feed = Feed(id="f1")
+        session.add(feed)
+        session.flush()
         dataset = Gtfsdataset(id="d1", feed_id="f1")
-        session.add_all([feed, dataset])
+        session.add(dataset)
         session.commit()
 
         delete_and_assert(

@@ -1,3 +1,4 @@
+from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.feed_impl import FeedImpl
 from shared.database_gen.sqlacodegen_models import Gtfsfeed as GtfsfeedOrm
 from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
@@ -26,4 +27,8 @@ class GtfsFeedImpl(FeedImpl, GtfsFeed):
             (dataset for dataset in feed.gtfsdatasets if dataset is not None and dataset.latest), None
         )
         gtfs_feed.latest_dataset = LatestDatasetImpl.from_orm(latest_dataset)
+        gtfs_feed.bounding_box = BoundingBoxImpl.from_orm(feed.bounding_box)
+        gtfs_feed.visualization_dataset_id = (
+            feed.visualization_dataset.stable_id if feed.visualization_dataset else None
+        )
         return gtfs_feed

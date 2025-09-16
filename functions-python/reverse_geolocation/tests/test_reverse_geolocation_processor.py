@@ -329,7 +329,6 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         self.assertEqual(geojson_data["type"], "FeatureCollection")
         self.assertEqual(len(geojson_data["features"]), 1)
         feature = geojson_data["features"][0]
-        self.assertEqual(feature["properties"]["osm_id"], str(geopolygon_1.osm_id))
         self.assertEqual(
             feature["properties"]["country_code"], geopolygon_1.iso_3166_1_code
         )
@@ -376,7 +375,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Call the function
         bounding_box = update_dataset_bounding_box(
-            dataset_id, stops_df, db_session=db_session, logger=logger
+            dataset_id, stops_df, db_session=db_session
         )
 
         # Expected bounding box: POLYGON((30 10, 40 10, 40 20, 30 20, 30 10))
