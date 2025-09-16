@@ -344,6 +344,7 @@ def reverse_geolocation_process(
 
     try:
         # Update the bounding box of the dataset
+        gtfs_dataset: Gtfsdataset = None
         if dataset_id:
             gtfs_dataset = load_dataset(dataset_id, db_session)
         feed = load_feed(stable_id, data_type, logger, db_session)
