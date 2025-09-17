@@ -417,7 +417,9 @@ class DatasetProcessor:
         )
 
     @with_db_session
-    def process_from_producer_url(self, db_session, stable_id) -> Optional[DatasetFile]:
+    def process_from_producer_url(
+        self, stable_id, db_session: Session
+    ) -> Optional[DatasetFile]:
         """
         Process the dataset and store new version in GCP bucket if any changes are detected
         :return: the DatasetFile object created
