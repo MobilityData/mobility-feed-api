@@ -46,17 +46,3 @@ def get_config_value(
     )
 
     return default_config.default_value if default_config else None
-
-
-# Example of how you would use it elsewhere in your application:
-#
-# from shared.config.config_reader import get_config_value
-#
-# def my_service_function():
-#     # The `with_db_session` decorator handles creating and closing the session.
-#     http_headers = get_config_value(
-#         namespace='feed_download',
-#         key='http_headers',
-#         feed_id='mdb-2126'
-#     )
-#     print(f"HTTP Headers for mdb-2126: {http_headers}")

@@ -28,8 +28,6 @@ from urllib3.util.retry import Retry
 from urllib3.util.ssl_ import create_urllib3_context
 from pathlib import Path
 
-from utils.config_reader import get_config_value
-
 
 def create_bucket(bucket_name):
     """
@@ -135,6 +133,8 @@ def download_and_get_hash(
     logger=None,
     trusted_certs=False,  # If True, disables SSL verification
 ):
+    from utils.config_reader import get_config_value
+
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
