@@ -28,6 +28,8 @@ from urllib3.util.retry import Retry
 from urllib3.util.ssl_ import create_urllib3_context
 from pathlib import Path
 
+from utils.config_reader import get_config_value
+
 
 def create_bucket(bucket_name):
     """
@@ -126,6 +128,7 @@ def download_and_get_hash(
     file_path,
     hash_algorithm="sha256",
     chunk_size=8192,
+    stable_id=None,
     authentication_type=0,
     api_key_parameter_name=None,
     credentials=None,
@@ -145,12 +148,17 @@ def download_and_get_hash(
         ctx.load_default_certs()
         ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
 
+        headers = get_config_value(
+            namespace="feed_download", key="http_headers", feed_stable_id=stable_id
+        )
+        if headers is None:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/126.0.0.0 Mobile Safari/537.36"
+            }
+
         # authentication_type == 1 -> the credentials are passed in the url
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/126.0.0.0 Mobile Safari/537.36"
-        }
         # Careful, some URLs may already contain a query string
         # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
         if authentication_type == 1 and api_key_parameter_name and credentials:
