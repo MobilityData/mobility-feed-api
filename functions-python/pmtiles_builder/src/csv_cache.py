@@ -16,6 +16,7 @@
 import csv
 import os
 
+from gtfs import stop_txt_is_lat_log_required
 from shared.helpers.logger import get_logger
 from shared.helpers.transform import get_safe_value, get_safe_float
 
@@ -134,8 +135,18 @@ class CsvCache:
                 row_stop_id = get_safe_value(s, "stop_id")
                 row_stop_lon = get_safe_float(s, "stop_lon")
                 row_stop_lat = get_safe_float(s, "stop_lat")
-                if row_stop_id is None or row_stop_lon is None or row_stop_lat is None:
-                    self.logger.warning("Invalid stop data: %s", s)
+                if row_stop_id is None:
+                    self.logger.warning("Missing stop id: %s", s)
+                    continue
+                if row_stop_lon is None or row_stop_lat is None:
+                    if stop_txt_is_lat_log_required(s):
+                        self.logger.warning(
+                            "Missing stop latitude and longitude : %s", s
+                        )
+                    else:
+                        self.logger.debug(
+                            "Missing optional stop latitude and longitude : %s", s
+                        )
                     continue
                 self.stop_to_coordinates[row_stop_id] = (row_stop_lon, row_stop_lat)
         return self.stop_to_coordinates.get(stop_id, None)

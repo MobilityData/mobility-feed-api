@@ -96,7 +96,11 @@ def get_safe_value(row, column_name, default_value=None) -> Optional[str]:
     import pandas
 
     value = row.get(column_name, None)
-    if not value or pandas.isna(value) or f"{value}".strip() == "":
+    if (
+        value is None
+        or pandas.isna(value)
+        or (isinstance(value, str) and value.strip() == "")
+    ):
         return default_value
     return f"{value}".strip()
 
@@ -105,12 +109,8 @@ def get_safe_float(row, column_name, default_value=None) -> Optional[float]:
     """
     Get a safe float value from the row. If the value is missing or cannot be converted to float,
     """
-    import pandas
-
-    value = row.get(column_name, None)
-    if not value or pandas.isna(value) or f"{value}".strip() == "":
-        return default_value
+    safe_value = get_safe_value(row, column_name)
     try:
-        return float(value)
+        return float(safe_value)
     except (ValueError, TypeError):
         return default_value
