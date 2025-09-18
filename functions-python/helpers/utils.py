@@ -133,7 +133,7 @@ def download_and_get_hash(
     logger=None,
     trusted_certs=False,  # If True, disables SSL verification
 ):
-    from api.src.utils.config_reader import get_config_value
+    from shared.common.config_reader import get_config_value
 
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
