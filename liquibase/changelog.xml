@@ -68,4 +68,5 @@
     <include file="changes/feat_1260.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1333.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_pt_152.sql" relativeToChangelogFile="true"/>
+    <include file="changes/feat_fix_geolocation_circular_dep.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>
