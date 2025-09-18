@@ -16,5 +16,5 @@ def stop_txt_is_lat_log_required(stop_row):
     Returns:
         bool: True if both latitude and longitude is required, False otherwise.
     """
-    location_type = get_safe_value(stop_row, "location_type", 0)
+    location_type = get_safe_value(stop_row, "location_type", "0")
     return location_type in ("0", "1", "2")

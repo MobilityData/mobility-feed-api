@@ -16,5 +16,5 @@ class TestStopTxtIsLatLogRequired(unittest.TestCase):
         self.assertFalse(stop_txt_is_lat_log_required({"location_type": 4}))
 
     def test_missing_location_type(self):
-        self.assertFalse(stop_txt_is_lat_log_required({}))
-        self.assertFalse(stop_txt_is_lat_log_required({"other": "value"}))
+        self.assertTrue(stop_txt_is_lat_log_required({}))
+        self.assertTrue(stop_txt_is_lat_log_required({"other": "value"}))

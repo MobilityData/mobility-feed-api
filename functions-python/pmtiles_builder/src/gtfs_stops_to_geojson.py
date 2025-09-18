@@ -4,7 +4,9 @@ import logging
 from collections import defaultdict
 
 from csv_cache import CsvCache, ROUTES_FILE, TRIPS_FILE, STOP_TIMES_FILE, STOPS_FILE
+from gtfs import stop_txt_is_lat_log_required
 from shared.helpers.runtime_metrics import track_metrics
+from shared.helpers.transform import get_safe_float
 
 logger = logging.getLogger(__name__)
 
@@ -60,10 +62,13 @@ def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
         if (
             "stop_lat" not in row
             or "stop_lon" not in row
-            or not row["stop_lat"]
-            or not row["stop_lon"]
+            or get_safe_float(row, "stop_lat") is None
+            or get_safe_float(row, "stop_lon") is None
         ):
-            logger.warning(f"Missing coordinates for stop_id {stop_id}, skipping.")
+            if stop_txt_is_lat_log_required(row):
+                logger.warning(
+                    "Missing coordinates for stop_id {%s}, skipping.", stop_id
+                )
             continue
 
         # Routes serving this stop
