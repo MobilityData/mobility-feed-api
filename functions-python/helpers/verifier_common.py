@@ -50,7 +50,9 @@ def download_to_local(
             data = BytesIO(response.content)
             blob.upload_from_file(data, rewind=True)
     else:
-        logging.info(f"Blob already exists: gs://{EMULATOR_STORAGE_BUCKET_NAME}/{blob_path}")
+        logging.info(
+            f"Blob already exists: gs://{EMULATOR_STORAGE_BUCKET_NAME}/{blob_path}"
+        )
 
 
 @with_db_session
@@ -87,24 +89,29 @@ def setup_local_storage_emulator():
     """
     from gcp_storage_emulator.server import create_server
 
-    os.environ["STORAGE_EMULATOR_HOST"] = f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}"
+    os.environ[
+        "STORAGE_EMULATOR_HOST"
+    ] = f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}"
     os.environ["DATASETS_BUCKET_NAME_GBFS"] = EMULATOR_STORAGE_BUCKET_NAME
     os.environ["DATASETS_BUCKET_NAME_GTFS"] = EMULATOR_STORAGE_BUCKET_NAME
     os.environ["DATASTORE_EMULATOR_HOST"] = "localhost:8081"
     server = create_server(
-        host=EMULATOR_HOST, port=EMULATOR_STORAGE_PORT, in_memory=False, default_bucket=EMULATOR_STORAGE_BUCKET_NAME
+        host=EMULATOR_HOST,
+        port=EMULATOR_STORAGE_PORT,
+        in_memory=False,
+        default_bucket=EMULATOR_STORAGE_BUCKET_NAME,
     )
     server.start()
     return server
 
 
 def shutdown_local_storage_emulator(server):
-    """ Shutdown the Google Cloud Storage emulator."""
+    """Shutdown the Google Cloud Storage emulator."""
     server.stop()
 
 
 def is_datastore_emulator_running(host=EMULATOR_HOST, port=8081):
-    """ Check if the Google Cloud Datastore emulator is running."""
+    """Check if the Google Cloud Datastore emulator is running."""
     try:
         with socket.create_connection((host, port), timeout=2):
             return True
@@ -113,19 +120,25 @@ def is_datastore_emulator_running(host=EMULATOR_HOST, port=8081):
 
 
 def start_datastore_emulator(project_id="test-project"):
-    """ Start the Google Cloud Datastore emulator if it's not already running."""
+    """Start the Google Cloud Datastore emulator if it's not already running."""
     if not is_datastore_emulator_running():
-        process = subprocess.Popen([
-            "gcloud", "beta", "emulators", "datastore", "start",
-            "--project={}".format(project_id),
-            "--host-port=localhost:8081"
-        ])
+        process = subprocess.Popen(
+            [
+                "gcloud",
+                "beta",
+                "emulators",
+                "datastore",
+                "start",
+                "--project={}".format(project_id),
+                "--host-port=localhost:8081",
+            ]
+        )
         return process
     return None  # Already running
 
 
 def shutdown_datastore_emulator(process):
-    """ Shutdown the Google Cloud Datastore emulator."""
+    """Shutdown the Google Cloud Datastore emulator."""
     if process:
         process.terminate()
         process.wait()

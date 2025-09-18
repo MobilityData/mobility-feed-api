@@ -77,3 +77,40 @@ def to_enum(value, enum_class=None, default_value=None):
     except (ValueError, TypeError) as e:
         logging.warning("Failed to convert value to enum member: %s", e)
         return default_value
+
+
+def to_float(value, default_value: Optional[float] = None) -> Optional[float]:
+    """
+    Convert a value to a float. If conversion fails, return the default value.
+    """
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default_value
+
+
+def get_safe_value(row, column_name, default_value):
+    """
+    Get a safe value from the row. If the value is missing or empty, return the default value.
+    """
+    import pandas
+
+    value = row.get(column_name, None)
+    if not value or pandas.isna(value) or f"{value}".strip() == "":
+        return default_value
+    return f"{value}".strip()
+
+
+def get_safe_float(row, column_name, default_value=None):
+    """
+    Get a safe float value from the row. If the value is missing or cannot be converted to float,
+    """
+    import pandas
+
+    value = row.get(column_name, None)
+    if not value or pandas.isna(value) or f"{value}".strip() == "":
+        return default_value
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default_value
