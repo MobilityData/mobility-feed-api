@@ -24,6 +24,7 @@ import os
 import subprocess
 import tempfile
 from enum import Enum
+from typing import TypedDict, Tuple, List, Dict
 
 import flask
 import functions_framework
@@ -37,7 +38,7 @@ from csv_cache import (
     TRIPS_FILE,
     STOPS_FILE,
     AGENCY_FILE,
-    SHAPES_FILE,
+    SHAPES_FILE, Shapes,
 )
 from gtfs_stops_to_geojson import convert_stops_to_geojson
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
@@ -46,6 +47,12 @@ from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
 
 init_logger()
+
+
+class RouteCoordinates(TypedDict):
+    shape_id: str
+    trip_ids: List[str]
+    coordinates: List[Tuple[float, float]]
 
 
 @functions_framework.http
@@ -397,61 +404,44 @@ class PmtilesBuilder:
                     agency_name = agencies.get(agency_id, agency_id)
 
                     route_id = route["route_id"]
-                    shape_id = self.csv_cache.get_shape_from_route(route_id)
-
-                    coordinates = []
-                    if shape_id:
-                        coordinates = self._get_shape_points(shape_id, shapes_index)
-                    if not coordinates:
-                        # We don't have the coordinates for the shape, fallback on using stops.
-                        trip_id = self.csv_cache.get_trip_from_route(route_id)
-
-                        if trip_id:
-                            stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
-                            # We assume stop_times is already sorted by stop_sequence in the file.
-                            # According to the SPECS:
-                            #    The values must increase along the trip but do not need to be consecutive.
-                            coordinates = [
-                                coord
-                                for stop_id in stops_for_trip
-                                if (
-                                    coord := self.csv_cache.get_coordinates_for_stop(
-                                        stop_id
-                                    )
-                                )
-                                is not None
-                            ]
-                    if not coordinates:
+                    logging.info("Processing route_id %s", route_id)
+                    trips_coordinates: list[RouteCoordinates] = self.get_route_coordinates(route_id, shapes_index)
+                    if not trips_coordinates:
                         missing_coordinates_routes.add(route_id)
                         continue
-                    feature = {
-                        "type": "Feature",
-                        "properties": {
-                            "agency_name": agency_name,
-                            "route_id": route_id,
-                            "route_short_name": route.get("route_short_name", ""),
-                            "route_long_name": route.get("route_long_name", ""),
-                            "route_type": route.get("route_type", ""),
-                            "route_color": route.get("route_color", ""),
-                            "route_text_color": route.get("route_text_color", ""),
-                        },
-                        "geometry": {
-                            "type": "LineString",
-                            "coordinates": coordinates,
-                        },
-                    }
+                    for trips_coordinates in trips_coordinates:
+                        trip_ids = trips_coordinates["trip_ids"]
+                        shape_id = trips_coordinates["shape_id"]
+                        feature = {
+                            "type": "Feature",
+                            "properties": {
+                                "agency_name": agency_name,
+                                "route_id": route_id,
+                                "shape_id": shape_id,
+                                "trip_ids": trip_ids,
+                                "route_short_name": route.get("route_short_name", ""),
+                                "route_long_name": route.get("route_long_name", ""),
+                                "route_type": route.get("route_type", ""),
+                                "route_color": route.get("route_color", ""),
+                                "route_text_color": route.get("route_text_color", ""),
+                            },
+                            "geometry": {
+                                "type": "LineString",
+                                "coordinates": trips_coordinates["coordinates"],
+                            },
+                        }
 
-                    if not first:
-                        geojson_file.write(",\n")
-                    geojson_file.write(json.dumps(feature))
-                    first = False
+                        if not first:
+                            geojson_file.write(",\n")
+                        geojson_file.write(json.dumps(feature))
+                        first = False
 
                     if i % 100 == 0 or i == 1:
                         self.logger.debug(
                             "Processed route %d (route_id: %s)", i, route_id
                         )
 
-                geojson_file.write("\n]}")
+                # geojson_file.write("\n]}")
 
             if missing_coordinates_routes:
                 self.logger.info(
@@ -462,6 +452,87 @@ class PmtilesBuilder:
             )
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
+
+    def get_route_coordinates(self, route_id, shapes_index) -> List[RouteCoordinates]:
+        shapes: Dict[str, List[str]] = self.csv_cache.get_shape_from_route(route_id)
+        result: List[RouteCoordinates] = []
+        if shapes:
+            for shape_id, trip_ids in shapes.items():
+                # shape_id = shape["shape_id"]
+                # trip_ids = shape["trip_ids"]
+                coordinates = self._get_shape_points(shape_id, shapes_index)
+                if coordinates:
+                    result.append({"shape_id": shape_id, "trip_ids": trip_ids, "coordinates": coordinates})
+
+        trips_without_shape = self.csv_cache.get_trips_without_shape_from_route(route_id)
+        if trips_without_shape:
+            for trip_id in trips_without_shape:
+                stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
+                if not stops_for_trip:
+                    self.logger.info(
+                        "No stops found for trip_id %s on route_id %s",
+                        trip_id,
+                        route_id,
+                    )
+                    continue
+                # We assume stop_times is already sorted by stop_sequence in the file.
+                # According to the SPECS:
+                #    The values must increase along the trip but do not need to be consecutive.
+                coordinates = [
+                    coord
+                    for stop_id in stops_for_trip
+                    if (
+                           coord := self.csv_cache.get_coordinates_for_stop(
+                               stop_id
+                           )
+                       )
+                       is not None
+                ]
+                if coordinates:
+                    result.append({"shape_id": "", "trip_ids": [trip_id], "coordinates": coordinates})
+                else:
+                    self.logger.info(
+                        "Coordinates were not have the right formatting for stops of trip_id %s on route_id %s",
+                        trip_id,
+                        route_id,
+                    )
+
+            # if not coordinates:
+            #     # We don't have the coordinates for the shape, fallback on using stops.
+            #     # trip_id = self.csv_cache.get_trip_from_route(route_id)
+            #
+            #     # if trip_id:
+            #     stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
+            #     if not stops_for_trip:
+            #         self.logger.info(
+            #             "No stops found for trip_id %s on route_id %s",
+            #             trip_id,
+            #             route_id,
+            #         )
+            #         continue
+            #     # We assume stop_times is already sorted by stop_sequence in the file.
+            #     # According to the SPECS:
+            #     #    The values must increase along the trip but do not need to be consecutive.
+            #     coordinates = [
+            #         coord
+            #         for stop_id in stops_for_trip
+            #         if (
+            #                coord := self.csv_cache.get_coordinates_for_stop(
+            #                    stop_id
+            #                )
+            #            )
+            #            is not None
+            #     ]
+            #     if coordinates:
+            #         result.append({"trip_id": trip_id, "coordinates": coordinates})
+            #     else:
+            #         self.logger.info(
+            #             "Coordinates were not have the right formatting for stops of trip_id %s on route_id %s",
+            #             trip_id,
+            #             route_id,
+            #         )
+
+        return result
 
     @track_metrics(metrics=("time", "memory", "cpu"))
     def _run_tippecanoe(self, input_file, output_file):

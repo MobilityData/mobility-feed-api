@@ -15,6 +15,8 @@
 #
 import csv
 import os
+from typing import TypedDict, List, Dict
+
 from shared.helpers.logger import get_logger
 
 
@@ -24,7 +26,9 @@ TRIPS_FILE = "trips.txt"
 ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
 AGENCY_FILE = "agency.txt"
-
+class Shapes(TypedDict):
+    shape_id: str
+    trip_ids: List[str]
 
 class CsvCache:
     """
@@ -49,9 +53,10 @@ class CsvCache:
         self.file_data = {}
         self.trip_to_stops = None
         self.route_to_trip = None
-        self.route_to_shape = None
+        self.route_to_shape: Dict[str, Dict[str, List[str]]] = None
         self.stop_to_route = None
         self.stop_to_coordinates = None
+        self.trips_no_shapes = Dict[str, List[str]]
 
         self.logger.info("Using work directory: %s", self.workdir)
 
@@ -95,7 +100,10 @@ class CsvCache:
                 route_id = row["route_id"]
                 trip_id = row["trip_id"]
                 if trip_id:
-                    self.route_to_trip.setdefault(route_id, trip_id)
+                    if self.route_to_trip.get(route_id):
+                        self.route_to_trip[route_id] = trip_id
+                    else:
+                        self.route_to_trip.setdefault(route_id, trip_id)
         return self.route_to_trip.get(route_id, "")
 
     def get_shape_from_route(self, route_id) -> str:
@@ -113,9 +121,22 @@ class CsvCache:
             for row in self.get_file(TRIPS_FILE):
                 route_id = row["route_id"]
                 shape_id = row["shape_id"]
-                if shape_id:
-                    self.route_to_shape.setdefault(route_id, shape_id)
-        return self.route_to_shape.get(route_id, "")
+                trip_id = row["trip_id"]
+                if route_id and trip_id:
+                    if shape_id:
+                        route_shapes = self.route_to_shape.get(route_id, {})
+                        if shape_id not in route_shapes:
+                            route_shapes[shape_id] = []
+                        route_shapes[shape_id].append(trip_id)
+                        self.route_to_shape[route_id] = route_shapes
+                    else:
+                        trip_no_shapes = self.trip_to_stops.get(route_id, [])
+                        trip_no_shapes.append(trip_id)
+                        self.trips_no_shapes[route_id] = trip_no_shapes
+        return self.route_to_shape.get(route_id, [])
+
+    def get_trips_without_shape_from_route(self, route_id) -> List[str]:
+        return self.trips_no_shapes[route_id] if route_id in self.trips_no_shapes else []
 
     def get_stops_from_trip(self, trip_id):
         # Lazy instantiation of the dictionary, because we may not need it al all if there is a shape.
