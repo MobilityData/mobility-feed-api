@@ -128,14 +128,16 @@ class CsvCache:
 
     def get_coordinates_for_stop(self, stop_id) -> tuple[float, float] | None:
         if self.stop_to_coordinates is None:
+            self.stop_to_coordinates = {}
             for s in self.get_file(STOPS_FILE):
+                self.stop_to_coordinates.get(stop_id, [])
                 row_stop_id = get_safe_value(s, "stop_id")
                 row_stop_lon = get_safe_float(s, "stop_lon")
                 row_stop_lat = get_safe_float(s, "stop_lat")
                 if row_stop_id is None or row_stop_lon is None or row_stop_lat is None:
                     self.logger.warning("Invalid stop data: %s", s)
                     continue
-                self.stop_to_coordinates = {row_stop_id: (row_stop_lon, row_stop_lat)}
+                self.stop_to_coordinates[row_stop_id] = (row_stop_lon, row_stop_lat)
         return self.stop_to_coordinates.get(stop_id, None)
 
     def set_workdir(self, workdir):

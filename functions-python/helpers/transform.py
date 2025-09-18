@@ -89,7 +89,7 @@ def to_float(value, default_value: Optional[float] = None) -> Optional[float]:
         return default_value
 
 
-def get_safe_value(row, column_name, default_value):
+def get_safe_value(row, column_name, default_value=None) -> Optional[str]:
     """
     Get a safe value from the row. If the value is missing or empty, return the default value.
     """
@@ -101,7 +101,7 @@ def get_safe_value(row, column_name, default_value):
     return f"{value}".strip()
 
 
-def get_safe_float(row, column_name, default_value=None):
+def get_safe_float(row, column_name, default_value=None) -> Optional[float]:
     """
     Get a safe float value from the row. If the value is missing or cannot be converted to float,
     """
