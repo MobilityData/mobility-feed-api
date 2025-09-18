@@ -128,8 +128,8 @@ class DatasetProcessor:
         """
         file_hash = download_and_get_hash(
             self.producer_url,
-            temporary_file_path,
-            stable_id,
+            file_path=temporary_file_path,
+            stable_id=stable_id,
             authentication_type=self.authentication_type,
             api_key_parameter_name=self.api_key_parameter_name,
             credentials=self.feed_credentials,

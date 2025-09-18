@@ -17,7 +17,6 @@ CREATE TABLE config_value_feed (
   value         jsonb        NOT NULL,
   updated_at    timestamptz  NOT NULL DEFAULT now(),
   PRIMARY KEY (feed_stable_id, namespace, key),
-  FOREIGN KEY (feed_stable_id) REFERENCES feed(stable_id) ON DELETE CASCADE,
   FOREIGN KEY (namespace, key) REFERENCES config_key(namespace, key) ON DELETE CASCADE
 );
 
