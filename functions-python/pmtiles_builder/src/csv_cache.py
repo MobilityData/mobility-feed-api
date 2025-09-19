@@ -28,9 +28,12 @@ TRIPS_FILE = "trips.txt"
 ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
 AGENCY_FILE = "agency.txt"
+
+
 class Shapes(TypedDict):
     shape_id: str
     trip_ids: List[str]
+
 
 class CsvCache:
     """
@@ -110,13 +113,14 @@ class CsvCache:
 
     def get_shape_from_route(self, route_id) -> str:
         """
-        Returns the first shape_id associated with a given route_id from the trips file.
+        Returns a list of shape_ids with associated trip_ids information with a given route_id from the trips file.
         The relationship from the route to the shape is via the trips file.
         Parameters:
             route_id (str): The route identifier to look up.
 
         Returns:
             The corresponding shape id.
+            Example return value: [{'shape_id1': ['trip1', 'trip2']}, {'shape_id2': ['trip3']}]
         """
         if self.route_to_shape is None:
             self.route_to_shape = {}
@@ -138,7 +142,9 @@ class CsvCache:
         return self.route_to_shape.get(route_id, [])
 
     def get_trips_without_shape_from_route(self, route_id) -> List[str]:
-        return self.trips_no_shapes[route_id] if route_id in self.trips_no_shapes else []
+        return (
+            self.trips_no_shapes[route_id] if route_id in self.trips_no_shapes else []
+        )
 
     def get_stops_from_trip(self, trip_id):
         # Lazy instantiation of the dictionary, because we may not need it al all if there is a shape.

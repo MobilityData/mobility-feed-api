@@ -38,13 +38,14 @@ from csv_cache import (
     TRIPS_FILE,
     STOPS_FILE,
     AGENCY_FILE,
-    SHAPES_FILE, Shapes,
+    SHAPES_FILE,
 )
 from gtfs_stops_to_geojson import convert_stops_to_geojson
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
+from shared.helpers.transform import get_safe_value
 
 init_logger()
 
@@ -405,7 +406,9 @@ class PmtilesBuilder:
 
                     route_id = route["route_id"]
                     logging.info("Processing route_id %s", route_id)
-                    trips_coordinates: list[RouteCoordinates] = self.get_route_coordinates(route_id, shapes_index)
+                    trips_coordinates: list[
+                        RouteCoordinates
+                    ] = self.get_route_coordinates(route_id, shapes_index)
                     if not trips_coordinates:
                         missing_coordinates_routes.add(route_id)
                         continue
@@ -462,9 +465,17 @@ class PmtilesBuilder:
                 # trip_ids = shape["trip_ids"]
                 coordinates = self._get_shape_points(shape_id, shapes_index)
                 if coordinates:
-                    result.append({"shape_id": shape_id, "trip_ids": trip_ids, "coordinates": coordinates})
+                    result.append(
+                        {
+                            "shape_id": shape_id,
+                            "trip_ids": trip_ids,
+                            "coordinates": coordinates,
+                        }
+                    )
 
-        trips_without_shape = self.csv_cache.get_trips_without_shape_from_route(route_id)
+        trips_without_shape = self.csv_cache.get_trips_without_shape_from_route(
+            route_id
+        )
         if trips_without_shape:
             for trip_id in trips_without_shape:
                 stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
@@ -481,56 +492,23 @@ class PmtilesBuilder:
                 coordinates = [
                     coord
                     for stop_id in stops_for_trip
-                    if (
-                           coord := self.csv_cache.get_coordinates_for_stop(
-                               stop_id
-                           )
-                       )
-                       is not None
+                    if (coord := self.csv_cache.get_coordinates_for_stop(stop_id))
+                    is not None
                 ]
                 if coordinates:
-                    result.append({"shape_id": "", "trip_ids": [trip_id], "coordinates": coordinates})
+                    result.append(
+                        {
+                            "shape_id": "",
+                            "trip_ids": [trip_id],
+                            "coordinates": coordinates,
+                        }
+                    )
                 else:
                     self.logger.info(
                         "Coordinates were not have the right formatting for stops of trip_id %s on route_id %s",
                         trip_id,
                         route_id,
                     )
-
-            # if not coordinates:
-            #     # We don't have the coordinates for the shape, fallback on using stops.
-            #     # trip_id = self.csv_cache.get_trip_from_route(route_id)
-            #
-            #     # if trip_id:
-            #     stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
-            #     if not stops_for_trip:
-            #         self.logger.info(
-            #             "No stops found for trip_id %s on route_id %s",
-            #             trip_id,
-            #             route_id,
-            #         )
-            #         continue
-            #     # We assume stop_times is already sorted by stop_sequence in the file.
-            #     # According to the SPECS:
-            #     #    The values must increase along the trip but do not need to be consecutive.
-            #     coordinates = [
-            #         coord
-            #         for stop_id in stops_for_trip
-            #         if (
-            #                coord := self.csv_cache.get_coordinates_for_stop(
-            #                    stop_id
-            #                )
-            #            )
-            #            is not None
-            #     ]
-            #     if coordinates:
-            #         result.append({"trip_id": trip_id, "coordinates": coordinates})
-            #     else:
-            #         self.logger.info(
-            #             "Coordinates were not have the right formatting for stops of trip_id %s on route_id %s",
-            #             trip_id,
-            #             route_id,
-            #         )
 
         return result
 
@@ -566,14 +544,17 @@ class PmtilesBuilder:
         try:
             routes = []
             for row in self.csv_cache.get_file(ROUTES_FILE):
+                route_id = get_safe_value(row, "route_id", "")
+                shape_ids = self.csv_cache.get_shape_from_route(route_id)
                 route = {
-                    "routeId": row.get("route_id", ""),
-                    "routeName": row.get("route_long_name", "")
-                    or row.get("route_short_name", "")
-                    or row.get("route_id", ""),
-                    "color": f"#{row.get('route_color', '000000')}",
-                    "textColor": f"#{row.get('route_text_color', 'FFFFFF')}",
-                    "routeType": f"{row.get('route_type', '')}",
+                    "routeId": route_id,
+                    "routeName": get_safe_value(row, "route_long_name", "")
+                    or get_safe_value(row, "route_short_name", "")
+                    or route_id,
+                    "color": f"#{get_safe_value(row, 'route_color', '000000')}",
+                    "textColor": f"#{get_safe_value(row, 'route_text_color', 'FFFFFF')}",
+                    "routeType": f"{get_safe_value(row, 'route_type', '')}",
+                    "shapes_ids": shape_ids,
                 }
                 routes.append(route)
 
