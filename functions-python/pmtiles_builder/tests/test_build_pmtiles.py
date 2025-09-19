@@ -391,7 +391,7 @@ class TestPmtilesBuilder(unittest.TestCase):
                 self.assertEqual(data["type"], "FeatureCollection")
                 self.assertEqual(len(data["features"]), 1)
                 coords = data["features"][0]["geometry"]["coordinates"]
-                self.assertEqual(coords, [[-73.0, 45.0], [-73.1, 45.1]])
+                self.assertEqual([[-73.0, 45.0], [-73.1, 45.1]], coords)
 
     def test_load_agencies(self):
         builder = PmtilesBuilder("feed123", "feed123_dataset456")
