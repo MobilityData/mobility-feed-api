@@ -403,7 +403,12 @@ class PmtilesBuilder:
                     if shape_id:
                         coordinates = self._get_shape_points(shape_id, shapes_index)
                     if not coordinates:
-                        # We don't have the coordinates for the shape, fallback on using stops.
+                        logging.info(
+                            "Could not find coordinates for route_id:{%s} and shape_id: {%s}, "
+                            "fallback on using stops.",
+                            route_id,
+                            shape_id,
+                        )
                         trip_id = self.csv_cache.get_trip_from_route(route_id)
 
                         if trip_id:

@@ -25,4 +25,5 @@ google-cloud-storage
 python-dotenv==1.0.0
 tippecanoe
 psutil
+pandas
 
