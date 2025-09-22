@@ -122,19 +122,20 @@ class DatasetProcessor:
         """
         return f"{feed_stable_id}-{timestamp}"
 
-    def download_content(self, temporary_file_path, stable_id):
+    def download_content(self, temporary_file_path, feed_id):
         """
         Downloads the content of a URL and return the hash of the file
         """
         file_hash = download_and_get_hash(
             self.producer_url,
             file_path=temporary_file_path,
-            stable_id=stable_id,
+            feed_id=feed_id,
             authentication_type=self.authentication_type,
             api_key_parameter_name=self.api_key_parameter_name,
             credentials=self.feed_credentials,
             logger=self.logger,
         )
+        self.logger.info(f"hash is: {file_hash}")
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
 
@@ -194,7 +195,7 @@ class DatasetProcessor:
                 )
         return blob, extracted_files
 
-    def upload_dataset(self, stable_id, public=True) -> DatasetFile or None:
+    def upload_dataset(self, feed_id, public=True) -> DatasetFile or None:
         """
         Uploads a dataset to a GCP bucket as <feed_stable_id>/latest.zip and
         <feed_stable_id>/<feed_stable_id>-<upload_datetime>.zip
@@ -205,7 +206,7 @@ class DatasetProcessor:
         try:
             self.logger.info("Accessing URL %s", self.producer_url)
             temp_file_path = self.generate_temp_filename()
-            file_sha256_hash, is_zip = self.download_content(temp_file_path, stable_id)
+            file_sha256_hash, is_zip = self.download_content(temp_file_path, feed_id)
             if not is_zip:
                 self.logger.error(
                     f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
@@ -418,13 +419,13 @@ class DatasetProcessor:
 
     @with_db_session
     def process_from_producer_url(
-        self, stable_id, db_session: Session
+        self, feed_id, db_session: Session
     ) -> Optional[DatasetFile]:
         """
         Process the dataset and store new version in GCP bucket if any changes are detected
         :return: the DatasetFile object created
         """
-        dataset_file = self.upload_dataset(stable_id)
+        dataset_file = self.upload_dataset(feed_id)
 
         if dataset_file is None:
             self.logger.info(f"[{self.feed_stable_id}] No database update required.")
@@ -545,7 +546,7 @@ def process_dataset(cloud_event: CloudEvent):
         if json_payload.get("use_bucket_latest", False):
             dataset_file = processor.process_from_bucket()
         else:
-            dataset_file = processor.process_from_producer_url(stable_id)
+            dataset_file = processor.process_from_producer_url(json_payload["feed_id"])
     except Exception as e:
         # This makes sure the logger is initialized
         logger = get_logger("process_dataset", stable_id if stable_id else "UNKNOWN")

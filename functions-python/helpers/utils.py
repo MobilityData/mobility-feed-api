@@ -126,7 +126,7 @@ def download_and_get_hash(
     file_path,
     hash_algorithm="sha256",
     chunk_size=8192,
-    stable_id=None,
+    feed_id=None,
     authentication_type=0,
     api_key_parameter_name=None,
     credentials=None,
@@ -149,7 +149,7 @@ def download_and_get_hash(
         ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
 
         headers = get_config_value(
-            namespace="feed_download", key="http_headers", feed_stable_id=stable_id
+            namespace="feed_download", key="http_headers", feed_id=feed_id
         )
         if headers is None:
             headers = {

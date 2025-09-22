@@ -8,7 +8,7 @@ from shared.database_gen.sqlacodegen_models import ConfigKey, ConfigValueFeed
 def get_config_value(
     namespace: str,
     key: str,
-    feed_stable_id: Optional[str] = None,
+    feed_id: Optional[str] = None,
     db_session: Session = None,
 ) -> Optional[Any]:
     """
@@ -26,12 +26,12 @@ def get_config_value(
     :param db_session: The SQLAlchemy session, injected by the `with_db_session` decorator.
     :return: The configuration value, or None if not found.
     """
-    # 1. Try to get feed-specific value if feed_stable_id is provided
-    if feed_stable_id:
+    # 1. Try to get feed-specific value if feed_id is provided
+    if feed_id:
         feed_config = (
             db_session.query(ConfigValueFeed.value)
             .filter(
-                ConfigValueFeed.feed_stable_id == feed_stable_id,
+                ConfigValueFeed.feed_id == feed_id,
                 ConfigValueFeed.namespace == namespace,
                 ConfigValueFeed.key == key,
             )
@@ -40,8 +40,7 @@ def get_config_value(
         if feed_config:
             return feed_config.value
 
-
-    # 2. If not found or no feed_stable_id, get the default value
+    # 2. If not found or no feed_id, get the default value
     default_config = (
         db_session.query(ConfigKey.default_value).filter(ConfigKey.namespace == namespace, ConfigKey.key == key).first()
     )

@@ -11,12 +11,14 @@ CREATE TABLE config_key (
 
 -- 2. Per-feed overrides
 CREATE TABLE config_value_feed (
+  feed_id       varchar(255) NOT NULL,
   feed_stable_id       varchar(255) NOT NULL,
   namespace     text         NOT NULL,
   key           text         NOT NULL,
   value         jsonb        NOT NULL,
   updated_at    timestamptz  NOT NULL DEFAULT now(),
-  PRIMARY KEY (feed_stable_id, namespace, key),
+  PRIMARY KEY (feed_id, namespace, key),
+  FOREIGN KEY (feed_id) REFERENCES feed(id) ON DELETE CASCADE,
   FOREIGN KEY (namespace, key) REFERENCES config_key(namespace, key) ON DELETE CASCADE
 );
 
