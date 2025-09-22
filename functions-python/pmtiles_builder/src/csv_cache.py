@@ -98,20 +98,7 @@ class CsvCache:
         except Exception as e:
             raise Exception(f"Failed to read CSV file {filename}: {e}") from e
 
-    def get_trip_from_route(self, route_id):
-        if self.route_to_trip is None:
-            self.route_to_trip = {}
-            for row in self.get_file(TRIPS_FILE):
-                route_id = row["route_id"]
-                trip_id = row["trip_id"]
-                if trip_id:
-                    if self.route_to_trip.get(route_id):
-                        self.route_to_trip[route_id] = trip_id
-                    else:
-                        self.route_to_trip.setdefault(route_id, trip_id)
-        return self.route_to_trip.get(route_id, "")
-
-    def get_shape_from_route(self, route_id) -> List[ShapeTrips]:
+    def get_shape_from_route(self, route_id) -> Dict[str, List[ShapeTrips]]:
         """
         Returns a list of shape_ids with associated trip_ids information with a given route_id from the trips file.
         The relationship from the route to the shape is via the trips file.
@@ -152,7 +139,7 @@ class CsvCache:
                             trip_no_shapes = []
                             self.trips_no_shapes_per_route[route_id] = trip_no_shapes
                         trip_no_shapes.append(trip_id)
-        return self.route_to_shape.get(route_id, [])
+        return self.route_to_shape.get(route_id, {})
 
     def get_trips_without_shape_from_route(self, route_id) -> List[str]:
         return (

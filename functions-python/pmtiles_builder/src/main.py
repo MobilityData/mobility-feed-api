@@ -521,7 +521,7 @@ class PmtilesBuilder:
                     )
                 else:
                     self.logger.info(
-                        "Coordinates were not have the right formatting for stops of trip_id %s on route_id %s",
+                        "Coordinates do not have the right formatting for stops of trip_id %s on route_id %s",
                         trip_id,
                         route_id,
                     )

@@ -19,22 +19,35 @@ from shared.helpers.verifier_common import (
 )
 
 feeds = [
-    {"stable_id": "mdb-437", "dataset_stable_id": "mdb-437-202507081733"},
+    {"stable_id": "mdb-437", "dataset_stable_id": "mdb-437-202507081733", "env": "dev"},
+    {
+        "stable_id": "mdb-2841",
+        "dataset_stable_id": "mdb-2841-202509032137",
+        "env": "prod",
+    },
 ]
-run_with_feed_index = 0  # Change this index to run with a different feed
+run_with_feed_index = 1  # Change this index to run with a different feed
 
 FILES = [STOP_TIMES_FILE, SHAPES_FILE, TRIPS_FILE, ROUTES_FILE, STOPS_FILE, AGENCY_FILE]
 
 
-def download_feed_files(feed_stable_id: str, dataset_stable_id: str):
-    FILES_URL = "https://dev-files.mobilitydatabase.org"
+def download_feed_files(
+    feed_stable_id: str,
+    dataset_stable_id: str,
+    env: str = "dev",
+    force_download: bool = False,
+):
+    url_prefix = "" if env == "prod" else f"{env}-"
+    FILES_URL = f"https://{url_prefix}files.mobilitydatabase.org"
     base_url = f"{FILES_URL}/{feed_stable_id}/{dataset_stable_id}/extracted"
     for file in FILES:
         url = f"{base_url}/{file}"
         logging.info(f"Downloading {url}")
         filename = f"{dataset_stable_id}/extracted/{file}"
         try:
-            download_to_local(feed_stable_id, url, filename, False)
+            download_to_local(
+                feed_stable_id, url, filename, force_download=force_download
+            )
         except Exception as e:
             logging.warning(f"Failed to download {file}: {e}")
 
@@ -65,7 +78,7 @@ if __name__ == "__main__":
         )
     try:
         server = setup_local_storage_emulator()
-        download_feed_files(feed_stable_id, dataset_stable_id)
+        download_feed_files(feed_stable_id, dataset_stable_id, feed_dict["env"])
         response = build_pmtiles_handler(request)
         logging.info(response)
     except Exception as e:
