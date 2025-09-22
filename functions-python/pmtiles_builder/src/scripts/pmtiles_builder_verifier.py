@@ -34,7 +34,7 @@ def download_feed_files(feed_stable_id: str, dataset_stable_id: str):
         logging.info(f"Downloading {url}")
         filename = f"{dataset_stable_id}/extracted/{file}"
         try:
-            download_to_local(feed_stable_id, url, filename, True)
+            download_to_local(feed_stable_id, url, filename, False)
         except Exception as e:
             logging.warning(f"Failed to download {file}: {e}")
 

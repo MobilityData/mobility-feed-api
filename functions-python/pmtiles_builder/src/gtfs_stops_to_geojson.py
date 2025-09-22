@@ -15,7 +15,7 @@ def create_routes_map(routes_data):
     """Creates a dictionary of routes from route data."""
     routes = {}
     for row in routes_data:
-        route_id = row.get("route_id")
+        route_id = get_safe_value(row, "route_id")
         if route_id:
             routes[route_id] = row
     return routes
@@ -26,16 +26,16 @@ def build_stop_to_routes(stop_times_data, trips_data):
     # Build trip_id -> route_id mapping
     trip_to_route = {}
     for row in trips_data:
-        trip_id = row.get("trip_id")
-        route_id = row.get("route_id")
+        trip_id = get_safe_value(row, "trip_id")
+        route_id = get_safe_value(row, "route_id")
         if trip_id and route_id:
             trip_to_route[trip_id] = route_id
 
     # Build stop_id -> set of route_ids
     stop_to_routes = defaultdict(set)
     for row in stop_times_data:
-        trip_id = row.get("trip_id")
-        stop_id = row.get("stop_id")
+        trip_id = get_safe_value(row, "trip_id")
+        stop_id = get_safe_value(row, "stop_id")
         if trip_id and stop_id:
             route_id = trip_to_route.get(trip_id)
             if route_id:

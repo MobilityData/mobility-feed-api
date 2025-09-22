@@ -39,13 +39,14 @@ from csv_cache import (
     STOPS_FILE,
     AGENCY_FILE,
     SHAPES_FILE,
+    ShapeTrips,
 )
 from gtfs_stops_to_geojson import convert_stops_to_geojson
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
-from shared.helpers.transform import get_safe_value
+from shared.helpers.transform import get_safe_value, get_safe_float
 
 init_logger()
 
@@ -349,7 +350,12 @@ class PmtilesBuilder:
                     if not line:
                         break
                     row = dict(zip(columns, next(csv.reader([line]))))
-                    sid = row["shape_id"]
+                    sid = get_safe_value(row, "shape_id")
+                    if not sid:
+                        self.logger.warning(
+                            "Missing shape_id at line %s, skipping.", row
+                        )
+                        continue
                     shapes_index.setdefault(sid, []).append(pos)
                     count += 1
                     if count % 1000000 == 0:
@@ -371,11 +377,21 @@ class PmtilesBuilder:
                     f.seek(pos)
                     line = f.readline()
                     row = dict(zip(index["columns"], next(csv.reader([line]))))
+                    shape_pt_lon = get_safe_float(row, "shape_pt_lon")
+                    shape_pt_lat = get_safe_float(row, "shape_pt_lat")
+                    shape_pt_sequence = get_safe_float(row, "shape_pt_sequence", 0)
+                    if shape_pt_lon is None or shape_pt_lat is None:
+                        self.logger.warning(
+                            "Invalid coordinates for shape_id %s at position %d, skipping.",
+                            shape_id,
+                            pos,
+                        )
+                        continue
                     points.append(
                         (
-                            float(row["shape_pt_lon"]),
-                            float(row["shape_pt_lat"]),
-                            int(row["shape_pt_sequence"]),
+                            shape_pt_lon,
+                            shape_pt_lat,
+                            shape_pt_sequence,
                         )
                     )
             points.sort(key=lambda x: x[2])
@@ -444,7 +460,7 @@ class PmtilesBuilder:
                             "Processed route %d (route_id: %s)", i, route_id
                         )
 
-                # geojson_file.write("\n]}")
+                geojson_file.write("\n]}")
 
             if missing_coordinates_routes:
                 self.logger.info(
@@ -457,7 +473,7 @@ class PmtilesBuilder:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
 
     def get_route_coordinates(self, route_id, shapes_index) -> List[RouteCoordinates]:
-        shapes: Dict[str, List[str]] = self.csv_cache.get_shape_from_route(route_id)
+        shapes: Dict[str, ShapeTrips] = self.csv_cache.get_shape_from_route(route_id)
         result: List[RouteCoordinates] = []
         if shapes:
             for shape_id, trip_ids in shapes.items():
@@ -545,7 +561,6 @@ class PmtilesBuilder:
             routes = []
             for row in self.csv_cache.get_file(ROUTES_FILE):
                 route_id = get_safe_value(row, "route_id", "")
-                shape_ids = self.csv_cache.get_shape_from_route(route_id)
                 route = {
                     "routeId": route_id,
                     "routeName": get_safe_value(row, "route_long_name", "")
@@ -554,7 +569,6 @@ class PmtilesBuilder:
                     "color": f"#{get_safe_value(row, 'route_color', '000000')}",
                     "textColor": f"#{get_safe_value(row, 'route_text_color', 'FFFFFF')}",
                     "routeType": f"{get_safe_value(row, 'route_type', '')}",
-                    "shapes_ids": shape_ids,
                 }
                 routes.append(route)
 
