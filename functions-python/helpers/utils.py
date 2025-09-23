@@ -333,7 +333,7 @@ def record_execution_trace(
     trace_service.save(trace)
 
 
-def detect_encoding(filename: str, sample_size: int = 100_000, logger=None) -> str:
+def detect_encoding(filename: str, sample_size: int = 100_000, logger: Optional[logging.Logger] = None) -> str:
     """Detect file encoding using a small sample of the file.
     If detections fails or if UTF-8 is detected, defaults to 'utf-8-sig' to handle BOM.
     """
