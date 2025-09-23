@@ -149,7 +149,8 @@ def download_and_get_hash(
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/126.0.0.0 Mobile Safari/537.36"
+            "Chrome/126.0.0.0 Mobile Safari/537.36",
+            "Referer": url,
         }
         # Careful, some URLs may already contain a query string
         # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)

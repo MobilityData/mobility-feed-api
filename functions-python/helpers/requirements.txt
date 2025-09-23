@@ -29,3 +29,4 @@ google-cloud-bigquery
 # Additional package
 pycountry
 shapely
+pandas

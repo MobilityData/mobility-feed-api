@@ -50,7 +50,7 @@ class TestGtfsStopsToGeoJson(unittest.TestCase):
             with open(output_file) as f:
                 geojson = json.load(f)
             self.assertEqual(geojson["type"], "FeatureCollection")
-            self.assertEqual(len(geojson["features"]), 2)  # skips stop with no coords
+            self.assertEqual(2, len(geojson["features"]))  # skips stop with no coords
             props = geojson["features"][0]["properties"]
             self.assertIn("stop_id", props)
             self.assertIn("route_ids", props)

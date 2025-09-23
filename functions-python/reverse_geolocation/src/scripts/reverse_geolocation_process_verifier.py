@@ -5,27 +5,26 @@
 
 import json
 import logging
-import os
-import uuid
-from io import BytesIO
 from typing import Dict
 
 import folium
-import requests
 from dotenv import load_dotenv
-from google.cloud import storage
-from sqlalchemy.orm import Session
 
 from reverse_geolocation_processor import reverse_geolocation_process
-from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gbfsfeed
 from shared.helpers.locations import ReverseGeocodingStrategy
 from shared.helpers.logger import init_logger
-from shared.helpers.runtime_metrics import track_metrics
 
-HOST = "localhost"
-PORT = 9023
-BUCKET_NAME = "verifier"
+from shared.helpers.verifier_common import (
+    download_to_local,
+    EMULATOR_STORAGE_BUCKET_NAME,
+    create_test_data,
+    EMULATOR_HOST,
+    EMULATOR_STORAGE_PORT,
+    setup_local_storage_emulator,
+    shutdown_local_storage_emulator,
+    start_datastore_emulator,
+    shutdown_datastore_emulator,
+)
 
 feeds = [
     {
@@ -80,7 +79,7 @@ feeds = [
     },
 ]
 run_with_feed_index = (
-    1  # Set to an integer index to run with a specific feed from the list above
+    3  # Set to an integer index to run with a specific feed from the list above
 )
 
 
@@ -88,38 +87,6 @@ run_with_feed_index = (
 load_dotenv(dotenv_path=".env.local")
 
 init_logger()
-
-
-@track_metrics(metrics=("time", "memory", "cpu"))
-def download_to_local(
-    feed_stable_id: str, url: str, filename: str, force_download: bool = False
-):
-    """
-    Download a file from a URL and upload it to the Google Cloud Storage emulator.
-    If the file already exists, it will not be downloaded again.
-    Args:
-        url (str): The URL to download the file from.
-        filename (str): The name of the file to save in the emulator.
-    """
-    if not url:
-        return
-    blob_path = f"{feed_stable_id}/{filename}"
-    client = storage.Client()
-    bucket = client.bucket(BUCKET_NAME)
-    blob = bucket.blob(blob_path)
-
-    # Check if the blob already exists in the emulator
-    if not blob.exists() or force_download:
-        logging.info(f"Downloading and uploading: {blob_path}")
-        with requests.get(url, stream=True) as response:
-            response.raise_for_status()
-            blob.content_type = "application/json"
-            # The file is downloaded into memory before uploading to ensure it's seekable.
-            # Be careful with large files.
-            data = BytesIO(response.content)
-            blob.upload_from_file(data, rewind=True)
-    else:
-        logging.info(f"Blob already exists: gs://{BUCKET_NAME}/{blob_path}")
 
 
 def verify_reverse_geolocation_process(
@@ -183,7 +150,10 @@ def verify_reverse_geolocation_process(
         reverse_geolocation_process(request)
 
         # Visualize the resulting geojson file
-        url = f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/geolocation.geojson"
+        url = (
+            f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+            f"/{feed_stable_id}/geolocation.geojson"
+        )
         gdf = gpd.read_file(url)
 
         # Calculate centroid for map center
@@ -203,37 +173,8 @@ def verify_reverse_geolocation_process(
         )
 
 
-@with_db_session
-def create_test_data(feed_stable_id: str, feed_dict: Dict, db_session: Session = None):
-    """
-    Create test data in the database if it does not exist.
-    This function is used to ensure that the reverse geolocation process has the necessary data to work with.
-    """
-    # Here you would typically interact with your database to create the necessary test data
-    # For this example, we will just log the action
-    logging.info(f"Creating test data for {feed_stable_id} with data: {feed_dict}")
-    model = Gtfsfeed if feed_dict["data_type"] == "gtfs" else Gbfsfeed
-    local_feed = (
-        db_session.query(model).filter(model.stable_id == feed_stable_id).one_or_none()
-    )
-    if not local_feed:
-        local_feed = model(
-            id=uuid.uuid4(),
-            stable_id=feed_stable_id,
-            data_type=feed_dict["data_type"],
-            feed_name="Test Feed",
-            note="This is a test feed created for reverse geolocation verification.",
-            producer_url="https://files.mobilitydatabase.org/mdb-2014/mdb-2014-202508120303/mdb-2014-202508120303.zip",
-            authentication_type="0",
-            status="active",
-        )
-        db_session.add(local_feed)
-        db_session.commit()
-
-
 if __name__ == "__main__":
     import geopandas as gpd
-    from gcp_storage_emulator.server import create_server
     from flask import Flask, Request
 
     strategy = ReverseGeocodingStrategy.PER_POINT
@@ -245,16 +186,20 @@ if __name__ == "__main__":
     data = {
         "stable_id": feed_stable_id,
         "dataset_id": feed_dict["dataset_id"] if "dataset_id" in feed_dict else None,
-        "station_information_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/station_information.json"
+        "station_information_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+        f"/{feed_stable_id}/station_information.json"
         if "station_information_url" in feed_dict
         else None,
-        "vehicle_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/vehicle_status.json"
+        "vehicle_status_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+        f"/{feed_stable_id}/vehicle_status.json"
         if "vehicle_status_url" in feed_dict
         else None,
-        "free_bike_status_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/free_bike_status.json"
+        "free_bike_status_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+        f"/{feed_stable_id}/free_bike_status.json"
         if "free_bike_status_url" in feed_dict
         else None,
-        "stops_url": f"http://{HOST}:{PORT}/{BUCKET_NAME}/{feed_stable_id}/stops.txt",
+        "stops_url": f"http://{EMULATOR_HOST}:{EMULATOR_STORAGE_PORT}/{EMULATOR_STORAGE_BUCKET_NAME}"
+        f"/{feed_stable_id}/stops.txt",
         "strategy": str(strategy.value),
         "data_type": feed_dict["data_type"],
         # "use_cache": False,
@@ -263,14 +208,8 @@ if __name__ == "__main__":
     }
 
     try:
-        os.environ["STORAGE_EMULATOR_HOST"] = f"http://{HOST}:{PORT}"
-        os.environ["DATASETS_BUCKET_NAME_GBFS"] = BUCKET_NAME
-        os.environ["DATASETS_BUCKET_NAME_GTFS"] = BUCKET_NAME
-        os.environ["DATASTORE_EMULATOR_HOST"] = "localhost:8081"
-        server = create_server(
-            host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
-        )
-        server.start()
+        server = setup_local_storage_emulator()
+        datastore_process = start_datastore_emulator()
         verify_reverse_geolocation_process(
             feed_stable_id=feed_stable_id,
             feed_dict=feed_dict,
@@ -280,4 +219,5 @@ if __name__ == "__main__":
     except Exception as e:
         logging.error(f"Error verifying download content: {e}")
     finally:
-        server.stop()
+        shutdown_local_storage_emulator(server)
+        shutdown_datastore_emulator(datastore_process)
