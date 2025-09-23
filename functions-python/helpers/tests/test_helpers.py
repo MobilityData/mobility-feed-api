@@ -265,6 +265,7 @@ class TestHelpers(unittest.TestCase):
 class TestDetectEncoding(unittest.TestCase):
     def test_utf8_encoding(self):
         with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as f:
+            f.write("\ufeff")  # Write BOM
             f.write("col1,col2\nval1,val2\n")
             fname = f.name
         enc = detect_encoding(fname)
