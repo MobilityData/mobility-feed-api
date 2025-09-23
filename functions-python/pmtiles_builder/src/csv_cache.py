@@ -93,7 +93,7 @@ class CsvCache:
         """
         try:
             self.logger.debug("Loading %s", filename)
-            encoding = detect_encoding(filename)
+            encoding = detect_encoding(filename, logger=self.logger)
             with open(filename, newline="", encoding=encoding) as f:
                 return list(csv.DictReader(f))
         except Exception as e:
