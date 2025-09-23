@@ -421,16 +421,16 @@ class PmtilesBuilder:
                     agency_name = agencies.get(agency_id, agency_id)
 
                     route_id = route["route_id"]
-                    logging.info("Processing route_id %s", route_id)
+                    logging.debug("Processing route_id %s", route_id)
                     trips_coordinates: list[
                         RouteCoordinates
                     ] = self.get_route_coordinates(route_id, shapes_index)
                     if not trips_coordinates:
                         missing_coordinates_routes.add(route_id)
                         continue
-                    for trips_coordinates in trips_coordinates:
-                        trip_ids = trips_coordinates["trip_ids"]
-                        shape_id = trips_coordinates["shape_id"]
+                    for trip_coordinates in trips_coordinates:
+                        trip_ids = trip_coordinates["trip_ids"]
+                        shape_id = trip_coordinates["shape_id"]
                         feature = {
                             "type": "Feature",
                             "properties": {
@@ -446,7 +446,7 @@ class PmtilesBuilder:
                             },
                             "geometry": {
                                 "type": "LineString",
-                                "coordinates": trips_coordinates["coordinates"],
+                                "coordinates": trip_coordinates["coordinates"],
                             },
                         }
 

@@ -118,15 +118,10 @@ class CsvCache:
                 trip_id = get_safe_value(row, "trip_id")
                 if route_id and trip_id:
                     if shape_id:
-                        route_shapes = self.route_to_shape.get(route_id, None)
-                        if route_shapes is None:
-                            route_shapes = {}
-                            self.route_to_shape[route_id] = route_shapes
-                        if shape_id not in route_shapes:
-                            shape_trips = {"shape_id": shape_id, "trip_ids": []}
-                            route_shapes[shape_id] = shape_trips
-                        else:
-                            shape_trips = route_shapes[shape_id]
+                        route_shapes = self.route_to_shape.setdefault(route_id, {})
+                        shape_trips = route_shapes.setdefault(
+                            shape_id, {"shape_id": shape_id, "trip_ids": []}
+                        )
                         shape_trips["trip_ids"].append(trip_id)
                     else:
                         # Registering the trip without a shape for this route for later retrieval.
@@ -142,11 +137,7 @@ class CsvCache:
         return self.route_to_shape.get(route_id, {})
 
     def get_trips_without_shape_from_route(self, route_id) -> List[str]:
-        return (
-            self.trips_no_shapes_per_route[route_id]
-            if route_id in self.trips_no_shapes_per_route
-            else []
-        )
+        return self.trips_no_shapes_per_route.get(route_id, [])
 
     def get_stops_from_trip(self, trip_id):
         if self.trip_to_stops is None:
