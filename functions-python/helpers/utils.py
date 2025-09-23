@@ -331,3 +331,29 @@ def record_execution_trace(
         timestamp=datetime.now(),
     )
     trace_service.save(trace)
+
+
+def detect_encoding(filename: str, sample_size: int = 100_000, logger=None) -> str:
+    """Detect file encoding using a small sample of the file.
+    If detections fails or if UTF-8 is detected, defaults to 'utf-8-sig' to handle BOM.
+    """
+    from charset_normalizer import from_bytes
+
+    with open(filename, "rb") as f:
+        raw = f.read(sample_size)
+    result = from_bytes(raw).best()
+
+    if result is None:
+        logger = logger or logging.getLogger(__name__)
+        logger.warning(
+            "Encoding detection failed for %s, defaulting to utf-8-sig", filename
+        )
+        return "utf-8-sig"
+
+    enc = result.encoding.lower()
+
+    # If UTF-8 is detected, always use utf-8-sig to strip BOM if present
+    if enc in ("utf_8", "utf-8", "utf8", "utf8mb4"):
+        return "utf-8-sig"
+
+    return enc
