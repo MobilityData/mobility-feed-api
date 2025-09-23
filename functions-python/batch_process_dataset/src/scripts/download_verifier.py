@@ -68,6 +68,10 @@ if __name__ == "__main__":
     # Replace with actual producer URL
     try:
         os.environ["STORAGE_EMULATOR_HOST"] = f"http://{HOST}:{PORT}"
+        os.environ["WORKING_DIR"] = "/tmp/verifier"
+        # create working dir if not exists
+        if not os.path.exists(os.environ["WORKING_DIR"]):
+            os.makedirs(os.environ["WORKING_DIR"])
         server = create_server(
             host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
         )
