@@ -70,7 +70,6 @@ export default function FullMapView(): React.ReactElement {
     hosted_url: gtfsFeed?.latest_dataset?.hosted_url,
     id: gtfsFeed?.latest_dataset?.id,
   };
-  // const latestDataset = useSelector(selectLatestDatasetsData);
   const boundingBox = useSelector(selectGtfsFeedBoundingBox);
   const routes = useSelector(selectGtfsDatasetRoutesJson);
   const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
