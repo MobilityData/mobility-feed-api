@@ -155,7 +155,8 @@ def download_and_get_hash(
             headers = {
                 "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/126.0.0.0 Mobile Safari/537.36"
+                "Chrome/126.0.0.0 Mobile Safari/537.36",
+                "Referer": url,
             }
 
         # authentication_type == 1 -> the credentials are passed in the url

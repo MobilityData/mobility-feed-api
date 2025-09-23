@@ -104,6 +104,7 @@ class TestHelpers(unittest.TestCase):
                 preload_content=False,
                 headers={
                     "User-Agent": expected_user_agent,
+                    "Referer": url,
                     api_key_parameter_name: credentials,
                 },
                 redirect=True,
@@ -155,7 +156,7 @@ class TestHelpers(unittest.TestCase):
                 "GET",
                 modified_url,
                 preload_content=False,
-                headers={"User-Agent": expected_user_agent},
+                headers={"User-Agent": expected_user_agent, "Referer": base_url},
                 redirect=True,
             )
 

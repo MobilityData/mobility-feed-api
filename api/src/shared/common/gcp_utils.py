@@ -1,8 +1,6 @@
 import json
 import logging
 import os
-from google.cloud import tasks_v2
-from google.protobuf.timestamp_pb2 import Timestamp
 
 REFRESH_VIEW_TASK_EXECUTOR_BODY = json.dumps(
     {"task": "refresh_materialized_view", "payload": {"dry_run": False}}
@@ -10,6 +8,8 @@ REFRESH_VIEW_TASK_EXECUTOR_BODY = json.dumps(
 
 
 def create_refresh_materialized_view_task():
+    from google.cloud import tasks_v2
+
     """
     Asynchronously refresh a materialized view.
     Ensures deduplication by generating a unique task name.
@@ -70,18 +70,19 @@ def create_refresh_materialized_view_task():
 
 
 def create_http_task_with_name(
-    client: "tasks_v2.CloudTasksClient",
+    client: any,  # tasks_v2.CloudTasksClient
     body: bytes,
     url: str,
     project_id: str,
     gcp_region: str,
     queue_name: str,
     task_name: str,
-    task_time: Timestamp,
-    http_method: "tasks_v2.HttpMethod",
+    task_time,
+    http_method: any,  # tasks_v2.HttpMethod
     timeout_s: int = 1800,  # 30 minutes
 ):
     """Creates a GCP Cloud Task."""
+    from google.cloud import tasks_v2
     from google.protobuf import duration_pb2
 
     token = tasks_v2.OidcToken(service_account_email=os.getenv("SERVICE_ACCOUNT_EMAIL"))

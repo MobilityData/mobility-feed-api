@@ -17,6 +17,8 @@
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+import pytest
+
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Feed,
@@ -57,7 +59,7 @@ def populate_database(db_session):
             db_session.add(
                 Feed(id=str(_id), status=status, stable_id="mdb-" + str(_id))
             )
-
+    db_session.flush()
     # -> inactive
     for _id in [
         "0",  # already inactive
@@ -87,6 +89,7 @@ def populate_database(db_session):
     db_session.commit()
 
 
-def pytest_sessionstart(session):
+@pytest.fixture(autouse=True)
+def setup():
     clean_testing_db()
     populate_database()

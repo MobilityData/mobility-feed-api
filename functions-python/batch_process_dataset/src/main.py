@@ -334,8 +334,9 @@ class DatasetProcessor:
         """
         Generates a temporary filename
         """
+        working_dir = os.getenv("WORKING_DIR", "/in-memory")
         temporary_file_path = (
-            f"/in-memory/{self.feed_stable_id}-{random.randint(0, 1000000)}.zip"
+            f"{working_dir}/{self.feed_stable_id}-{random.randint(0, 1000000)}.zip"
         )
         return temporary_file_path
 
