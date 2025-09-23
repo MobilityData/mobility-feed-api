@@ -42,13 +42,16 @@ export const GtfsVisualizationMap = ({
   hideStops = false,
 }: GtfsVisualizationMapProps): JSX.Element => {
 
-    const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(() => {
-    const baseUrl = latestDataset?.hosted_url ? latestDataset.hosted_url.replace(/[^/]+$/, '') : undefined;
-     const stops = `${baseUrl}/pmtiles/stops.pmtiles`;
-     const routes = `${baseUrl}/pmtiles/routes.pmtiles`;
-
-     return { stopsPmtilesUrl: stops, routesPmtilesUrl: routes };
-  }, [latestDataset?.id, latestDataset?.stable_id]);
+    const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(
+      () =>
+      {
+        const baseUrl = latestDataset?.hosted_url ? latestDataset.hosted_url.replace(/[^/]+$/, '') : undefined;
+        const stops = `${baseUrl}/pmtiles/stops.pmtiles`;
+        const routes = `${baseUrl}/pmtiles/routes.pmtiles`;
+        return { stopsPmtilesUrl: stops, routesPmtilesUrl: routes };
+     },
+      [latestDataset?.id, latestDataset?.stable_id]
+    );
 
   const theme = useTheme();
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
@@ -58,10 +61,7 @@ export const GtfsVisualizationMap = ({
     string,
     string
   > | null>(null);
-  const [mapClickStopData, setMapClickStopData] = useState<Record<
-    string,
-    string
-  > | null>(null);
+  const [mapClickStopData, setMapClickStopData] = useState<Record<string, string> | null>(null);
   const mapRef = useRef<MapRef>(null);
 
   // Create a map to store routeId to routeColor mapping

@@ -152,7 +152,7 @@
   },
   "viewRealtimeVisualization": "View real-time visualization",
   "versions": "Versions",
-  "dataAattribution": "Transit data provided by",
+  "dataAttribution": "Transit data provided by",
   "emptyLicenseUsage": "Can this feed be used commercially by trip planners and other third parties?",
   "common": {
     "form": {
@@ -161,5 +161,13 @@
       "notSure": "Unsure"
     }
   },
-  "openDetailedMap": "Open Detailed Map"
+  "openDetailedMap": "Open Detailed Map",
+  "retry": "Retry",
+  "visualizationMapErrors": {
+    "errorDescription": "An error occurred while loading the map.",
+    "noFeedMetadata": "Could not load feed metadata.",
+    "noRoutesData": "Could not load routes data for the map.",
+    "invalidDataType": "This feed is not a GTFS Schedule feed.",
+    "noBoundingBox": "No bounding box available."
+  }
 }

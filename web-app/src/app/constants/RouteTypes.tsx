@@ -59,7 +59,13 @@ export const getRouteByTypeOrDefault = (
   if (routeType == null) {
     return defaultRouteType;
   }
-  return routeTypesMapping[routeType] ?? defaultRouteType;
+  return (
+    routeTypesMapping[routeType] ?? {
+      name: routeType,
+      icon: PlaceIcon,
+      isDefault: true,
+    }
+  );
 };
 
 export const getRouteTypeTranslatedName = (
@@ -69,5 +75,5 @@ export const getRouteTypeTranslatedName = (
   const routeType = getRouteByTypeOrDefault(routeTypeId);
   return !(routeType.isDefault ?? false)
     ? t(`common:gtfsSpec.routeType.${routeTypeId}.name`)
-    : '';
+    : routeType.name;
 };

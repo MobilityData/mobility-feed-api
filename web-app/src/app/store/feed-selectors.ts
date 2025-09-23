@@ -66,6 +66,15 @@ export const selectLatestGbfsVersion = (
   return undefined;
 };
 
+export const selectLatestGtfsDatasetId = (
+  state: RootState,
+): string | undefined => {
+  if (state.feedProfile.data?.data_type === 'gtfs') {
+    const gtfsFeed: GTFSFeedType = state.feedProfile.data;
+    return gtfsFeed?.latest_dataset?.id ?? undefined;
+  }
+};
+
 export const selectAutoDiscoveryUrl = (
   state: RootState,
 ): string | undefined => {

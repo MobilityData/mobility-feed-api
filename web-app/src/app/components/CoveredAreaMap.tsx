@@ -30,13 +30,13 @@ import { OpenInNew } from '@mui/icons-material';
 import { computeBoundingBox } from '../screens/Feed/Feed.functions';
 import { displayFormattedDate } from '../utils/date';
 import { useSelector } from 'react-redux';
-import { selectLatestGbfsVersion } from '../store/feed-selectors';
 import ModeOfTravelIcon from '@mui/icons-material/ModeOfTravel';
 import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import ReactGA from 'react-ga4';
-import { selectGtfsDatasetRoutesJson } from '../store/supporting-files-selectors';
+import { selectLatestGbfsVersion } from '../store/feed-selectors';
+import { selectGtfsDatasetRoutesLoadingStatus } from '../store/supporting-files-selectors';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
@@ -85,97 +85,35 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   );
 
   const latestGbfsVersion = useSelector(selectLatestGbfsVersion);
-  const routes = useSelector(selectGtfsDatasetRoutesJson);
-  const [preferVizUntil, setPreferVizUntil] = useState<number>(0);
+  const routesJsonLoadingStatus = useSelector(
+    selectGtfsDatasetRoutesLoadingStatus,
+  );
 
-  useEffect(() => {
-    if (feed?.data_type === 'gtfs' && config.enableGtfsVisualizationMap) {
-      // start a short grace window whenever the feed changes (or page refreshes)
-      setPreferVizUntil(Date.now() + 2000); // ~1.2s
-      // update value in 2s
-      setTimeout(() => {
-        setPreferVizUntil(0);
-      }, 2000);
-    }
-  }, [
-    feed?.data_type,
-    config.enableGtfsVisualizationMap,
-    latestDataset?.hosted_url,
-  ]);
-
-  const waitingForVizDecision = useMemo(() => {
-    const maybeViz =
-      feed?.data_type === 'gtfs' && config.enableGtfsVisualizationMap;
-    const noRoutesYet = routes === undefined || routes.length <= 1; // <=1 means not eligible *yet*
-    const withinGrace = Date.now() < preferVizUntil;
-    console.log('withinGrace', withinGrace);
-    return maybeViz && noRoutesYet && withinGrace;
-  }, [
-    feed?.data_type,
-    config.enableGtfsVisualizationMap,
-    routes,
-    preferVizUntil,
-  ]);
-
-  const getDataAndSetView = (urlToExtract: string): void => {
-    console.log('getDataAndSetView called with', urlToExtract);
-    if (
-      feed?.data_type === 'gtfs' &&
-      routes !== undefined &&
-      routes.length > 1
-    ) {
-      setView('gtfsVisualizationView');
-      if (geoJsonData !== null) {
-        // we already have geojson; keep it for overlay/future toggle
-        // but don't switch away from viz
-        return;
-      }
-    } else if (feed?.data_type === 'gtfs') {
-      setView('boundingBoxView');
-    }
-
+  const getAndSetGeoJsonData = (urlToExtract: string): void => {
     setGeoJsonLoading(true);
     fetchGeoJson(urlToExtract)
       .then((data) => {
-        console.log('getDataAndSetView', data);
         setGeoJsonData(data);
         setGeoJsonError(false);
-
-        const vizDefinitelyNotHappening =
-          feed?.data_type !== 'gtfs' ||
-          !config.enableGtfsVisualizationMap ||
-          // don't give up until grace passes and routes have finished resolving (but still not eligible)
-          (Date.now() >= preferVizUntil &&
-            (routes === undefined || routes.length <= 1));
-        console.log('vizDefinitelyNotHappening', vizDefinitelyNotHappening);
-        if (vizDefinitelyNotHappening) {
-          console.log('its set here -- if statement 1');
-          setView('detailedCoveredAreaView');
-        }
       })
       .catch(() => {
-        console.log('error fetching geojson');
         setGeoJsonError(true);
       })
       .finally(() => {
-        console.log('geojson fetch attempt finished and set to false');
         setGeoJsonLoading(false);
       });
   };
 
   useEffect(() => {
     if (feed?.data_type === 'gbfs') {
-      console.log('are we in here?');
-      console.log(latestGbfsVersion);
       const latestGbfsVersionReportUrl =
         latestGbfsVersion?.latest_validation_report?.report_summary_url;
-      console.log('latestGbfsVersionReportUrl', latestGbfsVersionReportUrl);
       if (latestGbfsVersionReportUrl === undefined) {
         setGeoJsonData(null);
         setGeoJsonError(true);
         return;
       }
-      getDataAndSetView(latestGbfsVersionReportUrl);
+      getAndSetGeoJsonData(latestGbfsVersionReportUrl);
       return;
     }
     if (
@@ -183,19 +121,32 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       latestDataset?.hosted_url != undefined &&
       boundingBox != undefined
     ) {
-      getDataAndSetView(latestDataset.hosted_url);
+      getAndSetGeoJsonData(latestDataset.hosted_url);
       return;
     }
     setGeoJsonData(null);
     setGeoJsonError(true);
+  }, [latestDataset, feed]);
+
+  // effect to determine which view to display
+  useEffect(() => {
+    if (feed == undefined) return;
+    if (feed?.data_type === 'gbfs') return;
+    if (routesJsonLoadingStatus != 'failed' && boundingBox != undefined) {
+      setView('gtfsVisualizationView');
+      return;
+    }
+    if (geoJsonData != null && boundingBox != undefined) {
+      setView('detailedCoveredAreaView');
+      return;
+    }
     setView('boundingBoxView');
-  }, [latestDataset, feed, routes, latestGbfsVersion, preferVizUntil]);
+  }, [feed, routesJsonLoadingStatus, boundingBox, geoJsonData]);
 
   const handleViewChange = (
     _: React.MouseEvent<HTMLElement>,
     newView: MapViews | null,
   ): void => {
-    console.log('its set here -- on click');
     if (newView !== null) setView(newView);
   };
 
@@ -217,41 +168,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     return undefined;
   };
 
-  const enableGtfsVisualizationView = useMemo(() => {
-    console.log('enableGtfsVisualizationView');
-    console.log('the routes are', routes);
-    return (
-      feed?.data_type === 'gtfs' &&
-      config.enableGtfsVisualizationMap &&
-      routes !== undefined &&
-      boundingBox != undefined &&
-      routes.length > 1 &&
-      Date.now() >= preferVizUntil
-    );
-  }, [
-    feed?.data_type,
-    config.enableGtfsVisualizationMap,
-    routes,
-    boundingBox,
-    preferVizUntil,
-  ]);
-
   const renderMap = (): JSX.Element => {
-    // if we're GTFS and still deciding about viz, show skeleton instead of falling back early
-    if (waitingForVizDecision) {
-      console.log('waitingForVizDecision');
-      return (
-        <Skeleton
-          variant='rectangular'
-          width='100%'
-          height='100%'
-          animation='wave'
-        />
-      );
-    }
-    console.log('the bouding box is', boundingBox);
-    console.log('the view is', view);
-
     const displayBoundingBoxMap =
       view === 'boundingBoxView' && feed?.data_type === 'gtfs';
 
@@ -263,9 +180,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       if (geoJsonData == null) {
         return <></>;
       }
-      console.log('geojson data for gbfs is', geoJsonData);
       gbfsBoundingBox = computeBoundingBox(geoJsonData) ?? [];
-      console.log('GBFS bounding box computed as', gbfsBoundingBox);
       if (gbfsBoundingBox.length === 0) {
         setGeoJsonError(true);
       }
@@ -284,7 +199,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
             component={Link}
             to='./map'
           >
-            <ZoomOutMapIcon />
+            <ZoomOutMapIcon></ZoomOutMapIcon>
           </Fab>
           <GtfsVisualizationMap
             polygon={boundingBox ?? []}
@@ -293,17 +208,33 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         </>
       );
     }
-
-    return (
-      <MapGeoJSON
-        geoJSONData={geoJsonData}
-        polygon={boundingBox ?? gbfsBoundingBox}
-        displayMapDetails={feed?.data_type === 'gtfs'}
-      />
-    );
+    if (geoJsonData != null) {
+      return (
+        <MapGeoJSON
+          geoJSONData={geoJsonData}
+          polygon={boundingBox ?? gbfsBoundingBox}
+          displayMapDetails={feed?.data_type === 'gtfs'}
+        />
+      );
+    }
+    return <></>;
   };
 
   const latestAutodiscoveryUrl = getGbfsLatestVersionVisualizationUrl();
+  const enableGtfsVisualizationView = useMemo(() => {
+    return (
+      config.enableGtfsVisualizationMap &&
+      feed?.data_type === 'gtfs' &&
+      routesJsonLoadingStatus != 'failed' &&
+      boundingBox != undefined
+    );
+  }, [
+    feed?.data_type,
+    config.enableGtfsVisualizationMap,
+    routesJsonLoadingStatus,
+    boundingBox,
+  ]);
+
   return (
     <ContentBox
       sx={{
@@ -379,10 +310,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
               <Tooltip title={t('gtfsVisualizationTooltip')}>
                 <ToggleButton
                   value='gtfsVisualizationView'
-                  disabled={
-                    !config.enableGtfsVisualizationMap ||
-                    !enableGtfsVisualizationView
-                  }
+                  disabled={!enableGtfsVisualizationView}
                   aria-label='Bounding Box View'
                 >
                   <ModeOfTravelIcon />
@@ -423,24 +351,9 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         <WarningContentBox>{t('unableToGetGbfsMap')}</WarningContentBox>
       )}
 
-      {/* {(feed?.data_type === 'gtfs' || boundingBox != undefined) && ( */}
-      {/*  <Box sx={mapBoxPositionStyle}> */}
-      {/*    {geoJsonLoading && !enableGtfsVisualizationView ? ( */}
-      {/*      <Skeleton */}
-      {/*        variant='rectangular' */}
-      {/*        width='100%' */}
-      {/*        height='100%' */}
-      {/*        animation='wave' */}
-      {/*      /> */}
-      {/*    ) : ( */}
-      {/*      <>{renderMap()}</> */}
-      {/*    )} */}
-      {/*  </Box> */}
-      {/* )} */}
-
       {(boundingBox != undefined || !geoJsonError) && (
         <Box sx={mapBoxPositionStyle}>
-          {geoJsonLoading ? (
+          {geoJsonLoading || routesJsonLoadingStatus === 'loading' ? (
             <Skeleton
               variant='rectangular'
               width='100%'
