@@ -45,5 +45,4 @@ def get_config_value(
         db_session.query(ConfigKey.default_value).filter(ConfigKey.namespace == namespace, ConfigKey.key == key).first()
     )
 
-    # return default_config.default_value if default_config else None
-    return None
+    return default_config.default_value if default_config else None

@@ -7,7 +7,7 @@ from gcp_storage_emulator.server import create_server
 HOST = "localhost"
 PORT = 9023
 BUCKET_NAME = "verifier"
-PRODUCER_URL = "https://www.stm.info/sites/default/files/gtfs/gtfs_stm.zip"  # Replace with actual producer URL
+PRODUCER_URL = "https://example.com/dataset.zip"  # Replace with actual producer URL
 
 
 def verify_download_content(producer_url: str):
@@ -33,10 +33,8 @@ def verify_download_content(producer_url: str):
     )
     tempfile = processor.generate_temp_filename()
     logging.info(f"Temp filename: {tempfile}")
-    file_hash, is_zip = processor.download_content(tempfile, "mdb-2126")
-    logging.info(
-        f"Downloaded file from {producer_url} is a valid ZIP file: {is_zip}"
-    )
+    file_hash, is_zip = processor.download_content(tempfile, "feed_id")
+    logging.info(f"Downloaded file from {producer_url} is a valid ZIP file: {is_zip}")
     logging.info(f"File hash: {file_hash}")
 
 
@@ -51,7 +49,7 @@ def verify_upload_dataset(producer_url: str):
     """
     processor = DatasetProcessor(
         producer_url=producer_url,
-        feed_id="feed_id",
+        feed_id="feed_id_2126",
         feed_stable_id="feed_stable_id",
         execution_id=None,
         latest_hash="123",
@@ -62,7 +60,7 @@ def verify_upload_dataset(producer_url: str):
     )
     tempfile = processor.generate_temp_filename()
     logging.info(f"Temp filename: {tempfile}")
-    dataset_file = processor.upload_dataset(public=False)
+    dataset_file = processor.upload_dataset("feed_id_2126", False)
     logging.info(f"Dataset File: {dataset_file}")
 
 
@@ -70,8 +68,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     # Replace with actual producer URL
     try:
-        os.environ["STORAGE_EMULATOR_HOST"] = f"https://www.stm.info/sites/default/files/gtfs/gtfs_stm.zip"
-        #os.environ["STORAGE_EMULATOR_HOST"] = f"http://{HOST}:{PORT}"
+        os.environ["STORAGE_EMULATOR_HOST"] = f"http://{HOST}:{PORT}"
         os.environ["WORKING_DIR"] = "/tmp/verifier"
         # create working dir if not exists
         if not os.path.exists(os.environ["WORKING_DIR"]):
@@ -84,7 +81,6 @@ if __name__ == "__main__":
 
         verify_download_content(producer_url=PRODUCER_URL)
         logging.info("Download content verification completed successfully.")
-        verify_upload_dataset(producer_url=PRODUCER_URL)
         verify_upload_dataset(producer_url=PRODUCER_URL)
     except Exception as e:
         logging.error(f"Error verifying download content: {e}")
