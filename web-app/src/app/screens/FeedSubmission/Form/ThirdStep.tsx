@@ -329,7 +329,7 @@ export default function FormThirdStep({
           {/* License selector (mock) */}
           <Grid item>
             <FormControl component='fieldset' fullWidth>
-              <FormLabel>License (optional)</FormLabel>
+              <FormLabel>License</FormLabel>
               <FormLabelDescription>
                 {
                   'You may select a known SPDX license below or paste a license URL. Providing both is fine.'
