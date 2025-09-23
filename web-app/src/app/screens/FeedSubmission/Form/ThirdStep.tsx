@@ -10,6 +10,17 @@ import {
   Typography,
   Box,
 } from '@mui/material';
+import React from 'react';
+import Checkbox from '@mui/material/Checkbox';
+import FormGroup from '@mui/material/FormGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
@@ -33,6 +44,11 @@ export interface FeedSubmissionFormInputThirdStep {
   licenseSpdxId?: string | null;
   // Optional custom license URL
   licensePath?: string;
+  // Custom license builder fields (mock/demo only)
+  customLicenseEnabled?: boolean;
+  customLicensePermissions?: string[];
+  customLicenseConditions?: string[];
+  customLicenseLimitations?: string[];
 }
 
 interface FormThirdStepProps {
@@ -60,6 +76,10 @@ export default function FormThirdStep({
       authParameterName: initialValues.authParameterName,
       licenseSpdxId: initialValues.licenseSpdxId ?? null,
       licensePath: initialValues.licensePath ?? '',
+      customLicenseEnabled: initialValues.customLicenseEnabled ?? false,
+      customLicensePermissions: initialValues.customLicensePermissions ?? [],
+      customLicenseConditions: initialValues.customLicenseConditions ?? [],
+      customLicenseLimitations: initialValues.customLicenseLimitations ?? [],
     },
   });
 
@@ -75,6 +95,22 @@ export default function FormThirdStep({
     control,
     name: 'licensePath',
   });
+  const customLicenseEnabled = useWatch({
+    control,
+    name: 'customLicenseEnabled',
+  });
+  const customLicensePermissions = useWatch({
+    control,
+    name: 'customLicensePermissions',
+  });
+  const customLicenseConditions = useWatch({
+    control,
+    name: 'customLicenseConditions',
+  });
+  const customLicenseLimitations = useWatch({
+    control,
+    name: 'customLicenseLimitations',
+  });
 
   const onSubmit: SubmitHandler<FeedSubmissionFormInputThirdStep> = (
     data,
@@ -87,7 +123,112 @@ export default function FormThirdStep({
   // Consider both a provided license URL (from step 2) and an SPDX ID (this step)
   const hasLicenseUrl = (licensePath ?? '').trim().length > 0;
   const hasSpdx = (licenseSpdxId ?? '').trim().length > 0;
-  const noLicenseProvided = !(hasLicenseUrl || hasSpdx);
+  const hasCustom =
+    (customLicenseEnabled ?? false) &&
+    ((customLicensePermissions?.length ?? 0) > 0 ||
+      (customLicenseConditions?.length ?? 0) > 0 ||
+      (customLicenseLimitations?.length ?? 0) > 0);
+  const noLicenseProvided = !(hasLicenseUrl || hasSpdx || hasCustom);
+
+  // Load rules.json (permissions, conditions, limitations) from public assets
+  interface Rule {
+    name: string;
+    label: string;
+    description: string;
+  }
+  const [rules, setRules] = React.useState<
+    | {
+        permissions: Rule[];
+        conditions: Rule[];
+        limitations: Rule[];
+      }
+    | undefined
+  >(undefined);
+  React.useEffect(() => {
+    let mounted = true;
+    void (async () => {
+      try {
+        const r = await fetch('/assets/rules.json');
+        const json = await r.json();
+        if (mounted) setRules(json);
+      } catch {
+        // ignore load error; builder will be disabled
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Custom license builder dialog state
+  const [builderOpen, setBuilderOpen] = React.useState(false);
+  const [tmpPerms, setTmpPerms] = React.useState<string[]>([]);
+  const [tmpConds, setTmpConds] = React.useState<string[]>([]);
+  const [tmpLims, setTmpLims] = React.useState<string[]>([]);
+  const [matchLicenseId, setMatchLicenseId] = React.useState<string | null>(
+    null,
+  );
+
+  const openBuilder = (): void => {
+    setTmpPerms(customLicensePermissions ?? []);
+    setTmpConds(customLicenseConditions ?? []);
+    setTmpLims(customLicenseLimitations ?? []);
+    setBuilderOpen(true);
+  };
+  const closeBuilder = (): void => {
+    setBuilderOpen(false);
+  };
+
+  const arraysEqualAsSets = (a: string[], b: string[]): boolean => {
+    if (a.length !== b.length) return false;
+    const sa = [...a].sort();
+    const sb = [...b].sort();
+    for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return false;
+    return true;
+  };
+  const recomputeMatch = (
+    p: string[],
+    c: string[],
+    l: string[],
+  ): string | null => {
+    const found = LICENSES_DEMO.find(
+      (lic) =>
+        arraysEqualAsSets(p, lic.permissions) &&
+        arraysEqualAsSets(c, lic.conditions) &&
+        arraysEqualAsSets(l, lic.limitations),
+    );
+    return found?.spdx.licenseId ?? null;
+  };
+
+  React.useEffect(() => {
+    setMatchLicenseId(recomputeMatch(tmpPerms, tmpConds, tmpLims));
+  }, [tmpPerms, tmpConds, tmpLims]);
+
+  const copyFromKnown = (licenseId: string): void => {
+    const lic = LICENSES_DEMO.find((x) => x.spdx.licenseId === licenseId);
+    if (lic === undefined || lic === null) {
+      return;
+    }
+    setTmpPerms(lic.permissions);
+    setTmpConds(lic.conditions);
+    setTmpLims(lic.limitations);
+  };
+
+  const saveCustom = (): void => {
+    setValue('customLicensePermissions', tmpPerms, {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+    setValue('customLicenseConditions', tmpConds, {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+    setValue('customLicenseLimitations', tmpLims, {
+      shouldDirty: true,
+      shouldValidate: false,
+    });
+    setBuilderOpen(false);
+  };
 
   // Mock licenses data for the demo (in-memory). In the future, replace with API.
   /* eslint-disable max-len, prettier/prettier */
@@ -326,13 +467,58 @@ export default function FormThirdStep({
       {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container direction={'column'} rowSpacing={2}>
+          {/* License mode selection */}
+          <Grid item>
+            <FormControl component='fieldset'>
+              <FormLabel>License mode</FormLabel>
+              <FormLabelDescription>
+                {
+                  'Choose whether to use a known SPDX license or build a custom one.'
+                }
+              </FormLabelDescription>
+              <RadioGroup
+                row
+                value={customLicenseEnabled === true ? 'custom' : 'spdx'}
+                onChange={(e) => {
+                  const mode = (e.target as HTMLInputElement).value;
+                  if (mode === 'custom') {
+                    setValue('customLicenseEnabled', true, {
+                      shouldDirty: true,
+                      shouldValidate: false,
+                    });
+                    // Clear SPDX when switching to custom
+                    setValue('licenseSpdxId', null, {
+                      shouldDirty: true,
+                      shouldValidate: false,
+                    });
+                  } else {
+                    setValue('customLicenseEnabled', false, {
+                      shouldDirty: true,
+                      shouldValidate: false,
+                    });
+                  }
+                }}
+              >
+                <FormControlLabel
+                  value='spdx'
+                  control={<Radio />}
+                  label='Known SPDX license'
+                />
+                <FormControlLabel
+                  value='custom'
+                  control={<Radio />}
+                  label='Custom license'
+                />
+              </RadioGroup>
+            </FormControl>
+          </Grid>
           {/* License selector (mock) */}
           <Grid item>
             <FormControl component='fieldset' fullWidth>
               <FormLabel>License</FormLabel>
               <FormLabelDescription>
                 {
-                  'You may select a known SPDX license below or paste a license URL. Providing both is fine.'
+                  'Select a known SPDX license below or build a custom license. When Custom mode is selected, SPDX selection is disabled. You can still paste a license URL.'
                 }
               </FormLabelDescription>
               <Autocomplete
@@ -340,6 +526,7 @@ export default function FormThirdStep({
                 getOptionLabel={(option) =>
                   `${option.spdx.licenseId} — ${option.spdx.name}`
                 }
+                disabled={customLicenseEnabled === true}
                 value={
                   LICENSES_DEMO.find(
                     (opt) => opt.spdx.licenseId === licenseSpdxId,
@@ -363,6 +550,29 @@ export default function FormThirdStep({
                   />
                 )}
               />
+            </FormControl>
+          </Grid>
+          {/* Custom license builder launch */}
+          <Grid item>
+            <FormControl component='fieldset'>
+              <FormLabel>Custom license</FormLabel>
+              <FormLabelDescription>
+                Build your own set of permissions, conditions and limitations.
+                You can copy rules from a known license and adjust them.
+              </FormLabelDescription>
+              <Button
+                variant='outlined'
+                onClick={openBuilder}
+                disabled={customLicenseEnabled !== true || rules === undefined}
+                sx={{ mt: 1 }}
+              >
+                Open builder
+              </Button>
+              {rules === undefined && (
+                <FormHelperText>
+                  Unable to load rules.json; builder disabled.
+                </FormHelperText>
+              )}
             </FormControl>
           </Grid>
           {selectedLicense !== null && (
@@ -420,6 +630,70 @@ export default function FormThirdStep({
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                       {selectedLicense.limitations.length > 0 ? (
                         selectedLicense.limitations.map((l) => (
+                          <Chip
+                            key={l}
+                            label={l}
+                            size='small'
+                            color='warning'
+                          />
+                        ))
+                      ) : (
+                        <Typography variant='caption'>None</Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+            </Grid>
+          )}
+          {/* Custom license summary */}
+          {hasCustom && (
+            <Grid item>
+              <Box sx={{ border: '1px dashed #9e9e9e', p: 2, borderRadius: 1 }}>
+                <Typography variant='subtitle1' gutterBottom>
+                  Custom license rules
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant='body2' gutterBottom>
+                      Permissions
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {(customLicensePermissions?.length ?? 0) > 0 ? (
+                        (customLicensePermissions ?? []).map((p) => (
+                          <Chip
+                            key={p}
+                            label={p}
+                            size='small'
+                            color='success'
+                          />
+                        ))
+                      ) : (
+                        <Typography variant='caption'>None</Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant='body2' gutterBottom>
+                      Conditions
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {(customLicenseConditions?.length ?? 0) > 0 ? (
+                        (customLicenseConditions ?? []).map((c) => (
+                          <Chip key={c} label={c} size='small' color='info' />
+                        ))
+                      ) : (
+                        <Typography variant='caption'>None</Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Typography variant='body2' gutterBottom>
+                      Limitations
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {(customLicenseLimitations?.length ?? 0) > 0 ? (
+                        (customLicenseLimitations ?? []).map((l) => (
                           <Chip
                             key={l}
                             label={l}
@@ -635,6 +909,153 @@ export default function FormThirdStep({
           </Grid>
         </Grid>
       </form>
+
+      {/* Dialog: Custom license builder */}
+      <Dialog open={builderOpen} onClose={closeBuilder} maxWidth='md' fullWidth>
+        <DialogTitle>Custom license builder</DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant='subtitle2' gutterBottom>
+              Copy rules from a known license
+            </Typography>
+            <Autocomplete
+              options={LICENSES_DEMO}
+              getOptionLabel={(option) =>
+                `${option.spdx.licenseId} — ${option.spdx.name}`
+              }
+              renderInput={(params) => (
+                <TextField {...params} placeholder='Search by id or name' />
+              )}
+              onChange={(e, value) => {
+                if (value !== null) copyFromKnown(value.spdx.licenseId);
+              }}
+            />
+          </Box>
+          {matchLicenseId !== null && (
+            <Alert severity='info' sx={{ mb: 2 }}>
+              These selected rules match the known license “{matchLicenseId}”.
+              Consider selecting that SPDX license instead of creating a custom
+              one.
+              <Box sx={{ mt: 1 }}>
+                <Button
+                  size='small'
+                  variant='outlined'
+                  onClick={() => {
+                    setValue('licenseSpdxId', matchLicenseId, {
+                      shouldDirty: true,
+                      shouldValidate: false,
+                    });
+                    setValue('customLicenseEnabled', false, {
+                      shouldDirty: true,
+                      shouldValidate: false,
+                    });
+                    // Close the builder and switch to SPDX mode
+                    closeBuilder();
+                  }}
+                >
+                  Use {matchLicenseId}
+                </Button>
+              </Box>
+            </Alert>
+          )}
+
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <Typography variant='body2' gutterBottom>
+                Permissions
+              </Typography>
+              <FormGroup>
+                {rules?.permissions.map((r) => (
+                  <FormControlLabel
+                    key={r.name}
+                    control={
+                      <Checkbox
+                        checked={tmpPerms.includes(r.name)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setTmpPerms((prev) => {
+                            if (checked) {
+                              return prev.includes(r.name)
+                                ? prev
+                                : [...prev, r.name];
+                            }
+                            return prev.filter((x) => x !== r.name);
+                          });
+                        }}
+                      />
+                    }
+                    label={r.label}
+                  />
+                ))}
+              </FormGroup>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant='body2' gutterBottom>
+                Conditions
+              </Typography>
+              <FormGroup>
+                {rules?.conditions.map((r) => (
+                  <FormControlLabel
+                    key={r.name}
+                    control={
+                      <Checkbox
+                        checked={tmpConds.includes(r.name)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setTmpConds((prev) => {
+                            if (checked) {
+                              return prev.includes(r.name)
+                                ? prev
+                                : [...prev, r.name];
+                            }
+                            return prev.filter((x) => x !== r.name);
+                          });
+                        }}
+                      />
+                    }
+                    label={r.label}
+                  />
+                ))}
+              </FormGroup>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant='body2' gutterBottom>
+                Limitations
+              </Typography>
+              <FormGroup>
+                {rules?.limitations.map((r) => (
+                  <FormControlLabel
+                    key={r.name}
+                    control={
+                      <Checkbox
+                        checked={tmpLims.includes(r.name)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setTmpLims((prev) => {
+                            if (checked) {
+                              return prev.includes(r.name)
+                                ? prev
+                                : [...prev, r.name];
+                            }
+                            return prev.filter((x) => x !== r.name);
+                          });
+                        }}
+                      />
+                    }
+                    label={r.label}
+                  />
+                ))}
+              </FormGroup>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeBuilder}>Cancel</Button>
+          <Button variant='contained' onClick={saveCustom}>
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

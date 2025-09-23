@@ -1,0 +1,138 @@
+{
+  "permissions": [
+    {
+      "name": "commercial-use",
+      "label": "Commercial use",
+      "description": "This license allows the software or data to be used for commercial purposes."
+    },
+    {
+      "name": "modifications",
+      "label": "Modification",
+      "description": "This license allows the software or content to be modified."
+    },
+    {
+      "name": "distribution",
+      "label": "Distribution",
+      "description": "This license allows the software or content to be redistributed."
+    },
+    {
+      "name": "private-use",
+      "label": "Private use",
+      "description": "This license allows private use and modification."
+    },
+    {
+      "name": "patent-use",
+      "label": "Patent use",
+      "description": "This license includes an express grant of patent rights from contributors."
+    },
+    {
+      "name": "data-use",
+      "label": "Data use",
+      "description": "This license allows unrestricted use and reuse of data."
+    },
+    {
+      "name": "text-and-data-mining",
+      "label": "Text and data mining",
+      "description": "This license explicitly permits automated analysis such as machine learning and data mining."
+    },
+    {
+      "name": "create-adaptations",
+      "label": "Create adaptations",
+      "description": "This license allows derivative works or adaptations to be created."
+    }
+  ],
+  "conditions": [
+    {
+      "name": "include-copyright",
+      "label": "Include copyright",
+      "description": "A copy of the license and copyright notice must be included."
+    },
+    {
+      "name": "include-copyright--source",
+      "label": "Include copyright (source only)",
+      "description": "A copyright notice must be included only in the source form."
+    },
+    {
+      "name": "document-changes",
+      "label": "Document changes",
+      "description": "Changes made must be clearly documented."
+    },
+    {
+      "name": "disclose-source",
+      "label": "Disclose source",
+      "description": "Source code must be made available when the software is distributed."
+    },
+    {
+      "name": "network-use-disclose",
+      "label": "Network use disclosure",
+      "description": "Source must be disclosed when users interact with the software over a network."
+    },
+    {
+      "name": "same-license",
+      "label": "Same license",
+      "description": "Modifications must be released under the same or a compatible license."
+    },
+    {
+      "name": "same-license--file",
+      "label": "Same license (file)",
+      "description": "Modified files must retain the original license."
+    },
+    {
+      "name": "same-license--library",
+      "label": "Same license (library)",
+      "description": "Modifications to libraries must retain the original license, with some exceptions for linking."
+    },
+    {
+      "name": "attribution",
+      "label": "Attribution",
+      "description": "Users must give appropriate credit to the original authors."
+    },
+    {
+      "name": "mark-changes",
+      "label": "Mark changes",
+      "description": "Users must indicate if changes were made."
+    },
+    {
+      "name": "share-alike",
+      "label": "Share-alike",
+      "description": "Derivative works must be distributed under the same or a compatible license."
+    },
+    {
+      "name": "non-endorsement",
+      "label": "Non-endorsement",
+      "description": "The license prohibits implying endorsement by the original authors."
+    },
+    {
+      "name": "license-linking",
+      "label": "License linking",
+      "description": "The license must be referenced or linked clearly in any reuse."
+    }
+  ],
+  "limitations": [
+    {
+      "name": "trademark-use",
+      "label": "Trademark use",
+      "description": "The license does not grant rights to use trademarks."
+    },
+    {
+      "name": "liability",
+      "label": "Liability disclaimer",
+      "description": "The license includes a limitation of liability."
+    },
+    {
+      "name": "warranty",
+      "label": "No warranty",
+      "description": "The license explicitly states that no warranty is provided."
+    },
+    {
+      "name": "no-personal-data-guarantee",
+      "label": "No personal data guarantee",
+      "description": "The license disclaims the presence or legality of personal data in the content."
+    },
+    {
+      "name": "database-rights-disclaimed",
+      "label": "Database rights disclaimed",
+      "description": "The license explicitly waives or disclaims sui generis database rights."
+    }
+  ]
+}
