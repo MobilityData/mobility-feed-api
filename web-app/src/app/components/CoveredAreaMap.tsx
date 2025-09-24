@@ -311,7 +311,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
                 <ToggleButton
                   value='gtfsVisualizationView'
                   disabled={!enableGtfsVisualizationView}
-                  aria-label='Bounding Box View'
+                  aria-label={t('gtfsVisualizationViewLabel')}
                 >
                   <ModeOfTravelIcon />
                 </ToggleButton>

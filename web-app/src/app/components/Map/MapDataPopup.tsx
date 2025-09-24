@@ -1,11 +1,13 @@
 import { Popup } from 'react-map-gl/maplibre';
 import {
-  locationTypesMapping,
+  getRouteByTypeOrDefault,
+  getRouteTypeTranslatedName,
+  getStopByLocationTypeOrDefault,
   type RouteTypeMetadata,
-  routeTypesMapping,
 } from '../../constants/RouteTypes';
 import { Box, Link, Typography, useTheme } from '@mui/material';
 import AccessibleIcon from '@mui/icons-material/Accessible';
+import { useTranslation } from 'react-i18next';
 
 interface MapDataPopupProps {
   mapClickRouteData: Record<string, string> | null;
@@ -18,6 +20,7 @@ export const MapDataPopup = (
 ): JSX.Element => {
   const { mapClickRouteData, mapClickStopData, onPopupClose } = props;
   const theme = useTheme();
+  const { t } = useTranslation('feeds');
 
   const renderRouteTypeIcon = (
     routeTypeMetadata: RouteTypeMetadata,
@@ -70,11 +73,11 @@ export const MapDataPopup = (
             >
               <Box display={'flex'} alignItems={'center'} gap={1} my={1}>
                 {renderRouteTypeIcon(
-                  routeTypesMapping[mapClickRouteData.route_type],
+                  getRouteByTypeOrDefault(mapClickRouteData.route_type),
                   mapClickRouteData.route_text_color,
                 )}
                 <Typography component={'p'} variant={'body2'}>
-                  {routeTypesMapping[mapClickRouteData.route_type].name}{' '}
+                  {getRouteTypeTranslatedName(mapClickRouteData.route_type, t)}{' '}
                   <b style={{ marginLeft: '8px' }}>
                     {mapClickRouteData.route_id}
                   </b>
@@ -118,11 +121,17 @@ export const MapDataPopup = (
               >
                 <Box display={'flex'} alignItems={'flex-end'} gap={1}>
                   {renderRouteTypeIcon(
-                    locationTypesMapping[mapClickStopData.location_type],
+                    getStopByLocationTypeOrDefault(
+                      mapClickStopData.location_type,
+                    ),
                     theme.palette.text.primary,
                   )}
                   <Typography component={'p'} variant={'body2'}>
-                    {locationTypesMapping[mapClickStopData.location_type].name}{' '}
+                    {
+                      getStopByLocationTypeOrDefault(
+                        mapClickStopData.location_type,
+                      ).name
+                    }{' '}
                     <b style={{ marginLeft: '8px' }}>
                       {mapClickStopData.stop_id}
                     </b>
@@ -131,8 +140,8 @@ export const MapDataPopup = (
                 {mapClickStopData.wheelchair_boarding === '1' && (
                   <AccessibleIcon
                     sx={{
-                      backgroundColor: '#163c83',
-                      color: 'white',
+                      backgroundColor: theme.palette.error.main,
+                      color: theme.palette.error.contrastText,
                       borderRadius: '3px',
                       p: '2px',
                     }}
@@ -153,7 +162,9 @@ export const MapDataPopup = (
                   mapClickStopData.route_ids.replace(/[[\]"\\]/g, ',').length >
                     0 && (
                     <Typography variant='body2'>
-                      <span style={{ marginRight: '8px' }}>Route Ids</span>
+                      <span style={{ marginRight: '8px' }}>
+                        {t('routeIds')}
+                      </span>
                       <b>
                         {mapClickStopData.route_ids.replace(/[[\]"\\]/g, ' ')}
                       </b>
@@ -162,7 +173,7 @@ export const MapDataPopup = (
 
                 {mapClickStopData.stop_code != null && (
                   <Typography variant='body2'>
-                    <span style={{ marginRight: '8px' }}>Stop Code</span>
+                    <span style={{ marginRight: '8px' }}>{t('stopCode')}</span>
                     <b>{mapClickStopData.stop_code}</b>
                   </Typography>
                 )}
@@ -175,7 +186,7 @@ export const MapDataPopup = (
                     variant={'body2'}
                     sx={{ mt: 1 }}
                   >
-                    View Stop Info
+                    {t('viewStopInfo')}
                   </Link>
                 )}
               </Box>
