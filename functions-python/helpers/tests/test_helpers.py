@@ -45,6 +45,7 @@ class TestHelpers(unittest.TestCase):
         )
         mock_storage_client.return_value.create_bucket.assert_not_called()
 
+    @patch("utils.get_config_value", return_value=None)
     def test_download_and_get_hash(self):
         mock_binary_data = b"file content data"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
@@ -65,6 +66,7 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
+    @patch("utils.get_config_value", return_value=None)
     def test_download_and_get_hash_auth_type_header(self):
         """
         Test the download_and_get_hash function for authentication type 2 (headers).
@@ -113,6 +115,7 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
+    @patch("utils.get_config_value", return_value=None)
     def test_download_and_get_hash_auth_type_api_key(self):
         """
         Test the download_and_get_hash function for authentication type 1 (API key).
@@ -163,6 +166,7 @@ class TestHelpers(unittest.TestCase):
         if os.path.exists(file_path):
             os.remove(file_path)
 
+    @patch("utils.get_config_value", return_value=None)
     def test_download_and_get_hash_exception(self):
         file_path = "test_file.txt"
         url = "https://test.com/"
