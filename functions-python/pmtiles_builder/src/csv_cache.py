@@ -15,6 +15,8 @@
 #
 import csv
 import os
+from typing import TypedDict, List, Dict
+
 
 from gtfs import stop_txt_is_lat_log_required
 from shared.helpers.logger import get_logger
@@ -26,6 +28,11 @@ TRIPS_FILE = "trips.txt"
 ROUTES_FILE = "routes.txt"
 STOPS_FILE = "stops.txt"
 AGENCY_FILE = "agency.txt"
+
+
+class ShapeTrips(TypedDict):
+    shape_id: str
+    trip_ids: List[str]
 
 
 class CsvCache:
@@ -49,11 +56,12 @@ class CsvCache:
         self.workdir = workdir
 
         self.file_data = {}
-        self.trip_to_stops = None
+        self.trip_to_stops: Dict[str, List[str]] = None
         self.route_to_trip = None
-        self.route_to_shape = None
+        self.route_to_shape: Dict[str, Dict[str, ShapeTrips]] = None
         self.stop_to_route = None
         self.stop_to_coordinates = None
+        self.trips_no_shapes_per_route: Dict[str, List[str]] = {}
 
         self.logger.info("Using work directory: %s", self.workdir)
 
@@ -90,41 +98,63 @@ class CsvCache:
         except Exception as e:
             raise Exception(f"Failed to read CSV file {filename}: {e}") from e
 
-    def get_trip_from_route(self, route_id):
-        if self.route_to_trip is None:
-            self.route_to_trip = {}
-            for row in self.get_file(TRIPS_FILE):
-                route_id = row["route_id"]
-                trip_id = row["trip_id"]
-                if trip_id:
-                    self.route_to_trip.setdefault(route_id, trip_id)
-        return self.route_to_trip.get(route_id, "")
-
-    def get_shape_from_route(self, route_id) -> str:
+    def get_shape_from_route(self, route_id) -> Dict[str, List[ShapeTrips]]:
         """
-        Returns the first shape_id associated with a given route_id from the trips file.
+        Returns a list of shape_ids with associated trip_ids information with a given route_id from the trips file.
         The relationship from the route to the shape is via the trips file.
         Parameters:
             route_id (str): The route identifier to look up.
 
         Returns:
             The corresponding shape id.
+            Example return value: [{'shape_id1': { 'shape_id': 'shape_id1', 'trip_ids': ['trip1', 'trip2']}},
+             {'shape_id': 'shape_id2', 'trip_ids': ['trip3']}}]
         """
         if self.route_to_shape is None:
             self.route_to_shape = {}
             for row in self.get_file(TRIPS_FILE):
-                route_id = row["route_id"]
-                shape_id = row["shape_id"]
-                if shape_id:
-                    self.route_to_shape.setdefault(route_id, shape_id)
-        return self.route_to_shape.get(route_id, "")
+                route_id = get_safe_value(row, "route_id")
+                shape_id = get_safe_value(row, "shape_id")
+                trip_id = get_safe_value(row, "trip_id")
+                if route_id and trip_id:
+                    if shape_id:
+                        route_shapes = self.route_to_shape.setdefault(route_id, {})
+                        shape_trips = route_shapes.setdefault(
+                            shape_id, {"shape_id": shape_id, "trip_ids": []}
+                        )
+                        shape_trips["trip_ids"].append(trip_id)
+                    else:
+                        # Registering the trip without a shape for this route for later retrieval.
+                        trip_no_shapes = (
+                            self.trips_no_shapes_per_route.get(route_id)
+                            if route_id in self.trips_no_shapes_per_route
+                            else None
+                        )
+                        if trip_no_shapes is None:
+                            trip_no_shapes = []
+                            self.trips_no_shapes_per_route[route_id] = trip_no_shapes
+                        trip_no_shapes.append(trip_id)
+        return self.route_to_shape.get(route_id, {})
+
+    def get_trips_without_shape_from_route(self, route_id) -> List[str]:
+        return self.trips_no_shapes_per_route.get(route_id, [])
 
     def get_stops_from_trip(self, trip_id):
-        # Lazy instantiation of the dictionary, because we may not need it al all if there is a shape.
         if self.trip_to_stops is None:
             self.trip_to_stops = {}
             for row in self.get_file(STOP_TIMES_FILE):
-                self.trip_to_stops.setdefault(row["trip_id"], []).append(row["stop_id"])
+                trip_id = get_safe_value(row, "trip_id")
+                stop_id = get_safe_value(row, "stop_id")
+                if trip_id and stop_id:
+                    trip_to_stops = (
+                        self.trip_to_stops.get(trip_id)
+                        if trip_id in self.trip_to_stops
+                        else None
+                    )
+                    if trip_to_stops is None:
+                        trip_to_stops = []
+                        self.trip_to_stops[trip_id] = trip_to_stops
+                    trip_to_stops.append(stop_id)
         return self.trip_to_stops.get(trip_id, [])
 
     def get_coordinates_for_stop(self, stop_id) -> tuple[float, float] | None:
