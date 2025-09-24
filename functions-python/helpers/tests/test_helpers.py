@@ -90,7 +90,11 @@ class TestHelpers(unittest.TestCase):
             "urllib3.PoolManager.request", return_value=mock_response
         ) as mock_request:
             result_hash = download_and_get_hash(
-                url, file_path, "sha256", 8192, 2, api_key_parameter_name, credentials
+                url=url,
+                file_path=file_path,
+                authentication_type=2,
+                api_key_parameter_name=api_key_parameter_name,
+                credentials=credentials,
             )
 
             self.assertEqual(
@@ -140,13 +144,11 @@ class TestHelpers(unittest.TestCase):
 
         with patch("urllib3.PoolManager", return_value=mock_http):
             result_hash = download_and_get_hash(
-                base_url,
-                file_path,
-                "sha256",
-                8192,
-                1,
-                api_key_parameter_name,
-                credentials,
+                url=base_url,
+                file_path=file_path,
+                authentication_type=1,
+                api_key_parameter_name=api_key_parameter_name,
+                credentials=credentials,
             )
 
             self.assertEqual(
