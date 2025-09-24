@@ -46,7 +46,7 @@ class TestHelpers(unittest.TestCase):
         mock_storage_client.return_value.create_bucket.assert_not_called()
 
     @patch("shared.common.config_reader.get_config_value", return_value=None)
-    def test_download_and_get_hash(self):
+    def test_download_and_get_hash(self, mock_get_config):
         mock_binary_data = b"file content data"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "file_path"
@@ -67,7 +67,7 @@ class TestHelpers(unittest.TestCase):
                 os.remove(file_path)
 
     @patch("shared.common.config_reader.get_config_value", return_value=None)
-    def test_download_and_get_hash_auth_type_header(self):
+    def test_download_and_get_hash_auth_type_header(self, mock_get_config):
         """
         Test the download_and_get_hash function for authentication type 2 (headers).
         This test verifies that the download_and_get_hash function correctly handles authentication type 2,
@@ -116,7 +116,7 @@ class TestHelpers(unittest.TestCase):
                 os.remove(file_path)
 
     @patch("shared.common.config_reader.get_config_value", return_value=None)
-    def test_download_and_get_hash_auth_type_api_key(self):
+    def test_download_and_get_hash_auth_type_api_key(self, mock_get_config):
         """
         Test the download_and_get_hash function for authentication type 1 (API key).
         """
@@ -167,7 +167,7 @@ class TestHelpers(unittest.TestCase):
             os.remove(file_path)
 
     @patch("shared.common.config_reader.get_config_value", return_value=None)
-    def test_download_and_get_hash_exception(self):
+    def test_download_and_get_hash_exception(self, mock_get_config):
         file_path = "test_file.txt"
         url = "https://test.com/"
 
