@@ -17,6 +17,10 @@
     "fullName": "Include the full name for transit provider, e.g “Toronto Transit Commission” instead of “TTC”",
     "checkSpelling": "Double check the spelling"
   },
+  "routeIds": "Route IDs",
+  "stopCode": "Stop Code",
+  "viewStopInfo": "View Stop Info",
+  "gtfsVisualizationViewLabel": "GTFS Visualization View",
   "errorAndContact": "Please check your internet connection and try again. If the problem persists <1>contact us</1> for for further assistance.",
   "errorLoadingFeed": "There was an error loading the feed.",
   "errorLoadingQualityReport": "Unable to generate data quality report.",
@@ -152,7 +156,7 @@
   },
   "viewRealtimeVisualization": "View real-time visualization",
   "versions": "Versions",
-  "dataAattribution": "Transit data provided by",
+  "dataAttribution": "Transit data provided by",
   "emptyLicenseUsage": "Can this feed be used commercially by trip planners and other third parties?",
   "common": {
     "form": {
@@ -161,5 +165,13 @@
       "notSure": "Unsure"
     }
   },
-  "openDetailedMap": "Open Detailed Map"
+  "openDetailedMap": "Open Detailed Map",
+  "retry": "Retry",
+  "visualizationMapErrors": {
+    "errorDescription": "An error occurred while loading the map.",
+    "noFeedMetadata": "Could not load feed metadata.",
+    "noRoutesData": "Could not load routes data for the map.",
+    "invalidDataType": "This feed is not a GTFS Schedule feed.",
+    "noBoundingBox": "No bounding box available."
+  }
 }

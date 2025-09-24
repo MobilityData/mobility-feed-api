@@ -10,8 +10,12 @@ import { getAppError } from '../../utils/error';
 import { getJson } from '../../services/http';
 import { loadingDatasetSuccess } from '../dataset-reducer';
 import { selectLatestDatasetsData } from '../dataset-selectors';
-import { updateFeedId, loadingFeedSuccess } from '../feed-reducer';
-import { selectFeedData } from '../feed-selectors';
+import {
+  updateFeedId,
+  loadingFeedSuccess,
+  loadingFeedFail,
+} from '../feed-reducer';
+import { selectFeedData, selectLatestGtfsDatasetId } from '../feed-selectors';
 import {
   type GtfsRoute,
   type GeoJSONData,
@@ -44,6 +48,11 @@ export function* loadSupportingFileSaga({
   }
 }
 
+const handleFeedChangeFail = function* (): Generator<unknown, void, unknown> {
+  // Clear any supporting files loaded for a previous feed.
+  yield put(clearSupportingFiles());
+};
+
 const handleFeedChange = function* (): Generator<unknown, void, unknown> {
   const feed = (yield select(selectFeedData)) as
     | { id?: string; data_type?: string }
@@ -70,6 +79,16 @@ const handleFeedChange = function* (): Generator<unknown, void, unknown> {
 
   // Clear any supporting files loaded for a previous feed.
   yield put(clearSupportingFiles());
+
+  if (feed?.data_type === 'gtfs') {
+    const datasetId = (yield select(selectLatestGtfsDatasetId)) as
+      | string
+      | undefined;
+    if (datasetId !== undefined && feedId !== undefined) {
+      const url = buildRoutesUrl(feedId, datasetId);
+      yield put(loadingSupportingFile({ key: 'gtfsDatasetRoutesJson', url }));
+    }
+  }
 };
 
 const handleDatasetChange = function* (): Generator<unknown, void, unknown> {
@@ -107,6 +126,7 @@ const handleDatasetChange = function* (): Generator<unknown, void, unknown> {
 export function* watchSupportingFiles(): Generator {
   yield takeLatest(updateFeedId.type, handleFeedChange);
   yield takeLatest(loadingFeedSuccess.type, handleFeedChange);
+  yield takeLatest(loadingFeedFail.type, handleFeedChangeFail);
   yield takeLatest(loadingDatasetSuccess.type, handleDatasetChange);
   yield takeLatest(loadingSupportingFile.type, loadSupportingFileSaga);
 }

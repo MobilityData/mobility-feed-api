@@ -27,6 +27,12 @@ export const defaultRouteType: RouteTypeMetadata = {
   isDefault: true,
 };
 
+export const defaultLocationType: RouteTypeMetadata = {
+  name: '',
+  icon: PlaceIcon,
+  isDefault: true,
+};
+
 export const routeTypesMapping: Record<string, RouteTypeMetadata> = {
   '0': { name: 'Tram', icon: TramIcon },
   '1': { name: 'Subway', icon: SubwayIcon },
@@ -59,7 +65,28 @@ export const getRouteByTypeOrDefault = (
   if (routeType == null) {
     return defaultRouteType;
   }
-  return routeTypesMapping[routeType] ?? defaultRouteType;
+  return (
+    routeTypesMapping[routeType] ?? {
+      name: routeType,
+      icon: PlaceIcon,
+      isDefault: true,
+    }
+  );
+};
+
+export const getStopByLocationTypeOrDefault = (
+  locationType: string | undefined | null,
+): RouteTypeMetadata => {
+  if (locationType == null) {
+    return defaultLocationType;
+  }
+  return (
+    locationTypesMapping[locationType] ?? {
+      name: locationType,
+      icon: PlaceIcon,
+      isDefault: true,
+    }
+  );
 };
 
 export const getRouteTypeTranslatedName = (
@@ -69,5 +96,5 @@ export const getRouteTypeTranslatedName = (
   const routeType = getRouteByTypeOrDefault(routeTypeId);
   return !(routeType.isDefault ?? false)
     ? t(`common:gtfsSpec.routeType.${routeTypeId}.name`)
-    : '';
+    : routeType.name;
 };

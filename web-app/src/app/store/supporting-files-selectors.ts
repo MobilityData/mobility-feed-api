@@ -20,6 +20,17 @@ export const selectGtfsGeolocationGeojson = (
 };
 
 /**
+ * Selector to the loading status of the GTFS dataset routes JSON from the Redux store.
+ * @param state - The root Redux state.
+ * @returns The loading status as a string (e.g., 'loading', 'loaded', 'error').
+ */
+export const selectGtfsDatasetRoutesLoadingStatus = (
+  state: RootState,
+): string => {
+  return state.supportingFiles.gtfsDatasetRoutesJson.status;
+};
+
+/**
  * Selector to retrieve the GTFS dataset routes JSON from the Redux store.
  *
  * @param state - The root Redux state.

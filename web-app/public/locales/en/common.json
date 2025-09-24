@@ -52,11 +52,11 @@
   "gtfsSpec": {
     "routeType": {
       "0": {
-        "name": "Tram, Streetcar, Light rail",
+        "name": "Tram/Streetcar/Light rail",
         "description": "Any light rail or street level system within a metropolitan area."
       },
       "1": {
-        "name": "Subway, Metro",
+        "name": "Subway/Metro",
         "description": "Any underground rail system within a metropolitan area."
       },
       "2": {
@@ -76,7 +76,7 @@
         "description": "Used for street-level rail cars where the cable runs beneath the vehicle (e.g., cable car in San Francisco)."
       },
       "6": {
-        "name": "Aerial lift, suspended cable car (e.g., gondola lift, aerial tramway)",
+        "name": "Aerial lift/Suspended cable car (e.g., gondola lift, aerial tramway)",
         "description": "Cable transport where cabins, cars, gondolas or open chairs are suspended by means of one or more cables."
       },
       "7": {
