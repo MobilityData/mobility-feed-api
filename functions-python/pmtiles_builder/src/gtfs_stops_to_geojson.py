@@ -6,7 +6,7 @@ from collections import defaultdict
 from csv_cache import CsvCache, ROUTES_FILE, TRIPS_FILE, STOP_TIMES_FILE, STOPS_FILE
 from gtfs import stop_txt_is_lat_log_required
 from shared.helpers.runtime_metrics import track_metrics
-from shared.helpers.transform import get_safe_float
+from shared.helpers.transform import get_safe_float, get_safe_value
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ def create_routes_map(routes_data):
     """Creates a dictionary of routes from route data."""
     routes = {}
     for row in routes_data:
-        route_id = row.get("route_id")
+        route_id = get_safe_value(row, "route_id")
         if route_id:
             routes[route_id] = row
     return routes
@@ -26,16 +26,16 @@ def build_stop_to_routes(stop_times_data, trips_data):
     # Build trip_id -> route_id mapping
     trip_to_route = {}
     for row in trips_data:
-        trip_id = row.get("trip_id")
-        route_id = row.get("route_id")
+        trip_id = get_safe_value(row, "trip_id")
+        route_id = get_safe_value(row, "route_id")
         if trip_id and route_id:
             trip_to_route[trip_id] = route_id
 
     # Build stop_id -> set of route_ids
     stop_to_routes = defaultdict(set)
     for row in stop_times_data:
-        trip_id = row.get("trip_id")
-        stop_id = row.get("stop_id")
+        trip_id = get_safe_value(row, "trip_id")
+        stop_id = get_safe_value(row, "stop_id")
         if trip_id and stop_id:
             route_id = trip_to_route.get(trip_id)
             if route_id:
@@ -92,13 +92,13 @@ def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
             },
             "properties": {
                 "stop_id": stop_id,
-                "stop_code": row.get("stop_code", ""),
-                "stop_name": row.get("stop_name", ""),
-                "stop_desc": row.get("stop_desc", ""),
-                "zone_id": row.get("zone_id", ""),
-                "stop_url": row.get("stop_url", ""),
-                "wheelchair_boarding": row.get("wheelchair_boarding", ""),
-                "location_type": row.get("location_type", ""),
+                "stop_code": get_safe_value(row, "stop_code", ""),
+                "stop_name": get_safe_value(row, "stop_name", ""),
+                "stop_desc": get_safe_value(row, "stop_desc", ""),
+                "zone_id": get_safe_value(row, "zone_id", ""),
+                "stop_url": get_safe_value(row, "stop_url", ""),
+                "wheelchair_boarding": get_safe_value(row, "wheelchair_boarding", ""),
+                "location_type": get_safe_value(row, "location_type", ""),
                 "route_ids": route_ids,
                 "route_colors": route_colors,
             },

@@ -8,6 +8,7 @@ from transform import (
     to_float,
     get_safe_value,
     get_safe_float,
+    get_safe_int,
 )
 
 
@@ -154,3 +155,21 @@ class TestGetSafeFloat(unittest.TestCase):
         self.assertEqual(get_safe_float(row, "value", default_value=4.56), 4.56)
         row = {"value": None}
         self.assertEqual(get_safe_float(row, "value", default_value=7.89), 7.89)
+
+
+class TestGetSafeInt(unittest.TestCase):
+    def test_valid_int(self):
+        row = {"value": "42"}
+        self.assertEqual(get_safe_int(row, "value"), 42)
+
+    def test_invalid_int(self):
+        row = {"value": "abc"}
+        self.assertIsNone(get_safe_int(row, "value"))
+
+    def test_missing_key(self):
+        row = {}
+        self.assertIsNone(get_safe_int(row, "value"))
+
+    def test_empty_string(self):
+        row = {"value": ""}
+        self.assertIsNone(get_safe_int(row, "value"))
