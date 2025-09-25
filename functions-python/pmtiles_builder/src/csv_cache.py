@@ -17,10 +17,10 @@ import csv
 import os
 from typing import TypedDict, List, Dict
 
-
 from gtfs import stop_txt_is_lat_log_required
 from shared.helpers.logger import get_logger
 from shared.helpers.transform import get_safe_value, get_safe_float
+from shared.helpers.utils import detect_encoding
 
 STOP_TIMES_FILE = "stop_times.txt"
 SHAPES_FILE = "shapes.txt"
@@ -93,7 +93,8 @@ class CsvCache:
         """
         try:
             self.logger.debug("Loading %s", filename)
-            with open(filename, newline="", encoding="utf-8") as f:
+            encoding = detect_encoding(filename, logger=self.logger)
+            with open(filename, newline="", encoding=encoding) as f:
                 return list(csv.DictReader(f))
         except Exception as e:
             raise Exception(f"Failed to read CSV file {filename}: {e}") from e
