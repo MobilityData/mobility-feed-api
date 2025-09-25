@@ -47,6 +47,7 @@ from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
 from shared.helpers.transform import get_safe_value, get_safe_float
+from shared.helpers.utils import detect_encoding
 
 init_logger()
 
@@ -337,8 +338,11 @@ class PmtilesBuilder:
         self.logger.info("Creating shapes index")
         shapes_index = {}
         try:
+            encoding = detect_encoding(
+                filename=self.get_path(SHAPES_FILE), logger=self.logger
+            )
             with open(
-                self.get_path(SHAPES_FILE), "r", encoding="utf-8", newline=""
+                self.get_path(SHAPES_FILE), "r", encoding=encoding, newline=""
             ) as f:
                 header = f.readline()
                 columns = next(csv.reader([header]))

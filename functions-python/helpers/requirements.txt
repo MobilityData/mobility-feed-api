@@ -30,3 +30,4 @@ google-cloud-bigquery
 pycountry
 shapely
 pandas
+charset_normalizer
