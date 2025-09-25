@@ -131,8 +131,14 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   // effect to determine which view to display
   useEffect(() => {
     if (feed == undefined) return;
-    if (feed?.data_type === 'gbfs') return;
-    if (routesJsonLoadingStatus != 'failed' && boundingBox != undefined) {
+    if (feed?.data_type === 'gbfs') return; // use default for gbfs
+
+    // for gtfs feeds
+    if (
+      config.enableGtfsVisualizationMap &&
+      routesJsonLoadingStatus != 'failed' &&
+      boundingBox != undefined
+    ) {
       setView('gtfsVisualizationView');
       return;
     }
