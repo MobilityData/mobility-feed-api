@@ -33,7 +33,8 @@ def verify_download_content(producer_url: str):
     )
     tempfile = processor.generate_temp_filename()
     logging.info(f"Temp filename: {tempfile}")
-    file_hash, is_zip = processor.download_content(tempfile)
+    file_hash, is_zip = processor.download_content(tempfile, "feed_id")
+    logging.info(f"Downloaded file from {producer_url} is a valid ZIP file: {is_zip}")
     logging.info(f"File hash: {file_hash}")
 
 
@@ -48,7 +49,7 @@ def verify_upload_dataset(producer_url: str):
     """
     processor = DatasetProcessor(
         producer_url=producer_url,
-        feed_id="feed_id",
+        feed_id="feed_id_2126",
         feed_stable_id="feed_stable_id",
         execution_id=None,
         latest_hash="123",
@@ -59,7 +60,7 @@ def verify_upload_dataset(producer_url: str):
     )
     tempfile = processor.generate_temp_filename()
     logging.info(f"Temp filename: {tempfile}")
-    dataset_file = processor.upload_dataset(public=False)
+    dataset_file = processor.upload_dataset("feed_id_2126", False)
     logging.info(f"Dataset File: {dataset_file}")
 
 
@@ -72,6 +73,7 @@ if __name__ == "__main__":
         # create working dir if not exists
         if not os.path.exists(os.environ["WORKING_DIR"]):
             os.makedirs(os.environ["WORKING_DIR"])
+
         server = create_server(
             host=HOST, port=PORT, in_memory=False, default_bucket=BUCKET_NAME
         )
@@ -79,7 +81,6 @@ if __name__ == "__main__":
 
         verify_download_content(producer_url=PRODUCER_URL)
         logging.info("Download content verification completed successfully.")
-        verify_upload_dataset(producer_url=PRODUCER_URL)
         verify_upload_dataset(producer_url=PRODUCER_URL)
     except Exception as e:
         logging.error(f"Error verifying download content: {e}")
