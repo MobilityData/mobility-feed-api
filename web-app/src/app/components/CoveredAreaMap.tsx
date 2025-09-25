@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   ToggleButtonGroup,
@@ -25,17 +25,18 @@ import { Map } from './Map';
 import { useTranslation } from 'react-i18next';
 import type { LatLngExpression } from 'leaflet';
 import { useTheme } from '@mui/material/styles';
-import { type GBFSFeedType, type AllFeedType } from '../services/feeds/utils';
+import { type AllFeedType } from '../services/feeds/utils';
 import { OpenInNew } from '@mui/icons-material';
 import { computeBoundingBox } from '../screens/Feed/Feed.functions';
 import { displayFormattedDate } from '../utils/date';
 import { useSelector } from 'react-redux';
-import { selectAutodiscoveryGbfsVersion } from '../store/feed-selectors';
 import ModeOfTravelIcon from '@mui/icons-material/ModeOfTravel';
 import { GtfsVisualizationMap } from './GtfsVisualizationMap';
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap';
 import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import ReactGA from 'react-ga4';
+import { selectLatestGbfsVersion } from '../store/feed-selectors';
+import { selectGtfsDatasetRoutesLoadingStatus } from '../store/supporting-files-selectors';
 
 interface CoveredAreaMapProps {
   boundingBox?: LatLngExpression[];
@@ -77,8 +78,16 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
   >(null);
   const [geoJsonError, setGeoJsonError] = useState(false);
   const [geoJsonLoading, setGeoJsonLoading] = useState(false);
-  const [view, setView] = useState<MapViews>('detailedCoveredAreaView');
-  const latestGbfsVersion = useSelector(selectAutodiscoveryGbfsVersion);
+  const [view, setView] = useState<MapViews>(
+    feed?.data_type === 'gtfs'
+      ? 'gtfsVisualizationView'
+      : 'detailedCoveredAreaView',
+  );
+
+  const latestGbfsVersion = useSelector(selectLatestGbfsVersion);
+  const routesJsonLoadingStatus = useSelector(
+    selectGtfsDatasetRoutesLoadingStatus,
+  );
 
   const getAndSetGeoJsonData = (urlToExtract: string): void => {
     setGeoJsonLoading(true);
@@ -86,11 +95,9 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       .then((data) => {
         setGeoJsonData(data);
         setGeoJsonError(false);
-        setView('detailedCoveredAreaView');
       })
       .catch(() => {
         setGeoJsonError(true);
-        setView('boundingBoxView');
       })
       .finally(() => {
         setGeoJsonLoading(false);
@@ -119,8 +126,28 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     }
     setGeoJsonData(null);
     setGeoJsonError(true);
-    setView('boundingBoxView');
   }, [latestDataset, feed]);
+
+  // effect to determine which view to display
+  useEffect(() => {
+    if (feed == undefined) return;
+    if (feed?.data_type === 'gbfs') return; // use default for gbfs
+
+    // for gtfs feeds
+    if (
+      config.enableGtfsVisualizationMap &&
+      routesJsonLoadingStatus != 'failed' &&
+      boundingBox != undefined
+    ) {
+      setView('gtfsVisualizationView');
+      return;
+    }
+    if (geoJsonData != null && boundingBox != undefined) {
+      setView('detailedCoveredAreaView');
+      return;
+    }
+    setView('boundingBoxView');
+  }, [feed, routesJsonLoadingStatus, boundingBox, geoJsonData]);
 
   const handleViewChange = (
     _: React.MouseEvent<HTMLElement>,
@@ -137,9 +164,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     });
   };
 
-  const getGbfsLatestVersionVisualizationUrl = (
-    feed: GBFSFeedType,
-  ): string | undefined => {
+  const getGbfsLatestVersionVisualizationUrl = (): string | undefined => {
     const latestAutodiscoveryUrl = latestGbfsVersion?.endpoints?.find(
       (endpoint) => endpoint.name === 'gbfs',
     )?.url;
@@ -154,11 +179,13 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
       view === 'boundingBoxView' && feed?.data_type === 'gtfs';
 
     const displayGtfsVisualizationView =
-      view === 'gtfsVisualizationView' &&
-      feed?.data_type === 'gtfs' &&
-      config.enableGtfsVisualizationMap;
+      view === 'gtfsVisualizationView' && feed?.data_type === 'gtfs';
+
     let gbfsBoundingBox: LatLngExpression[] = [];
     if (feed?.data_type === 'gbfs') {
+      if (geoJsonData == null) {
+        return <></>;
+      }
       gbfsBoundingBox = computeBoundingBox(geoJsonData) ?? [];
       if (gbfsBoundingBox.length === 0) {
         setGeoJsonError(true);
@@ -187,19 +214,33 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
         </>
       );
     }
-
-    return (
-      <MapGeoJSON
-        geoJSONData={geoJsonData}
-        polygon={boundingBox ?? gbfsBoundingBox}
-        displayMapDetails={feed?.data_type === 'gtfs'}
-      />
-    );
+    if (geoJsonData != null) {
+      return (
+        <MapGeoJSON
+          geoJSONData={geoJsonData}
+          polygon={boundingBox ?? gbfsBoundingBox}
+          displayMapDetails={feed?.data_type === 'gtfs'}
+        />
+      );
+    }
+    return <></>;
   };
 
-  const latestAutodiscoveryUrl = getGbfsLatestVersionVisualizationUrl(
-    feed as GBFSFeedType,
-  );
+  const latestAutodiscoveryUrl = getGbfsLatestVersionVisualizationUrl();
+  const enableGtfsVisualizationView = useMemo(() => {
+    return (
+      config.enableGtfsVisualizationMap &&
+      feed?.data_type === 'gtfs' &&
+      routesJsonLoadingStatus != 'failed' &&
+      boundingBox != undefined
+    );
+  }, [
+    feed?.data_type,
+    config.enableGtfsVisualizationMap,
+    routesJsonLoadingStatus,
+    boundingBox,
+  ]);
+
   return (
     <ContentBox
       sx={{
@@ -271,6 +312,17 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
             aria-label='map view selection'
             onChange={handleViewChange}
           >
+            {config.enableGtfsVisualizationMap && (
+              <Tooltip title={t('gtfsVisualizationTooltip')}>
+                <ToggleButton
+                  value='gtfsVisualizationView'
+                  disabled={!enableGtfsVisualizationView}
+                  aria-label={t('gtfsVisualizationViewLabel')}
+                >
+                  <ModeOfTravelIcon />
+                </ToggleButton>
+              </Tooltip>
+            )}
             <Tooltip title={t('detailedCoveredAreaViewTooltip')}>
               <ToggleButton
                 value='detailedCoveredAreaView'
@@ -290,19 +342,6 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
                 <MapIcon />
               </ToggleButton>
             </Tooltip>
-            {config.enableGtfsVisualizationMap && (
-              <Tooltip title={t('gtfsVisualizationTooltip')}>
-                <span>
-                  <ToggleButton
-                    value='gtfsVisualizationView'
-                    disabled={!config.enableGtfsVisualizationMap}
-                    aria-label='Bounding Box View'
-                  >
-                    <ModeOfTravelIcon />
-                  </ToggleButton>
-                </span>
-              </Tooltip>
-            )}
           </ToggleButtonGroup>
         )}
       </Box>
@@ -320,7 +359,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
 
       {(boundingBox != undefined || !geoJsonError) && (
         <Box sx={mapBoxPositionStyle}>
-          {geoJsonLoading ? (
+          {geoJsonLoading || routesJsonLoadingStatus === 'loading' ? (
             <Skeleton
               variant='rectangular'
               width='100%'
@@ -328,7 +367,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
               animation='wave'
             />
           ) : (
-            <>{geoJsonData !== null && <>{renderMap()}</>}</>
+            <>{renderMap()}</>
           )}
         </Box>
       )}

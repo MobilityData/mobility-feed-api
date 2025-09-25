@@ -461,7 +461,7 @@ export default function Feed(): React.ReactElement {
             width={'100%'}
             component={'div'}
           >
-            {t('dataAattribution')}{' '}
+            {t('dataAttribution')}{' '}
             <a
               rel='noreferrer nofollow'
               target='_blank'
@@ -478,7 +478,7 @@ export default function Feed(): React.ReactElement {
             width={'100%'}
             component={'div'}
           >
-            {t('dataAattribution')}
+            {t('dataAttribution')}
             {' the United States '}
             <a
               rel='noreferrer nofollow'

@@ -178,7 +178,10 @@ export default function FeedSummary({
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
-                disabled={totalRoutes == undefined}
+                disabled={
+                  totalRoutes == undefined ||
+                  (feed as GTFSFeedType)?.bounding_box == undefined
+                }
                 onClick={handleOpenDetailedMapClick}
               >
                 <TravelExploreIcon></TravelExploreIcon>
@@ -212,7 +215,10 @@ export default function FeedSummary({
                 component={RouterLink}
                 to='./map'
                 color={'primary'}
-                disabled={routeTypes == undefined}
+                disabled={
+                  routeTypes == undefined ||
+                  (feed as GTFSFeedType)?.bounding_box == undefined
+                }
                 onClick={handleOpenDetailedMapClick}
               >
                 <TravelExploreIcon></TravelExploreIcon>
