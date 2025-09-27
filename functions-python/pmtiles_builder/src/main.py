@@ -488,7 +488,7 @@ class PmtilesBuilder:
                     result.append(
                         {
                             "shape_id": shape_id,
-                            "trip_ids": trip_ids,
+                            "trip_ids": trip_ids.get("trip_ids", []),
                             "coordinates": coordinates,
                         }
                     )
