@@ -2,7 +2,7 @@
   "name": "pmtiles-builder",
   "description": "The PMTiles Builder function creates PMTiles from dataset files",
   "entry_point": "build_pmtiles_handler",
-  "timeout": 1000,
+  "timeout": 3000,
   "memory": "8Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
@@ -10,6 +10,9 @@
   "environment_variables": [
     {
       "key": "DATASETS_BUCKET_NAME"
+    },
+    {
+      "key": "LOGGING_LEVEL"
     }
   ],
   "secret_environment_variables": [

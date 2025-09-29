@@ -14,12 +14,16 @@
 #  limitations under the License.
 #
 import csv
+import logging
 import os
 from typing import TypedDict, List, Dict
 
 from gtfs import stop_txt_is_lat_log_required
+from pympler import asizeof
+
 from shared.helpers.logger import get_logger
-from shared.helpers.transform import get_safe_value, get_safe_float
+from shared.helpers.transform import get_safe_value_from_csv, get_safe_float_from_csv
+
 from shared.helpers.utils import detect_encoding
 
 STOP_TIMES_FILE = "stop_times.txt"
@@ -65,12 +69,22 @@ class CsvCache:
 
         self.logger.info("Using work directory: %s", self.workdir)
 
+    def debug_log_size(self, label: str, obj: object) -> None:
+        """Log the deep size of an object in bytes when DEBUG is enabled."""
+        if self.logger.isEnabledFor(logging.DEBUG):
+            try:
+                size_bytes = asizeof.asizeof(obj)
+                self.logger.debug("asizeof %s size: %d", label, size_bytes)
+            except Exception as e:
+                self.logger.debug("asizeof Failed to compute size for %s: %s", label, e)
+
     def get_path(self, filename: str) -> str:
         return os.path.join(self.workdir, filename)
 
     def get_file(self, filename) -> list[dict]:
         if self.file_data.get(filename) is None:
             self.file_data[filename] = self._read_csv(self.get_path(filename))
+            self.debug_log_size(f"file data for {filename}", self.file_data[filename])
         return self.file_data[filename]
 
     def add_data(self, filename: str, data: list[dict]):
@@ -99,6 +113,9 @@ class CsvCache:
         except Exception as e:
             raise Exception(f"Failed to read CSV file {filename}: {e}") from e
 
+    def clear_trip_from_route(self):
+        self.route_to_trip = None
+
     def get_shape_from_route(self, route_id) -> Dict[str, ShapeTrips]:
         """
         Returns a list of shape_ids with associated trip_ids information with a given route_id from the trips file.
@@ -112,15 +129,15 @@ class CsvCache:
              {'shape_id': 'shape_id2', 'trip_ids': ['trip3']}}]
         """
         if self.route_to_shape is None:
-            self._build_route_to_shape(route_id)
+            self._build_route_to_shape()
         return self.route_to_shape.get(route_id, {})
 
-    def _build_route_to_shape(self, route_id):
+    def _build_route_to_shape(self):
         self.route_to_shape = {}
         for row in self.get_file(TRIPS_FILE):
-            route_id = get_safe_value(row, "route_id")
-            shape_id = get_safe_value(row, "shape_id")
-            trip_id = get_safe_value(row, "trip_id")
+            route_id = get_safe_value_from_csv(row, "route_id")
+            shape_id = get_safe_value_from_csv(row, "shape_id")
+            trip_id = get_safe_value_from_csv(row, "trip_id")
             if route_id and trip_id:
                 if shape_id:
                     route_shapes = self.route_to_shape.setdefault(route_id, {})
@@ -140,17 +157,23 @@ class CsvCache:
                         self.trips_no_shapes_per_route[route_id] = trip_no_shapes
                     trip_no_shapes.append(trip_id)
 
+    def clear_shape_from_route(self):
+        self.route_to_shape = None
+
     def get_trips_without_shape_from_route(self, route_id) -> List[str]:
         return self.trips_no_shapes_per_route.get(route_id, [])
 
     def _build_trip_to_stops(self):
         self.trip_to_stops = {}
         for row in self.get_file(STOP_TIMES_FILE):
-            trip_id = get_safe_value(row, "trip_id")
-            stop_id = get_safe_value(row, "stop_id")
+            trip_id = get_safe_value_from_csv(row, "trip_id")
+            stop_id = get_safe_value_from_csv(row, "stop_id")
             if trip_id and stop_id:
                 trip_to_stops = self.trip_to_stops.setdefault(trip_id, [])
                 trip_to_stops.append(stop_id)
+
+    def clear_stops_from_trip(self):
+        self.trip_to_stops = None
 
     def get_stops_from_trip(self, trip_id):
         if self.trip_to_stops is None:
@@ -160,9 +183,9 @@ class CsvCache:
     def _build_stop_to_coordinates(self):
         self.stop_to_coordinates = {}
         for s in self.get_file(STOPS_FILE):
-            row_stop_id = get_safe_value(s, "stop_id")
-            row_stop_lon = get_safe_float(s, "stop_lon")
-            row_stop_lat = get_safe_float(s, "stop_lat")
+            row_stop_id = get_safe_value_from_csv(s, "stop_id")
+            row_stop_lon = get_safe_float_from_csv(s, "stop_lon")
+            row_stop_lat = get_safe_float_from_csv(s, "stop_lat")
             if row_stop_id is None:
                 self.logger.warning("Missing stop id: %s", s)
                 continue
@@ -180,6 +203,9 @@ class CsvCache:
         if self.stop_to_coordinates is None:
             self._build_stop_to_coordinates()
         return self.stop_to_coordinates.get(stop_id, None)
+
+    def clear_coordinate_for_stops(self):
+        self.stop_to_coordinates = None
 
     def set_workdir(self, workdir):
         self.workdir = workdir

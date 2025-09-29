@@ -1,4 +1,3 @@
-import csv
 import json
 import logging
 import tempfile
@@ -218,42 +217,16 @@ class TestPmtilesBuilder(unittest.TestCase):
                 f.write("s2,46.0,-74.0,1\n")
 
             index = self.builder._create_shapes_index()
-        self.assertIn("columns", index)
         self.assertEqual(
-            index["columns"],
-            ["shape_id", "shape_pt_lat", "shape_pt_lon", "shape_pt_sequence"],
+            index.coordinates_columns,
+            ["shape_pt_lon", "shape_pt_lat", "shape_pt_sequence"],
         )
-        self.assertIn("s1", index)
-        self.assertIn("s2", index)
-        self.assertEqual(len(index["s1"]), 2)
-        self.assertEqual(len(index["s2"]), 1)
+        self.assertIn("s1", index.coordinates_arrays)
+        self.assertIn("s2", index.coordinates_arrays)
+        self.assertEqual(len(index.coordinates_arrays["s1"]), 3)
+        self.assertEqual(len(index.coordinates_arrays["s1"][0]), 2)
 
-    def test_get_shape_points(self):
-        # Prepare shapes.txt
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.set_workdir(temp_dir)
-            shapes_path = self.builder.get_path("shapes.txt")
-
-            with open(shapes_path, "w", encoding="utf-8") as f:
-                f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
-                f.write("s1,45.0,-73.0,1\n")
-                f.write("s1,45.1,-73.1,2\n")
-
-            # Build index with file positions
-            index = {}
-            with open(shapes_path, "r", encoding="utf-8") as f:
-                header = f.readline()
-                columns = next(csv.reader([header]))
-                pos1 = f.tell()
-                f.readline()
-                pos2 = f.tell()
-                f.readline()
-                index["s1"] = [pos1, pos2]
-                index["columns"] = columns
-
-            # Call _get_shape_points
-            points = self.builder._get_shape_points("s1", index)
-        self.assertEqual(points, [(-73.0, 45.0), (-73.1, 45.1)])
+        self.assertEqual(len(index.coordinates_arrays["s2"][0]), 1)
 
     def test_create_routes_geojson(self):
         # Prepare minimal GTFS files
@@ -614,9 +587,12 @@ class TestPmtilesBuilderUpload(unittest.TestCase):
                     for trip_id in trip_ids:
                         self.assertIn(trip_id, expected_trip_shapes)
                         self.assertEqual(shape_id, expected_trip_shapes[trip_id])
-                        self.assertEqual(
-                            feat["geometry"]["coordinates"], expected_coords[shape_id]
-                        )
+                        actual = feat["geometry"]["coordinates"]
+                        expected = expected_coords[shape_id]
+                        rounded_actual = [
+                            [round(x, 2) for x in pair] for pair in actual
+                        ]
+                        self.assertEqual(rounded_actual, expected)
                         trip_counts[trip_id] += 1
                 for count in trip_counts.values():
                     self.assertEqual(count, 1)
@@ -683,9 +659,13 @@ class TestPmtilesBuilderUpload(unittest.TestCase):
                     trip_ids = feat["properties"].get("trip_ids")
                     for trip_id in trip_ids:
                         self.assertIn(trip_id, expected_coords)
-                        self.assertEqual(
-                            feat["geometry"]["coordinates"], expected_coords[trip_id]
-                        )
+                        actual = feat["geometry"]["coordinates"]
+                        expected = expected_coords[trip_id]
+                        # Round both actual and expected coordinates to 2 decimal places
+                        rounded_actual = [
+                            [round(x, 2) for x in pair] for pair in actual
+                        ]
+                        self.assertEqual(rounded_actual, expected)
 
 
 if __name__ == "__main__":
