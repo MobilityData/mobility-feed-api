@@ -466,6 +466,6 @@ if __name__ == "__main__":
     )
     os.environ[
         "FEEDS_DATABASE_URL"
-    ] = "postgresql://postgres:postgres@localhost:9901/MobilityDatabase"
+    ] = "postgresql://postgres:postgres@localhost:54320/MobilityDatabaseTest"
     args = parser.parse_args()
     export_csv(args.outpath)
