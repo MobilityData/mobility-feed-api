@@ -17,7 +17,6 @@
 # from GTFS datasets. It handles downloading required files from Google Cloud Storage, processing
 # and indexing GTFS data, generating GeoJSON and JSON outputs, running Tippecanoe to create PMTiles,
 # and uploading the results back to GCS.
-import datetime
 import json
 import logging
 import os
@@ -168,6 +167,11 @@ class PmtilesBuilder:
         # Track calls to _get_shape_points to control logging cadence
         self._get_shape_points_calls = 0
 
+        # The NO_GCS variable controls if we do uploads and downloads from GCS.
+        # It's useful for testing with local files only.
+        no_gcs = os.getenv("NO_GCS", "").lower()
+        self.use_gcs = False if no_gcs == "true" else True
+
     def get_path(self, filename: str) -> str:
         return self.csv_cache.get_path(filename)
 
@@ -175,14 +179,9 @@ class PmtilesBuilder:
     def set_workdir(self, workdir: str):
         self.csv_cache.set_workdir(workdir)
 
+    @track_metrics(metrics=("time",))
     def build_pmtiles(self):
-        # The NO_GCS variable controls if we do uploads and downloads from GCS.
-        # It's useful for testing with local files only.
-        no_gcs = os.getenv("NO_GCS", "").lower()
-        self.use_gcs = False if no_gcs == "true" else True
-
-        start_time = datetime.datetime.now()
-        self.logger.info(f"Starting PMTiles build at {start_time.isoformat()}")
+        self.logger.info("Starting PMTiles build")
 
         if self.use_gcs:
             # If we don't use gcs, we assume the txt files are already in the workdir.
@@ -210,12 +209,6 @@ class PmtilesBuilder:
         if self.use_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
             self._upload_files_to_gcs(files_to_upload)
-
-        end_time = datetime.datetime.now()
-        duration = (end_time - start_time).total_seconds()
-        self.logger.info(
-            f"Finished PMTiles build at {end_time.isoformat()} (duration: {duration:.2f} seconds)"
-        )
 
         return self.OperationStatus.SUCCESS, "success"
 
