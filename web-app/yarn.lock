@@ -3540,6 +3540,11 @@
   resolved "https://registry.npmjs.org/@types/linkify-it/-/linkify-it-3.0.5.tgz"
   integrity sha512-yg6E+u0/+Zjva+buc3EIb+29XEg4wltq7cSmd4Uc2EE/1nUVmxyzpX6gUXD0V8jIrG0r7YeOGVIbYRkxeooCtw==
 
+"@types/lodash@^4.17.20":
+  version "4.17.20"
+  resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.17.20.tgz#1ca77361d7363432d29f5e55950d9ec1e1c6ea93"
+  integrity sha512-H3MHACvFUEiujabxhaI/ImO6gUrd8oOurg7LQtS7mbwIXA/cUqWrvBsaeJ23aZEPk1TAYkurjfMbSELfoCXlGA==
+
 "@types/long@^4.0.0":
   version "4.0.2"
   resolved "https://registry.npmjs.org/@types/long/-/long-4.0.2.tgz"
@@ -3733,6 +3738,13 @@
   integrity sha512-ZVNmWumUIh5NhH8aMD9CR2hdW0fNuYInlocZHaZ+dgk/1K49j1w/HoAuK1ki+pgscQrOFRTlXeoURtuzEkV3dg==
   dependencies:
     "@types/react" "*"
+
+"@types/react-window@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@types/react-window/-/react-window-2.0.0.tgz#9fe45015d6f98ec98a069362518c855fcc1fa8d0"
+  integrity sha512-E8hMDtImEpMk1SjswSvqoSmYvk7GEtyVaTa/GJV++FdDNuMVVEzpAClyJ0nqeKYBrMkGiyH6M1+rPLM0Nu1exQ==
+  dependencies:
+    react-window "*"
 
 "@types/react@*", "@types/react@^18.2.25":
   version "18.2.38"
@@ -10361,6 +10373,11 @@ listr2@^3.8.3:
     through "^2.3.8"
     wrap-ansi "^7.0.0"
 
+loadashes6@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/loadashes6/-/loadashes6-1.0.0.tgz#862259c73d5a9195a4e5d72abb3a2476ae71db45"
+  integrity sha512-2UeX69yCIy8rVsPZHnjnaNTvQ8Mh5pMim2SZP3KiZJO/ECmfFuJwF4epHEFOYbZdOmj74bWIxm1H3kCNBsGdSw==
+
 loader-runner@^4.2.0:
   version "4.3.0"
   resolved "https://registry.npmjs.org/loader-runner/-/loader-runner-4.3.0.tgz"
@@ -12705,6 +12722,14 @@ react-dom@^17.0.0:
     loose-envify "^1.1.0"
     scheduler "^0.23.0"
 
+react-draggable@^4.5.0:
+  version "4.5.0"
+  resolved "https://registry.yarnpkg.com/react-draggable/-/react-draggable-4.5.0.tgz#0b274ccb6965fcf97ed38fcf7e3cc223bc48cdf5"
+  integrity sha512-VC+HBLEZ0XJxnOxVAZsdRi8rD04Iz3SiiKOoYzamjylUcju/hP9np/aZdLHf/7WOD268WMoNJMvYfB5yAK45cw==
+  dependencies:
+    clsx "^2.1.1"
+    prop-types "^15.8.1"
+
 react-error-overlay@^6.0.11:
   version "6.0.11"
   resolved "https://registry.npmjs.org/react-error-overlay/-/react-error-overlay-6.0.11.tgz"
@@ -12932,6 +12957,11 @@ react-virtualized@^9.21.2:
     loose-envify "^1.4.0"
     prop-types "^15.7.2"
     react-lifecycles-compat "^3.0.4"
+
+react-window@*, react-window@^2.1.2:
+  version "2.1.2"
+  resolved "https://registry.yarnpkg.com/react-window/-/react-window-2.1.2.tgz#f18900ab9e60a7c6549e670cded4845f656ae382"
+  integrity sha512-3PnhB1bXauRVTR1vVwEmFjbaNDCIubOoNLTvvHrOI9cGOkPGb5XAzlprNN/FuUlnKsaaws31t3IJYbJJvhJcBQ==
 
 react@^17.0.0:
   version "17.0.2"

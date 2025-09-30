@@ -36,6 +36,10 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   enableGbfsInSearchPage: boolean;
   gbfsVersions: string;
   enableGtfsVisualizationMap: boolean;
+
+  /** Max number of data stuff to display on top of the map to avoid overflow */
+  visualizationMapPreviewDataLimit: number;
+  visualizationMapFullDataLimit: number;
 }
 
 const featureByPassDefault: BypassConfig = {
@@ -62,6 +66,8 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableGbfsInSearchPage: true,
   gbfsVersions: JSON.stringify(gbfsVersionsDefault),
   enableGtfsVisualizationMap: false,
+  visualizationMapFullDataLimit: 5,
+  visualizationMapPreviewDataLimit: 3,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;

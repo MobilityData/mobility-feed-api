@@ -173,5 +173,6 @@
     "noRoutesData": "Could not load routes data for the map.",
     "invalidDataType": "This feed is not a GTFS Schedule feed.",
     "noBoundingBox": "No bounding box available."
-  }
+  },
+  "andMoreElements": "And {{count}} more..."
 }
