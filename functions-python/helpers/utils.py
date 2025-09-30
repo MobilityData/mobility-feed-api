@@ -363,7 +363,9 @@ def detect_encoding(
     enc = result.encoding.lower()
 
     # If UTF-8 is detected, always use utf-8-sig to strip BOM if present
-    if enc in ("utf_8", "utf-8", "utf8", "utf8mb4"):
+    # Treat ascii as UTF-8, since it's a subset of UTF-8 and it will prevent errors where UTF-8 characters are present
+    # after the first 100K characters of the file.
+    if enc in ("ascii", "utf_8", "utf-8", "utf8", "utf8mb4"):
         return "utf-8-sig"
 
     return enc

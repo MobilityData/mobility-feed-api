@@ -89,38 +89,70 @@ def to_float(value, default_value: Optional[float] = None) -> Optional[float]:
         return default_value
 
 
-def get_safe_value(row, column_name, default_value: str = None) -> Optional[str]:
+def get_safe_value_from_csv(
+    row, column_name, default_value: str = None
+) -> Optional[str]:
     """
-    Get a safe value from the row. If the value is missing or empty, return the default value.
+    Get a safe value from a csv row. If the value is missing or empty, return the default value.
+    """
+
+    raw_value = row.get(column_name, None)
+
+    return get_safe_value(raw_value, default_value)
+
+
+def get_safe_value(raw_value, default_value: str = None) -> Optional[str]:
+    """
+    Get a safe value. If the value is missing or empty, return the default value.
     """
     import pandas
 
-    value = row.get(column_name, None)
     if (
-        value is None
-        or pandas.isna(value)
-        or (isinstance(value, str) and value.strip() == "")
+        raw_value is None
+        or pandas.isna(raw_value)
+        or (isinstance(raw_value, str) and raw_value.strip() == "")
     ):
         return default_value
-    return f"{value}".strip()
+    return f"{raw_value}".strip()
 
 
-def get_safe_float(row, column_name, default_value: float = None) -> Optional[float]:
+def get_safe_float_from_csv(
+    row, column_name, default_value: float = None
+) -> Optional[float]:
     """
-    Get a safe float value from the row. If the value is missing or cannot be converted to float.
+    Get a safe float value from a csv row.
+    Use the default value if the value is missing or cannot be converted to float.
     """
-    safe_value = get_safe_value(row, column_name)
+    raw_value = row.get(column_name, None)
+
+    return get_safe_float(raw_value, default_value)
+
+
+def get_safe_float(raw_value, default_value: float = None) -> Optional[float]:
+    """
+    Get a safe float value. Use the default value if the value is missing or cannot be converted to float.
+    """
+    safe_value = get_safe_value(raw_value, default_value)
     try:
         return float(safe_value)
     except (ValueError, TypeError):
         return default_value
 
 
-def get_safe_int(row, column_name, default_value: int = None) -> Optional[int]:
+def get_safe_int_from_csv(row, column_name, default_value: int = None) -> Optional[int]:
     """
-    Get a safe int value from the row. If the value is missing or cannot be converted to int.
+    Get a safe int value from a csv row. Use the default value if the value is missing or cannot be converted to int.
     """
-    safe_value = get_safe_value(row, column_name)
+    raw_value = row.get(column_name, None)
+
+    return get_safe_int(raw_value, default_value)
+
+
+def get_safe_int(raw_value, default_value: int = None) -> Optional[int]:
+    """
+    Get a safe int value. Use the default value if the value is missing or cannot be converted to int.
+    """
+    safe_value = get_safe_value(raw_value, default_value)
     try:
         return int(safe_value)
     except (ValueError, TypeError):

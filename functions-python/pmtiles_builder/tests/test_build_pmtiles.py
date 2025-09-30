@@ -1,4 +1,3 @@
-import csv
 import json
 import logging
 import tempfile
@@ -218,42 +217,16 @@ class TestPmtilesBuilder(unittest.TestCase):
                 f.write("s2,46.0,-74.0,1\n")
 
             index = self.builder._create_shapes_index()
-        self.assertIn("columns", index)
         self.assertEqual(
-            index["columns"],
-            ["shape_id", "shape_pt_lat", "shape_pt_lon", "shape_pt_sequence"],
+            index.coordinates_columns,
+            ["shape_pt_lon", "shape_pt_lat", "shape_pt_sequence"],
         )
-        self.assertIn("s1", index)
-        self.assertIn("s2", index)
-        self.assertEqual(len(index["s1"]), 2)
-        self.assertEqual(len(index["s2"]), 1)
+        self.assertIn("s1", index.coordinates_arrays)
+        self.assertIn("s2", index.coordinates_arrays)
+        self.assertEqual(len(index.coordinates_arrays["s1"]), 3)
+        self.assertEqual(len(index.coordinates_arrays["s1"][0]), 2)
 
-    def test_get_shape_points(self):
-        # Prepare shapes.txt
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.set_workdir(temp_dir)
-            shapes_path = self.builder.get_path("shapes.txt")
-
-            with open(shapes_path, "w", encoding="utf-8") as f:
-                f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
-                f.write("s1,45.0,-73.0,1\n")
-                f.write("s1,45.1,-73.1,2\n")
-
-            # Build index with file positions
-            index = {}
-            with open(shapes_path, "r", encoding="utf-8") as f:
-                header = f.readline()
-                columns = next(csv.reader([header]))
-                pos1 = f.tell()
-                f.readline()
-                pos2 = f.tell()
-                f.readline()
-                index["s1"] = [pos1, pos2]
-                index["columns"] = columns
-
-            # Call _get_shape_points
-            points = self.builder._get_shape_points("s1", index)
-        self.assertEqual(points, [(-73.0, 45.0), (-73.1, 45.1)])
+        self.assertEqual(len(index.coordinates_arrays["s2"][0]), 1)
 
     def test_create_routes_geojson(self):
         # Prepare minimal GTFS files
@@ -554,6 +527,145 @@ class TestPmtilesBuilderUpload(unittest.TestCase):
             "foo/foo_bar/pmtiles/routes.pmtiles"
         )
         self.mock_blob.upload_from_filename.assert_called_with(test_file)
+
+    def test_two_routes_with_each_two_trips_with_varied_shapes(self):
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            builder = PmtilesBuilder("feed1", "feed1_dataset1", workdir=temp_dir)
+            # Write routes.txt
+            with open(builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
+                f.write(
+                    "route_id,route_long_name,route_color,route_text_color,route_type\n"
+                )
+                f.write("route1,Route 1,FF0000,FFFFFF,3\n")
+                f.write("route2,Route 2,00FF00,000000,3\n")
+            # Write trips.txt
+            with open(builder.get_path("trips.txt"), "w", encoding="utf-8") as f:
+                # 2 routes with each 2 trips, with trip1 and trip2 having their own shapes,
+                # and trip3 and trip4 sharing the same shape
+                f.write("route_id,service_id,trip_id,shape_id\n")
+                f.write("route1,svc1,trip1,shape1\n")
+                f.write("route1,svc1,trip2,shape2\n")
+                f.write("route2,svc2,trip3,shape3\n")
+                f.write("route2,svc2,trip4,shape3\n")
+            # Write shapes.txt
+            with open(builder.get_path("shapes.txt"), "w", encoding="utf-8") as f:
+                f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
+                f.write("shape1,1.0,11.0,1\n")
+                f.write("shape1,1.1,11.1,2\n")
+                f.write("shape2,2.0,12.0,1\n")
+                f.write("shape2,2.1,12.1,2\n")
+                f.write("shape3,3.0,13.0,1\n")
+                f.write("shape3,3.1,13.1,2\n")
+
+            # Create routes-output.geojson
+            builder._create_routes_geojson()
+            geojson_path = builder.get_path("routes-output.geojson")
+            self.assertTrue(os.path.exists(geojson_path))
+
+            with open(geojson_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                self.assertEqual(data["type"], "FeatureCollection")
+                # Since there is essentially 3 shapes, there should be 3 features
+                self.assertEqual(len(data["features"]), 3)
+                expected_coords = {
+                    "shape1": [[11.0, 1.0], [11.1, 1.1]],
+                    "shape2": [[12.0, 2.0], [12.1, 2.1]],
+                    "shape3": [[13.0, 3.0], [13.1, 3.1]],
+                }
+                expected_trip_shapes = {
+                    "trip1": "shape1",
+                    "trip2": "shape2",
+                    "trip3": "shape3",
+                    "trip4": "shape3",
+                }
+                trip_counts = {k: 0 for k in expected_trip_shapes}
+                for feat in data["features"]:
+                    trip_ids = feat["properties"].get("trip_ids")
+                    shape_id = feat["properties"].get("shape_id")
+                    for trip_id in trip_ids:
+                        self.assertIn(trip_id, expected_trip_shapes)
+                        self.assertEqual(shape_id, expected_trip_shapes[trip_id])
+                        actual = feat["geometry"]["coordinates"]
+                        expected = expected_coords[shape_id]
+                        rounded_actual = [
+                            [round(x, 2) for x in pair] for pair in actual
+                        ]
+                        self.assertEqual(rounded_actual, expected)
+                        trip_counts[trip_id] += 1
+                for count in trip_counts.values():
+                    self.assertEqual(count, 1)
+
+    def test_two_routes_with_each_two_trips_fallback_to_stops(self):
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            builder = PmtilesBuilder("feed1", "feed1_dataset1", workdir=temp_dir)
+            # Write routes.txt
+            with open(builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
+                f.write(
+                    "route_id,route_long_name,route_color,route_text_color,route_type\n"
+                )
+                f.write("route1,Route 1,FF0000,FFFFFF,3\n")
+                f.write("route2,Route 2,00FF00,000000,3\n")
+            # Write trips.txt
+            with open(builder.get_path("trips.txt"), "w", encoding="utf-8") as f:
+                f.write("route_id,service_id,trip_id,shape_id\n")
+                f.write("route1,svc1,trip1,\n")
+                f.write("route1,svc1,trip2,\n")
+                f.write("route2,svc2,trip3,\n")
+                f.write("route2,svc2,trip4,\n")
+            # Write stops.txt
+            with open(builder.get_path("stops.txt"), "w", encoding="utf-8") as f:
+                f.write("stop_id,stop_lat,stop_lon\n")
+                f.write("stop1-1,1.1,11.1\n")
+                f.write("stop1-2,1.2,11.2\n")
+                f.write("stop2-1,2.1,12.1\n")
+                f.write("stop2-2,2.2,12.2\n")
+                f.write("stop3-1,3.1,13.1\n")
+                f.write("stop3-2,3.2,13.2\n")
+                f.write("stop4-1,4.1,14.1\n")
+                f.write("stop4-2,4.2,14.2\n")
+            # Write stop_times.txt
+            with open(builder.get_path("stop_times.txt"), "w", encoding="utf-8") as f:
+                f.write("trip_id,arrival_time,departure_time,stop_id,stop_sequence\n")
+                f.write("trip1,08:00:00,08:00:00,stop1-1,1\n")
+                f.write("trip1,08:10:00,08:10:00,stop1-2,2\n")
+                f.write("trip2,09:00:00,09:00:00,stop2-1,1\n")
+                f.write("trip2,09:10:00,09:10:00,stop2-2,2\n")
+                f.write("trip3,10:00:00,10:00:00,stop3-1,1\n")
+                f.write("trip3,10:10:00,10:10:00,stop3-2,2\n")
+                f.write("trip4,11:00:00,11:00:00,stop4-1,1\n")
+                f.write("trip4,11:10:00,11:10:00,stop4-2,2\n")
+            # No shapes.txt
+
+            # Create routes-output.geojson
+            builder._create_routes_geojson()
+            geojson_path = builder.get_path("routes-output.geojson")
+            self.assertTrue(os.path.exists(geojson_path))
+
+            with open(geojson_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                self.assertEqual(data["type"], "FeatureCollection")
+                self.assertEqual(len(data["features"]), 4)
+                expected_coords = {
+                    "trip1": [[11.1, 1.1], [11.2, 1.2]],
+                    "trip2": [[12.1, 2.1], [12.2, 2.2]],
+                    "trip3": [[13.1, 3.1], [13.2, 3.2]],
+                    "trip4": [[14.1, 4.1], [14.2, 4.2]],
+                }
+                for feat in data["features"]:
+                    trip_ids = feat["properties"].get("trip_ids")
+                    for trip_id in trip_ids:
+                        self.assertIn(trip_id, expected_coords)
+                        actual = feat["geometry"]["coordinates"]
+                        expected = expected_coords[trip_id]
+                        # Round both actual and expected coordinates to 2 decimal places
+                        rounded_actual = [
+                            [round(x, 2) for x in pair] for pair in actual
+                        ]
+                        self.assertEqual(rounded_actual, expected)
 
 
 if __name__ == "__main__":

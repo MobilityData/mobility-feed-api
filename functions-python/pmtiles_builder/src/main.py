@@ -17,17 +17,15 @@
 # from GTFS datasets. It handles downloading required files from Google Cloud Storage, processing
 # and indexing GTFS data, generating GeoJSON and JSON outputs, running Tippecanoe to create PMTiles,
 # and uploading the results back to GCS.
-import csv
 import json
 import logging
 import os
 import subprocess
+import sys
 import tempfile
 from enum import Enum
 from typing import TypedDict, Tuple, List, Dict
 
-import flask
-import functions_framework
 from google.cloud import storage
 from sqlalchemy.orm import Session
 
@@ -41,13 +39,16 @@ from csv_cache import (
     SHAPES_FILE,
     ShapeTrips,
 )
+from shapes_index import ShapesIndex
 from gtfs_stops_to_geojson import convert_stops_to_geojson
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
-from shared.helpers.transform import get_safe_value, get_safe_float
-from shared.helpers.utils import detect_encoding
+from shared.helpers.transform import get_safe_value_from_csv
+
+import flask
+import functions_framework
 
 init_logger()
 
@@ -162,8 +163,14 @@ class PmtilesBuilder:
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
         self.csv_cache = CsvCache(workdir, self.logger)
+        self.use_gcs = True
+        # Track calls to _get_shape_points to control logging cadence
+        self._get_shape_points_calls = 0
 
-        self.logger.info("Using work directory: %s", workdir)
+        # The NO_GCS variable controls if we do uploads and downloads from GCS.
+        # It's useful for testing with local files only.
+        no_gcs = os.getenv("NO_GCS", "").lower()
+        self.use_gcs = False if no_gcs == "true" else True
 
     def get_path(self, filename: str) -> str:
         return self.csv_cache.get_path(filename)
@@ -172,29 +179,19 @@ class PmtilesBuilder:
     def set_workdir(self, workdir: str):
         self.csv_cache.set_workdir(workdir)
 
+    @track_metrics(metrics=("time",))
     def build_pmtiles(self):
-        if not self.bucket_name:
-            raise Exception("DATASETS_BUCKET_NAME environment variable is not defined.")
-
-        if not self.feed_stable_id or not self.dataset_stable_id:
-            raise Exception(
-                "Both feed_stable_id and dataset_stable_id must be defined."
-            )
-
-        if self.feed_stable_id not in self.dataset_stable_id:
-            raise Exception(
-                "feed_stable_id %s is not a prefix of dataset_stable_id %s."
-                % (self.feed_stable_id, self.dataset_stable_id)
-            )
-
         self.logger.info("Starting PMTiles build")
-        unzipped_files_path = (
-            f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
-        )
 
-        status, message = self._download_files_from_gcs(unzipped_files_path)
-        if status == self.OperationStatus.FAILURE:
-            return status, message
+        if self.use_gcs:
+            # If we don't use gcs, we assume the txt files are already in the workdir.
+            unzipped_files_path = (
+                f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
+            )
+
+            status, message = self._download_files_from_gcs(unzipped_files_path)
+            if status == self.OperationStatus.FAILURE:
+                return status, message
 
         self._create_routes_geojson()
 
@@ -209,9 +206,9 @@ class PmtilesBuilder:
 
         self._create_routes_json()
 
-        files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
-        self._upload_files_to_gcs(files_to_upload)
-        self._update_database()
+        if self.use_gcs:
+            files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
+            self._upload_files_to_gcs(files_to_upload)
 
         return self.OperationStatus.SUCCESS, "success"
 
@@ -323,88 +320,40 @@ class PmtilesBuilder:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
     @track_metrics(metrics=("time", "memory", "cpu"))
-    def _create_shapes_index(self) -> dict:
+    def _create_shapes_index(self) -> ShapesIndex:
         """
         Create an index for shapes.txt file to quickly access shape points by shape_id.
-        We create the index to save memory. With the index, we keep a list of positions in the file for each shape.
-        If instead we read the whole file into memory, we would need 2 floats for the longitude and latitude plus an
-        int for the sequence number for each point.
-        The largest number of shapes we have currently in a dataset is 37 millions.
-        This means about 900 MB if we have the index, and 1.6 GB if read the coordinates in memory.
-        Returns:
-            A dictionary with key shaped_id and values a list of positions in the shapes.txt file.
         """
-        # TODO: see if we can get rid of the index by reading the shapes coordinates with the memory efficient numpy.
-        self.logger.info("Creating shapes index")
-        shapes_index = {}
-        try:
-            encoding = detect_encoding(
-                filename=self.get_path(SHAPES_FILE), logger=self.logger
-            )
-            with open(
-                self.get_path(SHAPES_FILE), "r", encoding=encoding, newline=""
-            ) as f:
-                header = f.readline()
-                columns = next(csv.reader([header]))
-                shapes_index["columns"] = columns
-                count = 0
-                while True:
-                    pos = f.tell()
-                    line = f.readline()
-                    if not line:
-                        break
-                    row = dict(zip(columns, next(csv.reader([line]))))
-                    sid = get_safe_value(row, "shape_id")
-                    if not sid:
-                        self.logger.warning(
-                            "Missing shape_id at line %s, skipping.", row
-                        )
-                        continue
-                    shapes_index.setdefault(sid, []).append(pos)
-                    count += 1
-                    if count % 1000000 == 0:
-                        self.logger.debug("Indexed %d lines so far...", count)
-            self.logger.debug("Total indexed lines: %d", count)
-            self.logger.debug("Total unique shape_ids: %d", len(shapes_index))
-        except Exception as e:
-            self.logger.warning("Cannot read shapes file: %s", e)
+
+        shapes_index = ShapesIndex(
+            self.get_path(SHAPES_FILE),
+            "shape_id",
+            ["shape_pt_lon", "shape_pt_lat", "shape_pt_sequence"],
+            logger=self.logger,
+        )
+        shapes_index.build_index()
+        self.csv_cache.debug_log_size("shapes_index", shapes_index)
+
         return shapes_index
 
     def _get_shape_points(self, shape_id, index):
-        self.logger.debug("Getting shape points for shape_id %s", shape_id)
-        try:
-            points = []
-            with open(
-                self.get_path(SHAPES_FILE), "r", encoding="utf-8", newline=""
-            ) as f:
-                for pos in index.get(shape_id, []):
-                    f.seek(pos)
-                    line = f.readline()
-                    row = dict(zip(index["columns"], next(csv.reader([line]))))
-                    shape_pt_lon = get_safe_float(row, "shape_pt_lon")
-                    shape_pt_lat = get_safe_float(row, "shape_pt_lat")
-                    shape_pt_sequence = get_safe_float(row, "shape_pt_sequence", 0)
-                    if shape_pt_lon is None or shape_pt_lat is None:
-                        self.logger.warning(
-                            "Invalid coordinates for shape_id %s at position %d, skipping.",
-                            shape_id,
-                            pos,
-                        )
-                        continue
-                    points.append(
-                        (
-                            shape_pt_lon,
-                            shape_pt_lat,
-                            shape_pt_sequence,
-                        )
-                    )
-            points.sort(key=lambda x: x[2])
+        """Retrieve shape points for a given shape_id using the provided index.
+        Args:
+            shape_id (str): The shape_id to retrieve points for.
+            index (ShapesIndex): The index to use for retrieval.
+        Returns:
+            List of (lon, lat) tuples representing the shape points.
+        """
+        # Log only on first call and every 1,000,000 calls
+        self._get_shape_points_calls += 1
+        count = self._get_shape_points_calls
+        if count == 1 or (count % 1_000_000 == 0):
             self.logger.debug(
-                "  Found %d points for shape_id %s", len(points), shape_id
+                "Getting shape points (called #%d times) for shape_id %s",
+                count,
+                shape_id,
             )
-            return [pt[:2] for pt in points]
-        except Exception as e:
-            raise Exception(f"Failed to get shape points for {shape_id}: {e}") from e
+        return index.get_objects(shape_id)
 
     @track_metrics(metrics=("time", "memory", "cpu"))
     def _create_routes_geojson(self):
@@ -414,12 +363,11 @@ class PmtilesBuilder:
             shapes_index = self._create_shapes_index()
             self.logger.info("Creating routes geojson (optimized for memory)")
 
-            features = []
+            features_count = 0
             missing_coordinates_routes = set()
             routes_geojson = self.get_path("routes-output.geojson")
             with open(routes_geojson, "w", encoding="utf-8") as geojson_file:
                 geojson_file.write('{"type": "FeatureCollection", "features": [\n')
-                first = True
                 for i, route in enumerate(self.csv_cache.get_file(ROUTES_FILE), 1):
                     agency_id = route.get("agency_id") or "default"
                     agency_name = agencies.get(agency_id, agency_id)
@@ -454,10 +402,10 @@ class PmtilesBuilder:
                             },
                         }
 
-                        if not first:
+                        if features_count != 0:
                             geojson_file.write(",\n")
                         geojson_file.write(json.dumps(feature))
-                        first = False
+                        features_count += 1
 
                     if i % 100 == 0 or i == 1:
                         self.logger.debug(
@@ -465,13 +413,17 @@ class PmtilesBuilder:
                         )
 
                 geojson_file.write("\n]}")
-
+                # Clear the different caches to save memory. They are currently not used anywhere else.
+                self.csv_cache.clear_coordinate_for_stops()
+                self.csv_cache.clear_shape_from_route()
+                self.csv_cache.clear_stops_from_trip()
+                self.csv_cache.clear_trip_from_route()
             if missing_coordinates_routes:
                 self.logger.info(
                     "Routes without coordinates: %s", list(missing_coordinates_routes)
                 )
             self.logger.debug(
-                "Wrote %d features to routes-output.geojson", len(features)
+                "Wrote %d features to routes-output.geojson", features_count
             )
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
@@ -488,7 +440,7 @@ class PmtilesBuilder:
                     result.append(
                         {
                             "shape_id": shape_id,
-                            "trip_ids": trip_ids,
+                            "trip_ids": trip_ids.get("trip_ids", []),
                             "coordinates": coordinates,
                         }
                     )
@@ -564,15 +516,17 @@ class PmtilesBuilder:
         try:
             routes = []
             for row in self.csv_cache.get_file(ROUTES_FILE):
-                route_id = get_safe_value(row, "route_id", "")
+                route_id = get_safe_value_from_csv(row, "route_id", "")
                 route = {
                     "routeId": route_id,
-                    "routeName": get_safe_value(row, "route_long_name", "")
-                    or get_safe_value(row, "route_short_name", "")
-                    or route_id,
-                    "color": f"#{get_safe_value(row, 'route_color', '000000')}",
-                    "textColor": f"#{get_safe_value(row, 'route_text_color', 'FFFFFF')}",
-                    "routeType": f"{get_safe_value(row, 'route_type', '')}",
+                    "routeName": (
+                        get_safe_value_from_csv(row, "route_long_name", "")
+                        or get_safe_value_from_csv(row, "route_short_name", "")
+                        or route_id
+                    ),
+                    "color": f"#{get_safe_value_from_csv(row, 'route_color', '000000')}",
+                    "textColor": f"#{get_safe_value_from_csv(row, 'route_text_color', 'FFFFFF')}",
+                    "routeType": f"{get_safe_value_from_csv(row, 'route_type', '')}",
                 }
                 routes.append(route)
 
@@ -622,3 +576,23 @@ class PmtilesBuilder:
         # set the relationship on the subclass
         gtfsfeed.visualization_dataset = dataset
         db_session.commit()
+
+
+def main():  # pragma: no cover
+    if len(sys.argv) < 2:
+        print("Usage: python src/main.py <dataset_stable_id>")
+        sys.exit(1)
+
+    dataset_stable_id = sys.argv[1]
+    # Deduce feed_stable_id as the part before the first underscore
+    feed_stable_id = dataset_stable_id.rsplit("-", 1)[0]
+    payload = {"feed_stable_id": feed_stable_id, "dataset_stable_id": dataset_stable_id}
+
+    with flask.Flask(__name__).test_request_context(json=payload):
+        request = flask.request
+        result = build_pmtiles_handler(request)
+        print(result)
+
+
+if __name__ == "__main__":
+    main()

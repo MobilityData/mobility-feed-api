@@ -27,4 +27,7 @@ python-dotenv==1.0.0
 tippecanoe
 psutil
 pandas
+numpy
+pympler
+
 charset_normalizer

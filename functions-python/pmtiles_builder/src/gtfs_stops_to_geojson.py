@@ -1,12 +1,11 @@
 import json
-import sys
 import logging
 from collections import defaultdict
 
 from csv_cache import CsvCache, ROUTES_FILE, TRIPS_FILE, STOP_TIMES_FILE, STOPS_FILE
 from gtfs import stop_txt_is_lat_log_required
 from shared.helpers.runtime_metrics import track_metrics
-from shared.helpers.transform import get_safe_float, get_safe_value
+from shared.helpers.transform import get_safe_float_from_csv, get_safe_value_from_csv
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ def create_routes_map(routes_data):
     """Creates a dictionary of routes from route data."""
     routes = {}
     for row in routes_data:
-        route_id = get_safe_value(row, "route_id")
+        route_id = get_safe_value_from_csv(row, "route_id")
         if route_id:
             routes[route_id] = row
     return routes
@@ -26,16 +25,16 @@ def build_stop_to_routes(stop_times_data, trips_data):
     # Build trip_id -> route_id mapping
     trip_to_route = {}
     for row in trips_data:
-        trip_id = get_safe_value(row, "trip_id")
-        route_id = get_safe_value(row, "route_id")
+        trip_id = get_safe_value_from_csv(row, "trip_id")
+        route_id = get_safe_value_from_csv(row, "route_id")
         if trip_id and route_id:
             trip_to_route[trip_id] = route_id
 
     # Build stop_id -> set of route_ids
     stop_to_routes = defaultdict(set)
     for row in stop_times_data:
-        trip_id = get_safe_value(row, "trip_id")
-        stop_id = get_safe_value(row, "stop_id")
+        trip_id = get_safe_value_from_csv(row, "trip_id")
+        stop_id = get_safe_value_from_csv(row, "stop_id")
         if trip_id and stop_id:
             route_id = trip_to_route.get(trip_id)
             if route_id:
@@ -51,9 +50,11 @@ def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
     stop_to_routes = build_stop_to_routes(
         csv_cache.get_file(STOP_TIMES_FILE), csv_cache.get_file(TRIPS_FILE)
     )
+    csv_cache.debug_log_size(
+        f"stops_to_route length {len(stop_to_routes)}", stop_to_routes
+    )
 
     features = []
-
     for row in csv_cache.get_file(STOPS_FILE):
         stop_id = row.get("stop_id")
         if not stop_id:
@@ -62,8 +63,8 @@ def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
         if (
             "stop_lat" not in row
             or "stop_lon" not in row
-            or get_safe_float(row, "stop_lat") is None
-            or get_safe_float(row, "stop_lon") is None
+            or get_safe_float_from_csv(row, "stop_lat") is None
+            or get_safe_float_from_csv(row, "stop_lon") is None
         ):
             if stop_txt_is_lat_log_required(row):
                 logger.warning(
@@ -92,13 +93,15 @@ def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
             },
             "properties": {
                 "stop_id": stop_id,
-                "stop_code": get_safe_value(row, "stop_code", ""),
-                "stop_name": get_safe_value(row, "stop_name", ""),
-                "stop_desc": get_safe_value(row, "stop_desc", ""),
-                "zone_id": get_safe_value(row, "zone_id", ""),
-                "stop_url": get_safe_value(row, "stop_url", ""),
-                "wheelchair_boarding": get_safe_value(row, "wheelchair_boarding", ""),
-                "location_type": get_safe_value(row, "location_type", ""),
+                "stop_code": get_safe_value_from_csv(row, "stop_code", ""),
+                "stop_name": get_safe_value_from_csv(row, "stop_name", ""),
+                "stop_desc": get_safe_value_from_csv(row, "stop_desc", ""),
+                "zone_id": get_safe_value_from_csv(row, "zone_id", ""),
+                "stop_url": get_safe_value_from_csv(row, "stop_url", ""),
+                "wheelchair_boarding": get_safe_value_from_csv(
+                    row, "wheelchair_boarding", ""
+                ),
+                "location_type": get_safe_value_from_csv(row, "location_type", ""),
                 "route_ids": route_ids,
                 "route_colors": route_colors,
             },
@@ -106,20 +109,6 @@ def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
         features.append(feature)
 
     geojson = {"type": "FeatureCollection", "features": features}
-
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(geojson, f, indent=2, ensure_ascii=False)
-
     logger.info(f"✅ GeoJSON file saved to {output_file} with {len(features)} stops")
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 6:
-        logger.info(
-            "Usage: python script.py stops stop_times trips routes output.geojson"
-        )
-        sys.exit(1)
-
-    convert_stops_to_geojson(
-        sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-    )
