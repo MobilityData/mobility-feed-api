@@ -156,7 +156,7 @@ def populate_database(db_session):
             hosted_url=f"https://url_prefix/{feed_stable_id}/dataset-{i}_some_fake_hosted_url",
             note=f"dataset-{i} Some fake note",
             hash=fake.sha256(),
-            downloaded_at=datetime.utcnow(),
+            downloaded_at=datetime(2025, 1, 12),
             stable_id=f"dataset-{i}",
         )
         validation_report = Validationreport(
@@ -175,6 +175,9 @@ def populate_database(db_session):
         gtfs_dataset.locations = locations
 
         active_gtfs_feeds[feed_index].gtfsdatasets.append(gtfs_dataset)
+        db_session.flush()
+        active_gtfs_feeds[feed_index].bounding_box = gtfs_dataset.bounding_box
+        active_gtfs_feeds[feed_index].bounding_box_dataset_id = gtfs_dataset.id
     active_gtfs_feeds[0].locations = locations
     active_gtfs_feeds[1].locations = locations
 

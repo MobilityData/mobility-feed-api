@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 import io
+import unittest
 
 import pandas as pd
 import pandas.testing as pdt
@@ -34,13 +35,14 @@ gtfs-rt-2,gtfs_rt,vp,,,,gtfs-rt-2 Some fake company,True,gtfs-rt-2 Some fake nam
 """  # noqa
 
 
-def test_export_csv():
-    csv_file_path = "./output.csv"
-    main.export_csv(csv_file_path)
-    df_actual = pd.read_csv(csv_file_path)
-    print(f"Collected data for {len(df_actual)} feeds.")
+class TestExportCSV(unittest.TestCase):
+    def test_export_csv(self):
+        csv_file_path = "./output.csv"
+        main.export_csv(csv_file_path)
+        df_actual = pd.read_csv(csv_file_path)
+        print(f"Collected data for {len(df_actual)} feeds.")
 
-    df_expected = pd.read_csv(io.StringIO(expected_csv))
+        df_expected = pd.read_csv(io.StringIO(expected_csv))
 
-    pdt.assert_frame_equal(df_actual, df_expected)
-    print("DataFrames are equal.")
+        pdt.assert_frame_equal(df_actual, df_expected)
+        print("DataFrames are equal.")
