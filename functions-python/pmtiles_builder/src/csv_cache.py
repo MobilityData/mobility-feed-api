@@ -63,7 +63,6 @@ def print_df(mountpoint: str):
     if not mp.exists():
         print(f"Mountpoint not found: {mp}", file=sys.stderr)
         return "N/A"
-    # -h for human readable; use -kP instead if you need parse‑friendly output
     cmd = [
         "bash",
         "-c",
