@@ -69,14 +69,13 @@ jobs:
       - name: Install Liquibase
         env:
           LIQUIBASE_VERSION: ${{ env.liquibase_version }}
-        run: |    
-          wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
-          cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
-          echo 'deb [trusted=yes arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
+        run: |
+          curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+          tar -xzf liquibase.tar.gz
+          sudo mv liquibase /usr/local/liquibase
+          echo "/usr/local/liquibase" >> $GITHUB_PATH
+          liquibase --version
       
-          sudo apt-get update
-          sudo apt-get install liquibase=$LIQUIBASE_VERSION
-
       - name: Run Liquibase on Python functions test DB
         run: |
           export LIQUIBASE_CLASSPATH="liquibase"
