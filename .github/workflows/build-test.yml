@@ -84,12 +84,13 @@ jobs:
           echo "Listing liquibase directory:"
           ls -al ${{ github.workspace }}/liquibase
 
+          export LIQUIBASE_CLASSPATH="liquibase"
           export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"        
           export LIQUIBASE_COMMAND_CHANGELOG_FILE="${{ github.workspace }}/liquibase/changelog.xml"
           export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
           export LIQUIBASE_COMMAND_USERNAME=postgres
           export LIQUIBASE_COMMAND_PASSWORD=postgres
-          liquibase update --search-path=${{ github.workspace }}/liquibase
+          liquibase update
 
       - name: Generate DB code
         run: |
