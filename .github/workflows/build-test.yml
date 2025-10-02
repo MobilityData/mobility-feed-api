@@ -18,7 +18,7 @@ on:
 env:
   python_version: '3.11'
   java_version: '11' # needed by setup-openapi-generator.sh
-  liquibase_version: '4.25.1'
+  liquibase_version: '4.33.0'
 
 jobs:
   build-test:
@@ -81,11 +81,15 @@ jobs:
       
       - name: Run Liquibase on Python functions test DB
         run: |
+          echo "Listing liquibase directory:"
+          ls -al ${{ github.workspace }}/liquibase
+
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"        
           export LIQUIBASE_COMMAND_CHANGELOG_FILE="${{ github.workspace }}/liquibase/changelog.xml"
           export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
           export LIQUIBASE_COMMAND_USERNAME=postgres
           export LIQUIBASE_COMMAND_PASSWORD=postgres
-          liquibase update
+          liquibase update --search-path=${{ github.workspace }}/liquibase
 
       - name: Generate DB code
         run: |
