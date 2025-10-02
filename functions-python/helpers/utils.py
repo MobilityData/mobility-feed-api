@@ -126,12 +126,15 @@ def download_and_get_hash(
     file_path,
     hash_algorithm="sha256",
     chunk_size=8192,
+    feed_id=None,
     authentication_type=0,
     api_key_parameter_name=None,
     credentials=None,
     logger=None,
     trusted_certs=False,  # If True, disables SSL verification
 ):
+    from shared.common.config_reader import get_config_value
+
     """
     Downloads the content of a URL and stores it in a file and returns the hash of the file
     """
@@ -145,13 +148,18 @@ def download_and_get_hash(
         ctx.load_default_certs()
         ctx.options |= 0x4  # ssl.OP_LEGACY_SERVER_CONNECT
 
+        headers = get_config_value(
+            namespace="feed_download", key="http_headers", feed_id=feed_id
+        )
+        if headers is None:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/126.0.0.0 Mobile Safari/537.36",
+                "Referer": url,
+            }
+
         # authentication_type == 1 -> the credentials are passed in the url
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/126.0.0.0 Mobile Safari/537.36",
-            "Referer": url,
-        }
         # Careful, some URLs may already contain a query string
         # (e.g. http://api.511.org/transit/datafeeds?operator_id=CE)
         if authentication_type == 1 and api_key_parameter_name and credentials:
@@ -331,3 +339,33 @@ def record_execution_trace(
         timestamp=datetime.now(),
     )
     trace_service.save(trace)
+
+
+def detect_encoding(
+    filename: str, sample_size: int = 100_000, logger: Optional[logging.Logger] = None
+) -> str:
+    """Detect file encoding using a small sample of the file.
+    If detections fails or if UTF-8 is detected, defaults to 'utf-8-sig' to handle BOM.
+    """
+    from charset_normalizer import from_bytes
+
+    with open(filename, "rb") as f:
+        raw = f.read(sample_size)
+    result = from_bytes(raw).best()
+
+    if result is None:
+        logger = logger or logging.getLogger(__name__)
+        logger.warning(
+            "Encoding detection failed for %s, defaulting to utf-8-sig", filename
+        )
+        return "utf-8-sig"
+
+    enc = result.encoding.lower()
+
+    # If UTF-8 is detected, always use utf-8-sig to strip BOM if present
+    # Treat ascii as UTF-8, since it's a subset of UTF-8 and it will prevent errors where UTF-8 characters are present
+    # after the first 100K characters of the file.
+    if enc in ("ascii", "utf_8", "utf-8", "utf8", "utf8mb4"):
+        return "utf-8-sig"
+
+    return enc

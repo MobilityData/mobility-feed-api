@@ -1,5 +1,6 @@
 import hashlib
 import os
+import tempfile
 import unittest
 from unittest.mock import Mock, MagicMock
 from unittest.mock import patch
@@ -7,7 +8,12 @@ from unittest.mock import patch
 import pytest
 import urllib3_mock
 
-from utils import create_bucket, download_and_get_hash, download_url_content
+from utils import (
+    create_bucket,
+    download_and_get_hash,
+    download_url_content,
+    detect_encoding,
+)
 
 responses = urllib3_mock.Responses("requests.packages.urllib3")
 expected_user_agent = (
@@ -45,7 +51,8 @@ class TestHelpers(unittest.TestCase):
         )
         mock_storage_client.return_value.create_bucket.assert_not_called()
 
-    def test_download_and_get_hash(self):
+    @patch("shared.common.config_reader.get_config_value", return_value=None)
+    def test_download_and_get_hash(self, mock_get_config):
         mock_binary_data = b"file content data"
         expected_hash = hashlib.sha256(mock_binary_data).hexdigest()
         file_path = "file_path"
@@ -65,7 +72,8 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_header(self):
+    @patch("shared.common.config_reader.get_config_value", return_value=None)
+    def test_download_and_get_hash_auth_type_header(self, mock_get_config):
         """
         Test the download_and_get_hash function for authentication type 2 (headers).
         This test verifies that the download_and_get_hash function correctly handles authentication type 2,
@@ -88,7 +96,11 @@ class TestHelpers(unittest.TestCase):
             "urllib3.PoolManager.request", return_value=mock_response
         ) as mock_request:
             result_hash = download_and_get_hash(
-                url, file_path, "sha256", 8192, 2, api_key_parameter_name, credentials
+                url=url,
+                file_path=file_path,
+                authentication_type=2,
+                api_key_parameter_name=api_key_parameter_name,
+                credentials=credentials,
             )
 
             self.assertEqual(
@@ -113,7 +125,8 @@ class TestHelpers(unittest.TestCase):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-    def test_download_and_get_hash_auth_type_api_key(self):
+    @patch("shared.common.config_reader.get_config_value", return_value=None)
+    def test_download_and_get_hash_auth_type_api_key(self, mock_get_config):
         """
         Test the download_and_get_hash function for authentication type 1 (API key).
         """
@@ -137,13 +150,11 @@ class TestHelpers(unittest.TestCase):
 
         with patch("urllib3.PoolManager", return_value=mock_http):
             result_hash = download_and_get_hash(
-                base_url,
-                file_path,
-                "sha256",
-                8192,
-                1,
-                api_key_parameter_name,
-                credentials,
+                url=base_url,
+                file_path=file_path,
+                authentication_type=1,
+                api_key_parameter_name=api_key_parameter_name,
+                credentials=credentials,
             )
 
             self.assertEqual(
@@ -163,7 +174,8 @@ class TestHelpers(unittest.TestCase):
         if os.path.exists(file_path):
             os.remove(file_path)
 
-    def test_download_and_get_hash_exception(self):
+    @patch("shared.common.config_reader.get_config_value", return_value=None)
+    def test_download_and_get_hash_exception(self, mock_get_config):
         file_path = "test_file.txt"
         url = "https://test.com/"
 
@@ -254,3 +266,48 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(args[3], "my-project")
         self.assertEqual(args[4], "northamerica-northeast1")
         self.assertEqual(args[5], "pmtiles-queue")
+
+
+class TestDetectEncoding(unittest.TestCase):
+    def test_utf8_encoding(self):
+        with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as f:
+            f.write("\ufeff")  # Write BOM
+            f.write("col1,col2\nval1,val2\n")
+            fname = f.name
+        enc = detect_encoding(fname)
+        self.assertEqual(enc, "utf-8-sig")
+        os.remove(fname)
+
+    # Add a non-ASCII character (e.g., é, ü, ñ) to the test data
+    def test_utf8_encoding_non_ascii(self):
+        with tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8") as f:
+            f.write("col1,col2\nval1,valü2\n")  # ü is non-ASCII
+            fname = f.name
+        enc = detect_encoding(fname)
+        self.assertEqual(enc, "utf-8-sig")
+        os.remove(fname)
+
+    def test_latin1_encoding(self):
+        # Use a longer string with several Latin-1 characters
+        latin1_text = "col1,col2\nvalñ,valö,valü,valé,valà,valç,valø\n"
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode="w", encoding="latin1"
+        ) as f:
+            f.write(latin1_text)
+            fname = f.name
+        enc = detect_encoding(fname)
+        # Multiple encodings can represent Latin-1 characters, this is a safe considering changes in the OS
+        # and charset_normalizer library
+        self.assertIn(
+            enc, ["latin_1", "iso-8859-1", "windows-1252", "latin1", "cp1250"]
+        )
+        os.remove(fname)
+
+    def test_encoding_detection_failure(self):
+        # Write some random bytes that charset_normalizer can't detect
+        with tempfile.NamedTemporaryFile(delete=False, mode="wb") as f:
+            f.write(b"\x00\x01\x02\x03\x04")
+            fname = f.name
+        enc = detect_encoding(fname)
+        self.assertEqual(enc, "utf-8-sig")
+        os.remove(fname)

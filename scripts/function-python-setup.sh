@@ -42,8 +42,8 @@ display_usage() {
   echo "Usage: $0 [options]"
   echo "Options:"
   echo "  -h|--help                           Display help content."
-  echo "  --function_name <FUNCTION_NAME>     Name of the function to be executed."
-  echo "  --all                               Build all functions."
+  echo "  --function_name <FUNCTION_NAME>     Name of the function to be setup."
+  echo "  --all                               Setup all functions."
   echo "  --clean                             Clean shared folders."
   exit 1
 }

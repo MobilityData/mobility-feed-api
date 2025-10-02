@@ -1,3 +1,4 @@
+import os
 from typing import Iterator, List, Dict, Optional
 
 from geoalchemy2 import WKTElement
@@ -152,7 +153,6 @@ def get_geopolygons(db_session: Session, feeds: List[Feed], include_geometry: bo
 def get_all_gtfs_feeds(
     db_session: Session,
     published_only: bool = True,
-    batch_size: int = 250,
     w_extracted_locations_only: bool = False,
 ) -> Iterator[Gtfsfeed]:
     """
@@ -160,12 +160,11 @@ def get_all_gtfs_feeds(
 
     :param db_session: The database session.
     :param published_only: Include only the published feeds.
-    :param batch_size: The number of feeds to fetch from the database at a time.
-        A lower value means less memory but more queries.
     :param w_extracted_locations_only: Whether to include only feeds with extracted locations.
 
     :return: The GTFS feeds in an iterator.
     """
+    batch_size = os.getenv("BATCH_SIZE", 100)
     batch_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
     if published_only:
         batch_query = batch_query.filter(Gtfsfeed.operational_status == "published")

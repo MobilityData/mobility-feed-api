@@ -73,7 +73,7 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
         with patch.object(processor, "date", "mocked_timestamp"):
-            result = processor.upload_dataset()
+            result = processor.upload_dataset("feed_id")
 
         self.assertIsNotNone(result)
         mock_download_url_content.assert_called_once()
@@ -111,7 +111,7 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
 
-        result = processor.upload_dataset()
+        result = processor.upload_dataset("feed_id")
 
         self.assertIsNone(result)
         upload_files_to_storage.blob.assert_not_called()
@@ -143,7 +143,7 @@ class TestDatasetProcessor(unittest.TestCase):
             test_hosted_public_url,
         )
 
-        result = processor.upload_dataset()
+        result = processor.upload_dataset("feed_id")
 
         self.assertIsNone(result)
         upload_files_to_storage.blob.assert_not_called()
@@ -176,7 +176,7 @@ class TestDatasetProcessor(unittest.TestCase):
         )
 
         with self.assertRaises(Exception):
-            processor.upload_dataset()
+            processor.upload_dataset("feed_id")
 
     def test_upload_files_to_storage(self):
         bucket_name = "test-bucket"
@@ -256,7 +256,7 @@ class TestDatasetProcessor(unittest.TestCase):
         )
         db_url = os.getenv("TEST_FEEDS_DATABASE_URL", default=default_db_url)
         os.environ["FEEDS_DATABASE_URL"] = db_url
-        result = processor.process_from_producer_url()
+        result = processor.process_from_producer_url(feed_id)
 
         self.assertIsNotNone(result)
         self.assertEqual(result.file_sha256_hash, new_hash)
@@ -357,7 +357,7 @@ class TestDatasetProcessor(unittest.TestCase):
 
         processor.upload_dataset = MagicMock(return_value=None)
         processor.create_dataset_entities = MagicMock()
-        result = processor.process_from_producer_url()
+        result = processor.process_from_producer_url(feed_id)
 
         self.assertIsNone(result)
         processor.create_dataset_entities.assert_not_called()

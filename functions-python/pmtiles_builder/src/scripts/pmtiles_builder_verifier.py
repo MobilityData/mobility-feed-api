@@ -25,8 +25,18 @@ feeds = [
         "dataset_stable_id": "mdb-2841-202509032137",
         "env": "prod",
     },
+    {
+        "stable_id": "mdb-733",
+        "dataset_stable_id": "mdb-733-202509111637",
+        "env": "prod",
+    },
+    {
+        "stable_id": "mdb-1021",
+        "dataset_stable_id": "mdb-1021-202402080021",
+        "env": "prod",
+    },
 ]
-run_with_feed_index = 1  # Change this index to run with a different feed
+run_with_feed_index = 3  # Change this index to run with a different feed
 
 FILES = [STOP_TIMES_FILE, SHAPES_FILE, TRIPS_FILE, ROUTES_FILE, STOPS_FILE, AGENCY_FILE]
 
