@@ -71,7 +71,9 @@ jobs:
           LIQUIBASE_VERSION: ${{ env.liquibase_version }}
         run: |
           curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+          rm -rf liquibase                 # remove old folder if exists
           tar -xzf liquibase.tar.gz
+          sudo rm -rf /usr/local/liquibase # cleanup any previous install
           sudo mv liquibase /usr/local/liquibase
           echo "/usr/local/liquibase" >> $GITHUB_PATH
           liquibase --version
