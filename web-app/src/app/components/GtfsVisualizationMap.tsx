@@ -15,6 +15,8 @@ import type { MapElementType } from "./MapElement";
 import { MapElement, MapRouteElement, MapStopElement } from "./MapElement";
 import { MapDataPopup } from "./Map/MapDataPopup";
 import type { GtfsRoute } from "../types";
+import { useTranslation } from "react-i18next";
+import { createPrecomputation, extendBBoxes, type RouteIdsInput } from "../utils/precompute";
 
 interface LatestDatasetLite {
   hosted_url?: string;
@@ -44,9 +46,9 @@ export const GtfsVisualizationMap = ({
                                        hideStops = false,
                                        dataDisplayLimit = 10,
                                        routes = [],
-                                      refocusTrigger=false,
-                                      stopRadius = 3,
-                                      preview = true
+                                       refocusTrigger=false,
+                                       stopRadius = 3,
+                                       preview = true
                                      }: GtfsVisualizationMapProps): JSX.Element => {
   const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(() => {
     const baseUrl = latestDataset?.hosted_url
@@ -58,8 +60,8 @@ export const GtfsVisualizationMap = ({
   }, [latestDataset?.id, latestDataset?.stable_id]);
 
   const theme = useTheme();
+  const { t } = useTranslation("feeds");
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
-  const [hoverData, setHoverData] = useState<string>("");
   const [mapElements, setMapElements] = useState<MapElementType[]>([]);
   const [mapClickRouteData, setMapClickRouteData] = useState<Record<string, string> | null>(null);
   const [mapClickStopData, setMapClickStopData] = useState<Record<string, string> | null>(null);
@@ -227,7 +229,6 @@ export const GtfsVisualizationMap = ({
         setHoverInfo(elementIds);
       } else {
         setHoverInfo([]);
-        setHoverData("");
         setMapElements([]);
       }
     }
@@ -260,7 +261,7 @@ export const GtfsVisualizationMap = ({
 
   const bounds: LngLatBoundsLike = getBoundsFromCoordinates(polygon as Array<[number, number]>);
 
-// route IDs coming from selected route types (memoize if you like)
+// route IDs coming from selected route types
   const routeIdsFromTypes =
     filteredRouteTypeIds.length > 0
       ? (routes ?? [])
@@ -268,10 +269,10 @@ export const GtfsVisualizationMap = ({
         .map(r => String(r.routeId))
       : [];
 
-// union of explicit route IDs + those implied by selected types
+  // union of explicit route IDs + those implied by selected types
   const allSelectedRouteIds = [...filteredRoutes, ...routeIdsFromTypes];
 
-// Base filter for visible stops (main "stops" layer)
+  // Base filter for visible stops (main "stops" layer)
   const stopsBaseFilter: ExpressionSpecification | boolean = hideStops
     ? false
     : allSelectedRouteIds.length === 0
@@ -332,7 +333,7 @@ export const GtfsVisualizationMap = ({
   }, [routes]);
 
   // Extract route_ids list from the PMTiles property (stringified JSON)
-  function extractRouteIds(val: any): string[] {
+  function extractRouteIds(val: RouteIdsInput): string[] {
     if (Array.isArray(val)) return val.map(String);
     if (typeof val === "string") {
       try {
@@ -355,219 +356,36 @@ export const GtfsVisualizationMap = ({
     return [];
   }
 
-  // Extend helpers for [minLng,minLat,maxLng,maxLat]
-  function extendBBox(bb: LngLatBoundsLike | undefined, lng: number, lat: number): LngLatBoundsLike {
-    if (!bb) return [lng, lat, lng, lat];
-    const b = bb as [number, number, number, number];
-    return [Math.min(b[0], lng), Math.min(b[1], lat), Math.max(b[2], lng), Math.max(b[3], lat)];
-  }
-
-  function extendBBoxes(boxes: LngLatBoundsLike[]): LngLatBoundsLike | null {
-    if (!boxes.length) return null;
-    let u = boxes[0] as [number, number, number, number];
-    for (let i = 1; i < boxes.length; i++) {
-      const b = boxes[i] as [number, number, number, number];
-      u = [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[2], b[2]), Math.max(u[3], b[3])];
-    }
-    return u;
-  }
-
-  const registerRunOnMapIdle = () => {
-    if (preview) return; // skip all precomputation in preview mode
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-    // ensure we’re looking at the dataset so tiles will load
-    map.fitBounds(bounds, { padding: 100, duration: 0 });
-    map.once("idle", () => {
-      runPrecomputation().then(() => {
-      });
-    })
-  };
-
-  const once = (map: maplibregl.Map, ev: string) =>
-    new Promise<void>((resolve) => map.once(ev as any, () => resolve()));
-
-  // Main precompute function, runs once on map idle after load
-  const runPrecomputation = async () => {
-
-    // ---- SWIPE THE MAP OVER A GRID AT A FIXED ZOOM AND COLLECT FEATURES ----
-    const map = mapRef.current?.getMap();
-    if (!map) return;
-
-    // Save camera to restore later
-    const prev = {
-      center: map.getCenter(),
-      zoom: map.getZoom(),
-      bearing: map.getBearing(),
-      pitch: map.getPitch(),
-    };
-
-    // Choose a zoom where stops will exist in the tiles (tweak if needed)
-    const SWEEP_ZOOM = 10; // fixed zoom for the sweep
-    const OVERLAP = 0.2; // 20% overlap between viewports to avoid gaps
-
-    // Jump once to dataset center at SWEEP_ZOOM to measure view span
-    const [minLng, minLat, maxLng, maxLat] = bounds as [number, number, number, number];
-    const centerLng = (minLng + maxLng) / 2;
-    const centerLat = (minLat + maxLat) / 2;
-    map.jumpTo({ center: [centerLng, centerLat], zoom: SWEEP_ZOOM, bearing: prev.bearing, pitch: prev.pitch });
-    await once(map, "idle");
-
-    // Determine viewport geographic span at this zoom
-    const canvas = map.getCanvas();
-    const tl = map.unproject([0, 0]);
-    const br = map.unproject([canvas.width, canvas.height]);
-    const viewLngSpan = Math.abs(br.lng - tl.lng);
-    const viewLatSpan = Math.abs(tl.lat - br.lat);
-
-    const dataLngSpan = maxLng - minLng;
-    const dataLatSpan = maxLat - minLat;
-
-    // How many columns/rows to cover the whole dataset with some overlap
-    const cols = Math.max(1, Math.ceil(dataLngSpan / (viewLngSpan * (1 - OVERLAP))));
-    const rows = Math.max(1, Math.ceil(dataLatSpan / (viewLatSpan * (1 - OVERLAP))));
-
-    // Initialize scanning overlay
-    setIsScanning(true);
-    setScanRowsCols({ rows, cols });
-    setScannedTiles(0);
-    setTotalTiles(rows * cols);
-
-    const lngStep = dataLngSpan / cols;
-    const latStep = dataLatSpan / rows;
-
-    const seenStopIds = new Set<string>();
-    const featsAll: any[] = [];
-
-    for (let r = 0; r < rows; r++) {
-      const cy = minLat + (r + 0.5) * latStep;
-      for (let c = 0; c < cols; c++) {
-        const cx = minLng + (c + 0.5) * lngStep;
-
-        map.jumpTo({ center: [cx, cy], zoom: SWEEP_ZOOM, bearing: prev.bearing, pitch: prev.pitch });
-        await once(map, "idle");
-
-        const bbox: [[number, number], [number, number]] = [
-          [0, 0],
-          [canvas.width, canvas.height],
-        ];
-        const partial = map.queryRenderedFeatures(bbox, { layers: ["stops-index"] }) as any[];
-
-        // Dedup by stop_id as we aggregate
-        for (const f of partial) {
-          const sid = String(f.properties?.stop_id ?? "");
-          if (!sid || seenStopIds.has(sid)) continue;
-          seenStopIds.add(sid);
-          featsAll.push(f);
-        }
-
-        // NEW: progress update (tile-by-tile)
-        const idx = r * cols + c + 1;
-        setScannedTiles(idx);
-      }
-    }
-
-    // restore camera
-    map.jumpTo(prev);
-    await once(map, "idle");
-
-    // ---- Build indexes from collected features (unchanged logic) ----
-    const idToBBox: Record<string, LngLatBoundsLike> = {};
-    const typeToBBox: Record<string, LngLatBoundsLike> = {};
-    const byRouteId: Record<string, MapStopElement[]> = {};
-
-    for (const f of featsAll) {
-      const g = f.geometry;
-      const geometryJson = g as { type: string; coordinates: any };
-
-      if (
-        !g ||
-        g.type !== "Point" ||
-        !Array.isArray(geometryJson.coordinates) ||
-        typeof geometryJson.coordinates[0] !== "number" ||
-        typeof geometryJson.coordinates[1] !== "number"
-      )
-        continue;
-
-      const [lng, lat] = geometryJson.coordinates as [number, number];
-      const stopId = String(f.properties?.stop_id ?? "");
-      const stopName = String(f.properties?.stop_name ?? "");
-      const locationType = Number(f.properties?.location_type ?? 0);
-
-      const routeIds = extractRouteIds(f.properties?.route_ids);
-      if (!routeIds.length) continue;
-
-      for (const rid of routeIds) {
-        // bbox per routeId
-        idToBBox[rid] = extendBBox(idToBBox[rid], lng, lat);
-
-        // stops per routeId
-        (byRouteId[rid] ??= []);
-        if (stopId && !byRouteId[rid].some((s) => s.stopId === stopId)) {
-          const lat = Number(f.geometry?.coordinates[1] ?? 0);
-          const lon = Number(f.geometry?.coordinates[0] ?? 0);
-          if (isNaN(lat) || isNaN(lon) || lat === 0 || lon === 0) {
-            console.error(
-              `invalid stop ${stopId} (${lng},${lat}) for route ${rid} (${stopName})`)
-          }
-          byRouteId[rid].push({ isStop: true, name: stopName, locationType, stopId, stopLat: lat, stopLon: lon });
-        }
-
-        // bbox per routeType (via routes prop map)
-        const rt = routeIdToType[rid];
-        if (rt != null) {
-          typeToBBox[rt] = extendBBox(typeToBBox[rt], lng, lat);
-        }
-      }
-    }
-
-    // Persist
-    routeIdToBBoxRef.current = idToBBox;
-    routeTypeToBBoxRef.current = typeToBBox;
-    // sort stops by id for nicer UX (kept your custom comparator)
-    Object.keys(byRouteId).forEach((rid) => {
-      byRouteId[rid].sort((a, b) => a.name.localeCompare(b.stopId, undefined, { sensitivity: "base" }));
-    });
-    stopsByRouteIdRef.current = byRouteId;
-
-    precomputedReadyRef.current = true;
-
-    // finalize overlay
-    setIsScanning(false);
-    setScanRowsCols(null);
-  };
-
-  // effect to update the zoom/focus when filters change
-  if (!preview) {
-    useEffect(() => {
-      if (preview) return;
-      if (!precomputedReadyRef.current) return; // only when precomputed data is ready
-      const map = mapRef.current?.getMap();
-      if (!map) return;
-      const hasRouteFilter = filteredRoutes.length > 0;
-      const hasTypeFilter = filteredRouteTypeIds.length > 0;
-      fitExpandAttemptRef.current = 0; // reset attempt counter whenever filters change
-      if (!hasRouteFilter && !hasTypeFilter) {
-        // no filters → ease back to dataset bounds TODO make configurable?
-        map.fitBounds(bounds, { padding: 40, duration: 500, maxZoom: 12 });
-        return;
-      }
-      const bboxes: LngLatBoundsLike[] = [];
-      if (hasRouteFilter) {
-        const boxes = filteredRoutes.map((rid) => routeIdToBBoxRef.current[rid]).filter((b) => b != null);
-        bboxes.push(...boxes);
-      } else if (hasTypeFilter) {
-        const boxes = filteredRouteTypeIds.map((rt) => routeTypeToBBoxRef.current[rt]).filter((b) => b != null);
-        bboxes.push(...boxes);
-      }
-      const bb = extendBBoxes(bboxes);
-      if (bb) {
-        map.fitBounds(bb, { padding: 60, duration: 600 });
-      } else {
-        console.error("no precomputed bbox for current filters");
-      }
-    }, [filteredRoutes, filteredRouteTypeIds]);
-  }
+  // --- instantiate the extracted precomputation with identical behavior ---
+  const precomp = useMemo(
+    () =>
+      createPrecomputation({
+        mapRef,
+        bounds,
+        preview,
+        extractRouteIds,
+        setIsScanning,
+        setScanRowsCols,
+        setScannedTiles,
+        setTotalTiles,
+        routeIdToBBoxRef,
+        routeTypeToBBoxRef,
+        stopsByRouteIdRef,
+        precomputedReadyRef,
+        routeIdToType,
+      }),
+    [
+      mapRef,
+      bounds,
+      preview,
+      routeIdToType,
+      // setters and refs are stable enough in React; include for completeness
+      setIsScanning,
+      setScanRowsCols,
+      setScannedTiles,
+      setTotalTiles,
+    ]
+  );
 
   // Helper values for overlay
   const progressPct = totalTiles > 0 ? Math.min(100, Math.round((scannedTiles / totalTiles) * 100)) : 0;
@@ -579,9 +397,50 @@ export const GtfsVisualizationMap = ({
   const focusStopFromPanel = async (s: MapStopElement) => {
     const map = mapRef.current?.getMap();
     if (!map) return;
-    map.easeTo({ center: [s.stopLon, s.stopLat], zoom: Math.max(map.getZoom(), 13), duration: 400 });
+
+    // 1) Move the camera
+    map.easeTo({
+      center: [s.stopLon, s.stopLat],
+      zoom: Math.max(map.getZoom(), 13),
+      duration: 400,
+    });
+
+    // 2) Wait for the move to finish so the render tree is up-to-date
+    await new Promise<void>((resolve) => map.once("moveend", () => resolve()));
+
+    // 3) Build a small bbox around the stop's screen point for robust picking
+    const pt = map.project([s.stopLon, s.stopLat]);
+    const HIT = 6; // px hit radius; tweak 4..8 if needed
+    const bbox: [[number, number], [number, number]] = [
+      [pt.x - HIT, pt.y - HIT],
+      [pt.x + HIT, pt.y + HIT],
+    ];
+
+    // 4) Query rendered features, filtering by exact stop_id
+    const features = map.queryRenderedFeatures(bbox, {
+      layers: ["stops-index"],
+      filter: ["==", ["to-string", ["get", "stop_id"]], String(s.stopId)] as any,
+    });
+
+    const stopFeature = features[0];
+    if (!stopFeature) {
+      // fallback: still open popup with what we have
+      setMapClickRouteData(null);
+      setMapClickStopData({
+        stop_id: s.stopId,
+        stop_name: s.name,
+        location_type: String(s.locationType ?? 0),
+        longitude: s.stopLon,
+        latitude: s.stopLat,
+      } as any);
+      setSelectedStopId(s.stopId);
+      return;
+    }
+
+    // 5) Open sticky popup with authoritative properties from the tile
     setMapClickRouteData(null);
     setMapClickStopData({
+      ...stopFeature.properties,
       stop_id: s.stopId,
       stop_name: s.name,
       location_type: String(s.locationType ?? 0),
@@ -613,6 +472,35 @@ export const GtfsVisualizationMap = ({
     }
     return extendBBoxes(boxes) ?? null;
   };
+
+  // Auto-zoom when filters change (after precomputation is ready)
+  useEffect(() => {
+    if (preview) return; // honor preview mode
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    // Wait until precomputation has filled the BBox refs
+    if (!precomputedReadyRef.current) return;
+
+    const hasRouteFilter = filteredRoutes.length > 0;
+    const hasTypeFilter = filteredRouteTypeIds.length > 0;
+
+    if (!hasRouteFilter && !hasTypeFilter) {
+      // No filters → back to dataset bounds (match original params)
+      map.fitBounds(bounds, { padding: 40, duration: 500, maxZoom: 12 });
+      return;
+    }
+
+    const target = computeTargetBounds();
+    if (target) {
+      map.fitBounds(target, { padding: 60, duration: 600 });
+    } else {
+      // If BBoxes are missing for the selection, fall back to dataset bounds
+      map.fitBounds(bounds, { padding: 60, duration: 500 });
+    }
+    // include isScanning so we run once more when scanning completes
+  }, [filteredRoutes, filteredRouteTypeIds]);
+
 
   // Handler to reset view
   const resetView = () => {
@@ -681,11 +569,10 @@ export const GtfsVisualizationMap = ({
                   className="drag-handle"
                 >
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    Stops from selected route{filteredRoutes.length > 1 ? "s" : ""} (
-                    {selectedRouteStops.length})
+                    {t("selectedRouteStops.title", { count: filteredRoutes.length })} ({selectedRouteStops.length})
                   </Typography>
                   <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
-                    Route ID{filteredRoutes.length > 1 ? "s" : ""}: {filteredRoutes.join(" | ")}
+                    {t("selectedRouteStops.routeIds", { count: filteredRoutes.length })}: {filteredRoutes.join(" | ")}
                   </Typography>
                 </Box>
                 <Box sx={{ flex: 1, overflowY: "auto", p: 1 }}>
@@ -697,7 +584,7 @@ export const GtfsVisualizationMap = ({
                         role="button"
                         tabIndex={0}
                         aria-selected={isActive ? "true" : "false"}
-                        onClick={() => focusStopFromPanel(s)}           // NEW: click -> sticky popup
+                        onClick={() => focusStopFromPanel(s)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") focusStopFromPanel(s); // NEW: keyboard support
                         }}
@@ -718,7 +605,7 @@ export const GtfsVisualizationMap = ({
                           {s.name}
                         </Typography>
                         <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
-                          Stop ID: {s.stopId}
+                          {t("selectedRouteStops.stopId")} {s.stopId}
                         </Typography>
                       </Box>
                     );
@@ -760,19 +647,21 @@ export const GtfsVisualizationMap = ({
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 1 }}>
                   <CircularProgress size={20} thickness={4} />
                   <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {isLarge ? "Scanning large feed…" : "Scanning the map…"}
+                    {isLarge ? t("scanning.titleLarge") : t("scanning.title")}
                   </Typography>
                 </Box>
 
                 <Typography variant="body2" sx={{ mb: 1, color: theme.palette.text.secondary }}>
-                  {isLarge
-                    ? "We’re indexing stops across the full extent. This might take a moment."
-                    : "We’re indexing stops across the view to speed up filtering."}
+                  {isLarge ? t("scanning.bodyLarge") : t("scanning.body")}
                 </Typography>
 
                 {rowsColsText && (
                   <Typography variant="caption" sx={{ display: "block", mb: 1, opacity: 0.9 }}>
-                    Grid: {rowsColsText} • Tile {Math.min(scannedTiles, totalTiles)} / {totalTiles}
+                    {t("scanning.gridTile", {
+                      grid: rowsColsText,
+                      tile: Math.min(scannedTiles, totalTiles),
+                      total: totalTiles,
+                    })}
                   </Typography>
                 )}
 
@@ -790,7 +679,7 @@ export const GtfsVisualizationMap = ({
                   variant="caption"
                   sx={{ color: theme.palette.text.secondary }}
                 >
-                  {progressPct}% complete
+                  {t("scanning.percentComplete", { percent: progressPct })}
                 </Typography>
               </Box>
             </Box>
@@ -801,7 +690,7 @@ export const GtfsVisualizationMap = ({
             onLoad={() => {
               if (didInitRef.current) return;  // guard against re-entrancy
               didInitRef.current = true;
-              registerRunOnMapIdle();
+              precomp.registerRunOnMapIdle();
             }}
             ref={mapRef}
             onMouseMove={(event) => {
@@ -831,11 +720,11 @@ export const GtfsVisualizationMap = ({
                 },
                 sample: {
                   type: 'vector',
-                    url: `pmtiles://${stopsPmtilesUrl}`, // dynamic stops
+                  url: `pmtiles://${stopsPmtilesUrl}`, // dynamic stops
                 },
                 routes: {
                   type: 'vector',
-                url: `pmtiles://${routesPmtilesUrl}`, // dynamic routes
+                  url: `pmtiles://${routesPmtilesUrl}`, // dynamic routes
                 },
               },
               // Order matters: the last layer will be on top
@@ -947,7 +836,7 @@ export const GtfsVisualizationMap = ({
                   ],
                 },
                 {
-                  id: "stops-highlight",
+                  id: 'stops-highlight',
                   source: "sample",
                   "source-layer": "stopsoutput",
                   type: "circle",
@@ -963,7 +852,7 @@ export const GtfsVisualizationMap = ({
                     : [
                       "any",
                       ["in", ["get", "stop_id"], ["literal", hoverInfo]],
-                      ["in", ["get", "stop_id"], ["literal", mapClickStopData?.stop_id ?? ""]],
+                      ["==", ["get", "stop_id"], ["literal", mapClickStopData?.stop_id ?? ""]],
                       [
                         "any",
                         ...filteredRoutes.map((id) => {

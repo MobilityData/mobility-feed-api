@@ -172,7 +172,7 @@ export default function FullMapView(): React.ReactElement {
     if (missingBboxAfterLoad)
       messages.push(t('visualizationMapErrors.noBoundingBox'));
     return messages;
-  }, [feedError, routesError, isGtfsFeed, feed, missingBboxAfterLoad]);
+  }, [feedError, routesError, isGtfsFeed, feed, missingBboxAfterLoad, t]);
 
   const renderFilterChips = (): React.ReactElement => (
     <StyledChipFilterContainer id='map-filters'>
@@ -185,7 +185,7 @@ export default function FullMapView(): React.ReactElement {
           size='small'
           color='primary'
         >
-          Clear All
+          {t('fullMapView.clearAll')}
         </Button>
       )}
       {hideStops && (
@@ -193,7 +193,7 @@ export default function FullMapView(): React.ReactElement {
           color='primary'
           variant='outlined'
           size='small'
-          label='Hide Stops'
+          label={t('fullMapView.hideStops')}
           onDelete={() => {
             setHideStops(false);
           }}
@@ -343,7 +343,7 @@ export default function FullMapView(): React.ReactElement {
               setShowMapControlMobile(!showMapControlMobile);
             }}
           >
-            Close
+            {t('fullMapView.closePanel')}
           </Button>
           <Box sx={{ display: { xs: 'block', md: 'none' } }}>
             {renderFilterChips()}
@@ -351,7 +351,7 @@ export default function FullMapView(): React.ReactElement {
         </Box>
 
         <SearchHeader variant='h6' className='no-collapse'>
-          Route Types
+          {t('fullMapView.headers.routeTypes')}
         </SearchHeader>
 
         {isLoading ? (
@@ -382,12 +382,12 @@ export default function FullMapView(): React.ReactElement {
             />
 
             <SearchHeader variant='h6' className='no-collapse'>
-              Visibility
+              {t('fullMapView.headers.visibility')}
             </SearchHeader>
             <NestedCheckboxList
               checkboxData={[
                 {
-                  title: 'Hide Stops',
+                  title: t('fullMapView.hideStops'),
                   checked: hideStops,
                   type: 'checkbox',
                 },
@@ -398,7 +398,7 @@ export default function FullMapView(): React.ReactElement {
             />
 
             <SearchHeader variant='h6' className='no-collapse'>
-              Routes
+              {t('fullMapView.headers.routes')}
             </SearchHeader>
             <RouteSelector
               routes={
@@ -419,6 +419,11 @@ export default function FullMapView(): React.ReactElement {
                 setFilteredRoutes(filteredVal);
               }}
             />
+            <Alert severity='info' variant='outlined' sx={{ mt: 2 }}>
+              <Typography variant='caption'>
+                {t('fullMapView.dataBlurb')}
+              </Typography>
+            </Alert>
             <Box
               id='mobile-control-action'
               sx={{
@@ -434,7 +439,7 @@ export default function FullMapView(): React.ReactElement {
                   setShowMapControlMobile(!showMapControlMobile);
                 }}
               >
-                Back To Map
+                {t('fullMapView.backToMap')}
               </Button>
             </Box>
           </>
@@ -465,7 +470,7 @@ export default function FullMapView(): React.ReactElement {
         >
           <Fab
             size='small'
-            aria-label='close'
+            aria-label={t('fullMapView.aria.close')}
             sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}
             onClick={() => {
               if (!hasError && feedId != null) {
@@ -479,7 +484,7 @@ export default function FullMapView(): React.ReactElement {
           </Fab>
           <Fab
             size='small'
-            aria-label='refocus'
+            aria-label={t('fullMapView.aria.refocus')}
             sx={{
               position: 'absolute',
               top: 10,
@@ -500,7 +505,7 @@ export default function FullMapView(): React.ReactElement {
           {/* Style FAB (opens overlay) */}
           <Fab
             size='small'
-            aria-label='map style'
+            aria-label={t('fullMapView.aria.mapStyle')}
             sx={{
               position: 'absolute',
               top: 10,
@@ -543,14 +548,14 @@ export default function FullMapView(): React.ReactElement {
                     variant='subtitle2'
                     sx={{ fontWeight: 700, mb: 1 }}
                   >
-                    Map style
+                    {t('fullMapView.style.title')}
                   </Typography>
 
                   <Typography
                     variant='caption'
                     sx={{ color: theme.palette.text.secondary }}
                   >
-                    Stop size
+                    {t('fullMapView.style.stopSize')}
                   </Typography>
 
                   <ToggleButtonGroup
@@ -564,10 +569,18 @@ export default function FullMapView(): React.ReactElement {
                     }}
                     sx={{ mt: 0.5, mb: 1 }}
                   >
-                    <ToggleButton value='small'>Small</ToggleButton>
-                    <ToggleButton value='medium'>Medium</ToggleButton>
-                    <ToggleButton value='large'>Large</ToggleButton>
-                    <ToggleButton value='custom'>Custom</ToggleButton>
+                    <ToggleButton value='small'>
+                      {t('fullMapView.style.size.small')}
+                    </ToggleButton>
+                    <ToggleButton value='medium'>
+                      {t('fullMapView.style.size.medium')}
+                    </ToggleButton>
+                    <ToggleButton value='large'>
+                      {t('fullMapView.style.size.large')}
+                    </ToggleButton>
+                    <ToggleButton value='custom'>
+                      {t('fullMapView.style.size.custom')}
+                    </ToggleButton>
                   </ToggleButtonGroup>
 
                   {stopPreset === 'custom' && (
@@ -586,13 +599,15 @@ export default function FullMapView(): React.ReactElement {
                         onChange={(_, v) => {
                           setCustomStopRadius(v as number);
                         }}
-                        aria-label='Custom stop radius'
+                        aria-label={t('fullMapView.style.customStopRadiusAria')}
                       />
                       <Typography
                         variant='caption'
                         sx={{ color: theme.palette.text.secondary }}
                       >
-                        Radius: {customStopRadius}px
+                        {t('fullMapView.style.radius', {
+                          px: customStopRadius,
+                        })}
                       </Typography>
                     </Box>
                   )}
@@ -610,7 +625,7 @@ export default function FullMapView(): React.ReactElement {
               display: { xs: 'inline-flex', md: 'none' },
             }}
             size='small'
-            aria-label='filter'
+            aria-label={t('fullMapView.aria.filter')}
             onClick={() => {
               setShowMapControlMobile(!showMapControlMobile);
             }}
