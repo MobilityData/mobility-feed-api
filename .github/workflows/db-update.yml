@@ -70,7 +70,7 @@ on:
 
 env:
   python_version: '3.11'
-  liquibase_version: '4.33.1'
+  liquibase_version: '4.33.0'
 
 jobs:
   db-schema-update:
@@ -112,24 +112,27 @@ jobs:
         sudo apt-get update && sudo apt-get install -y postgresql-client
         PGPASSWORD=${{ secrets.DB_USER_PASSWORD }} psql -h localhost -p 5432 -U ${{ secrets.DB_USER_NAME }} -d ${{ inputs.DB_NAME }} -c "SELECT version();"
 
-    - name: Run Liquibase
+    - name: Install Liquibase
       env:
         LIQUIBASE_VERSION: ${{ env.liquibase_version }}
       run: |
-        wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
-        cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
-        echo 'deb [trusted=yes arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
-
-        sudo apt-get update
-        sudo apt-get install liquibase=$LIQUIBASE_VERSION
-
+        curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+        rm -rf liquibase-dist
+        mkdir liquibase-dist
+        tar -xzf liquibase.tar.gz -C liquibase-dist
+        sudo rm -rf /usr/local/liquibase
+        sudo mv liquibase-dist /usr/local/liquibase
+        sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
+        liquibase --version
+    
+    - name: Run Liquibase
+      run: |
         export LIQUIBASE_CLASSPATH="liquibase"
-        export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
+        export LIQUIBASE_COMMAND_CHANGELOG_FILE="liquibase/changelog.xml"
         export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/${{ inputs.DB_NAME }}
         export LIQUIBASE_COMMAND_USERNAME=${{ secrets.DB_USER_NAME }}
         export LIQUIBASE_COMMAND_PASSWORD=${{ secrets.DB_USER_PASSWORD }}
         export LIQUIBASE_LOG_LEVEL=FINE
-
         liquibase update
 
   db-content-update:
