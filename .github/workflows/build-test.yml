@@ -71,11 +71,11 @@ jobs:
           LIQUIBASE_VERSION: ${{ env.liquibase_version }}
         run: |
           curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
-          rm -rf liquibase liquibase-bin
-          mkdir liquibase-bin
-          tar -xzf liquibase.tar.gz -C liquibase-bin
+          rm -rf liquibase-dist
+          mkdir liquibase-dist
+          tar -xzf liquibase.tar.gz -C liquibase-dist
           sudo rm -rf /usr/local/liquibase
-          sudo mv liquibase-bin /usr/local/liquibase
+          sudo mv liquibase-dist /usr/local/liquibase
           sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
           liquibase --version
       
