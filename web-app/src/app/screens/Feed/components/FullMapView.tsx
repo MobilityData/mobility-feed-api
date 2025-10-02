@@ -53,6 +53,18 @@ import RouteSelector from '../../../components/RouteSelector';
 
 export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
+  const { config } = useRemoteConfig();
+
+  if (!config.enableGtfsVisualizationMap) {
+    return (
+      <Box>
+        <Alert severity='error' sx={{ m: 2 }}>
+          <AlertTitle>{t('fullMapView.disabledTitle')}</AlertTitle>
+          {t('fullMapView.disabledDescription')}
+        </Alert>
+      </Box>
+    );
+  }
   const { feedId } = useParams();
   const navigate = useNavigate();
 
@@ -71,7 +83,6 @@ export default function FullMapView(): React.ReactElement {
   const isAuthenticatedOrAnonymous =
     useSelector(selectIsAuthenticated) || useSelector(selectIsAnonymous);
 
-  const { config } = useRemoteConfig();
   const gtfsFeed = useSelector(selectFeedData) as GTFSFeedType | undefined;
   const latestDatasetLite = {
     hosted_url: gtfsFeed?.latest_dataset?.hosted_url,
