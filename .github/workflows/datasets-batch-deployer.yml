@@ -102,9 +102,9 @@ jobs:
           liquibase --version
       
       - name: Run Liquibase on Python functions DB
+        working-directory: ${{ github.workspace }}/liquibase
         run: |
-          export LIQUIBASE_CLASSPATH="liquibase"
-          export LIQUIBASE_COMMAND_CHANGELOG_FILE="liquibase/changelog.xml"
+          export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
           export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:5432/MobilityDatabase
           export LIQUIBASE_COMMAND_USERNAME=postgres
           export LIQUIBASE_COMMAND_PASSWORD=postgres
