@@ -219,7 +219,10 @@ def get_storage_client():
 
 @track_metrics(metrics=("time", "memory", "cpu"))
 def update_dataset_bounding_box(
-    gtfs_dataset: Gtfsdataset, stops_df: pd.DataFrame, db_session: Session
+    feed: Gtfsfeed | Gbfsfeed,
+    gtfs_dataset: Gtfsdataset,
+    stops_df: pd.DataFrame,
+    db_session: Session,
 ) -> shapely.Polygon:
     """
     Update the bounding box of the dataset using the stops DataFrame.
@@ -237,16 +240,17 @@ def update_dataset_bounding_box(
         f")",
         srid=4326,
     )
-    if not gtfs_dataset:
-        return to_shape(bounding_box)
-    gtfs_feed = db_session.get(Gtfsfeed, gtfs_dataset.feed_id)
-    if not gtfs_feed:
-        raise ValueError(
-            f"GTFS feed for dataset {gtfs_dataset.stable_id} does not exist in the database."
-        )
-    gtfs_feed.bounding_box = bounding_box
-    gtfs_feed.bounding_box_dataset = gtfs_dataset
-    gtfs_dataset.bounding_box = bounding_box
+    if feed.data_type == "gtfs":
+        if not gtfs_dataset:
+            return to_shape(bounding_box)
+        feed.bounding_box = bounding_box
+        feed.bounding_box_dataset = gtfs_dataset
+        gtfs_dataset.bounding_box = bounding_box
+    elif feed.data_type == "gbfs":
+        feed.bounding_box = bounding_box
+        feed.bounding_box_generated_at = get_db_timestamp(db_session)
+    else:
+        raise ValueError("The data type must be either 'gtfs' or 'gbfs'.")
 
     return to_shape(bounding_box)
 
@@ -349,7 +353,12 @@ def reverse_geolocation_process(
             gtfs_dataset = load_dataset(dataset_id, db_session)
         feed = load_feed(stable_id, data_type, logger, db_session)
 
-        bounding_box = update_dataset_bounding_box(gtfs_dataset, stops_df, db_session)
+        bounding_box = update_dataset_bounding_box(
+            feed=feed,
+            gtfs_dataset=gtfs_dataset,
+            stops_df=stops_df,
+            db_session=db_session,
+        )
 
         location_groups = reverse_geolocation(
             strategy=strategy,
