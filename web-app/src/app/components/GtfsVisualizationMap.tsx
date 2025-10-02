@@ -309,7 +309,6 @@ export const GtfsVisualizationMap = ({
       setSelectedRouteStops(out);
       return;
     }
-    console.error("no precomputed data for selectedRouteStops");
   }, [filteredRoutes]);
 
   // tries a single instant expand-to-bounds if nothing is rendered yet
