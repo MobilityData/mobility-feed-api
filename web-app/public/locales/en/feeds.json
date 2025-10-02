@@ -173,5 +173,53 @@
     "noRoutesData": "Could not load routes data for the map.",
     "invalidDataType": "This feed is not a GTFS Schedule feed.",
     "noBoundingBox": "No bounding box available."
+  },
+  "andMoreElements": "And {{count}} more...",
+  "selectedRouteStops": {
+    "title_one": "Stops from selected route",
+    "title_other": "Stops from selected routes",
+    "routeIds_one": "Route ID",
+    "routeIds_other": "Route IDs",
+    "stopId": "Stop ID:"
+  },
+  "scanning": {
+    "titleLarge": "Scanning large feed…",
+    "title": "Scanning the map…",
+    "bodyLarge": "We’re indexing stops across the full extent. This might take a moment.",
+    "body": "We’re indexing stops across the view to speed up filtering.",
+    "gridTile": "Grid: {{grid}} • Tile {{tile}} / {{total}}",
+    "percentComplete": "{{percent}}% complete"
+  },
+  "fullMapView": {
+    "disabledTitle": "Full map view disabled",
+    "disabledDescription": "The full map view feature is disabled at the moment. Please try again later.",
+    "dataBlurb":"Tiles are built from the GTFS feed: we read routes.txt, trips.txt, stop_times.txt, stops.txt (and shapes.txt when present), derive routes/stops to GeoJSON, compile them with Tippecanoe into pmtiles files for map rendering.",
+    "clearAll": "Clear All",
+    "hideStops": "Hide Stops",
+    "closePanel": "Close",
+    "headers": {
+      "routeTypes": "Route Types",
+      "visibility": "Visibility",
+      "routes": "Routes"
+    },
+    "backToMap": "Back To Map",
+    "aria": {
+      "close": "close",
+      "refocus": "refocus",
+      "mapStyle": "map style",
+      "filter": "filter"
+    },
+    "style": {
+      "title": "Map style",
+      "stopSize": "Stop size",
+      "size": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large",
+        "custom": "Custom"
+      },
+      "customStopRadiusAria": "Custom stop radius",
+      "radius": "Radius: {{px}}px"
+    }
   }
 }

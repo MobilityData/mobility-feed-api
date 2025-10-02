@@ -480,25 +480,26 @@ class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
         self.assertIn("is not a prefix of dataset_stable_id", result["error"])
 
     @patch("main.PmtilesBuilder")
-    def test_build_pmtiles_handler_success(self, mock_builder):
+    def test_build_pmtiles_handler_failure(self, mock_builder):
         # Set up environment and request
-        debug_dir = tempfile.mkdtemp()
-        os.environ["DEBUG_WORKDIR"] = debug_dir
-        payload = {
-            "feed_stable_id": self.feed_stable_id,
-            "dataset_stable_id": self.dataset_stable_id,
-        }
-        request = MagicMock()
-        request.get_json.return_value = payload
+        with tempfile.TemporaryDirectory() as temp_dir:
+            os.environ["WORKDIR_ROOT"] = temp_dir
+            payload = {
+                "feed_stable_id": self.feed_stable_id,
+                "dataset_stable_id": self.dataset_stable_id,
+            }
+            request = MagicMock()
+            request.get_json.return_value = payload
 
-        # Simulate FAILURE status
-        instance = mock_builder.return_value
-        instance.build_pmtiles.return_value = (
-            instance.OperationStatus.FAILURE,
-            "fail msg",
-        )
-        result = build_pmtiles_handler(request)
-        self.assertIn("Successfully", result["message"])
+            # Simulate FAILURE status
+            instance = mock_builder.return_value
+            instance.build_pmtiles.return_value = (
+                instance.OperationStatus.FAILURE,
+                "fail msg",
+            )
+            result = build_pmtiles_handler(request)
+            self.assertIn("Successfully", result["message"])
+            self.assertEqual(os.listdir(temp_dir), [], "Expected empty workdir root")
 
 
 class TestPmtilesBuilderUpload(unittest.TestCase):
