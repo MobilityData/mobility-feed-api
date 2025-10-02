@@ -17,7 +17,6 @@ import csv
 import logging
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import TypedDict, List, Dict
 
@@ -42,7 +41,7 @@ class ShapeTrips(TypedDict):
     trip_ids: List[str]
 
 
-def print_df(mountpoint: str):
+def get_volume_size(mountpoint: str):
     """
     Returns the total size of the specified filesystem mount point in a human-readable format.
 
@@ -61,7 +60,7 @@ def print_df(mountpoint: str):
     """
     mp = Path(mountpoint)
     if not mp.exists():
-        print(f"Mountpoint not found: {mp}", file=sys.stderr)
+        logging.warning("Mountpoint not found: %s", mountpoint)
         return "N/A"
     cmd = [
         "bash",
@@ -105,7 +104,7 @@ class CsvCache:
         self.trips_no_shapes_per_route: Dict[str, List[str]] = {}
 
         self.logger.info("Using work directory: %s", self.workdir)
-        self.logger.info("Size of workdir: %s", print_df(self.workdir))
+        self.logger.info("Size of workdir: %s", get_volume_size(self.workdir))
 
     def debug_log_size(self, label: str, obj: object) -> None:
         """Log the deep size of an object in bytes when DEBUG is enabled."""
