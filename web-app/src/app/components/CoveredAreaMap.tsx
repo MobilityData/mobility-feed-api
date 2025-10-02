@@ -210,6 +210,10 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
           <GtfsVisualizationMap
             polygon={boundingBox ?? []}
             latestDataset={latestDataset}
+            dataDisplayLimit={config.visualizationMapPreviewDataLimit}
+            preview={true}
+            filteredRoutes={[]} // this is necessary to re-renders
+            filteredRouteTypeIds={[]}
           />
         </>
       );

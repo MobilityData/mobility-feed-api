@@ -2,10 +2,10 @@ import * as React from 'react';
 import 'leaflet/dist/leaflet.css';
 import { Box, Typography, useTheme } from '@mui/material';
 import {
-  locationTypesMapping,
-  type RouteTypeMetadata,
-  routeTypesMapping,
+  renderLocationTypeIcon,
+  renderRouteTypeIcon,
 } from '../constants/RouteTypes';
+import { useTranslation } from 'react-i18next';
 
 export interface BaseMapElement {
   isStop: boolean;
@@ -22,41 +22,41 @@ export interface MapRouteElement extends BaseMapElement {
 export interface MapStopElement extends BaseMapElement {
   locationType: number;
   stopId: string;
+  stopLat: number;
+  stopLon: number;
 }
 
 export type MapElementType = MapRouteElement | MapStopElement;
 
 export interface MapElementProps {
   mapElements: MapElementType[];
+  dataDisplayLimit?: number;
 }
 
 export const MapElement = (
   props: React.PropsWithChildren<MapElementProps>,
 ): JSX.Element => {
   const theme = useTheme();
-  const formatSet = new Set();
+  const { t, i18n } = useTranslation('feeds', { useSuspense: false });
+  if (!i18n.isInitialized || !i18n.hasResourceBundle(i18n.language, 'feeds')) {
+    // render fallback (no t()) to avoid updates during render
+    return <></>;
+  }
+
+  const limit = props.dataDisplayLimit ?? 10;
+  const formatSet = new Set<string>();
   const formattedElements: MapElementType[] = [];
 
-  props.mapElements.forEach((element) => {
-    if (!formatSet.has(element.name)) {
-      formattedElements.push(element);
-    }
+  for (const element of props.mapElements) {
+    if (formatSet.has(element.name)) continue;
+    formattedElements.push(element);
     formatSet.add(element.name);
-  });
-
-  // TODO: duplicate
-  const renderRouteTypeIcon = (
-    routeTypeMetadata: RouteTypeMetadata,
-    routeColorText: string,
-  ): JSX.Element | null => {
-    // The route type could be out of specs (e.g. google route types), so we may not have an icon.
-    if (routeTypeMetadata?.icon == null) {
-      // Optionally render a default icon or return null
-      return null;
-    }
-    const { icon: Icon } = routeTypeMetadata;
-    return <Icon style={{ color: routeColorText, fontSize: 20 }} />;
-  };
+    if (formattedElements.length >= limit) break; // exact cap
+  }
+  const uniqueElementNames = new Set(
+    props.mapElements.map((element) => element.name),
+  );
+  const elementLeftover = uniqueElementNames.size - formattedElements.length;
 
   const renderRouteMapElement = (element: MapRouteElement): JSX.Element => {
     return (
@@ -78,9 +78,7 @@ export const MapElement = (
         }}
       >
         {renderRouteTypeIcon(
-          routeTypesMapping[
-            element.routeType != null ? element.routeType.toString() : '0'
-          ],
+          element.routeType != null ? element.routeType.toString() : '0',
           element.routeTextColor !== ''
             ? '#' + element.routeTextColor
             : theme.map.routeTextColor,
@@ -107,10 +105,8 @@ export const MapElement = (
           borderRadius: '5px',
         }}
       >
-        {renderRouteTypeIcon(
-          locationTypesMapping[
-            element.locationType != null ? element.locationType.toString() : '0'
-          ],
+        {renderLocationTypeIcon(
+          element.locationType != null ? element.locationType.toString() : '0',
           iconColor,
         )}
 
@@ -160,6 +156,23 @@ export const MapElement = (
           </Box>
         );
       })}
+      {elementLeftover > 0 && (
+        <Box
+          sx={{
+            background: theme.palette.background.default,
+            borderRadius: '10px',
+            boxShadow: '1px 1px 5px 1px rgba(0,0,0,0.2)',
+            padding: '10px',
+            my: 2,
+            overflow: 'hidden',
+            width: '250px',
+          }}
+        >
+          <Typography variant='body1' sx={{ mb: '4px', fontSize: '12px' }}>
+            {t('andMoreElements', { count: elementLeftover })}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };

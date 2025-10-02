@@ -14,6 +14,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import DirectionsSubwayIcon from '@mui/icons-material/DirectionsSubway';
 import type { SvgIconComponent } from '@mui/icons-material';
 import type { TFunction } from 'i18next';
+import * as React from 'react';
 
 export interface RouteTypeMetadata {
   name: string;
@@ -97,4 +98,30 @@ export const getRouteTypeTranslatedName = (
   return !(routeType.isDefault ?? false)
     ? t(`common:gtfsSpec.routeType.${routeTypeId}.name`)
     : routeType.name;
+};
+
+export const renderRouteTypeIcon = (
+  routeType: string,
+  routeColorText: string,
+): JSX.Element | null => {
+  const routeTypeMetadata = getRouteByTypeOrDefault(routeType);
+  // The route type could be out of specs (e.g. google route types), so we may not have an icon.
+  if (routeTypeMetadata?.icon == null) {
+    return <PlaceIcon style={{ color: routeColorText, fontSize: 20 }} />;
+  }
+  const { icon: Icon } = routeTypeMetadata;
+  return <Icon style={{ color: routeColorText, fontSize: 20 }} />;
+};
+
+export const renderLocationTypeIcon = (
+  locationType: string,
+  iconColor: string,
+): JSX.Element | null => {
+  const locationTypeMetadata = getStopByLocationTypeOrDefault(locationType);
+  // The location type could be out of specs, so we may not have an icon.
+  if (locationTypeMetadata?.icon == null) {
+    return <PlaceIcon style={{ color: iconColor, fontSize: 20 }} />;
+  }
+  const { icon: Icon } = locationTypeMetadata;
+  return <Icon style={{ color: iconColor, fontSize: 20 }} />;
 };

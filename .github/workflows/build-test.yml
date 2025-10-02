@@ -18,6 +18,7 @@ on:
 env:
   python_version: '3.11'
   java_version: '11' # needed by setup-openapi-generator.sh
+  liquibase_version: '4.33.0'
 
 jobs:
   build-test:
@@ -66,17 +67,21 @@ jobs:
           scripts/lint-tests.sh
 
       - name: Install Liquibase
-        run: |    
-          wget -O- https://repo.liquibase.com/liquibase.asc | gpg --dearmor > liquibase-keyring.gpg && \
-          cat liquibase-keyring.gpg | sudo tee /usr/share/keyrings/liquibase-keyring.gpg > /dev/null && \
-          echo 'deb [trusted=yes arch=amd64 signed-by=/usr/share/keyrings/liquibase-keyring.gpg] https://repo.liquibase.com stable main' | sudo tee /etc/apt/sources.list.d/liquibase.list
-
-          sudo apt-get update
-          sudo apt-get install liquibase=4.25.1
-
-      - name: Run Liquibase on Python functions test DB
+        env:
+          LIQUIBASE_VERSION: ${{ env.liquibase_version }}
         run: |
-          export LIQUIBASE_CLASSPATH="liquibase"
+          curl -sSL https://github.com/liquibase/liquibase/releases/download/v${LIQUIBASE_VERSION}/liquibase-${LIQUIBASE_VERSION}.tar.gz -o liquibase.tar.gz
+          rm -rf liquibase-dist
+          mkdir liquibase-dist
+          tar -xzf liquibase.tar.gz -C liquibase-dist
+          sudo rm -rf /usr/local/liquibase
+          sudo mv liquibase-dist /usr/local/liquibase
+          sudo ln -sf /usr/local/liquibase/liquibase /usr/local/bin/liquibase
+          liquibase --version
+      
+      - name: Run Liquibase on Python functions test DB
+        working-directory: ${{ github.workspace }}/liquibase
+        run: |
           export LIQUIBASE_COMMAND_CHANGELOG_FILE="changelog.xml"
           export LIQUIBASE_COMMAND_URL=jdbc:postgresql://localhost:54320/MobilityDatabaseTest
           export LIQUIBASE_COMMAND_USERNAME=postgres
