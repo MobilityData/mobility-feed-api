@@ -306,6 +306,7 @@ class PmtilesBuilder:
             self._upload_files_to_gcs(files_to_upload)
         self._update_database()
 
+        self.logger.info("Completed PMTiles build")
         return self.OperationStatus.SUCCESS, "success"
 
     def _download_files_from_gcs(self, unzipped_files_path):
