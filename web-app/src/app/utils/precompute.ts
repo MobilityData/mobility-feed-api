@@ -7,11 +7,19 @@ import { type MapStopElement } from '../components/MapElement';
 
 export type RouteIdsInput = string | string[] | number[] | null | undefined;
 
+class CancellationError extends Error {
+  constructor(message: string = 'Operation cancelled.') {
+    super(message);
+    this.name = 'CancellationError'; // Set a custom name for the error type
+  }
+}
+
 export interface PrecomputeDeps {
   // runtime inputs
   mapRef: RefObject<MapRef>;
   bounds: LngLatBoundsLike;
   preview: boolean;
+  cancelRequestRef: RefObject<boolean>;
 
   // extractors / helpers
   extractRouteIds: (val: RouteIdsInput) => string[];
@@ -94,6 +102,7 @@ export function createPrecomputation(deps: PrecomputeDeps): {
     stopsByRouteIdRef,
     precomputedReadyRef,
     routeIdToType,
+    cancelRequestRef,
   } = deps;
 
   /** Public API: identical behavior, just moved out */
@@ -167,6 +176,10 @@ export function createPrecomputation(deps: PrecomputeDeps): {
     for (let r = 0; r < rows; r++) {
       const cy = minLat + (r + 0.5) * latStep;
       for (let c = 0; c < cols; c++) {
+        if (cancelRequestRef.current === true) {
+          // user requested to cancel
+          throw new CancellationError();
+        }
         const cx = minLng + (c + 0.5) * lngStep;
 
         map.jumpTo({
@@ -290,8 +303,17 @@ export function createPrecomputation(deps: PrecomputeDeps): {
     if (map == null) return;
     // ensure we’re looking at the dataset so tiles will load
     map.fitBounds(bounds, { padding: 100, duration: 0 });
+
     void map.once('idle', () => {
-      void runPrecomputation().then(() => {});
+      void runPrecomputation()
+        .then(() => {})
+        .catch((e) => {
+          if (e.name === 'CancellationError') {
+            // cancelled by user, ignore
+          } else {
+            console.error('Precomputation error:', e);
+          }
+        });
     });
   };
   return { runPrecomputation, registerRunOnMapIdle };

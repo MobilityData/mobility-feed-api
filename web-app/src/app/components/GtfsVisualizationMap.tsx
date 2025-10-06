@@ -6,8 +6,8 @@ import maplibregl, { type ExpressionSpecification, type LngLatBoundsLike } from 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Protocol } from "pmtiles";
 import { type LatLngExpression } from "leaflet";
-import { Box, Typography, useTheme } from "@mui/material";
-import Draggable from 'react-draggable';
+import { Box, Button, Typography, useTheme } from "@mui/material";
+import Draggable from "react-draggable";
 
 import { LinearProgress, CircularProgress } from "@mui/material";
 
@@ -46,7 +46,7 @@ export const GtfsVisualizationMap = ({
                                        hideStops = false,
                                        dataDisplayLimit = 10,
                                        routes = [],
-                                       refocusTrigger=false,
+                                       refocusTrigger = false,
                                        stopRadius = 3,
                                        preview = true
                                      }: GtfsVisualizationMapProps): JSX.Element => {
@@ -106,29 +106,42 @@ export const GtfsVisualizationMap = ({
   // Merge: filtered-route colors (take priority) + hover/click colors
   const stopHighlightColorMap: Record<string, string> = {
     ...routeIdToColorMap,
-    ...filteredRouteColors,
+    ...filteredRouteColors
   };
 
 
   function generateStopColorExpression(
     routeIdToColor: Record<string, string>,
-    fallback = '#888',
+    fallback = "#888"
   ): ExpressionSpecification {
     const expression: any[] = ["case"];
-    Object.entries(routeIdToColor).forEach(([routeId, color]) => {
-      expression.push(["in", `"${routeId}"`, ["get", "route_ids"]], `#${color}`);
-    });
+
+    const isHex = (s: string) => /^[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(s);
+
+    for (const [routeId, raw] of Object.entries(routeIdToColor)) {
+      if (raw == null) continue;
+      const hex = String(raw).trim().replace(/^#/, "");
+      if (!isHex(hex)) continue; // skip empty/invalid colors
+
+      // route_ids is a string of quoted ids; keep your quoted match style
+      expression.push(
+        ["in", `"${routeId}"`, ["get", "route_ids"]],
+        `#${hex}`
+      );
+    }
+
+    // If nothing valid was added, just use the fallback color directly
     if (expression.length === 1) {
       return fallback as unknown as ExpressionSpecification;
     }
 
-    expression.push(fallback); // Add fallback color
+    expression.push(fallback);
     return expression as ExpressionSpecification;
   }
 
   const routeTypeFilter: ExpressionSpecification | boolean =
     filteredRouteTypeIds.length > 0
-      ? ['in', ['get', 'route_type'], ['literal', filteredRouteTypeIds]]
+      ? ["in", ["get", "route_type"], ["literal", filteredRouteTypeIds]]
       : true; // if no filter applied, show all
 
   const handleMouseClick = (event: maplibregl.MapLayerMouseEvent): void => {
@@ -136,7 +149,7 @@ export const GtfsVisualizationMap = ({
     if (map != undefined) {
       // Get the features under the mouse pointer
       const features = map.queryRenderedFeatures(event.point, {
-        layers: ['stops-index', 'routes-highlight'],
+        layers: ["stops-index", "routes-highlight"]
       });
 
       const selectedStop = features.find((feature) => feature.layer.id === "stops-index");
@@ -144,19 +157,19 @@ export const GtfsVisualizationMap = ({
         setMapClickStopData({
           ...selectedStop.properties,
           longitude: String(event.lngLat.lng),
-          latitude: String(event.lngLat.lat),
+          latitude: String(event.lngLat.lat)
         });
         setSelectedStopId(String(selectedStop.properties?.stop_id ?? null));
         setMapClickRouteData(null);
         return;
       }
 
-      const selectedRoute = features.find((f) => f.layer.id === 'routes-highlight');
+      const selectedRoute = features.find((f) => f.layer.id === "routes-highlight");
       if (selectedRoute != undefined) {
         setMapClickRouteData({
           ...selectedRoute.properties,
           longitude: String(event.lngLat.lng),
-          latitude: String(event.lngLat.lat),
+          latitude: String(event.lngLat.lat)
         });
         setMapClickStopData(null);
       }
@@ -174,7 +187,7 @@ export const GtfsVisualizationMap = ({
     const next: MapElementType[] = [];
     if (map != undefined) {
       const features = map.queryRenderedFeatures(event.point, {
-        layers: ["stops", "routes"],
+        layers: ["stops", "routes"]
       });
 
       if (features.length > 0 || mapClickRouteData != null || mapClickStopData != null) {
@@ -185,7 +198,7 @@ export const GtfsVisualizationMap = ({
             routeType: Number(mapClickRouteData.route_type),
             routeColor: mapClickRouteData.route_color,
             routeTextColor: mapClickRouteData.route_text_color,
-            routeId: mapClickRouteData.route_id,
+            routeId: mapClickRouteData.route_id
           } as MapRouteElement);
         }
         if (mapClickStopData != null) {
@@ -193,7 +206,7 @@ export const GtfsVisualizationMap = ({
             isStop: true,
             name: mapClickStopData.stop_name,
             locationType: Number(mapClickStopData.location_type),
-            stopId: mapClickStopData.stop_id,
+            stopId: mapClickStopData.stop_id
           } as MapStopElement);
         }
         features.forEach((feature) => {
@@ -202,7 +215,7 @@ export const GtfsVisualizationMap = ({
               isStop: true,
               name: feature.properties.stop_name,
               locationType: Number(feature.properties.location_type),
-              stopId: feature.properties.stop_id,
+              stopId: feature.properties.stop_id
             } as MapStopElement);
           } else {
             next.push({
@@ -211,7 +224,7 @@ export const GtfsVisualizationMap = ({
               routeType: feature.properties.route_type,
               routeColor: feature.properties.route_color,
               routeTextColor: feature.properties.route_text_color,
-              routeId: feature.properties.route_id,
+              routeId: feature.properties.route_id
             } as MapRouteElement);
           }
         });
@@ -237,9 +250,9 @@ export const GtfsVisualizationMap = ({
   useEffect(() => {
     // Will be called on add statup only once
     const protocol = new Protocol();
-    maplibregl.addProtocol('pmtiles', protocol.tile);
+    maplibregl.addProtocol("pmtiles", protocol.tile);
     return () => {
-      maplibregl.removeProtocol('pmtiles');
+      maplibregl.removeProtocol("pmtiles");
     };
   }, []);
 
@@ -281,7 +294,7 @@ export const GtfsVisualizationMap = ({
         "any",
         ...allSelectedRouteIds.map(
           (id) => ["in", `\"${id}\"`, ["get", "route_ids"]] as any // route_ids stored as quoted-string list
-        ),
+        )
       ] as any);
 
 
@@ -311,8 +324,6 @@ export const GtfsVisualizationMap = ({
     }
   }, [filteredRoutes]);
 
-  // tries a single instant expand-to-bounds if nothing is rendered yet
-  const fitExpandAttemptRef = useRef(0);
 
   // --- PRECOMPUTED INDEXES ---
   const precomputedReadyRef = useRef(false);
@@ -338,7 +349,8 @@ export const GtfsVisualizationMap = ({
       try {
         const parsed = JSON.parse(val);
         if (Array.isArray(parsed)) return parsed.map(String);
-      } catch {}
+      } catch {
+      }
       // fallback: pull "quoted" tokens
       const out: string[] = [];
       val.replace(/"([^"]+)"/g, (_: any, id: string) => {
@@ -356,6 +368,7 @@ export const GtfsVisualizationMap = ({
   }
 
   // --- instantiate the extracted precomputation with identical behavior ---
+  const cancelRequestRef = useRef<boolean>(false);
   const precomp = useMemo(
     () =>
       createPrecomputation({
@@ -372,6 +385,7 @@ export const GtfsVisualizationMap = ({
         stopsByRouteIdRef,
         precomputedReadyRef,
         routeIdToType,
+        cancelRequestRef
       }),
     [
       mapRef,
@@ -382,7 +396,7 @@ export const GtfsVisualizationMap = ({
       setIsScanning,
       setScanRowsCols,
       setScannedTiles,
-      setTotalTiles,
+      setTotalTiles
     ]
   );
 
@@ -401,7 +415,7 @@ export const GtfsVisualizationMap = ({
     map.easeTo({
       center: [s.stopLon, s.stopLat],
       zoom: Math.max(map.getZoom(), 13),
-      duration: 400,
+      duration: 400
     });
 
     // 2) Wait for the move to finish so the render tree is up-to-date
@@ -412,13 +426,13 @@ export const GtfsVisualizationMap = ({
     const HIT = 6; // px hit radius; tweak 4..8 if needed
     const bbox: [[number, number], [number, number]] = [
       [pt.x - HIT, pt.y - HIT],
-      [pt.x + HIT, pt.y + HIT],
+      [pt.x + HIT, pt.y + HIT]
     ];
 
     // 4) Query rendered features, filtering by exact stop_id
     const features = map.queryRenderedFeatures(bbox, {
       layers: ["stops-index"],
-      filter: ["==", ["to-string", ["get", "stop_id"]], String(s.stopId)] as any,
+      filter: ["==", ["to-string", ["get", "stop_id"]], String(s.stopId)] as any
     });
 
     const stopFeature = features[0];
@@ -430,7 +444,7 @@ export const GtfsVisualizationMap = ({
         stop_name: s.name,
         location_type: String(s.locationType ?? 0),
         longitude: s.stopLon,
-        latitude: s.stopLat,
+        latitude: s.stopLat
       } as any);
       setSelectedStopId(s.stopId);
       return;
@@ -444,7 +458,7 @@ export const GtfsVisualizationMap = ({
       stop_name: s.name,
       location_type: String(s.locationType ?? 0),
       longitude: s.stopLon,
-      latitude: s.stopLat,
+      latitude: s.stopLat
     } as any);
     setSelectedStopId(s.stopId);
   };
@@ -507,21 +521,35 @@ export const GtfsVisualizationMap = ({
     if (!map) return;
     const target = computeTargetBounds();
     if (target) {
-      map.fitBounds(target, { padding: 60, duration: 500});
+      map.fitBounds(target, { padding: 60, duration: 500 });
     } else {
       // fallback to dataset bounds
-      map.fitBounds(bounds, { padding: 60, duration: 500});
+      map.fitBounds(bounds, { padding: 60, duration: 500 });
     }
   };
 
-  if (!preview) {
-    useEffect(() => {
-      if (refocusTrigger) {
-        resetView();
-      }
-    }, [refocusTrigger]);
-  }
+  useEffect(() => {
+    if (!preview && refocusTrigger) {
+      resetView();
+    }
+  }, [preview, refocusTrigger]);
 
+
+  function handleCancelScan() {
+    cancelRequestRef.current = true;
+    setIsScanning(false);
+    // clear all precomputed data
+    routeIdToBBoxRef.current = {};
+    routeTypeToBBoxRef.current = {};
+    stopsByRouteIdRef.current = {};
+    precomputedReadyRef.current = false;
+
+    // reset map state
+    const map = mapRef.current?.getMap();
+    if (map) {
+      map.fitBounds(bounds, { padding: 100, duration: 0 });
+    }
+  }
 
   return (
     <MapProvider>
@@ -532,7 +560,7 @@ export const GtfsVisualizationMap = ({
             height: "100%",
             position: "relative",
             borderColor: theme.palette.primary.main,
-            borderRadius: "5px",
+            borderRadius: "5px"
           }}
         >
           {/* Hover/click info (top-left) */}
@@ -560,11 +588,11 @@ export const GtfsVisualizationMap = ({
                   boxShadow: "1px 1px 8px rgba(0,0,0,0.25)",
                   display: "flex",
                   flexDirection: "column",
-                  overflow: "hidden",
+                  overflow: "hidden"
                 }}
               >
                 <Box
-                  sx={{ p: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, cursor: 'move' }}
+                  sx={{ p: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, cursor: "move" }}
                   className="drag-handle"
                 >
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -597,7 +625,7 @@ export const GtfsVisualizationMap = ({
                           transition: "background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
                           cursor: "pointer",
                           "&:hover": { backgroundColor: theme.palette.action.hover },
-                          boxShadow: isActive ? "0 0 0 2px rgba(0,0,0,0.06) inset" : "none",
+                          boxShadow: isActive ? "0 0 0 2px rgba(0,0,0,0.06) inset" : "none"
                         }}
                       >
                         <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
@@ -629,7 +657,7 @@ export const GtfsVisualizationMap = ({
                 justifyContent: "center",
                 backdropFilter: "blur(2px)",
                 background:
-                  "linear-gradient(180deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.55) 100%)",
+                  "linear-gradient(180deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.55) 100%)"
               }}
             >
               <Box
@@ -640,7 +668,7 @@ export const GtfsVisualizationMap = ({
                   borderRadius: "14px",
                   boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
                   border: `1px solid ${theme.palette.divider}`,
-                  p: 2.25,
+                  p: 2.25
                 }}
               >
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 1 }}>
@@ -659,7 +687,7 @@ export const GtfsVisualizationMap = ({
                     {t("scanning.gridTile", {
                       grid: rowsColsText,
                       tile: Math.min(scannedTiles, totalTiles),
-                      total: totalTiles,
+                      total: totalTiles
                     })}
                   </Typography>
                 )}
@@ -670,7 +698,7 @@ export const GtfsVisualizationMap = ({
                   sx={{
                     height: 8,
                     borderRadius: "999px",
-                    mb: 1,
+                    mb: 1
                   }}
                 />
 
@@ -680,6 +708,17 @@ export const GtfsVisualizationMap = ({
                 >
                   {t("scanning.percentComplete", { percent: progressPct })}
                 </Typography>
+                <Box sx={{ display: "flex", flexDirection: "row-reverse" }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={handleCancelScan}
+                    disabled={cancelRequestRef.current}
+                    aria-label={t("scanning.cancel")}
+                  >
+                    {t("scanning.cancel", "Cancel scan")}
+                  </Button>
+                </Box>
               </Box>
             </Box>
           )}
@@ -695,36 +734,36 @@ export const GtfsVisualizationMap = ({
             onMouseMove={(event) => {
               handleMouseMove(event);
             }}
-            style={{ width: '100%', height: '100%' }}
+            style={{ width: "100%", height: "100%" }}
             initialViewState={{ bounds }}
             interactiveLayerIds={[
-              'stops',
-              'routes',
-              'routes-white',
-              'routes-highlight',
-              'stops-highlight',
-              'stops-index'
+              "stops",
+              "routes",
+              "routes-white",
+              "routes-highlight",
+              "stops-highlight",
+              "stops-index"
             ]}
             scrollZoom={true}
             dragPan={true}
             mapStyle={{
               version: 8,
               sources: {
-                'raster-tiles': {
-                  type: 'raster',
+                "raster-tiles": {
+                  type: "raster",
                   tiles: [theme.map.basemapTileUrl],
                   tileSize: 256,
                   attribution:
-                    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
                 },
                 sample: {
-                  type: 'vector',
-                  url: `pmtiles://${stopsPmtilesUrl}`, // dynamic stops
+                  type: "vector",
+                  url: `pmtiles://${stopsPmtilesUrl}` // dynamic stops
                 },
                 routes: {
-                  type: 'vector',
-                  url: `pmtiles://${routesPmtilesUrl}`, // dynamic routes
-                },
+                  type: "vector",
+                  url: `pmtiles://${routesPmtilesUrl}` // dynamic routes
+                }
               },
               // Order matters: the last layer will be on top
               // Layers control all the logic in the map -> lots of duplicated for the sake of effects
@@ -734,7 +773,7 @@ export const GtfsVisualizationMap = ({
                   type: "raster",
                   source: "raster-tiles",
                   minzoom: 0,
-                  maxzoom: 22,
+                  maxzoom: 22
                 },
                 {
                   id: "routes-white",
@@ -751,9 +790,9 @@ export const GtfsVisualizationMap = ({
                       4,
                       "1",
                       15,
-                      3,
-                    ],
-                  },
+                      3
+                    ]
+                  }
                 },
                 {
                   id: "routes",
@@ -770,18 +809,18 @@ export const GtfsVisualizationMap = ({
                       1,
                       "1",
                       4,
-                      3,
+                      3
                     ],
                     "line-opacity": [
                       "case",
                       [
                         "any",
                         ["==", filteredRoutes.length, 0],
-                        ["in", ["get", "route_id"], ["literal", filteredRoutes]],
+                        ["in", ["get", "route_id"], ["literal", filteredRoutes]]
                       ],
                       0.4,
-                      0.1,
-                    ],
+                      0.1
+                    ]
                   },
                   layout: {
                     "line-sort-key": [
@@ -791,9 +830,9 @@ export const GtfsVisualizationMap = ({
                       3,
                       "3",
                       2,
-                      0,
-                    ],
-                  },
+                      0
+                    ]
+                  }
                 },
                 {
                   id: "stops",
@@ -804,10 +843,10 @@ export const GtfsVisualizationMap = ({
                   paint: {
                     "circle-radius": stopRadius,
                     "circle-color": "#000000",
-                    "circle-opacity": 0.4,
+                    "circle-opacity": 0.4
                   },
                   minzoom: 12,
-                  maxzoom: 22,
+                  maxzoom: 22
                 },
                 {
                   id: "routes-highlight",
@@ -824,25 +863,25 @@ export const GtfsVisualizationMap = ({
                       5,
                       "1",
                       6,
-                      3,
-                    ],
+                      3
+                    ]
                   },
                   filter: [
                     "any",
                     ["in", ["get", "route_id"], ["literal", hoverInfo]],
                     ["in", ["get", "route_id"], ["literal", filteredRoutes]],
-                    ["in", ["get", "route_id"], ["literal", mapClickRouteData?.route_id ?? ""]],
-                  ],
+                    ["in", ["get", "route_id"], ["literal", mapClickRouteData?.route_id ?? ""]]
+                  ]
                 },
                 {
-                  id: 'stops-highlight',
+                  id: "stops-highlight",
                   source: "sample",
                   "source-layer": "stopsoutput",
                   type: "circle",
                   paint: {
                     "circle-radius": 7,
                     "circle-color": generateStopColorExpression(stopHighlightColorMap) as ExpressionSpecification,
-                    "circle-opacity": 1,
+                    "circle-opacity": 1
                   },
                   minzoom: 10,
                   maxzoom: 22,
@@ -856,15 +895,15 @@ export const GtfsVisualizationMap = ({
                         "any",
                         ...filteredRoutes.map((id) => {
                           return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        }),
+                        })
                       ],
                       [
                         "any",
                         ...hoverInfo.map((id) => {
                           return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        }),
-                      ],
-                    ],
+                        })
+                      ]
+                    ]
                 },
                 {
                   id: "stops-highlight-outer",
@@ -874,7 +913,7 @@ export const GtfsVisualizationMap = ({
                   paint: {
                     "circle-radius": 3,
                     "circle-color": theme.palette.background.paper,
-                    "circle-opacity": 1,
+                    "circle-opacity": 1
                   },
                   filter: hideStops
                     ? !hideStops
@@ -885,15 +924,15 @@ export const GtfsVisualizationMap = ({
                         "any",
                         ...filteredRoutes.map((id) => {
                           return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        }),
+                        })
                       ],
                       [
                         "any",
                         ...hoverInfo.map((id) => {
                           return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        }),
-                      ],
-                    ],
+                        })
+                      ]
+                    ]
                 },
                 {
                   id: "stops-index",
@@ -902,10 +941,10 @@ export const GtfsVisualizationMap = ({
                   type: "circle",
                   paint: {
                     "circle-color": "rgba(0,0,0, 0)",
-                    "circle-radius": 1,
-                  },
-                },
-              ],
+                    "circle-radius": 1
+                  }
+                }
+              ]
             }}
           >
             <ScaleControl position="bottom-left" unit="metric" />
@@ -918,7 +957,7 @@ export const GtfsVisualizationMap = ({
                 marginTop: "72px",
                 marginRight: "15px",
                 boxShadow:
-                  "rgba(0, 0, 0, 0.2) 0px 3px 5px -1px, rgba(0, 0, 0, 0.14) 0px 6px 10px 0px, rgba(0, 0, 0, 0.12) 0px 1px 18px 0px",
+                  "rgba(0, 0, 0, 0.2) 0px 3px 5px -1px, rgba(0, 0, 0, 0.14) 0px 6px 10px 0px, rgba(0, 0, 0, 0.12) 0px 1px 18px 0px"
               }}
             />
             <MapDataPopup
