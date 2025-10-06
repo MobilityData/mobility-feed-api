@@ -304,6 +304,7 @@ class PmtilesBuilder:
         if self.use_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
             self._upload_files_to_gcs(files_to_upload)
+        self._update_database()
 
         return self.OperationStatus.SUCCESS, "success"
 
