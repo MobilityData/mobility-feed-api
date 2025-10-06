@@ -18,6 +18,8 @@ import base64
 import json
 import logging
 import os
+from pathlib import Path
+
 import random
 import uuid
 import zipfile
@@ -57,6 +59,14 @@ class DatasetFile:
     file_sha256_hash: Optional[str] = None
     hosted_url: Optional[str] = None
     zipped_size: Optional[int] = None
+
+
+def peek_bytes(path: str, n: int = 64) -> bytes:
+    p = Path(path)
+    if not p.exists():
+        return b""
+    with open(p, "rb") as f:
+        return f.read(n)
 
 
 class DatasetProcessor:
@@ -208,10 +218,99 @@ class DatasetProcessor:
             temp_file_path = self.generate_temp_filename()
             file_sha256_hash, is_zip = self.download_content(temp_file_path, feed_id)
             if not is_zip:
-                self.logger.error(
-                    f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
+                # General guard for HTML/non-ZIP responses and a browser-like fallback download
+                first = peek_bytes(temp_file_path, 64)
+                looks_html = (
+                    first.strip().startswith(b"<!DOCTYPE") or b"<html" in first.lower()
                 )
-                return None
+                if looks_html:
+                    self.logger.warning(
+                        "[%s] Download returned HTML instead of ZIP. "
+                        "Retrying with browser-like headers and session.",
+                        self.feed_stable_id,
+                    )
+                    try:
+                        import requests
+                        from urllib.parse import urlparse
+
+                        parsed = urlparse(self.producer_url)
+                        origin = f"{parsed.scheme}://{parsed.netloc}"
+                        referer = origin + "/"
+                        dir_url = (
+                            (self.producer_url.rsplit("/", 1)[0] + "/")
+                            if "/" in self.producer_url
+                            else referer
+                        )
+                        headers = {
+                            "User-Agent": (
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                "Chrome/124.0 Safari/537.36"
+                            ),
+                            "Accept": "*/*",
+                            "Accept-Language": "en-US,en;q=0.9",
+                            # Use site origin as a safe, general Referer (no path assumptions)
+                            "Referer": referer,
+                            "Connection": "keep-alive",
+                        }
+                        os.makedirs(
+                            os.path.dirname(temp_file_path) or ".", exist_ok=True
+                        )
+                        with requests.Session() as s:
+                            s.headers.update(headers)
+                            # Best-effort cookie priming on the site origin and the file's directory (non-fatal)
+                            try:
+                                s.get(referer, timeout=15, allow_redirects=True)
+                            except Exception:
+                                pass
+                            try:
+                                if dir_url != referer:
+                                    s.get(dir_url, timeout=15, allow_redirects=True)
+                            except Exception:
+                                pass
+                            with s.get(
+                                self.producer_url,
+                                stream=True,
+                                timeout=60,
+                                allow_redirects=True,
+                            ) as r:
+                                r.raise_for_status()
+                                ct = (r.headers.get("Content-Type") or "").lower()
+                                # Peek signature to guard against HTML interstitials
+                                first8 = r.raw.read(8, decode_content=True)
+                                if "text/html" in ct or not first8.startswith(b"PK"):
+                                    raise RuntimeError(
+                                        f"Unexpected response during fallback. "
+                                        f"Content-Type={ct!r}, first bytes={first8!r}"
+                                    )
+                                with open(temp_file_path, "wb") as out:
+                                    out.write(first8)
+                                    for chunk in r.iter_content(chunk_size=1024 * 1024):
+                                        if chunk:
+                                            out.write(chunk)
+                        if zipfile.is_zipfile(temp_file_path):
+                            # Recompute hash after successful fallback
+                            file_sha256_hash, is_zip = (
+                                self.compute_file_hash(temp_file_path),
+                                True,
+                            )
+                            self.logger.info(
+                                "[%s] Fallback download validated as ZIP.",
+                                self.feed_stable_id,
+                            )
+                        else:
+                            self.logger.error(
+                                "[%s] The downloaded file from %s is not a valid ZIP file.",
+                                self.feed_stable_id,
+                                self.producer_url,
+                            )
+                            return None
+                    except Exception as fallback_err:
+                        self.logger.error(
+                            "[%s] Browser-like fallback failed: %s",
+                            self.feed_stable_id,
+                            fallback_err,
+                        )
 
             self.logger.info(
                 f"[{self.feed_stable_id}] File hash is {file_sha256_hash}."
