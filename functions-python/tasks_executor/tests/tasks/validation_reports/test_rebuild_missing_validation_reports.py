@@ -108,7 +108,7 @@ class TestTasksExecutor(unittest.TestCase):
 
         # Assert the expected behavior
         self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], 7)
+        self.assertEquals(response["total_processed"], 9)
         self.assertEquals(
             response["message"],
             "Rebuild missing validation reports task executed successfully.",
@@ -137,12 +137,12 @@ class TestTasksExecutor(unittest.TestCase):
 
         # Assert the expected behavior
         self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], 7)
+        self.assertEquals(response["total_processed"], 9)
         self.assertEquals(
             response["message"],
             "Rebuild missing validation reports task executed successfully.",
         )
-        self.assertEquals(execute_workflows_mock.call_count, 4)
+        self.assertEquals(execute_workflows_mock.call_count, 5)
 
     @with_db_session(db_url=default_db_url)
     @patch(
@@ -166,7 +166,7 @@ class TestTasksExecutor(unittest.TestCase):
 
         # Assert the expected behavior
         self.assertIsNotNone(response)
-        self.assertEquals(response["total_processed"], 7)
+        self.assertEquals(response["total_processed"], 9)
         self.assertEquals(response["message"], "Dry run: no datasets processed.")
         execute_workflows_mock.assert_not_called()
 
