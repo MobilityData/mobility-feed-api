@@ -161,24 +161,28 @@ export const MapDataPopup = (
                     </Typography>
                   )}
 
-                {mapClickStopData.stop_code != null && (
-                  <Typography variant='body2'>
-                    <span style={{ marginRight: '8px' }}>{t('stopCode')}</span>
-                    <b>{mapClickStopData.stop_code}</b>
-                  </Typography>
-                )}
-                {mapClickStopData.stop_url != null && (
-                  <Link
-                    href={mapClickStopData.stop_url}
-                    underline='hover'
-                    target='_blank'
-                    rel='noreferrer'
-                    variant={'body2'}
-                    sx={{ mt: 1 }}
-                  >
-                    {t('viewStopInfo')}
-                  </Link>
-                )}
+                {mapClickStopData.stop_code != null &&
+                  mapClickStopData.stop_code.trim().length > 0 && (
+                    <Typography variant='body2'>
+                      <span style={{ marginRight: '8px' }}>
+                        {t('stopCode')}
+                      </span>
+                      <b>{mapClickStopData.stop_code}</b>
+                    </Typography>
+                  )}
+                {mapClickStopData.stop_url != null &&
+                  mapClickStopData.stop_url.trim().length > 0 && (
+                    <Link
+                      href={mapClickStopData.stop_url}
+                      underline='hover'
+                      target='_blank'
+                      rel='noreferrer'
+                      variant={'body2'}
+                      sx={{ mt: 1 }}
+                    >
+                      {t('viewStopInfo')}
+                    </Link>
+                  )}
               </Box>
             </Box>
           </Popup>
