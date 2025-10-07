@@ -3,7 +3,7 @@
   "description": "The PMTiles Builder function creates PMTiles from dataset files",
   "entry_point": "build_pmtiles_handler",
   "timeout": 1680,
-  "memory": "8Gi",
+  "memory": "16Gi",
   "trigger_http": true,
   "include_folders": ["helpers"],
   "include_api_folders": ["database_gen", "database", "common"],
@@ -24,5 +24,5 @@
   "max_instance_request_concurrency": 1,
   "max_instance_count": 5,
   "min_instance_count": 0,
-  "available_cpu": 2
+  "available_cpu": 4
 }

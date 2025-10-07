@@ -28,6 +28,7 @@ import psutil
 
 from shared.helpers.transform import get_safe_value, get_safe_float, get_safe_int
 from shared.helpers.utils import detect_encoding
+from shared.helpers.runtime_metrics import track_metrics
 
 
 class ShapesIndex:
@@ -119,6 +120,7 @@ class ShapesIndex:
                 f.seek(0)
                 line_count = 0
                 f.readline()  # Skip header
+                needs_sorting = False
                 for line in f:
                     try:
                         if not line.strip():
@@ -130,7 +132,17 @@ class ShapesIndex:
                         lon_arr, lat_arr, seq_arr = self.coordinates_arrays[shape_id]
                         lon_arr[position] = get_safe_float(row[lon_idx])
                         lat_arr[position] = get_safe_float(row[lat_idx])
-                        seq_arr[position] = get_safe_int(row[seq_idx])
+                        seq_value = get_safe_int(row[seq_idx])
+                        seq_arr[position] = seq_value
+
+                        # If any sequence number goes down, set needs_sorting True.
+                        # Just a little low hanging optimization so we don't sort for nothing.
+                        if (
+                            not needs_sorting
+                            and position > 0
+                            and seq_value < seq_arr[position - 1]
+                        ):
+                            needs_sorting = True
 
                         positions_in_coordinates_arrays[shape_id] = position + 1
 
@@ -148,12 +160,26 @@ class ShapesIndex:
                         self.logger.warning(
                             f"Skipping line {line_count} of shapes.txt because of error: {e}"
                         )
+                if needs_sorting:
+                    self.sort_coordinate_arrays()
+
             if self.lines_with_quotes > 0:
                 self.logger.debug(
                     f"Found {self.lines_with_quotes} lines with quotes while creating shapes index"
                 )
         except Exception as e:
             self.logger.warning("Cannot read shapes file: %s", e)
+
+    @track_metrics(metrics=("time", "memory", "cpu"))
+    def sort_coordinate_arrays(self):
+        """
+        Sorts the coordinate arrays in-place for each shape_id according to the sequence number.
+        """
+        for key, (lon_arr, lat_arr, seq_arr) in self.coordinates_arrays.items():
+            sort_idx = np.argsort(seq_arr)
+            lon_arr[:] = lon_arr[sort_idx]
+            lat_arr[:] = lat_arr[sort_idx]
+            seq_arr[:] = seq_arr[sort_idx]
 
     def get_objects(self, key: str):
         """Return a list of objects for rows matching key, using row_fn or raw row dicts."""

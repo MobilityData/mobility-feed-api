@@ -212,8 +212,11 @@ class TestPmtilesBuilder(unittest.TestCase):
             shapes_path = os.path.join(temp_dir, "shapes.txt")
             with open(shapes_path, "w", encoding="utf-8") as f:
                 f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
-                f.write("s1,45.0,-73.0,1\n")
-                f.write("s1,45.1,-73.1,2\n")
+                # Also test the reordering of shapes lines. In the test file we put sequence number 10 before 8
+                # It also tests the reordering works fine if there are gaps in the sequence numbers
+                f.write("s1,45.1,-73.1,10\n")
+                f.write("s1,45.0,-73.0,8\n")
+                # f.write("s1,45.1,-73.1,2\n")
                 f.write("s2,46.0,-74.0,1\n")
 
             index = self.builder._create_shapes_index()
@@ -225,7 +228,12 @@ class TestPmtilesBuilder(unittest.TestCase):
         self.assertIn("s2", index.coordinates_arrays)
         self.assertEqual(len(index.coordinates_arrays["s1"]), 3)
         self.assertEqual(len(index.coordinates_arrays["s1"][0]), 2)
-
+        self.assertEqual(len(index.coordinates_arrays["s2"][0]), 1)
+        # Assert that sequence numbers for s1 are sorted
+        self.assertListEqual(list(index.coordinates_arrays["s1"][2]), [8, 10])
+        # Assert that lon and lat for s1 are reordered to match sequence
+        self.assertListEqual(list(index.coordinates_arrays["s1"][0]), [-73.0, -73.1])
+        self.assertListEqual(list(index.coordinates_arrays["s1"][1]), [45.0, 45.1])
         self.assertEqual(len(index.coordinates_arrays["s2"][0]), 1)
 
     def test_create_routes_geojson(self):
