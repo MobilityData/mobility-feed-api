@@ -55,16 +55,6 @@ export default function FullMapView(): React.ReactElement {
   const { t } = useTranslation('feeds');
   const { config } = useRemoteConfig();
 
-  if (!config.enableGtfsVisualizationMap) {
-    return (
-      <Box>
-        <Alert severity='error' sx={{ m: 2 }}>
-          <AlertTitle>{t('fullMapView.disabledTitle')}</AlertTitle>
-          {t('fullMapView.disabledDescription')}
-        </Alert>
-      </Box>
-    );
-  }
   const { feedId } = useParams();
   const navigate = useNavigate();
 
@@ -304,6 +294,17 @@ export default function FullMapView(): React.ReactElement {
       </Stack>
     </Box>
   );
+
+  if (!config.enableGtfsVisualizationMap) {
+    return (
+      <Box>
+        <Alert severity='error' sx={{ m: 2 }}>
+          <AlertTitle>{t('fullMapView.disabledTitle')}</AlertTitle>
+          {t('fullMapView.disabledDescription')}
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <>
