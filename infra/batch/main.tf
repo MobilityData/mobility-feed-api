@@ -257,7 +257,7 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   name     = "pmtiles-builder-queue-${var.environment}-${local.deployment_timestamp}"
 
   rate_limits {
-    max_concurrent_dispatches = 1
+    max_concurrent_dispatches = 20
     max_dispatches_per_second = 1
   }
 
