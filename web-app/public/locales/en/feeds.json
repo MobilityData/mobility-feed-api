@@ -173,5 +173,54 @@
     "noRoutesData": "Could not load routes data for the map.",
     "invalidDataType": "This feed is not a GTFS Schedule feed.",
     "noBoundingBox": "No bounding box available."
+  },
+  "andMoreElements": "And {{count}} more...",
+  "selectedRouteStops": {
+    "title_one": "Stops from selected route",
+    "title_other": "Stops from selected routes",
+    "routeIds_one": "Route ID",
+    "routeIds_other": "Route IDs",
+    "stopId": "Stop ID:"
+  },
+  "scanning": {
+    "titleLarge": "Scanning large feed…",
+    "title": "Scanning the map…",
+    "bodyLarge": "We’re indexing stops across the full extent. This might take a moment.",
+    "body": "We’re indexing stops across the view to speed up filtering.",
+    "gridTile": "Grid: {{grid}} • Tile {{tile}} / {{total}}",
+    "percentComplete": "{{percent}}% complete",
+    "cancel": "Cancel"
+  },
+  "fullMapView": {
+    "disabledTitle": "Full map view disabled",
+    "disabledDescription": "The full map view feature is disabled at the moment. Please try again later.",
+    "dataBlurb":"The visualization reflects data directly from the GTFS feed. Route paths, stops, colors, and labels are all derived from the feed files (routes.txt, trips.txt, stop_times.txt, stops.txt, and shapes.txt where it's defined). If a route doesn’t specify a color, it appears in black. When multiple shapes exist for different trips on the same route, they’re combined into one for display.",
+    "clearAll": "Clear All",
+    "hideStops": "Hide Stops",
+    "closePanel": "Close",
+    "headers": {
+      "routeTypes": "Route Types",
+      "visibility": "Visibility",
+      "routes": "Routes"
+    },
+    "backToMap": "Back To Map",
+    "aria": {
+      "close": "close",
+      "refocus": "refocus",
+      "mapStyle": "map style",
+      "filter": "filter"
+    },
+    "style": {
+      "title": "Map style",
+      "stopSize": "Stop size",
+      "size": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large",
+        "custom": "Custom"
+      },
+      "customStopRadiusAria": "Custom stop radius",
+      "radius": "Radius: {{px}}px"
+    }
   }
 }

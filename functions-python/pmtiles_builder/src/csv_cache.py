@@ -16,6 +16,8 @@
 import csv
 import logging
 import os
+import subprocess
+from pathlib import Path
 from typing import TypedDict, List, Dict
 
 from gtfs import stop_txt_is_lat_log_required
@@ -37,6 +39,40 @@ AGENCY_FILE = "agency.txt"
 class ShapeTrips(TypedDict):
     shape_id: str
     trip_ids: List[str]
+
+
+def get_volume_size(mountpoint: str):
+    """
+    Returns the total size of the specified filesystem mount point in a human-readable format.
+
+    This function uses the `df` command-line utility to determine the size of the filesystem
+    mounted at the path specified by `mountpoint`. If the mount point does not exist, the function
+    prints an error message to the standard error and returns "N/A".
+
+    Parameters:
+    mountpoint: str
+        The filesystem mount point path to check.
+
+    Returns:
+    str
+        The total size of the specified filesystem mount point in human-readable format. If the
+        mount point is not found, returns "N/A".
+    """
+    mp = Path(mountpoint)
+    if not mp.exists():
+        logging.warning("Mountpoint not found: %s", mountpoint)
+        return "N/A"
+    cmd = [
+        "bash",
+        "-c",
+        "df -h \"$1\" | awk 'NR==2 {print $2}'",
+        "_",  # $0 placeholder (ignored)
+        str(mp),  # $1
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    size = result.stdout.strip()
+
+    return size
 
 
 class CsvCache:
@@ -68,6 +104,7 @@ class CsvCache:
         self.trips_no_shapes_per_route: Dict[str, List[str]] = {}
 
         self.logger.info("Using work directory: %s", self.workdir)
+        self.logger.info("Size of workdir: %s", get_volume_size(self.workdir))
 
     def debug_log_size(self, label: str, obj: object) -> None:
         """Log the deep size of an object in bytes when DEBUG is enabled."""

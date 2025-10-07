@@ -164,7 +164,7 @@ def get_all_gtfs_feeds(
 
     :return: The GTFS feeds in an iterator.
     """
-    batch_size = os.getenv("BATCH_SIZE", 100)
+    batch_size = int(os.getenv("BATCH_SIZE", "500"))
     batch_query = db_session.query(Gtfsfeed).order_by(Gtfsfeed.stable_id).yield_per(batch_size)
     if published_only:
         batch_query = batch_query.filter(Gtfsfeed.operational_status == "published")
@@ -182,7 +182,6 @@ def get_all_gtfs_feeds(
                     contains_eager(Gtfsfeed.gtfsdatasets)
                     .joinedload(Gtfsdataset.validation_reports)
                     .joinedload(Validationreport.features),
-                    joinedload(Gtfsfeed.visualization_dataset),
                     *get_joinedload_options(include_extracted_location_entities=True),
                 )
             )

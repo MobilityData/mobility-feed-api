@@ -15,10 +15,8 @@
 #
 
 import logging
-import os
 from typing import List, Final, Optional
 
-from google.cloud import storage
 from sqlalchemy import func, distinct
 from sqlalchemy.orm import Session, selectinload
 
@@ -32,11 +30,6 @@ REQUIRED_FILES: Final[List[str]] = [
     "trips.txt",
     "stop_times.txt",
 ]
-PMTILES_FILES: Final[List[str]] = [
-    "pmtiles/stops.pmtiles",
-    "pmtiles/routes.pmtiles",
-    "pmtiles/routes.json",
-]
 
 
 def rebuild_missing_visualization_files_handler(payload) -> dict:
@@ -49,6 +42,8 @@ def rebuild_missing_visualization_files_handler(payload) -> dict:
         "check_existing": bool,  # [optional] If True, check if visualization files already exist before creating tasks
         "latest_only": bool,  # [optional] If True, include only latest datasets
         "include_deprecated_feeds": bool,  # [optional] If True, include datasets from deprecated feeds
+        "include_feed_op_status": list[str],  # [optional] List of feed operational statuses to include
+         # e.g., ["published", "wip"]. Default is ["published"].
         "limit": int,  # [optional] Limit the number of datasets to process
     }
     Args:
@@ -58,18 +53,18 @@ def rebuild_missing_visualization_files_handler(payload) -> dict:
     """
     (
         dry_run,
-        bucket_name,
         check_existing,
         latest_only,
         include_deprecated_feeds,
+        include_feed_op_status,
         limit,
     ) = get_parameters(payload)
 
     return rebuild_missing_visualization_files(
         dry_run=dry_run,
-        bucket_name=bucket_name,
         check_existing=check_existing,
         latest_only=latest_only,
+        include_feed_op_status=include_feed_op_status,
         include_deprecated_feeds=include_deprecated_feeds,
         limit=limit,
     )
@@ -77,22 +72,22 @@ def rebuild_missing_visualization_files_handler(payload) -> dict:
 
 @with_db_session
 def rebuild_missing_visualization_files(
-    bucket_name: str,
     dry_run: bool = True,
     check_existing: bool = True,
     latest_only: bool = True,
     include_deprecated_feeds: bool = False,
+    include_feed_op_status: list[str] = ["published"],
     limit: Optional[int] = None,
     db_session: Session | None = None,
 ) -> dict:
     """
     Rebuilds missing visualization files for GTFS datasets.
     Args:
-        bucket_name (str): The name of the bucket containing the GTFS data.
         dry_run (bool): dry run flag. If True, do not execute the workflow. Default: True
         check_existing (bool): If True, check if visualization files already exist before creating tasks. Default: True
         latest_only (bool): If True, include only latest datasets. Default: True
         include_deprecated_feeds (bool): If True, include datasets from deprecated feeds. Default: False
+        include_feed_op_status (list[str]): List of feed operational statuses to include. Default: ['published']
         limit (Optional[int]): Limit the number of datasets to process. Default: None (no limit)
         db_session: DB session
 
@@ -107,7 +102,16 @@ def rebuild_missing_visualization_files(
         datasets_query = datasets_query.filter(
             Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated")
         )
-
+    if include_feed_op_status:
+        datasets_query = datasets_query.filter(
+            Gtfsdataset.feed.has(
+                Gtfsfeed.operational_status.in_(include_feed_op_status)
+            )
+        )
+    if check_existing:
+        datasets_query = datasets_query.join(
+            Gtfsfeed, Gtfsdataset.feed_id == Gtfsfeed.id
+        ).filter(Gtfsfeed.visualization_dataset_id.is_(None))
     datasets_query = (
         datasets_query.join(Gtfsdataset.gtfsfiles)
         .filter(Gtfsfile.file_name.in_(REQUIRED_FILES))
@@ -122,41 +126,14 @@ def rebuild_missing_visualization_files(
     datasets = datasets_query.all()
     logging.info(f"Found {len(datasets)} latest datasets with all required files.")
 
-    # Validate visualization files existence in the storage bucket
-    client = storage.Client()
-    bucket = client.get_bucket(bucket_name)
     tasks_to_create = []
     for dataset in datasets:
-        if not check_existing:
-            tasks_to_create.append(
-                {
-                    "feed_stable_id": dataset.feed.stable_id,
-                    "dataset_stable_id": dataset.stable_id,
-                }
-            )
-        else:
-            # Check if visualization files already exist
-            all_files_exist = True
-            for file_suffix in PMTILES_FILES:
-                file_path = (
-                    f"{dataset.feed.stable_id}/{dataset.stable_id}/{file_suffix}"
-                )
-                blob = bucket.blob(file_path)
-                if not blob.exists():
-                    all_files_exist = False
-                    logging.info(f"Missing visualization file: {file_path}")
-                    break
-            if not all_files_exist:
-                tasks_to_create.append(
-                    {
-                        "feed_stable_id": dataset.feed.stable_id,
-                        "dataset_stable_id": dataset.stable_id,
-                    }
-                )
-            else:
-                logging.info(
-                    f"All visualization files exist for dataset {dataset.stable_id}. Skipping."
-                )
+        tasks_to_create.append(
+            {
+                "feed_stable_id": dataset.feed.stable_id,
+                "dataset_stable_id": dataset.stable_id,
+            }
+        )
     total_processed = len(tasks_to_create)
     logging.info(f"Total datasets to process: {total_processed}")
 
@@ -177,7 +154,6 @@ def rebuild_missing_visualization_files(
         "total_processed": total_processed,
         "params": {
             "dry_run": dry_run,
-            "bucket_name": bucket_name,
             "check_existing": check_existing,
             "latest_only": latest_only,
             "include_deprecated_feeds": include_deprecated_feeds,
@@ -199,9 +175,6 @@ def get_parameters(payload):
     """
     dry_run = payload.get("dry_run", True)
     dry_run = dry_run if isinstance(dry_run, bool) else str(dry_run).lower() == "true"
-    bucket_name = os.getenv("DATASETS_BUCKET_NAME")
-    if not bucket_name:
-        raise EnvironmentError("DATASETS_BUCKET_NAME environment variable is not set.")
     check_existing = payload.get("check_existing", True)
     check_existing = (
         check_existing
@@ -220,13 +193,14 @@ def get_parameters(payload):
         if isinstance(include_deprecated_feeds, bool)
         else str(include_deprecated_feeds).lower() == "true"
     )
+    include_feed_op_status = payload.get("include_feed_op_status", ["published"])
     limit = payload.get("limit", None)
     limit = limit if isinstance(limit, int) and limit > 0 else None
     return (
         dry_run,
-        bucket_name,
         check_existing,
         latest_only,
         include_deprecated_feeds,
+        include_feed_op_status,
         limit,
     )

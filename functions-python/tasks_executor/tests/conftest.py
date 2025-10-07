@@ -47,6 +47,24 @@ def populate_database(db_session: Session | None = None):
         )
         db_session.add(feed)
         feeds.append(feed)
+    wip_feed = Gtfsfeed(
+        id="feed_wip",
+        stable_id="stable_feed_wip_feed",
+        data_type="gtfs",
+        status="active",
+        created_at=now,
+        operational_status="wip",
+    )
+    with_visualization_feed = Gtfsfeed(
+        id="feed_visualization",
+        stable_id="stable_feed_visualization",
+        data_type="gtfs",
+        status="active",
+        created_at=now,
+        operational_status="wip",
+    )
+    db_session.add(wip_feed)
+    db_session.add(with_visualization_feed)
     gbfs_feed = Gbfsfeed(
         id=f"feed_{uuid.uuid4()}",
         stable_id=f"stable_feed_gbfs_{uuid.uuid4()}",
@@ -69,6 +87,25 @@ def populate_database(db_session: Session | None = None):
         )
         db_session.add(dataset)
         datasets.append(dataset)
+
+    wip_dataset = Gtfsdataset(
+        id="dataset_wip",
+        feed=wip_feed,
+        stable_id="dataset_stable_wip",
+        downloaded_at=now - timedelta(days=i),
+        bounding_box="POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))",
+    )
+    with_visualization_dataset = Gtfsdataset(
+        id="dataset_visualization",
+        feed=with_visualization_feed,
+        stable_id="dataset_stable_visualization",
+        downloaded_at=now - timedelta(days=i),
+        bounding_box="POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))",
+    )
+    db_session.add(with_visualization_dataset)
+    db_session.add(wip_dataset)
+    db_session.flush()
+    with_visualization_feed.visualization_dataset_id = with_visualization_dataset.id
 
     db_session.commit()
 

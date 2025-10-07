@@ -1,9 +1,9 @@
 import { Popup } from 'react-map-gl/maplibre';
 import {
-  getRouteByTypeOrDefault,
   getRouteTypeTranslatedName,
   getStopByLocationTypeOrDefault,
-  type RouteTypeMetadata,
+  renderLocationTypeIcon,
+  renderRouteTypeIcon,
 } from '../../constants/RouteTypes';
 import { Box, Link, Typography, useTheme } from '@mui/material';
 import AccessibleIcon from '@mui/icons-material/Accessible';
@@ -21,14 +21,6 @@ export const MapDataPopup = (
   const { mapClickRouteData, mapClickStopData, onPopupClose } = props;
   const theme = useTheme();
   const { t } = useTranslation('feeds');
-
-  const renderRouteTypeIcon = (
-    routeTypeMetadata: RouteTypeMetadata,
-    routeColorText: string,
-  ): JSX.Element => {
-    const { icon: Icon } = routeTypeMetadata;
-    return <Icon style={{ color: '#' + routeColorText }} />;
-  };
 
   function getGradientBorder(colorString: string): string {
     try {
@@ -73,7 +65,7 @@ export const MapDataPopup = (
             >
               <Box display={'flex'} alignItems={'center'} gap={1} my={1}>
                 {renderRouteTypeIcon(
-                  getRouteByTypeOrDefault(mapClickRouteData.route_type),
+                  mapClickRouteData.route_type,
                   mapClickRouteData.route_text_color,
                 )}
                 <Typography component={'p'} variant={'body2'}>
@@ -93,11 +85,11 @@ export const MapDataPopup = (
           </Popup>
         )}
       {mapClickStopData != null &&
-        !Number.isNaN(Number(mapClickStopData.stop_lon)) &&
-        !Number.isNaN(Number(mapClickStopData.stop_lat)) && (
+        !Number.isNaN(Number(mapClickStopData.longitude)) &&
+        !Number.isNaN(Number(mapClickStopData.latitude)) && (
           <Popup
-            longitude={Number(mapClickStopData.stop_lon)}
-            latitude={Number(mapClickStopData.stop_lat)}
+            longitude={Number(mapClickStopData.longitude)}
+            latitude={Number(mapClickStopData.latitude)}
             anchor='bottom'
             onClose={onPopupClose}
             closeOnClick={true}
@@ -120,10 +112,8 @@ export const MapDataPopup = (
                 my={1}
               >
                 <Box display={'flex'} alignItems={'flex-end'} gap={1}>
-                  {renderRouteTypeIcon(
-                    getStopByLocationTypeOrDefault(
-                      mapClickStopData.location_type,
-                    ),
+                  {renderLocationTypeIcon(
+                    mapClickStopData.location_type,
                     theme.palette.text.primary,
                   )}
                   <Typography component={'p'} variant={'body2'}>
@@ -171,24 +161,28 @@ export const MapDataPopup = (
                     </Typography>
                   )}
 
-                {mapClickStopData.stop_code != null && (
-                  <Typography variant='body2'>
-                    <span style={{ marginRight: '8px' }}>{t('stopCode')}</span>
-                    <b>{mapClickStopData.stop_code}</b>
-                  </Typography>
-                )}
-                {mapClickStopData.stop_url != null && (
-                  <Link
-                    href={mapClickStopData.stop_url}
-                    underline='hover'
-                    target='_blank'
-                    rel='noreferrer'
-                    variant={'body2'}
-                    sx={{ mt: 1 }}
-                  >
-                    {t('viewStopInfo')}
-                  </Link>
-                )}
+                {mapClickStopData.stop_code != null &&
+                  mapClickStopData.stop_code.trim().length > 0 && (
+                    <Typography variant='body2'>
+                      <span style={{ marginRight: '8px' }}>
+                        {t('stopCode')}
+                      </span>
+                      <b>{mapClickStopData.stop_code}</b>
+                    </Typography>
+                  )}
+                {mapClickStopData.stop_url != null &&
+                  mapClickStopData.stop_url.trim().length > 0 && (
+                    <Link
+                      href={mapClickStopData.stop_url}
+                      underline='hover'
+                      target='_blank'
+                      rel='noreferrer'
+                      variant={'body2'}
+                      sx={{ mt: 1 }}
+                    >
+                      {t('viewStopInfo')}
+                    </Link>
+                  )}
               </Box>
             </Box>
           </Popup>

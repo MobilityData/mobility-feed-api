@@ -208,7 +208,6 @@ def get_gtfs_feed_csv_data(
     :return: Dictionary with feed data formatted for CSV output.
     """
     joined_features = ""
-    validated_at = None
     bounding_box = None
 
     # First extract the common feed data
@@ -240,18 +239,16 @@ def get_gtfs_feed_csv_data(
                     if features
                     else ""
                 )
-            if latest_report.validated_at:
-                validated_at = latest_report.validated_at
-        if latest_dataset.bounding_box:
-            shape = to_shape(latest_dataset.bounding_box)
-            if shape and shape.bounds:
-                bounding_box = BoundingBox(
-                    minimum_latitude=shape.bounds[1],
-                    maximum_latitude=shape.bounds[3],
-                    minimum_longitude=shape.bounds[0],
-                    maximum_longitude=shape.bounds[2],
-                    extracted_on=validated_at,
-                )
+    if feed.bounding_box:
+        shape = to_shape(feed.bounding_box)
+        if shape and shape.bounds:
+            bounding_box = BoundingBox(
+                minimum_latitude=shape.bounds[1],
+                maximum_latitude=shape.bounds[3],
+                minimum_longitude=shape.bounds[0],
+                maximum_longitude=shape.bounds[2],
+                extracted_on=feed.bounding_box_dataset.downloaded_at,
+            )
 
     # Keep the bounding box for that GTFS feed so it can be used in associated real-time feeds, if any
     if bounding_box:
