@@ -512,6 +512,13 @@ components:
               type: array
               items:
                   $ref: "#/components/schemas/GbfsVersion"
+            bounding_box:
+              $ref: "#/components/schemas/BoundingBox"
+            bounding_box_generated_at:
+              description: The date and time the bounding box was generated, in ISO 8601 date-time format.
+              type: string
+              example: 2023-07-10T22:06:00Z
+              format: date-time             
 
     GbfsVersion:
       type: object
