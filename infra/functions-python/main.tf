@@ -1153,16 +1153,16 @@ resource "google_cloud_tasks_queue" "pmtiles_builder_task_queue" {
   name     = "pmtiles-builder-queue-${var.environment}-${local.deployment_timestamp}"
 
   rate_limits {
-    max_concurrent_dispatches = 1
+    max_concurrent_dispatches = 20
     max_dispatches_per_second = 1
   }
 
   retry_config {
-    # This will make the cloud task retry for ~1 hour
-    max_attempts  = 31
+    # Retries span ~4 minutes: initial try + 2 retries, each 120s apart; total wait ≈ 240s plus processing time
+    max_attempts  = 3
     min_backoff   = "120s"
     max_backoff   = "120s"
-    max_doublings = 2
+    max_doublings = 2  # Moot here since min_backoff == max_backoff
   }
 }
 

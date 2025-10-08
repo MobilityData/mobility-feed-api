@@ -87,8 +87,8 @@ class EphemeralOrDebugWorkdir:
         self.name: str
 
         os.makedirs(self._root, exist_ok=True)
-
-        self._ttl_seconds = int(os.getenv("WORKDIR_MAX_AGE_SECONDS", "3600"))
+        # 0 means just delete everything without looking at the file dates.
+        self._ttl_seconds = int(os.getenv("WORKDIR_MAX_AGE_SECONDS", "0"))
 
         if self._debug_dir:
             os.makedirs(self._debug_dir, exist_ok=True)
@@ -135,7 +135,7 @@ class EphemeralOrDebugWorkdir:
                 if age > self._ttl_seconds:
                     shutil.rmtree(entry.path, ignore_errors=True)
                     deleted_count += 1
-                    self._logger.debug(
+                    self._logger.warning(
                         "Removed expired workdir: %s age=%.0fs", entry.path, age
                     )
             except OSError as e:
