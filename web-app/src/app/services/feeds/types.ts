@@ -227,6 +227,13 @@ export interface components {
       provider_url?: string;
       /** @description A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints. */
       versions?: Array<components['schemas']['GbfsVersion']>;
+      bounding_box?: components['schemas']['BoundingBox'];
+      /**
+       * Format: date-time
+       * @description The date and time the bounding box was generated, in ISO 8601 date-time format.
+       * @example "2023-07-10T22:06:00.000Z"
+       */
+      bounding_box_generated_at?: string;
     };
     GbfsVersion: {
       /**

@@ -27,7 +27,7 @@ import {
   selectRelatedFeedsData,
   selectRelatedGtfsRTFeedsData,
   selectAutoDiscoveryUrl,
-  selectGtfsFeedBoundingBox,
+  selectFeedBoundingBox,
 } from '../../store/feed-selectors';
 import { clearDataset, loadingDataset } from '../../store/dataset-reducer';
 import {
@@ -156,7 +156,7 @@ export default function Feed(): React.ReactElement {
   const datasets = useSelector(selectDatasetsData);
   const hasLoadedAllDatasets = useSelector(selectHasLoadedAllDatasets);
   const latestDataset = useSelector(selectLatestDatasetsData);
-  const boundingBox = useSelector(selectGtfsFeedBoundingBox);
+  const boundingBox = useSelector(selectFeedBoundingBox);
   const feed = useSelector(selectFeedData);
   const gbfsAutodiscoveryUrl = useSelector(selectAutoDiscoveryUrl);
   const needsToLoadFeed = feed === undefined || feed?.id !== feedId;

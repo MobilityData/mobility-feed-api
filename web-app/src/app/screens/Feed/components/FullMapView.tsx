@@ -36,7 +36,7 @@ import {
   selectGtfsDatasetRoutesJson,
   selectGtfsDatasetRoutesLoadingStatus,
   selectGtfsDatasetRouteTypes,
-  selectGtfsFeedBoundingBox,
+  selectFeedBoundingBox,
   selectIsAnonymous,
   selectIsAuthenticated,
   selectUserProfile,
@@ -78,7 +78,7 @@ export default function FullMapView(): React.ReactElement {
     hosted_url: gtfsFeed?.latest_dataset?.hosted_url,
     id: gtfsFeed?.latest_dataset?.id,
   };
-  const boundingBox = useSelector(selectGtfsFeedBoundingBox);
+  const boundingBox = useSelector(selectFeedBoundingBox);
   const routes = useSelector(selectGtfsDatasetRoutesJson);
   const routeTypes = useSelector(selectGtfsDatasetRouteTypes);
 

@@ -1,3 +1,4 @@
+from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
 from feeds.impl.models.feed_impl import FeedImpl
 from feeds.impl.models.gbfs_version_impl import GbfsVersionImpl
 from shared.database_gen.sqlacodegen_models import Gbfsfeed as GbfsFeedOrm
@@ -29,4 +30,6 @@ class GbfsFeedImpl(FeedImpl, GbfsFeed):
             if feed.gbfsversions
             else []
         )
+        gbfs_feed.bounding_box = BoundingBoxImpl.from_orm(feed.bounding_box)
+        gbfs_feed.bounding_box_generated_at = feed.bounding_box_generated_at
         return gbfs_feed
