@@ -136,8 +136,12 @@ class FeedsApiImpl(BaseFeedsApi):
     def _get_gtfs_feed(
         self, stable_id: str, db_session: Session, include_options_for_joinedload: bool = True
     ) -> Optional[Gtfsfeed]:
+        published_only = is_user_email_restricted()
         query = get_gtfs_feeds_query(
-            db_session=db_session, stable_id=stable_id, include_options_for_joinedload=include_options_for_joinedload
+            db_session=db_session,
+            stable_id=stable_id,
+            include_options_for_joinedload=include_options_for_joinedload,
+            published_only=published_only,
         )
         results = query.all()
         if len(results) == 0:
