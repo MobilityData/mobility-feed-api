@@ -106,9 +106,12 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (feed?.data_type === 'gbfs') {
       const latestGbfsVersionReportUrl =
         latestGbfsVersion?.latest_validation_report?.report_summary_url;
-      if (latestGbfsVersionReportUrl === undefined) {
+      if (
+        !config.enableDetailedCoveredArea ||
+        latestGbfsVersionReportUrl === undefined
+      ) {
         setGeoJsonData(null);
-        setGeoJsonError(true);
+        setGeoJsonError(config.enableDetailedCoveredArea);
         return;
       }
       getAndSetGeoJsonData(latestGbfsVersionReportUrl);
@@ -117,13 +120,14 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     if (
       feed?.data_type === 'gtfs' &&
       latestDataset?.hosted_url != undefined &&
-      boundingBox != undefined
+      boundingBox != undefined &&
+      config.enableDetailedCoveredArea
     ) {
       getAndSetGeoJsonData(latestDataset.hosted_url);
       return;
     }
     setGeoJsonData(null);
-    setGeoJsonError(true);
+    setGeoJsonError(config.enableDetailedCoveredArea);
   }, [latestDataset, feed]);
 
   // effect to determine which view to display
