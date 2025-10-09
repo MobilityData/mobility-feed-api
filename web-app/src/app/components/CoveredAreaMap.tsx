@@ -128,7 +128,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     }
     setGeoJsonData(null);
     setGeoJsonError(config.enableDetailedCoveredArea);
-  }, [latestDataset, feed]);
+  }, [latestDataset, feed, config.enableDetailedCoveredArea]);
 
   // effect to determine which view to display
   useEffect(() => {
