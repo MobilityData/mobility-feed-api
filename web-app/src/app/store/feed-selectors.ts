@@ -98,13 +98,18 @@ export const selectRelatedGtfsRTFeedsData = (
   return state.feedProfile.relatedFeedsData.gtfsRt;
 };
 
-export const selectGtfsFeedBoundingBox = (
+export const selectFeedBoundingBox = (
   state: RootState,
 ): LatLngExpression[] | undefined => {
-  if (!isGtfsFeedType(state.feedProfile.data)) {
+  if (
+    !(
+      isGtfsFeedType(state.feedProfile.data) ||
+      isGbfsFeedType(state.feedProfile.data)
+    )
+  ) {
     return undefined;
   }
-  const feed = state.feedProfile.data as GTFSFeedType;
+  const feed = state.feedProfile.data;
 
   if (
     feed?.bounding_box?.maximum_latitude == undefined ||

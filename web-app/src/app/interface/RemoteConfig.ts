@@ -40,6 +40,11 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   /** Max number of data stuff to display on top of the map to avoid overflow */
   visualizationMapPreviewDataLimit: number;
   visualizationMapFullDataLimit: number;
+
+  // This feature flag enable or the coovered area component with expected behavior:
+  // 1- hides/shows the toggle button for gtfs feeds
+  // 2- use bounding box view for GBFS instead of full covered area map
+  enableDetailedCoveredArea: boolean;
 }
 
 const featureByPassDefault: BypassConfig = {
@@ -68,6 +73,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   enableGtfsVisualizationMap: false,
   visualizationMapFullDataLimit: 5,
   visualizationMapPreviewDataLimit: 3,
+  enableDetailedCoveredArea: false,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;
