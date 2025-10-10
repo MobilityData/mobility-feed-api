@@ -69,6 +69,10 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
   location = var.gcp_region
   ingress = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 
+  scaling {
+    max_instance_count = 50
+  }
+
   template {
     service_account = google_service_account.containers_service_account.email
     vpc_access {
@@ -93,7 +97,7 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "2Gi"
+          memory = "4Gi"
         }
       }
     }
