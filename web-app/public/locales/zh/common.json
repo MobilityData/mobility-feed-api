@@ -1,0 +1,27 @@
+{
+   "copyToClipboard": "复制到剪贴板",
+   "copied": "已复制！",
+   "name": "姓名",
+   "email": "电子邮件",
+   "organization": "组织",
+   "signOut": "退出",
+   "unknown": "未知",
+   "search": "搜索",
+   "feeds": "订阅",
+   "gtfsSchedule": "GTFS Schedule",
+   "gtfsRealtime": "GTFS Realtime",
+   "gtfsRealtimeEntities": {
+      "tripUpdates": "行程更新",
+      "vehiclePositions": "车辆位置",
+      "serviceAlerts": "服务提醒"
+   },
+   "loading": "正在加载...",
+   "errors": {
+      "generic": "我们目前无法完成您的请求。"
+   },
+   "others": "其他的",
+   "apiKey": "API密钥",
+   "httpHeader": "HTTP标头",
+   "back": "返回",
+   "and": "和"
+}
