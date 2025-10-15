@@ -73,7 +73,6 @@ class DatabasePopulateTestDataHelper:
                     id=dataset["id"],
                     feed_id=gtfsfeed[0].id,
                     stable_id=dataset["id"],
-                    latest=dataset["latest"],
                     hosted_url=dataset["hosted_url"],
                     hash=dataset["hash"],
                     downloaded_at=dataset["downloaded_at"],
@@ -82,6 +81,9 @@ class DatabasePopulateTestDataHelper:
                     ),
                     validation_reports=[],
                 )
+                if dataset["latest"]:
+                    gtfsfeed[0].latest_dataset = gtfs_dataset
+
                 dataset_dict[dataset["id"]] = gtfs_dataset
                 db_session.add(gtfs_dataset)
         db_session.commit()
