@@ -7,7 +7,15 @@ import {
 import { getTheme, ThemeModeEnum } from '../Theme';
 import type ContextProviderProps from '../interface/ContextProviderProps';
 
-const ThemeContext = createContext({ toggleTheme: () => {} });
+interface ThemeContextValue {
+  mode: ThemeModeEnum;
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextValue>({
+  mode: ThemeModeEnum.light,
+  toggleTheme: () => {} 
+});
 
 function getInitialThemeMode(prefersDarkMode: boolean): ThemeModeEnum {
   if (localStorage.getItem('theme') != undefined) {
@@ -33,7 +41,7 @@ export const ThemeProvider: React.FC<ContextProviderProps> = ({ children }) => {
   const theme = useMemo(() => getTheme(mode), [mode]);
 
   return (
-    <ThemeContext.Provider value={{ toggleTheme }}>
+    <ThemeContext.Provider value={{ mode, toggleTheme }}>
       <MuiThemeProvider theme={theme}>
         <CssBaseline />
         {children}
@@ -42,5 +50,5 @@ export const ThemeProvider: React.FC<ContextProviderProps> = ({ children }) => {
   );
 };
 
-export const useTheme = (): { toggleTheme: () => void } =>
+export const useTheme = (): ThemeContextValue =>
   useContext(ThemeContext);
