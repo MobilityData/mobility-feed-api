@@ -170,7 +170,7 @@ def get_all_gtfs_feeds(
             feed_query = apply_most_common_location_filter(db_session.query(Gtfsfeed), db_session)
             yield from (
                 feed_query.filter(Gtfsfeed.stable_id.in_(stable_ids)).options(
-                    contains_eager(Gtfsfeed.latest_dataset)
+                    joinedload(Gtfsfeed.latest_dataset)
                     .joinedload(Gtfsdataset.validation_reports)
                     .joinedload(Validationreport.features),
                     *get_joinedload_options(include_extracted_location_entities=True),
@@ -182,7 +182,7 @@ def get_all_gtfs_feeds(
                 .outerjoin(Gtfsfeed.gtfsdatasets)
                 .filter(Gtfsfeed.stable_id.in_(stable_ids))
                 .options(
-                    contains_eager(Gtfsfeed.latest_dataset)
+                    joinedload(Gtfsfeed.latest_dataset)
                     .joinedload(Gtfsdataset.validation_reports)
                     .joinedload(Validationreport.features),
                     *get_joinedload_options(include_extracted_location_entities=False),

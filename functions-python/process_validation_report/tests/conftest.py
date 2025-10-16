@@ -56,8 +56,7 @@ def populate_database(db_session):
     gtfs_dataset = Gtfsdataset(
         id="dataset_1",
         feed_id="feed_1",
-        latest=True,
-        # Use a url containing the stable id. The program should replace all the is after the feed stable id
+        # Use an url containing the stable id. The program should replace all the is after the feed stable id
         # by latest.zip
         hosted_url="https://some_fake_hosted_url",
         note="dataset_1 Some fake note",
@@ -78,7 +77,8 @@ def populate_database(db_session):
     db_session.add_all(validation_reports)
     gtfs_dataset.validation_reports.append(validation_report)
     db_session.add(gtfs_dataset)
-
+    db_session.flush()
+    feed.latest_dataset_id = gtfs_dataset.id
     # Create notices
     notice_list = []
 

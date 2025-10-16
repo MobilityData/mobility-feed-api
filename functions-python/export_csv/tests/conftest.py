@@ -69,7 +69,7 @@ def populate_database(db_session):
             official=True,
         )
         feeds.append(feed)
-
+    db_session.flush()
     # Then fill the specific parameters for each feed
     target_feed = feeds[0]
     target_feed.id = "e3155a30-81d8-40bb-9e10-013a60436d86"  # Just an invented uuid
@@ -148,8 +148,7 @@ def populate_database(db_session):
         feed_stable_id = active_gtfs_feeds[feed_index].stable_id
         gtfs_dataset = Gtfsdataset(
             id=fake.uuid4(),
-            feed_id=feed_stable_id,
-            latest=True if i != 2 else False,
+            feed_id=active_gtfs_feeds[feed_index].id,
             bounding_box=wkt_element,
             # Use a url containing the stable id. The program should replace all the is after the feed stable id
             # by latest.zip
@@ -159,6 +158,8 @@ def populate_database(db_session):
             downloaded_at=datetime(2025, 1, 12),
             stable_id=f"dataset-{i}",
         )
+        db_session.add(gtfs_dataset)
+        db_session.flush()
         validation_report = Validationreport(
             id=fake.uuid4(),
             validator_version="6.0.1",
@@ -175,6 +176,8 @@ def populate_database(db_session):
         gtfs_dataset.locations = locations
 
         active_gtfs_feeds[feed_index].gtfsdatasets.append(gtfs_dataset)
+        if i != 2:
+            active_gtfs_feeds[feed_index].latest_dataset_id = gtfs_dataset.id
         db_session.flush()
         active_gtfs_feeds[feed_index].bounding_box = gtfs_dataset.bounding_box
         active_gtfs_feeds[feed_index].bounding_box_dataset_id = gtfs_dataset.id

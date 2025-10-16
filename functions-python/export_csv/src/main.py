@@ -214,14 +214,7 @@ def get_gtfs_feed_csv_data(
     data = get_feed_csv_data(feed, geopolygon_map)
 
     # Then supplement with the GTFS specific data
-    latest_dataset = next(
-        (
-            dataset
-            for dataset in (feed.gtfsdatasets or [])
-            if dataset and dataset.latest
-        ),
-        None,
-    )
+    latest_dataset = feed.latest_dataset
     if latest_dataset and latest_dataset.validation_reports:
         # Keep the report from the more recent validator version
         latest_report = max(

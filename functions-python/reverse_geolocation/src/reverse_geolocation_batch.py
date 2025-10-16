@@ -31,7 +31,7 @@ def get_feeds_data(
     countries."""
     query = (
         db_session.query(Gtfsdataset)
-        .filter(Gtfsdataset.latest.is_(True))
+        .join(Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
         .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
         .filter(Gtfsdataset.gtfsfiles.any(Gtfsfile.file_name == "stops.txt"))
         .options(selectinload(Gtfsdataset.feed), selectinload(Gtfsdataset.gtfsfiles))

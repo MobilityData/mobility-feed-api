@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import Gtfsdataset
 from shared.helpers.pub_sub import publish_messages
+from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsfeed
 
 
 def rebuild_missing_dataset_files_handler(payload) -> dict:
@@ -41,9 +42,12 @@ def get_datasets_with_missing_files_query(db_session, after_date, latest_only):
     Returns:
         Query: SQLAlchemy query object.
     """
+    query = db_session.query(Gtfsdataset)
+    if latest_only:
+        query = query.join(Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
+
     query = (
-        db_session.query(Gtfsdataset)
-        .filter(~Gtfsdataset.hosted_url.is_(None))
+        query.filter(~Gtfsdataset.hosted_url.is_(None))
         .filter(
             Gtfsdataset.zipped_size_bytes.is_(None)
             | Gtfsdataset.unzipped_size_bytes.is_(None)
@@ -54,9 +58,6 @@ def get_datasets_with_missing_files_query(db_session, after_date, latest_only):
 
     if after_date:
         query = query.filter(Gtfsdataset.downloaded_at >= after_date)
-
-    if latest_only:
-        query = query.filter(Gtfsdataset.latest)
 
     return query
 
