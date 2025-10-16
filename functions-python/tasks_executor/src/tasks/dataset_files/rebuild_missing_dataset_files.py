@@ -6,9 +6,8 @@ import uuid
 from sqlalchemy.orm import joinedload
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.pub_sub import publish_messages
-from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsfeed
 
 
 def rebuild_missing_dataset_files_handler(payload) -> dict:
