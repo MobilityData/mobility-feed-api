@@ -1,16 +1,10 @@
 terraform {
   backend "gcs" {
   }
-  # Limiting to 6.0.0 due to a deprecated resource 
-  # google_datastore_index.batch_execution_index_execution_id_timestamp
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = ">= 5.40.0, < 6.0.0"
-    }
-    google-beta = {
-      source = "hashicorp/google-beta",
-      version = ">= 5.40.0, < 6.0.0"
+      version = ">= 5.34.0"
     }
   }  
 }
