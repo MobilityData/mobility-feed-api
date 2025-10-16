@@ -20,11 +20,9 @@
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 from enum import Enum
-from typing import TypedDict, Tuple, List, Dict
 
 from google.cloud import storage
 from sqlalchemy.orm import Session
@@ -37,8 +35,8 @@ from csv_cache import (
     STOPS_FILE,
     AGENCY_FILE,
     SHAPES_FILE,
-    ShapeTrips,
 )
+from routes_processor import RoutesProcessor
 from shapes_index import ShapesIndex
 from gtfs_stops_to_geojson import convert_stops_to_geojson
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
@@ -46,119 +44,11 @@ from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
 from shared.helpers.transform import get_safe_value_from_csv
-
+from ephemeral_workdir import EphemeralOrDebugWorkdir
 import flask
 import functions_framework
 
 init_logger()
-
-
-class EphemeralOrDebugWorkdir:
-    """Context manager similar to tempfile.TemporaryDirectory with debug + auto-clean.
-
-    Behavior:
-      - If DEBUG_WORKDIR env var is set (non-empty): that directory is created (if needed),
-        returned, and never deleted nor cleaned.
-      - Else: creates a temporary directory under the provided dir (or WORKDIR_ROOT env var),
-        removes sibling directories older than a TTL (default 3600s / override via WORKDIR_MAX_AGE_SECONDS),
-        and deletes the created directory on exit.
-
-    Only directories whose names start with the fixed CLEANUP_PREFIX are considered for cleanup
-    to avoid deleting unrelated folders that might exist under the same root.
-
-    The final on-disk directory name always starts with the hardcoded prefix 'pmtiles_'.
-    The caller-supplied prefix (if any) is appended verbatim after that.
-    """
-
-    CLEANUP_PREFIX = "pmtiles_"
-
-    def __init__(
-        self,
-        dir: str | None = None,
-        prefix: str | None = None,
-        logger: logging.Logger | None = None,
-    ):
-        import tempfile
-
-        self._debug_dir = os.getenv("DEBUG_WORKDIR") or None
-        self._root = dir or os.getenv("WORKDIR_ROOT", "/tmp/in-memory")
-        self._logger = logger or get_logger("Workdir")
-        self._temp: tempfile.TemporaryDirectory[str] | None = None
-        self.name: str
-
-        os.makedirs(self._root, exist_ok=True)
-        # 0 means just delete everything without looking at the file dates.
-        self._ttl_seconds = int(os.getenv("WORKDIR_MAX_AGE_SECONDS", "0"))
-
-        if self._debug_dir:
-            os.makedirs(self._debug_dir, exist_ok=True)
-            self.name = self._debug_dir
-            return
-
-        self._cleanup_old()
-
-        # Simple prefix: fixed manager prefix + raw user prefix (if any)
-        combined_prefix = self.CLEANUP_PREFIX + (prefix or "")
-
-        self._temp = tempfile.TemporaryDirectory(dir=self._root, prefix=combined_prefix)
-        self.name = self._temp.name
-
-    def _cleanup_old(self):
-        """
-        Delete stale work directories created by this manager (names starting with CLEANUP_PREFIX)
-        whose modification time is older than the configured TTL.
-        """
-        import time
-
-        # If in debug mode, dont cleanup anything
-        if self._debug_dir:
-            return
-
-        now = time.time()
-        deleted_count = 0
-        try:
-            entries = list(os.scandir(self._root))
-        except OSError as e:
-            self._logger.warning("Could not scan workdir root %s: %s", self._root, e)
-            return
-
-        for entry in entries:
-            try:
-                if not entry.is_dir(follow_symlinks=False):
-                    continue
-                if not entry.name.startswith(self.CLEANUP_PREFIX):
-                    continue
-                try:
-                    age = now - entry.stat(follow_symlinks=False).st_mtime
-                except OSError:
-                    continue
-                if age > self._ttl_seconds:
-                    shutil.rmtree(entry.path, ignore_errors=True)
-                    deleted_count += 1
-                    self._logger.warning(
-                        "Removed expired workdir: %s age=%.0fs", entry.path, age
-                    )
-            except OSError as e:
-                self._logger.warning("Failed to remove %s: %s", entry.path, e)
-
-        if deleted_count:
-            self._logger.info(
-                "Cleanup removed %d expired workdirs from %s", deleted_count, self._root
-            )
-
-    def __enter__(self) -> str:  # Return path like TemporaryDirectory
-        return self.name
-
-    def __exit__(self, exc_type, exc, tb):
-        if self._temp:
-            self._temp.cleanup()
-        return False  # do not suppress exceptions
-
-
-class RouteCoordinates(TypedDict):
-    shape_id: str
-    trip_ids: List[str]
-    coordinates: List[Tuple[float, float]]
 
 
 @functions_framework.http
@@ -266,6 +156,8 @@ class PmtilesBuilder:
         # It's useful for testing with local files only.
         no_gcs = os.getenv("NO_GCS", "").lower()
         self.use_gcs = False if no_gcs == "true" else True
+        no_database = os.getenv("NO_DATABASE", "").lower()
+        self.use_database = False if no_database == "true" else True
 
     def get_path(self, filename: str) -> str:
         return self.csv_cache.get_path(filename)
@@ -304,7 +196,9 @@ class PmtilesBuilder:
         if self.use_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
             self._upload_files_to_gcs(files_to_upload)
-        self._update_database()
+
+        if self.use_database:
+            self._update_database()
 
         self.logger.info("Completed PMTiles build")
         return self.OperationStatus.SUCCESS, "success"
@@ -433,25 +327,6 @@ class PmtilesBuilder:
 
         return shapes_index
 
-    def _get_shape_points(self, shape_id, index):
-        """Retrieve shape points for a given shape_id using the provided index.
-        Args:
-            shape_id (str): The shape_id to retrieve points for.
-            index (ShapesIndex): The index to use for retrieval.
-        Returns:
-            List of (lon, lat) tuples representing the shape points.
-        """
-        # Log only on first call and every 1,000,000 calls
-        self._get_shape_points_calls += 1
-        count = self._get_shape_points_calls
-        if count == 1 or (count % 1_000_000 == 0):
-            self.logger.debug(
-                "Getting shape points (called #%d times) for shape_id %s",
-                count,
-                shape_id,
-            )
-        return index.get_objects(shape_id)
-
     @track_metrics(metrics=("time", "memory", "cpu"))
     def _create_routes_geojson(self):
         try:
@@ -460,126 +335,18 @@ class PmtilesBuilder:
             shapes_index = self._create_shapes_index()
             self.logger.info("Creating routes geojson (optimized for memory)")
 
-            features_count = 0
-            missing_coordinates_routes = set()
-            routes_geojson = self.get_path("routes-output.geojson")
-            with open(routes_geojson, "w", encoding="utf-8") as geojson_file:
-                geojson_file.write('{"type": "FeatureCollection", "features": [\n')
-                for i, route in enumerate(self.csv_cache.get_file(ROUTES_FILE), 1):
-                    agency_id = route.get("agency_id") or "default"
-                    agency_name = agencies.get(agency_id, agency_id)
-
-                    route_id = route["route_id"]
-                    logging.debug("Processing route_id %s", route_id)
-                    trips_coordinates: list[
-                        RouteCoordinates
-                    ] = self.get_route_coordinates(route_id, shapes_index)
-                    if not trips_coordinates:
-                        missing_coordinates_routes.add(route_id)
-                        continue
-                    for trip_coordinates in trips_coordinates:
-                        trip_ids = trip_coordinates["trip_ids"]
-                        shape_id = trip_coordinates["shape_id"]
-                        feature = {
-                            "type": "Feature",
-                            "properties": {
-                                "agency_name": agency_name,
-                                "route_id": route_id,
-                                "shape_id": shape_id,
-                                "trip_ids": trip_ids,
-                                "route_short_name": route.get("route_short_name", ""),
-                                "route_long_name": route.get("route_long_name", ""),
-                                "route_type": route.get("route_type", ""),
-                                "route_color": route.get("route_color", ""),
-                                "route_text_color": route.get("route_text_color", ""),
-                            },
-                            "geometry": {
-                                "type": "LineString",
-                                "coordinates": trip_coordinates["coordinates"],
-                            },
-                        }
-
-                        if features_count != 0:
-                            geojson_file.write(",\n")
-                        geojson_file.write(json.dumps(feature))
-                        features_count += 1
-
-                    if i % 100 == 0 or i == 1:
-                        self.logger.debug(
-                            "Processed route %d (route_id: %s)", i, route_id
-                        )
-
-                geojson_file.write("\n]}")
-                # Clear the different caches to save memory. They are currently not used anywhere else.
-                self.csv_cache.clear_coordinate_for_stops()
-                self.csv_cache.clear_shape_from_route()
-                self.csv_cache.clear_stops_from_trip()
-                self.csv_cache.clear_trip_from_route()
-            if missing_coordinates_routes:
-                self.logger.info(
-                    "Routes without coordinates: %s", list(missing_coordinates_routes)
-                )
-            self.logger.debug(
-                "Wrote %d features to routes-output.geojson", features_count
+            self.csv_cache.load_trips()
+            self.csv_cache.load_stop_times()
+            self.csv_cache.load_stops()
+            routes_processor = RoutesProcessor(
+                csv_cache=self.csv_cache,
+                shapes_index=shapes_index,
+                agencies=agencies,
+                logger=self.logger,
             )
+            routes_processor.process()
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
-
-    def get_route_coordinates(self, route_id, shapes_index) -> List[RouteCoordinates]:
-        shapes: Dict[str, ShapeTrips] = self.csv_cache.get_shape_from_route(route_id)
-        result: List[RouteCoordinates] = []
-        if shapes:
-            for shape_id, trip_ids in shapes.items():
-                # shape_id = shape["shape_id"]
-                # trip_ids = shape["trip_ids"]
-                coordinates = self._get_shape_points(shape_id, shapes_index)
-                if coordinates:
-                    result.append(
-                        {
-                            "shape_id": shape_id,
-                            "trip_ids": trip_ids.get("trip_ids", []),
-                            "coordinates": coordinates,
-                        }
-                    )
-
-        trips_without_shape = self.csv_cache.get_trips_without_shape_from_route(
-            route_id
-        )
-        if trips_without_shape:
-            for trip_id in trips_without_shape:
-                stops_for_trip = self.csv_cache.get_stops_from_trip(trip_id)
-                if not stops_for_trip:
-                    self.logger.info(
-                        "No stops found for trip_id %s on route_id %s",
-                        trip_id,
-                        route_id,
-                    )
-                    continue
-                # We assume stop_times is already sorted by stop_sequence in the file.
-                # According to the SPECS:
-                #    The values must increase along the trip but do not need to be consecutive.
-                coordinates = [
-                    coord
-                    for stop_id in stops_for_trip
-                    if (coord := self.csv_cache.get_coordinates_for_stop(stop_id))
-                    is not None
-                ]
-                if coordinates:
-                    result.append(
-                        {
-                            "shape_id": "",
-                            "trip_ids": [trip_id],
-                            "coordinates": coordinates,
-                        }
-                    )
-                else:
-                    self.logger.info(
-                        "Coordinates do not have the right formatting for stops of trip_id %s on route_id %s",
-                        trip_id,
-                        route_id,
-                    )
-
-        return result
 
     @track_metrics(metrics=("time", "memory", "cpu"))
     def _run_tippecanoe(self, input_file, output_file):

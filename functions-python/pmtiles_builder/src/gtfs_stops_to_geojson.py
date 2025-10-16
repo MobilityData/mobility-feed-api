@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 
-from csv_cache import CsvCache, ROUTES_FILE, TRIPS_FILE, STOP_TIMES_FILE, STOPS_FILE
+from csv_cache import CsvCache, ROUTES_FILE, STOPS_FILE
 from gtfs import stop_txt_is_lat_log_required
 from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.transform import get_safe_float_from_csv, get_safe_value_from_csv
@@ -47,9 +47,8 @@ def build_stop_to_routes(stop_times_data, trips_data):
 def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
     """Converts GTFS stops data to a GeoJSON file."""
     routes_map = create_routes_map(csv_cache.get_file(ROUTES_FILE))
-    stop_to_routes = build_stop_to_routes(
-        csv_cache.get_file(STOP_TIMES_FILE), csv_cache.get_file(TRIPS_FILE)
-    )
+    stop_to_routes = csv_cache.stop_to_routes
+
     csv_cache.debug_log_size(
         f"stops_to_route length {len(stop_to_routes)}", stop_to_routes
     )

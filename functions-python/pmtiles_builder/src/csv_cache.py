@@ -17,15 +17,16 @@ import csv
 import logging
 import os
 import subprocess
+from collections import defaultdict
 from pathlib import Path
-from typing import TypedDict, List, Dict
+from typing import TypedDict, List, Dict, Optional
 
+from fast_csv_parser import FastCsvParser
 from gtfs import stop_txt_is_lat_log_required
 from pympler import asizeof
 
 from shared.helpers.logger import get_logger
-from shared.helpers.transform import get_safe_value_from_csv, get_safe_float_from_csv
-
+from shared.helpers.transform import get_safe_value, get_safe_float
 from shared.helpers.utils import detect_encoding
 
 STOP_TIMES_FILE = "stop_times.txt"
@@ -98,11 +99,18 @@ class CsvCache:
         self.file_data = {}
         self.trip_to_stops: Dict[str, List[str]] = None
         self.route_to_trip = None
-        self.route_to_shape: Dict[str, Dict[str, ShapeTrips]] = None
-        self.stop_to_route = None
-        self.stop_to_coordinates = None
+        self.route_to_shape: Dict[str, Dict[str, ShapeTrips]] = {}
+        self.stop_to_coordinates = {}
         self.trips_no_shapes_per_route: Dict[str, List[str]] = {}
+        self.trip_to_route = {}
+        self.stop_to_routes = defaultdict(set)
 
+        # Canonical trip_id -> list of stop_ids (only one entry kept per unique sequence)
+        self._trip_to_stops: Optional[Dict[str, List[str]]] = None
+        # Alias mapping for duplicates: duplicate trip_id -> canonical trip_id
+        self._trip_same_as: Optional[Dict[str, str]] = None
+
+        # self.routes_processor = RoutesProcessor(self)
         self.logger.info("Using work directory: %s", self.workdir)
         self.logger.info("Size of workdir: %s", get_volume_size(self.workdir))
 
@@ -165,34 +173,7 @@ class CsvCache:
             Example return value: [{'shape_id1': { 'shape_id': 'shape_id1', 'trip_ids': ['trip1', 'trip2']}},
              {'shape_id': 'shape_id2', 'trip_ids': ['trip3']}}]
         """
-        if self.route_to_shape is None:
-            self._build_route_to_shape()
         return self.route_to_shape.get(route_id, {})
-
-    def _build_route_to_shape(self):
-        self.route_to_shape = {}
-        for row in self.get_file(TRIPS_FILE):
-            route_id = get_safe_value_from_csv(row, "route_id")
-            shape_id = get_safe_value_from_csv(row, "shape_id")
-            trip_id = get_safe_value_from_csv(row, "trip_id")
-            if route_id and trip_id:
-                if shape_id:
-                    route_shapes = self.route_to_shape.setdefault(route_id, {})
-                    shape_trips = route_shapes.setdefault(
-                        shape_id, {"shape_id": shape_id, "trip_ids": []}
-                    )
-                    shape_trips["trip_ids"].append(trip_id)
-                else:
-                    # Registering the trip without a shape for this route for later retrieval.
-                    trip_no_shapes = (
-                        self.trips_no_shapes_per_route.get(route_id)
-                        if route_id in self.trips_no_shapes_per_route
-                        else None
-                    )
-                    if trip_no_shapes is None:
-                        trip_no_shapes = []
-                        self.trips_no_shapes_per_route[route_id] = trip_no_shapes
-                    trip_no_shapes.append(trip_id)
 
     def clear_shape_from_route(self):
         self.route_to_shape = None
@@ -200,45 +181,15 @@ class CsvCache:
     def get_trips_without_shape_from_route(self, route_id) -> List[str]:
         return self.trips_no_shapes_per_route.get(route_id, [])
 
-    def _build_trip_to_stops(self):
-        self.trip_to_stops = {}
-        for row in self.get_file(STOP_TIMES_FILE):
-            trip_id = get_safe_value_from_csv(row, "trip_id")
-            stop_id = get_safe_value_from_csv(row, "stop_id")
-            if trip_id and stop_id:
-                trip_to_stops = self.trip_to_stops.setdefault(trip_id, [])
-                trip_to_stops.append(stop_id)
-
-    def clear_stops_from_trip(self):
-        self.trip_to_stops = None
-
     def get_stops_from_trip(self, trip_id):
-        if self.trip_to_stops is None:
-            self._build_trip_to_stops()
-        return self.trip_to_stops.get(trip_id, [])
-
-    def _build_stop_to_coordinates(self):
-        self.stop_to_coordinates = {}
-        for s in self.get_file(STOPS_FILE):
-            row_stop_id = get_safe_value_from_csv(s, "stop_id")
-            row_stop_lon = get_safe_float_from_csv(s, "stop_lon")
-            row_stop_lat = get_safe_float_from_csv(s, "stop_lat")
-            if row_stop_id is None:
-                self.logger.warning("Missing stop id: %s", s)
-                continue
-            if row_stop_lon is None or row_stop_lat is None:
-                if stop_txt_is_lat_log_required(s):
-                    self.logger.warning("Missing stop latitude and longitude : %s", s)
-                else:
-                    self.logger.debug(
-                        "Missing optional stop latitude and longitude : %s", s
-                    )
-                continue
-            self.stop_to_coordinates[row_stop_id] = (row_stop_lon, row_stop_lat)
+        if self.is_trip_aliased(trip_id):
+            return None
+        else:
+            return self._trip_to_stops.get(trip_id)
 
     def get_coordinates_for_stop(self, stop_id) -> tuple[float, float] | None:
-        if self.stop_to_coordinates is None:
-            self._build_stop_to_coordinates()
+        # if self.stop_to_coordinates is None:
+        #     self._build_stop_to_coordinates()
         return self.stop_to_coordinates.get(stop_id, None)
 
     def clear_coordinate_for_stops(self):
@@ -246,3 +197,222 @@ class CsvCache:
 
     def set_workdir(self, workdir):
         self.workdir = workdir
+
+    @staticmethod
+    def get_index(columns, column_name):
+        try:
+            return columns.index(column_name)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def get_safe_value_from_index(columns, index, default_value: str = None):
+        return (
+            get_safe_value(columns[index], default_value)
+            if index is not None and index < len(columns)
+            else None
+        )
+
+    @staticmethod
+    def get_safe_float_from_index(columns, index):
+        raw_value = CsvCache.get_safe_value_from_index(columns, index)
+        return get_safe_float(raw_value)
+
+    def load_trips(self):
+        filepath = self.get_path(TRIPS_FILE)
+        csv_parser = FastCsvParser()
+        encoding = detect_encoding(filename=filepath, logger=self.logger)
+        with open(filepath, "r", encoding=encoding, newline="") as f:
+            header = f.readline()
+            if not header:
+                return
+            columns = next(csv.reader([header]))
+            route_id_index = self.get_index(columns, "route_id")
+            trip_id_index = self.get_index(columns, "trip_id")
+            shape_id_index = self.get_index(columns, "shape_id")
+
+            for line in f:
+                if not line.strip():
+                    continue
+
+                row = csv_parser.parse(line)
+
+                route_id = self.get_safe_value_from_index(row, route_id_index)
+                trip_id = self.get_safe_value_from_index(row, trip_id_index)
+                shape_id = self.get_safe_value_from_index(row, shape_id_index)
+
+                if route_id and trip_id:
+                    if shape_id:
+                        route_shapes = self.route_to_shape.setdefault(route_id, {})
+                        shape_trips = route_shapes.setdefault(
+                            shape_id, {"shape_id": shape_id, "trip_ids": []}
+                        )
+                        shape_trips["trip_ids"].append(trip_id)
+                    else:
+                        # Register the trip without a shape for this route.
+                        trip_no_shapes = self.trips_no_shapes_per_route.setdefault(
+                            route_id, []
+                        )
+                        trip_no_shapes.append(trip_id)
+
+                # Build trip_id -> route_id mapping
+                if trip_id and route_id:
+                    self.trip_to_route[trip_id] = route_id
+
+    def load_stop_times(self):
+        trip_to_stops: Dict[str, List[str]] = {}
+
+        # Build stop_id -> set of route_ids
+        filepath = self.get_path(STOP_TIMES_FILE)
+        csv_parser = FastCsvParser()
+        encoding = detect_encoding(filename=filepath, logger=self.logger)
+        with open(filepath, "r", encoding=encoding, newline="") as f:
+            header = f.readline()
+            if not header:
+                return
+            columns = next(csv.reader([header]))
+
+            stop_id_index = self.get_index(columns, "stop_id")
+            trip_id_index = self.get_index(columns, "trip_id")
+
+            for line in f:
+                if not line.strip():
+                    continue
+
+                row = csv_parser.parse(line)
+
+                stop_id = self.get_safe_value_from_index(row, stop_id_index)
+                trip_id = self.get_safe_value_from_index(row, trip_id_index)
+                if trip_id and stop_id:
+                    trip_to_stops.setdefault(trip_id, []).append(stop_id)
+
+                    route_id = self.trip_to_route.get(trip_id)
+                    if route_id:
+                        self.stop_to_routes[stop_id].add(route_id)
+
+            if self.has_trips_without_route():
+                canonical: Dict[str, List[str]] = {}
+                aliases: Dict[str, str] = {}
+                seq_key_to_canonical_trip: Dict[tuple, str] = {}
+
+                for trip_id, stops in trip_to_stops.items():
+                    key = tuple(stops)
+                    if key in seq_key_to_canonical_trip:
+                        can_trip = seq_key_to_canonical_trip[key]
+                        aliases[trip_id] = can_trip
+                        self.logger.debug(
+                            "Trip %s has identical stops as canonical trip %s; alias recorded",
+                            trip_id,
+                            can_trip,
+                        )
+                    else:
+                        seq_key_to_canonical_trip[key] = trip_id
+                        canonical[trip_id] = stops
+
+                self._trip_to_stops = canonical
+                self._trip_same_as = aliases
+
+    def has_trips_without_route(self):
+        return bool(self.trips_no_shapes_per_route)
+
+    def is_trip_aliased(self, trip_id: str) -> bool:
+        """
+        Returns True if the given trip_id has an alias entry in the internal
+        _trip_same_as mapping, False otherwise.
+        """
+        return self._trip_same_as is not None and trip_id in self._trip_same_as
+
+    def get_trip_alias(self, trip_id: str) -> str | None:
+        """
+        Return the direct canonical trip_id for an aliased trip.
+
+        - If `trip_id` is present in `_trip_same_as`, returns its direct canonical trip_id.
+        - If not aliased or the mapping is not built, returns None.
+        - Does not resolve chained aliases.
+        """
+        mapping = self._trip_same_as
+        if not mapping:
+            return None
+        return mapping.get(trip_id)
+
+    def load_stops(self):
+        # Build stop_id -> set of route_ids
+        filepath = self.get_path(STOPS_FILE)
+        csv_parser = FastCsvParser()
+        encoding = detect_encoding(filename=filepath, logger=self.logger)
+        with open(filepath, "r", encoding=encoding, newline="") as f:
+            header = f.readline()
+            if not header:
+                return
+            columns = next(csv.reader([header]))
+
+            stop_id_index = self.get_index(columns, "stop_id")
+            lon_index = self.get_index(columns, "stop_lon")
+            lat_index = self.get_index(columns, "stop_lat")
+
+            for line in f:
+                if not line.strip():
+                    continue
+
+                row = csv_parser.parse(line)
+
+                stop_id = self.get_safe_value_from_index(row, stop_id_index)
+                stop_lon = self.get_safe_float_from_index(row, lon_index)
+                stop_lat = self.get_safe_float_from_index(row, lat_index)
+
+                if stop_id is None:
+                    self.logger.warning("Missing stop id: %s", line)
+                    continue
+                if stop_lon is None or stop_lat is None:
+                    if stop_txt_is_lat_log_required(f):
+                        self.logger.warning(
+                            "Missing stop latitude and longitude : %s", line
+                        )
+                    else:
+                        self.logger.debug(
+                            "Missing optional stop latitude and longitude : %s", line
+                        )
+                    continue
+                self.stop_to_coordinates[stop_id] = (stop_lon, stop_lat)
+
+            #     # From gtfs_stops_to_geojson
+            #     # Routes serving this stop
+            #     route_ids = sorted(stop_to_routes.get(stop_id, []))
+            #     route_colors = [
+            #         routes_map[r].get("route_color", "") for r in route_ids if r in routes_map
+            #     ]
+            #
+            #     try:
+            #         stop_lon = float(row["stop_lon"])
+            #         stop_lat = float(row["stop_lat"])
+            #     except (ValueError, TypeError):
+            #         logger.warning(f"Invalid coordinates for stop_id {stop_id}, skipping.")
+            #         continue
+            #
+            #     feature = {
+            #         "type": "Feature",
+            #         "geometry": {
+            #             "type": "Point",
+            #             "coordinates": [stop_lon, stop_lat],
+            #         },
+            #         "properties": {
+            #             "stop_id": stop_id,
+            #             "stop_code": get_safe_value_from_csv(row, "stop_code", ""),
+            #             "stop_name": get_safe_value_from_csv(row, "stop_name", ""),
+            #             "stop_desc": get_safe_value_from_csv(row, "stop_desc", ""),
+            #             "zone_id": get_safe_value_from_csv(row, "zone_id", ""),
+            #             "stop_url": get_safe_value_from_csv(row, "stop_url", ""),
+            #             "wheelchair_boarding": get_safe_value_from_csv(
+            #                 row, "wheelchair_boarding", ""
+            #             ),
+            #             "location_type": get_safe_value_from_csv(row, "location_type", ""),
+            #             "route_ids": route_ids,
+            #             "route_colors": route_colors,
+            #         },
+            #     }
+            #     features.append(feature)
+            #
+            # geojson = {"type": "FeatureCollection", "features": features}
+            # with open(output_file, "w", encoding="utf-8") as f:
+            #     json.dump(geojson, f, indent=2, ensure_ascii=False)
+            # logger.info(f"✅ GeoJSON file saved to {output_file} with {len(features)} stops")

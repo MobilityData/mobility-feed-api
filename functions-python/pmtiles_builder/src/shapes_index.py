@@ -29,6 +29,7 @@ import psutil
 from shared.helpers.transform import get_safe_value, get_safe_float, get_safe_int
 from shared.helpers.utils import detect_encoding
 from shared.helpers.runtime_metrics import track_metrics
+from fast_csv_parser import FastCsvParser
 
 
 class ShapesIndex:
@@ -46,7 +47,6 @@ class ShapesIndex:
         self.shape_id_column_name = shape_id_column_name
         self.coordinates_columns = coordinates_columns
         self.unique_shape_id_counts = None
-        self.lines_with_quotes = 0
         if logger:
             self.logger = logger
         else:
@@ -68,6 +68,8 @@ class ShapesIndex:
         self.unique_shape_id_counts = collections.Counter()
         line_count = 0
 
+        csv_parser = FastCsvParser()
+
         try:
             encoding = detect_encoding(filename=self.file_path, logger=self.logger)
             with open(self.file_path, "r", encoding=encoding, newline="") as f:
@@ -81,7 +83,7 @@ class ShapesIndex:
                         if not line.strip():
                             continue
 
-                        row = self.fast_csv_parse(line)
+                        row = csv_parser.parse(line)
 
                         shape_id = get_safe_value(row[shape_id_index])
                         self.unique_shape_id_counts[shape_id] += 1
@@ -126,7 +128,7 @@ class ShapesIndex:
                         if not line.strip():
                             continue
 
-                        row = self.fast_csv_parse(line)
+                        row = csv_parser.parse(line)
                         shape_id = row[shape_id_index]
                         position = positions_in_coordinates_arrays[shape_id]
                         lon_arr, lat_arr, seq_arr = self.coordinates_arrays[shape_id]
@@ -163,9 +165,9 @@ class ShapesIndex:
                 if needs_sorting:
                     self.sort_coordinate_arrays()
 
-            if self.lines_with_quotes > 0:
+            if csv_parser.lines_with_quotes > 0:
                 self.logger.debug(
-                    f"Found {self.lines_with_quotes} lines with quotes while creating shapes index"
+                    f"Found {csv_parser.lines_with_quotes} lines with quotes while creating shapes index"
                 )
         except Exception as e:
             self.logger.warning("Cannot read shapes file: %s", e)
@@ -191,18 +193,3 @@ class ShapesIndex:
             key, (np.array([]), np.array([]), np.array([]))
         )
         return np.column_stack((lon_array, lat_array)).tolist()
-
-    def fast_csv_parse(self, line: str):  # pragma: no cover
-        """
-        A fast CSV parser that handles lines with and without quotes and quoted commas.
-        Uses csv.reader for lines with quotes, otherwise splits by comma.
-        This is a performance optimization to avoid the overhead of csv.reader
-        for simple lines without quotes.
-        """
-        if '"' in line:
-            self.lines_with_quotes += 1
-            # Use csv.reader for quoted fields
-            return next(csv.reader([line]))
-        else:
-            # Fast path for simple lines
-            return line.rstrip("\r\n").split(",")
