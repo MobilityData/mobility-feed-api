@@ -262,7 +262,7 @@ class TestPmtilesBuilder(unittest.TestCase):
                 f.write("s1,45.1,-73.1,2\n")
 
             # Call the method
-            self.builder._create_routes_geojson()
+            self.builder.create_routes_geojson()
 
             # Assert output file exists and is valid GeoJSON
             output_path = self.builder.get_path("routes-output.geojson")
@@ -362,7 +362,7 @@ class TestPmtilesBuilder(unittest.TestCase):
                 f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
 
             # Call the method
-            self.builder._create_routes_geojson()
+            self.builder.create_routes_geojson()
 
             # Assert output file exists and contains the expected coordinates
             output_path = self.builder.get_path("routes-output.geojson")
@@ -569,7 +569,7 @@ class TestPmtilesBuilderUpload(unittest.TestCase):
                 f.write("shape3,3.1,13.1,2\n")
 
             # Create routes-output.geojson
-            builder._create_routes_geojson()
+            builder.create_routes_geojson()
             geojson_path = builder.get_path("routes-output.geojson")
             self.assertTrue(os.path.exists(geojson_path))
 
@@ -650,7 +650,7 @@ class TestPmtilesBuilderUpload(unittest.TestCase):
             # No shapes.txt
 
             # Create routes-output.geojson
-            builder._create_routes_geojson()
+            builder.create_routes_geojson()
             geojson_path = builder.get_path("routes-output.geojson")
             self.assertTrue(os.path.exists(geojson_path))
 

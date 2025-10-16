@@ -1,9 +1,8 @@
 import json
 import logging
-from collections import defaultdict
 
 from csv_cache import CsvCache, ROUTES_FILE, STOPS_FILE
-from gtfs import stop_txt_is_lat_log_required
+from gtfs import stop_txt_is_lat_lon_required
 from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.transform import get_safe_float_from_csv, get_safe_value_from_csv
 
@@ -20,27 +19,27 @@ def create_routes_map(routes_data):
     return routes
 
 
-def build_stop_to_routes(stop_times_data, trips_data):
-    """Builds a mapping from stop_id to a set of route_ids."""
-    # Build trip_id -> route_id mapping
-    trip_to_route = {}
-    for row in trips_data:
-        trip_id = get_safe_value_from_csv(row, "trip_id")
-        route_id = get_safe_value_from_csv(row, "route_id")
-        if trip_id and route_id:
-            trip_to_route[trip_id] = route_id
-
-    # Build stop_id -> set of route_ids
-    stop_to_routes = defaultdict(set)
-    for row in stop_times_data:
-        trip_id = get_safe_value_from_csv(row, "trip_id")
-        stop_id = get_safe_value_from_csv(row, "stop_id")
-        if trip_id and stop_id:
-            route_id = trip_to_route.get(trip_id)
-            if route_id:
-                stop_to_routes[stop_id].add(route_id)
-
-    return stop_to_routes
+# def build_stop_to_routes(stop_times_data, trips_data):
+#     """Builds a mapping from stop_id to a set of route_ids."""
+#     # Build trip_id -> route_id mapping
+#     trip_to_route = {}
+#     for row in trips_data:
+#         trip_id = get_safe_value_from_csv(row, "trip_id")
+#         route_id = get_safe_value_from_csv(row, "route_id")
+#         if trip_id and route_id:
+#             trip_to_route[trip_id] = route_id
+#
+#     # Build stop_id -> set of route_ids
+#     stop_to_routes = defaultdict(set)
+#     for row in stop_times_data:
+#         trip_id = get_safe_value_from_csv(row, "trip_id")
+#         stop_id = get_safe_value_from_csv(row, "stop_id")
+#         if trip_id and stop_id:
+#             route_id = trip_to_route.get(trip_id)
+#             if route_id:
+#                 stop_to_routes[stop_id].add(route_id)
+#
+#     return stop_to_routes
 
 
 @track_metrics(metrics=("time", "memory", "cpu"))
@@ -65,7 +64,7 @@ def convert_stops_to_geojson(csv_cache: CsvCache, output_file):
             or get_safe_float_from_csv(row, "stop_lat") is None
             or get_safe_float_from_csv(row, "stop_lon") is None
         ):
-            if stop_txt_is_lat_log_required(row):
+            if stop_txt_is_lat_lon_required(row):
                 logger.warning(
                     "Missing coordinates for stop_id {%s}, skipping.", stop_id
                 )

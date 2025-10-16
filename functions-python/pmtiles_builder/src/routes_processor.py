@@ -20,7 +20,6 @@ class RoutesProcessor:
     ):
         # Use a dict for agencies to safely .get()
         self.agencies = agencies if agencies else {}
-        self.route_colors = {}
         self.csv_cache = csv_cache
         if logger:
             self.logger = logger
@@ -30,8 +29,47 @@ class RoutesProcessor:
         # Track routes missing coordinates in a set
         self.missing_coordinates_routes = set()
         self.features_count = 0
+        self.route_colors_map = {}
+        self.trips_processor = None
+        self.stops_processor = None
+        self.stop_times_processor = None
 
-    def process(self):
+    def load_routes_colors(self):
+        filepath = self.csv_cache.get_path(ROUTES_FILE)
+        csv_parser = FastCsvParser()
+        encoding = detect_encoding(filename=filepath, logger=self.logger)
+
+        with open(filepath, "r", encoding=encoding, newline="") as f:
+            header = f.readline()
+            if not header:
+                return
+            columns = next(csv.reader([header]))
+
+            route_id_index = self.csv_cache.get_index(columns, "route_id")
+            route_color_index = self.csv_cache.get_index(columns, "route_color")
+
+            for line in f:
+                if not line.strip():
+                    continue
+
+                row = csv_parser.parse(line)
+                route_id = self.csv_cache.get_safe_value_from_index(row, route_id_index)
+                route_color = self.csv_cache.get_safe_value_from_index(
+                    row, route_color_index
+                )
+
+                if route_id:
+                    self.route_colors_map[route_id] = route_color
+
+    def process(
+        self,
+        trips_processor=None,
+        stops_processor=None,
+        stop_times_processor=None,
+    ):
+        self.trips_processor = trips_processor
+        self.stops_processor = stops_processor
+        self.stop_times_processor = stop_times_processor
         filepath = self.csv_cache.get_path(ROUTES_FILE)
         csv_parser = FastCsvParser()
         encoding = detect_encoding(filename=filepath, logger=self.logger)
@@ -39,26 +77,25 @@ class RoutesProcessor:
         routes_geojson = self.csv_cache.get_path("routes-output.geojson")
 
         with open(routes_geojson, "w", encoding="utf-8") as geojson_file:
-            geojson_file.write('{"type": "FeatureCollection", "features": [\n')
+            geojson_file.write('{"type": "FeatureCollection", "features": [')
+            csv_cache = self.csv_cache
             with open(filepath, "r", encoding=encoding, newline="") as f:
                 header = f.readline()
                 if not header:
                     return
                 columns = next(csv.reader([header]))
 
-                route_id_index = self.csv_cache.get_index(columns, "route_id")
-                agency_id_index = self.csv_cache.get_index(columns, "agency_id")
-                route_short_name_index = self.csv_cache.get_index(
+                route_id_index = csv_cache.get_index(columns, "route_id")
+                agency_id_index = csv_cache.get_index(columns, "agency_id")
+                route_short_name_index = csv_cache.get_index(
                     columns, "route_short_name"
                 )
-                route_long_name_index = self.csv_cache.get_index(
-                    columns, "route_long_name"
-                )
-                route_type_index = self.csv_cache.get_index(columns, "route_type")
-                route_text_color_index = self.csv_cache.get_index(
+                route_long_name_index = csv_cache.get_index(columns, "route_long_name")
+                route_type_index = csv_cache.get_index(columns, "route_type")
+                route_text_color_index = csv_cache.get_index(
                     columns, "route_text_color"
                 )
-                route_color_index = self.csv_cache.get_index(columns, "route_color")
+                route_color_index = csv_cache.get_index(columns, "route_color")
 
                 line_number = 1
                 for line in f:
@@ -66,30 +103,26 @@ class RoutesProcessor:
                         continue
 
                     row = csv_parser.parse(line)
-                    route_id = self.csv_cache.get_safe_value_from_index(
-                        row, route_id_index
-                    )
-                    agency_id = self.csv_cache.get_safe_value_from_index(
+                    route_id = csv_cache.get_safe_value_from_index(row, route_id_index)
+                    agency_id = csv_cache.get_safe_value_from_index(
                         row, agency_id_index, "default"
                     )
-
-                    route_short_name = self.csv_cache.get_safe_value_from_index(
+                    route_short_name = csv_cache.get_safe_value_from_index(
                         row, route_short_name_index
                     )
-                    route_long_name = self.csv_cache.get_safe_value_from_index(
+                    route_long_name = csv_cache.get_safe_value_from_index(
                         row, route_long_name_index
                     )
-                    route_type = self.csv_cache.get_safe_value_from_index(
+                    route_type = csv_cache.get_safe_value_from_index(
                         row, route_type_index
                     )
-                    route_color = self.csv_cache.get_safe_value_from_index(
+                    route_color = csv_cache.get_safe_value_from_index(
                         row, route_color_index
                     )
-                    route_text_color = self.csv_cache.get_safe_value_from_index(
+                    route_text_color = csv_cache.get_safe_value_from_index(
                         row, route_text_color_index
                     )
 
-                    self.add_to_routes_map(route_id, route_color)
                     # Pass all parsed values to add_to_routes_geojson
                     self.add_to_routes_geojson(
                         geojson_file=geojson_file,
@@ -121,9 +154,9 @@ class RoutesProcessor:
             "Wrote %d features to routes-output.geojson", self.features_count
         )
 
-    def add_to_routes_map(self, route_id, route_color):
+    def add_to_routes_colors_map(self, route_id, route_color):
         if route_id:
-            self.route_colors[route_id] = route_color
+            self.route_colors_map[route_id] = route_color
 
     def add_to_routes_geojson(
         self,
@@ -173,7 +206,9 @@ class RoutesProcessor:
             self.features_count += 1
 
     def get_route_coordinates(self, route_id, shapes_index) -> List[RouteCoordinates]:
-        shapes: Dict[str, ShapeTrips] = self.csv_cache.get_shape_from_route(route_id)
+        shapes: Dict[str, ShapeTrips] = self.trips_processor.get_shape_from_route(
+            route_id
+        )
         result: List[RouteCoordinates] = []
         if shapes:
             for shape_id, trip_ids in shapes.items():
@@ -189,20 +224,25 @@ class RoutesProcessor:
                         }
                     )
 
-        trips_without_shape = self.csv_cache.get_trips_without_shape_from_route(
-            route_id
+        trips_without_shape = self.trips_processor.trips_no_shapes_per_route.get(
+            route_id, []
         )
+
         if trips_without_shape:
             # One feature per canonical trip ID
             canonical_trip_id_to_feature: Dict[str, RouteCoordinates] = {}
             for trip_id in trips_without_shape:
                 # Determine canonical trip: if aliased, map to its canonical; else itself
-                canonical_id = self.csv_cache.get_trip_alias(trip_id) or trip_id
+                canonical_id = (
+                    self.stop_times_processor.get_trip_alias(trip_id) or trip_id
+                )
 
                 feature = canonical_trip_id_to_feature.get(canonical_id)
                 if feature is None:
                     # Build coordinates once for the canonical trip
-                    stops_for_trip = self.csv_cache.get_stops_from_trip(canonical_id)
+                    stops_for_trip = self.stop_times_processor.get_stops_from_trip(
+                        canonical_id
+                    )
                     if not stops_for_trip:
                         self.logger.info(
                             "No stops found for trip_id %s on route_id %s",
@@ -214,7 +254,11 @@ class RoutesProcessor:
                     coordinates = [
                         coord
                         for stop_id in stops_for_trip
-                        if (coord := self.csv_cache.get_coordinates_for_stop(stop_id))
+                        if (
+                            coord := self.stops_processor.get_coordinates_for_stop(
+                                stop_id
+                            )
+                        )
                         is not None
                     ]
                     if not coordinates:
