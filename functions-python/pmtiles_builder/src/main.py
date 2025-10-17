@@ -37,7 +37,6 @@ from csv_cache import (
     SHAPES_FILE,
 )
 from routes_processor import RoutesProcessor
-from shapes_index import ShapesIndex
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
@@ -47,6 +46,8 @@ from ephemeral_workdir import EphemeralOrDebugWorkdir
 import flask
 import functions_framework
 
+from routes_processor_for_colors import RoutesProcessorForColors
+from shapes_processor import ShapesProcessor
 from stops_processor import StopsProcessor
 from trips_processor import TripsProcessor
 from stop_times_processor import StopTimesProcessor
@@ -316,48 +317,43 @@ class PmtilesBuilder:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
     @track_metrics(metrics=("time", "memory", "cpu"))
-    def _create_shapes_index(self) -> ShapesIndex:
-        """
-        Create an index for shapes.txt file to quickly access shape points by shape_id.
-        """
-
-        shapes_index = ShapesIndex(
-            self.get_path(SHAPES_FILE),
-            "shape_id",
-            ["shape_pt_lon", "shape_pt_lat", "shape_pt_sequence"],
-            logger=self.logger,
-        )
-        shapes_index.build_index()
-        self.csv_cache.debug_log_size("shapes_index", shapes_index)
-
-        return shapes_index
-
-    @track_metrics(metrics=("time", "memory", "cpu"))
     def create_routes_geojson(self):
         try:
             agencies = self._load_agencies()
 
-            shapes_index = self._create_shapes_index()
-            self.logger.info("Creating routes geojson (optimized for memory)")
-
+            self.logger.info("Creating routes geojson ")
+            shapes_processor = ShapesProcessor(self.csv_cache, self.logger)
+            shapes_processor.process()
             trips_processor = TripsProcessor(self.csv_cache, self.logger)
             trips_processor.process()
-            stop_times_processor = StopTimesProcessor(self.csv_cache, self.logger)
-            stop_times_processor.process(trips_processor)
+            stop_times_processor = StopTimesProcessor(
+                self.csv_cache, self.logger, trips_processor
+            )
+            stop_times_processor.process()
+
+            routes_processor_for_colors = RoutesProcessorForColors(
+                csv_cache=self.csv_cache,
+                logger=self.logger,
+            )
+            routes_processor_for_colors.process()
+            stops_processor = StopsProcessor(
+                self.csv_cache,
+                self.logger,
+                routes_processor_for_colors,
+                stop_times_processor,
+            )
+            stops_processor.process()
 
             routes_processor = RoutesProcessor(
                 csv_cache=self.csv_cache,
-                shapes_index=shapes_index,
                 agencies=agencies,
                 logger=self.logger,
+                shapes_processor=shapes_processor,
+                trips_processor=trips_processor,
+                stops_processor=stops_processor,
+                stop_times_processor=stop_times_processor,
             )
-            routes_processor.load_routes_colors()
-            stops_processor = StopsProcessor(self.csv_cache, self.logger)
-            stops_processor.process(routes_processor, stop_times_processor)
-
-            routes_processor.process(
-                trips_processor, stops_processor, stop_times_processor
-            )
+            routes_processor.process()
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
 

@@ -1,83 +1,55 @@
-#
-#
-#   MobilityData 2025
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-#
-# This module provides the PmtilesBuilder class and related functions to generate PMTiles files
-# from GTFS datasets. It handles downloading required files from Google Cloud Storage, processing
-# and indexing GTFS data, generating GeoJSON and JSON outputs, running Tippecanoe to create PMTiles,
-# and uploading the results back to GCS.
-
+import collections
 import csv
 import os
-
-import numpy as np
-import logging
-
 import psutil
 
-from shared.helpers.transform import get_safe_value, get_safe_float, get_safe_int
-from shared.helpers.utils import detect_encoding
-from shared.helpers.runtime_metrics import track_metrics
+import numpy as np
+
+from csv_cache import SHAPES_FILE
 from fast_csv_parser import FastCsvParser
+from shared.helpers.logger import get_logger
+from shared.helpers.runtime_metrics import track_metrics
+from shared.helpers.utils import detect_encoding
 
 
-class ShapesIndex:
+class ShapesProcessor:
     def __init__(
         self,
-        file_path: str,
-        shape_id_column_name: str,
-        coordinates_columns: list[str],
+        csv_cache,
         logger=None,
     ):
-        self.coordinates_arrays: dict[
-            str, tuple[np.ndarray, np.ndarray, np.ndarray]
-        ] = {}
-        self.file_path = file_path
-        self.shape_id_column_name = shape_id_column_name
-        self.coordinates_columns = coordinates_columns
-        self.unique_shape_id_counts = None
+        # Use a dict for agencies to safely .get()
+        self.csv_cache = csv_cache
         if logger:
             self.logger = logger
         else:
-            self.logger = logging.getLogger(ShapesIndex.__name__)  # pragma: no cover
+            self.logger = get_logger(ShapesProcessor.__name__)
 
-    def build_index(self) -> None:
-        """
-        Build the index from the CSV file.
-        This method reads the CSV file twice:
-        1. First pass: counts occurrences of each unique key to determine array sizes.
-        2. Second pass: fills preallocated numpy arrays with coordinate data.
-        numpy arrays are more memory efficient and faster for numerical data and using them allows
-        cutting the memory requirements in a major way.
-        """
-        import collections
+        self.coordinates_arrays: dict[
+            str, tuple[np.ndarray, np.ndarray, np.ndarray]
+        ] = {}
+        self.unique_shape_id_counts = collections.Counter()
+
+    def process(self):
+        csv_cache = self.csv_cache
+        filepath = csv_cache.get_path(SHAPES_FILE)
+        csv_parser = FastCsvParser()
+        line_count = 0
 
         process = psutil.Process(os.getpid())
 
-        self.unique_shape_id_counts = collections.Counter()
-        line_count = 0
-
-        csv_parser = FastCsvParser()
-
         try:
-            encoding = detect_encoding(filename=self.file_path, logger=self.logger)
-            with open(self.file_path, "r", encoding=encoding, newline="") as f:
+            encoding = detect_encoding(filename=filepath, logger=self.logger)
+            with open(filepath, "r", encoding=encoding, newline="") as f:
                 header = f.readline()
                 if not header:
                     return
                 columns = next(csv.reader([header]))
-                shape_id_index = columns.index(self.shape_id_column_name)
+                shape_id_index = csv_cache.get_index(columns, "shape_id")
+                lon_idx = csv_cache.get_index(columns, "shape_pt_lon")
+                lat_idx = csv_cache.get_index(columns, "shape_pt_lat")
+                seq_idx = csv_cache.get_index(columns, "shape_pt_sequence")
+
                 for line in f:
                     try:
                         if not line.strip():
@@ -85,7 +57,10 @@ class ShapesIndex:
 
                         row = csv_parser.parse(line)
 
-                        shape_id = get_safe_value(row[shape_id_index])
+                        shape_id = csv_cache.get_safe_value_from_index(
+                            row, shape_id_index
+                        )
+
                         self.unique_shape_id_counts[shape_id] += 1
                         line_count += 1
                         if line_count % 1_000_000 == 0:
@@ -98,7 +73,7 @@ class ShapesIndex:
                             )  # pragma: no cover
                     except Exception as e:
                         self.logger.warning(
-                            f"Skipping line {line_count} of shapes.txt because of error: {e}"
+                            f"Skipping line {line_count} of shapes.txt in first pass because of error: {e}"
                         )
 
                 # Preallocate arrays for each key
@@ -112,9 +87,6 @@ class ShapesIndex:
                 }
 
                 # Second pass: fill arrays
-                lon_idx = columns.index("shape_pt_lon")
-                lat_idx = columns.index("shape_pt_lat")
-                seq_idx = columns.index("shape_pt_sequence")
                 positions_in_coordinates_arrays = {
                     key: 0 for key in self.unique_shape_id_counts
                 }
@@ -129,12 +101,19 @@ class ShapesIndex:
                             continue
 
                         row = csv_parser.parse(line)
-                        shape_id = row[shape_id_index]
+                        shape_id = self.csv_cache.get_safe_value_from_index(
+                            row, shape_id_index
+                        )
+
                         position = positions_in_coordinates_arrays[shape_id]
                         lon_arr, lat_arr, seq_arr = self.coordinates_arrays[shape_id]
-                        lon_arr[position] = get_safe_float(row[lon_idx])
-                        lat_arr[position] = get_safe_float(row[lat_idx])
-                        seq_value = get_safe_int(row[seq_idx])
+                        lon_arr[position] = csv_cache.get_safe_float_from_index(
+                            row, lon_idx
+                        )
+                        lat_arr[position] = csv_cache.get_safe_float_from_index(
+                            row, lat_idx
+                        )
+                        seq_value = csv_cache.get_safe_int_from_index(row, seq_idx)
                         seq_arr[position] = seq_value
 
                         # If any sequence number goes down, set needs_sorting True.
@@ -160,7 +139,7 @@ class ShapesIndex:
 
                     except Exception as e:
                         self.logger.warning(
-                            f"Skipping line {line_count} of shapes.txt because of error: {e}"
+                            f"Skipping line {line_count} of shapes.txt in 2nd pass because of error: {e}"
                         )
                 if needs_sorting:
                     self.sort_coordinate_arrays()
@@ -183,13 +162,9 @@ class ShapesIndex:
             lat_arr[:] = lat_arr[sort_idx]
             seq_arr[:] = seq_arr[sort_idx]
 
-    def get_objects(self, key: str):
-        """Return a list of objects for rows matching key, using row_fn or raw row dicts."""
-        return self.get_shape_points(key)
-
-    def get_shape_points(self, key: str):
-        """Return a tuple of (lon, lat) for a given key (empty tuple if missing)."""
+    def get_shape_points(self, shape_in: str):
+        """Return a tuple of (lon, lat, seq) for a given shape_in (empty tuple if missing)."""
         lon_array, lat_array, seq_array = self.coordinates_arrays.get(
-            key, (np.array([]), np.array([]), np.array([]))
+            shape_in, (np.array([]), np.array([]), np.array([]))
         )
         return np.column_stack((lon_array, lat_array)).tolist()

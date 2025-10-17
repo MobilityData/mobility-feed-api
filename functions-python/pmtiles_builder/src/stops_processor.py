@@ -6,27 +6,27 @@ from csv_cache import STOPS_FILE
 from fast_csv_parser import FastCsvParser
 from shared.helpers.utils import detect_encoding
 from gtfs import stop_txt_is_lat_lon_required, is_lat_lon_required
-from routes_processor import RoutesProcessor
+from routes_processor_for_colors import RoutesProcessorForColors
 from stop_times_processor import StopTimesProcessor
 
 
 class StopsProcessor:
-    def __init__(self, csv_cache, logger=None):
+    def __init__(
+        self,
+        csv_cache,
+        logger=None,
+        routes_processor_for_colors: RoutesProcessorForColors = None,
+        stop_times_processor: StopTimesProcessor = None,
+    ):
         self.features_count = 0
         self.csv_cache = csv_cache
         self.logger = logger or csv_cache.logger
-        self.routes_processor = None
-        self.stop_times_processor = None
+        self.routes_processor_for_colors = routes_processor_for_colors
+        self.stop_times_processor = stop_times_processor
         self.stop_to_coordinates = {}
         self.features_count = 0
 
-    def process(
-        self,
-        routes_processor: "RoutesProcessor" = None,
-        stop_times_processor: "StopTimesProcessor" = None,
-    ) -> None:
-        self.routes_processor = routes_processor
-        self.stop_times_processor = stop_times_processor
+    def process(self) -> None:
         filepath = self.csv_cache.get_path(STOPS_FILE)
         csv_parser = FastCsvParser()
 
@@ -144,9 +144,9 @@ class StopsProcessor:
 
         route_ids = sorted(self.stop_times_processor.stop_to_routes.get(stop_id, []))
         route_colors = [
-            self.routes_processor.route_colors_map[r]
+            self.routes_processor_for_colors.route_colors_map[r]
             for r in route_ids
-            if r in self.routes_processor.route_colors_map
+            if r in self.routes_processor_for_colors.route_colors_map
         ]
 
         feature = {

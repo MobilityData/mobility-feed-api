@@ -8,15 +8,24 @@ from shared.helpers.logger import get_logger
 from shared.helpers.utils import detect_encoding
 
 from route_coordinates import RouteCoordinates
+from routes_processor_for_colors import RoutesProcessorForColors
+from shapes_processor import ShapesProcessor
+from stop_times_processor import StopTimesProcessor
+from stops_processor import StopsProcessor
+from trips_processor import TripsProcessor
 
 
 class RoutesProcessor:
     def __init__(
         self,
         csv_cache,
-        shapes_index=None,
         agencies=None,
         logger=None,
+        shapes_processor: ShapesProcessor = None,
+        trips_processor: TripsProcessor = None,
+        stops_processor: StopsProcessor = None,
+        stop_times_processor: StopTimesProcessor = None,
+        routes_processor_for_colors: RoutesProcessorForColors = None,
     ):
         # Use a dict for agencies to safely .get()
         self.agencies = agencies if agencies else {}
@@ -25,51 +34,18 @@ class RoutesProcessor:
             self.logger = logger
         else:
             self.logger = get_logger(RoutesProcessor.__name__)
-        self.shapes_index = shapes_index
         # Track routes missing coordinates in a set
         self.missing_coordinates_routes = set()
         self.features_count = 0
-        self.route_colors_map = {}
-        self.trips_processor = None
-        self.stops_processor = None
-        self.stop_times_processor = None
+        self.trips_processor: TripsProcessor | None = trips_processor
+        self.shapes_processor: ShapesProcessor | None = shapes_processor
+        self.stops_processor: StopsProcessor | None = stops_processor
+        self.stop_times_processor: StopTimesProcessor | None = stop_times_processor
+        self.routes_processor_for_colors: RoutesProcessorForColors | None = (
+            routes_processor_for_colors
+        )
 
-    def load_routes_colors(self):
-        filepath = self.csv_cache.get_path(ROUTES_FILE)
-        csv_parser = FastCsvParser()
-        encoding = detect_encoding(filename=filepath, logger=self.logger)
-
-        with open(filepath, "r", encoding=encoding, newline="") as f:
-            header = f.readline()
-            if not header:
-                return
-            columns = next(csv.reader([header]))
-
-            route_id_index = self.csv_cache.get_index(columns, "route_id")
-            route_color_index = self.csv_cache.get_index(columns, "route_color")
-
-            for line in f:
-                if not line.strip():
-                    continue
-
-                row = csv_parser.parse(line)
-                route_id = self.csv_cache.get_safe_value_from_index(row, route_id_index)
-                route_color = self.csv_cache.get_safe_value_from_index(
-                    row, route_color_index
-                )
-
-                if route_id:
-                    self.route_colors_map[route_id] = route_color
-
-    def process(
-        self,
-        trips_processor=None,
-        stops_processor=None,
-        stop_times_processor=None,
-    ):
-        self.trips_processor = trips_processor
-        self.stops_processor = stops_processor
-        self.stop_times_processor = stop_times_processor
+    def process(self):
         filepath = self.csv_cache.get_path(ROUTES_FILE)
         csv_parser = FastCsvParser()
         encoding = detect_encoding(filename=filepath, logger=self.logger)
@@ -156,7 +132,7 @@ class RoutesProcessor:
 
     def add_to_routes_colors_map(self, route_id, route_color):
         if route_id:
-            self.route_colors_map[route_id] = route_color
+            self.routes_processor_for_colors.route_colors_map[route_id] = route_color
 
     def add_to_routes_geojson(
         self,
@@ -171,9 +147,7 @@ class RoutesProcessor:
     ):
         agency_name = self.agencies.get(agency_id, agency_id)
         self.logger.debug("Processing route_id %s", route_id)
-        trips_coordinates: list[RouteCoordinates] = self.get_route_coordinates(
-            route_id, self.shapes_index
-        )
+        trips_coordinates: list[RouteCoordinates] = self.get_route_coordinates(route_id)
 
         if not trips_coordinates:
             self.missing_coordinates_routes.add(route_id)
@@ -205,7 +179,7 @@ class RoutesProcessor:
             geojson_file.write(json.dumps(feature))
             self.features_count += 1
 
-    def get_route_coordinates(self, route_id, shapes_index) -> List[RouteCoordinates]:
+    def get_route_coordinates(self, route_id) -> List[RouteCoordinates]:
         shapes: Dict[str, ShapeTrips] = self.trips_processor.get_shape_from_route(
             route_id
         )
@@ -214,7 +188,7 @@ class RoutesProcessor:
             for shape_id, trip_ids in shapes.items():
                 # shape_id = shape["shape_id"]
                 # trip_ids = shape["trip_ids"]
-                coordinates = self._get_shape_points(shape_id)
+                coordinates = self.shapes_processor.get_shape_points(shape_id)
                 if coordinates:
                     result.append(
                         {
@@ -282,22 +256,3 @@ class RoutesProcessor:
                     feature["trip_ids"].append(trip_id)
 
         return result
-
-    def _get_shape_points(self, shape_id):
-        """Retrieve shape points for a given shape_id using the provided index.
-        Args:
-            shape_id (str): The shape_id to retrieve points for.
-            index (ShapesIndex): The index to use for retrieval.
-        Returns:
-            List of (lon, lat) tuples representing the shape points.
-        """
-        # Log only on first call and every 1,000,000 calls
-        # self._get_shape_points_calls += 1
-        # count = self._get_shape_points_calls
-        # if count == 1 or (count % 1_000_000 == 0):
-        #     self.logger.debug(
-        #         "Getting shape points (called #%d times) for shape_id %s",
-        #         count,
-        #         shape_id,
-        #     )
-        return self.shapes_index.get_objects(shape_id)

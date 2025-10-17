@@ -23,7 +23,7 @@ from typing import TypedDict, List
 from pympler import asizeof
 
 from shared.helpers.logger import get_logger
-from shared.helpers.transform import get_safe_value, get_safe_float
+from shared.helpers.transform import get_safe_value, get_safe_float, get_safe_int
 from shared.helpers.utils import detect_encoding
 
 STOP_TIMES_FILE = "stop_times.txt"
@@ -164,3 +164,8 @@ class CsvCache:
     def get_safe_float_from_index(columns, index):
         raw_value = CsvCache.get_safe_value_from_index(columns, index)
         return get_safe_float(raw_value)
+
+    @staticmethod
+    def get_safe_int_from_index(columns, index):
+        raw_value = CsvCache.get_safe_value_from_index(columns, index)
+        return get_safe_int(raw_value)
