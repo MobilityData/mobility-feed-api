@@ -197,7 +197,7 @@ class PmtilesBuilder:
 
         self._run_tippecanoe("stops-output.geojson", "stops.pmtiles")
 
-        self._create_routes_json()
+        # self._create_routes_json()
 
         if self.use_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]

@@ -52,8 +52,11 @@ class RoutesProcessor:
 
         routes_geojson = self.csv_cache.get_path("routes-output.geojson")
 
-        with open(routes_geojson, "w", encoding="utf-8") as geojson_file:
+        with open(routes_geojson, "w", encoding="utf-8") as geojson_file, open(
+            "routes.json", "w", encoding="utf-8"
+        ) as routes_json_file:
             geojson_file.write('{"type": "FeatureCollection", "features": [')
+            routes_json_file.write("[")
             csv_cache = self.csv_cache
             with open(filepath, "r", encoding=encoding, newline="") as f:
                 header = f.readline()
@@ -110,12 +113,25 @@ class RoutesProcessor:
                         route_color=route_color,
                         route_text_color=route_text_color,
                     )
+
+                    self.add_to_routes_json(
+                        routes_json_file=routes_json_file,
+                        route_id=route_id,
+                        route_short_name=route_short_name,
+                        route_long_name=route_long_name,
+                        route_type=route_type,
+                        route_color=route_color,
+                        route_text_color=route_text_color,
+                    )
+
                 if line_number % 100 == 0 or line_number == 1:
                     self.logger.debug(
                         "Processed route %d (route_id: %s)", line_number, route_id
                     )
 
             geojson_file.write("\n]}")
+            routes_json_file.write("\n]")
+
             # Clear the different caches to save memory. They are currently not used anywhere else.
             # self.csv_cache.clear_coordinate_for_stops()
             # self.csv_cache.clear_shape_from_route()
@@ -129,10 +145,6 @@ class RoutesProcessor:
         self.logger.debug(
             "Wrote %d features to routes-output.geojson", self.features_count
         )
-
-    def add_to_routes_colors_map(self, route_id, route_color):
-        if route_id:
-            self.routes_processor_for_colors.route_colors_map[route_id] = route_color
 
     def add_to_routes_geojson(
         self,
@@ -178,6 +190,25 @@ class RoutesProcessor:
                 geojson_file.write(",\n")
             geojson_file.write(json.dumps(feature))
             self.features_count += 1
+
+    def add_to_routes_json(
+        self,
+        routes_json_file: TextIO,
+        route_id: str,
+        route_short_name: str,
+        route_long_name: str,
+        route_type: str,
+        route_color: str,
+        route_text_color: str,
+    ):
+        route = {
+            "routeId": route_id,
+            "routeName": route_long_name or route_short_name or route_id,
+            "color": route_color or "000000",
+            "textColor": route_text_color or "FFFFFF",
+            "routeType": route_type or "",
+        }
+        json.dump(route, routes_json_file, ensure_ascii=False, indent=4)
 
     def get_route_coordinates(self, route_id) -> List[RouteCoordinates]:
         shapes: Dict[str, ShapeTrips] = self.trips_processor.get_shape_from_route(
