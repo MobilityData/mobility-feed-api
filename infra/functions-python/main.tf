@@ -567,7 +567,7 @@ resource "google_cloud_scheduler_job" "jbda_import_schedule" {
     headers = {
       "Content-Type" = "application/json"
     }
-    body = base64encode("{\"task_name\": \"jbda_import\", \"payload\": {\"dry_run\": \"false\"}}")
+    body = base64encode("{\"task\": \"jbda_import\", \"payload\": {\"dry_run\": false}}")
   }
   attempt_deadline = "320s"
 }
