@@ -5,7 +5,7 @@ import json
 from google.cloud import pubsub_v1
 
 PROJECT_ID = os.getenv("PROJECT_ID")
-DATASET_BATCH_TOPIC = os.getenv("DATASET_BATCH_TOPIC_NAME")
+DATASET_BATCH_TOPIC = os.getenv("DATASET_PROCESSING_TOPIC_NAME")
 
 
 def trigger_dataset_download(
