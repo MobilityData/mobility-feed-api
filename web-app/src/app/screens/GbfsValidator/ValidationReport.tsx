@@ -42,18 +42,6 @@ export default function ValidationReport(): React.ReactElement {
           mb: 2,
         }}
       >
-        <Typography variant='h4' sx={{ fontWeight: 700, mb: 2 }}>
-          Validation Report
-        </Typography>
-        <Typography variant='body1' sx={{ fontWeight: 700, mb: 2, ml: 2 }}>
-          https://tor.publicbikesystem.net/customer/gbfs/v2/gbfs.json
-        </Typography>
-        <Typography variant='body1' sx={{ fontWeight: 700, mb: 2, ml: 2 }}>
-          Validator Version: {validationResult.summary.validatorVersion}
-        </Typography>
-        <Typography variant='body1' sx={{ fontWeight: 700, mb: 2, ml: 2, color: theme.palette.error.main }}>
-          Invalid GBFS Feed
-        </Typography>
       </Box>
 
       <Box
@@ -78,7 +66,13 @@ export default function ValidationReport(): React.ReactElement {
           <Typography variant='h5' sx={{ fontWeight: 700, p: 2, mb: 2}}>
             GBFS Feed Files Summary
           </Typography>
-          <Typography variant='h6' sx={{  mb: 1, ml: 2 }}>
+          <Typography variant='body1' sx={{ fontWeight: 700, ml: 2 }}>
+            Validator Version: {validationResult.summary.validatorVersion}
+          </Typography>
+          <Typography variant='body1' sx={{ fontWeight: 700, ml: 2, color: theme.palette.error.main }}>
+            Invalid GBFS Feed
+          </Typography>
+            <Typography variant='h6' sx={{  mb: 1, ml: 2 }}>
             Total Errors: <b>3</b>
           </Typography>
 
