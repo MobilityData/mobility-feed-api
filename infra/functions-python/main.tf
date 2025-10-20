@@ -549,6 +549,30 @@ resource "google_cloud_scheduler_job" "gbfs_validator_batch_scheduler" {
   attempt_deadline = "320s"
 }
 
+# Schedule the JBDA import function to run monthly
+resource "google_cloud_scheduler_job" "jbda_import_schedule" {
+  name = "jbda-import-scheduler-${var.environment}"
+  description = "Schedule the jbda import function"
+  time_zone = "Etc/UTC"
+  schedule = var.jbda_scheduler_schedule
+  region = var.gcp_region
+  paused = var.environment == "prod" ? false : true
+  depends_on = [google_cloudfunctions2_function.tasks_executor, google_cloudfunctions2_function_iam_member.tasks_executor_invoker]
+  http_target {
+    http_method = "POST"
+    uri = google_cloudfunctions2_function.tasks_executor.url
+    oidc_token {
+      service_account_email = google_service_account.functions_service_account.email
+    }
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = base64encode("{\"task_name\": \"jbda_import\", \"payload\": {\"dry_run\": \"false\"}}")
+  }
+  attempt_deadline = "320s"
+}
+
+
 resource "google_cloud_scheduler_job" "transit_land_scraping_scheduler" {
   name = "transitland-scraping-scheduler-${var.environment}"
   description = "Schedule the transitland scraping function"
