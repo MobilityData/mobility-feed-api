@@ -357,6 +357,7 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
       GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
       FILES_ENDPOINT    = local.public_hosted_datasets_url
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }
