@@ -15,7 +15,7 @@ from shared.database_gen.sqlacodegen_models import (
     Feedrelatedlink,
 )
 
-from tasks.jbda_import.import_jbda_feeds import (
+from tasks.data_import.import_jbda_feeds import (
     import_jbda_handler,
     get_gtfs_file_url,
     _choose_gtfs_file,
@@ -193,9 +193,9 @@ class TestImportJBDA(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def test_import_creates_gtfs_rt_and_related_links(self, db_session: Session):
         with patch(
-            "tasks.jbda_import.import_jbda_feeds.requests.Session",
+            "tasks.data_import.import_jbda_feeds.requests.Session",
             return_value=_FakeSessionOK(),
-        ), patch("tasks.jbda_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01):
+        ), patch("tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01):
             result = import_jbda_handler({"dry_run": False})
 
         # Summary checks
@@ -258,9 +258,9 @@ class TestImportJBDA(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def test_import_http_failure_graceful(self, db_session: Session):
         with patch(
-            "tasks.jbda_import.import_jbda_feeds.requests.Session",
+            "tasks.data_import.import_jbda_feeds.requests.Session",
             return_value=_FakeSessionError(),
-        ), patch("tasks.jbda_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01):
+        ), patch("tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01):
             out = import_jbda_handler({"dry_run": True})
 
         self.assertEqual(out["message"], "Failed to fetch JBDA feeds.")

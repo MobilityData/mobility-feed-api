@@ -38,6 +38,8 @@ from shared.database_gen.sqlacodegen_models import (
     Feedrelatedlink,
 )
 from shared.helpers.locations import create_or_get_location
+from tasks.data_import.data_import_utils import trigger_dataset_download
+from google.cloud import pubsub_v1
 
 T = TypeVar("T", bound="Feed")
 
@@ -367,7 +369,8 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
         dict: Result summary with message and counters.
     """
     logger.info("Starting JBDA import dry_run=%s", dry_run)
-
+    execution_id = uuid.uuid4()
+    publisher = pubsub_v1.PublisherClient()
     session_http = requests.Session()
     try:
         res = session_http.get(FEEDS_URL, timeout=REQUEST_TIMEOUT_S)
@@ -513,6 +516,8 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
                 linked_refs += 1
 
             total_processed += 1
+            if is_new_gtfs:
+                trigger_dataset_download(gtfs_feed, execution_id, publisher)
 
             if not dry_run and (total_processed % commit_batch_size == 0):
                 logger.info("Committing batch at total_processed=%d", total_processed)
