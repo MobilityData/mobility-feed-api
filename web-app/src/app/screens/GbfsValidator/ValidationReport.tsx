@@ -1,4 +1,4 @@
-import { Box, Link, Typography, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import sampleReponse from './sampleResponse.json';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -24,9 +24,7 @@ export interface FileError {
   instancePath: string;
   schemaPath: string;
   message: string;
-  params: {
-    [key: string]: any;
-  };
+  params: Record<string, unknown>;
 }
 
 export default function ValidationReport(): React.ReactElement {
@@ -41,8 +39,7 @@ export default function ValidationReport(): React.ReactElement {
           alignItems: 'center',
           mb: 2,
         }}
-      >
-      </Box>
+      ></Box>
 
       <Box
         sx={{
@@ -63,16 +60,19 @@ export default function ValidationReport(): React.ReactElement {
             width: '300px',
           }}
         >
-          <Typography variant='h5' sx={{ fontWeight: 700, p: 2, mb: 2}}>
+          <Typography variant='h5' sx={{ fontWeight: 700, p: 2, mb: 2 }}>
             GBFS Feed Files Summary
           </Typography>
           <Typography variant='body1' sx={{ fontWeight: 700, ml: 2 }}>
             Validator Version: {validationResult.summary.validatorVersion}
           </Typography>
-          <Typography variant='body1' sx={{ fontWeight: 700, ml: 2, color: theme.palette.error.main }}>
+          <Typography
+            variant='body1'
+            sx={{ fontWeight: 700, ml: 2, color: theme.palette.error.main }}
+          >
             Invalid GBFS Feed
           </Typography>
-            <Typography variant='h6' sx={{  mb: 1, ml: 2 }}>
+          <Typography variant='h6' sx={{ mb: 1, ml: 2 }}>
             Total Errors: <b>3</b>
           </Typography>
 
@@ -85,11 +85,17 @@ export default function ValidationReport(): React.ReactElement {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   p: 2,
-                  pb: 1
+                  pb: 1,
                 }}
                 key={file.name}
               >
-                <Typography component={'a'} href='' sx={{color: 'black', textDecoration: 'none'}}>{file.name}</Typography>
+                <Typography
+                  component={'a'}
+                  href=''
+                  sx={{ color: 'black', textDecoration: 'none' }}
+                >
+                  {file.name}
+                </Typography>
                 {hasErrors ? (
                   <ErrorOutlineIcon
                     fontSize='small'
@@ -121,8 +127,8 @@ export default function ValidationReport(): React.ReactElement {
                 key={file.name}
                 sx={{
                   backgroundColor: hasErrors
-                    ? ''//theme.palette.error.light
-                    : '#80c883',//theme.palette.success.light,
+                    ? '' // theme.palette.error.light
+                    : '#80c883', // theme.palette.success.light,
                   position: 'relative',
                   p: 2,
                 }}
@@ -136,7 +142,14 @@ export default function ValidationReport(): React.ReactElement {
                 >
                   <Typography
                     variant='h5'
-                    sx={{ fontWeight: 700, mb: 0, ml: 2, color: hasErrors ? theme.palette.error.dark : theme.palette.success.dark }}
+                    sx={{
+                      fontWeight: 700,
+                      mb: 0,
+                      ml: 2,
+                      color: hasErrors
+                        ? theme.palette.error.dark
+                        : theme.palette.success.dark,
+                    }}
                   >
                     {file.name}.json
                   </Typography>
@@ -157,7 +170,7 @@ export default function ValidationReport(): React.ReactElement {
                   <>
                     <Typography
                       variant='h6'
-                      sx={{ m:1, ml: 2, color: theme.palette.error.dark }}
+                      sx={{ m: 1, ml: 2, color: theme.palette.error.dark }}
                     >
                       Errors:
                     </Typography>
@@ -169,29 +182,23 @@ export default function ValidationReport(): React.ReactElement {
                           </Typography>
                         </Box>
                         <Box sx={{ ml: 2 }}>
-                          <Typography
-                            variant='body1'
-                            sx={{ mb: 1 }}
-                          >
-                            <b style={{marginRight: '16px'}}>Message:</b> {error.message}
+                          <Typography variant='body1' sx={{ mb: 1 }}>
+                            <b style={{ marginRight: '16px' }}>Message:</b>{' '}
+                            {error.message}
                           </Typography>
-                          <Typography
-                            variant='body1'
-                            sx={{ mb: 1 }}
-                          >
-                            <b style={{marginRight: '16px'}}>Instance Path:</b> {error.instancePath}
+                          <Typography variant='body1' sx={{ mb: 1 }}>
+                            <b style={{ marginRight: '16px' }}>
+                              Instance Path:
+                            </b>{' '}
+                            {error.instancePath}
                           </Typography>
-                          <Typography
-                            variant='body1'
-                            sx={{ mb: 1 }}
-                          >
-                            <b style={{marginRight: '16px'}}>Schema Path:</b> {error.schemaPath}
+                          <Typography variant='body1' sx={{ mb: 1 }}>
+                            <b style={{ marginRight: '16px' }}>Schema Path:</b>{' '}
+                            {error.schemaPath}
                           </Typography>
-                          <Typography
-                            variant='body1'
-                            sx={{ mb: 1 }}
-                          >
-                            <b style={{marginRight: '16px'}}>Params:</b> {JSON.stringify(error.params)}
+                          <Typography variant='body1' sx={{ mb: 1 }}>
+                            <b style={{ marginRight: '16px' }}>Params:</b>{' '}
+                            {JSON.stringify(error.params)}
                           </Typography>
                         </Box>
                       </Box>

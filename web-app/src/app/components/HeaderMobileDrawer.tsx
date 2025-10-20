@@ -99,7 +99,7 @@ export default function DrawerContent({
             {item.title}
           </Button>
         ))}
-        
+
         <Divider sx={{ mt: 2 }} />
         {config.gbfsValidator && (
           <Accordion disableGutters={true} sx={{ boxShadow: 'none' }}>
@@ -218,11 +218,7 @@ export default function DrawerContent({
             </AccordionDetails>
           </Accordion>
         ) : (
-          <Button
-            variant='contained'
-            sx={{ml:2}}
-            href={SIGN_IN_TARGET}
-          >
+          <Button variant='contained' sx={{ ml: 2 }} href={SIGN_IN_TARGET}>
             Login
           </Button>
         )}

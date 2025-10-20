@@ -233,12 +233,12 @@ export default function DrawerAppBar(): React.ReactElement {
                     onClick={() => {
                       handleMenuItemClick('gbfs-validator');
                     }}
-                    sx={{display: 'flex', gap: 1}}
+                    sx={{ display: 'flex', gap: 1 }}
                   >
-                     <BikeScooterOutlined
-                        fontSize='small'
-                        sx={{ color: theme.palette.text.primary }}
-                      />
+                    <BikeScooterOutlined
+                      fontSize='small'
+                      sx={{ color: theme.palette.text.primary }}
+                    />
                     {t('gbfsValidator')}
                   </MenuItem>
                   <MenuItem
@@ -246,7 +246,7 @@ export default function DrawerAppBar(): React.ReactElement {
                     onClick={() => {
                       handleMenuItemClick('gtfs-validator');
                     }}
-                    sx={{display: 'flex', gap: 1}}
+                    sx={{ display: 'flex', gap: 1 }}
                     disabled={true}
                   >
                     <DirectionsBusIcon

@@ -11,7 +11,7 @@ import { gbfsValidatorHeroBg } from './validator.styles';
 
 export default function GbfsValidator(): React.ReactElement {
   const theme = useTheme();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const isInSearchState = searchParams.has('AutoDiscoveryUrl');
 
   return (
@@ -24,7 +24,7 @@ export default function GbfsValidator(): React.ReactElement {
               ...gbfsValidatorHeroBg,
               padding: 2,
               color: '#1d1c1c',
-              marginTop: '-32px', //TODO: revisit
+              marginTop: '-32px', // TODO: revisit
               height: '400px',
               display: 'flex',
               textAlign: 'center',
@@ -86,7 +86,12 @@ export default function GbfsValidator(): React.ReactElement {
                     <Typography variant='h5' sx={{ fontWeight: 700, mb: 2 }}>
                       Official GBFS Validator
                     </Typography>
-                    <Typography sx={{maxWidth: 'clamp(45ch, 60%, 75ch)', fontSize: '20px' }}>
+                    <Typography
+                      sx={{
+                        maxWidth: 'clamp(45ch, 60%, 75ch)',
+                        fontSize: '20px',
+                      }}
+                    >
                       The GBFS Validator is based on the official GBFS JSON
                       schema and is designed to help you validate your GBFS
                       feeds against the GBFS specification. For more information
@@ -124,7 +129,12 @@ export default function GbfsValidator(): React.ReactElement {
                     <Typography variant='h5' sx={{ fontWeight: 700, mb: 2 }}>
                       Contribute
                     </Typography>
-                    <Typography sx={{maxWidth: 'clamp(45ch, 60%, 75ch)', fontSize: '20px' }}>
+                    <Typography
+                      sx={{
+                        maxWidth: 'clamp(45ch, 60%, 75ch)',
+                        fontSize: '20px',
+                      }}
+                    >
                       The GBFS Validator is an open-source project and we
                       welcome contributions from the community. Special thanks
                       to <a>Tom Erik</a>
@@ -161,17 +171,16 @@ export default function GbfsValidator(): React.ReactElement {
           >
             <Container maxWidth='lg' sx={{ mb: 4, mt: 2 }}>
               <GbfsFeedSearchInput></GbfsFeedSearchInput>
-              
             </Container>
           </Box>
           <Container maxWidth='lg' sx={{ mb: 4, mt: 2 }}>
             <Box sx={{ mt: 4, textAlign: 'center' }}>
-                <Typography variant='h6'>GBFS Feed Validation</Typography>
-                {/* <Typography variant='h4'>{searchParams.get('AutoDiscoveryUrl')}</Typography> */}
-                <Typography variant='h5' sx={{ fontWeight: 700, mb: 2 }}>
-                  https://tor.publicbikesystem.net/customer/gbfs/v2/gbfs.json
-                </Typography>
-              </Box>
+              <Typography variant='h6'>GBFS Feed Validation</Typography>
+              {/* <Typography variant='h4'>{searchParams.get('AutoDiscoveryUrl')}</Typography> */}
+              <Typography variant='h5' sx={{ fontWeight: 700, mb: 2 }}>
+                https://tor.publicbikesystem.net/customer/gbfs/v2/gbfs.json
+              </Typography>
+            </Box>
             <Map polygon={[{ lat: 37.7749, lng: -122.4194 }]}></Map>
             <Box textAlign={'right'}>
               <Button variant='outlined'>View Full Map Details</Button>

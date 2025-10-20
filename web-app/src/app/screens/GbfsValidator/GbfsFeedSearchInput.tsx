@@ -12,7 +12,7 @@ import {
   FormControl,
   MenuItem,
   Select,
-  SelectChangeEvent,
+  type SelectChangeEvent,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useState } from 'react';
@@ -37,11 +37,11 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
   const [oauthClientSecret, setOauthClientSecret] = useState<string>('');
   const [oauthTokenUrl, setOauthTokenUrl] = useState<string>('');
 
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     setRequiresAuth(event.target.checked);
   };
 
-  const handleAuthTypeChange = (event: SelectChangeEvent<string>) => {
+  const handleAuthTypeChange = (event: SelectChangeEvent<string>): void => {
     setAuthType(event.target.value);
     setBasicAuthUsername('');
     setBasicAuthPassword('');
@@ -52,17 +52,21 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
   };
 
   const isSubmitBoxDisabled = (): boolean => {
-    if (!autoDiscoveryUrlInput) return true;
+    if (autoDiscoveryUrlInput === '') return true;
     if (requiresAuth) {
-      if (!authType) return true;
+      if (authType === '') return true;
       if (authType === AuthTypeEnum.BASIC) {
-        if (!basicAuthUsername || !basicAuthPassword) return true;
+        if (basicAuthUsername === '' || basicAuthPassword === '') return true;
       }
       if (authType === AuthTypeEnum.BEARER) {
-        if (!bearerAuthValue) return true;
+        if (bearerAuthValue === '') return true;
       }
       if (authType === AuthTypeEnum.OAUTH) {
-        if (!oauthClientId || !oauthClientSecret || !oauthTokenUrl)
+        if (
+          oauthClientId === '' ||
+          oauthClientSecret === '' ||
+          oauthTokenUrl === ''
+        )
           return true;
       }
     }
@@ -73,13 +77,11 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
     // 1. dispatch action with url and auth details (state -> loading)
     // once done then
     // 2. navigate to /gbfs-validator?AutoDiscoveryUrl=url
-
     // or
-
     // navigate to /gbfs-validator?AutoDiscoveryUrl=url&auth details
     // store the auth details in context
     // let the GbfsValidator component handle the loading state
-  }
+  };
 
   return (
     <Box
@@ -99,16 +101,18 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          p: {xs: 0}
+          p: { xs: 0 },
         }}
       >
         <TextField
           variant='outlined'
           placeholder='eg: https://example.com/gbfs.json'
           sx={{ width: '100%', mr: 2 }}
-          onChange={(e) => setAutoDiscoveryUrlInput(e.target.value)}
+          onChange={(e) => {
+            setAutoDiscoveryUrlInput(e.target.value);
+          }}
           InputProps={{
-            startAdornment: <SearchIcon sx={{mr:1}}></SearchIcon>,
+            startAdornment: <SearchIcon sx={{ mr: 1 }}></SearchIcon>,
           }}
         />
         <Button
@@ -121,7 +125,9 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
           )}`}
           disabled={isSubmitBoxDisabled()}
           type='submit'
-          onClick={() => validateGBFSFeed()}
+          onClick={() => {
+            validateGBFSFeed();
+          }}
         >
           Validate
         </Button>
@@ -144,20 +150,24 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               </MenuItem>
               <MenuItem value={AuthTypeEnum.BASIC}>Basic Auth</MenuItem>
               <MenuItem value={AuthTypeEnum.BEARER}>Bearer Token</MenuItem>
-              <MenuItem value={AuthTypeEnum.OAUTH}>Oauth Client Credentials Grant</MenuItem>
+              <MenuItem value={AuthTypeEnum.OAUTH}>
+                Oauth Client Credentials Grant
+              </MenuItem>
             </Select>
           </FormControl>
         )}
 
         {requiresAuth && authType === AuthTypeEnum.BASIC && (
-          <Box sx={{ display: 'flex', gap: 2, mt: 2, }}>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
             <TextField
               size='small'
               variant='outlined'
               label='Username'
               placeholder='Enter Username'
               fullWidth
-              onChange={(e) => setBasicAuthUsername(e.target.value)}
+              onChange={(e) => {
+                setBasicAuthUsername(e.target.value);
+              }}
             />
             <TextField
               size='small'
@@ -166,7 +176,9 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               placeholder='Enter Password'
               type='password'
               fullWidth
-              onChange={(e) => setBasicAuthPassword(e.target.value)}
+              onChange={(e) => {
+                setBasicAuthPassword(e.target.value);
+              }}
             />
           </Box>
         )}
@@ -179,20 +191,23 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
             placeholder='Enter Bearer Token'
             sx={{ mt: 2 }}
             fullWidth
-            onChange={(e) => setBearerAuthValue(e.target.value)}
-            
+            onChange={(e) => {
+              setBearerAuthValue(e.target.value);
+            }}
           />
         )}
 
         {requiresAuth && authType === AuthTypeEnum.OAUTH && (
-          <Box sx={{ display: 'flex', gap: 2, mt: 2, }}>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
             <TextField
               size='small'
               variant='outlined'
               placeholder='Client Id'
               label='Client Id'
               fullWidth
-              onChange={(e) => setOauthClientId(e.target.value)}
+              onChange={(e) => {
+                setOauthClientId(e.target.value);
+              }}
             />
             <TextField
               size='small'
@@ -200,7 +215,9 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               placeholder='Enter Client Secret'
               label='Client Secret'
               fullWidth
-              onChange={(e) => setOauthClientSecret(e.target.value)}
+              onChange={(e) => {
+                setOauthClientSecret(e.target.value);
+              }}
             />
             <TextField
               size='small'
@@ -208,7 +225,9 @@ export default function GbfsFeedSearchInput(): React.ReactElement {
               placeholder='Enter Token Url'
               label='Token Url'
               fullWidth
-              onChange={(e) => setOauthTokenUrl(e.target.value)}
+              onChange={(e) => {
+                setOauthTokenUrl(e.target.value);
+              }}
             />
           </Box>
         )}
