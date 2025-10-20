@@ -23,6 +23,8 @@ import { selectIsAuthenticated } from '../store/profile-selectors';
 import { fontFamily } from '../Theme';
 import { mobileNavElementStyle } from './Header.style';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { useRemoteConfig } from '../context/RemoteConfigProvider';
+import { useTranslation } from 'react-i18next';
 
 const websiteTile = 'Mobility Database';
 
@@ -39,6 +41,8 @@ export default function DrawerContent({
 }: DrawerContentProps): JSX.Element {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const navigateTo = useNavigate();
+  const { config } = useRemoteConfig();
+  const { t } = useTranslation('common');
   const theme = useTheme();
 
   return (
@@ -95,7 +99,36 @@ export default function DrawerContent({
             {item.title}
           </Button>
         ))}
+        
         <Divider sx={{ mt: 2 }} />
+        {config.gbfsValidator && (
+          <Accordion disableGutters={true} sx={{ boxShadow: 'none' }}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls='validators-content'
+              id='validators-content'
+            >
+              <Typography
+                variant={'subtitle1'}
+                sx={{ fontFamily: fontFamily.secondary }}
+              >
+                {t('validators')}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Button
+                variant='text'
+                sx={mobileNavElementStyle}
+                href={'gbfs-validator'}
+              >
+                {t('gbfsValidator')}
+              </Button>
+              <Button variant='text' sx={mobileNavElementStyle} disabled={true}>
+                {t('gtfsValidator')}
+              </Button>
+            </AccordionDetails>
+          </Accordion>
+        )}
         {metricsOptionsEnabled && (
           <>
             <Accordion disableGutters={true} sx={{ boxShadow: 'none' }}>
@@ -186,8 +219,8 @@ export default function DrawerContent({
           </Accordion>
         ) : (
           <Button
-            variant='text'
-            sx={mobileNavElementStyle}
+            variant='contained'
+            sx={{ml:2}}
             href={SIGN_IN_TARGET}
           >
             Login

@@ -39,6 +39,7 @@ import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
 import { animatedButtonStyling } from './Header.style';
 import DrawerContent from './HeaderMobileDrawer';
 import ThemeToggle from './ThemeToggle';
+import { useTranslation } from 'react-i18next';
 
 export default function DrawerAppBar(): React.ReactElement {
   const theme = useTheme();
@@ -53,6 +54,7 @@ export default function DrawerAppBar(): React.ReactElement {
     string | undefined
   >(i18n.language);
   const { config } = useRemoteConfig();
+  const { t } = useTranslation('common');
 
   i18n.on('languageChanged', (lang) => {
     setCurrentLanguage(i18n.language);
@@ -200,6 +202,62 @@ export default function DrawerAppBar(): React.ReactElement {
                 {item.title}
               </Button>
             ))}
+            {config.gbfsValidator && (
+              <>
+                <Button
+                  aria-controls='validator-menu'
+                  aria-haspopup='true'
+                  endIcon={<ArrowDropDownIcon />}
+                  onClick={handleMenuOpen}
+                  sx={(theme) => ({
+                    ...animatedButtonStyling(theme),
+                    color: theme.palette.text.primary,
+                  })}
+                  id='validator-button-menu'
+                  className={
+                    activeTab.includes('validator') ? 'active short' : ''
+                  }
+                >
+                  {t('validators')}
+                </Button>
+                <Menu
+                  id='validator-menu'
+                  anchorEl={anchorEl}
+                  open={
+                    anchorEl !== null && anchorEl.id === 'validator-button-menu'
+                  }
+                  onClose={handleMenuClose}
+                >
+                  <MenuItem
+                    key={'gbfs-validator'}
+                    onClick={() => {
+                      handleMenuItemClick('gbfs-validator');
+                    }}
+                    sx={{display: 'flex', gap: 1}}
+                  >
+                     <BikeScooterOutlined
+                        fontSize='small'
+                        sx={{ color: theme.palette.text.primary }}
+                      />
+                    {t('gbfsValidator')}
+                  </MenuItem>
+                  <MenuItem
+                    key={'gtfs-validator'}
+                    onClick={() => {
+                      handleMenuItemClick('gtfs-validator');
+                    }}
+                    sx={{display: 'flex', gap: 1}}
+                    disabled={true}
+                  >
+                    <DirectionsBusIcon
+                      fontSize='small'
+                      sx={{ color: theme.palette.text.primary }}
+                    />
+                    {t('gtfsValidator')}
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
             {/* Allow users with mobilitydata.org email to access metrics */}
             {metricsOptionsEnabled && (
               <>
