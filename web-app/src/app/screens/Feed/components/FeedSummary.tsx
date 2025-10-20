@@ -391,7 +391,7 @@ export default function FeedSummary({
                 const description = relatedLink.description;
 
                 return (
-                  <li key={url} style={{ marginBottom: 8 }}>
+                  <li key={url} style={{ marginBottom: '8px' }}>
                     <Box
                       sx={{
                         display: 'flex',
