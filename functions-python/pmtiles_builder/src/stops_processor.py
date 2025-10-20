@@ -2,15 +2,14 @@ import csv
 import json
 from typing import TextIO
 
+from base_processor import BaseProcessor
 from csv_cache import STOPS_FILE
-from fast_csv_parser import FastCsvParser
-from shared.helpers.utils import detect_encoding
 from gtfs import stop_txt_is_lat_lon_required, is_lat_lon_required
 from routes_processor_for_colors import RoutesProcessorForColors
 from stop_times_processor import StopTimesProcessor
 
 
-class StopsProcessor:
+class StopsProcessor(BaseProcessor):
     def __init__(
         self,
         csv_cache,
@@ -18,31 +17,19 @@ class StopsProcessor:
         routes_processor_for_colors: RoutesProcessorForColors = None,
         stop_times_processor: StopTimesProcessor = None,
     ):
-        self.features_count = 0
-        self.csv_cache = csv_cache
-        self.logger = logger or csv_cache.logger
+        super().__init__(STOPS_FILE, csv_cache, logger)
         self.routes_processor_for_colors = routes_processor_for_colors
         self.stop_times_processor = stop_times_processor
         self.stop_to_coordinates = {}
         self.features_count = 0
 
-    def process(self) -> None:
-        filepath = self.csv_cache.get_path(STOPS_FILE)
-        csv_parser = FastCsvParser()
-
-        stop_to_routes = self.stop_times_processor.stop_to_routes
-
-        self.csv_cache.debug_log_size(
-            f"stops_to_route length {len(stop_to_routes)}", stop_to_routes
-        )
-        encoding = detect_encoding(filename=filepath, logger=self.logger)
-
+    def process_file(self) -> None:
         stops_geojson = self.csv_cache.get_path("stops-output.geojson")
 
         with open(stops_geojson, "w", encoding="utf-8") as geojson_file:
             geojson_file.write('{"type": "FeatureCollection", "features": [')
             csv_cache = self.csv_cache
-            with open(filepath, "r", encoding=encoding, newline="") as f:
+            with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
                 header = f.readline()
                 if not header:
                     return
@@ -64,7 +51,7 @@ class StopsProcessor:
                 for line in f:
                     if not line.strip():
                         continue
-                    row = csv_parser.parse(line)
+                    row = self.csv_parser.parse(line)
                     stop_id = csv_cache.get_safe_value_from_index(row, stop_id_index)
                     stop_lon = csv_cache.get_safe_float_from_index(row, lon_index)
                     stop_lat = csv_cache.get_safe_float_from_index(row, lat_index)
@@ -169,10 +156,12 @@ class StopsProcessor:
             },
         }
 
+        # Dumping each feature separately to a string ensures it's pretty printed.
+        feature_json = json.dumps(feature, ensure_ascii=False, indent=4)
+
         if self.features_count != 0:
             geojson_file.write(",\n")
-        geojson_file.write(json.dumps(feature))
-
+        geojson_file.write(feature_json)
         self.features_count += 1
 
     def get_coordinates_for_stop(self, stop_id) -> tuple[float, float] | None:

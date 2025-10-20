@@ -17,7 +17,6 @@
 # from GTFS datasets. It handles downloading required files from Google Cloud Storage, processing
 # and indexing GTFS data, generating GeoJSON and JSON outputs, running Tippecanoe to create PMTiles,
 # and uploading the results back to GCS.
-import json
 import logging
 import os
 import subprocess
@@ -27,6 +26,8 @@ from enum import Enum
 from google.cloud import storage
 from sqlalchemy.orm import Session
 
+from agencies_processor import AgenciesProcessor
+from base_processor import BaseProcessor
 from csv_cache import (
     CsvCache,
     ROUTES_FILE,
@@ -41,7 +42,6 @@ from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from shared.helpers.logger import get_logger, init_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.database.database import with_db_session
-from shared.helpers.transform import get_safe_value_from_csv
 from ephemeral_workdir import EphemeralOrDebugWorkdir
 import flask
 import functions_framework
@@ -152,16 +152,32 @@ class PmtilesBuilder:
         self.logger = get_logger(PmtilesBuilder.__name__, dataset_stable_id)
 
         self.csv_cache = CsvCache(workdir, self.logger)
-        self.use_gcs = True
         # Track calls to _get_shape_points to control logging cadence
         self._get_shape_points_calls = 0
 
         # The NO_GCS variable controls if we do uploads and downloads from GCS.
         # It's useful for testing with local files only.
-        no_gcs = os.getenv("NO_GCS", "").lower()
-        self.use_gcs = False if no_gcs == "true" else True
+
         no_database = os.getenv("NO_DATABASE", "").lower()
         self.use_database = False if no_database == "true" else True
+
+        no_download = os.getenv("NO_DOWNLOAD_FROM_GCS", "").lower()
+        self.download_from_gcs = False if no_download == "true" else True
+
+        no_delete = os.getenv("NO_DELETE_DOWNLOADED_FILES", "").lower()
+        self.delete_downloaded_files = False if no_delete == "true" else True
+
+        no_upload = os.getenv("NO_UPLOAD_TO_GCS", "").lower()
+        self.upload_to_gcs = False if no_upload == "true" else True
+
+        no_gcs = os.getenv("NO_GCS", "").lower()
+        if no_gcs == "true":
+            self.download_from_gcs = False
+            self.upload_to_gcs = False
+
+        self.unzipped_files_path = (
+            f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
+        )
 
     def get_path(self, filename: str) -> str:
         return self.csv_cache.get_path(filename)
@@ -174,32 +190,13 @@ class PmtilesBuilder:
     def build_pmtiles(self):
         self.logger.info("Starting PMTiles build")
 
-        if self.use_gcs:
-            # If we don't use gcs, we assume the txt files are already in the workdir.
-            unzipped_files_path = (
-                f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
-            )
-
-            status, message = self._download_files_from_gcs(unzipped_files_path)
-            if status == self.OperationStatus.FAILURE:
-                return status, message
-
-        self.create_routes_geojson()
+        self.process_all()
 
         self._run_tippecanoe("routes-output.geojson", "routes.pmtiles")
 
-        # self.create_stops_geojson()
-
-        # convert_stops_to_geojson(
-        #     self.csv_cache,
-        #     self.get_path("stops-output.geojson"),
-        # )
-
         self._run_tippecanoe("stops-output.geojson", "stops.pmtiles")
 
-        # self._create_routes_json()
-
-        if self.use_gcs:
+        if self.upload_to_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
             self._upload_files_to_gcs(files_to_upload)
 
@@ -274,6 +271,9 @@ class PmtilesBuilder:
             raise Exception(msg) from e
 
     def _upload_files_to_gcs(self, file_to_upload):
+        if not self.upload_to_gcs:
+            return
+
         dest_prefix = f"{self.feed_stable_id}/{self.dataset_stable_id}/pmtiles"
         self.logger.info(
             "Uploading files to GCS bucket %s, directory %s",
@@ -281,6 +281,8 @@ class PmtilesBuilder:
             dest_prefix,
         )
         try:
+            self.bucket = storage.Client().get_bucket(self.bucket_name)
+
             blobs_to_delete = list(self.bucket.list_blobs(prefix=dest_prefix + "/"))
             for blob in blobs_to_delete:
                 blob.delete()
@@ -317,45 +319,93 @@ class PmtilesBuilder:
             raise Exception(f"Failed to upload files to GCS: {e}") from e
 
     @track_metrics(metrics=("time", "memory", "cpu"))
-    def create_routes_geojson(self):
+    def process_all(self):
         try:
-            agencies = self._load_agencies()
-
-            self.logger.info("Creating routes geojson ")
-            shapes_processor = ShapesProcessor(self.csv_cache, self.logger)
-            shapes_processor.process()
             trips_processor = TripsProcessor(self.csv_cache, self.logger)
-            trips_processor.process()
+            self.download_and_process(trips_processor)
+
             stop_times_processor = StopTimesProcessor(
                 self.csv_cache, self.logger, trips_processor
             )
-            stop_times_processor.process()
+            self.download_and_process(stop_times_processor)
 
             routes_processor_for_colors = RoutesProcessorForColors(
                 csv_cache=self.csv_cache,
                 logger=self.logger,
             )
-            routes_processor_for_colors.process()
+            self.download_and_process(routes_processor_for_colors)
             stops_processor = StopsProcessor(
                 self.csv_cache,
                 self.logger,
                 routes_processor_for_colors,
                 stop_times_processor,
             )
-            stops_processor.process()
+            self.download_and_process(stops_processor)
+
+            shapes_processor = ShapesProcessor(self.csv_cache, self.logger)
+            self.download_and_process(shapes_processor)
+
+            agencies_processor = AgenciesProcessor(self.csv_cache, self.logger)
+            self.download_and_process(agencies_processor)
 
             routes_processor = RoutesProcessor(
                 csv_cache=self.csv_cache,
-                agencies=agencies,
                 logger=self.logger,
+                agencies_processor=agencies_processor,
                 shapes_processor=shapes_processor,
                 trips_processor=trips_processor,
                 stops_processor=stops_processor,
                 stop_times_processor=stop_times_processor,
             )
-            routes_processor.process()
+            self.download_and_process(routes_processor)
         except Exception as e:
             raise Exception(f"Failed to create routes GeoJSON: {e}") from e
+
+    def download_and_process(self, processor: BaseProcessor):
+        file_name = processor.filename
+        local_file_path = self.get_path(file_name)
+
+        try:
+            if processor.no_download or self.download_from_gcs is False:
+                processor.process()
+            else:
+                blob_path = f"{self.unzipped_files_path}/{file_name}"
+
+                self.logger.info(
+                    "Downloading %s from GCS bucket %s",
+                    blob_path,
+                    self.bucket_name,
+                )
+
+                self.logger.debug("Initializing storage client for %s", blob_path)
+                bucket = storage.Client().get_bucket(self.bucket_name)
+
+                blob = bucket.blob(blob_path)
+                if not blob.exists():
+                    msg = f"File '{blob_path}' does not exist in bucket '{self.bucket_name}'."
+                    self.logger.warning(msg)
+                    raise Exception(msg)
+
+                blob.download_to_filename(local_file_path)
+
+                self.logger.debug(f"File {file_name} downloaded successfully.")
+
+                processor.process()
+        finally:
+            if processor.no_delete or self.delete_downloaded_files is False:
+                self.logger.debug(
+                    "Skipping deletion of %s because no_delete is set to True",
+                    local_file_path,
+                )
+            else:
+                try:
+                    if os.path.exists(local_file_path):
+                        os.remove(local_file_path)
+                        self.logger.debug(
+                            f"File {local_file_path} deleted successfully."
+                        )
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete file {local_file_path}: {e}")
 
     @track_metrics(metrics=("time", "memory", "cpu"))
     def _run_tippecanoe(self, input_file, output_file):
@@ -382,46 +432,6 @@ class PmtilesBuilder:
             raise Exception(
                 f"Failed to run tippecanoe for output file {output_file}: {e}"
             ) from e
-
-    @track_metrics(metrics=("time", "memory", "cpu"))
-    def _create_routes_json(self):
-        self.logger.info("Creating routes json...")
-        try:
-            routes = []
-            for row in self.csv_cache.get_file(ROUTES_FILE):
-                route_id = get_safe_value_from_csv(row, "route_id", "")
-                route = {
-                    "routeId": route_id,
-                    "routeName": (
-                        get_safe_value_from_csv(row, "route_long_name", "")
-                        or get_safe_value_from_csv(row, "route_short_name", "")
-                        or route_id
-                    ),
-                    "color": f"#{get_safe_value_from_csv(row, 'route_color', '000000')}",
-                    "textColor": f"#{get_safe_value_from_csv(row, 'route_text_color', 'FFFFFF')}",
-                    "routeType": f"{get_safe_value_from_csv(row, 'route_type', '')}",
-                }
-                routes.append(route)
-
-            with open(self.get_path("routes.json"), "w", encoding="utf-8") as f:
-                json.dump(routes, f, ensure_ascii=False, indent=4)
-
-            self.logger.debug("Converted %d routes to routes.json.", len(routes))
-        except Exception as e:
-            raise Exception(f"Failed to create routes JSON for dataset: {e}") from e
-
-    def _load_agencies(self):
-        agencies = {}
-        agency_file_path = self.get_path(AGENCY_FILE)
-        if not os.path.exists(agency_file_path):
-            self.logger.warning("agency.txt not found, agencies will be empty.")
-            return agencies
-        for row in self.csv_cache.get_file(AGENCY_FILE):
-            agency_id = row.get("agency_id") or ""
-            agency_name = row.get("agency_name", "").strip()
-            agencies[agency_id] = agency_name
-
-        return agencies
 
     @with_db_session
     def _update_database(self, db_session: Session = None):

@@ -1,30 +1,20 @@
 import csv
 
+from base_processor import BaseProcessor
 from csv_cache import ROUTES_FILE
-from fast_csv_parser import FastCsvParser
-from shared.helpers.logger import get_logger
-from shared.helpers.utils import detect_encoding
 
 
-class RoutesProcessorForColors:
+class RoutesProcessorForColors(BaseProcessor):
     def __init__(
         self,
         csv_cache,
         logger=None,
     ):
-        self.csv_cache = csv_cache
-        if logger:
-            self.logger = logger
-        else:
-            self.logger = get_logger(RoutesProcessorForColors.__name__)
+        super().__init__(ROUTES_FILE, csv_cache, logger, no_delete=True)
         self.route_colors_map = {}
 
-    def process(self):
-        filepath = self.csv_cache.get_path(ROUTES_FILE)
-        csv_parser = FastCsvParser()
-        encoding = detect_encoding(filename=filepath, logger=self.logger)
-
-        with open(filepath, "r", encoding=encoding, newline="") as f:
+    def process_file(self):
+        with open(self.filepath, "r", encoding=self.encoding, newline="") as f:
             header = f.readline()
             if not header:
                 return
@@ -37,7 +27,7 @@ class RoutesProcessorForColors:
                 if not line.strip():
                     continue
 
-                row = csv_parser.parse(line)
+                row = self.csv_parser.parse(line)
                 route_id = self.csv_cache.get_safe_value_from_index(row, route_id_index)
                 route_color = self.csv_cache.get_safe_value_from_index(
                     row, route_color_index

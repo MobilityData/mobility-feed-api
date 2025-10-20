@@ -5,42 +5,32 @@ import psutil
 
 import numpy as np
 
+from base_processor import BaseProcessor
 from csv_cache import SHAPES_FILE
-from fast_csv_parser import FastCsvParser
-from shared.helpers.logger import get_logger
 from shared.helpers.runtime_metrics import track_metrics
 from shared.helpers.utils import detect_encoding
 
 
-class ShapesProcessor:
+class ShapesProcessor(BaseProcessor):
     def __init__(
         self,
         csv_cache,
         logger=None,
     ):
-        # Use a dict for agencies to safely .get()
-        self.csv_cache = csv_cache
-        if logger:
-            self.logger = logger
-        else:
-            self.logger = get_logger(ShapesProcessor.__name__)
-
+        super().__init__(SHAPES_FILE, csv_cache, logger)
         self.coordinates_arrays: dict[
             str, tuple[np.ndarray, np.ndarray, np.ndarray]
         ] = {}
         self.unique_shape_id_counts = collections.Counter()
 
-    def process(self):
-        csv_cache = self.csv_cache
-        filepath = csv_cache.get_path(SHAPES_FILE)
-        csv_parser = FastCsvParser()
+    def process_file(self):
         line_count = 0
-
+        csv_cache = self.csv_cache
         process = psutil.Process(os.getpid())
 
         try:
-            encoding = detect_encoding(filename=filepath, logger=self.logger)
-            with open(filepath, "r", encoding=encoding, newline="") as f:
+            encoding = detect_encoding(filename=self.filepath, logger=self.logger)
+            with open(self.filepath, "r", encoding=encoding, newline="") as f:
                 header = f.readline()
                 if not header:
                     return
@@ -55,7 +45,7 @@ class ShapesProcessor:
                         if not line.strip():
                             continue
 
-                        row = csv_parser.parse(line)
+                        row = self.csv_parser.parse(line)
 
                         shape_id = csv_cache.get_safe_value_from_index(
                             row, shape_id_index
@@ -100,7 +90,7 @@ class ShapesProcessor:
                         if not line.strip():
                             continue
 
-                        row = csv_parser.parse(line)
+                        row = self.csv_parser.parse(line)
                         shape_id = self.csv_cache.get_safe_value_from_index(
                             row, shape_id_index
                         )
@@ -144,9 +134,9 @@ class ShapesProcessor:
                 if needs_sorting:
                     self.sort_coordinate_arrays()
 
-            if csv_parser.lines_with_quotes > 0:
+            if self.csv_parser.lines_with_quotes > 0:
                 self.logger.debug(
-                    f"Found {csv_parser.lines_with_quotes} lines with quotes while creating shapes index"
+                    f"Found {self.csv_parser.lines_with_quotes} lines with quotes while creating shapes index"
                 )
         except Exception as e:
             self.logger.warning("Cannot read shapes file: %s", e)
