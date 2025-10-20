@@ -352,7 +352,9 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
+      # FIXME, duplicate variable
       ENV = var.environment
+      ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
