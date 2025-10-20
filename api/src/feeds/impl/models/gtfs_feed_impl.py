@@ -23,10 +23,7 @@ class GtfsFeedImpl(FeedImpl, GtfsFeed):
         if not gtfs_feed:
             return None
         gtfs_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations]
-        latest_dataset = next(
-            (dataset for dataset in feed.gtfsdatasets if dataset is not None and dataset.latest), None
-        )
-        gtfs_feed.latest_dataset = LatestDatasetImpl.from_orm(latest_dataset)
+        gtfs_feed.latest_dataset = LatestDatasetImpl.from_orm(feed.latest_dataset)
         gtfs_feed.bounding_box = BoundingBoxImpl.from_orm(feed.bounding_box)
         gtfs_feed.visualization_dataset_id = (
             feed.visualization_dataset.stable_id if feed.visualization_dataset else None

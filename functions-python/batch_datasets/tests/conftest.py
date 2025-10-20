@@ -84,10 +84,10 @@ def populate_database(db_session: Session | None = None):
     # GTFS datasets leaving one active feed without a dataset
     active_gtfs_feeds = db_session.query(Gtfsfeed).all()
     for i in range(1, 9):
+        id = fake.uuid4()
         gtfs_dataset = Gtfsdataset(
-            id=fake.uuid4(),
+            id=id,
             feed_id=active_gtfs_feeds[i].id,
-            latest=True,
             bounding_box="POLYGON((-180 -90, -180 90, 180 90, 180 -90, -180 -90))",
             hosted_url=fake.url(),
             note=fake.sentence(),
@@ -96,6 +96,8 @@ def populate_database(db_session: Session | None = None):
             stable_id=fake.uuid4(),
         )
         db_session.add(gtfs_dataset)
+        db_session.flush()
+        active_gtfs_feeds[i].latest_dataset_id = id
 
     db_session.flush()
     # GTFS Realtime feeds

@@ -190,11 +190,9 @@ def get_feeds_with_missing_bounding_boxes_query(
     """
     query = (
         db_session.query(Gtfsfeed)
-        .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
-        .filter(Gtfsdataset.latest.is_(True))
-        .filter(Gtfsdataset.bounding_box.is_(None))
+        .filter(Gtfsfeed.bounding_box.is_(None))
         .filter(~Gtfsfeed.feedlocationgrouppoints.any())
-        .distinct(Gtfsfeed.stable_id, Gtfsdataset.stable_id)
-        .order_by(Gtfsdataset.stable_id, Gtfsfeed.stable_id)
+        .distinct(Gtfsfeed.stable_id)
+        .order_by(Gtfsfeed.stable_id)
     )
     return query

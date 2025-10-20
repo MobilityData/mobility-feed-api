@@ -57,7 +57,11 @@ class TestRebuildMissingDatasetFiles(unittest.TestCase):
         )
         sql = str(query)
         self.assertIn("gtfsdataset.downloaded_at", sql)
-        self.assertIn("gtfsdataset.latest", sql)
+        self.assertIn(
+            "(feed JOIN gtfsfeed ON feed.id = gtfsfeed.id) "
+            "ON gtfsfeed.latest_dataset_id = gtfsdataset.id",
+            sql,
+        )
 
     @with_db_session(db_url=default_db_url)
     @patch("tasks.dataset_files.rebuild_missing_dataset_files.publish_messages")

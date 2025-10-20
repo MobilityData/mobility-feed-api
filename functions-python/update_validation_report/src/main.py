@@ -135,9 +135,8 @@ def get_latest_datasets_without_validation_reports(
             Gtfsdataset.stable_id,
         )
         .select_from(Gtfsfeed)
-        .join(Gtfsdataset, Gtfsdataset.feed_id == Gtfsfeed.id)
+        .join(Gtfsdataset, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
         .outerjoin(Validationreport, Gtfsdataset.validation_reports)
-        .filter(Gtfsdataset.latest.is_(True))
         .filter(
             or_(
                 Validationreport.validator_version != validator_version,

@@ -64,7 +64,6 @@ def populate_database(db_session):
         gtfs_dataset = Gtfsdataset(
             id=fake.uuid4(),
             feed_id=active_gtfs_feeds[i].id,
-            latest=True,
             bounding_box="POLYGON((-180 -90, -180 90, 180 90, 180 -90, -180 -90))",
             hosted_url=fake.url(),
             note=fake.sentence(),
@@ -73,6 +72,8 @@ def populate_database(db_session):
             stable_id=fake.uuid4(),
         )
         db_session.add(gtfs_dataset)
+        db_session.flush()
+        active_gtfs_feeds[i].latest_gtfsdataset_id = gtfs_dataset.id
 
     db_session.flush()
     # GTFS Realtime feeds

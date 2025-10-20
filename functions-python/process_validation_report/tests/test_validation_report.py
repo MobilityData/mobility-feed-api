@@ -78,13 +78,16 @@ class TestValidationReportProcessor(unittest.TestCase):
         feed = Gtfsfeed(id=faker.word(), data_type="gtfs", stable_id=faker.word())
         # Create a new dataset
         dataset = Gtfsdataset(
-            id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
+            id=faker.word(),
+            feed_id=feed.id,
+            stable_id=dataset_stable_id,
         )
         try:
             db_session.add(feed)
             db_session.flush()
             db_session.add(dataset)
             db_session.flush()
+            feed.latest_dataset_id = dataset.id
             returned_dataset = get_dataset(dataset_stable_id, db_session)
             self.assertIsNotNone(returned_dataset)
             self.assertEqual(returned_dataset, dataset)
@@ -120,12 +123,14 @@ class TestValidationReportProcessor(unittest.TestCase):
         feed = Gtfsfeed(id=faker.word(), data_type="gtfs", stable_id=feed_stable_id)
         # Create a new dataset
         dataset = Gtfsdataset(
-            id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
+            id=faker.word(), feed_id=feed.id, stable_id=dataset_stable_id
         )
         try:
             db_session.add(feed)
             db_session.flush()
             db_session.add(dataset)
+            db_session.flush()
+            feed.latest_dataset_id = dataset.id
             db_session.commit()
             create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
 
@@ -240,7 +245,7 @@ class TestValidationReportProcessor(unittest.TestCase):
     def test_populate_service_date_valid_dates(self):
         """Test populate_service_date function with valid date values."""
         dataset = Gtfsdataset(
-            id=faker.word(), feed_id=faker.word(), stable_id=faker.word(), latest=True
+            id=faker.word(), feed_id=faker.word(), stable_id=faker.word()
         )
         json_report = {
             "summary": {
@@ -266,7 +271,7 @@ class TestValidationReportProcessor(unittest.TestCase):
     def test_populate_service_date_valid_empty_dates(self):
         """Test populate_service_date function."""
         dataset = Gtfsdataset(
-            id=faker.word(), feed_id=faker.word(), stable_id=faker.word(), latest=True
+            id=faker.word(), feed_id=faker.word(), stable_id=faker.word()
         )
         json_report = {
             "summary": {
@@ -356,12 +361,16 @@ class TestValidationReportProcessor(unittest.TestCase):
         feed = Gtfsfeed(id=faker.uuid4(), data_type="gtfs", stable_id=feed_stable_id)
         # Create a new dataset
         dataset = Gtfsdataset(
-            id=faker.uuid4(), feed_id=feed.id, stable_id=dataset_stable_id, latest=True
+            id=faker.uuid4(),
+            feed_id=feed.id,
+            stable_id=dataset_stable_id,
         )
         try:
             db_session.add(feed)
             db_session.flush()
             db_session.add(dataset)
+            db_session.flush()
+            feed.latest_dataset_id = dataset.id
             db_session.commit()
             create_validation_report_entities(feed_stable_id, dataset_stable_id, "1.0")
 
@@ -409,7 +418,6 @@ class TestValidationReportProcessor(unittest.TestCase):
             id=faker.word(),
             feed_id=feed.id,
             stable_id=dataset_stable_id,
-            latest=True,
             validation_reports=[
                 Validationreport(
                     id=report_id, validator_version="1.0", notices=[], features=[]
@@ -420,6 +428,8 @@ class TestValidationReportProcessor(unittest.TestCase):
         try:
             db_session.add(feed)
             db_session.add(dataset)
+            db_session.flush()
+            feed.latest_dataset_id = dataset.id
             db_session.commit()
             # Validate that the validation report is already in the DB
             validation_report = (

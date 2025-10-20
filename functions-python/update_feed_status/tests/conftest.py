@@ -21,8 +21,8 @@ import pytest
 
 from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
-    Feed,
     Gtfsdataset,
+    Gtfsfeed,
 )
 from test_shared.test_utils.database_utils import (
     clean_testing_db,
@@ -33,13 +33,10 @@ future_date = datetime.now() + timedelta(days=15)
 past_date = datetime.now() - timedelta(days=15)
 
 
-def make_dataset(
-    feed_id: str, latest: bool, start: datetime, end: datetime
-) -> Gtfsdataset:
+def make_dataset(feed_id: str, start: datetime, end: datetime) -> Gtfsdataset:
     return Gtfsdataset(
         id=str(uuid4()),
         feed_id=feed_id,
-        latest=latest,
         service_date_range_start=start,
         service_date_range_end=end,
     )
@@ -54,11 +51,12 @@ def populate_database(db_session):
         "development": (16, 17),
         "future": (18, 29),
     }
+    feeds = {}
     for status, (a, b) in id_range_by_status.items():
         for _id in map(str, range(a, b + 1)):
-            db_session.add(
-                Feed(id=str(_id), status=status, stable_id="mdb-" + str(_id))
-            )
+            feed = Gtfsfeed(id=str(_id), status=status, stable_id="mdb-" + str(_id))
+            db_session.add(feed)
+            feeds[_id] = feed
     db_session.flush()
     # -> inactive
     for _id in [
@@ -67,7 +65,10 @@ def populate_database(db_session):
         "8",
         "22",
     ]:
-        db_session.add(make_dataset(_id, True, past_date, past_date))
+        dataset = make_dataset(_id, past_date, past_date)
+        db_session.add(dataset)
+        db_session.flush()
+        feeds[_id].latest_dataset_id = dataset.id
 
     # -> active
     for _id in [
@@ -77,14 +78,21 @@ def populate_database(db_session):
         "16",  # development
         "25",
     ]:
-        db_session.add(make_dataset(_id, True, past_date, future_date))
+        dataset = make_dataset(_id, past_date, future_date)
+        db_session.add(dataset)
+        db_session.flush()
+        feeds[_id].latest_dataset_id = dataset.id
 
     # -> future
     for _id in [
         "10",
     ]:
-        db_session.add(make_dataset(_id, False, past_date, future_date))
-        db_session.add(make_dataset(_id, True, future_date, future_date))
+        dataset1 = make_dataset(_id, past_date, future_date)
+        db_session.add(dataset1)
+        dataset2 = make_dataset(_id, future_date, future_date)
+        db_session.add(dataset2)
+        db_session.flush()
+        feeds[_id].latest_dataset_id = dataset2.id
 
     db_session.commit()
 

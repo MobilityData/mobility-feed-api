@@ -1,4 +1,3 @@
-import copy
 import unittest
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -49,13 +48,47 @@ def create_test_notice(notice_code: str, total_notices: int, severity: str):
     )
 
 
+gtfs_dataset_orm = Gtfsdataset(
+    id="id",
+    stable_id="dataset_stable_id",
+    feed_id="feed_id",
+    hosted_url="hosted_url",
+    note="note",
+    downloaded_at=datetime(year=2022, month=12, day=31, hour=13, minute=45, second=56),
+    hash="hash",
+    service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+    service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
+    agency_timezone="Canada/Atlantic",
+    bounding_box=WKTElement(POLYGON, srid=4326),
+    validation_reports=[
+        Validationreport(
+            id="id",
+            validator_version="validator_version",
+            validated_at=datetime(year=2022, month=12, day=31, hour=13, minute=45, second=56),
+            html_report="html_report",
+            json_report="json_report",
+            features=[Feature(name="feature")],
+            notices=[
+                create_test_notice("notice_code1", 1, "INFO"),
+                create_test_notice("notice_code2", 3, "INFO"),
+                create_test_notice("notice_code3", 7, "ERROR"),
+                create_test_notice("notice_code4", 9, "ERROR"),
+                create_test_notice("notice_code5", 11, "ERROR"),
+                create_test_notice("notice_code6", 13, "WARNING"),
+                create_test_notice("notice_code7", 15, "WARNING"),
+                create_test_notice("notice_code8", 17, "WARNING"),
+                create_test_notice("notice_code9", 19, "WARNING"),
+            ],
+        )
+    ],
+)
 gtfs_feed_orm = Gtfsfeed(
     id="id",
     data_type="gtfs",
     feed_name="feed_name",
     note="note",
     producer_url="producer_url",
-    authentication_type=1,
+    authentication_type="1",
     authentication_info_url="authentication_info_url",
     api_key_parameter_name="api_key_parameter_name",
     license_url="license_url",
@@ -79,43 +112,8 @@ gtfs_feed_orm = Gtfsfeed(
             source="source",
         )
     ],
-    gtfsdatasets=[
-        Gtfsdataset(
-            id="id",
-            stable_id="dataset_stable_id",
-            feed_id="feed_id",
-            hosted_url="hosted_url",
-            note="note",
-            downloaded_at=datetime(year=2022, month=12, day=31, hour=13, minute=45, second=56),
-            hash="hash",
-            service_date_range_start=datetime(2024, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
-            service_date_range_end=datetime(2025, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Canada/Atlantic")),
-            agency_timezone="Canada/Atlantic",
-            bounding_box=WKTElement(POLYGON, srid=4326),
-            latest=True,
-            validation_reports=[
-                Validationreport(
-                    id="id",
-                    validator_version="validator_version",
-                    validated_at=datetime(year=2022, month=12, day=31, hour=13, minute=45, second=56),
-                    html_report="html_report",
-                    json_report="json_report",
-                    features=[Feature(name="feature")],
-                    notices=[
-                        create_test_notice("notice_code1", 1, "INFO"),
-                        create_test_notice("notice_code2", 3, "INFO"),
-                        create_test_notice("notice_code3", 7, "ERROR"),
-                        create_test_notice("notice_code4", 9, "ERROR"),
-                        create_test_notice("notice_code5", 11, "ERROR"),
-                        create_test_notice("notice_code6", 13, "WARNING"),
-                        create_test_notice("notice_code7", 15, "WARNING"),
-                        create_test_notice("notice_code8", 17, "WARNING"),
-                        create_test_notice("notice_code9", 19, "WARNING"),
-                    ],
-                )
-            ],
-        )
-    ],
+    latest_dataset=gtfs_dataset_orm,
+    gtfsdatasets=[gtfs_dataset_orm],
     redirectingids=[
         Redirectingid(source_id="source_id", target_id="id1", redirect_comment="redirect_comment", target=targetFeed)
     ],
@@ -198,24 +196,47 @@ class TestGtfsFeedImpl(unittest.TestCase):
 
     def test_from_orm_empty_fields(self):
         """Test the `from_orm` method with not provided fields."""
-        # Test with empty fields and None values
-        # No error should be raised
-        # Target is set to None as deep copy is failing for unknown reasons
-        # At the end of the test, the target is set back to the original value
-        gtfs_feed_orm.redirectingids[0].target = None
-        target_feed_orm = copy.deepcopy(gtfs_feed_orm)
-        target_feed_orm.feed_name = ""
-        target_feed_orm.provider = None
-        target_feed_orm.externalids = []
-        target_feed_orm.redirectingids = []
-
-        target_expected_gtfs_feed_result = copy.deepcopy(expected_gtfs_feed_result)
-        target_expected_gtfs_feed_result.feed_name = ""
-        target_expected_gtfs_feed_result.provider = None
-        target_expected_gtfs_feed_result.external_ids = []
-        target_expected_gtfs_feed_result.redirects = []
-
-        result = GtfsFeedImpl.from_orm(target_feed_orm)
-        assert result == target_expected_gtfs_feed_result
-        # Set the target back to the original value
-        gtfs_feed_orm.redirectingids[0].target = targetFeed
+        # Manually construct a minimal Gtfsfeed ORM object with empty/None fields
+        minimal_feed_orm = Gtfsfeed(
+            id="id",
+            data_type="gtfs",
+            feed_name="",
+            note=None,
+            producer_url=None,
+            authentication_type=None,
+            authentication_info_url=None,
+            api_key_parameter_name=None,
+            license_url=None,
+            stable_id="stable_id",
+            status=None,
+            feed_contact_email=None,
+            provider=None,
+            locations=[],
+            externalids=[],
+            latest_dataset=None,
+            gtfsdatasets=[],
+            redirectingids=[],
+            gtfs_rt_feeds=[],
+        )
+        minimal_expected_result = GtfsFeedImpl(
+            id="stable_id",
+            data_type="gtfs",
+            status=None,
+            external_ids=[],
+            provider=None,
+            feed_name="",
+            note=None,
+            feed_contact_email=None,
+            source_info=SourceInfo(
+                producer_url=None,
+                authentication_type=None,
+                authentication_info_url=None,
+                api_key_parameter_name=None,
+                license_url=None,
+            ),
+            redirects=[],
+            locations=[],
+            latest_dataset=None,
+        )
+        result = GtfsFeedImpl.from_orm(minimal_feed_orm)
+        assert result == minimal_expected_result
