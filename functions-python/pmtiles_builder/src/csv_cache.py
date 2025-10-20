@@ -13,7 +13,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-import csv
 import logging
 import os
 import subprocess
@@ -24,7 +23,6 @@ from pympler import asizeof
 
 from shared.helpers.logger import get_logger
 from shared.helpers.transform import get_safe_value, get_safe_float, get_safe_int
-from shared.helpers.utils import detect_encoding
 
 STOP_TIMES_FILE = "stop_times.txt"
 SHAPES_FILE = "shapes.txt"
@@ -109,38 +107,6 @@ class CsvCache:
 
     def get_path(self, filename: str) -> str:
         return os.path.join(self.workdir, filename)
-
-    def get_file(self, filename) -> list[dict]:
-        if self.file_data.get(filename) is None:
-            self.file_data[filename] = self._read_csv(self.get_path(filename))
-            self.debug_log_size(f"file data for {filename}", self.file_data[filename])
-        return self.file_data[filename]
-
-    def add_data(self, filename: str, data: list[dict]):
-        self.file_data[filename] = data
-
-    def _read_csv(self, filename) -> list[dict]:
-        """
-        Reads the content of a CSV file and returns it as a list of dictionaries
-        where each dictionary represents a row.
-
-        Parameters:
-        filename (str): The file path of the CSV file to be read.
-
-        Raises:
-        Exception: If there is an error during file opening or reading. The raised
-        exception will include the original error message along with the file name.
-
-        Returns:
-        list[dict]: A list of dictionaries, each representing a row in the CSV file.
-        """
-        try:
-            self.logger.debug("Loading %s", filename)
-            encoding = detect_encoding(filename, logger=self.logger)
-            with open(filename, newline="", encoding=encoding) as f:
-                return list(csv.DictReader(f))
-        except Exception as e:
-            raise Exception(f"Failed to read CSV file {filename}: {e}") from e
 
     def set_workdir(self, workdir):
         self.workdir = workdir

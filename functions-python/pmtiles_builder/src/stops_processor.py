@@ -4,7 +4,7 @@ from typing import TextIO
 
 from base_processor import BaseProcessor
 from csv_cache import STOPS_FILE
-from gtfs import stop_txt_is_lat_lon_required, is_lat_lon_required
+from gtfs import is_lat_lon_required
 from routes_processor_for_colors import RoutesProcessorForColors
 from stop_times_processor import StopTimesProcessor
 
@@ -56,7 +56,7 @@ class StopsProcessor(BaseProcessor):
                     stop_lon = csv_cache.get_safe_float_from_index(row, lon_index)
                     stop_lat = csv_cache.get_safe_float_from_index(row, lat_index)
                     location_type = csv_cache.get_safe_value_from_index(
-                        row, location_type_index, ""
+                        row, location_type_index, "0"
                     )
                     stop_code = csv_cache.get_safe_value_from_index(
                         row, stop_code_index, ""
@@ -77,7 +77,9 @@ class StopsProcessor(BaseProcessor):
                         row, wheelchair_boarding_index, ""
                     )
 
-                    self.add_to_stop_to_coordinates(line, stop_id, stop_lon, stop_lat)
+                    self.add_to_stop_to_coordinates(
+                        row, stop_id, stop_lon, stop_lat, location_type
+                    )
 
                     self.add_to_stops_geojson(
                         geojson_file=geojson_file,
@@ -94,16 +96,18 @@ class StopsProcessor(BaseProcessor):
                     )
                 geojson_file.write("\n]}")
 
-    def add_to_stop_to_coordinates(self, line, stop_id, stop_lon, stop_lat):
+    def add_to_stop_to_coordinates(
+        self, row, stop_id, stop_lon, stop_lat, location_type
+    ):
         if stop_id is None:
-            self.logger.warning("Missing stop id: %s", line)
+            self.logger.warning("Missing stop id: %s", row)
             return
         if stop_lon is None or stop_lat is None:
-            if stop_txt_is_lat_lon_required(line):
-                self.logger.warning("Missing stop latitude and longitude : %s", line)
+            if is_lat_lon_required(location_type):
+                self.logger.warning("Missing stop latitude and longitude : %s", row)
             else:
                 self.logger.debug(
-                    "Missing optional stop latitude and longitude : %s", line
+                    "Missing optional stop latitude and longitude : %s", row
                 )
             return
         self.stop_to_coordinates[stop_id] = (stop_lon, stop_lat)

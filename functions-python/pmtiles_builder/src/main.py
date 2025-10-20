@@ -34,8 +34,6 @@ from csv_cache import (
     STOP_TIMES_FILE,
     TRIPS_FILE,
     STOPS_FILE,
-    AGENCY_FILE,
-    SHAPES_FILE,
 )
 from routes_processor import RoutesProcessor
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
@@ -108,12 +106,13 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
             status, message = builder.build_pmtiles()
 
             # A failure at this point means the pmtiles could not be created because the data
-            # is not available. So it's not an error of the pmtiles creation. I n that case
-            # we log an warning instead of an error.
+            # is not available. So it's not an error of the pmtiles creation. In that case
+            # we log a warning instead of an error.
             if status == PmtilesBuilder.OperationStatus.FAILURE:
                 result["warning"] = message
             else:
                 result["message"] = "Successfully built pmtiles."
+
             return result
 
     except Exception as e:
@@ -190,30 +189,38 @@ class PmtilesBuilder:
     def build_pmtiles(self):
         self.logger.info("Starting PMTiles build")
 
+        if self.download_from_gcs:
+            # If we don't use gcs, we assume the txt files are already in the workdir.
+            unzipped_files_path = (
+                f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
+            )
+            status, message = self.check_required_files_presence(unzipped_files_path)
+            if status == self.OperationStatus.FAILURE:
+                return status, message
+
         self.process_all()
 
-        self._run_tippecanoe("routes-output.geojson", "routes.pmtiles")
+        self.run_tippecanoe("routes-output.geojson", "routes.pmtiles")
 
-        self._run_tippecanoe("stops-output.geojson", "stops.pmtiles")
+        self.run_tippecanoe("stops-output.geojson", "stops.pmtiles")
 
         if self.upload_to_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
-            self._upload_files_to_gcs(files_to_upload)
+            self.upload_files_to_gcs(files_to_upload)
 
         if self.use_database:
-            self._update_database()
+            self.update_database()
 
         self.logger.info("Completed PMTiles build")
         return self.OperationStatus.SUCCESS, "success"
 
-    def _download_files_from_gcs(self, unzipped_files_path):
+    def check_required_files_presence(self, unzipped_files_path):
         self.logger.info(
-            "Downloading dataset from GCS bucket %s, directory %s",
+            "Making sure all required files are present in bucket %s, directory %s",
             self.bucket_name,
             unzipped_files_path,
         )
         try:
-            self.logger.debug("Initializing storage client")
             try:
                 self.bucket = storage.Client().get_bucket(self.bucket_name)
             except Exception as e:
@@ -229,48 +236,22 @@ class PmtilesBuilder:
                 self.logger.warning(msg)
                 return self.OperationStatus.FAILURE, msg
 
-            files = [
-                {"name": ROUTES_FILE, "required": True},
-                {"name": STOP_TIMES_FILE, "required": True},
-                {"name": TRIPS_FILE, "required": True},
-                {"name": STOPS_FILE, "required": True},
-                {"name": AGENCY_FILE, "required": False},
-                {"name": SHAPES_FILE, "required": False},
-            ]
-            for file_info in files:
-                file_name = file_info["name"]
-                required = file_info["required"]
+            required_files = [ROUTES_FILE, STOP_TIMES_FILE, TRIPS_FILE, STOPS_FILE]
+            for file_name in required_files:
                 blob_path = f"{unzipped_files_path}/{file_name}"
                 blob = self.bucket.blob(blob_path)
                 if not blob.exists():
-                    if required:
-                        msg = f"Required file '{blob_path}' does not exist in bucket '{self.bucket_name}'."
-                        self.logger.warning(msg)
-                        return self.OperationStatus.FAILURE, msg
-                    self.logger.debug(
-                        "Optional file %s does not exist in bucket %s",
-                        blob_path,
-                        self.bucket_name,
-                    )
-                    continue
-                try:
-                    blob.download_to_filename(self.get_path(file_name))
-                except Exception as e:
-                    if required:
-                        msg = f"Error downloading required file '{blob_path}' from bucket '{self.bucket_name}': {e}"
-                        self.logger.error(msg)
-                        raise Exception(msg) from e
-                    else:
-                        msg = f"Cannot download optional file '{blob_path}' from bucket '{self.bucket_name}': {e}"
-                        self.logger.warning(msg)
+                    msg = f"Required file '{blob_path}' does not exist in bucket '{self.bucket_name}'."
+                    self.logger.warning(msg)
+                    return self.OperationStatus.FAILURE, msg
 
-            msg = "All required files downloaded successfully."
+            msg = "All required files are present."
             return self.OperationStatus.SUCCESS, msg
         except Exception as e:
-            msg = f"Error downloading files from GCS: {e}"
+            msg = f"Error checking presence of required files in bucket: {e}"
             raise Exception(msg) from e
 
-    def _upload_files_to_gcs(self, file_to_upload):
+    def upload_files_to_gcs(self, file_to_upload):
         if not self.upload_to_gcs:
             return
 
@@ -408,7 +389,7 @@ class PmtilesBuilder:
                     self.logger.warning(f"Failed to delete file {local_file_path}: {e}")
 
     @track_metrics(metrics=("time", "memory", "cpu"))
-    def _run_tippecanoe(self, input_file, output_file):
+    def run_tippecanoe(self, input_file, output_file):
         self.logger.info("Running tippecanoe for input file %s", input_file)
         try:
             cmd = [
@@ -434,7 +415,7 @@ class PmtilesBuilder:
             ) from e
 
     @with_db_session
-    def _update_database(self, db_session: Session = None):
+    def update_database(self, db_session: Session = None):
         dataset = (
             db_session.query(Gtfsdataset)
             .filter(Gtfsdataset.stable_id == self.dataset_stable_id)

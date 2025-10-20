@@ -1,680 +1,391 @@
-import json
-import logging
+# Tests for additional behaviors of PmtilesBuilder not covered in the other test module.
+import os
 import tempfile
 import unittest
-from contextlib import contextmanager
-from unittest.mock import patch, MagicMock
-import os
+from unittest.mock import MagicMock, patch
 
-from main import (
-    PmtilesBuilder,
-    build_pmtiles_handler,
-)
+import flask
+
+from main import PmtilesBuilder, build_pmtiles_handler
 
 
-@contextmanager
-def suppress_logging(level=logging.CRITICAL):
-    previous_level = logging.root.manager.disable
-    logging.disable(level)
-    try:
-        yield
-    finally:
-        logging.disable(previous_level)
+class TestBuildPmtilesHandler(unittest.TestCase):
+    def test_missing_parameters(self):
+        with flask.Flask(__name__).test_request_context(json={}):
+            req = flask.request
+            result = build_pmtiles_handler(req)
+        self.assertIn("status", result)
+        self.assertEqual(result["status"], "error")
+        self.assertIn("feed_stable_id", result["error"])
 
+    def test_dataset_not_prefixed_by_feed(self):
+        payload = {"feed_stable_id": "feedA", "dataset_stable_id": "other_dataset"}
+        with flask.Flask(__name__).test_request_context(json=payload):
+            req = flask.request
+            result = build_pmtiles_handler(req)
+        self.assertIn("status", result)
+        self.assertEqual(result["status"], "error")
 
-class TestDownloadFilesFromGCS(unittest.TestCase):
-    def setUp(self):
-        self.builder = PmtilesBuilder(
-            feed_stable_id="feed123",
-            dataset_stable_id="feed123_dataset456",
-            workdir="/tmp",
+    def test_missing_bucket_env(self):
+        # Ensure the DATASETS_BUCKET_NAME is not set
+        if "DATASETS_BUCKET_NAME" in os.environ:
+            del os.environ["DATASETS_BUCKET_NAME"]
+        payload = {"feed_stable_id": "feed", "dataset_stable_id": "feed_dataset"}
+        with flask.Flask(__name__).test_request_context(json=payload):
+            req = flask.request
+            result = build_pmtiles_handler(req)
+        self.assertEqual(result.get("status"), "error")
+        self.assertIn("DATASETS_BUCKET_NAME", result.get("error", ""))
+
+    @patch("main.get_logger", return_value=MagicMock())
+    @patch("main.EphemeralOrDebugWorkdir")
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_success(
+        self, mock_builder_cls, mock_workdir_cls, _mock_logger
+    ):
+        # Arrange
+        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+        payload = {"feed_stable_id": "feedX", "dataset_stable_id": "feedX_datasetY"}
+
+        # Ensure the patched class exposes the real OperationStatus enum so
+        # comparisons inside main.build_pmtiles_handler remain valid.
+        mock_builder_cls.OperationStatus = PmtilesBuilder.OperationStatus
+
+        # Workdir context manager mock
+        cm = MagicMock()
+        cm.__enter__.return_value = "/tmp/fake_workdir"
+        cm.__exit__.return_value = False
+        mock_workdir_cls.return_value = cm
+
+        # Builder mock
+        builder_inst = MagicMock()
+        builder_inst.build_pmtiles.return_value = (
+            PmtilesBuilder.OperationStatus.SUCCESS,
+            "ok",
         )
-        self.builder.bucket = MagicMock()
+        mock_builder_cls.return_value = builder_inst
+
+        with flask.Flask(__name__).test_request_context(json=payload):
+            req = flask.request
+            result = build_pmtiles_handler(req)
+
+        # Assert
+        self.assertIn("message", result)
+        self.assertEqual(result["message"], "Successfully built pmtiles.")
+        mock_builder_cls.assert_called_once_with(
+            feed_stable_id=payload["feed_stable_id"],
+            dataset_stable_id=payload["dataset_stable_id"],
+            workdir="/tmp/fake_workdir",
+        )
+        builder_inst.build_pmtiles.assert_called_once()
+
+    @patch("main.get_logger", return_value=MagicMock())
+    @patch("main.EphemeralOrDebugWorkdir")
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_builder_returns_failure(
+        self, mock_builder_cls, mock_workdir_cls, _mock_logger
+    ):
+        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+        payload = {"feed_stable_id": "feedX", "dataset_stable_id": "feedX_datasetY"}
+
+        # Ensure equality checks against OperationStatus work even though the class is patched
+        mock_builder_cls.OperationStatus = PmtilesBuilder.OperationStatus
+
+        cm = MagicMock()
+        cm.__enter__.return_value = "/tmp/fake_workdir"
+        cm.__exit__.return_value = False
+        mock_workdir_cls.return_value = cm
+
+        builder_inst = MagicMock()
+        builder_inst.build_pmtiles.return_value = (
+            PmtilesBuilder.OperationStatus.FAILURE,
+            "no data",
+        )
+        mock_builder_cls.return_value = builder_inst
+
+        with flask.Flask(__name__).test_request_context(json=payload):
+            req = flask.request
+            result = build_pmtiles_handler(req)
+
+        self.assertIn("warning", result)
+        self.assertEqual(result["warning"], "no data")
+
+    @patch("main.get_logger", return_value=MagicMock())
+    @patch("main.EphemeralOrDebugWorkdir")
+    @patch("main.PmtilesBuilder")
+    def test_build_pmtiles_handler_exception_path(
+        self, mock_builder_cls, mock_workdir_cls, _mock_logger
+    ):
+        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+        payload = {"feed_stable_id": "feedX", "dataset_stable_id": "feedX_datasetY"}
+
+        # Make sure main.PmtilesBuilder.OperationStatus is set so build_pmtiles_handler behaves normally
+        mock_builder_cls.OperationStatus = PmtilesBuilder.OperationStatus
+
+        # make the workdir context manager raise on enter to simulate unexpected failure
+        cm = MagicMock()
+        cm.__enter__.side_effect = Exception("boom")
+        cm.__exit__.return_value = False
+        mock_workdir_cls.return_value = cm
+
+        with flask.Flask(__name__).test_request_context(json=payload):
+            req = flask.request
+            result = build_pmtiles_handler(req)
+
+        self.assertIn("error", result)
+        self.assertIn("Failed to build PMTiles", result["error"])
+
+
+class TestDownloadAndUploadHelpers(unittest.TestCase):
+    def setUp(self):
+        # Ensure env var for bucket is set for the builder to use
+        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
+        # Patch the module-level get_logger used by main so PmtilesBuilder won't emit real logs during ctor
+        self.get_logger_patcher = patch("main.get_logger", return_value=MagicMock())
+        self.mock_get_logger = self.get_logger_patcher.start()
+        self.builder = PmtilesBuilder("feedX", "feedX_datasetY")
+        # Also ensure the instance logger is a mock (defensive)
         self.builder.logger = MagicMock()
-        self.builder.bucket_name = "test-bucket"  # Ensure bucket_name is set
+
+    def tearDown(self):
+        if "DATASETS_BUCKET_NAME" in os.environ:
+            del os.environ["DATASETS_BUCKET_NAME"]
+        # stop the get_logger patcher if started
+        if hasattr(self, "get_logger_patcher"):
+            self.get_logger_patcher.stop()
 
     @patch("main.storage.Client")
-    @patch("main.ROUTES_FILE", "routes.txt")
-    def test_required_file_missing(self, mock_storage_client):
-        mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
+    def test_download_and_process_blob_missing_raises(self, mock_storage):
+        # Processor that requires download
+        processor = MagicMock()
+        processor.filename = "missing.txt"
+        processor.no_download = False
+        processor.no_delete = True
+        processor.process = MagicMock()
+
+        # Mock bucket/blob to indicate missing blob
+        mock_client = mock_storage.return_value
+        bucket = mock_client.get_bucket.return_value
         blob = MagicMock()
         blob.exists.return_value = False
-        self.builder.bucket.blob.return_value = blob
-        # Simulate directory exists by returning a non-empty list
-        self.builder.bucket.list_blobs.return_value = [MagicMock()]
-        status, msg = self.builder._download_files_from_gcs("some/path")
+        bucket.blob.return_value = blob
+
+        # Suppress global logging output during the invocation so the test output is clean
+        import logging
+
+        logging.disable(logging.CRITICAL)
+        try:
+            with self.assertRaises(Exception):
+                self.builder.download_and_process(processor)
+        finally:
+            logging.disable(logging.NOTSET)
+        processor.process.assert_not_called()
+
+    @patch("main.storage.Client")
+    def test_download_and_process_no_download_calls_process_only(self, mock_storage):
+        processor = MagicMock()
+        processor.filename = "local.txt"
+        processor.no_download = True
+        processor.no_delete = True
+        processor.process = MagicMock()
+
+        # storage.Client should not be required/called
+        self.builder.download_and_process(processor)
+        processor.process.assert_called_once()
+        mock_storage.assert_not_called()
+
+    @patch("main.storage.Client")
+    def test_upload_files_to_gcs_success(self, mock_storage):
+        # Create a temp file to upload
+        with tempfile.TemporaryDirectory() as td:
+            fname = "upload.me"
+            path = os.path.join(td, fname)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("hello")
+
+            # Patch get_path to point to our temp file for the given filename
+            self.builder.get_path = (
+                lambda fn: path if fn == fname else os.path.join(td, fn)
+            )
+
+            mock_client = mock_storage.return_value
+            bucket = mock_client.get_bucket.return_value
+            # list_blobs returns empty (nothing to delete)
+            bucket.list_blobs.return_value = []
+
+            blob = MagicMock()
+            # Ensure blob upload and make_public succeed
+            bucket.blob.return_value = blob
+
+            # Call upload (builder.upload_to_gcs True by default unless env overrides)
+            self.builder.upload_to_gcs = True
+            self.builder.bucket_name = "test-bucket"
+
+            self.builder.upload_files_to_gcs([fname])
+
+            # The bucket.blob must be called with the destination path
+            self.assertTrue(bucket.blob.called)
+            blob.upload_from_filename.assert_called_once_with(path)
+
+    @patch("main.storage.Client")
+    def test_check_required_files_presence_bucket_missing(self, mock_storage):
+        # Simulate storage client raising on get_bucket
+        mock_storage.return_value.get_bucket.side_effect = Exception("no bucket")
+        status, msg = self.builder.check_required_files_presence("some/prefix")
+        self.assertEqual(status, self.builder.OperationStatus.FAILURE)
+        self.assertIn("does not exist", msg)
+
+    @patch("main.storage.Client")
+    def test_check_required_files_presence_blobs_empty(self, mock_storage):
+        # Simulate bucket exists but directory prefix has no blobs
+        mock_client = mock_storage.return_value
+        bucket = mock_client.get_bucket.return_value
+        bucket.list_blobs.return_value = []
+
+        status, msg = self.builder.check_required_files_presence("some/prefix")
+        self.assertEqual(status, self.builder.OperationStatus.FAILURE)
+        self.assertIn("does not exist or is empty", msg)
+
+    @patch("main.storage.Client")
+    def test_check_required_files_presence_missing_required_file(self, mock_storage):
+        # Simulate bucket with blobs but a required file is missing
+        mock_client = mock_storage.return_value
+        bucket = mock_client.get_bucket.return_value
+        bucket.list_blobs.return_value = [MagicMock()]
+        # bucket.blob(...).exists() should return False for required file
+        blob_mock = MagicMock()
+        blob_mock.exists.return_value = False
+        bucket.blob.return_value = blob_mock
+
+        status, msg = self.builder.check_required_files_presence("some/prefix")
         self.assertEqual(status, self.builder.OperationStatus.FAILURE)
         self.assertIn("Required file", msg)
-        self.builder.logger.warning.assert_called()
-
-    @patch("main.SHAPES_FILE", "shapes.txt")
-    def test_optional_file_missing(self):
-        blob = MagicMock()
-        blob.exists.return_value = False
-        self.builder.bucket.blob.return_value = blob
-        status, msg = self.builder._download_files_from_gcs("some/path")
-        self.builder.logger.debug.assert_called()
 
     @patch("main.storage.Client")
-    @patch("main.ROUTES_FILE", "routes.txt")
-    def test_file_download_success(self, mock_storage_client):
-        mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
-        blob = MagicMock()
-        blob.exists.return_value = True
-        blob.download_to_filename.return_value = None
-        self.builder.bucket.blob.return_value = blob
-        # Simulate directory exists by returning a non-empty list
-        self.builder.bucket.list_blobs.return_value = [MagicMock()]
-        status, msg = self.builder._download_files_from_gcs("some/path")
+    def test_check_required_files_presence_success(self, mock_storage):
+        # Simulate bucket with all required files present
+        mock_client = mock_storage.return_value
+        bucket = mock_client.get_bucket.return_value
+        bucket.list_blobs.return_value = [MagicMock()]
+        blob_mock = MagicMock()
+        blob_mock.exists.return_value = True
+        bucket.blob.return_value = blob_mock
+
+        status, msg = self.builder.check_required_files_presence("some/prefix")
         self.assertEqual(status, self.builder.OperationStatus.SUCCESS)
-        self.assertIn("downloaded successfully", msg)
+        self.assertIn("All required files are present", msg)
 
-    @patch("main.storage.Client")
-    def test_bucket_not_exist(self, mock_client):
-        mock_client.return_value.get_bucket.side_effect = Exception("Bucket not found")
-        status, message = self.builder._download_files_from_gcs("some/path")
-        self.assertEqual(status, PmtilesBuilder.OperationStatus.FAILURE)
-        self.assertIn("Bucket not found", message)
+    @patch("main.TripsProcessor")
+    @patch("main.StopTimesProcessor")
+    @patch("main.RoutesProcessorForColors")
+    @patch("main.StopsProcessor")
+    @patch("main.ShapesProcessor")
+    @patch("main.AgenciesProcessor")
+    @patch("main.RoutesProcessor")
+    def test_process_all_invokes_download_for_each_processor(
+        self,
+        mock_routes_proc,
+        mock_agencies,
+        mock_shapes,
+        mock_stops,
+        mock_routes_colors,
+        mock_stop_times,
+        mock_trips,
+    ):
+        # Arrange: return simple mock instances with filenames so download_and_process can be called
+        mock_trips.return_value = MagicMock(filename="trips.txt")
+        mock_stop_times.return_value = MagicMock(filename="stop_times.txt")
+        mock_routes_colors.return_value = MagicMock(filename="routes_colors.txt")
+        mock_stops.return_value = MagicMock(filename="stops.txt")
+        mock_shapes.return_value = MagicMock(filename="shapes.txt")
+        mock_agencies.return_value = MagicMock(filename="agency.txt")
+        mock_routes_proc.return_value = MagicMock(filename="routes.txt")
 
-    @patch("main.storage.Client")
-    def test_download_required_file_error(self, mock_storage_client):
-        mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
-        blob = MagicMock()
-        blob.exists.return_value = True
-        blob.download_to_filename.side_effect = Exception("Download failed")
-        self.builder.bucket.blob.return_value = blob
-        self.builder.bucket.list_blobs.return_value = [MagicMock()]
-        # Only required files
-        with self.assertRaises(Exception) as context:
-            self.builder._download_files_from_gcs("some/path")
-        self.assertIn("Error downloading required file", str(context.exception))
-        self.builder.logger.error.assert_called()
+        # Act: patch the builder's download_and_process to count invocations
+        with patch.object(
+            self.builder, "download_and_process", autospec=True
+        ) as mock_download:
+            self.builder.process_all()
 
-    @patch("main.storage.Client")
-    def test_download_optional_file_error(self, mock_storage_client):
-        mock_storage_client.return_value.get_bucket.return_value = self.builder.bucket
-        blob = MagicMock()
-        blob.exists.return_value = True
-
-        def download_side_effect(path):
-            if path.endswith("shapes.txt"):
-                raise Exception("Download failed")
-            # Simulate success for other files
-
-        blob.download_to_filename.side_effect = download_side_effect
-        self.builder.bucket.blob.return_value = blob
-        self.builder.bucket.list_blobs.return_value = [MagicMock()]
-        with patch("main.SHAPES_FILE", "shapes.txt"):
-            status, msg = self.builder._download_files_from_gcs("some/path")
-        self.assertEqual(status, self.builder.OperationStatus.SUCCESS)
-        self.builder.logger.warning.assert_called_with(
-            "Cannot download optional file 'some/path/shapes.txt' from bucket 'test-bucket': Download failed"
-        )
-        self.assertEqual(msg, "All required files downloaded successfully.")
-
-
-class TestPmtilesBuilder(unittest.TestCase):
-    def setUp(self):
-        self.feed_stable_id = "feed123"
-        self.dataset_stable_id = "feed123_dataset456"
-        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
-
-        # Patch the storage client before instantiating the builder
-        self.storage_patcher = patch("main.storage.Client")
-        self.mock_storage_client = self.storage_patcher.start()
-        self.mock_storage_client.return_value.get_bucket.return_value = MagicMock()
-
-        self.download_patcher = patch("main.PmtilesBuilder._download_files_from_gcs")
-        self.mock_download = self.download_patcher.start()
-        self.mock_download.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "success",
-        )
-
-        self.builder = PmtilesBuilder(self.feed_stable_id, self.dataset_stable_id)
+        # Assert: should have been called once per processor constructed in process_all
+        self.assertEqual(mock_download.call_count, 7)
 
     @patch("main.subprocess.run")
     def test_run_tippecanoe_success(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
-        self.builder._run_tippecanoe("input.geojson", "output.pmtiles")
+        # Simulate tippecanoe succeeding (returncode 0)
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "tippecanoe OK"
+        mock_run.return_value = mock_result
+
+        with tempfile.TemporaryDirectory() as td:
+            # create dummy input file so get_path points to an existing file
+            in_fname = "routes-output.geojson"
+            out_fname = "routes.pmtiles"
+            open(os.path.join(td, in_fname), "w").close()
+
+            # Patch builder.get_path to use our temp dir
+            self.builder.get_path = lambda fn: os.path.join(td, fn)
+
+            # Should not raise
+            self.builder.run_tippecanoe(in_fname, out_fname)
+
         mock_run.assert_called_once()
+        called_args = mock_run.call_args[0][0]
+        # ensure '-o' and output path are in the command
+        self.assertIn("-o", called_args)
 
     @patch("main.subprocess.run")
     def test_run_tippecanoe_failure(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error")
-        with self.assertRaises(Exception), suppress_logging():
-            self.builder._run_tippecanoe("input.geojson", "output.pmtiles")
+        # Simulate tippecanoe failing (non-zero returncode)
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "fatal error"
+        mock_run.return_value = mock_result
 
-    @patch("main.convert_stops_to_geojson")
-    @patch("main.PmtilesBuilder._download_files_from_gcs")
-    @patch("main.PmtilesBuilder._create_shapes_index")
-    @patch("main.PmtilesBuilder._create_routes_geojson")
-    @patch("main.PmtilesBuilder._run_tippecanoe")
-    @patch("main.PmtilesBuilder._create_routes_json")
-    @patch("main.PmtilesBuilder._upload_files_to_gcs")
-    def test_build_pmtiles_success(
-        self,
-        mock_upload,
-        mock_routes_json,
-        mock_run_tippecanoe,
-        mock_routes_geojson,
-        mock_shapes_index,
-        mock_download,
-        mock_convert_stops,
-    ):
-        self.builder.bucket = MagicMock()
-        self.builder.bucket.list_blobs.return_value = []
-        mock_download.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "All required files downloaded successfully.",
+        with tempfile.TemporaryDirectory() as td:
+            in_fname = "routes-output.geojson"
+            out_fname = "routes.pmtiles"
+            open(os.path.join(td, in_fname), "w").close()
+            self.builder.get_path = lambda fn: os.path.join(td, fn)
+
+            with self.assertRaises(Exception) as cm:
+                self.builder.run_tippecanoe(in_fname, out_fname)
+
+        self.assertIn("Tippecanoe failed", str(cm.exception))
+
+    def test_update_database_no_dataset(self):
+        # db_session.query().filter().one_or_none() returns None -> nothing to do
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.one_or_none.return_value = None
+
+        # Call the decorated method with explicit db_session to bypass session creation
+        self.builder.dataset_stable_id = "missing_dataset"
+        self.builder.update_database(db_session=mock_db)
+
+        # commit should not be called because no dataset
+        mock_db.commit.assert_not_called()
+
+    def test_update_database_success(self):
+        # Prepare mocks: dataset found and gtfsfeed exists
+        dataset_mock = MagicMock()
+        dataset_mock.feed_id = "feed_123"
+        dataset_mock.stable_id = "dataset_ok"
+
+        gtfsfeed_mock = MagicMock()
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.one_or_none.return_value = (
+            dataset_mock
         )
-        # Configure all mocks to return a success status
-        mock_shapes_index.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            {},
-        )
-        mock_routes_geojson.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "success",
-        )
-        mock_routes_json.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "success",
-        )
-        mock_run_tippecanoe.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "success",
-        )
-        mock_upload.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "success",
-        )
-        mock_convert_stops.return_value = (
-            PmtilesBuilder.OperationStatus.SUCCESS,
-            "success",
-        )
+        mock_db.get.return_value = gtfsfeed_mock
 
-        status, message = self.builder.build_pmtiles()
+        self.builder.dataset_stable_id = "dataset_ok"
+        self.builder.update_database(db_session=mock_db)
 
-        self.assertEqual(status, PmtilesBuilder.OperationStatus.SUCCESS)
-        self.assertEqual(message, "success")
-
-    def tearDown(self):
-        self.storage_patcher.stop()
-        self.download_patcher.stop()
-        if "DATASETS_BUCKET_NAME" in os.environ:
-            del os.environ["DATASETS_BUCKET_NAME"]
-
-    def test_build_pmtiles_creates_correct_shapes_index(self):
-        # Prepare shapes.txt
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.set_workdir(temp_dir)
-            shapes_path = os.path.join(temp_dir, "shapes.txt")
-            with open(shapes_path, "w", encoding="utf-8") as f:
-                f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
-                # Also test the reordering of shapes lines. In the test file we put sequence number 10 before 8
-                # It also tests the reordering works fine if there are gaps in the sequence numbers
-                f.write("s1,45.1,-73.1,10\n")
-                f.write("s1,45.0,-73.0,8\n")
-                # f.write("s1,45.1,-73.1,2\n")
-                f.write("s2,46.0,-74.0,1\n")
-
-            index = self.builder._create_shapes_index()
-        self.assertEqual(
-            index.coordinates_columns,
-            ["shape_pt_lon", "shape_pt_lat", "shape_pt_sequence"],
-        )
-        self.assertIn("s1", index.coordinates_arrays)
-        self.assertIn("s2", index.coordinates_arrays)
-        self.assertEqual(len(index.coordinates_arrays["s1"]), 3)
-        self.assertEqual(len(index.coordinates_arrays["s1"][0]), 2)
-        self.assertEqual(len(index.coordinates_arrays["s2"][0]), 1)
-        # Assert that sequence numbers for s1 are sorted
-        self.assertListEqual(list(index.coordinates_arrays["s1"][2]), [8, 10])
-        # Assert that lon and lat for s1 are reordered to match sequence
-        self.assertListEqual(list(index.coordinates_arrays["s1"][0]), [-73.0, -73.1])
-        self.assertListEqual(list(index.coordinates_arrays["s1"][1]), [45.0, 45.1])
-        self.assertEqual(len(index.coordinates_arrays["s2"][0]), 1)
-
-    def test_create_routes_geojson(self):
-        # Prepare minimal GTFS files
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.set_workdir(temp_dir)
-            with open(self.builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "route_id,route_long_name,route_color,route_text_color,route_type\nr1,Route 1,FF0000,FFFFFF,3\n"
-                )
-            with open(self.builder.get_path("trips.txt"), "w", encoding="utf-8") as f:
-                f.write("route_id,service_id,trip_id,shape_id\nr1,svc1,t1,s1\n")
-            with open(self.builder.get_path("stops.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "stop_id,stop_lat,stop_lon\nstop1,45.0,-73.0\nstop2,45.1,-73.1\n"
-                )
-            with open(
-                self.builder.get_path("stop_times.txt"), "w", encoding="utf-8"
-            ) as f:
-                f.write("trip_id,arrival_time,departure_time,stop_id,stop_sequence\n")
-                f.write("t1,08:00:00,08:00:00,stop1,1\n")
-                f.write("t1,08:10:00,08:10:00,stop2,2\n")
-            with open(self.builder.get_path("shapes.txt"), "w", encoding="utf-8") as f:
-                f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
-                f.write("s1,45.0,-73.0,1\n")
-                f.write("s1,45.1,-73.1,2\n")
-
-            # Call the method
-            self.builder.create_routes_geojson()
-
-            # Assert output file exists and is valid GeoJSON
-            output_path = self.builder.get_path("routes-output.geojson")
-            self.assertTrue(os.path.exists(output_path))
-            with open(output_path, "r", encoding="utf-8") as f:
-                data = f.read()
-        self.assertIn("FeatureCollection", data)
-
-    def test_create_routes_json(self):
-        # Prepare minimal routes.txt
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.set_workdir(temp_dir)
-            with open(self.builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "route_id,route_long_name,route_color,route_text_color,route_type\n"
-                )
-                f.write("r1,Route 1,FF0000,FFFFFF,3\n")
-
-            # Call the method
-            self.builder._create_routes_json()
-
-            # Assert output file exists and is valid JSON
-            output_path = self.builder.get_path("routes.json")
-            self.assertTrue(os.path.exists(output_path))
-            with open(output_path, "r", encoding="utf-8") as f:
-                data = f.read()
-                self.assertIn("routeId", data)
-                self.assertIn("routeName", data)
-
-    def test_create_routes_json_exception(self):
-        # Ensure routes.txt does not exist to trigger the exception
-        routes_path = self.builder.get_path("routes.txt")
-        if os.path.exists(routes_path):
-            os.remove(routes_path)
-        with self.assertRaises(Exception) as cm:
-            self.builder._create_routes_json()
-        self.assertIn("Failed to create routes JSON for dataset", str(cm.exception))
-
-    def test_build_pmtiles_exception(self):
-        # Set up builder with missing bucket_name to trigger an exception in _download_files_from_gcs
-        self.builder.bucket_name = "invalid-bucket"
-        # Patch _download_files_from_gcs to raise an exception
-        with patch.object(
-            self.builder,
-            "_download_files_from_gcs",
-            side_effect=Exception("Download failed"),
-        ):
-            # This is a test that purposely generates an exception to verify that error handling in build_pmtiles
-            # works as expected. The suppress_logging context manager is used to silence log output during the test.
-            with suppress_logging():
-                with self.assertRaises(Exception) as cm:
-                    self.builder.build_pmtiles()
-            self.assertIn("Download failed", str(cm.exception))
-
-    def test_upload_files_to_gcs_missing_file(self):
-        self.builder.bucket = MagicMock()
-        self.builder.bucket.blob.return_value = MagicMock()
-        self.builder.bucket.list_blobs.return_value = []
-
-        missing_file = "notfound.pmtiles"
-        missing_path = self.builder.get_path(missing_file)
-        if os.path.exists(missing_path):
-            os.remove(missing_path)
-
-        with patch(
-            "os.path.exists",
-            side_effect=lambda path: False if missing_file in path else True,
-        ), self.assertLogs(level="WARNING") as log_cm:
-            self.builder._upload_files_to_gcs([missing_file])
-            self.assertTrue(
-                any(f"File not found: {missing_path}" in msg for msg in log_cm.output)
-            )
-
-    def test_create_routes_geojson_fallback_to_stop_coordinates(self):
-        # Prepare minimal GTFS files with no shape_id for the trip
-        with tempfile.TemporaryDirectory() as temp_dir:
-            self.builder.set_workdir(temp_dir)
-            with open(self.builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "route_id,route_long_name,route_color,route_text_color,route_type\nr1,Route 1,FF0000,FFFFFF,3\n"
-                )
-            with open(self.builder.get_path("trips.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "route_id,service_id,trip_id,shape_id\nr1,svc1,t1,\n"
-                )  # shape_id is empty
-            with open(self.builder.get_path("stops.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "stop_id,stop_lat,stop_lon\nstop1,45.0,-73.0\nstop2,45.1,-73.1\n"
-                )
-            with open(
-                self.builder.get_path("stop_times.txt"), "w", encoding="utf-8"
-            ) as f:
-                f.write("trip_id,arrival_time,departure_time,stop_id,stop_sequence\n")
-                f.write("t1,08:00:00,08:00:00,stop1,1\n")
-                f.write("t1,08:10:00,08:10:00,stop2,2\n")
-            with open(self.builder.get_path("shapes.txt"), "w", encoding="utf-8") as f:
-                f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
-
-            # Call the method
-            self.builder.create_routes_geojson()
-
-            # Assert output file exists and contains the expected coordinates
-            output_path = self.builder.get_path("routes-output.geojson")
-            self.assertTrue(os.path.exists(output_path))
-            with open(output_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.assertEqual(data["type"], "FeatureCollection")
-                self.assertEqual(len(data["features"]), 1)
-                coords = data["features"][0]["geometry"]["coordinates"]
-                self.assertEqual([[-73.0, 45.0], [-73.1, 45.1]], coords)
-
-    def test_load_agencies(self):
-        builder = PmtilesBuilder("feed123", "feed123_dataset456")
-        builder.csv_cache = MagicMock()
-
-        # Case 1: Normal agencies
-        builder.csv_cache.get_file.return_value = [
-            {"agency_id": "a1", "agency_name": "Agency One"},
-            {"agency_id": "a2", "agency_name": "Agency Two"},
-        ]
-        with patch("os.path.exists", return_value=True):
-            agencies = builder._load_agencies()
-            self.assertEqual(agencies, {"a1": "Agency One", "a2": "Agency Two"})
-
-            # Case 2: Empty agency_id and missing agency_id
-            builder.csv_cache.get_file.return_value = [
-                {"agency_id": "", "agency_name": "No ID Agency"},
-                {"agency_name": "  Trimmed Agency  "},  # No agency_id
-            ]
-            agencies = builder._load_agencies()
-            self.assertEqual(agencies, {"": "Trimmed Agency"})  # Last one overwrites
-
-            # Case 3: agency_name with leading/trailing spaces
-            builder.csv_cache.get_file.return_value = [
-                {"agency_id": "a3", "agency_name": "  Spaced Name  "},
-            ]
-            agencies = builder._load_agencies()
-            self.assertEqual(agencies, {"a3": "Spaced Name"})
-
-
-class TestBuildPmtilesHandlerIntegration(unittest.TestCase):
-    def setUp(self):
-        self.test_dir = tempfile.TemporaryDirectory()
-        os.environ["DATASETS_BUCKET_NAME"] = "test-bucket"
-        self.feed_stable_id = "feed123"
-        self.dataset_stable_id = "feed123_dataset456"
-        self.builder = PmtilesBuilder(
-            self.feed_stable_id, self.dataset_stable_id, workdir=self.test_dir.name
-        )
-
-        # Create minimal GTFS files using builder.get_path
-        files = {
-            "routes.txt": (
-                "route_id,route_long_name,route_color,route_text_color,route_type\n"
-                "r1,Route 1,FF0000,FFFFFF,3\n"
-            ),
-            "shapes.txt": (
-                "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n"
-                "s1,45.0,-73.0,1\n"
-                "s1,45.1,-73.1,2\n"
-            ),
-            "trips.txt": ("route_id,service_id,trip_id,shape_id\n" "r1,svc1,t1,s1\n"),
-            "stops.txt": (
-                "stop_id,stop_lat,stop_lon\n" "stop1,45.0,-73.0\n" "stop2,45.1,-73.1\n"
-            ),
-            "stop_times.txt": (
-                "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n"
-                "t1,08:00:00,08:00:00,stop1,1\n"
-                "t1,08:10:00,08:10:00,stop2,2\n"
-            ),
-        }
-        for fname, content in files.items():
-            with open(self.builder.get_path(fname), "w", encoding="utf-8") as f:
-                f.write(content)
-
-    def tearDown(self):
-        self.test_dir.cleanup()
-        if "DATASETS_BUCKET_NAME" in os.environ:
-            del os.environ["DATASETS_BUCKET_NAME"]
-
-    @patch("main.PmtilesBuilder")
-    def test_build_pmtiles_handler_missing_bucket_env(self, mock_builder):
-        os.environ.pop("DATASETS_BUCKET_NAME", None)
-        payload = {
-            "feed_stable_id": self.feed_stable_id,
-            "dataset_stable_id": self.dataset_stable_id,
-        }
-        request = MagicMock()
-        request.get_json.return_value = payload
-
-        with suppress_logging():
-            result = build_pmtiles_handler(request)
-        self.assertIn("error", result)
-        self.assertIn(
-            "DATASETS_BUCKET_NAME environment variable is not defined.", result["error"]
-        )
-
-    @patch("main.PmtilesBuilder")
-    def test_build_pmtiles_handler_missing_ids(self, mock_builder):
-        payload = {}
-        request = MagicMock()
-        request.get_json.return_value = payload
-
-        with suppress_logging():
-            result = build_pmtiles_handler(request)
-        self.assertIn("error", result)
-        self.assertIn(
-            "Both feed_stable_id and dataset_stable_id must be defined.",
-            result["error"],
-        )
-
-    @patch("main.PmtilesBuilder")
-    def test_build_pmtiles_handler_feed_not_prefix(self, mock_builder):
-        payload = {
-            "feed_stable_id": "notprefix",
-            "dataset_stable_id": self.dataset_stable_id,
-        }
-        request = MagicMock()
-        request.get_json.return_value = payload
-        with suppress_logging():
-            result = build_pmtiles_handler(request)
-        self.assertIn("error", result)
-        self.assertIn("is not a prefix of dataset_stable_id", result["error"])
-
-    @patch("main.PmtilesBuilder")
-    def test_build_pmtiles_handler_failure(self, mock_builder):
-        # Set up environment and request
-        with tempfile.TemporaryDirectory() as temp_dir:
-            os.environ["WORKDIR_ROOT"] = temp_dir
-            payload = {
-                "feed_stable_id": self.feed_stable_id,
-                "dataset_stable_id": self.dataset_stable_id,
-            }
-            request = MagicMock()
-            request.get_json.return_value = payload
-
-            # Simulate FAILURE status
-            instance = mock_builder.return_value
-            instance.build_pmtiles.return_value = (
-                instance.OperationStatus.FAILURE,
-                "fail msg",
-            )
-            result = build_pmtiles_handler(request)
-            self.assertIn("Successfully", result["message"])
-            self.assertEqual(os.listdir(temp_dir), [], "Expected empty workdir root")
-
-
-class TestPmtilesBuilderUpload(unittest.TestCase):
-    def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.builder = PmtilesBuilder(
-            feed_stable_id="foo",
-            dataset_stable_id="foo_bar",
-            workdir=self.temp_dir.name,
-        )
-        self.builder.bucket = MagicMock()
-        self.mock_blob = MagicMock()
-        self.builder.bucket.blob.return_value = self.mock_blob
-        self.builder.bucket.list_blobs.return_value = []
-
-    def tearDown(self):
-        self.temp_dir.cleanup()
-
-    def test_upload_files_to_gcs(self):
-        test_file = self.builder.get_path("routes.pmtiles")
-        with open(test_file, "w") as f:
-            f.write("dummy data")
-
-        self.builder._upload_files_to_gcs(["routes.pmtiles"])
-        self.builder.bucket.blob.assert_called_with(
-            "foo/foo_bar/pmtiles/routes.pmtiles"
-        )
-        self.mock_blob.upload_from_filename.assert_called_with(test_file)
-
-    def test_two_routes_with_each_two_trips_with_varied_shapes(self):
-        import json
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            builder = PmtilesBuilder("feed1", "feed1_dataset1", workdir=temp_dir)
-            # Write routes.txt
-            with open(builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "route_id,route_long_name,route_color,route_text_color,route_type\n"
-                )
-                f.write("route1,Route 1,FF0000,FFFFFF,3\n")
-                f.write("route2,Route 2,00FF00,000000,3\n")
-            # Write trips.txt
-            with open(builder.get_path("trips.txt"), "w", encoding="utf-8") as f:
-                # 2 routes with each 2 trips, with trip1 and trip2 having their own shapes,
-                # and trip3 and trip4 sharing the same shape
-                f.write("route_id,service_id,trip_id,shape_id\n")
-                f.write("route1,svc1,trip1,shape1\n")
-                f.write("route1,svc1,trip2,shape2\n")
-                f.write("route2,svc2,trip3,shape3\n")
-                f.write("route2,svc2,trip4,shape3\n")
-            # Write shapes.txt
-            with open(builder.get_path("shapes.txt"), "w", encoding="utf-8") as f:
-                f.write("shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n")
-                f.write("shape1,1.0,11.0,1\n")
-                f.write("shape1,1.1,11.1,2\n")
-                f.write("shape2,2.0,12.0,1\n")
-                f.write("shape2,2.1,12.1,2\n")
-                f.write("shape3,3.0,13.0,1\n")
-                f.write("shape3,3.1,13.1,2\n")
-
-            # Create routes-output.geojson
-            builder.create_routes_geojson()
-            geojson_path = builder.get_path("routes-output.geojson")
-            self.assertTrue(os.path.exists(geojson_path))
-
-            with open(geojson_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.assertEqual(data["type"], "FeatureCollection")
-                # Since there is essentially 3 shapes, there should be 3 features
-                self.assertEqual(len(data["features"]), 3)
-                expected_coords = {
-                    "shape1": [[11.0, 1.0], [11.1, 1.1]],
-                    "shape2": [[12.0, 2.0], [12.1, 2.1]],
-                    "shape3": [[13.0, 3.0], [13.1, 3.1]],
-                }
-                expected_trip_shapes = {
-                    "trip1": "shape1",
-                    "trip2": "shape2",
-                    "trip3": "shape3",
-                    "trip4": "shape3",
-                }
-                trip_counts = {k: 0 for k in expected_trip_shapes}
-                for feat in data["features"]:
-                    trip_ids = feat["properties"].get("trip_ids")
-                    shape_id = feat["properties"].get("shape_id")
-                    for trip_id in trip_ids:
-                        self.assertIn(trip_id, expected_trip_shapes)
-                        self.assertEqual(shape_id, expected_trip_shapes[trip_id])
-                        actual = feat["geometry"]["coordinates"]
-                        expected = expected_coords[shape_id]
-                        rounded_actual = [
-                            [round(x, 2) for x in pair] for pair in actual
-                        ]
-                        self.assertEqual(rounded_actual, expected)
-                        trip_counts[trip_id] += 1
-                for count in trip_counts.values():
-                    self.assertEqual(count, 1)
-
-    def test_two_routes_with_each_two_trips_fallback_to_stops(self):
-        import json
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            builder = PmtilesBuilder("feed1", "feed1_dataset1", workdir=temp_dir)
-            # Write routes.txt
-            with open(builder.get_path("routes.txt"), "w", encoding="utf-8") as f:
-                f.write(
-                    "route_id,route_long_name,route_color,route_text_color,route_type\n"
-                )
-                f.write("route1,Route 1,FF0000,FFFFFF,3\n")
-                f.write("route2,Route 2,00FF00,000000,3\n")
-            # Write trips.txt
-            with open(builder.get_path("trips.txt"), "w", encoding="utf-8") as f:
-                f.write("route_id,service_id,trip_id,shape_id\n")
-                f.write("route1,svc1,trip1,\n")
-                f.write("route1,svc1,trip2,\n")
-                f.write("route2,svc2,trip3,\n")
-                f.write("route2,svc2,trip4,\n")
-            # Write stops.txt
-            with open(builder.get_path("stops.txt"), "w", encoding="utf-8") as f:
-                f.write("stop_id,stop_lat,stop_lon\n")
-                f.write("stop1-1,1.1,11.1\n")
-                f.write("stop1-2,1.2,11.2\n")
-                f.write("stop2-1,2.1,12.1\n")
-                f.write("stop2-2,2.2,12.2\n")
-                f.write("stop3-1,3.1,13.1\n")
-                f.write("stop3-2,3.2,13.2\n")
-                f.write("stop4-1,4.1,14.1\n")
-                f.write("stop4-2,4.2,14.2\n")
-            # Write stop_times.txt
-            with open(builder.get_path("stop_times.txt"), "w", encoding="utf-8") as f:
-                f.write("trip_id,arrival_time,departure_time,stop_id,stop_sequence\n")
-                f.write("trip1,08:00:00,08:00:00,stop1-1,1\n")
-                f.write("trip1,08:10:00,08:10:00,stop1-2,2\n")
-                f.write("trip2,09:00:00,09:00:00,stop2-1,1\n")
-                f.write("trip2,09:10:00,09:10:00,stop2-2,2\n")
-                f.write("trip3,10:00:00,10:00:00,stop3-1,1\n")
-                f.write("trip3,10:10:00,10:10:00,stop3-2,2\n")
-                f.write("trip4,11:00:00,11:00:00,stop4-1,1\n")
-                f.write("trip4,11:10:00,11:10:00,stop4-2,2\n")
-            # No shapes.txt
-
-            # Create routes-output.geojson
-            builder.create_routes_geojson()
-            geojson_path = builder.get_path("routes-output.geojson")
-            self.assertTrue(os.path.exists(geojson_path))
-
-            with open(geojson_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                self.assertEqual(data["type"], "FeatureCollection")
-                self.assertEqual(len(data["features"]), 4)
-                expected_coords = {
-                    "trip1": [[11.1, 1.1], [11.2, 1.2]],
-                    "trip2": [[12.1, 2.1], [12.2, 2.2]],
-                    "trip3": [[13.1, 3.1], [13.2, 3.2]],
-                    "trip4": [[14.1, 4.1], [14.2, 4.2]],
-                }
-                for feat in data["features"]:
-                    trip_ids = feat["properties"].get("trip_ids")
-                    for trip_id in trip_ids:
-                        self.assertIn(trip_id, expected_coords)
-                        actual = feat["geometry"]["coordinates"]
-                        expected = expected_coords[trip_id]
-                        # Round both actual and expected coordinates to 2 decimal places
-                        rounded_actual = [
-                            [round(x, 2) for x in pair] for pair in actual
-                        ]
-                        self.assertEqual(rounded_actual, expected)
+        # ensure visualization_dataset was set and commit called
+        self.assertIs(getattr(gtfsfeed_mock, "visualization_dataset"), dataset_mock)
+        mock_db.commit.assert_called_once()
 
 
 if __name__ == "__main__":
