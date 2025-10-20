@@ -64,6 +64,7 @@ expected_gtfs_rt_feed_result = GtfsRTFeedImpl(
     id="id",
     data_type="gtfs_rt",
     status="active",
+    related_links=[],
     external_ids=[ExternalIdImpl(external_id="associated_id", source="source")],
     provider="provider",
     feed_name="feed_name",

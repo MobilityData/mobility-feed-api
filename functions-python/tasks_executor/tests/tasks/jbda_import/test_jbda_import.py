@@ -52,7 +52,7 @@ class _FakeSessionOK:
     FEEDS_URL = "https://api.gtfs-data.jp/v2/feeds"
     DETAIL_TMPL = "https://api.gtfs-data.jp/v2/organizations/{org_id}/feeds/{feed_id}"
 
-    def get(self, url):
+    def get(self, url, timeout=60):
         # feeds index
         if url == self.FEEDS_URL:
             return _FakeResponse(

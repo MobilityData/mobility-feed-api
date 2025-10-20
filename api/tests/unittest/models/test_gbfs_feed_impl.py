@@ -49,6 +49,7 @@ class TestGbfsFeedImpl(unittest.TestCase):
         expected = GbfsFeedImpl(
             id="feed_stable_1",
             system_id="sys1",
+            related_links=[],
             data_type="gbfs",
             created_at=datetime(2024, 1, 1, 10, 0, 0),
             external_ids=[],
@@ -88,6 +89,7 @@ class TestGbfsFeedImpl(unittest.TestCase):
             redirects=[],
             locations=[],
             versions=[],
+            related_links=[],
             bounding_box=None,
             bounding_box_generated_at=None,
             source_info=SourceInfo(
