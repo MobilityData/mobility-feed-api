@@ -78,7 +78,7 @@ tasks = {
         "description": "Rebuilds missing visualization files for GTFS datasets.",
         "handler": rebuild_missing_visualization_files_handler,
     },
-    "data_import": {
+    "jbda_import": {
         "description": "Imports JBDA data into the system.",
         "handler": import_jbda_handler,
     },

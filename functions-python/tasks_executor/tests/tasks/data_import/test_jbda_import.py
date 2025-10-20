@@ -1,5 +1,4 @@
-import sys
-import types
+import os
 import unittest
 from typing import Any, Dict, List
 from unittest.mock import patch
@@ -11,7 +10,6 @@ from shared.database.database import with_db_session
 from shared.database_gen.sqlacodegen_models import (
     Gtfsfeed,
     Gtfsrealtimefeed,
-    Entitytype,
     Feedrelatedlink,
 )
 
@@ -53,7 +51,6 @@ class _FakeSessionOK:
     DETAIL_TMPL = "https://api.gtfs-data.jp/v2/organizations/{org_id}/feeds/{feed_id}"
 
     def get(self, url, timeout=60):
-        # feeds index
         if url == self.FEEDS_URL:
             return _FakeResponse(
                 {
@@ -85,7 +82,6 @@ class _FakeSessionOK:
                 }
             )
 
-        # details for feed1
         if url == self.DETAIL_TMPL.format(org_id="org1", feed_id="feed1"):
             return _FakeResponse(
                 {
@@ -114,11 +110,6 @@ class _FakeSessionOK:
                 }
             )
 
-        # details for feed2 (won't be called, discontinued)
-        if url == self.DETAIL_TMPL.format(org_id="org2", feed_id="feed2"):
-            return _FakeResponse({"body": {}}, 404)
-
-        # details for feed3 (no gtfs_url -> skipped)
         if url == self.DETAIL_TMPL.format(org_id="org3", feed_id="feed3"):
             return _FakeResponse(
                 {
@@ -138,6 +129,33 @@ class _FakeSessionOK:
 class _FakeSessionError:
     def get(self, url, timeout=60):
         raise RuntimeError("network down")
+
+
+class _FakeFuture:
+    def __init__(self):
+        self._callbacks = []
+
+    def add_done_callback(self, cb):
+        # Call immediately to simulate instant publish
+        try:
+            cb(self)
+        except Exception:
+            pass
+
+    def result(self, timeout=None):
+        return None  # instant ok
+
+
+class _FakePublisher:
+    def __init__(self):
+        self.published = []  # list of tuples (topic_path, data_bytes)
+
+    def topic_path(self, project_id, topic_name):
+        return f"projects/{project_id}/topics/{topic_name}"
+
+    def publish(self, topic_path, data: bytes):
+        self.published.append((topic_path, data))
+        return _FakeFuture()
 
 
 class TestHelpers(unittest.TestCase):
@@ -169,43 +187,39 @@ class TestHelpers(unittest.TestCase):
         self.assertIsNone(get_gtfs_file_url(detail, rid="next_2", kind="gtfs_url"))
 
 
-class _RequestsModule(types.ModuleType):
-    def __init__(self, session_cls):
-        super().__init__("requests")
-        self._session_cls = session_cls
-
-    class _SessionWrapper:
-        def __init__(self, inner):
-            self._inner = inner
-
-        def get(self, *a, **k):
-            return self._inner.get(*a, **k)
-
-    def Session(self):
-        return self._SessionWrapper(self._session_cls())
+# ─────────────────────────────────────────────────────────────────────────────
+# Import tests
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class TestImportJBDA(unittest.TestCase):
-    def _patch_requests(self, session_cls):
-        fake_requests = _RequestsModule(session_cls)
-        return patch.dict(sys.modules, {"requests": fake_requests}, clear=False)
-
     @with_db_session(db_url=default_db_url)
     def test_import_creates_gtfs_rt_and_related_links(self, db_session: Session):
+        fake_pub = _FakePublisher()
+
         with patch(
             "tasks.data_import.import_jbda_feeds.requests.Session",
             return_value=_FakeSessionOK(),
-        ), patch("tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01):
+        ), patch("tasks.data_import.import_jbda_feeds.REQUEST_TIMEOUT_S", 0.01), patch(
+            "tasks.data_import.import_jbda_feeds.pubsub_v1.PublisherClient",
+            return_value=fake_pub,
+        ), patch(
+            "tasks.data_import.data_import_utils.PROJECT_ID", "test-project"
+        ), patch(
+            "tasks.data_import.data_import_utils.DATASET_BATCH_TOPIC", "dataset-batch"
+        ), patch.dict(
+            os.environ, {"COMMIT_BATCH_SIZE": "1"}, clear=False
+        ):
             result = import_jbda_handler({"dry_run": False})
 
-        # Summary checks
+        # Summary checks (unchanged)
         self.assertEqual(
             {
                 "message": "JBDA import executed successfully.",
                 "created_gtfs": 1,
                 "updated_gtfs": 0,
                 "created_rt": 2,
-                "linked_refs": 2,  # one per RT link established (tu + vp)
+                "linked_refs": 2,  # per RT link (tu + vp)
                 "total_processed_items": 1,
                 "params": {"dry_run": False},
             },
@@ -221,15 +235,15 @@ class TestImportJBDA(unittest.TestCase):
         self.assertIsNotNone(sched)
         self.assertEqual(sched.feed_name, "Feed One")
         self.assertEqual(sched.producer_url, "https://gtfs.example/one.zip")
-        # Related links (only next_1 exists in detail)
+
+        # Related links (only next_1 exists)
         links: List[Feedrelatedlink] = list(sched.feedrelatedlinks)
         codes = {link.code for link in links}
         self.assertIn("next_1", codes)
-        # URL for next_1 correct
         next1 = next(link for link in links if link.code == "next_1")
         self.assertEqual(next1.url, "https://gtfs.example/one-next.zip")
 
-        # DB checks for RT feeds
+        # RT feeds + entity types + back-links
         tu = (
             db_session.query(Gtfsrealtimefeed)
             .filter(Gtfsrealtimefeed.stable_id == "jbda-feed1-tu")
@@ -242,18 +256,27 @@ class TestImportJBDA(unittest.TestCase):
         )
         self.assertIsNotNone(tu)
         self.assertIsNotNone(vp)
-        # Each RT has single entity type and back-link to schedule
         self.assertEqual(len(tu.entitytypes), 1)
         self.assertEqual(len(vp.entitytypes), 1)
-        tu_et_name = db_session.query(Entitytype).get(tu.entitytypes[0].name).name
-        vp_et_name = db_session.query(Entitytype).get(vp.entitytypes[0].name).name
-        self.assertEqual(tu_et_name, "tu")
-        self.assertEqual(vp_et_name, "vp")
+        self.assertEqual(tu.entitytypes[0].name, "tu")
+        self.assertEqual(vp.entitytypes[0].name, "vp")
         self.assertEqual([f.id for f in tu.gtfs_feeds], [sched.id])
         self.assertEqual([f.id for f in vp.gtfs_feeds], [sched.id])
-        # RT producer_url set from RT endpoint
         self.assertEqual(tu.producer_url, "https://rt.example/one/tu.pb")
         self.assertEqual(vp.producer_url, "https://rt.example/one/vp.pb")
+
+        # Pub/Sub was called exactly once (only 1 new GTFS feed)
+        self.assertEqual(len(fake_pub.published), 1)
+        topic_path, data_bytes = fake_pub.published[0]
+        self.assertEqual(topic_path, "projects/test-project/topics/dataset-batch")
+        # payload sanity
+        import json
+
+        payload = json.loads(data_bytes.decode("utf-8"))
+        self.assertEqual(payload["feed_stable_id"], "jbda-feed1")
+        self.assertEqual(payload["producer_url"], "https://gtfs.example/one.zip")
+        self.assertIsNone(payload["dataset_id"])
+        self.assertIsNone(payload["dataset_hash"])
 
     @with_db_session(db_url=default_db_url)
     def test_import_http_failure_graceful(self, db_session: Session):

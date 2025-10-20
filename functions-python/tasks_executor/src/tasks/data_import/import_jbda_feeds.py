@@ -369,8 +369,6 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
         dict: Result summary with message and counters.
     """
     logger.info("Starting JBDA import dry_run=%s", dry_run)
-    execution_id = uuid.uuid4()
-    publisher = pubsub_v1.PublisherClient()
     session_http = requests.Session()
     try:
         res = session_http.get(FEEDS_URL, timeout=REQUEST_TIMEOUT_S)
@@ -391,8 +389,8 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
     payload = res.json() or {}
     feeds_list: List[dict] = payload.get("body") or []
     logger.info(
-        "Commit batch size (env GIT_COMMIT_BATCH_SIZE)=%s",
-        os.getenv("GIT_COMMIT_BATCH_SIZE", "20"),
+        "Commit batch size (env COMMIT_BATCH_SIZE)=%s",
+        os.getenv("COMMIT_BATCH_SIZE", "20"),
     )
 
     created_gtfs = 0
@@ -400,7 +398,8 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
     created_rt = 0
     linked_refs = 0
     total_processed = 0
-    commit_batch_size = int(os.getenv("GIT_COMMIT_BATCH_SIZE", 20))
+    commit_batch_size = int(os.getenv("COMMIT_BATCH_SIZE", 20))
+    feeds_to_publish: List[Feed] = []
 
     for idx, item in enumerate(feeds_list, start=1):
         try:
@@ -516,8 +515,8 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
                 linked_refs += 1
 
             total_processed += 1
-            if is_new_gtfs:
-                trigger_dataset_download(gtfs_feed, execution_id, publisher)
+            if is_new_gtfs and not dry_run:
+                feeds_to_publish.append(gtfs_feed)
 
             if not dry_run and (total_processed % commit_batch_size == 0):
                 logger.info("Committing batch at total_processed=%d", total_processed)
@@ -540,6 +539,10 @@ def _import_jbda(db_session: Session, dry_run: bool = True) -> dict:
                 "Final commit after processing all items (count=%d)", total_processed
             )
             db_session.commit()
+            execution_id = str(uuid.uuid4())
+            publisher = pubsub_v1.PublisherClient()
+            for feed in feeds_to_publish:
+                trigger_dataset_download(feed, execution_id, publisher)
         except IntegrityError:
             db_session.rollback()
             logger.exception("Final commit failed with IntegrityError; rolled back")
