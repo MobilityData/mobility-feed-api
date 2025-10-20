@@ -368,6 +368,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
         feed_id = faker.uuid4(cast_to=str)
         feed = Gtfsfeed(
             id=feed_id,
+            data_type="gtfs",
             stable_id=faker.uuid4(cast_to=str),
         )
         dataset_id = faker.uuid4(cast_to=str)
@@ -391,7 +392,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         # Call the function
         bounding_box = update_dataset_bounding_box(
-            dataset, stops_df, db_session=db_session
+            feed, dataset, stops_df, db_session=db_session
         )
 
         # Expected bounding box: POLYGON((30 10, 40 10, 40 20, 30 20, 30 10))
@@ -425,7 +426,7 @@ class TestReverseGeolocationProcessor(unittest.TestCase):
 
         with self.assertRaises(Exception):
             update_dataset_bounding_box(
-                faker.uuid4(cast_to=str), stops_df, db_session=db_session
+                MagicMock(), faker.uuid4(cast_to=str), stops_df, db_session=db_session
             )
 
     @patch("reverse_geolocation_processor.parse_request_parameters")

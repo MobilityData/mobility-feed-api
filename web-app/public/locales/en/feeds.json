@@ -76,7 +76,7 @@
   "gtfsVisualizationTooltip": "View the routes and stops of the feed",
   "detailedCoveredAreaView": "Detailed",
   "detailedCoveredAreaViewTooltip": "View the detailed covered area of the feed",
-  "unableToGenerateBoundingBox": "Unable to generate bounding box from the feed's stops.txt file.",
+  "unableToGenerateBoundingBox": "Unable to generate bounding box from the feed",
   "unableToGetGbfsMap": "Error fetching GBFS Map",
   "areYouOfficialProducer": "Are you the official producer or transit agency responsible for this data ?",
   "isOfficialSource": "Is this an official data source?",
