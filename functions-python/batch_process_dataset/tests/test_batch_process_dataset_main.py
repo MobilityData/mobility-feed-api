@@ -487,6 +487,7 @@ class TestDatasetProcessor(unittest.TestCase):
             dataset_stable_id="dataset-stable-id-123",  # REQUIRED for bucket-latest path
         )
 
+        mock_create_dataset_entities.return_value = Mock(), True
         # Act
         result = processor.process_from_bucket(public=True)
 

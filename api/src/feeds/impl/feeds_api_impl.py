@@ -183,7 +183,7 @@ class FeedsApiImpl(BaseFeedsApi):
         ).filter(DatasetsApiImpl.create_dataset_query().filter(FeedOrm.stable_id == gtfs_feed_id))
 
         if latest:
-            query = query.filter(Gtfsdataset.latest)
+            query = query.join(Gtfsdataset.feed).filter(Gtfsdataset.id == FeedOrm.latest_dataset_id)
 
         return DatasetsApiImpl.get_datasets_gtfs(query, session=db_session, limit=limit, offset=offset)
 

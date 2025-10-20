@@ -141,7 +141,7 @@ class TestRebuildMissingVisualizationFiles(unittest.TestCase):
         # Compute eligible datasets using the same logic as the function
         eligible_count = (
             db_session.query(Gtfsdataset)
-            .filter(Gtfsdataset.latest.is_(True))
+            .join(Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
             .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
             .join(Gtfsdataset.gtfsfiles)
             .filter(Gtfsfile.file_name.in_(REQUIRED_FILES))
@@ -210,7 +210,7 @@ class TestRebuildMissingVisualizationFiles(unittest.TestCase):
         """
         eligible_count = (
             db_session.query(Gtfsdataset)
-            .filter(Gtfsdataset.latest.is_(True))
+            .join(Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
             .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
             .join(Gtfsdataset.gtfsfiles)
             .filter(Gtfsfile.file_name.in_(REQUIRED_FILES))
@@ -257,7 +257,7 @@ class TestRebuildMissingVisualizationFiles(unittest.TestCase):
         # Pull eligible datasets to know how many there are and to map stable_ids
         eligible_datasets = (
             db_session.query(Gtfsdataset)
-            .filter(Gtfsdataset.latest.is_(True))
+            .join(Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
             .filter(Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated"))
             .join(Gtfsdataset.gtfsfiles)
             .filter(Gtfsfile.file_name.in_(REQUIRED_FILES))

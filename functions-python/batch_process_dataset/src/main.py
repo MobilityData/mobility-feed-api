@@ -33,7 +33,7 @@ from sqlalchemy.orm import Session
 
 from shared.common.gcp_utils import create_refresh_materialized_view_task
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfile, Gtfsfeed
 from shared.dataset_service.main import DatasetTraceService, DatasetTrace, Status
 from shared.helpers.logger import init_logger, get_logger
 from shared.helpers.utils import (
@@ -84,7 +84,9 @@ class DatasetProcessor:
         self.api_key_parameter_name = api_key_parameter_name
         self.date = datetime.now().strftime("%Y%m%d%H%M")
         if self.authentication_type != 0:
-            self.logger.info(f"Getting feed credentials for feed {self.feed_stable_id}")
+            self.logger.info(
+                "Getting feed credentials for feed %s", self.feed_stable_id
+            )
             self.feed_credentials = self.get_feed_credentials(self.feed_stable_id)
             if self.feed_credentials is None:
                 raise Exception(
@@ -135,7 +137,7 @@ class DatasetProcessor:
             credentials=self.feed_credentials,
             logger=self.logger,
         )
-        self.logger.info(f"hash is: {file_hash}")
+        self.logger.info("hash is: %s", file_hash)
         is_zip = zipfile.is_zipfile(temporary_file_path)
         return file_hash, is_zip
 
@@ -168,7 +170,7 @@ class DatasetProcessor:
         extracted_files: List[Gtfsfile] = []
         if not extracted_files_path or not os.path.exists(extracted_files_path):
             self.logger.warning(
-                f"Extracted files path {extracted_files_path} does not exist."
+                "Extracted files path %s does not exist.", extracted_files_path
             )
             return blob, extracted_files
         self.logger.info("Processing extracted files from %s", extracted_files_path)
@@ -182,7 +184,7 @@ class DatasetProcessor:
                 if public:
                     file_blob.make_public()
                 self.logger.info(
-                    f"Uploaded extracted file {file_name} to {file_blob.public_url}"
+                    "Uploaded extracted file %s to %s", file_name, file_blob.public_url
                 )
                 extracted_files.append(
                     Gtfsfile(
@@ -209,7 +211,8 @@ class DatasetProcessor:
             file_sha256_hash, is_zip = self.download_content(temp_file_path, feed_id)
             if not is_zip:
                 self.logger.error(
-                    f"[{self.feed_stable_id}] The downloaded file from {self.producer_url} is not a valid ZIP file."
+                    "The downloaded file from %s is not a valid ZIP file.",
+                    self.producer_url,
                 )
                 return None
 
@@ -299,17 +302,18 @@ class DatasetProcessor:
                     else None
                 ),
             )
-            dataset = self.create_dataset_entities(
+            dataset, latest = self.create_dataset_entities(
                 dataset_file, skip_dataset_creation=True, db_session=db_session
             )
-            if dataset and dataset.latest:
+            if dataset and latest:
                 self.logger.info(
-                    f"Creating pipeline tasks for latest dataset {dataset.stable_id}"
+                    "Creating pipeline tasks for latest dataset %s", dataset.stable_id
                 )
                 create_pipeline_tasks(dataset)
             elif dataset:
                 self.logger.info(
-                    f"Dataset {dataset.stable_id} is not the latest, skipping pipeline tasks creation."
+                    "Dataset %s is not the latest, skipping pipeline tasks creation.",
+                    dataset.stable_id,
                 )
             else:
                 raise ValueError("Dataset update failed, dataset is None.")
@@ -352,26 +356,24 @@ class DatasetProcessor:
         """
         try:
             # Check latest version of the dataset
-            latest_dataset = (
-                db_session.query(Gtfsdataset)
-                .filter_by(latest=True, feed_id=self.feed_id)
-                .one_or_none()
+            gtfs_feed: Gtfsfeed | None = (
+                db_session.query(Gtfsfeed).filter_by(id=self.feed_id).one_or_none()
             )
+            latest_dataset = gtfs_feed.latest_dataset
             if not latest_dataset:
-                self.logger.info(
-                    f"[{self.feed_stable_id}] No latest dataset found for feed."
-                )
+                self.logger.info("No latest dataset found for feed.")
 
             dataset = None
+            latest = True if latest_dataset is not None else False
             if not skip_dataset_creation:
                 self.logger.info(
-                    f"[{self.feed_stable_id}] Creating new dataset for feed with stable id {dataset_file.stable_id}."
+                    "Creating new dataset for feed with stable id %s.",
+                    dataset_file.stable_id,
                 )
                 dataset = Gtfsdataset(
                     id=str(uuid.uuid4()),
                     feed_id=self.feed_id,
                     stable_id=dataset_file.stable_id,
-                    latest=True,
                     bounding_box=None,
                     note=None,
                     hash=dataset_file.file_sha256_hash,
@@ -386,10 +388,14 @@ class DatasetProcessor:
                     unzipped_size_bytes=self._get_unzipped_size(dataset_file),
                 )
                 db_session.add(dataset)
+                # update the latest dataset relationship in the feed
+                db_session.flush()
+                gtfs_feed.latest_dataset = dataset
+                latest = True
             elif skip_dataset_creation and latest_dataset:
                 self.logger.info(
-                    f"[{self.feed_stable_id}] Updating latest dataset for feed with stable id "
-                    f"{latest_dataset.stable_id}."
+                    "Updating latest dataset for feed with stable id %s",
+                    latest_dataset.stable_id,
                 )
                 latest_dataset.gtfsfiles = (
                     dataset_file.extracted_files if dataset_file.extracted_files else []
@@ -400,13 +406,12 @@ class DatasetProcessor:
                 )
 
             if latest_dataset and not skip_dataset_creation:
-                latest_dataset.latest = False
                 db_session.add(latest_dataset)
             db_session.commit()
-            self.logger.info(f"[{self.feed_stable_id}] Dataset created successfully.")
+            self.logger.info("Dataset created successfully.")
 
             create_refresh_materialized_view_task()
-            return latest_dataset if skip_dataset_creation else dataset
+            return latest_dataset if skip_dataset_creation else dataset, latest
         except Exception as e:
             raise Exception(f"Error creating dataset: {e}")
 
@@ -431,7 +436,7 @@ class DatasetProcessor:
         if dataset_file is None:
             self.logger.info(f"[{self.feed_stable_id}] No database update required.")
             return None
-        dataset = self.create_dataset_entities(dataset_file, db_session=db_session)
+        dataset, _ = self.create_dataset_entities(dataset_file, db_session=db_session)
         create_pipeline_tasks(dataset)
         return dataset_file
 
@@ -577,7 +582,8 @@ def process_dataset(cloud_event: CloudEvent):
             )
             return f"Function completed with errors, missing stable={stable_id} or execution_id={execution_id}"
     logger.info(
-        f"Function %s in execution: [{execution_id}]",
+        "Function %s in execution: %s",
+        execution_id,
         "successfully completed" if not error_message else "Failed",
     )
     return "Completed." if error_message is None else error_message

@@ -8,8 +8,7 @@ from unittest.mock import patch
 from sqlalchemy.orm import Session
 
 from shared.database.database import with_db_session
-from shared.database_gen.sqlacodegen_models import Gbfsfeed
-from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsfeed
+from shared.database_gen.sqlacodegen_models import Gbfsfeed, Gtfsfeed
 from tasks.geojson.update_geojson_files_precision import (
     process_geojson,
     update_geojson_files_precision_handler,

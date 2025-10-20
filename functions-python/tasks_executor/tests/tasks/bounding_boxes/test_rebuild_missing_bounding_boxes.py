@@ -44,7 +44,6 @@ class TestTasksExecutor(unittest.TestCase):
     def test_rebuild_missing_bounding_boxes_dry_run(self, mock_query):
         # Mock Gtfsdataset and Gtfsfeed objects
         mock_dataset1 = MagicMock()
-        mock_dataset1.latest = True
         mock_dataset1.stable_id = "dataset1"
         mock_dataset1.hosted_url = "http://example.com/dataset1"
         mock_feed1 = MagicMock()
@@ -52,7 +51,6 @@ class TestTasksExecutor(unittest.TestCase):
         mock_feed1.gtfsdatasets = [mock_dataset1]
 
         mock_dataset2 = MagicMock()
-        mock_dataset2.latest = True
         mock_dataset2.stable_id = "dataset2"
         mock_dataset2.hosted_url = "http://example.com/dataset2"
         mock_feed2 = MagicMock()
@@ -77,7 +75,6 @@ class TestTasksExecutor(unittest.TestCase):
     def test_rebuild_missing_bounding_boxes_publish(self, mock_query, mock_publish):
         # Mock Gtfsdataset and Gtfsfeed objects
         mock_dataset = MagicMock()
-        mock_dataset.latest = True
         mock_dataset.stable_id = "dataset1"
         mock_dataset.hosted_url = "http://example.com/dataset1"
         mock_feed = MagicMock()

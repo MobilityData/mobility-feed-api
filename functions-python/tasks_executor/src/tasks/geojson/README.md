@@ -6,7 +6,7 @@ This task adjust the GeoJSON files removing the map IDs and reducing the precisi
 
 ## Task ID
 
-Use task ID: `update_geojson_files_precision`
+Use task ID: `update_geojson_files`
 
 ---
 

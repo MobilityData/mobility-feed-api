@@ -28,9 +28,9 @@ class TestReverseGeolocationBatch(unittest.TestCase):
         gtfs_dataset_1 = Gtfsdataset(
             id="test_dataset_latest",
             stable_id="test_dataset_latest",
-            latest=True,
             hosted_url="test_url",
         )
+        db_session.add(gtfs_dataset_1)
         gtfs_dataset_1.gtfsfiles = [
             Gtfsfile(
                 id="file_1",
@@ -42,15 +42,15 @@ class TestReverseGeolocationBatch(unittest.TestCase):
         gtfs_dataset_2 = Gtfsdataset(
             id="test_dataset",
             stable_id="test_dataset",
-            latest=False,
             hosted_url="test_url",
         )
+        db_session.add(gtfs_dataset_2)
         gtfs_dataset_3 = Gtfsdataset(
             id="test_dataset_3",
             stable_id="test_dataset_3",
-            latest=True,
             hosted_url="test_url",
         )
+        db_session.add(gtfs_dataset_3)
         gtfs_dataset_3.gtfsfiles = [
             Gtfsfile(
                 id="file_2",
@@ -59,11 +59,13 @@ class TestReverseGeolocationBatch(unittest.TestCase):
                 file_size_bytes=100,
             )
         ]
+        db_session.flush()
         feed = Gtfsfeed(
             id="test_feed",
             stable_id="test_feed",
             status="active",
             gtfsdatasets=[gtfs_dataset_2, gtfs_dataset_1],
+            latest_dataset_id=gtfs_dataset_1.id,
             locations=[Location(country_code="CA", id="CA")],
         )
         feed_2 = Gtfsfeed(
@@ -71,6 +73,7 @@ class TestReverseGeolocationBatch(unittest.TestCase):
             stable_id="test_feed_2",
             status="active",
             gtfsdatasets=[gtfs_dataset_3],
+            latest_dataset_id=gtfs_dataset_3.id,
             locations=[Location(country_code="US", id="US")],
         )
         db_session.add(feed)
