@@ -389,6 +389,7 @@ def get_joinedload_options(include_extracted_location_entities: bool = False) ->
     return joinedload_options + [
         joinedload(Feed.locations),
         joinedload(Feed.externalids),
+        joinedload(Feed.feedrelatedlinks),
         joinedload(Feed.redirectingids).joinedload(Redirectingid.target),
         joinedload(Feed.officialstatushistories),
     ]

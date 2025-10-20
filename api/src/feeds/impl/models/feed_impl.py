@@ -1,4 +1,5 @@
 from feeds.impl.models.basic_feed_impl import BaseFeedImpl
+from feeds.impl.models.feed_related_link_impl import FeedRelatedLinkImpl
 from feeds_gen.models.feed import Feed
 from shared.database_gen.sqlacodegen_models import Feed as FeedOrm
 
@@ -24,4 +25,5 @@ class FeedImpl(BaseFeedImpl, Feed):
         feed.official_updated_at = feed_orm.official_updated_at
         feed.feed_name = feed_orm.feed_name
         feed.note = feed_orm.note
+        feed.related_links = [FeedRelatedLinkImpl.from_orm(related_link) for related_link in feed_orm.feedrelatedlinks]
         return feed
