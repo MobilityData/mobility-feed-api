@@ -7,10 +7,12 @@ from csv_cache import TRIPS_FILE, ShapeTrips
 
 class TripsProcessor(BaseProcessor):
     """
-    Streams trips.txt and populates on the provided csv_cache:
-      - route_to_shape: Dict[route_id, Dict[shape_id, {shape_id, trip_ids[]}]]
-      - trips_no_shapes_per_route: Dict[route_id, List[trip_id]]
-      - trip_to_route: Dict[trip_id, route_id]
+    Streams trips.txt and builds in-memory indexes on this processor:
+    route_to_shape (route_id -> shape_id -> {shape_id, trip_ids[]}),
+    trips_no_shapes_per_route (route_id -> [trip_id]),
+    and trip_to_route (trip_id -> route_id).
+    Used downstream to resolve shapes per route and efficiently map trips to
+    routes.
     """
 
     def __init__(self, csv_cache, logger=None):
@@ -19,9 +21,6 @@ class TripsProcessor(BaseProcessor):
         self.route_to_shape: Dict[str, Dict[str, ShapeTrips]] = {}
         self.trips_no_shapes_per_route: Dict[str, List[str]] = {}
         self.trip_to_route: Dict[str, str] = {}
-
-    # def has_trips_without_route(self):
-    #     return bool(self.trips_no_shapes_per_route)
 
     def get_shape_from_route(self, route_id) -> Dict[str, ShapeTrips]:
         return self.route_to_shape.get(route_id, {})

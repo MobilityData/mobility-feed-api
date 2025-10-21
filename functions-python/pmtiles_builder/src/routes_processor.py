@@ -127,12 +127,6 @@ class RoutesProcessor(BaseProcessor):
             geojson_file.write("\n]}")
             routes_json_file.write("\n]")
 
-            # Clear the different caches to save memory. They are currently not used anywhere else.
-            # self.csv_cache.clear_coordinate_for_stops()
-            # self.csv_cache.clear_shape_from_route()
-            # # self.csv_cache.clear_stops_from_trip()
-            # self.csv_cache.clear_trip_from_route()
-
         if self.missing_coordinates_routes:
             self.logger.info(
                 "Routes without coordinates: %s", list(self.missing_coordinates_routes)
@@ -208,9 +202,9 @@ class RoutesProcessor(BaseProcessor):
             "routeType": route_type or "",
         }
 
-        # Since we are printing part of the file "manually" (the [ at the beginning, , the commas, etc),
+        # Since we are writing part of the file "manually" (the [ at the beginning, , the commas, etc),
         # dumping a json object in the file will not format (or pretty print) the object.
-        # To have the object formatted, first dump it to a string, then print the string "manually".
+        # To have the object formatted, first dump it to a string, then write the string "manually".
         route_json = json.dumps(route, ensure_ascii=False, indent=4)
 
         if self.json_file_items_count != 0:
