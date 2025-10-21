@@ -25,7 +25,6 @@ import functions_framework
 from google.cloud import pubsub_v1
 from google.cloud.pubsub_v1 import PublisherClient
 from google.cloud.pubsub_v1.futures import Future
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Gtfsdataset
@@ -87,9 +86,8 @@ def get_non_deprecated_feeds(
             Gtfsdataset.hash.label("dataset_hash"),
         )
         .select_from(Gtfsfeed)
-        .outerjoin(Gtfsdataset, (Gtfsdataset.feed_id == Gtfsfeed.id))
+        .outerjoin(Gtfsdataset, (Gtfsfeed.latest_dataset_id == Gtfsdataset.id))
         .filter(Gtfsfeed.status != "deprecated")
-        .filter(or_(Gtfsdataset.id.is_(None), Gtfsdataset.latest.is_(True)))
     )
     if feed_stable_ids:
         # If feed_stable_ids are provided, filter the query by stable IDs

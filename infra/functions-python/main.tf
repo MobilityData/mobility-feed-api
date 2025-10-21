@@ -352,11 +352,14 @@ resource "google_cloudfunctions2_function" "process_validation_report" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
+      # FIXME, duplicate variable
       ENV = var.environment
+      ENVIRONMENT = var.environment
       PROJECT_ID = var.project_id
       GCP_REGION = var.gcp_region
       SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
       FILES_ENDPOINT    = local.public_hosted_datasets_url
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }
@@ -891,6 +894,11 @@ resource "google_cloudfunctions2_function" "update_feed_status" {
     vpc_connector_egress_settings = "PRIVATE_RANGES_ONLY"
 
     environment_variables = {
+      PROJECT_ID = var.project_id
+      GCP_REGION = var.gcp_region
+      ENVIRONMENT = var.environment
+      MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
+      SERVICE_ACCOUNT_EMAIL = google_service_account.functions_service_account.email      
       # prevents multiline logs from being truncated on GCP console
       PYTHONNODEBUGRANGES = 0
     }

@@ -61,12 +61,7 @@ def get_gtfs_feeds_query(
     subquery = apply_bounding_filtering(
         subquery, dataset_latitudes, dataset_longitudes, bounding_filter_method
     ).subquery()
-    feed_query = (
-        db_session.query(Gtfsfeed)
-        .outerjoin(Gtfsfeed.gtfsdatasets)
-        .filter(Gtfsfeed.id.in_(subquery))
-        .filter(or_(Gtfsdataset.latest, Gtfsdataset.id == None))  # noqa: E711
-    )
+    feed_query = db_session.query(Gtfsfeed).filter(Gtfsfeed.id.in_(subquery))
 
     if country_code or subdivision_name or municipality:
         location_filter = LocationFilter(
@@ -84,7 +79,7 @@ def get_gtfs_feeds_query(
 
     if include_options_for_joinedload:
         feed_query = feed_query.options(
-            contains_eager(Gtfsfeed.gtfsdatasets)
+            joinedload(Gtfsfeed.latest_dataset)
             .joinedload(Gtfsdataset.validation_reports)
             .joinedload(Validationreport.features),
             joinedload(Gtfsfeed.visualization_dataset),
@@ -172,14 +167,10 @@ def get_all_gtfs_feeds(
     for batch in batched(batch_query, batch_size):
         stable_ids = (f.stable_id for f in batch)
         if w_extracted_locations_only:
-            feed_query = apply_most_common_location_filter(
-                db_session.query(Gtfsfeed).outerjoin(Gtfsfeed.gtfsdatasets), db_session
-            )
+            feed_query = apply_most_common_location_filter(db_session.query(Gtfsfeed), db_session)
             yield from (
-                feed_query.filter(Gtfsfeed.stable_id.in_(stable_ids))
-                .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
-                .options(
-                    contains_eager(Gtfsfeed.gtfsdatasets)
+                feed_query.filter(Gtfsfeed.stable_id.in_(stable_ids)).options(
+                    joinedload(Gtfsfeed.latest_dataset)
                     .joinedload(Gtfsdataset.validation_reports)
                     .joinedload(Validationreport.features),
                     *get_joinedload_options(include_extracted_location_entities=True),
@@ -190,9 +181,8 @@ def get_all_gtfs_feeds(
                 db_session.query(Gtfsfeed)
                 .outerjoin(Gtfsfeed.gtfsdatasets)
                 .filter(Gtfsfeed.stable_id.in_(stable_ids))
-                .filter((Gtfsdataset.latest) | (Gtfsdataset.id == None))  # noqa: E711
                 .options(
-                    contains_eager(Gtfsfeed.gtfsdatasets)
+                    joinedload(Gtfsfeed.latest_dataset)
                     .joinedload(Gtfsdataset.validation_reports)
                     .joinedload(Validationreport.features),
                     *get_joinedload_options(include_extracted_location_entities=False),

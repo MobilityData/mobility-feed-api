@@ -71,4 +71,8 @@
     <include file="changes/feat_fix_geolocation_circular_dep.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_1325.sql" relativeToChangelogFile="true"/>
     <include file="changes/feat_pt_156.sql" relativeToChangelogFile="true"/>
+    <!-- Add latest dataset as a relation of gtfsfeed -->
+    <include file="changes/feat_1057.sql" relativeToChangelogFile="true"/>
+    <!-- Recreate or refresh dependent materialized view FeedSearch to use the relation instead of scanning gtfsdataset.latest -->
+    <include file="changes/feat_1057_view.sql" relativeToChangelogFile="true"/>    
 </databaseChangeLog>

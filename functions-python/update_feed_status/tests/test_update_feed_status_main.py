@@ -1,12 +1,15 @@
 from unittest.mock import patch, MagicMock
 
+from sqlalchemy import func
+
 from shared.database.database import with_db_session
+from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsfeed
 from test_shared.test_utils.database_utils import default_db_url
 from main import (
     update_feed_status,
     update_feed_statuses_query,
 )
-from shared.database_gen.sqlacodegen_models import Feed
+from shared.database_gen.sqlacodegen_models import Feed, Gtfsdataset
 from datetime import date, timedelta
 from typing import Iterator, NamedTuple
 
@@ -37,6 +40,18 @@ def fetch_feeds(session: Session) -> Iterator[PartialFeed]:
 
 @with_db_session(db_url=default_db_url)
 def test_update_feed_status(db_session: Session) -> None:
+    result = (
+        db_session.query(Gtfsfeed.status, func.count(Gtfsfeed.id))
+        .join(Gtfsdataset, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
+        .filter(
+            Gtfsdataset.service_date_range_start.isnot(None),
+            Gtfsdataset.service_date_range_end.isnot(None),
+        )
+        .group_by(Feed.status)
+        .all()
+    )
+    print(dict(result))
+    print("----------------------------------------------")
     feeds_before: dict[str, PartialFeed] = {f.id: f for f in fetch_feeds(db_session)}
     result = dict(update_feed_statuses_query(db_session, []))
     assert result == {
@@ -89,13 +104,21 @@ def test_update_feed_status_failed_query():
 
     today = date(2025, 3, 1)
 
+    class Columns:
+        feed_id = 1
+        service_date_range_start = today - timedelta(days=10)
+        service_date_range_end = today + timedelta(days=10)
+
     mock_subquery = MagicMock()
-    mock_subquery.c.feed_id = 1
-    mock_subquery.c.service_date_range_start = today - timedelta(days=10)
-    mock_subquery.c.service_date_range_end = today + timedelta(days=10)
+    mock_subquery.c = Columns()
+    # mock_subquery.c.feed_id = 1
+    # mock_subquery.c.service_date_range_start = today - timedelta(days=10)
+    # mock_subquery.c.service_date_range_end = today + timedelta(days=10)
 
     mock_query = mock_session.query.return_value
-    mock_query.filter.return_value.subquery.return_value = mock_subquery
+    mock_query.join.return_value.filter.return_value.subquery.return_value = (
+        mock_subquery
+    )
 
     mock_update_query = mock_session.query.return_value.filter.return_value
     mock_update_query.update.side_effect = Exception("Mocked exception")

@@ -97,7 +97,9 @@ def rebuild_missing_visualization_files(
     # Query datasets with all required files
     datasets_query = db_session.query(Gtfsdataset)
     if latest_only:
-        datasets_query = datasets_query.filter(Gtfsdataset.latest.is_(True))
+        datasets_query = datasets_query.join(
+            Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id
+        )
     if not include_deprecated_feeds:
         datasets_query = datasets_query.filter(
             Gtfsdataset.feed.has(Gtfsfeed.status != "deprecated")
@@ -124,7 +126,7 @@ def rebuild_missing_visualization_files(
         datasets_query = datasets_query.limit(limit)
 
     datasets = datasets_query.all()
-    logging.info(f"Found {len(datasets)} latest datasets with all required files.")
+    logging.info("Found %s latest datasets with all required files.", len(datasets))
 
     tasks_to_create = []
     for dataset in datasets:
@@ -135,7 +137,7 @@ def rebuild_missing_visualization_files(
             }
         )
     total_processed = len(tasks_to_create)
-    logging.info(f"Total datasets to process: {total_processed}")
+    logging.info("Total datasets to process: %s", total_processed)
 
     # Create tasks to rebuild visualization files
     if not dry_run:

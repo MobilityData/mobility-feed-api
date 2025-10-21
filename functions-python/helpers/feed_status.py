@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timezone
 from sqlalchemy import text
-from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Gtfsfeed
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,8 +19,8 @@ def update_feed_statuses_query(session: "Session", stable_feed_ids: list[str]):
             Gtfsdataset.service_date_range_start,
             Gtfsdataset.service_date_range_end,
         )
+        .join(Gtfsfeed, Gtfsfeed.latest_dataset_id == Gtfsdataset.id)
         .filter(
-            Gtfsdataset.latest.is_(True),
             Gtfsdataset.service_date_range_start.isnot(None),
             Gtfsdataset.service_date_range_end.isnot(None),
         )

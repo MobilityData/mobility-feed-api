@@ -172,7 +172,7 @@ def test_gtfs_feeds_get_no_bounding_box(client: TestClient, mocker):
     """
     mock_select = mocker.patch.object(Database(), "select")
     mock_feed = Feed(stable_id="test_gtfs_id")
-    mock_latest_datasets = Gtfsdataset(stable_id="test_latest_dataset_id", hosted_url="test_hosted_url", latest=True)
+    mock_latest_datasets = Gtfsdataset(stable_id="test_latest_dataset_id", hosted_url="test_hosted_url")
 
     mock_select.return_value = [
         [
@@ -296,18 +296,17 @@ def assert_gtfs(gtfs_feed, response_gtfs_feed):
     ), f'Response feed municipality was {response_gtfs_feed["locations"][0]["municipality"]} \
         instead of {gtfs_feed.locations[0].municipality}'
     # It seems the resulting are not always in the same order, so find the latest instead of using a hardcoded index
-    latest_dataset = next((dataset for dataset in gtfs_feed.gtfsdatasets if dataset.latest), None)
-    if latest_dataset is not None:
+    # latest_dataset = next((dataset for dataset in gtfs_feed.gtfsdatasets if dataset.latest), None)
+    if gtfs_feed.latest_dataset is not None:
         assert (
-            response_gtfs_feed["latest_dataset"]["id"] == latest_dataset.stable_id
+            response_gtfs_feed["latest_dataset"]["id"] == gtfs_feed.latest_dataset.stable_id
         ), f'Response feed latest dataset id was {response_gtfs_feed["latest_dataset"]["id"]} \
-            instead of {latest_dataset.stable_id}'
+            instead of {gtfs_feed.latest_dataset.stable_id}'
     else:
         raise Exception("No latest dataset found")
 
-    latest_dataset = next(filter(lambda x: x.latest, gtfs_feed.gtfsdatasets))
     assert (
-        response_gtfs_feed["latest_dataset"]["hosted_url"] == latest_dataset.hosted_url
+        response_gtfs_feed["latest_dataset"]["hosted_url"] == gtfs_feed.latest_dataset.hosted_url
     ), f'Response feed hosted url was {response_gtfs_feed["latest_dataset"]["hosted_url"]} \
         instead of test_hosted_url'
     assert response_gtfs_feed["latest_dataset"]["bounding_box"] is not None, "Response feed bounding_box was None"

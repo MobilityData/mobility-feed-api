@@ -8,7 +8,7 @@ from shared.helpers.pub_sub import publish_messages
 from shared.helpers.query_helper import (
     get_feeds_with_missing_bounding_boxes_query,
 )
-from shared.database_gen.sqlacodegen_models import Gtfsdataset
+from shared.database_gen.sqlacodegen_models import Gtfsdataset, Gtfsfeed
 from datetime import datetime
 
 
@@ -98,20 +98,16 @@ def prepare_feeds_data(db_session: Session | None = None) -> List[Dict]:
     """
     data = []
     query = get_feeds_with_missing_bounding_boxes_query(db_session)
-    feeds = query.all()
+    feeds: list[Gtfsfeed] = query.all()
 
     for feed in feeds:
         # Get the latest dataset
-        if feed.gtfsdatasets and any(dataset.latest for dataset in feed.gtfsdatasets):
-            latest_dataset = next(
-                dataset for dataset in feed.gtfsdatasets if dataset.latest
-            )
-
+        if feed.latest_dataset:
             data.append(
                 {
                     "stable_id": feed.stable_id,
-                    "dataset_id": latest_dataset.stable_id,
-                    "url": latest_dataset.hosted_url,
+                    "dataset_id": feed.latest_dataset.stable_id,
+                    "url": feed.latest_dataset.hosted_url,
                 }
             )
 

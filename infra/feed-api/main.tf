@@ -69,12 +69,13 @@ resource "google_cloud_run_v2_service" "mobility-feed-api" {
   location = var.gcp_region
   ingress = "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER"
 
-  scaling {
-    max_instance_count = 50
-  }
-
   template {
     service_account = google_service_account.containers_service_account.email
+
+    # Use annotations for max instances on older provider(<6.0.0)
+    annotations = {
+      "run.googleapis.com/max-instances" = "50"
+    }
     vpc_access {
       connector = data.google_vpc_access_connector.vpc_connector.id
       egress = "ALL_TRAFFIC"
