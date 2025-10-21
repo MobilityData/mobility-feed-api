@@ -39,20 +39,13 @@ class ShapeTrips(TypedDict):
 
 def get_volume_size(mountpoint: str):
     """
-    Returns the total size of the specified filesystem mount point in a human-readable format.
+    Return the total size of the filesystem at `mountpoint` in a human-readable string (e.g., "10G").
 
-    This function uses the `df` command-line utility to determine the size of the filesystem
-    mounted at the path specified by `mountpoint`. If the mount point does not exist, the function
-    prints an error message to the standard error and returns "N/A".
+    Implementation notes
+    - Uses the system `df -h` command piped through awk to extract the size column.
+    - Requires a valid path; when the mountpoint doesn't exist, a warning is logged and "N/A" is returned.
+    - Intended primarily for diagnostics in logs (does not affect processing logic).
 
-    Parameters:
-    mountpoint: str
-        The filesystem mount point path to check.
-
-    Returns:
-    str
-        The total size of the specified filesystem mount point in human-readable format. If the
-        mount point is not found, returns "N/A".
     """
     mp = Path(mountpoint)
     if not mp.exists():
@@ -73,10 +66,18 @@ def get_volume_size(mountpoint: str):
 
 class CsvCache:
     """
-    CsvCache provides cached access to GTFS CSV files in a specified working directory.
-    It lazily loads and caches file contents as lists of dictionaries, and offers
-    helper methods to retrieve relationships between routes, trips, stops, and shapes.
-    It lazily loads because not all files are necessarily needed.
+    Lightweight utility for working-directory file paths and safe CSV extraction helpers.
+
+    What it provides
+    - Path resolution: `get_path(filename)` -> absolute path under the configured workdir.
+    - Safe CSV accessors: helpers to get values/ints/floats from parsed rows by index without raising.
+    - Column index lookup: helper to map header names to indices safely.
+    - Diagnostics: optional deep-size logging of objects in DEBUG, and workdir size at initialization.
+
+    Notes
+    - This class does not currently implement an in-memory cache of full CSVs; processors stream files
+      directly and use these helpers for robust parsing.
+    - Constants for common GTFS filenames are exposed at module level (e.g., TRIPS_FILE, STOPS_FILE).
     """
 
     def __init__(
@@ -91,13 +92,11 @@ class CsvCache:
 
         self.workdir = workdir
 
-        self.file_data = {}
-
         self.logger.info("Using work directory: %s", self.workdir)
         self.logger.info("Size of workdir: %s", get_volume_size(self.workdir))
 
     def debug_log_size(self, label: str, obj: object) -> None:
-        """Log the deep size of an object in bytes when DEBUG is enabled."""
+        """Log the deep size of `obj` in bytes when DEBUG is enabled (best-effort, may fall back silently)."""
         if self.logger.isEnabledFor(logging.DEBUG):
             try:
                 size_bytes = asizeof.asizeof(obj)
@@ -106,13 +105,16 @@ class CsvCache:
                 self.logger.debug("asizeof Failed to compute size for %s: %s", label, e)
 
     def get_path(self, filename: str) -> str:
+        """Return the absolute path for `filename` under the current workdir."""
         return os.path.join(self.workdir, filename)
 
     def set_workdir(self, workdir):
+        """Update the working directory used to resolve file paths (does not move files)."""
         self.workdir = workdir
 
     @staticmethod
     def get_index(columns, column_name):
+        """Return the index of `column_name` in the header list `columns`, or None if absent."""
         try:
             return columns.index(column_name)
         except ValueError:
@@ -120,6 +122,7 @@ class CsvCache:
 
     @staticmethod
     def get_safe_value_from_index(columns, index, default_value: str = None):
+        """Safely fetch a value from `columns` at `index`, applying default and transform semantics."""
         return (
             get_safe_value(columns[index], default_value)
             if index is not None and index < len(columns)
@@ -128,10 +131,12 @@ class CsvCache:
 
     @staticmethod
     def get_safe_float_from_index(columns, index):
+        """Fetch a value and coerce to float using standard transform rules (returns None on invalid)."""
         raw_value = CsvCache.get_safe_value_from_index(columns, index)
         return get_safe_float(raw_value)
 
     @staticmethod
     def get_safe_int_from_index(columns, index):
+        """Fetch a value and coerce to int using standard transform rules (returns None on invalid)."""
         raw_value = CsvCache.get_safe_value_from_index(columns, index)
         return get_safe_int(raw_value)

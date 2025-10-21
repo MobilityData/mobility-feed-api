@@ -7,7 +7,6 @@ from csv_cache import ROUTES_FILE, ShapeTrips
 
 from base_processor import BaseProcessor
 from route_coordinates import RouteCoordinates
-from routes_processor_for_colors import RoutesProcessorForColors
 from shapes_processor import ShapesProcessor
 from stop_times_processor import StopTimesProcessor
 from stops_processor import StopsProcessor
@@ -15,6 +14,13 @@ from trips_processor import TripsProcessor
 
 
 class RoutesProcessor(BaseProcessor):
+    """Build routes-output.geojson and routes.json using routes.txt and other processors.
+
+    Why we don't download routes.txt here
+    - routes.txt is downloaded once by RoutesProcessorForColors and retained (no_delete=True).
+    - This processor is initialized with no_download=True to reuse that local copy and avoid a second GCS fetch.
+    """
+
     def __init__(
         self,
         csv_cache,
@@ -24,7 +30,6 @@ class RoutesProcessor(BaseProcessor):
         trips_processor: TripsProcessor = None,
         stops_processor: StopsProcessor = None,
         stop_times_processor: StopTimesProcessor = None,
-        routes_processor_for_colors: RoutesProcessorForColors = None,
     ):
         super().__init__(ROUTES_FILE, csv_cache, logger, no_download=True)
         # Track routes missing coordinates in a set
@@ -36,9 +41,6 @@ class RoutesProcessor(BaseProcessor):
         self.shapes_processor: ShapesProcessor | None = shapes_processor
         self.stops_processor: StopsProcessor | None = stops_processor
         self.stop_times_processor: StopTimesProcessor | None = stop_times_processor
-        self.routes_processor_for_colors: RoutesProcessorForColors | None = (
-            routes_processor_for_colors
-        )
 
     def process_file(self):
         csv_cache = self.csv_cache
@@ -223,8 +225,6 @@ class RoutesProcessor(BaseProcessor):
         result: List[RouteCoordinates] = []
         if shapes:
             for shape_id, trip_ids in shapes.items():
-                # shape_id = shape["shape_id"]
-                # trip_ids = shape["trip_ids"]
                 coordinates = self.shapes_processor.get_shape_points(shape_id)
                 if coordinates:
                     result.append(

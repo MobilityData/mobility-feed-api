@@ -5,6 +5,12 @@ from csv_cache import ROUTES_FILE
 
 
 class RoutesProcessorForColors(BaseProcessor):
+    """Read routes.txt to map route_id → route_color for later use.
+    Routes processing is split in two to avoid circular dependencies: StopsProcessor can rely on route colors
+    without requiring the full routes build to have run.
+    The input file is retained for the next pass over routes.txt in RoutesProcessor (no_delete=True).
+    """
+
     def __init__(
         self,
         csv_cache,

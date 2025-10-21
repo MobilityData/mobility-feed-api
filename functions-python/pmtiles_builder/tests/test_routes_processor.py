@@ -53,11 +53,6 @@ class DummyStopTimesProcessor:
         return self._trip_stops.get(trip_id, [])
 
 
-class DummyRoutesColors:
-    def __init__(self, route_colors_map):
-        self.route_colors_map = route_colors_map
-
-
 class TestRoutesProcessor(unittest.TestCase):
     def test_with_shapes_writes_geojson_and_json(self):
         with tempfile.TemporaryDirectory() as td:
@@ -78,7 +73,6 @@ class TestRoutesProcessor(unittest.TestCase):
             agencies = DummyAgenciesProcessor({"ag1": "Agency One"})
             stops = DummyStopsProcessor({})
             stop_times = DummyStopTimesProcessor()
-            colors = DummyRoutesColors({"r1": "00FF00"})
 
             processor = RoutesProcessor(
                 csv_cache=csv_cache,
@@ -88,7 +82,6 @@ class TestRoutesProcessor(unittest.TestCase):
                 trips_processor=trips,
                 stops_processor=stops,
                 stop_times_processor=stop_times,
-                routes_processor_for_colors=colors,
             )
 
             # Call processing (uses BaseProcessor.process to set up parser/encoding)
@@ -137,7 +130,6 @@ class TestRoutesProcessor(unittest.TestCase):
                 trip_stops={"tA": ["s1", "s2"]}, aliases={"tB": "tA"}
             )
             stops = DummyStopsProcessor({"s1": [-73.0, 45.0], "s2": [-73.1, 45.1]})
-            colors = DummyRoutesColors({"r2": "FF0000"})
             shapes = DummyShapesProcessor({})
 
             processor = RoutesProcessor(
@@ -148,7 +140,6 @@ class TestRoutesProcessor(unittest.TestCase):
                 trips_processor=trips,
                 stops_processor=stops,
                 stop_times_processor=stop_times,
-                routes_processor_for_colors=colors,
             )
 
             processor.process()
@@ -193,7 +184,6 @@ class TestRoutesProcessor(unittest.TestCase):
                 trip_stops={"t2": ["sx1", "sx2"]}, aliases={"t3": "t2"}
             )
             stops = DummyStopsProcessor({"sx1": [-74.0, 46.0], "sx2": [-74.1, 46.1]})
-            colors = DummyRoutesColors({"r3": "ABCDEF"})
 
             processor = RoutesProcessor(
                 csv_cache=csv_cache,
@@ -203,7 +193,6 @@ class TestRoutesProcessor(unittest.TestCase):
                 trips_processor=trips,
                 stops_processor=stops,
                 stop_times_processor=stop_times,
-                routes_processor_for_colors=colors,
             )
 
             processor.process()
@@ -295,7 +284,6 @@ class TestRoutesProcessor(unittest.TestCase):
             agencies = DummyAgenciesProcessor(
                 {"ag1": "Agency One", "ag2": "Agency Two"}
             )
-            colors = DummyRoutesColors({"r1": "00AA00", "r2": "AA0000"})
 
             rp = RoutesProcessor(
                 csv_cache=csv_cache,
@@ -305,7 +293,6 @@ class TestRoutesProcessor(unittest.TestCase):
                 trips_processor=trips,
                 stops_processor=stops,
                 stop_times_processor=stop_times,
-                routes_processor_for_colors=colors,
             )
 
             rp.process()

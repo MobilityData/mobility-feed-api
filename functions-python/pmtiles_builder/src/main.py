@@ -127,11 +127,12 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
 
 class PmtilesBuilder:
     """
-    Orchestrates the end-to-end process of generating PMTiles files from GTFS datasets.
+    Build PMTiles for a GTFS dataset.
 
-    This class manages downloading required files from Google Cloud Storage, processing and indexing GTFS data,
-    generating GeoJSON and JSON outputs, running Tippecanoe to create PMTiles, and uploading results back to GCS.
-    Temporary files are stored in the global `workdir` directory for local processing.
+    - Reads GTFS CSVs and writes: routes-output.geojson, routes.json, stops-output.geojson
+    - Runs Tippecanoe: routes.pmtiles, stops.pmtiles
+    - Upload outputs to GCS and update the database
+
     """
 
     class OperationStatus(Enum):
@@ -153,9 +154,6 @@ class PmtilesBuilder:
         self.csv_cache = CsvCache(workdir, self.logger)
         # Track calls to _get_shape_points to control logging cadence
         self._get_shape_points_calls = 0
-
-        # The NO_GCS variable controls if we do uploads and downloads from GCS.
-        # It's useful for testing with local files only.
 
         no_database = os.getenv("NO_DATABASE", "").lower()
         self.use_database = False if no_database == "true" else True
@@ -191,10 +189,7 @@ class PmtilesBuilder:
 
         if self.download_from_gcs:
             # If we don't use gcs, we assume the txt files are already in the workdir.
-            unzipped_files_path = (
-                f"{self.feed_stable_id}/{self.dataset_stable_id}/extracted"
-            )
-            status, message = self.check_required_files_presence(unzipped_files_path)
+            status, message = self.check_required_files_presence()
             if status == self.OperationStatus.FAILURE:
                 return status, message
 
@@ -214,11 +209,11 @@ class PmtilesBuilder:
         self.logger.info("Completed PMTiles build")
         return self.OperationStatus.SUCCESS, "success"
 
-    def check_required_files_presence(self, unzipped_files_path):
+    def check_required_files_presence(self):
         self.logger.info(
             "Making sure all required files are present in bucket %s, directory %s",
             self.bucket_name,
-            unzipped_files_path,
+            self.unzipped_files_path,
         )
         try:
             try:
@@ -228,17 +223,20 @@ class PmtilesBuilder:
                 self.logger.warning(msg)
                 return self.OperationStatus.FAILURE, msg
 
-            self.logger.debug("Getting blobs with prefix: %s", unzipped_files_path)
-            blobs = list(self.bucket.list_blobs(prefix=unzipped_files_path))
+            self.logger.debug("Getting blobs with prefix: %s", self.unzipped_files_path)
+            blobs = list(self.bucket.list_blobs(prefix=self.unzipped_files_path))
             self.logger.debug("Found %d blobs", len(blobs))
             if not blobs:
-                msg = f"Directory '{unzipped_files_path}' does not exist or is empty in bucket '{self.bucket_name}'."
+                msg = (
+                    f"Directory '{self.unzipped_files_path}' does not exist or is empty "
+                    f"in bucket '{self.bucket_name}'."
+                )
                 self.logger.warning(msg)
                 return self.OperationStatus.FAILURE, msg
 
             required_files = [ROUTES_FILE, STOP_TIMES_FILE, TRIPS_FILE, STOPS_FILE]
             for file_name in required_files:
-                blob_path = f"{unzipped_files_path}/{file_name}"
+                blob_path = f"{self.unzipped_files_path}/{file_name}"
                 blob = self.bucket.blob(blob_path)
                 if not blob.exists():
                     msg = f"Required file '{blob_path}' does not exist in bucket '{self.bucket_name}'."

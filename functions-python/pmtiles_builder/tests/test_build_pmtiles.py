@@ -231,7 +231,7 @@ class TestDownloadAndUploadHelpers(unittest.TestCase):
     def test_check_required_files_presence_bucket_missing(self, mock_storage):
         # Simulate storage client raising on get_bucket
         mock_storage.return_value.get_bucket.side_effect = Exception("no bucket")
-        status, msg = self.builder.check_required_files_presence("some/prefix")
+        status, msg = self.builder.check_required_files_presence()
         self.assertEqual(status, self.builder.OperationStatus.FAILURE)
         self.assertIn("does not exist", msg)
 
@@ -242,7 +242,7 @@ class TestDownloadAndUploadHelpers(unittest.TestCase):
         bucket = mock_client.get_bucket.return_value
         bucket.list_blobs.return_value = []
 
-        status, msg = self.builder.check_required_files_presence("some/prefix")
+        status, msg = self.builder.check_required_files_presence()
         self.assertEqual(status, self.builder.OperationStatus.FAILURE)
         self.assertIn("does not exist or is empty", msg)
 
@@ -257,7 +257,7 @@ class TestDownloadAndUploadHelpers(unittest.TestCase):
         blob_mock.exists.return_value = False
         bucket.blob.return_value = blob_mock
 
-        status, msg = self.builder.check_required_files_presence("some/prefix")
+        status, msg = self.builder.check_required_files_presence()
         self.assertEqual(status, self.builder.OperationStatus.FAILURE)
         self.assertIn("Required file", msg)
 
@@ -271,7 +271,7 @@ class TestDownloadAndUploadHelpers(unittest.TestCase):
         blob_mock.exists.return_value = True
         bucket.blob.return_value = blob_mock
 
-        status, msg = self.builder.check_required_files_presence("some/prefix")
+        status, msg = self.builder.check_required_files_presence()
         self.assertEqual(status, self.builder.OperationStatus.SUCCESS)
         self.assertIn("All required files are present", msg)
 
