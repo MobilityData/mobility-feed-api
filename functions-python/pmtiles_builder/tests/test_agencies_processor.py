@@ -55,6 +55,18 @@ class TestAgenciesProcessor(unittest.TestCase):
 
             self.assertEqual(proc.agencies, {})
 
+    def test_missing_file_is_handled_gracefully(self):
+        # If agency.txt does not exist, processor should not raise and agencies remain empty
+        with tempfile.TemporaryDirectory() as td:
+            csv_cache = CsvCache(workdir=td, logger=MagicMock())
+            # Do not create agency.txt
+
+            proc = AgenciesProcessor(csv_cache, logger=MagicMock())
+            # Should not raise
+            proc.process()
+
+            self.assertEqual(proc.agencies, {})
+
 
 if __name__ == "__main__":
     unittest.main()

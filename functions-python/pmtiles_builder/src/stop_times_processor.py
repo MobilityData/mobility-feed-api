@@ -11,6 +11,7 @@ class StopTimesProcessor(BaseProcessor):
         super().__init__(STOP_TIMES_FILE, csv_cache, logger)
         self.trips_processor = trips_processor
         self.stop_to_routes = defaultdict(set)
+
         self.trip_with_no_shape_to_stops: Dict[str, List[str]] = {}
         self.trip_with_no_shape_same_as: Dict[str, str] = {}
 
@@ -26,8 +27,7 @@ class StopTimesProcessor(BaseProcessor):
             trip_id_index = self.csv_cache.get_index(columns, "trip_id")
             seq_index = self.csv_cache.get_index(columns, "stop_sequence")
 
-            # Collect unique trips without shapes across all routes
-            # (trip_id should be unique in trips file according to specs)
+            # Collect unique trips without shapes across all routes (for parsing only)
             trips_without_shape_set = set()
             for trip_list in self.trips_processor.trips_no_shapes_per_route.values():
                 trips_without_shape_set.update(trip_list)
@@ -44,9 +44,9 @@ class StopTimesProcessor(BaseProcessor):
                 trip_id = self.csv_cache.get_safe_value_from_index(row, trip_id_index)
 
                 line_count += 1
-                if line_count % 100_000 == 0:
+                if line_count % 1_000_000 == 0:
                     self.logger.debug(
-                        "Processed %d lines of %s", line_count, self.filepath
+                        "Processed %d lines of %s", line_count, self.filename
                     )
 
                 if trip_id and stop_id:
@@ -58,7 +58,7 @@ class StopTimesProcessor(BaseProcessor):
                         seq_fallback_counter[trip_id] += 1
                         seq = seq_fallback_counter[trip_id]
 
-                    # Collect trips to stop for trips with shape so we can fall back on using the stops as geometry.
+                    # Collect trips to stop for trips without shape so we can fall back on using the stops as geometry.
                     if trip_id in trips_without_shape_set:
                         trip_to_stops.setdefault(trip_id, []).append((seq, stop_id))
                     route_id = self.trips_processor.trip_to_route.get(trip_id)
@@ -69,27 +69,35 @@ class StopTimesProcessor(BaseProcessor):
             # Since memory is limited, clear the data after use.
             self.trips_processor.clear_trip_to_route()
 
-            # Convert to a sorted list for deterministic iteration
-            trips_without_shape = sorted(trips_without_shape_set)
+            # Build canonical/alias maps per route to avoid cross-route aliasing
             canonical: Dict[str, List[str]] = {}
             aliases: Dict[str, str] = {}
-            seq_key_to_canonical_trip: Dict[tuple, str] = {}
-            for trip_id in trips_without_shape:
-                items = trip_to_stops.get(trip_id, [])
-                if not items:
-                    continue
 
-                # sort by numeric stop_sequence to normalize inverted rows
-                items_sorted = sorted(items, key=lambda x: x[0])
-                stops_for_trip = [stop for _, stop in items_sorted]
+            # Iterate deterministically by route and by trip within the route
+            for route_id, trips_in_route in sorted(
+                self.trips_processor.trips_no_shapes_per_route.items(),
+                key=lambda x: x[0],
+            ):
+                # We have one global trip_with_no_shape_same_as (or alias), but the source and destination
+                # trip_ids are limited to trips_ids of the same route.
+                # Restarting with an empty dict for each route iteration achieves this.
+                seq_key_to_canonical_trip: Dict[tuple, str] = {}
+                for trip_id in sorted(trips_in_route):
+                    items = trip_to_stops.get(trip_id, [])
+                    if not items:
+                        continue
+                    # sort by numeric stop_sequence to normalize inverted rows
+                    items_sorted = sorted(items, key=lambda x: x[0])
+                    stops_for_trip = [stop for _, stop in items_sorted]
 
-                key = tuple(stops_for_trip)
-                if key in seq_key_to_canonical_trip:
-                    can_trip = seq_key_to_canonical_trip[key]
-                    aliases[trip_id] = can_trip
-                else:
-                    seq_key_to_canonical_trip[key] = trip_id
-                    canonical[trip_id] = stops_for_trip
+                    key = tuple(stops_for_trip)
+                    if key in seq_key_to_canonical_trip:
+                        can_trip = seq_key_to_canonical_trip[key]
+                        aliases[trip_id] = can_trip
+                    else:
+                        seq_key_to_canonical_trip[key] = trip_id
+                        canonical[trip_id] = stops_for_trip
+
             self.trip_with_no_shape_to_stops = canonical
             self.trip_with_no_shape_same_as = aliases
 

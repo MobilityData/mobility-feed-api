@@ -175,8 +175,8 @@ class TestDownloadAndUploadHelpers(unittest.TestCase):
 
         logging.disable(logging.CRITICAL)
         try:
-            with self.assertRaises(Exception):
-                self.builder.download_and_process(processor)
+            # Method should not raise anymore; it should just return without calling process()
+            self.builder.download_and_process(processor)
         finally:
             logging.disable(logging.NOTSET)
         processor.process.assert_not_called()

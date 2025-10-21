@@ -92,7 +92,7 @@ def build_pmtiles_handler(request: flask.Request) -> dict:
         with EphemeralOrDebugWorkdir(
             dir=workdir_root, prefix=f"{dataset_stable_id}_"
         ) as workdir:
-            result = {
+            result: dict[str, object] = {
                 "params": {
                     "feed_stable_id": feed_stable_id,
                     "dataset_stable_id": dataset_stable_id,
@@ -185,7 +185,7 @@ class PmtilesBuilder:
     def set_workdir(self, workdir: str):
         self.csv_cache.set_workdir(workdir)
 
-    @track_metrics(metrics=("time",))
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def build_pmtiles(self):
         self.logger.info("Starting PMTiles build")
 
@@ -310,6 +310,10 @@ class PmtilesBuilder:
             )
             self.download_and_process(stop_times_processor)
 
+            # Unfortunately, routes.txt has to be parsed in 2 passes. One to extract route colors, that is required by
+            # StopProcessors, and another to build the full routes GeoJSON.
+            # The file routes.txt is downloaded only once in RoutesProcessorForColors, then the file is kept for
+            # processing in RoutesProcessor. Then it is deleted.
             routes_processor_for_colors = RoutesProcessorForColors(
                 csv_cache=self.csv_cache,
                 logger=self.logger,
@@ -365,7 +369,7 @@ class PmtilesBuilder:
                 if not blob.exists():
                     msg = f"File '{blob_path}' does not exist in bucket '{self.bucket_name}'."
                     self.logger.warning(msg)
-                    raise Exception(msg)
+                    return
 
                 blob.download_to_filename(local_file_path)
 

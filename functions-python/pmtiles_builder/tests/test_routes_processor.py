@@ -244,6 +244,106 @@ class TestRoutesProcessor(unittest.TestCase):
                 [[-74.0, 46.0], [-74.1, 46.1]],
             )
 
+    def test_disjoint_routes_same_stops_no_shapes_produce_separate_features(self):
+        """
+        Two different routes (r1, r2) each have a trip without shape (t1, t2) that share the same stops sequence.
+        We expect separate features per route and that t1 doesn't appear under r2's feature and vice versa.
+        """
+        from stop_times_processor import StopTimesProcessor
+
+        class DummyTripsProcessorWithRoutes:
+            def __init__(self):
+                # trips without shapes per route
+                self.trips_no_shapes_per_route = {"r1": ["t1"], "r2": ["t2"]}
+                # mapping needed for stop_to_routes and to be cleared at end
+                self.trip_to_route = {"t1": "r1", "t2": "r2"}
+
+            def clear_trip_to_route(self):
+                self.trip_to_route = {}
+
+            def get_shape_from_route(self, route_id):
+                return {}
+
+        with tempfile.TemporaryDirectory() as td:
+            csv_cache = CsvCache(workdir=td, logger=MagicMock())
+            # routes.txt with r1 and r2
+            with open(csv_cache.get_path("routes.txt"), "w", encoding="utf-8") as f:
+                f.write(
+                    "route_id,agency_id,route_long_name,route_color,route_text_color,route_type\n"
+                )
+                f.write("r1,ag1,Route 1,00AA00,FFFFFF,3\n")
+                f.write("r2,ag2,Route 2,AA0000,FFFFFF,3\n")
+
+            # stop_times.txt with identical stops for t1 and t2
+            with open(csv_cache.get_path("stop_times.txt"), "w", encoding="utf-8") as f:
+                f.write("trip_id,stop_id,stop_sequence\n")
+                f.write("t1,sA,1\n")
+                f.write("t1,sB,2\n")
+                f.write("t2,sA,1\n")
+                f.write("t2,sB,2\n")
+
+            # set up processors
+            trips = DummyTripsProcessorWithRoutes()
+            stop_times = StopTimesProcessor(
+                csv_cache, logger=MagicMock(), trips_processor=trips
+            )
+            stop_times.process()
+
+            # provide coordinates for the stops
+            stops = DummyStopsProcessor({"sA": [-73.0, 45.0], "sB": [-73.1, 45.1]})
+            shapes = DummyShapesProcessor({})
+            agencies = DummyAgenciesProcessor(
+                {"ag1": "Agency One", "ag2": "Agency Two"}
+            )
+            colors = DummyRoutesColors({"r1": "00AA00", "r2": "AA0000"})
+
+            rp = RoutesProcessor(
+                csv_cache=csv_cache,
+                logger=MagicMock(),
+                agencies_processor=agencies,
+                shapes_processor=shapes,
+                trips_processor=trips,
+                stops_processor=stops,
+                stop_times_processor=stop_times,
+                routes_processor_for_colors=colors,
+            )
+
+            rp.process()
+
+            import json
+
+            with open(
+                csv_cache.get_path("routes-output.geojson"), "r", encoding="utf-8"
+            ) as fh:
+                data = json.load(fh)
+
+            features = data.get("features", [])
+            # Expect two features (one per route)
+            self.assertEqual(len(features), 2)
+            # Group by route_id
+            feats_by_route = {}
+            for feat in features:
+                rid = feat.get("properties", {}).get("route_id")
+                feats_by_route.setdefault(rid, []).append(feat)
+
+            self.assertIn("r1", feats_by_route)
+            self.assertIn("r2", feats_by_route)
+            self.assertEqual(len(feats_by_route["r1"]), 1)
+            self.assertEqual(len(feats_by_route["r2"]), 1)
+
+            r1_trip_ids = (
+                feats_by_route["r1"][0].get("properties", {}).get("trip_ids", [])
+            )
+            r2_trip_ids = (
+                feats_by_route["r2"][0].get("properties", {}).get("trip_ids", [])
+            )
+
+            # Ensure trips are not merged across routes
+            self.assertIn("t1", r1_trip_ids)
+            self.assertNotIn("t2", r1_trip_ids)
+            self.assertIn("t2", r2_trip_ids)
+            self.assertNotIn("t1", r2_trip_ids)
+
 
 if __name__ == "__main__":
     unittest.main()
