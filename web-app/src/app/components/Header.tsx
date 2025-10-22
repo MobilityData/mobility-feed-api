@@ -391,6 +391,7 @@ export default function DrawerAppBar(): React.ReactElement {
                   void i18n.changeLanguage(lang.target.value);
                 }}
                 variant='standard'
+                inputProps={{ 'aria-label': 'language select' }}
               >
                 <MenuItem value={'en'}>EN</MenuItem>
                 <MenuItem value={'fr'}>FR</MenuItem>
