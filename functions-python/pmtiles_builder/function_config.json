@@ -13,6 +13,9 @@
     },
     {
       "key": "LOGGING_LEVEL"
+    },
+    {
+      "key": "UPLOAD_GEOJSON"
     }
   ],
   "secret_environment_variables": [

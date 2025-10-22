@@ -274,7 +274,7 @@ class PmtilesBuilder:
     def set_workdir(self, workdir: str):
         self.csv_cache.set_workdir(workdir)
 
-    @track_metrics(metrics=("time",))
+    @track_metrics(metrics=("time", "memory", "cpu"))
     def build_pmtiles(self):
         self.logger.info("Starting PMTiles build")
 
@@ -303,8 +303,13 @@ class PmtilesBuilder:
 
         if self.use_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
+            if os.getenv("UPLOAD_GEOJSON", "").lower() == "true":
+                files_to_upload.extend(
+                    ["routes-output.geojson", "stops-output.geojson"]
+                )
+
             self._upload_files_to_gcs(files_to_upload)
-        self._update_database()
+        # self._update_database()
 
         self.logger.info("Completed PMTiles build")
         return self.OperationStatus.SUCCESS, "success"
