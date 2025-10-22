@@ -95,6 +95,7 @@ expected_base_feed_result = FeedImpl(
     feed_name="feed_name",
     note="note",
     feed_contact_email="feed_contact_email",
+    related_links=[],
     source_info=SourceInfo(
         producer_url="producer_url",
         authentication_type=1,
@@ -149,6 +150,7 @@ class TestBasicFeedImpl(unittest.TestCase):
             external_ids=[],
             redirects=[],
             source_info=SourceInfo(),
+            related_links=[],
         )
         empty_result = FeedImpl.from_orm(empty_feed_orm)
         assert empty_result == expected_empty_feed

@@ -18,6 +18,7 @@ src/feeds_gen/models/bounding_box.py
 src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
 src/feeds_gen/models/feed.py
+src/feeds_gen/models/feed_related_link.py
 src/feeds_gen/models/gbfs_endpoint.py
 src/feeds_gen/models/gbfs_feed.py
 src/feeds_gen/models/gbfs_validation_report.py

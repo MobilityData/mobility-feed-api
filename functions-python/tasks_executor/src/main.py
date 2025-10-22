@@ -38,6 +38,7 @@ from tasks.visualization_files.rebuild_missing_visualization_files import (
 from tasks.geojson.update_geojson_files_precision import (
     update_geojson_files_precision_handler,
 )
+from tasks.data_import.import_jbda_feeds import import_jbda_handler
 
 init_logger()
 LIST_COMMAND: Final[str] = "list"
@@ -76,6 +77,10 @@ tasks = {
     "rebuild_missing_visualization_files": {
         "description": "Rebuilds missing visualization files for GTFS datasets.",
         "handler": rebuild_missing_visualization_files_handler,
+    },
+    "jbda_import": {
+        "description": "Imports JBDA data into the system.",
+        "handler": import_jbda_handler,
     },
 }
 

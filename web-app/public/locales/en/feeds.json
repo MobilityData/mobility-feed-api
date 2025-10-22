@@ -222,5 +222,6 @@
       "customStopRadiusAria": "Custom stop radius",
       "radius": "Radius: {{px}}px"
     }
-  }
+  },
+  "relatedLinks": "Related Links"
 }
