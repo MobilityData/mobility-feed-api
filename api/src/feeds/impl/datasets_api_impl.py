@@ -50,7 +50,8 @@ class DatasetsApiImpl(BaseDatasetsApi):
             offset=offset,
             group_by=lambda x: x[0].stable_id,
         )
-
+        if not dataset_groups:
+            return []
         gtfs_datasets = []
         for dataset_group in dataset_groups:
             dataset_objects: Tuple[Gtfsdataset, ...]
