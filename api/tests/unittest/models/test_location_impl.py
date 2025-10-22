@@ -1,6 +1,6 @@
 import unittest
 
-from feeds.impl.models.location_impl import LocationImpl
+from shared.db_models.location_impl import LocationImpl
 from shared.database_gen.sqlacodegen_models import Location as LocationOrm
 
 

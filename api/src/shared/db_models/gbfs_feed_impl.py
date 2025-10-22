@@ -1,8 +1,8 @@
-from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
-from feeds.impl.models.feed_impl import FeedImpl
-from feeds.impl.models.gbfs_version_impl import GbfsVersionImpl
+from shared.db_models.bounding_box_impl import BoundingBoxImpl
+from shared.db_models.feed_impl import FeedImpl
+from shared.db_models.gbfs_version_impl import GbfsVersionImpl
 from shared.database_gen.sqlacodegen_models import Gbfsfeed as GbfsFeedOrm
-from feeds.impl.models.location_impl import LocationImpl
+from shared.db_models.location_impl import LocationImpl
 from feeds_gen.models.gbfs_feed import GbfsFeed
 
 

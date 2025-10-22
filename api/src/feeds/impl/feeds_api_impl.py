@@ -8,11 +8,11 @@ from sqlalchemy.orm.query import Query
 
 from feeds.impl.datasets_api_impl import DatasetsApiImpl
 from feeds.impl.error_handling import raise_http_error, raise_http_validation_error, convert_exception
-from feeds.impl.models.entity_type_enum import EntityType
-from feeds.impl.models.feed_impl import FeedImpl
-from feeds.impl.models.gbfs_feed_impl import GbfsFeedImpl
-from feeds.impl.models.gtfs_feed_impl import GtfsFeedImpl
-from feeds.impl.models.gtfs_rt_feed_impl import GtfsRTFeedImpl
+from shared.db_models.entity_type_enum import EntityType
+from shared.db_models.feed_impl import FeedImpl
+from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
+from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
+from shared.db_models.gtfs_rt_feed_impl import GtfsRTFeedImpl
 from feeds_gen.apis.feeds_api_base import BaseFeedsApi
 from feeds_gen.models.feed import Feed
 from feeds_gen.models.gbfs_feed import GbfsFeed
