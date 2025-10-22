@@ -12,6 +12,7 @@ import {
   MenuItem,
   Select,
   useTheme,
+  Link,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -34,6 +35,7 @@ import { useRemoteConfig } from '../context/RemoteConfigProvider';
 import i18n from '../../i18n';
 import { NestedMenuItem } from 'mui-nested-menu';
 import DirectionsBusIcon from '@mui/icons-material/DirectionsBus';
+import DepartureBoardIcon from '@mui/icons-material/DepartureBoard';
 import { fontFamily } from '../Theme';
 import { defaultRemoteConfigValues } from '../interface/RemoteConfig';
 import { animatedButtonStyling } from './Header.style';
@@ -235,25 +237,30 @@ export default function DrawerAppBar(): React.ReactElement {
                     }}
                     sx={{ display: 'flex', gap: 1 }}
                   >
-                    <BikeScooterOutlined
-                      fontSize='small'
-                      sx={{ color: theme.palette.text.primary }}
-                    />
+                    <BikeScooterOutlined fontSize='small' />
                     {t('gbfsValidator')}
                   </MenuItem>
                   <MenuItem
                     key={'gtfs-validator'}
-                    onClick={() => {
-                      handleMenuItemClick('gtfs-validator');
-                    }}
-                    sx={{ display: 'flex', gap: 1 }}
-                    disabled={true}
+                    component={Link}
+                    href='https://gtfs-validator.mobilitydata.org/'
+                    target='_blank'
+                    rel='noopener noreferrer'
                   >
-                    <DirectionsBusIcon
-                      fontSize='small'
-                      sx={{ color: theme.palette.text.primary }}
-                    />
+                    <DirectionsBusIcon fontSize='small' sx={{ mr: 1 }} />
                     {t('gtfsValidator')}
+                    <OpenInNew fontSize='small' sx={{ ml: 0.5 }} />
+                  </MenuItem>
+                  <MenuItem
+                    key={'gtfs-rt-validator'}
+                    component={Link}
+                    href='https://github.com/MobilityData/gtfs-realtime-validator'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    <DepartureBoardIcon fontSize='small' sx={{ mr: 1 }} />
+                    {t('gtfsRtValidator')}
+                    <OpenInNew fontSize='small' sx={{ ml: 0.5 }} />
                   </MenuItem>
                 </Menu>
               </>

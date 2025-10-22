@@ -95,5 +95,6 @@
   },
   "validators": "Validators",
   "gbfsValidator": "GBFS Validator",
-  "gtfsValidator": "GTFS Validator"
+  "gtfsValidator": "GTFS Validator",
+  "gtfsRtValidator": "GTFS RT Validator"
 }

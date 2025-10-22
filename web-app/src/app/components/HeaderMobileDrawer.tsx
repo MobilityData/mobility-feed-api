@@ -9,6 +9,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   useTheme,
+  Link,
 } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -123,8 +124,27 @@ export default function DrawerContent({
               >
                 {t('gbfsValidator')}
               </Button>
-              <Button variant='text' sx={mobileNavElementStyle} disabled={true}>
+              <Button
+                variant='text'
+                sx={mobileNavElementStyle}
+                endIcon={<OpenInNew />}
+                component={Link}
+                href='https://gtfs-validator.mobilitydata.org/'
+                target='_blank'
+                rel='noopener noreferrer'
+              >
                 {t('gtfsValidator')}
+              </Button>
+              <Button
+                variant='text'
+                sx={mobileNavElementStyle}
+                endIcon={<OpenInNew />}
+                component={Link}
+                href='https://github.com/MobilityData/gtfs-realtime-validator'
+                target='_blank'
+                rel='noopener noreferrer'
+              >
+                {t('gtfsRtValidator')}
               </Button>
             </AccordionDetails>
           </Accordion>
