@@ -45,6 +45,7 @@ export interface RemoteConfigValues extends FirebaseDefaultConfig {
   // 1- hides/shows the toggle button for gtfs feeds
   // 2- use bounding box view for GBFS instead of full covered area map
   enableDetailedCoveredArea: boolean;
+  gbfsValidator: boolean;
 }
 
 const featureByPassDefault: BypassConfig = {
@@ -74,6 +75,7 @@ export const defaultRemoteConfigValues: RemoteConfigValues = {
   visualizationMapFullDataLimit: 5,
   visualizationMapPreviewDataLimit: 3,
   enableDetailedCoveredArea: false,
+  gbfsValidator: false,
 };
 
 remoteConfig.defaultConfig = defaultRemoteConfigValues;
