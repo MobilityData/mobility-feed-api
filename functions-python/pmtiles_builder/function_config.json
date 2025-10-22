@@ -13,6 +13,12 @@
     },
     {
       "key": "LOGGING_LEVEL"
+    },
+    {
+      "key": "NO_DATABASE"
+    },
+    {
+      "key": "UPLOAD_GEOJSON"
     }
   ],
   "secret_environment_variables": [

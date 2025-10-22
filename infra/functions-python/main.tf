@@ -1263,6 +1263,7 @@ resource "google_cloudfunctions2_function" "pmtiles_builder" {
       PUBSUB_TOPIC_NAME = "rebuild-bounding-boxes-topic"
       MATERIALIZED_VIEW_QUEUE = google_cloud_tasks_queue.refresh_materialized_view_task_queue.name
       DATASETS_BUCKET_NAME = "${var.datasets_bucket_name}-${var.environment}"
+      UPLOAD_GEOJSON = "True"
     }
     available_memory                 = local.function_pmtiles_builder_config.memory
     timeout_seconds                  = local.function_pmtiles_builder_config.timeout

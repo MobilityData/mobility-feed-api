@@ -164,6 +164,11 @@ class PmtilesBuilder:
         no_delete = os.getenv("NO_DELETE_DOWNLOADED_FILES", "").lower()
         self.delete_downloaded_files = False if no_delete == "true" else True
 
+        # Control whether GeoJSON files should be uploaded. Default: do not upload
+        upload_geojson_flag = os.getenv("UPLOAD_GEOJSON", "").lower()
+        # Only enable upload of geojson when UPLOAD_GEOJSON is set to the literal string "true"
+        self.upload_geojson = True if upload_geojson_flag == "true" else False
+
         no_upload = os.getenv("NO_UPLOAD_TO_GCS", "").lower()
         self.upload_to_gcs = False if no_upload == "true" else True
 
@@ -201,6 +206,11 @@ class PmtilesBuilder:
 
         if self.upload_to_gcs:
             files_to_upload = ["routes.pmtiles", "stops.pmtiles", "routes.json"]
+            if self.upload_geojson:
+                files_to_upload.extend(
+                    ["routes-output.geojson", "stops-output.geojson"]
+                )
+
             self.upload_files_to_gcs(files_to_upload)
 
         if self.use_database:
