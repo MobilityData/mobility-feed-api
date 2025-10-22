@@ -152,11 +152,11 @@ export default function GbfsValidator(): React.ReactElement {
                       feature improvements, testing, or documentation. Special
                       thanks to{' '}
                       <Link
-                        href='https://github.com/testower'
+                        href='https://entur.no/'
                         target='_blank'
                         rel='noreferrer'
                       >
-                        @testower
+                        Entur
                       </Link>{' '}
                       for their outstanding work on the validation engine
                     </Typography>
