@@ -7,7 +7,6 @@ src/feeds_gen/models/basic_dataset.py
 src/feeds_gen/models/basic_feed.py
 src/feeds_gen/models/bounding_box.py
 src/feeds_gen/models/data_type.py
-src/feeds_gen/models/entity_type.py
 src/feeds_gen/models/external_id.py
 src/feeds_gen/models/extra_models.py
 src/feeds_gen/models/feed.py

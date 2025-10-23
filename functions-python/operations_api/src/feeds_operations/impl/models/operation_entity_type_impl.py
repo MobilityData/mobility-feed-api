@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-from feeds_gen.models.entity_type import EntityType
 from shared.database_gen.sqlacodegen_models import Entitytype as EntityTypeOrm
 
 
@@ -17,26 +16,22 @@ class OperationEntityTypeImpl(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, obj: EntityTypeOrm | None) -> EntityType | None:
+    def from_orm(cls, obj: EntityTypeOrm | None) -> str | None:
         """
         Convert a SQLAlchemy row object to a Pydantic model.
         """
         if obj is None:
             return None
-        return EntityType(obj.name.lower())
+        return obj.name
 
     @classmethod
-    def to_orm(cls, entity_type: EntityType, session) -> EntityTypeOrm:
+    def to_orm(cls, entity_type: str, session) -> EntityTypeOrm:
         """
         Convert a Pydantic model to a SQLAlchemy row object.
         """
         result = (
             session.query(EntityTypeOrm)
-            .filter(EntityTypeOrm.name.ilike(entity_type.name))
+            .filter(EntityTypeOrm.name.ilike(entity_type))
             .first()
         )
-        return (
-            result
-            if result is not None
-            else EntityTypeOrm(name=entity_type.name.lower())
-        )
+        return result if result is not None else EntityTypeOrm(name=entity_type.lower())
