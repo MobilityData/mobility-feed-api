@@ -1,10 +1,10 @@
 from pydantic import BaseModel
 
-from feeds_operations_gen.models.entity_type import EntityType
+from feeds_gen.models.entity_type import EntityType
 from shared.database_gen.sqlacodegen_models import Entitytype as EntityTypeOrm
 
 
-class EntityTypeImpl(BaseModel):
+class OperationEntityTypeImpl(BaseModel):
     """Implementation of the EntityType model.
     This class converts a SQLAlchemy row DB object with the gtfs feed fields to a Pydantic model.
     """

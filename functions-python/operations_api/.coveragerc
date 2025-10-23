@@ -4,7 +4,7 @@ omit =
     */helpers/*
     */database_gen/*
     */dataset_service/*
-    */feeds_operations_gen/*
+    */feeds_gen/*
     */shared/*
 
 [report]

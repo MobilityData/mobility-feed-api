@@ -14,11 +14,9 @@ info:
   license:
     name: MobilityData License
     url: https://www.apache.org/licenses/LICENSE-2.0
-
 tags:
   - name: "operations"
     description: "Mobility Database Operations"
-
 paths:
   /v1/operations/feeds:
     get:
@@ -33,14 +31,14 @@ paths:
           required: false
           schema:
             type: string
-            enum: [ wip, published, unpublished ]
+            enum: [wip, published, unpublished]
         - name: data_type
           in: query
           description: Filter feeds by data type.
           required: false
           schema:
             type: string
-            enum: [ gtfs, gtfs_rt ]
+            enum: [gtfs, gtfs_rt]
         - name: offset
           in: query
           description: Number of items to skip for pagination.
@@ -73,12 +71,11 @@ paths:
                   feeds:
                     type: array
                     items:
-                      $ref: "#/components/schemas/BaseFeed"
+                      $ref: "#/components/schemas/OperationFeed"
         401:
           description: Unauthorized.
         500:
           description: Internal Server Error.
-
   /v1/operations/feeds/gtfs:
     put:
       description: Update the specified GTFS feed in the Mobility Database.
@@ -86,7 +83,7 @@ paths:
         - "operations"
       operationId: updateGtfsFeed
       security:
-        - ApiKeyAuth: [ ]
+        - ApiKeyAuth: []
       requestBody:
         description: Payload to update the specified GTFS feed.
         required: true
@@ -98,19 +95,61 @@ paths:
         200:
           description: >
             The feed was successfully updated. No content is returned.
+
         204:
           description: >
             The feed update request was successfully received, but the update process was skipped as the request matches with the source feed.
+
         400:
           description: >
             The request was invalid.
+
         401:
           description: >
             The request was not authenticated or has invalid authentication credentials.
+
         500:
           description: >
             An internal server error occurred.
 
+  /v1/operations/gtfs_feeds/{id}:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: Get the specified GTFS feed from the Mobility Database.
+      tags:
+        - "operations"
+      operationId: getGtfsFeed
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: >
+            Successful pull of the GTFS feeds common info for the provided ID.
+
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationGtfsFeed"
+  /v1/operations/gtfs_rt_feeds/{id}:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    get:
+      description: Get the specified GTFS-RT feed from the Mobility Database.
+      tags:
+        - "operations"
+      operationId: getGtfsRtFeed
+      security:
+        - Authentication: []
+      responses:
+        200:
+          description: >
+            Successful pull of the GTFS-RT feeds common info for the provided ID.
+
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationGtfsRtFeed"
   /v1/operations/feeds/gtfs_rt:
     put:
       description: Update the specified GTFS-RT feed in the Mobility Database.
@@ -118,7 +157,7 @@ paths:
         - "operations"
       operationId: updateGtfsRtFeed
       security:
-        - ApiKeyAuth: [ ]
+        - ApiKeyAuth: []
       requestBody:
         description: Payload to update the specified GTFS-RT feed.
         required: true
@@ -130,132 +169,25 @@ paths:
         200:
           description: >
             The feed was successfully updated. No content is returned.
+
         204:
           description: >
             The feed update request was successfully received, but the update process was skipped as the request matches with the source feed.
+
         400:
           description: >
             The request was invalid.
+
         401:
           description: >
             The request was not authenticated or has invalid authentication credentials.
+
         500:
           description: >
             An internal server error occurred.
 
 components:
   schemas:
-    BaseFeed:
-      type: object
-      discriminator:
-        propertyName: data_type
-        mapping:
-          gtfs: '#/components/schemas/GtfsFeedResponse'
-          gtfs_rt: '#/components/schemas/GtfsRtFeedResponse'
-      properties:
-        id:
-          type: string
-          description: Unique identifier for the feed.
-        stable_id:
-          type: string
-          description: Stable identifier for the feed.
-        status:
-          $ref: "#/components/schemas/FeedStatus"
-        data_type:
-          $ref: "#/components/schemas/DataType"
-        provider:
-          type: string
-          description: Name of the transit provider.
-        feed_name:
-          type: string
-          description: Name of the feed.
-        note:
-          type: string
-          description: Additional notes about the feed.
-        feed_contact_email:
-          type: string
-          description: Contact email for the feed.
-        source_info:
-          $ref: "#/components/schemas/SourceInfo"
-        operational_status:
-          type: string
-          enum: [ wip, published, unpublished ]
-          description: Current operational status of the feed.
-        created_at:
-          type: string
-          format: date-time
-          description: When the feed was created.
-        official:
-          type: boolean
-          description: Whether this is an official feed.
-        official_updated_at:
-          type: string
-          format: date-time
-          description: When the official status was last updated.
-        locations:
-          type: array
-          items:
-            $ref: "#/components/schemas/Location"
-        external_ids:
-          type: array
-          items:
-            $ref: "#/components/schemas/ExternalId"
-        redirects:
-          type: array
-          items:
-            $ref: "#/components/schemas/Redirect"
-
-    GtfsFeedResponse:
-      allOf:
-        - $ref: "#/components/schemas/BaseFeed"
-        - type: object
-          description: GTFS feed response model.
-
-    GtfsRtFeedResponse:
-      allOf:
-        - $ref: "#/components/schemas/BaseFeed"
-        - type: object
-          properties:
-            entity_types:
-              type: array
-              items:
-                type: string
-                enum:
-                  - vp
-                  - tu
-                  - sa
-                example: vp
-                description: >
-                  The type of realtime entry:
-                    * vp - vehicle positions
-                    * tu - trip updates
-                    * sa - service alerts
-            feed_references:
-              description:
-                A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
-              type: array
-              items:
-                type: string
-                example: "mdb-20"
-
-    GetFeeds200Response:
-      type: object
-      properties:
-        total:
-          type: integer
-          description: Total number of feeds matching the criteria.
-        offset:
-          type: string
-          description: Current offset for pagination.
-        limit:
-          type: string
-          description: Maximum number of items per page.
-        feeds:
-          type: array
-          items:
-            $ref: "#/components/schemas/BaseFeed"
-          description: List of feeds.
-
     Redirect:
       type: object
       properties:
@@ -267,8 +199,820 @@ components:
           description: A comment explaining the redirect.
           type: string
           example: Redirected because of a change of URL.
+    BasicFeed:
+      type: object
+      properties:
+        id:
+          description: Unique identifier used as a key for the feeds table.
+          type: string
+          example: mdb-1210
+        data_type:
+          type: string
+          enum:
+            - gtfs
+            - gtfs_rt
+            - gbfs
+          example: gtfs
+          #    Have to put the enum inline because of a bug in openapi-generator
+          #          $ref: "#/components/schemas/DataType"
+        created_at:
+          description: The date and time the feed was added to the database, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+        external_ids:
+          $ref: "#/components/schemas/ExternalIds"
+        provider:
+          description: A commonly used name for the transit provider included in the feed.
+          type: string
+          example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
+        feed_contact_email:
+          description: Use to contact the feed producer.
+          type: string
+          example: someEmail@ladotbus.com
+        source_info:
+          $ref: "#/components/schemas/SourceInfo"
+        redirects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Redirect"
+    Feed:
+      allOf:
+        - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          discriminator:
+            propertyName: data_type
+            mapping:
+              gtfs: '#/components/schemas/GtfsFeed'
+              gtfs_rt: '#/components/schemas/GtfsRTFeed'
+          properties:
+            status:
+              description: >
+                Describes status of the Feed. Should be one of
 
+                  * `active` Feed should be used in public trip planners.
+                  * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+                  * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+                  * `development` Feed is being used for development purposes and should not be used in public trip planners.
+                  * `future` Feed is not yet active but will be in the future.
+              type: string
+              enum:
+                - active
+                - deprecated
+                - inactive
+                - development
+                - future
+              example: deprecated
+            official:
+              description: >
+                A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
+
+              type: boolean
+              example: true
+            official_updated_at:
+              description: >
+                The date and time the official status was last updated, in ISO 8601 date-time format.
+
+              type: string
+              example: 2023-07-10T22:06:00Z
+              format: date-time
+            feed_name:
+              description: >
+                An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
+
+              type: string
+              example: Bus
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
+    GtfsFeed:
+      allOf:
+        - $ref: "#/components/schemas/Feed"
+        - type: object
+          properties:
+            # We reproduce this property here so we can have a specific example.
+            data_type:
+              type: string
+              enum:
+                - gtfs
+                - gtfs_rt
+                - gbfs
+              example: gtfs
+            locations:
+              $ref: "#/components/schemas/Locations"
+            latest_dataset:
+              $ref: "#/components/schemas/LatestDataset"
+            bounding_box:
+              $ref: "#/components/schemas/BoundingBox"
+            visualization_dataset_id:
+              description: >
+                The dataset ID of the dataset used to compute the visualization files.
+
+              type: string
+              example: mdb-1210-202402121801
+    GbfsFeed:
+      allOf:
+        - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          properties:
+            # We reproduce this property here so we can have a specific example.
+            data_type:
+              type: string
+              enum:
+                - gtfs
+                - gtfs_rt
+                - gbfs
+              example: gbfs
+            locations:
+              $ref: "#/components/schemas/Locations"
+            system_id:
+              description: >
+                The system ID of the feed. This is a unique identifier for the system that the feed belongs to.
+
+              type: string
+              example: system-1234
+            provider_url:
+              description: >
+                The URL of the provider's website. This is the website of the organization that operates the system that the feed belongs to.
+
+              type: string
+              format: url
+              example: https://www.citybikenyc.com/
+            versions:
+              description: >
+                A list of GBFS versions that the feed supports. Each version is represented by its version number and a list of endpoints.
+
+              type: array
+              items:
+                $ref: "#/components/schemas/GbfsVersion"
+            bounding_box:
+              $ref: "#/components/schemas/BoundingBox"
+            bounding_box_generated_at:
+              description: The date and time the bounding box was generated, in ISO 8601 date-time format.
+              type: string
+              example: 2023-07-10T22:06:00Z
+              format: date-time
+    GbfsVersion:
+      type: object
+      properties:
+        version:
+          description: >
+            The version of the GBFS specification that the feed is using.  This is a string that follows the semantic versioning format.
+
+          type: string
+          example: 2.3
+        created_at:
+          description: >
+            The date when the GBFS version was saved to the database.
+
+          type: string
+          format: date-time
+          example: 2023-07-10T22:06:00Z
+        last_updated_at:
+          description: >
+            The date when the GBFS version was last updated in the database.
+
+          type: string
+          format: date-time
+          example: 2023-07-10T22:06:00Z
+        source:
+          description: >
+            Indicates the origin of the version information. Possible values are:
+
+              * `autodiscovery`: Retrieved directly from the main GBFS autodiscovery URL.
+              * `gbfs_versions`: Retrieved from the `gbfs_versions` endpoint.
+          type: string
+          enum:
+            - autodiscovery
+            - gbfs_versions
+        endpoints:
+          description: >
+            A list of endpoints that are available in the version.
+
+          type: array
+          items:
+            $ref: "#/components/schemas/GbfsEndpoint"
+        latest_validation_report:
+          $ref: "#/components/schemas/GbfsValidationReport"
+    GbfsValidationReport:
+      type: object
+      description: >
+        A validation report of the GBFS feed.
+
+      properties:
+        validated_at:
+          description: >
+            The date and time the GBFS feed was validated, in ISO 8601 date-time format.
+
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+        total_error:
+          type: integer
+          example: 10
+          minimum: 0
+        report_summary_url:
+          description: >
+            The URL of the JSON report of the validation summary.
+
+          type: string
+          format: url
+          example: https://storage.googleapis.com/mobilitydata-datasets-prod/validation-reports/gbfs-1234-202402121801.json
+        validator_version:
+          description: >
+            The version of the validator used to validate the GBFS feed.
+
+          type: string
+          example: 1.0.13
+    GbfsEndpoint:
+      type: object
+      properties:
+        name:
+          description: >
+            The name of the endpoint. This is a human-readable name for the endpoint.
+
+          type: string
+          example: system_information
+        url:
+          description: >
+            The URL of the endpoint. This is the URL where the endpoint can be accessed.
+
+          type: string
+          format: url
+          example: https://gbfs.citibikenyc.com/gbfs/system_information.json
+        language:
+          description: >
+            The language of the endpoint. This is the language that the endpoint is available in for versions 2.3  and prior.
+
+          type: string
+          example: en
+        is_feature:
+          description: >
+            A boolean value indicating if the endpoint is a feature. A feature is defined as an optionnal endpoint.
+
+          type: boolean
+          example: false
+    GbfsFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/GbfsFeed"
+    GtfsRTFeed:
+      allOf:
+        - $ref: "#/components/schemas/Feed"
+        - type: object
+          properties:
+            # We reproduce this property here so we can have a specific example.
+            data_type:
+              type: string
+              enum:
+                - gtfs
+                - gtfs_rt
+                - gbfs
+              example: gtfs_rt
+            entity_types:
+              type: array
+              items:
+                type: string
+                enum:
+                  - vp
+                  - tu
+                  - sa
+                example: vp
+                description: >
+                  The type of realtime entry:
+
+                    * vp - vehicle positions
+                    * tu - trip updates
+                    * sa - service alerts
+                #              Have to put the enum inline because of a bug in openapi-generator
+                #              $ref: "#/components/schemas/EntityTypes"
+            feed_references:
+              description: A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+              type: array
+              items:
+                type: string
+                example: "mdb-20"
+            locations:
+              $ref: "#/components/schemas/Locations"
+    SearchFeedItemResult:
+      # The following schema is used to represent the search results for feeds.
+      # The schema is a union of all the possible types(Feed, GtfsFeed, GtfsRTFeed and GbfsFeed) of feeds that can be returned.
+      # This union is not based on its original types due to the limitations of openapi-generator.
+      # For the same reason it's not defined as anyOf, but as a single object with all the possible properties.
+      type: object
+      required:
+        - id
+        - data_type
+        - status
+      properties:
+        id:
+          description: Unique identifier used as a key for the feeds table.
+          type: string
+          example: mdb-1210
+        data_type:
+          type: string
+          enum:
+            - gtfs
+            - gtfs_rt
+            - gbfs
+          example: gtfs
+          #    Have to put the enum inline because of a bug in openapi-generator
+          #          $ref: "#/components/schemas/DataType"
+        status:
+          description: >
+            Describes status of the Feed. Should be one of
+
+              * `active` Feed should be used in public trip planners.
+              * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+              * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+              * `development` Feed is being used for development purposes and should not be used in public trip planners.
+              * `future` Feed is not yet active but will be in the future.
+          type: string
+          enum:
+            - active
+            - deprecated
+            - inactive
+            - development
+            - future
+          example: deprecated
+          #           Have to put the enum inline because of a bug in openapi-generator
+          #          $ref: "#/components/schemas/FeedStatus"
+        created_at:
+          description: The date and time the feed was added to the database, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+        official:
+          description: >
+            A boolean value indicating if the feed is official or not.  Official feeds are provided by the transit agency or a trusted source.
+
+          type: boolean
+          example: true
+        external_ids:
+          $ref: "#/components/schemas/ExternalIds"
+        provider:
+          description: A commonly used name for the transit provider included in the feed.
+          type: string
+          example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
+        feed_name:
+          description: >
+            An optional description of the data feed, e.g to specify if the data feed is an aggregate of  multiple providers, or which network is represented by the feed.
+
+          type: string
+          example: Bus
+        note:
+          description: A note to clarify complex use cases for consumers.
+          type: string
+        feed_contact_email:
+          description: Use to contact the feed producer.
+          type: string
+          example: someEmail@ladotbus.com
+        source_info:
+          $ref: "#/components/schemas/SourceInfo"
+        redirects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Redirect"
+        locations:
+          $ref: "#/components/schemas/Locations"
+        latest_dataset:
+          $ref: "#/components/schemas/LatestDataset"
+        entity_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - vp
+              - tu
+              - sa
+            example: vp
+            description: >
+              The type of realtime entry:
+
+                * vp - vehicle positions
+                * tu - trip updates
+                * sa - service alerts
+            #              Have to put the enum inline because of a bug in openapi-generator
+            #              $ref: "#/components/schemas/EntityTypes"
+        versions:
+          type: array
+          items:
+            type: string
+            example: 2.3
+          description: The supported versions of the GBFS feed.
+        feed_references:
+          description: A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+          type: array
+          items:
+            type: string
+            example: "mdb-20"
+    Feeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/Feed"
+    GtfsFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/GtfsFeed"
+    GtfsRTFeeds:
+      type: array
+      items:
+        $ref: "#/components/schemas/GtfsRTFeed"
+    LatestDataset:
+      type: object
+      properties:
+        id:
+          description: Identifier of the latest dataset for this feed.
+          type: string
+          example: mdb-1210-202402121801
+        hosted_url:
+          description: >
+            As a convenience, the URL of the latest uploaded dataset hosted by MobilityData.  It should be the same URL as the one found in the latest dataset id dataset. An alternative way to find this is to use the latest dataset id to obtain the dataset and then use its hosted_url.
+
+          type: string
+          format: url
+          example: https://storage.googleapis.com/mobilitydata-datasets-prod/mdb-1210/mdb-1210-202402121801/mdb-1210-202402121801.zip
+        bounding_box:
+          $ref: "#/components/schemas/BoundingBox"
+        downloaded_at:
+          description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+        hash:
+          description: A hash of the dataset.
+          type: string
+          example: ad3805c4941cd37881ff40c342e831b5f5224f3d8a9a2ec3ac197d3652c78e42
+        service_date_range_start:
+          description: The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
+          type: string
+          example: 2023-07-10T06:00:00Z
+          format: date-time
+        service_date_range_end:
+          description: The start date of the service date range for the dataset in UTC. Timing ends at 23:59:59 of the day.
+          type: string
+          example: 2023-07-10T05:59:59+00Z
+          format: date-time
+        agency_timezone:
+          description: The timezone of the agency.
+          type: string
+          example: America/Los_Angeles
+        zipped_folder_size_mb:
+          description: The size of the zipped folder in MB.
+          type: number
+          example: 100.2
+        unzipped_folder_size_mb:
+          description: The size of the unzipped folder in MB.
+          type: number
+          example: 200.5
+        validation_report:
+          type: object
+          properties:
+            features:
+              description: List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
+              type: array
+              items:
+                type: string
+              example: ["Shapes", "Headsigns", "Wheelchair Accessibility"]
+            total_error:
+              type: integer
+              example: 10
+              minimum: 0
+            total_warning:
+              type: integer
+              example: 20
+              minimum: 0
+            total_info:
+              type: integer
+              example: 30
+              minimum: 0
+            unique_error_count:
+              type: integer
+              example: 1
+              minimum: 0
+            unique_warning_count:
+              type: integer
+              example: 2
+              minimum: 0
+            unique_info_count:
+              type: integer
+              example: 3
+              minimum: 0
+              #    Have to put the enum inline because of a bug in openapi-generator
+              #    EntityTypes:
+              #      type: array
+              #      items:
+              #        $ref: "#/components/schemas/EntityType"
+
+              #    EntityType:
+              #      type: string
+              #      enum:
+              #        - vp
+              #        - tu
+              #        - sa
+              #      example: vp
+              #      description: >
+              #        The type of realtime entry:
+              #          * vp - vehicle positions
+              #          * tu - trip updates
+              #          * sa - service alerts
+    ExternalIds:
+      type: array
+      items:
+        $ref: "#/components/schemas/ExternalId"
+    ExternalId:
+      type: object
+      properties:
+        external_id:
+          description: The ID that can be use to find the feed data in an external or legacy database.
+          type: string
+          example: 1210
+        source:
+          description: The source of the external ID, e.g. the name of the database where the external ID can be used.
+          type: string
+          example: mdb
+    SourceInfo:
+      type: object
+      properties:
+        producer_url:
+          description: >
+            URL where the producer is providing the dataset.  Refer to the authentication information to know how to access this URL.
+
+          type: string
+          format: url
+          example: https://ladotbus.com/gtfs
+        authentication_type:
+          description: >
+            Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
+
+              * 0 or (empty) - No authentication required.
+              * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
+              * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
+            When not provided, the authentication type is assumed to be 0.
+
+          type: integer
+          enum:
+            - 0
+            - 1
+            - 2
+          example: 2
+        authentication_info_url:
+          description: >
+            Contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created.  This field is required for `authentication_type=1` and `authentication_type=2`.
+
+          type: string
+          format: url
+          example: https://apidevelopers.ladottransit.com
+        api_key_parameter_name:
+          type: string
+          description: >
+            Defines the name of the parameter to pass in the URL to provide the API key. This field is required for `authentication_type=1` and `authentication_type=2`.
+
+          example: Ocp-Apim-Subscription-Key
+        license_url:
+          description: A URL where to find the license for the feed.
+          type: string
+          format: url
+          example: https://www.ladottransit.com/dla.html
+    Locations:
+      type: array
+      items:
+        $ref: "#/components/schemas/Location"
+    Location:
+      type: object
+      properties:
+        country_code:
+          description: >
+            ISO 3166-1 alpha-2 code designating the country where the system is located.  For a list of valid codes [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
+
+          type: string
+          example: US
+        country:
+          description: The english name of the country where the system is located.
+          type: string
+          example: United States
+        subdivision_name:
+          description: >
+            ISO 3166-2 english subdivision name designating the subdivision (e.g province, state, region) where the system is located.  For a list of valid names [see here](https://unece.org/trade/uncefact/unlocode-country-subdivisions-iso-3166-2).
+
+          type: string
+          example: California
+        municipality:
+          description: Primary municipality in english in which the transit system is located.
+          type: string
+          example: Los Angeles
+          #    Have to put the enum inline because of a bug in openapi-generator
+          #    FeedStatus:
+          #      description: >
+          #        Describes status of the Feed. Should be one of
+          #          * `active` Feed should be used in public trip planners.
+          #          * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
+          #          * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
+          #          * `development` Feed is being used for development purposes and should not be used in public trip planners.
+          #          * `future` Feed is not yet active but will be in the future
+          #      type: string
+          #      enum:
+          #        - active
+          #        - deprecated
+          #        - inactive
+          #        - development
+          #        - future
+          #      example: active
+    BasicDataset:
+      type: object
+      properties:
+        id:
+          description: Unique identifier used as a key for the datasets table.
+          type: string
+          example: mdb-10-202402080058
+        feed_id:
+          description: ID of the feed related to this dataset.
+          type: string
+          example: mdb-10
+    GtfsDataset:
+      allOf:
+        - $ref: "#/components/schemas/BasicDataset"
+        - type: object
+          properties:
+            hosted_url:
+              description: The URL of the dataset data as hosted by MobilityData. No authentication required.
+              type: string
+              example: https://storage.googleapis.com/storage/v1/b/mdb-latest/o/us-maine-casco-bay-lines-gtfs-1.zip?alt=media
+            note:
+              description: A note to clarify complex use cases for consumers.
+              type: string
+            downloaded_at:
+              description: The date and time the dataset was downloaded from the producer, in ISO 8601 date-time format.
+              type: string
+              example: 2023-07-10T22:06:00Z
+              format: date-time
+            hash:
+              description: A hash of the dataset.
+              type: string
+              example: 6497e85e34390b8b377130881f2f10ec29c18a80dd6005d504a2038cdd00aa71
+            bounding_box:
+              $ref: "#/components/schemas/BoundingBox"
+            validation_report:
+              $ref: "#/components/schemas/ValidationReport"
+            service_date_range_start:
+              description: The start date of the service date range for the dataset in UTC. Timing starts at 00:00:00 of the day.
+              type: string
+              example: 2023-07-10T06:00:00Z
+              format: date-time
+            service_date_range_end:
+              description: The start date of the service date range for the dataset in UTC. Timing ends at 23:59:59 of the day.
+              type: string
+              example: 2023-07-10T05:59:59+00Z
+              format: date-time
+            agency_timezone:
+              description: The timezone of the agency.
+              type: string
+              example: America/Los_Angeles
+            zipped_folder_size_mb:
+              description: The size of the zipped folder in MB.
+              type: number
+              example: 100.2
+            unzipped_folder_size_mb:
+              description: The size of the unzipped folder in MB.
+              type: number
+              example: 200.5
+    BoundingBox:
+      description: Bounding box of the dataset when it was first added to the catalog.
+      type: object
+      properties:
+        minimum_latitude:
+          description: The minimum latitude for the dataset bounding box.
+          type: number
+          example: 33.721601
+        maximum_latitude:
+          description: The maximum latitude for the dataset bounding box.
+          type: number
+          example: 34.323077
+        minimum_longitude:
+          description: The minimum longitude for the dataset bounding box.
+          type: number
+          example: -118.882829
+        maximum_longitude:
+          description: The maximum longitude for the dataset bounding box.
+          type: number
+          example: -118.131748
+    GtfsDatasets:
+      type: array
+      items:
+        $ref: "#/components/schemas/GtfsDataset"
+    Metadata:
+      type: object
+      properties:
+        version:
+          type: string
+          example: 1.0.0
+        commit_hash:
+          type: string
+          example: 8635fdac4fbff025b4eaca6972fcc9504bc1552d
+    ValidationReport:
+      description: Validation report
+      type: object
+      properties:
+        validated_at:
+          description: The date and time the report was generated, in ISO 8601 date-time format.
+          type: string
+          example: 2023-07-10T22:06:00Z
+          format: date-time
+        features:
+          description: List of GTFS features associated to the dataset. More information, https://gtfs.org/getting-started/features/overview
+          type: array
+          items:
+            type: string
+          example: ["Shapes", "Headsigns", "Wheelchair Accessibility"]
+        validator_version:
+          type: string
+          example: 4.2.0
+        total_error:
+          type: integer
+          example: 10
+          minimum: 0
+        total_warning:
+          type: integer
+          example: 20
+          minimum: 0
+        total_info:
+          type: integer
+          example: 30
+          minimum: 0
+        unique_error_count:
+          type: integer
+          example: 1
+          minimum: 0
+        unique_warning_count:
+          type: integer
+          example: 2
+          minimum: 0
+        unique_info_count:
+          type: integer
+          example: 3
+          minimum: 0
+        url_json:
+          type: string
+          format: url
+          description: JSON validation report URL
+          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.json
+        url_html:
+          type: string
+          format: url
+          description: HTML validation report URL
+          example: https://storage.googleapis.com/mobilitydata-datasets-dev/mdb-10/mdb-10-202312181718/mdb-10-202312181718-report-4_2_0.html
+    OperationFeed:
+      x-operation: true
+      allOf:
+        - $ref: "#/components/schemas/BasicFeed"
+        - type: object
+          description: Feed response model.
+      type: object
+      properties:
+        stable_id:
+          description: Unique stable identifier used as a key for the feeds table.
+          type: string
+          example: mdb-1210
+        operational_status:
+          type: string
+          enum: [wip, published, unpublished]
+          description: Current operational status of the feed.
+        status:
+          $ref: "#/components/schemas/FeedStatus"
+    OperationGtfsFeed:
+      x-operation: true
+      allOf:
+        - $ref: "#/components/schemas/GtfsFeed"
+        - type: object
+          description: Feed response model.
+      type: object
+      properties:
+        stable_id:
+          description: Unique stable identifier used as a key for the feeds table.
+          type: string
+          example: mdb-1210      
+        operational_status:
+          type: string
+          enum: [wip, published, unpublished]
+          description: Current operational status of the feed.
+    OperationGtfsRtFeed:
+      x-operation: true
+      allOf:
+        - $ref: "#/components/schemas/GtfsRTFeed"
+        - type: object
+          description: Feed response model.
+      type: object
+      properties:
+        stable_id:
+          description: Unique stable identifier used as a key for the feeds table.
+          type: string
+          example: mdb-1210      
+        operational_status:
+          type: string
+          enum: [wip, published, unpublished]
+          description: Current operational status of the feed.
     UpdateRequestGtfsRtFeed:
+      x-operation: true
       type: object
       properties:
         id:
@@ -285,8 +1029,8 @@ components:
           example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
         feed_name:
           description: >
-            An optional description of the data feed, e.g to specify if the data feed is an aggregate of
-            multiple providers, or which network is represented by the feed.
+            An optional description of the data feed, e.g to specify if the data feed is an aggregate of multiple providers, or which network is represented by the feed.
+
           type: string
           example: Bus
         note:
@@ -305,10 +1049,20 @@ components:
         entity_types:
           type: array
           items:
-            $ref: "#/components/schemas/EntityType"
+            type: string
+            enum:
+              - vp
+              - tu
+              - sa
+            example: vp
+            description: >
+              The type of realtime entry:
+
+                * vp - vehicle positions
+                * tu - trip updates
+                * sa - service alerts
         feed_references:
-          description:
-            A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
+          description: A list of the GTFS feeds that the real time source is associated with, represented by their MDB source IDs.
           type: array
           items:
             type: string
@@ -327,8 +1081,8 @@ components:
         - id
         - status
         - entity_types
-
     UpdateRequestGtfsFeed:
+      x-operation: true
       type: object
       properties:
         id:
@@ -345,8 +1099,8 @@ components:
           example: Los Angeles Department of Transportation (LADOT, DASH, Commuter Express)
         feed_name:
           description: >
-            An optional description of the data feed, e.g to specify if the data feed is an aggregate of
-            multiple providers, or which network is represented by the feed.
+            An optional description of the data feed, e.g to specify if the data feed is an aggregate of multiple providers, or which network is represented by the feed.
+
           type: string
           example: Bus
         note:
@@ -375,71 +1129,12 @@ components:
       required:
         - id
         - status
-
-    ExternalIds:
-      type: array
-      items:
-        $ref: "#/components/schemas/ExternalId"
-
-    ExternalId:
-      type: object
-      properties:
-        external_id:
-          description: The ID that can be use to find the feed data in an external or legacy database.
-          type: string
-          example: 1210
-        source:
-          description: The source of the external ID, e.g. the name of the database where the external ID can be used.
-          type: string
-          example: mdb
-
-    SourceInfo:
-      type: object
-      properties:
-        producer_url:
-          description: >
-            URL where the producer is providing the dataset.
-            Refer to the authentication information to know how to access this URL.
-          type: string
-          format: url
-          example: https://ladotbus.com/gtfs
-        authentication_type:
-          $ref: "#/components/schemas/Authentication_type"
-        authentication_info_url:
-          description: >
-            Contains a URL to a human-readable page describing how the authentication should be performed and how credentials can be created.
-            This field is required for `authentication_type=1` and `authentication_type=2`.
-          type: string
-          format: url
-          example: https://apidevelopers.ladottransit.com
-        api_key_parameter_name:
-          type: string
-          description: >
-            Defines the name of the parameter to pass in the URL to provide the API key.
-            This field is required for `authentication_type=1` and `authentication_type=2`.
-          example: Ocp-Apim-Subscription-Key
-        license_url:
-          description: A URL where to find the license for the feed.
-          type: string
-          format: url
-          example: https://www.ladottransit.com/dla.html
-
-    EntityType:
-      type: string
-      enum:
-        - vp
-        - tu
-        - sa
-      example: vp
-      description: >
-        The type of realtime entry:
-          * vp - vehicle positions
-          * tu - trip updates
-          * sa - service alerts
-
     FeedStatus:
+      x-operation: true
       description: >
         Describes status of the Feed. Should be one of
+
+
           * `active` Feed should be used in public trip planners.
           * `deprecated` Feed is explicitly deprecated and should not be used in public trip planners.
           * `inactive` Feed hasn't been recently updated and should be used at risk of providing outdated information.
@@ -453,10 +1148,12 @@ components:
         - development
         - future
       example: active
-
     DataType:
+      x-operation: true
       description: >
         Describes data type of a feed. Should be one of
+
+
           * `gtfs` GTFS feed.
           * `gtfs_rt` GTFS-RT feed.
           * `gbfs` GBFS feed.
@@ -466,42 +1163,20 @@ components:
         - gtfs_rt
         - gbfs
       example: gtfs
-
-    Authentication_type:
-      description: >
-        Defines the type of authentication required to access the `producer_url`. Valid values for this field are:
-          * 0 or (empty) - No authentication required.
-          * 1 - The authentication requires an API key, which should be passed as value of the parameter api_key_parameter_name in the URL. Please visit URL in authentication_info_url for more information.
-          * 2 - The authentication requires an HTTP header, which should be passed as the value of the header api_key_parameter_name in the HTTP request.
-        When not provided, the authentication type is assumed to be 0.
-      type: integer
-      enum:
-        - 0
-        - 1
-        - 2
-      example: 2
-
-    Location:
-      type: object
-      properties:
-        country_code:
-          type: string
-          description: ISO 3166-1 alpha-2 country code.
-        country:
-          type: string
-          description: English name of the country.
-        subdivision_name:
-          type: string
-          description: Name of the subdivision (state/province/region).
-        municipality:
-          type: string
-          description: Name of the municipality.
-
+  parameters:
+    feed_id_path_param:
+      x-operation: true
+      name: id
+      in: path
+      description: The feed ID of the requested feed.
+      required: True
+      schema:
+        type: string
+        example: mdb-1210
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
       name: x-api-key
       in: header
-
 security:
-  - ApiKeyAuth: [ ]
+  - ApiKeyAuth: []

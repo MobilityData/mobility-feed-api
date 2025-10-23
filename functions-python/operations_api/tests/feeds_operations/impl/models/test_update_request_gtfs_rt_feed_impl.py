@@ -9,17 +9,14 @@ from shared.database_gen.sqlacodegen_models import (
 from feeds_operations.impl.models.update_request_gtfs_rt_feed_impl import (
     UpdateRequestGtfsRtFeedImpl,
 )
-from feeds_operations_gen.models.authentication_type import AuthenticationType
-from feeds_operations_gen.models.entity_type import EntityType
-from feeds_operations_gen.models.feed_status import FeedStatus
-from feeds_operations_gen.models.source_info import SourceInfo
-from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
+from feeds_gen.models.entity_type import EntityType
+from feeds_gen.models.feed_status import FeedStatus
+from feeds_gen.models.source_info import SourceInfo
+from feeds_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
-from feeds_operations.impl.models.redirect_impl import RedirectImpl
-from feeds_operations.impl.models.external_id_impl import (
-    ExternalIdImpl,
-)
+from shared.db_models.external_id_impl import ExternalIdImpl
+from shared.db_models.redirect_impl import RedirectImpl
 
 
 def test_from_orm():
@@ -74,7 +71,7 @@ def test_to_orm():
         feed_contact_email="email@example.com",
         source_info=SourceInfo(
             producer_url="http://producer.url",
-            authentication_type=AuthenticationType.NUMBER_1,
+            authentication_type=1,
             authentication_info_url="http://auth.info.url",
             api_key_parameter_name="api_key",
             license_url="http://license.url",

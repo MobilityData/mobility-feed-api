@@ -81,3 +81,6 @@ functions-python/**/*.csv
 
 # Local emulators
 .cloudstorage
+
+# Project files
+*.code-workspace
