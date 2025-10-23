@@ -31,7 +31,7 @@ class OperationEntityTypeImpl(BaseModel):
         """
         result = (
             session.query(EntityTypeOrm)
-            .filter(EntityTypeOrm.name.ilike(entity_type))
+            .filter(EntityTypeOrm.name.ilike(entity_type.lower()))
             .first()
         )
         return result if result is not None else EntityTypeOrm(name=entity_type.lower())

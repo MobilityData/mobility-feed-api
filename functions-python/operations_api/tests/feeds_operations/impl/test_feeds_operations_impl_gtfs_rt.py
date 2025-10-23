@@ -3,7 +3,6 @@ from starlette.responses import Response
 
 from conftest import feed_mdb_41
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
-from feeds_gen.models.entity_type import EntityType
 from feeds_gen.models.feed_status import FeedStatus
 from feeds_gen.models.source_info import SourceInfo
 from feeds_gen.models.update_request_gtfs_rt_feed import (
@@ -33,7 +32,7 @@ def update_request_gtfs_rt_feed():
         ),
         redirects=[],
         operational_status_action="no_change",
-        entity_types=[EntityType.VP],
+        entity_types=["vp"],
         official=True,
     )
 

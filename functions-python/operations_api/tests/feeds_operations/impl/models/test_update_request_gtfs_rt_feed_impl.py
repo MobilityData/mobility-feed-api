@@ -9,7 +9,6 @@ from shared.database_gen.sqlacodegen_models import (
 from feeds_operations.impl.models.update_request_gtfs_rt_feed_impl import (
     UpdateRequestGtfsRtFeedImpl,
 )
-from feeds_gen.models.entity_type import EntityType
 from feeds_gen.models.feed_status import FeedStatus
 from feeds_gen.models.source_info import SourceInfo
 from feeds_gen.models.update_request_gtfs_rt_feed import (
@@ -78,7 +77,7 @@ def test_to_orm():
         ),
         redirects=[RedirectImpl(target_id="target_stable_id", comment="Test comment")],
         external_ids=[ExternalIdImpl(external_id="external_id")],
-        entity_types=[EntityType.VP],
+        entity_types=["vp"],
         feed_references=["feed_reference"],
     )
     entity = Gtfsrealtimefeed(id="1", stable_id="stable_id", data_type="gtfs")
@@ -120,7 +119,7 @@ def test_to_orm_invalid_source_info():
         source_info=None,
         redirects=[RedirectImpl(target_id="target_stable_id", comment="Test comment")],
         external_ids=[ExternalIdImpl(external_id="external_id")],
-        entity_types=[EntityType.VP],
+        entity_types=["vp"],
         feed_references=["feed_reference"],
     )
     entity = Gtfsrealtimefeed(id="1", stable_id="stable_id", data_type="gtfs")
