@@ -5,7 +5,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from feeds.impl.models.feed_impl import FeedImpl
+from shared.db_models.feed_impl import FeedImpl
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import (
     Feed,

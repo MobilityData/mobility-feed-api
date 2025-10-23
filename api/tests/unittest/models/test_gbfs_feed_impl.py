@@ -5,10 +5,10 @@ from geoalchemy2 import WKTElement
 
 from feeds_gen.models.source_info import SourceInfo
 from shared.database_gen.sqlacodegen_models import Gbfsfeed, Location, Gbfsversion
-from feeds.impl.models.gbfs_feed_impl import GbfsFeedImpl
-from feeds.impl.models.location_impl import LocationImpl
-from feeds.impl.models.gbfs_version_impl import GbfsVersionImpl
-from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
+from shared.db_models.gbfs_feed_impl import GbfsFeedImpl
+from shared.db_models.location_impl import LocationImpl
+from shared.db_models.gbfs_version_impl import GbfsVersionImpl
+from shared.db_models.bounding_box_impl import BoundingBoxImpl
 
 POLYGON = "POLYGON ((3.0 1.0, 4.0 1.0, 4.0 2.0, 3.0 2.0, 3.0 1.0))"
 
