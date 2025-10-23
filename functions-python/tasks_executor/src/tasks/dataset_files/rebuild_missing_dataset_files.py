@@ -117,6 +117,8 @@ def rebuild_missing_dataset_files(
     execution_id = f"task-executor-uuid-{uuid.uuid4()}"
     messages = []
     all_datasets_count = datasets.count()
+    topic = (os.getenv("DATASET_PROCESSING_TOPIC_NAME"),)
+
     for dataset in datasets.all():
         try:
             message = {
@@ -140,15 +142,12 @@ def rebuild_missing_dataset_files(
         total_processed += 1
 
         if count % batch_count == 0 or all_datasets_count == count:
-            publish_messages(
-                messages,
-                os.getenv("PROJECT_ID"),
-                os.getenv("DATASET_PROCESSING_TOPIC_NAME"),
-            )
+            publish_messages(messages, os.getenv("PROJECT_ID"), topic)
             messages = []
             logging.info(
-                "Published message for %d datasets. Total processed: %d",
-                batch_count,
+                "Published message to topic %s for %d datasets. Total processed: %d",
+                topic,
+                batch_count if count % batch_count == 0 else all_datasets_count - count,
                 total_processed,
             )
 
