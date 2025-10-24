@@ -197,11 +197,11 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
     const displayGtfsVisualizationView =
       view === 'gtfsVisualizationView' && feed?.data_type === 'gtfs';
 
-    if (displayBoundingBoxMap) {
-      return <Map polygon={boundingBox ?? []} />;
+    if (displayBoundingBoxMap && boundingBox != undefined) {
+      return <Map polygon={boundingBox} />;
     }
 
-    if (displayGtfsVisualizationView) {
+    if (displayGtfsVisualizationView && boundingBox != undefined) {
       return (
         <>
           <Fab
@@ -213,7 +213,7 @@ const CoveredAreaMap: React.FC<CoveredAreaMapProps> = ({
             <ZoomOutMapIcon></ZoomOutMapIcon>
           </Fab>
           <GtfsVisualizationMap
-            polygon={boundingBox ?? []}
+            polygon={boundingBox}
             latestDataset={latestDataset}
             dataDisplayLimit={config.visualizationMapPreviewDataLimit}
             preview={true}

@@ -19,7 +19,8 @@ The function accepts the following payload:
 {
   "dry_run": true,                // [optional] If true, do not upload or modify the database (default: true)
   "after_date": "YYYY-MM-DD",     // [optional] Only include datasets downloaded after this ISO date
-  "latest_only": true             // [optional] If true, only process the latest version of each dataset (default: true)
+  "latest_only": true,            // [optional] If true, only process the latest version of each dataset (default: true)
+  "dataset_id": id                // [optional] If provided, only process the specified dataset. It will supersede the after_date and latest_only parameters.
 }
 ```
 
@@ -32,7 +33,13 @@ The function accepts the following payload:
   "latest_only": true
 }
 ```
-
+or
+```json
+{
+  "dry_run": false,
+  "dataset_id": "mdb-1147-202407031702"
+}
+```
 ---
 
 ## What It Does
@@ -51,6 +58,9 @@ For each GTFS dataset with missing file information (missing zipped/unzipped siz
 6. Makes each file publicly accessible and stores its GCS URL
 7. Computes SHA256 hashes for each file
 8. Stores metadata in the `Gtfsfile` table for later use
+
+If the `dataset_id` parameter is provided, the process is a bit simplified. It does not download the dataset as it is
+assumed the dataset is already present in the bucket. The rest of the processing is the same.
 
 ---
 
