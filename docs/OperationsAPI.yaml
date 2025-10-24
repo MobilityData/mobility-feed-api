@@ -964,7 +964,7 @@ components:
     OperationFeed:
       x-operation: true
       allOf:
-        - $ref: "#/components/schemas/BasicFeed"
+        - $ref: "#/components/schemas/Feed"
         - type: object
           description: Feed response model.
       type: object
