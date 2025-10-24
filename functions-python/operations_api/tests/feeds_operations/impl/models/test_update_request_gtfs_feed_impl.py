@@ -1,16 +1,14 @@
 from unittest.mock import Mock, MagicMock
+
+from feeds_operations.impl.models.operation_redirect_impl import OperationRedirectImpl
 from shared.database_gen.sqlacodegen_models import Gtfsfeed, Redirectingid, Externalid
-from feeds_operations_gen.models.authentication_type import AuthenticationType
-from feeds_operations_gen.models.feed_status import FeedStatus
-from feeds_operations_gen.models.source_info import SourceInfo
-from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from feeds_gen.models.feed_status import FeedStatus
+from feeds_gen.models.source_info import SourceInfo
+from feeds_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
-from feeds_operations.impl.models.redirect_impl import RedirectImpl
-from feeds_operations.impl.models.external_id_impl import (
-    ExternalIdImpl,
-)
+from shared.db_models.external_id_impl import ExternalIdImpl
 
 
 def test_from_orm():
@@ -65,12 +63,14 @@ def test_to_orm():
         feed_contact_email="email@example.com",
         source_info=SourceInfo(
             producer_url="http://producer.url",
-            authentication_type=AuthenticationType.NUMBER_1,
+            authentication_type=1,
             authentication_info_url="http://auth.info.url",
             api_key_parameter_name="api_key",
             license_url="http://license.url",
         ),
-        redirects=[RedirectImpl(target_id="target_stable_id", comment="Test comment")],
+        redirects=[
+            OperationRedirectImpl(target_id="target_stable_id", comment="Test comment")
+        ],
         external_ids=[ExternalIdImpl(external_id="external_id")],
     )
     entity = Gtfsfeed(id="1", stable_id="stable_id", data_type="gtfs")
@@ -104,7 +104,9 @@ def test_to_orm_invalid_source_info():
         note="note",
         feed_contact_email="email@example.com",
         source_info=None,
-        redirects=[RedirectImpl(target_id="target_stable_id", comment="Test comment")],
+        redirects=[
+            OperationRedirectImpl(target_id="target_stable_id", comment="Test comment")
+        ],
         external_ids=[ExternalIdImpl(external_id="external_id")],
     )
     entity = Gtfsfeed(id="id")

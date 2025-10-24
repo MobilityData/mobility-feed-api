@@ -17,8 +17,10 @@
 
 from datetime import datetime
 
-from feeds_operations.impl.models.gtfs_feed_impl import GtfsFeedImpl
-from feeds_operations.impl.models.gtfs_rt_feed_impl import GtfsRtFeedImpl
+from feeds_operations.impl.models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
+from feeds_operations.impl.models.operation_gtfs_rt_feed_impl import (
+    OperationGtfsRtFeedImpl,
+)
 
 
 def test_gtfs_feed_response_creation():
@@ -34,7 +36,7 @@ def test_gtfs_feed_response_creation():
         "created_at": "2024-02-14T12:00:00+00:00",
     }
 
-    feed = GtfsFeedImpl(**feed_data)
+    feed = OperationGtfsFeedImpl(**feed_data)
     assert feed.id == "mdb-123"
     assert feed.data_type == "gtfs"
     assert feed.operational_status == "wip"
@@ -46,10 +48,10 @@ def test_gtfs_feed_response_creation():
 
 def test_gtfs_feed_response_optional_fields():
     """Test GtfsFeedResponse with minimal required fields."""
-    feed = GtfsFeedImpl()
+    feed = OperationGtfsFeedImpl()
     assert feed.id is None
     assert feed.stable_id is None
-    assert feed.locations is None
+    assert feed.locations == []
 
 
 def test_gtfs_feed_response_locations():
@@ -66,7 +68,7 @@ def test_gtfs_feed_response_locations():
         ],
     }
 
-    feed = GtfsFeedImpl(**feed_data)
+    feed = OperationGtfsFeedImpl(**feed_data)
     assert len(feed.locations) == 1
     assert feed.locations[0].country_code == "US"
     assert feed.locations[0].municipality == "San Francisco"
@@ -74,7 +76,7 @@ def test_gtfs_feed_response_locations():
 
 def test_gtfs_rt_feed_response_optional_fields():
     """Test GtfsRtFeedResponse with minimal required fields."""
-    feed = GtfsRtFeedImpl()
+    feed = OperationGtfsRtFeedImpl()
     assert feed.id is None
     assert feed.entity_types == []
     assert feed.feed_references == []
@@ -84,7 +86,7 @@ def test_gtfs_rt_feed_response_entity_types():
     """Test GtfsRtFeedResponse entity_types validation."""
     feed_data = {"data_type": "gtfs_rt", "entity_types": ["vp", "tu", "sa"]}
 
-    feed = GtfsRtFeedImpl(**feed_data)
+    feed = OperationGtfsRtFeedImpl(**feed_data)
     assert len(feed.entity_types) == 3
     assert all(et in ["vp", "tu", "sa"] for et in feed.entity_types)
 
@@ -100,8 +102,8 @@ def test_feed_response_serialization():
         "entity_types": ["vp"],
     }
 
-    gtfs_feed = GtfsFeedImpl(**gtfs_data)
-    gtfs_rt_feed = GtfsRtFeedImpl(**gtfs_rt_data)
+    gtfs_feed = OperationGtfsFeedImpl(**gtfs_data)
+    gtfs_rt_feed = OperationGtfsRtFeedImpl(**gtfs_rt_data)
 
     gtfs_dict = gtfs_feed.to_dict()
     assert gtfs_dict["id"] == "mdb-123"
@@ -159,13 +161,13 @@ def test_feed_response_from_orm():
         "feed_references": ["mdb-123"],
     }
 
-    gtfs_feed = GtfsFeedImpl.model_validate(gtfs_feed_data)
+    gtfs_feed = OperationGtfsFeedImpl.model_validate(gtfs_feed_data)
     assert gtfs_feed.id == "mdb-123"
     assert gtfs_feed.data_type == "gtfs"
     assert isinstance(gtfs_feed.created_at, datetime)
     assert gtfs_feed.created_at.isoformat() == current_time_str
 
-    gtfs_rt_feed = GtfsRtFeedImpl.model_validate(gtfs_rt_feed_data)
+    gtfs_rt_feed = OperationGtfsRtFeedImpl.model_validate(gtfs_rt_feed_data)
     assert gtfs_rt_feed.id == "mdb-456"
     assert gtfs_rt_feed.data_type == "gtfs_rt"
     assert isinstance(gtfs_rt_feed.created_at, datetime)

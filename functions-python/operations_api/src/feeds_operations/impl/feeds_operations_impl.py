@@ -19,54 +19,44 @@ from typing import Annotated, Optional
 
 from deepdiff import DeepDiff
 from fastapi import HTTPException
-from pydantic import Field
+from pydantic import Field, StrictStr
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
-from feeds_operations.impl.models.get_feeds_response import GetFeeds200Response
-from feeds_operations.impl.models.gtfs_feed_impl import GtfsFeedImpl
-from feeds_operations.impl.models.gtfs_rt_feed_impl import GtfsRtFeedImpl
+from feeds_gen.models.data_type import DataType
+from feeds_gen.models.get_feeds200_response import GetFeeds200Response
+from feeds_gen.models.operation_gtfs_feed import OperationGtfsFeed
+from feeds_gen.models.operation_gtfs_rt_feed import OperationGtfsRtFeed
 from feeds_operations.impl.models.update_request_gtfs_feed_impl import (
     UpdateRequestGtfsFeedImpl,
 )
 from feeds_operations.impl.models.update_request_gtfs_rt_feed_impl import (
     UpdateRequestGtfsRtFeedImpl,
 )
-from feeds_operations_gen.apis.operations_api_base import BaseOperationsApi
-from feeds_operations_gen.models.data_type import DataType
-from feeds_operations_gen.models.gtfs_feed_response import GtfsFeedResponse
-from feeds_operations_gen.models.gtfs_rt_feed_response import GtfsRtFeedResponse
-from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
-from feeds_operations_gen.models.update_request_gtfs_rt_feed import (
+from feeds_gen.apis.operations_api_base import BaseOperationsApi
+from feeds_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from feeds_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
 from shared.database.database import with_db_session, refresh_materialized_view
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    t_feedsearch,
+    Feed,
+    Gtfsrealtimefeed,
+)
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
 )
+from .models.operation_feed_impl import OperationFeedImpl
+from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
+from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
 from .request_validator import validate_request
 
 
 class OperationsApiImpl(BaseOperationsApi):
     """Implementation of the operations API."""
-
-    def process_feed(self, feed) -> GtfsFeedResponse | GtfsRtFeedResponse:
-        """Process a feed into the appropriate response type using fromOrm methods."""
-        logging.debug("Processing feed %s with type %s", feed.stable_id, feed.data_type)
-
-        if feed.data_type == "gtfs":
-            result = GtfsFeedImpl.from_orm(feed)
-            logging.debug("Successfully processed GTFS feed %s", feed.stable_id)
-            return result
-        elif feed.data_type == "gtfs_rt":
-            result = GtfsRtFeedImpl.from_orm(feed)
-            logging.debug("Successfully processed GTFS-RT feed %s", feed.stable_id)
-            return result
-
-        logging.error("Unsupported feed type: %s", feed.data_type)
-        raise ValueError(f"Unsupported feed type: {feed.data_type}")
 
     @with_db_session
     async def get_feeds(
@@ -88,6 +78,7 @@ class OperationsApiImpl(BaseOperationsApi):
                 data_type=data_type,
                 limit=limit_int,
                 offset=offset_int,
+                model=Feed,
             )
 
             logging.info("Executing query with data_type: %s", data_type)
@@ -98,8 +89,7 @@ class OperationsApiImpl(BaseOperationsApi):
 
             feed_list = []
             for feed in feeds:
-                processed_feed = self.process_feed(feed)
-                feed_list.append(processed_feed)
+                feed_list.append(OperationFeedImpl.from_orm(feed))
 
             response = GetFeeds200Response(
                 total=total, offset=offset_int, limit=limit_int, feeds=feed_list
@@ -112,6 +102,40 @@ class OperationsApiImpl(BaseOperationsApi):
             raise HTTPException(
                 status_code=500, detail=f"Internal server error: {str(e)}"
             )
+
+    @with_db_session
+    async def get_gtfs_feed(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        db_session: Session = None,
+    ) -> OperationGtfsFeed:
+        """Get the specified GTFS feed from the Mobility Database."""
+        gtfs_feed = (
+            db_session.query(Gtfsfeed).filter(Gtfsfeed.stable_id == id).one_or_none()
+        )
+        if gtfs_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS feed not found")
+        return OperationGtfsFeedImpl.from_orm(gtfs_feed)
+
+    @with_db_session
+    async def get_gtfs_rt_feed(
+        self,
+        id: Annotated[
+            StrictStr, Field(description="The feed ID of the requested feed.")
+        ],
+        db_session: Session = None,
+    ) -> OperationGtfsRtFeed:
+        """Get the specified GTFS-RT feed from the Mobility Database."""
+        gtfs_rt_feed = (
+            db_session.query(Gtfsrealtimefeed)
+            .filter(Gtfsrealtimefeed.stable_id == id)
+            .one_or_none()
+        )
+        if gtfs_rt_feed is None:
+            raise HTTPException(status_code=404, detail="GTFS-RT feed not found")
+        return OperationGtfsRtFeedImpl.from_orm(gtfs_rt_feed)
 
     @staticmethod
     def detect_changes(

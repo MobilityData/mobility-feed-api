@@ -78,6 +78,7 @@ def get_feeds_query(
     data_type: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
+    model: Type[Feed | Gtfsfeed | Gtfsrealtimefeed] | None = Feed,
 ) -> Query:
     """
     Build a consolidated query for feeds with filtering options.
@@ -94,25 +95,19 @@ def get_feeds_query(
     """
     try:
         logging.info(
-            "Building query with params: data_type=%s, operation_status=%s",
+            "Building query with params: data_type=%s, operation_status=%s and model=%s",
             data_type,
             operation_status,
+            model.__name__,
         )
-
-        if data_type == "gtfs":
-            model = Gtfsfeed
-        elif data_type == "gtfs_rt":
-            model = Gtfsrealtimefeed  # Force concrete model
-        else:
-            model = Feed
-
-        logging.info(f"Using concrete model: {model.__name__}")
-
         conditions = []
 
         if data_type is None:
             conditions.append(model.data_type.in_(["gtfs", "gtfs_rt"]))
             logging.info("Added filter to exclude gbfs feeds")
+        else:
+            conditions.append(model.data_type == data_type)
+            logging.info("Added data_type filter: %s", data_type)
 
         if operation_status:
             conditions.append(model.operational_status == operation_status)

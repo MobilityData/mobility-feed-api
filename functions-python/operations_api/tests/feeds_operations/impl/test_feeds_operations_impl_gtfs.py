@@ -4,11 +4,10 @@ from starlette.responses import Response
 
 from conftest import feed_mdb_40
 from feeds_operations.impl.feeds_operations_impl import OperationsApiImpl
-from feeds_operations_gen.models.authentication_type import AuthenticationType
-from feeds_operations_gen.models.external_id import ExternalId
-from feeds_operations_gen.models.feed_status import FeedStatus
-from feeds_operations_gen.models.source_info import SourceInfo
-from feeds_operations_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
+from feeds_gen.models.external_id import ExternalId
+from feeds_gen.models.feed_status import FeedStatus
+from feeds_gen.models.source_info import SourceInfo
+from feeds_gen.models.update_request_gtfs_feed import UpdateRequestGtfsFeed
 from shared.database.database import Database
 from shared.database_gen.sqlacodegen_models import Gtfsfeed
 from test_shared.test_utils.database_utils import default_db_url
@@ -26,9 +25,7 @@ def update_request_gtfs_feed():
         feed_contact_email=feed_mdb_40.feed_contact_email,
         source_info=SourceInfo(
             producer_url=feed_mdb_40.producer_url,
-            authentication_type=AuthenticationType(
-                int(feed_mdb_40.authentication_type)
-            ),
+            authentication_type=int(feed_mdb_40.authentication_type),
             authentication_info_url=feed_mdb_40.authentication_info_url,
             api_key_parameter_name=feed_mdb_40.api_key_parameter_name,
             license_url=feed_mdb_40.license_url,

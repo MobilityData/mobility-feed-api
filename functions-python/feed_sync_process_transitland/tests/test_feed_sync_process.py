@@ -150,9 +150,13 @@ class TestFeedProcessor:
         result = processor._check_feed_url_exists(test_url)
         assert result is True
 
-    def test_database_error_handling(self, processor, feed_payload):
+    @patch("main.check_url_status")
+    def test_database_error_handling(
+        self, mock_check_url_status, processor, feed_payload
+    ):
         """Test database error handling in different scenarios."""
 
+        mock_check_url_status.return_value = True
         # Test case 1: General database error during feed processing
         processor.session.query.side_effect = SQLAlchemyError("Database error")
         processor._rollback_transaction = MagicMock(return_value=None)

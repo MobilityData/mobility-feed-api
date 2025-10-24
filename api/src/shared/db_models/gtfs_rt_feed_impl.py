@@ -18,7 +18,7 @@ class GtfsRTFeedImpl(FeedImpl, GtfsRTFeed):
         gtfs_rt_feed: GtfsRTFeed = super().from_orm(feed)
         if not gtfs_rt_feed:
             return None
-        gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations]
-        gtfs_rt_feed.entity_types = [item.name for item in feed.entitytypes]
-        gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds]
+        gtfs_rt_feed.locations = [LocationImpl.from_orm(item) for item in feed.locations] if feed.locations else []
+        gtfs_rt_feed.entity_types = [item.name for item in feed.entitytypes] if feed.entitytypes else []
+        gtfs_rt_feed.feed_references = [item.stable_id for item in feed.gtfs_feeds] if feed.gtfs_feeds else []
         return gtfs_rt_feed
