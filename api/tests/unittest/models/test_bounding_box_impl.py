@@ -2,7 +2,7 @@ import unittest
 
 from geoalchemy2 import WKTElement
 
-from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
+from shared.db_models.bounding_box_impl import BoundingBoxImpl
 from feeds_gen.models.bounding_box import BoundingBox
 
 POLYGON = "POLYGON ((3.0 1.0, 4.0 1.0, 4.0 2.0, 3.0 2.0, 3.0 1.0))"

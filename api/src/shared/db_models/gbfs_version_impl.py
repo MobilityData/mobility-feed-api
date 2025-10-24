@@ -1,5 +1,5 @@
-from feeds.impl.models.gbfs_endpoint_impl import GbfsEndpointImpl
-from feeds.impl.models.gbfs_validation_report_impl import GbfsValidationReportImpl
+from shared.db_models.gbfs_endpoint_impl import GbfsEndpointImpl
+from shared.db_models.gbfs_validation_report_impl import GbfsValidationReportImpl
 from feeds_gen.models.gbfs_version import GbfsVersion
 from shared.database_gen.sqlacodegen_models import Gbfsversion as GbfsVersionOrm
 

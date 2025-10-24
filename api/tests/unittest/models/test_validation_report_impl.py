@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 
 from shared.database_gen.sqlacodegen_models import Validationreport, Notice, Feature
-from feeds.impl.models.validation_report_impl import ValidationReportImpl
+from shared.db_models.validation_report_impl import ValidationReportImpl
 
 
 class TestValidationReportImpl(unittest.TestCase):

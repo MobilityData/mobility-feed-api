@@ -1,4 +1,4 @@
-from feeds.impl.models.basic_feed_impl import BaseFeedImpl
+from shared.db_models.basic_feed_impl import BaseFeedImpl
 from feeds_gen.models.feed import Feed
 from shared.database_gen.sqlacodegen_models import Feed as FeedOrm
 

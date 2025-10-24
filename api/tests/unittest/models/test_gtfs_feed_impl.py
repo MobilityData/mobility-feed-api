@@ -17,12 +17,12 @@ from shared.database_gen.sqlacodegen_models import (
     Notice,
     Feed,
 )
-from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
-from feeds.impl.models.external_id_impl import ExternalIdImpl
-from feeds.impl.models.gtfs_feed_impl import GtfsFeedImpl
-from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
-from feeds.impl.models.location_impl import LocationImpl
-from feeds.impl.models.redirect_impl import RedirectImpl
+from shared.db_models.bounding_box_impl import BoundingBoxImpl
+from shared.db_models.external_id_impl import ExternalIdImpl
+from shared.db_models.gtfs_feed_impl import GtfsFeedImpl
+from shared.db_models.latest_dataset_impl import LatestDatasetImpl
+from shared.db_models.location_impl import LocationImpl
+from shared.db_models.redirect_impl import RedirectImpl
 from feeds_gen.models.latest_dataset_validation_report import LatestDatasetValidationReport
 from feeds_gen.models.source_info import SourceInfo
 

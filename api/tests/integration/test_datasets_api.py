@@ -39,6 +39,28 @@ def test_feeds_gtfs_id_datasets_get(client: TestClient):
     assert response.status_code == 200
 
 
+def test_feeds_gtfs_datasets_latest_get(client: TestClient):
+    """Test case for feeds_gtfs_id_datasets_get"""
+    params = [
+        ("latest", True),
+        ("limit", 10),
+        ("offset", 0),
+        ("filter", "status=active"),
+        ("sort", "+provider"),
+    ]
+    response = client.request(
+        "GET",
+        "/v1/gtfs_feeds/{id}/datasets".format(id=TEST_GTFS_FEED_STABLE_IDS[0]),
+        headers=authHeaders,
+        params=params,
+    )
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert len(json_response) == 1, "Expected only the latest datasets"
+    assert json_response[0]["id"] == TEST_DATASET_STABLE_IDS[1]  # dataset-2
+
+
 def test_feeds_wrong_gtfs_id_datasets_get(client: TestClient):
     """Test case for feeds_gtfs_id_datasets_get where the gtfs feed id does not exist"""
 

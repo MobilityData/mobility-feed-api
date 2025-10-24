@@ -1,7 +1,7 @@
 import unittest
 
 from shared.database_gen.sqlacodegen_models import Externalid
-from feeds.impl.models.external_id_impl import ExternalIdImpl
+from shared.db_models.external_id_impl import ExternalIdImpl
 
 external_id_orm = Externalid(
     feed_id="feed_id",

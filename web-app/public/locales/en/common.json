@@ -92,5 +92,9 @@
         "description": "Railway in which the track consists of a single rail or a beam."
       }
     }
-  }
+  },
+  "validators": "Validators",
+  "gbfsValidator": "GBFS Validator",
+  "gtfsValidator": "GTFS Validator",
+  "gtfsRtValidator": "GTFS RT Validator"
 }

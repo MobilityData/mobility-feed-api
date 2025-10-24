@@ -5,8 +5,8 @@ from zoneinfo import ZoneInfo
 from geoalchemy2 import WKTElement
 
 from shared.database_gen.sqlacodegen_models import Gtfsdataset, Feed, Validationreport, Feature
-from feeds.impl.models.bounding_box_impl import BoundingBoxImpl
-from feeds.impl.models.latest_dataset_impl import LatestDatasetImpl
+from shared.db_models.bounding_box_impl import BoundingBoxImpl
+from shared.db_models.latest_dataset_impl import LatestDatasetImpl
 
 POLYGON = "POLYGON ((3.0 1.0, 4.0 1.0, 4.0 2.0, 3.0 2.0, 3.0 1.0))"
 
