@@ -23,9 +23,13 @@ def rebuild_missing_dataset_files_handler(payload) -> dict:
     dry_run = payload.get("dry_run", True)
     after_date = payload.get("after_date", None)
     latest_only = payload.get("latest_only", True)
+    dataset_id = payload.get("dataset_id", None)
 
     return rebuild_missing_dataset_files(
-        dry_run=dry_run, after_date=after_date, latest_only=latest_only
+        dry_run=dry_run,
+        after_date=after_date,
+        latest_only=latest_only,
+        dataset_id=dataset_id,
     )
 
 
@@ -67,6 +71,7 @@ def rebuild_missing_dataset_files(
     dry_run: bool = True,
     after_date: str = None,
     latest_only: bool = True,
+    dataset_id: str = None,
 ) -> dict:
     """
     Processes GTFS datasets missing extracted files and updates database.
@@ -76,13 +81,22 @@ def rebuild_missing_dataset_files(
         dry_run (bool): If True, only logs how many would be processed.
         after_date (str): Only consider datasets downloaded after this ISO date.
         latest_only (bool): Whether to include only latest datasets.
+        dataset_id (str | None): If provided, only process the dataset with this stable id.
 
     Returns:
         dict: Result summary.
     """
-    datasets = get_datasets_with_missing_files_query(
-        db_session, after_date=after_date, latest_only=latest_only
-    )
+
+    if dataset_id:
+        datasets = (
+            db_session.query(Gtfsdataset)
+            .filter(Gtfsdataset.stable_id == dataset_id)
+            .options(joinedload(Gtfsdataset.feed))
+        )
+    else:
+        datasets = get_datasets_with_missing_files_query(
+            db_session, after_date=after_date, latest_only=latest_only
+        )
 
     if dry_run:
         total = datasets.count()
@@ -102,6 +116,9 @@ def rebuild_missing_dataset_files(
     logging.info("Starting to process datasets with missing files...")
     execution_id = f"task-executor-uuid-{uuid.uuid4()}"
     messages = []
+    all_datasets_count = datasets.count()
+    topic = (os.getenv("DATASET_PROCESSING_TOPIC_NAME"),)
+
     for dataset in datasets.all():
         try:
             message = {
@@ -124,16 +141,13 @@ def rebuild_missing_dataset_files(
         count += 1
         total_processed += 1
 
-        if count % batch_count == 0:
-            publish_messages(
-                messages,
-                os.getenv("PROJECT_ID"),
-                os.getenv("DATASET_PROCESSING_TOPIC_NAME"),
-            )
+        if count % batch_count == 0 or all_datasets_count == count:
+            publish_messages(messages, os.getenv("PROJECT_ID"), topic)
             messages = []
             logging.info(
-                "Published message for %d datasets. Total processed: %d",
-                batch_count,
+                "Published message to topic %s for %d datasets. Total processed: %d",
+                topic,
+                batch_count if count % batch_count == 0 else all_datasets_count - count,
                 total_processed,
             )
 
@@ -147,6 +161,7 @@ def rebuild_missing_dataset_files(
             "after_date": after_date,
             "latest_only": latest_only,
             "datasets_bucket_name": os.environ.get("DATASETS_BUCKET_NAME"),
+            "dataset_id": dataset_id,
         },
     }
     logging.info("Task summary: %s", result)

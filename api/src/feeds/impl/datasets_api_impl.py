@@ -14,7 +14,7 @@ from feeds.impl.error_handling import (
 from shared.common.error_handling import (
     dataset_not_found,
 )
-from feeds.impl.models.gtfs_dataset_impl import GtfsDatasetImpl
+from shared.db_models.gtfs_dataset_impl import GtfsDatasetImpl
 from feeds_gen.apis.datasets_api_base import BaseDatasetsApi
 from feeds_gen.models.gtfs_dataset import GtfsDataset
 
@@ -50,7 +50,8 @@ class DatasetsApiImpl(BaseDatasetsApi):
             offset=offset,
             group_by=lambda x: x[0].stable_id,
         )
-
+        if not dataset_groups:
+            return []
         gtfs_datasets = []
         for dataset_group in dataset_groups:
             dataset_objects: Tuple[Gtfsdataset, ...]
