@@ -39,12 +39,16 @@ from feeds_gen.models.update_request_gtfs_rt_feed import (
     UpdateRequestGtfsRtFeed,
 )
 from shared.database.database import with_db_session, refresh_materialized_view
-from shared.database_gen.sqlacodegen_models import Gtfsfeed, t_feedsearch, Feed
+from shared.database_gen.sqlacodegen_models import (
+    Gtfsfeed,
+    t_feedsearch,
+    Feed,
+    Gtfsrealtimefeed,
+)
 from shared.helpers.query_helper import (
     query_feed_by_stable_id,
     get_feeds_query,
 )
-from shared.helpers.src.shared.database_gen.sqlacodegen_models import Gtfsrealtimefeed
 from .models.operation_feed_impl import OperationFeedImpl
 from .models.operation_gtfs_feed_impl import OperationGtfsFeedImpl
 from .models.operation_gtfs_rt_feed_impl import OperationGtfsRtFeedImpl
