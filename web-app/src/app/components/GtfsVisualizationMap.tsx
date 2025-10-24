@@ -1,22 +1,34 @@
 /* eslint-disable */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import Map, { MapProvider, type MapRef, NavigationControl, ScaleControl } from "react-map-gl/maplibre";
-import maplibregl, { type ExpressionSpecification, type LngLatBoundsLike } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { Protocol } from "pmtiles";
-import { type LatLngExpression } from "leaflet";
-import { Box, Button, Typography, useTheme } from "@mui/material";
-import Draggable from "react-draggable";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Map, {
+  MapProvider,
+  type MapRef,
+  NavigationControl,
+  ScaleControl,
+} from 'react-map-gl/maplibre';
+import maplibregl, {
+  type ExpressionSpecification,
+  type LngLatBoundsLike,
+} from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { Protocol } from 'pmtiles';
+import { type LatLngExpression } from 'leaflet';
+import { Box, Button, Typography, useTheme } from '@mui/material';
+import Draggable from 'react-draggable';
 
-import { LinearProgress, CircularProgress } from "@mui/material";
+import { LinearProgress, CircularProgress } from '@mui/material';
 
-import type { MapElementType } from "./MapElement";
-import { MapElement, MapRouteElement, MapStopElement } from "./MapElement";
-import { MapDataPopup } from "./Map/MapDataPopup";
-import type { GtfsRoute } from "../types";
-import { useTranslation } from "react-i18next";
-import { createPrecomputation, extendBBoxes, type RouteIdsInput } from "../utils/precompute";
+import type { MapElementType } from './MapElement';
+import { MapElement, MapRouteElement, MapStopElement } from './MapElement';
+import { MapDataPopup } from './Map/MapDataPopup';
+import type { GtfsRoute } from '../types';
+import { useTranslation } from 'react-i18next';
+import {
+  createPrecomputation,
+  extendBBoxes,
+  type RouteIdsInput,
+} from '../utils/precompute';
 
 interface LatestDatasetLite {
   hosted_url?: string;
@@ -39,20 +51,20 @@ export interface GtfsVisualizationMapProps {
 }
 
 export const GtfsVisualizationMap = ({
-                                       polygon,
-                                       latestDataset,
-                                       filteredRoutes = [],
-                                       filteredRouteTypeIds = [],
-                                       hideStops = false,
-                                       dataDisplayLimit = 10,
-                                       routes = [],
-                                       refocusTrigger = false,
-                                       stopRadius = 3,
-                                       preview = true
-                                     }: GtfsVisualizationMapProps): JSX.Element => {
+  polygon,
+  latestDataset,
+  filteredRoutes = [],
+  filteredRouteTypeIds = [],
+  hideStops = false,
+  dataDisplayLimit = 10,
+  routes = [],
+  refocusTrigger = false,
+  stopRadius = 3,
+  preview = true,
+}: GtfsVisualizationMapProps): JSX.Element => {
   const { stopsPmtilesUrl, routesPmtilesUrl } = useMemo(() => {
     const baseUrl = latestDataset?.hosted_url
-      ? latestDataset.hosted_url.replace(/[^/]+$/, "")
+      ? latestDataset.hosted_url.replace(/[^/]+$/, '')
       : undefined;
     const stops = `${baseUrl}/pmtiles/stops.pmtiles`;
     const routes = `${baseUrl}/pmtiles/routes.pmtiles`;
@@ -60,14 +72,22 @@ export const GtfsVisualizationMap = ({
   }, [latestDataset?.id, latestDataset?.stable_id]);
 
   const theme = useTheme();
-  const { t } = useTranslation("feeds");
+  const { t } = useTranslation('feeds');
   const [hoverInfo, setHoverInfo] = useState<string[]>([]);
   const [mapElements, setMapElements] = useState<MapElementType[]>([]);
-  const [mapClickRouteData, setMapClickRouteData] = useState<Record<string, string> | null>(null);
-  const [mapClickStopData, setMapClickStopData] = useState<Record<string, string> | null>(null);
+  const [mapClickRouteData, setMapClickRouteData] = useState<Record<
+    string,
+    string
+  > | null>(null);
+  const [mapClickStopData, setMapClickStopData] = useState<Record<
+    string,
+    string
+  > | null>(null);
 
   // Stable list of all stops matched to selected routes (independent of hover)
-  const [selectedRouteStops, setSelectedRouteStops] = useState<MapStopElement[]>([]);
+  const [selectedRouteStops, setSelectedRouteStops] = useState<
+    MapStopElement[]
+  >([]);
 
   const mapRef = useRef<MapRef>(null);
   const didInitRef = useRef(false);
@@ -77,7 +97,10 @@ export const GtfsVisualizationMap = ({
   const [isScanning, setIsScanning] = useState(false);
   const [scannedTiles, setScannedTiles] = useState(0);
   const [totalTiles, setTotalTiles] = useState(0);
-  const [scanRowsCols, setScanRowsCols] = useState<{ rows: number; cols: number } | null>(null);
+  const [scanRowsCols, setScanRowsCols] = useState<{
+    rows: number;
+    cols: number;
+  } | null>(null);
 
   // Selected stop id from the panel (for cute highlight)
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -96,9 +119,9 @@ export const GtfsVisualizationMap = ({
   const filteredRouteColors: Record<string, string> = useMemo(() => {
     const m: Record<string, string> = {};
     for (const rid of filteredRoutes) {
-      const r = (routes ?? []).find(rr => String(rr.routeId) === String(rid));
+      const r = (routes ?? []).find((rr) => String(rr.routeId) === String(rid));
       // strip leading '#' because generateStopColorExpression expects raw hex
-      if (r?.color) m[String(rid)] = String(r.color).replace(/^#/, "");
+      if (r?.color) m[String(rid)] = String(r.color).replace(/^#/, '');
     }
     return m;
   }, [filteredRoutes, routes]);
@@ -106,28 +129,24 @@ export const GtfsVisualizationMap = ({
   // Merge: filtered-route colors (take priority) + hover/click colors
   const stopHighlightColorMap: Record<string, string> = {
     ...routeIdToColorMap,
-    ...filteredRouteColors
+    ...filteredRouteColors,
   };
-
 
   function generateStopColorExpression(
     routeIdToColor: Record<string, string>,
-    fallback = "#888"
+    fallback = '#888',
   ): ExpressionSpecification {
-    const expression: any[] = ["case"];
+    const expression: any[] = ['case'];
 
     const isHex = (s: string) => /^[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(s);
 
     for (const [routeId, raw] of Object.entries(routeIdToColor)) {
       if (raw == null) continue;
-      const hex = String(raw).trim().replace(/^#/, "");
+      const hex = String(raw).trim().replace(/^#/, '');
       if (!isHex(hex)) continue; // skip empty/invalid colors
 
       // route_ids is a string of quoted ids; keep your quoted match style
-      expression.push(
-        ["in", `"${routeId}"`, ["get", "route_ids"]],
-        `#${hex}`
-      );
+      expression.push(['in', `"${routeId}"`, ['get', 'route_ids']], `#${hex}`);
     }
 
     // If nothing valid was added, just use the fallback color directly
@@ -141,7 +160,7 @@ export const GtfsVisualizationMap = ({
 
   const routeTypeFilter: ExpressionSpecification | boolean =
     filteredRouteTypeIds.length > 0
-      ? ["in", ["get", "route_type"], ["literal", filteredRouteTypeIds]]
+      ? ['in', ['get', 'route_type'], ['literal', filteredRouteTypeIds]]
       : true; // if no filter applied, show all
 
   const handleMouseClick = (event: maplibregl.MapLayerMouseEvent): void => {
@@ -149,27 +168,31 @@ export const GtfsVisualizationMap = ({
     if (map != undefined) {
       // Get the features under the mouse pointer
       const features = map.queryRenderedFeatures(event.point, {
-        layers: ["stops-index", "routes-highlight"]
+        layers: ['stops-index', 'routes-highlight'],
       });
 
-      const selectedStop = features.find((feature) => feature.layer.id === "stops-index");
+      const selectedStop = features.find(
+        (feature) => feature.layer.id === 'stops-index',
+      );
       if (selectedStop != undefined) {
         setMapClickStopData({
           ...selectedStop.properties,
           longitude: String(event.lngLat.lng),
-          latitude: String(event.lngLat.lat)
+          latitude: String(event.lngLat.lat),
         });
         setSelectedStopId(String(selectedStop.properties?.stop_id ?? null));
         setMapClickRouteData(null);
         return;
       }
 
-      const selectedRoute = features.find((f) => f.layer.id === "routes-highlight");
+      const selectedRoute = features.find(
+        (f) => f.layer.id === 'routes-highlight',
+      );
       if (selectedRoute != undefined) {
         setMapClickRouteData({
           ...selectedRoute.properties,
           longitude: String(event.lngLat.lng),
-          latitude: String(event.lngLat.lat)
+          latitude: String(event.lngLat.lat),
         });
         setMapClickStopData(null);
       }
@@ -187,10 +210,14 @@ export const GtfsVisualizationMap = ({
     const next: MapElementType[] = [];
     if (map != undefined) {
       const features = map.queryRenderedFeatures(event.point, {
-        layers: ["stops", "routes"]
+        layers: ['stops', 'routes'],
       });
 
-      if (features.length > 0 || mapClickRouteData != null || mapClickStopData != null) {
+      if (
+        features.length > 0 ||
+        mapClickRouteData != null ||
+        mapClickStopData != null
+      ) {
         if (mapClickRouteData != null) {
           next.push({
             isStop: false,
@@ -198,7 +225,7 @@ export const GtfsVisualizationMap = ({
             routeType: Number(mapClickRouteData.route_type),
             routeColor: mapClickRouteData.route_color,
             routeTextColor: mapClickRouteData.route_text_color,
-            routeId: mapClickRouteData.route_id
+            routeId: mapClickRouteData.route_id,
           } as MapRouteElement);
         }
         if (mapClickStopData != null) {
@@ -206,16 +233,16 @@ export const GtfsVisualizationMap = ({
             isStop: true,
             name: mapClickStopData.stop_name,
             locationType: Number(mapClickStopData.location_type),
-            stopId: mapClickStopData.stop_id
+            stopId: mapClickStopData.stop_id,
           } as MapStopElement);
         }
         features.forEach((feature) => {
-          if (feature.layer.id === "stops") {
+          if (feature.layer.id === 'stops') {
             next.push({
               isStop: true,
               name: feature.properties.stop_name,
               locationType: Number(feature.properties.location_type),
-              stopId: feature.properties.stop_id
+              stopId: feature.properties.stop_id,
             } as MapStopElement);
           } else {
             next.push({
@@ -224,7 +251,7 @@ export const GtfsVisualizationMap = ({
               routeType: feature.properties.route_type,
               routeColor: feature.properties.route_color,
               routeTextColor: feature.properties.route_text_color,
-              routeId: feature.properties.route_id
+              routeId: feature.properties.route_id,
             } as MapRouteElement);
           }
         });
@@ -250,13 +277,15 @@ export const GtfsVisualizationMap = ({
   useEffect(() => {
     // Will be called on add statup only once
     const protocol = new Protocol();
-    maplibregl.addProtocol("pmtiles", protocol.tile);
+    maplibregl.addProtocol('pmtiles', protocol.tile);
     return () => {
-      maplibregl.removeProtocol("pmtiles");
+      maplibregl.removeProtocol('pmtiles');
     };
   }, []);
 
-  const getBoundsFromCoordinates = (coordinates: Array<[number, number]>): LngLatBoundsLike => {
+  const getBoundsFromCoordinates = (
+    coordinates: Array<[number, number]>,
+  ): LngLatBoundsLike => {
     let minLng = Number.POSITIVE_INFINITY;
     let minLat = Number.POSITIVE_INFINITY;
     let maxLng = Number.NEGATIVE_INFINITY;
@@ -272,14 +301,16 @@ export const GtfsVisualizationMap = ({
     return [minLng, minLat, maxLng, maxLat]; // Matches LngLatBoundsLike format
   };
 
-  const bounds: LngLatBoundsLike = getBoundsFromCoordinates(polygon as Array<[number, number]>);
+  const bounds: LngLatBoundsLike = getBoundsFromCoordinates(
+    polygon as Array<[number, number]>,
+  );
 
-// route IDs coming from selected route types
+  // route IDs coming from selected route types
   const routeIdsFromTypes =
     filteredRouteTypeIds.length > 0
       ? (routes ?? [])
-        .filter(r => filteredRouteTypeIds.includes(String(r.routeType)))
-        .map(r => String(r.routeId))
+          .filter((r) => filteredRouteTypeIds.includes(String(r.routeType)))
+          .map((r) => String(r.routeId))
       : [];
 
   // union of explicit route IDs + those implied by selected types
@@ -291,12 +322,11 @@ export const GtfsVisualizationMap = ({
     : allSelectedRouteIds.length === 0
       ? true // no filters → show all
       : ([
-        "any",
-        ...allSelectedRouteIds.map(
-          (id) => ["in", `\"${id}\"`, ["get", "route_ids"]] as any // route_ids stored as quoted-string list
-        )
-      ] as any);
-
+          'any',
+          ...allSelectedRouteIds.map(
+            (id) => ['in', `\"${id}\"`, ['get', 'route_ids']] as any, // route_ids stored as quoted-string list
+          ),
+        ] as any);
 
   // --- SELECTED ROUTE STOPS PANEL ---
   useEffect(() => {
@@ -318,12 +348,13 @@ export const GtfsVisualizationMap = ({
           out.push(s);
         }
       }
-      out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+      out.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+      );
       setSelectedRouteStops(out);
       return;
     }
   }, [filteredRoutes]);
-
 
   // --- PRECOMPUTED INDEXES ---
   const precomputedReadyRef = useRef(false);
@@ -345,22 +376,21 @@ export const GtfsVisualizationMap = ({
   // Extract route_ids list from the PMTiles property (stringified JSON)
   function extractRouteIds(val: RouteIdsInput): string[] {
     if (Array.isArray(val)) return val.map(String);
-    if (typeof val === "string") {
+    if (typeof val === 'string') {
       try {
         const parsed = JSON.parse(val);
         if (Array.isArray(parsed)) return parsed.map(String);
-      } catch {
-      }
+      } catch {}
       // fallback: pull "quoted" tokens
       const out: string[] = [];
       val.replace(/"([^"]+)"/g, (_: any, id: string) => {
         out.push(id);
-        return "";
+        return '';
       });
       if (out.length) return out;
       // fallback2: CSV-ish
       return val
-        .split(",")
+        .split(',')
         .map((s: string) => s.trim())
         .filter(Boolean);
     }
@@ -385,7 +415,7 @@ export const GtfsVisualizationMap = ({
         stopsByRouteIdRef,
         precomputedReadyRef,
         routeIdToType,
-        cancelRequestRef
+        cancelRequestRef,
       }),
     [
       mapRef,
@@ -396,15 +426,19 @@ export const GtfsVisualizationMap = ({
       setIsScanning,
       setScanRowsCols,
       setScannedTiles,
-      setTotalTiles
-    ]
+      setTotalTiles,
+    ],
   );
 
   // Helper values for overlay
-  const progressPct = totalTiles > 0 ? Math.min(100, Math.round((scannedTiles / totalTiles) * 100)) : 0;
+  const progressPct =
+    totalTiles > 0
+      ? Math.min(100, Math.round((scannedTiles / totalTiles) * 100))
+      : 0;
   const isLarge = totalTiles >= 80;
-  const rowsColsText =
-    scanRowsCols ? `${scanRowsCols.rows} rows × ${scanRowsCols.cols} cols` : undefined;
+  const rowsColsText = scanRowsCols
+    ? `${scanRowsCols.rows} rows × ${scanRowsCols.cols} cols`
+    : undefined;
 
   // Helper to focus & stick a stop from the panel
   const focusStopFromPanel = async (s: MapStopElement) => {
@@ -415,24 +449,28 @@ export const GtfsVisualizationMap = ({
     map.easeTo({
       center: [s.stopLon, s.stopLat],
       zoom: Math.max(map.getZoom(), 13),
-      duration: 400
+      duration: 400,
     });
 
     // 2) Wait for the move to finish so the render tree is up-to-date
-    await new Promise<void>((resolve) => map.once("moveend", () => resolve()));
+    await new Promise<void>((resolve) => map.once('moveend', () => resolve()));
 
     // 3) Build a small bbox around the stop's screen point for robust picking
     const pt = map.project([s.stopLon, s.stopLat]);
     const HIT = 6; // px hit radius; tweak 4..8 if needed
     const bbox: [[number, number], [number, number]] = [
       [pt.x - HIT, pt.y - HIT],
-      [pt.x + HIT, pt.y + HIT]
+      [pt.x + HIT, pt.y + HIT],
     ];
 
     // 4) Query rendered features, filtering by exact stop_id
     const features = map.queryRenderedFeatures(bbox, {
-      layers: ["stops-index"],
-      filter: ["==", ["to-string", ["get", "stop_id"]], String(s.stopId)] as any
+      layers: ['stops-index'],
+      filter: [
+        '==',
+        ['to-string', ['get', 'stop_id']],
+        String(s.stopId),
+      ] as any,
     });
 
     const stopFeature = features[0];
@@ -444,7 +482,7 @@ export const GtfsVisualizationMap = ({
         stop_name: s.name,
         location_type: String(s.locationType ?? 0),
         longitude: s.stopLon,
-        latitude: s.stopLat
+        latitude: s.stopLat,
       } as any);
       setSelectedStopId(s.stopId);
       return;
@@ -458,7 +496,7 @@ export const GtfsVisualizationMap = ({
       stop_name: s.name,
       location_type: String(s.locationType ?? 0),
       longitude: s.stopLon,
-      latitude: s.stopLat
+      latitude: s.stopLat,
     } as any);
     setSelectedStopId(s.stopId);
   };
@@ -474,13 +512,13 @@ export const GtfsVisualizationMap = ({
       boxes.push(
         ...filteredRoutes
           .map((rid) => routeIdToBBoxRef.current[rid])
-          .filter((b): b is LngLatBoundsLike => b != null)
+          .filter((b): b is LngLatBoundsLike => b != null),
       );
     } else if (hasTypeFilter) {
       boxes.push(
         ...filteredRouteTypeIds
           .map((rt) => routeTypeToBBoxRef.current[rt])
-          .filter((b): b is LngLatBoundsLike => b != null)
+          .filter((b): b is LngLatBoundsLike => b != null),
       );
     }
     return extendBBoxes(boxes) ?? null;
@@ -514,7 +552,6 @@ export const GtfsVisualizationMap = ({
     // include isScanning so we run once more when scanning completes
   }, [filteredRoutes, filteredRouteTypeIds]);
 
-
   // Handler to reset view
   const resetView = () => {
     const map = mapRef.current?.getMap();
@@ -534,7 +571,6 @@ export const GtfsVisualizationMap = ({
     }
   }, [preview, refocusTrigger]);
 
-
   function handleCancelScan() {
     cancelRequestRef.current = true;
     setIsScanning(false);
@@ -553,86 +589,118 @@ export const GtfsVisualizationMap = ({
 
   return (
     <MapProvider>
-      <Box sx={{ display: "flex", height: "100%" }}>
+      <Box sx={{ display: 'flex', height: '100%' }}>
         <Box
           sx={{
-            width: "100%",
-            height: "100%",
-            position: "relative",
+            width: '100%',
+            height: '100%',
+            position: 'relative',
             borderColor: theme.palette.primary.main,
-            borderRadius: "5px"
+            borderRadius: '5px',
           }}
         >
           {/* Hover/click info (top-left) */}
-          <MapElement mapElements={mapElements} dataDisplayLimit={dataDisplayLimit} />
+          <MapElement
+            mapElements={mapElements}
+            dataDisplayLimit={dataDisplayLimit}
+          />
 
           {/* Selected route stops panel */}
           {filteredRoutes.length > 0 && selectedRouteStops.length > 0 && (
             <Draggable
               nodeRef={routeStopsPanelNodeRef}
-              handle=".drag-handle"
-              bounds="parent"
+              handle='.drag-handle'
+              bounds='parent'
             >
               <Box
                 ref={routeStopsPanelNodeRef}
                 sx={{
-                  position: "absolute",
-                  right: "10px",
-                  top: "25%",
-                  height: "50%",
+                  position: 'absolute',
+                  right: '10px',
+                  top: '25%',
+                  height: '50%',
                   width: 250,
-                  transform: "translateY(-0%)",
+                  transform: 'translateY(-0%)',
                   zIndex: 1000,
                   bgcolor: theme.palette.background.default,
-                  borderRadius: "12px",
-                  boxShadow: "1px 1px 8px rgba(0,0,0,0.25)",
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden"
+                  borderRadius: '12px',
+                  boxShadow: '1px 1px 8px rgba(0,0,0,0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
                 }}
               >
                 <Box
-                  sx={{ p: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, cursor: "move" }}
-                  className="drag-handle"
+                  sx={{
+                    p: 1.5,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    cursor: 'move',
+                  }}
+                  className='drag-handle'
                 >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    {t("selectedRouteStops.title", { count: filteredRoutes.length })} ({selectedRouteStops.length})
+                  <Typography variant='subtitle2' sx={{ fontWeight: 600 }}>
+                    {t('selectedRouteStops.title', {
+                      count: filteredRoutes.length,
+                    })}{' '}
+                    ({selectedRouteStops.length})
                   </Typography>
-                  <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
-                    {t("selectedRouteStops.routeIds", { count: filteredRoutes.length })}: {filteredRoutes.join(" | ")}
+                  <Typography
+                    variant='caption'
+                    sx={{ color: theme.palette.text.secondary }}
+                  >
+                    {t('selectedRouteStops.routeIds', {
+                      count: filteredRoutes.length,
+                    })}
+                    : {filteredRoutes.join(' | ')}
                   </Typography>
                 </Box>
-                <Box sx={{ flex: 1, overflowY: "auto", p: 1 }}>
+                <Box sx={{ flex: 1, overflowY: 'auto', p: 1 }}>
                   {selectedRouteStops.map((s) => {
                     const isActive = selectedStopId === s.stopId;
                     return (
                       <Box
                         key={s.stopId}
-                        role="button"
+                        role='button'
                         tabIndex={0}
-                        aria-selected={isActive ? "true" : "false"}
+                        aria-selected={isActive ? 'true' : 'false'}
                         onClick={() => focusStopFromPanel(s)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") focusStopFromPanel(s); // NEW: keyboard support
+                          if (e.key === 'Enter' || e.key === ' ')
+                            focusStopFromPanel(s); // NEW: keyboard support
                         }}
                         sx={{
                           py: 0.9,
                           px: 1.1,
                           mb: 0.5,
-                          borderRadius: "10px",
-                          border: isActive ? `2px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.divider}`,
-                          backgroundColor: isActive ? theme.palette.action.selected : "transparent",
-                          transition: "background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
-                          cursor: "pointer",
-                          "&:hover": { backgroundColor: theme.palette.action.hover },
-                          boxShadow: isActive ? "0 0 0 2px rgba(0,0,0,0.06) inset" : "none"
+                          borderRadius: '10px',
+                          border: isActive
+                            ? `2px solid ${theme.palette.primary.main}`
+                            : `1px solid ${theme.palette.divider}`,
+                          backgroundColor: isActive
+                            ? theme.palette.action.selected
+                            : 'transparent',
+                          transition:
+                            'background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: theme.palette.action.hover,
+                          },
+                          boxShadow: isActive
+                            ? '0 0 0 2px rgba(0,0,0,0.06) inset'
+                            : 'none',
                         }}
                       >
-                        <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                        <Typography
+                          variant='body2'
+                          sx={{ fontWeight: 700, lineHeight: 1.2 }}
+                        >
                           {s.name}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
-                          {t("selectedRouteStops.stopId")} {s.stopId}
+                        <Typography
+                          variant='caption'
+                          sx={{ color: theme.palette.text.secondary }}
+                        >
+                          {t('selectedRouteStops.stopId')} {s.stopId}
                         </Typography>
                       </Box>
                     );
@@ -642,81 +710,93 @@ export const GtfsVisualizationMap = ({
             </Draggable>
           )}
 
-
           {/* Scanning overlay */}
           {isScanning && (
             <Box
-              role="status"
-              aria-live="polite"
+              role='status'
+              aria-live='polite'
               sx={{
-                position: "absolute",
+                position: 'absolute',
                 inset: 0,
                 zIndex: 1200,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backdropFilter: "blur(2px)",
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backdropFilter: 'blur(2px)',
                 background:
-                  "linear-gradient(180deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.55) 100%)"
+                  'linear-gradient(180deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.55) 100%)',
               }}
             >
               <Box
                 sx={{
                   width: 420,
-                  maxWidth: "90%",
+                  maxWidth: '90%',
                   bgcolor: theme.palette.background.paper,
-                  borderRadius: "14px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                  borderRadius: '14px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
                   border: `1px solid ${theme.palette.divider}`,
-                  p: 2.25
+                  p: 2.25,
                 }}
               >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, mb: 1 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.25,
+                    mb: 1,
+                  }}
+                >
                   <CircularProgress size={20} thickness={4} />
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {isLarge ? t("scanning.titleLarge") : t("scanning.title")}
+                  <Typography variant='subtitle1' sx={{ fontWeight: 700 }}>
+                    {isLarge ? t('scanning.titleLarge') : t('scanning.title')}
                   </Typography>
                 </Box>
 
-                <Typography variant="body2" sx={{ mb: 1, color: theme.palette.text.secondary }}>
-                  {isLarge ? t("scanning.bodyLarge") : t("scanning.body")}
+                <Typography
+                  variant='body2'
+                  sx={{ mb: 1, color: theme.palette.text.secondary }}
+                >
+                  {isLarge ? t('scanning.bodyLarge') : t('scanning.body')}
                 </Typography>
 
                 {rowsColsText && (
-                  <Typography variant="caption" sx={{ display: "block", mb: 1, opacity: 0.9 }}>
-                    {t("scanning.gridTile", {
+                  <Typography
+                    variant='caption'
+                    sx={{ display: 'block', mb: 1, opacity: 0.9 }}
+                  >
+                    {t('scanning.gridTile', {
                       grid: rowsColsText,
                       tile: Math.min(scannedTiles, totalTiles),
-                      total: totalTiles
+                      total: totalTiles,
                     })}
                   </Typography>
                 )}
 
                 <LinearProgress
-                  variant="determinate"
+                  variant='determinate'
                   value={progressPct}
                   sx={{
                     height: 8,
-                    borderRadius: "999px",
-                    mb: 1
+                    borderRadius: '999px',
+                    mb: 1,
                   }}
                 />
 
                 <Typography
-                  variant="caption"
+                  variant='caption'
                   sx={{ color: theme.palette.text.secondary }}
                 >
-                  {t("scanning.percentComplete", { percent: progressPct })}
+                  {t('scanning.percentComplete', { percent: progressPct })}
                 </Typography>
-                <Box sx={{ display: "flex", flexDirection: "row-reverse" }}>
+                <Box sx={{ display: 'flex', flexDirection: 'row-reverse' }}>
                   <Button
-                    size="small"
-                    variant="outlined"
+                    size='small'
+                    variant='outlined'
                     onClick={handleCancelScan}
                     disabled={cancelRequestRef.current}
-                    aria-label={t("scanning.cancel")}
+                    aria-label={t('scanning.cancel')}
                   >
-                    {t("scanning.cancel", "Cancel scan")}
+                    {t('scanning.cancel', 'Cancel scan')}
                   </Button>
                 </Box>
               </Box>
@@ -726,7 +806,7 @@ export const GtfsVisualizationMap = ({
           <Map
             onClick={(event) => handleMouseClick(event)}
             onLoad={() => {
-              if (didInitRef.current) return;  // guard against re-entrancy
+              if (didInitRef.current) return; // guard against re-entrancy
               didInitRef.current = true;
               precomp.registerRunOnMapIdle();
             }}
@@ -734,230 +814,260 @@ export const GtfsVisualizationMap = ({
             onMouseMove={(event) => {
               handleMouseMove(event);
             }}
-            style={{ width: "100%", height: "100%" }}
+            style={{ width: '100%', height: '100%' }}
             initialViewState={{ bounds }}
             interactiveLayerIds={[
-              "stops",
-              "routes",
-              "routes-white",
-              "routes-highlight",
-              "stops-highlight",
-              "stops-index"
+              'stops',
+              'routes',
+              'routes-white',
+              'routes-highlight',
+              'stops-highlight',
+              'stops-index',
             ]}
             scrollZoom={true}
             dragPan={true}
             mapStyle={{
               version: 8,
               sources: {
-                "raster-tiles": {
-                  type: "raster",
+                'raster-tiles': {
+                  type: 'raster',
                   tiles: [theme.map.basemapTileUrl],
                   tileSize: 256,
                   attribution:
-                    "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+                    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 },
                 sample: {
-                  type: "vector",
-                  url: `pmtiles://${stopsPmtilesUrl}` // dynamic stops
+                  type: 'vector',
+                  url: `pmtiles://${stopsPmtilesUrl}`, // dynamic stops
                 },
                 routes: {
-                  type: "vector",
-                  url: `pmtiles://${routesPmtilesUrl}` // dynamic routes
-                }
+                  type: 'vector',
+                  url: `pmtiles://${routesPmtilesUrl}`, // dynamic routes
+                },
               },
               // Order matters: the last layer will be on top
               // Layers control all the logic in the map -> lots of duplicated for the sake of effects
               layers: [
                 {
-                  id: "simple-tiles",
-                  type: "raster",
-                  source: "raster-tiles",
+                  id: 'simple-tiles',
+                  type: 'raster',
+                  source: 'raster-tiles',
                   minzoom: 0,
-                  maxzoom: 22
+                  maxzoom: 22,
                 },
                 {
-                  id: "routes-white",
-                  source: "routes",
+                  id: 'routes-white',
+                  source: 'routes',
                   filter: routeTypeFilter,
-                  "source-layer": "routesoutput",
-                  type: "line",
+                  'source-layer': 'routesoutput',
+                  type: 'line',
                   paint: {
-                    "line-color": theme.palette.background.paper,
-                    "line-width": [
-                      "match",
-                      ["get", "route_type"],
-                      "3",
+                    'line-color': theme.palette.background.paper,
+                    'line-width': [
+                      'match',
+                      ['get', 'route_type'],
+                      '3',
                       4,
-                      "1",
+                      '1',
                       15,
-                      3
-                    ]
-                  }
+                      3,
+                    ],
+                  },
                 },
                 {
-                  id: "routes",
+                  id: 'routes',
                   filter: routeTypeFilter,
-                  source: "routes",
-                  "source-layer": "routesoutput",
-                  type: "line",
+                  source: 'routes',
+                  'source-layer': 'routesoutput',
+                  type: 'line',
                   paint: {
-                    "line-color": ["concat", "#", ["get", "route_color"]],
-                    "line-width": [
-                      "match",
-                      ["get", "route_type"],
-                      "3",
+                    'line-color': ['concat', '#', ['get', 'route_color']],
+                    'line-width': [
+                      'match',
+                      ['get', 'route_type'],
+                      '3',
                       1,
-                      "1",
+                      '1',
                       4,
-                      3
+                      3,
                     ],
-                    "line-opacity": [
-                      "case",
+                    'line-opacity': [
+                      'case',
                       [
-                        "any",
-                        ["==", filteredRoutes.length, 0],
-                        ["in", ["get", "route_id"], ["literal", filteredRoutes]]
+                        'any',
+                        ['==', filteredRoutes.length, 0],
+                        [
+                          'in',
+                          ['get', 'route_id'],
+                          ['literal', filteredRoutes],
+                        ],
                       ],
                       0.4,
-                      0.1
-                    ]
+                      0.1,
+                    ],
                   },
                   layout: {
-                    "line-sort-key": [
-                      "match",
-                      ["get", "route_type"],
-                      "1",
+                    'line-sort-key': [
+                      'match',
+                      ['get', 'route_type'],
+                      '1',
                       3,
-                      "3",
+                      '3',
                       2,
-                      0
-                    ]
-                  }
+                      0,
+                    ],
+                  },
                 },
                 {
-                  id: "stops",
+                  id: 'stops',
                   filter: stopsBaseFilter,
-                  source: "sample",
-                  "source-layer": "stopsoutput",
-                  type: "circle",
+                  source: 'sample',
+                  'source-layer': 'stopsoutput',
+                  type: 'circle',
                   paint: {
-                    "circle-radius": stopRadius,
-                    "circle-color": "#000000",
-                    "circle-opacity": 0.4
+                    'circle-radius': stopRadius,
+                    'circle-color': '#000000',
+                    'circle-opacity': 0.4,
                   },
                   minzoom: 12,
-                  maxzoom: 22
+                  maxzoom: 22,
                 },
                 {
-                  id: "routes-highlight",
-                  source: "routes",
-                  "source-layer": "routesoutput",
-                  type: "line",
+                  id: 'routes-highlight',
+                  source: 'routes',
+                  'source-layer': 'routesoutput',
+                  type: 'line',
                   paint: {
-                    "line-color": ["concat", "#", ["get", "route_color"]],
-                    "line-opacity": 1,
-                    "line-width": [
-                      "match",
-                      ["get", "route_type"],
-                      "3",
+                    'line-color': ['concat', '#', ['get', 'route_color']],
+                    'line-opacity': 1,
+                    'line-width': [
+                      'match',
+                      ['get', 'route_type'],
+                      '3',
                       5,
-                      "1",
+                      '1',
                       6,
-                      3
-                    ]
+                      3,
+                    ],
                   },
                   filter: [
-                    "any",
-                    ["in", ["get", "route_id"], ["literal", hoverInfo]],
-                    ["in", ["get", "route_id"], ["literal", filteredRoutes]],
-                    ["in", ["get", "route_id"], ["literal", mapClickRouteData?.route_id ?? ""]]
-                  ]
+                    'any',
+                    ['in', ['get', 'route_id'], ['literal', hoverInfo]],
+                    ['in', ['get', 'route_id'], ['literal', filteredRoutes]],
+                    [
+                      'in',
+                      ['get', 'route_id'],
+                      ['literal', mapClickRouteData?.route_id ?? ''],
+                    ],
+                  ],
                 },
                 {
-                  id: "stops-highlight",
-                  source: "sample",
-                  "source-layer": "stopsoutput",
-                  type: "circle",
+                  id: 'stops-highlight',
+                  source: 'sample',
+                  'source-layer': 'stopsoutput',
+                  type: 'circle',
                   paint: {
-                    "circle-radius": 7,
-                    "circle-color": generateStopColorExpression(stopHighlightColorMap) as ExpressionSpecification,
-                    "circle-opacity": 1
+                    'circle-radius': 7,
+                    'circle-color': generateStopColorExpression(
+                      stopHighlightColorMap,
+                    ) as ExpressionSpecification,
+                    'circle-opacity': 1,
                   },
                   minzoom: 10,
                   maxzoom: 22,
                   filter: hideStops
                     ? !hideStops
                     : [
-                      "any",
-                      ["in", ["get", "stop_id"], ["literal", hoverInfo]],
-                      ["==", ["get", "stop_id"], ["literal", mapClickStopData?.stop_id ?? ""]],
-                      [
-                        "any",
-                        ...filteredRoutes.map((id) => {
-                          return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        })
+                        'any',
+                        ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
+                        [
+                          '==',
+                          ['get', 'stop_id'],
+                          ['literal', mapClickStopData?.stop_id ?? ''],
+                        ],
+                        [
+                          'any',
+                          ...filteredRoutes.map((id) => {
+                            return [
+                              'in',
+                              `\"${id}\"`,
+                              ['get', 'route_ids'],
+                            ] as any;
+                          }),
+                        ],
+                        [
+                          'any',
+                          ...hoverInfo.map((id) => {
+                            return [
+                              'in',
+                              `\"${id}\"`,
+                              ['get', 'route_ids'],
+                            ] as any;
+                          }),
+                        ],
                       ],
-                      [
-                        "any",
-                        ...hoverInfo.map((id) => {
-                          return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        })
-                      ]
-                    ]
                 },
                 {
-                  id: "stops-highlight-outer",
-                  source: "sample",
-                  "source-layer": "stopsoutput",
-                  type: "circle",
+                  id: 'stops-highlight-outer',
+                  source: 'sample',
+                  'source-layer': 'stopsoutput',
+                  type: 'circle',
                   paint: {
-                    "circle-radius": 3,
-                    "circle-color": theme.palette.background.paper,
-                    "circle-opacity": 1
+                    'circle-radius': 3,
+                    'circle-color': theme.palette.background.paper,
+                    'circle-opacity': 1,
                   },
                   filter: hideStops
                     ? !hideStops
                     : [
-                      "any",
-                      ["in", ["get", "stop_id"], ["literal", hoverInfo]],
-                      [
-                        "any",
-                        ...filteredRoutes.map((id) => {
-                          return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        })
+                        'any',
+                        ['in', ['get', 'stop_id'], ['literal', hoverInfo]],
+                        [
+                          'any',
+                          ...filteredRoutes.map((id) => {
+                            return [
+                              'in',
+                              `\"${id}\"`,
+                              ['get', 'route_ids'],
+                            ] as any;
+                          }),
+                        ],
+                        [
+                          'any',
+                          ...hoverInfo.map((id) => {
+                            return [
+                              'in',
+                              `\"${id}\"`,
+                              ['get', 'route_ids'],
+                            ] as any;
+                          }),
+                        ],
                       ],
-                      [
-                        "any",
-                        ...hoverInfo.map((id) => {
-                          return ["in", `\"${id}\"`, ["get", "route_ids"]] as any;
-                        })
-                      ]
-                    ]
                 },
                 {
-                  id: "stops-index",
-                  source: "sample",
-                  "source-layer": "stopsoutput",
-                  type: "circle",
+                  id: 'stops-index',
+                  source: 'sample',
+                  'source-layer': 'stopsoutput',
+                  type: 'circle',
                   paint: {
-                    "circle-color": "rgba(0,0,0, 0)",
-                    "circle-radius": 1
-                  }
-                }
-              ]
+                    'circle-color': 'rgba(0,0,0, 0)',
+                    'circle-radius': 1,
+                  },
+                },
+              ],
             }}
           >
-            <ScaleControl position="bottom-left" unit="metric" />
+            <ScaleControl position='bottom-left' unit='metric' />
             <NavigationControl
-              position="top-right"
+              position='top-right'
               showCompass={true}
               showZoom={true}
               style={{
-                backgroundColor: "white",
-                marginTop: "72px",
-                marginRight: "15px",
+                backgroundColor: 'white',
+                marginTop: '72px',
+                marginRight: '15px',
                 boxShadow:
-                  "rgba(0, 0, 0, 0.2) 0px 3px 5px -1px, rgba(0, 0, 0, 0.14) 0px 6px 10px 0px, rgba(0, 0, 0, 0.12) 0px 1px 18px 0px"
+                  'rgba(0, 0, 0, 0.2) 0px 3px 5px -1px, rgba(0, 0, 0, 0.14) 0px 6px 10px 0px, rgba(0, 0, 0, 0.12) 0px 1px 18px 0px',
               }}
             />
             <MapDataPopup
