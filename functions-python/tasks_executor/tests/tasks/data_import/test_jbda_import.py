@@ -167,13 +167,16 @@ class _FakePublisher:
 # Helper function tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestHelpers(unittest.TestCase):
     def test_get_gtfs_file_url_head_success_and_missing(self):
         # detail now needs org/feed ids
         detail = {"organization_id": "orgX", "feed_id": "feedX"}
 
         # Construct the URLs the function will probe
-        base = "https://api.gtfs-data.jp/v2/organizations/orgX/feeds/feedX/files/feed.zip"
+        base = (
+            "https://api.gtfs-data.jp/v2/organizations/orgX/feeds/feedX/files/feed.zip"
+        )
         url_current = f"{base}?rid=current"
         url_next1 = f"{base}?rid=next_1"
         url_next2 = f"{base}?rid=next_2"
@@ -185,7 +188,10 @@ class TestHelpers(unittest.TestCase):
                 return _FakeResponse(status=404)
             return _FakeResponse(status=404)
 
-        with patch("tasks.data_import.import_jbda_feeds.requests.head", side_effect=_head_side_effect):
+        with patch(
+            "tasks.data_import.import_jbda_feeds.requests.head",
+            side_effect=_head_side_effect,
+        ):
             self.assertEqual(get_gtfs_file_url(detail, rid="current"), url_current)
             self.assertEqual(get_gtfs_file_url(detail, rid="next_1"), url_next1)
             self.assertIsNone(get_gtfs_file_url(detail, rid="next_2"))
@@ -195,13 +201,16 @@ class TestHelpers(unittest.TestCase):
 # Import tests
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestImportJBDA(unittest.TestCase):
     @with_db_session(db_url=default_db_url)
     def test_import_creates_gtfs_rt_and_related_links(self, db_session: Session):
         fake_pub = _FakePublisher()
 
         # The importer will call HEAD on these URLs for org1/feed1
-        base = "https://api.gtfs-data.jp/v2/organizations/org1/feeds/feed1/files/feed.zip"
+        base = (
+            "https://api.gtfs-data.jp/v2/organizations/org1/feeds/feed1/files/feed.zip"
+        )
         url_current = f"{base}?rid=current"
         url_next1 = f"{base}?rid=next_1"
 
